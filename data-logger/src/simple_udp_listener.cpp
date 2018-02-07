@@ -16,6 +16,9 @@ simple_udp_listener::simple_udp_listener(boost::shared_ptr<const boost::timer::c
 simple_udp_listener::~simple_udp_listener() {
 
 }
+timestamped_udp_data_t* simple_udp_listener::get_data() {
+	return dataz;
+}
 void simple_udp_listener::listen()
 {
 	SOCKET s;
