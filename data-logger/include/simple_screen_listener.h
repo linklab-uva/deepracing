@@ -1,18 +1,10 @@
 //#pragma once
-#include "car_data/car_data.h"
-#include <opencv/cv.h>
-#include <boost/timer/timer.hpp>
+#include "car_data/timestamped_image_data.h"
 #include <boost/shared_ptr.hpp>
 #include "screen_video_capture.h"
 namespace deepf1
 {
-	struct timestamped_image_data {
-		cv::Mat* image;
-		boost::timer::cpu_times timestamp;
-	};
-	typedef struct timestamped_image_data timestamped_image_data_t;
-
-
+	
 	class simple_screen_listener
 	{
 	public:

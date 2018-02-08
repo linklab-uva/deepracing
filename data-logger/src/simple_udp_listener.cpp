@@ -4,17 +4,17 @@ Simple UDP Server
 
 
 #include "simple_udp_listener.h"
-
 #include<stdio.h>
 #include<winsock2.h>
-#pragma comment(lib,"ws2_32.lib") //Winsock Library
 #define UDP_BUFLEN 1289   //Max length of buffer
-#define PORT 20777   //The port on which to listen for incoming data
 namespace deepf1
 {
-	simple_udp_listener::simple_udp_listener(boost::shared_ptr<const boost::timer::cpu_timer>& timer, unsigned int length) {
+	simple_udp_listener::simple_udp_listener(boost::shared_ptr<const boost::timer::cpu_timer>& timer,
+		unsigned int length,
+		unsigned short port_number) {
 		this->timer = timer;
 		this->length = length;
+		this->port_number = port_number;
 		dataz = new timestamped_udp_data_t[length];
 		for (unsigned int i = 0; i < length; i++)
 		{
@@ -59,7 +59,7 @@ namespace deepf1
 		//Prepare the sockaddr_in structure
 		server.sin_family = AF_INET;
 		server.sin_addr.s_addr = INADDR_ANY;
-		server.sin_port = htons(PORT);
+		server.sin_port = htons(port_number);
 
 		//Bind
 		if (bind(s, (struct sockaddr *)&server, sizeof(server)) == SOCKET_ERROR)
@@ -69,7 +69,7 @@ namespace deepf1
 		}
 		//keep listening for data
 		unsigned int i = 0;
-		while (i++ < 2500)
+		while (i++ < length)
 		{
 
 

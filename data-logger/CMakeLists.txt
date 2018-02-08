@@ -12,7 +12,7 @@ message(STATUS "    version: ${OpenCV_VERSION}")
 message(STATUS "    libraries: ${OpenCV_LIBS}")
 message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
 add_library(${PROJECT_NAME}_data_capture src/simple_udp_listener src/screen_video_capture.cpp src/simple_screen_listener.cpp)
-target_link_libraries(${PROJECT_NAME}_data_capture ${OpenCV_LIBS} ${Boost_THREAD_LIBRARY_RELEASE} ${Boost_CHRONO_LIBRARY_RELEASE})
+target_link_libraries(${PROJECT_NAME}_data_capture ${OpenCV_LIBS} ${Boost_THREAD_LIBRARY_RELEASE} ${Boost_CHRONO_LIBRARY_RELEASE} ws2_32)
 
 add_executable(${PROJECT_NAME} src/logger.cpp)
 target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_data_capture ${OpenCV_LIBS} ${Boost_THREAD_LIBRARY_RELEASE} ${Boost_CHRONO_LIBRARY_RELEASE})

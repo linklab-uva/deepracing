@@ -1,19 +1,16 @@
 #pragma once
-#include <boost/timer/timer.hpp>
-#include "car_data/car_data.h"
+#include "car_data/timestamped_car_data.h"
 #include <boost/shared_ptr.hpp>
-#define MAX_UDP_FRAMES 500
+#define MAX_UDP_FRAMES 1000
+#define DEFAULT_PORT 20777   //The port on which to listen for incoming data
 namespace deepf1
 {
-	struct timestamped_udp_data {
-		UDPPacket* data;
-		boost::timer::cpu_times timestamp;
-	};
-	typedef struct timestamped_udp_data timestamped_udp_data_t;
+
 	class simple_udp_listener
 	{
 	public:
-		simple_udp_listener(boost::shared_ptr<const boost::timer::cpu_timer>& timer, unsigned int length = 250);
+		simple_udp_listener(boost::shared_ptr<const boost::timer::cpu_timer>& timer, unsigned int length = MAX_UDP_FRAMES,
+			unsigned short port_number = DEFAULT_PORT);
 		~simple_udp_listener();
 		timestamped_udp_data_t* get_data();
 		void listen();
@@ -21,6 +18,7 @@ namespace deepf1
 		boost::shared_ptr<const boost::timer::cpu_timer> timer;
 		timestamped_udp_data_t* dataz;
 		unsigned int length;
+		unsigned short port_number;
 
 
 	};
