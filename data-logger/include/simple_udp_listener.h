@@ -1,4 +1,4 @@
-
+#pragma once
 #include <boost/timer/timer.hpp>
 #include "car_data/car_data.h"
 #include <boost/shared_ptr.hpp>
