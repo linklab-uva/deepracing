@@ -10,11 +10,12 @@ Simple UDP Server
 #pragma comment(lib,"ws2_32.lib") //Winsock Library
 #define UDP_BUFLEN 1289   //Max length of buffer
 #define PORT 20777   //The port on which to listen for incoming data
-simple_udp_listener::simple_udp_listener(boost::shared_ptr<const boost::timer::cpu_timer>& timer) {
+simple_udp_listener::simple_udp_listener(boost::shared_ptr<const boost::timer::cpu_timer>& timer, unsigned int length) {
 	this->timer = timer;
+	dataz = new timestamped_udp_data_t[length];
 }
 simple_udp_listener::~simple_udp_listener() {
-
+	delete[] dataz;
 }
 timestamped_udp_data_t* simple_udp_listener::get_data() {
 	return dataz;

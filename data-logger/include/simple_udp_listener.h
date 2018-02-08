@@ -11,13 +11,13 @@ typedef struct timestamped_udp_data timestamped_udp_data_t;
 class simple_udp_listener
 {
 public:
-	simple_udp_listener(boost::shared_ptr<const boost::timer::cpu_timer>& timer);
+	simple_udp_listener(boost::shared_ptr<const boost::timer::cpu_timer>& timer, unsigned int length = 250);
     ~simple_udp_listener();
 	timestamped_udp_data_t* get_data();
 	void listen();
 private:
 	boost::shared_ptr<const boost::timer::cpu_timer> timer;
-	timestamped_udp_data_t dataz[MAX_UDP_FRAMES];
+	timestamped_udp_data_t* dataz;
 	unsigned int length;
 
 
