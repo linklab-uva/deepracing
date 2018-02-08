@@ -16,8 +16,16 @@ namespace deepf1
 		this->timer = timer;
 		this->length = length;
 		dataz = new timestamped_udp_data_t[length];
+		for (unsigned int i = 0; i < length; i++)
+		{
+			dataz[i].data = new UDPPacket();
+		}
 	}
 	simple_udp_listener::~simple_udp_listener() {
+		for (unsigned int i = 0; i < length; i++)
+		{
+			delete dataz[i].data;
+		}
 		delete[] dataz;
 	}
 	timestamped_udp_data_t* simple_udp_listener::get_data() {
@@ -65,7 +73,7 @@ namespace deepf1
 		{
 
 
-			int rcv_len = recvfrom(s, (char*)&(dataz[i].data), UDP_BUFLEN, 0, (struct sockaddr *) &si_other, &slen);
+			int rcv_len = recvfrom(s, (char*)(dataz[i].data), UDP_BUFLEN, 0, (struct sockaddr *) &si_other, &slen);
 			if (rcv_len != UDP_BUFLEN) {
 				printf("Socket error when receiving telemetry data.");
 				exit(-1);

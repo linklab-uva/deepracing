@@ -6,7 +6,7 @@
 namespace deepf1
 {
 	struct timestamped_udp_data {
-		UDPPacket data;
+		UDPPacket* data;
 		boost::timer::cpu_times timestamp;
 	};
 	typedef struct timestamped_udp_data timestamped_udp_data_t;

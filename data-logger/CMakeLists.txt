@@ -7,7 +7,10 @@ include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 include_directories(include)
 link_directories(${Boost_LIBRARY_DIR_RELEASE})
 add_definitions(-std=c++11)
-
+message(STATUS "OpenCV library status:")
+message(STATUS "    version: ${OpenCV_VERSION}")
+message(STATUS "    libraries: ${OpenCV_LIBS}")
+message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
 add_library(${PROJECT_NAME}_data_capture src/simple_udp_listener src/screen_video_capture.cpp src/simple_screen_listener.cpp)
 target_link_libraries(${PROJECT_NAME}_data_capture ${OpenCV_LIBS} ${Boost_THREAD_LIBRARY_RELEASE} ${Boost_CHRONO_LIBRARY_RELEASE})
 

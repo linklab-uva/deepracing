@@ -20,6 +20,7 @@ namespace deepf1
 		~simple_screen_listener();
 		void init_images(int num_rows, int num_columns);
 		void listen();
+		timestamped_image_data_t* get_data();
 	private:
 		unsigned int length;
 		boost::shared_ptr<const boost::timer::cpu_timer> timer;

@@ -19,6 +19,10 @@ namespace deepf1
 		}
 		delete[] dataz;
 	}
+	timestamped_image_data_t* simple_screen_listener::get_data()
+	{
+		return dataz;
+	}
 	void simple_screen_listener::init_images(int num_rows, int num_columns)
 	{
 		for (unsigned int i = 0; i < length; i++) {
