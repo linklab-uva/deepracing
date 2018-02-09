@@ -1,5 +1,5 @@
 
-#include <Windows.h>
+#include <deepf1_gsoap/deepf1_gsoap.nsmap>
 #include <stdio.h>
 #include <boost/timer/timer.hpp>
 #include "simple_udp_listener.h"
@@ -9,14 +9,51 @@
 #include <thread>
 #include <string>
 #include <functional>
+#include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
+#include <chrono>
+//#include <Windows.h>
 #define BUFLEN 1289   //Max length of buffer
 #define PORT 20777   //The port on which to listen for incoming data
 #define DEFAULT_MAX_UDP_FRAMES 2000
 #define DEFAULT_MAX_IMAGE_FRAMES 10
 namespace po = boost::program_options;
+namespace fs = boost::filesystem;
+
+void writeToFiles(const std::string& dir,
+	const std::vector<deepf1::timestamped_image_data_t>& screen_data,
+	const std::vector<deepf1::timestamped_udp_data>& udp_data) {
+	struct soap* soap = soap_new();
+	fs::path dir("/tmp");
+	fs::path file("foo.txt");
+	fs::path full_path = dir / file;
+	std::cout << full_path << std::endl;
+}
+bool udp_data_comparator(const deepf1::timestamped_udp_data& a, const deepf1::timestamped_udp_data& b);
+deepf1::timestamped_udp_data find_closest_value(std::vector<deepf1::timestamped_udp_data>& udp_dataz,
+	const boost::timer::cpu_times& timestamp) {
+	deepf1::timestamped_udp_data fake_data;
+	fake_data.timestamp = timestamp;
+	std::vector<deepf1::timestamped_udp_data>::iterator to_comp = std::lower_bound(udp_dataz.begin(), udp_dataz.end(), fake_data, udp_data_comparator);
+	if (to_comp == udp_dataz.begin())
+	{
+		return deepf1::timestamped_udp_data(udp_dataz[0]);
+	}
+	if (to_comp == udp_dataz.end())
+	{
+		return deepf1::timestamped_udp_data(udp_dataz[udp_dataz.size()-1]);
+	}
+	long val = to_comp->timestamp.wall;
+	long val_before = --to_comp->timestamp.wall;
+	if (std::abs(timestamp.wall - val_before) < std::abs(timestamp.wall - val)) {
+		return deepf1::timestamped_udp_data(*to_comp);
+	}
+	return deepf1::timestamped_udp_data(*(++to_comp));
+}
+
+
 int main(int argc, char** argv) {
 
 	unsigned int udp_len, image_len;
@@ -55,12 +92,16 @@ int main(int argc, char** argv) {
 
 	std::string window;
 	std::getline(std::cin,window);
-	deepf1::timestamped_image_data_t* data = screen_listener.get_data();
+	std::vector<deepf1::timestamped_image_data_t> data = screen_listener.get_data();
 	screen_thread.join();
 	cv::namedWindow(window);
 	cv::imshow(window,*(data[image_len / 2].image));
 	cv::waitKey();
 	udp_thread.join();
+	deepf1::timestamped_udp_data fake_data;
+	fake_data.timestamp = data[image_len / 2].timestamp;
+	std::vector<deepf1::timestamped_udp_data> udp_dataz = udp_listener.get_data();
+	std::vector<deepf1::timestamped_udp_data>::iterator to_comp = std::lower_bound(udp_dataz.begin(), udp_dataz.end(), fake_data, udp_data_comparator);
 	return 0;
 //	printf("Value is: %f", udp_listener.get_data()[10].data.m_steer);
 	//boost::function<void (const boost::timer::cpu_timer&, timestamped_udp_data_t[], unsigned int)> f1 = boost::bind(&udp_worker, (const boost::timer::cpu_timer) timer, udp_dataz, MAX_FRAMES);
@@ -68,4 +109,7 @@ int main(int argc, char** argv) {
 	//boost::thread screencap_trhead(boost::bind(&::screencap_worker, image_dataz, timer, MAX_FRAMES));
 
 	return 0;
+}
+bool udp_data_comparator(const deepf1::timestamped_udp_data& a, const deepf1::timestamped_udp_data& b) {
+	return a.timestamp.wall < b.timestamp.wall;
 }

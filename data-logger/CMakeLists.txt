@@ -1,7 +1,7 @@
 project(f1_datalogger)
 cmake_minimum_required(VERSION 2.7)
 set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-find_package( Boost COMPONENTS thread chrono REQUIRED )
+find_package( Boost COMPONENTS thread chrono system filesystem REQUIRED )
 find_package( OpenCV REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 include_directories(include)
@@ -24,7 +24,10 @@ src/deepf1_gsoap.cpp
 #target_link_libraries(${PROJECT_NAME}_gsoap_binding)
 
 add_executable(${PROJECT_NAME} src/logger.cpp)
-target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_data_capture ${OpenCV_LIBS} ${Boost_THREAD_LIBRARY_RELEASE} ${Boost_CHRONO_LIBRARY_RELEASE})
+target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_data_capture
+${OpenCV_LIBS} ${Boost_THREAD_LIBRARY_RELEASE}
+${Boost_CHRONO_LIBRARY_RELEASE}
+${PROJECT_NAME}_gsoap_binding)
 
 add_executable(${PROJECT_NAME}_gsoap_test
 src/gsoap_test.cpp 

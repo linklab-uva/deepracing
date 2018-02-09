@@ -15,20 +15,21 @@ namespace deepf1
 		this->timer = timer;
 		this->length = length;
 		this->port_number = port_number;
-		dataz = new timestamped_udp_data_t[length];
+		dataz.reserve(length);
 		for (unsigned int i = 0; i < length; i++)
 		{
-			dataz[i].data = new UDPPacket();
+			timestamped_udp_data_t to_add;
+			to_add.data = new UDPPacket();
+			dataz.push_back(to_add);
 		}
 	}
 	simple_udp_listener::~simple_udp_listener() {
-		for (unsigned int i = 0; i < length; i++)
+		for (unsigned int i = 0; i < dataz.size(); i++)
 		{
 			delete dataz[i].data;
 		}
-		delete[] dataz;
 	}
-	timestamped_udp_data_t* simple_udp_listener::get_data() {
+	std::vector<timestamped_udp_data_t> simple_udp_listener::get_data() {
 		return dataz;
 	}
 	void simple_udp_listener::listen()
