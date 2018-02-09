@@ -6,6 +6,7 @@ find_package( OpenCV REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 include_directories(include)
 link_directories(${Boost_LIBRARY_DIR_RELEASE})
+link_directories(${Boost_LIBRARY_DIR_DEBUG})
 add_definitions(-std=c++11)
 message(STATUS "OpenCV library status:")
 message(STATUS "    version: ${OpenCV_VERSION}")
@@ -15,9 +16,11 @@ add_library(${PROJECT_NAME}_data_capture src/simple_udp_listener src/screen_vide
 target_link_libraries(${PROJECT_NAME}_data_capture ${OpenCV_LIBS} ${Boost_THREAD_LIBRARY_RELEASE} ${Boost_CHRONO_LIBRARY_RELEASE} ws2_32)
 
 
-add_library(${PROJECT_NAME}_gsoap_binding src/deepf1_gsoap.cpp src/stdsoap2.cpp)
+add_library(${PROJECT_NAME}_gsoap_binding src/deepf1_gsoap.cpp src/stdsoap2.cpp)# src/stdsoap2.c)
 #target_link_libraries(${PROJECT_NAME}_gsoap_binding)
 
 add_executable(${PROJECT_NAME} src/logger.cpp)
-target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_data_capture ${OpenCV_LIBS} ${Boost_THREAD_LIBRARY_RELEASE} ${Boost_CHRONO_LIBRARY_RELEASE})
+target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_gsoap_binding ${PROJECT_NAME}_data_capture ${OpenCV_LIBS} ${Boost_THREAD_LIBRARY_RELEASE} ${Boost_CHRONO_LIBRARY_RELEASE})
 
+add_executable(${PROJECT_NAME}_gsoap_test src/gsoap_test.cpp src/deepf1_gsoap.cpp src/stdsoap2.cpp)# src/stdsoap2.c)
+target_link_libraries(${PROJECT_NAME}_gsoap_test ${PROJECT_NAME}_gsoap_binding)

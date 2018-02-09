@@ -62,7 +62,7 @@ A commercial use license is available from Genivia, Inc., contact@genivia.com
 # define _GNU_SOURCE 1
 #endif
 
-#include "stdsoap2.h"
+#include "deepf1_gsoap/stdsoap2.h"
 
 #if GSOAP_VERSION != GSOAP_LIB_VERSION
 # error "GSOAP VERSION MISMATCH IN LIBRARY: PLEASE REINSTALL PACKAGE"
