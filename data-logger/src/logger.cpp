@@ -28,8 +28,7 @@ void writeToFiles(const std::string& dir,
 	struct soap* soap = soap_new();
 	fs::path dir("/tmp");
 	fs::path file("foo.txt");
-	fs::path full_path = dir / file;
-	std::cout << full_path << std::endl;
+
 }
 bool udp_data_comparator(const deepf1::timestamped_udp_data& a, const deepf1::timestamped_udp_data& b);
 deepf1::timestamped_udp_data find_closest_value(std::vector<deepf1::timestamped_udp_data>& udp_dataz,
