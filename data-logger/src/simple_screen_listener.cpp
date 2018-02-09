@@ -35,7 +35,7 @@ namespace deepf1
 	}
 	void simple_screen_listener::listen()
 	{
-		for (unsigned int i = 0; i < length; i++)
+		for (unsigned int i = 0; i < dataz.size(); i++)
 		{
 			printf("Reading image\n");
 			dataz[i].timestamp = timer->elapsed();

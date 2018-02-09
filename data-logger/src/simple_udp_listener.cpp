@@ -16,7 +16,7 @@ namespace deepf1
 		this->length = length;
 		this->port_number = port_number;
 		dataz.reserve(length);
-		for (unsigned int i = 0; i < length; i++)
+		for (unsigned int i = 0; i < dataz.capacity(); i++)
 		{
 			timestamped_udp_data_t to_add;
 			to_add.data = new UDPPacket();
@@ -70,17 +70,17 @@ namespace deepf1
 		}
 		//keep listening for data
 		unsigned int i = 0;
-		while (i++ < length)
+		while (i++ < dataz.size())
 		{
 
 
 			int rcv_len = recvfrom(s, (char*)(dataz[i].data), UDP_BUFLEN, 0, (struct sockaddr *) &si_other, &slen);
 			if (rcv_len != UDP_BUFLEN) {
 				printf("Socket error when receiving telemetry data.");
-				exit(-1);
+				continue;
 			}
 			dataz[i].timestamp = timer->elapsed();
-			//printf("Steering angle: %f\n", packet->m_steer);
+			printf("Steering angle: %f\n", dataz[i].data->m_steer);
 
 		}
 
