@@ -37,8 +37,8 @@ namespace deepf1
 		for (unsigned int i = 0; i < length; i++)
 		{
 			printf("Reading image\n");
-			svc->read(dataz[i].image);
 			dataz[i].timestamp = timer->elapsed();
+			svc->read(dataz[i].image);
 		}
 	}
 
