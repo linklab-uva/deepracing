@@ -20,6 +20,7 @@ namespace po = boost::program_options;
 int main(int argc, char** argv) {
 
 	unsigned int udp_len, image_len;
+	float capture_x, capture_y, capture_width, capture_height;
 	int monitor_number;
 	po::options_description desc("Allowed options");
 	desc.add_options()
@@ -27,11 +28,18 @@ int main(int argc, char** argv) {
 		("udp_frames", po::value<unsigned int>(&udp_len)->default_value(1000), "How many frames of game data to capture")
 		("screen_frames", po::value<unsigned int>(&image_len)->default_value(250), "How many frames of screencap data to capture")
 		("monitor_number", po::value<int>(&monitor_number)->default_value(1), "Monitor # to capture")
+		("capture_x", po::value<float>(&capture_x)->default_value(0), "x coordinate for origin of capture area")
+		("capture_y", po::value<float>(&capture_y)->default_value(0), "y coordinate for origin of capture area")
+		("capture_width", po::value<float>(&capture_width)->default_value(0), "Width of capture area")
+		("capture_height", po::value<float>(&capture_height)->default_value(0), "height of capture area")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
 	po::notify(vm);
-
+	cv::Rect2d capture_area;
+	if (capture_width > 0.0 && capture_height > 0.0) {
+		capture_area = cv::Rect2d(capture_x, capture_y, capture_width, capture_height);
+	}
 	/*
 	deepf1::simple_screen_listener screen_listener(timer2);
 	screen_listener.listen();
@@ -41,7 +49,7 @@ int main(int argc, char** argv) {
 	std::function<void ()> udp_worker = std::bind(&deepf1::simple_udp_listener::listen, &udp_listener);
 	std::thread udp_thread(udp_worker);
 
-	deepf1::simple_screen_listener screen_listener(timer, monitor_number, image_len);
+	deepf1::simple_screen_listener screen_listener(timer, capture_area, monitor_number, image_len);
 	std::function<void()> screen_worker = std::bind(&deepf1::simple_screen_listener::listen, &screen_listener);
 	std::thread screen_thread(screen_worker);
 

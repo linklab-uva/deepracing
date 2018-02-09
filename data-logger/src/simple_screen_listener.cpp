@@ -3,14 +3,17 @@
 namespace deepf1
 {
 
-	simple_screen_listener::simple_screen_listener(boost::shared_ptr<const boost::timer::cpu_timer>& timer, unsigned int monitor_number, unsigned int length)
+	simple_screen_listener::simple_screen_listener(boost::shared_ptr<const boost::timer::cpu_timer>& timer,
+		cv::Rect2d capture_area,
+		unsigned int monitor_number,
+		unsigned int length)
 	{
 		this->timer = timer;
 		this->length = length;
 		dataz = new timestamped_image_data_t[length];
-		svc.reset(new screen_video_capture(monitor_number));
-		cv::Rect2d rect = svc->capture_area();
-		init_images(rect.height, rect.width);
+		svc.reset(new screen_video_capture(capture_area, monitor_number));
+		this->capture_area = svc->capture_area();
+		init_images(this->capture_area.height, this->capture_area.width);
 	}
 	simple_screen_listener::~simple_screen_listener()
 	{

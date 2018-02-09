@@ -1,6 +1,6 @@
 #pragma once
 
-#include <opencv2\opencv.hpp>
+#include <opencv2/opencv.hpp>
 #include <Windows.h>
 
 namespace deepf1
@@ -8,7 +8,7 @@ namespace deepf1
 	class screen_video_capture
 	{
 	public:
-		screen_video_capture(int displayIndex = -1);
+		screen_video_capture(cv::Rect2d capture_area, int displayIndex = -1);
 		~screen_video_capture();
 
 		void open(int displayIndex);

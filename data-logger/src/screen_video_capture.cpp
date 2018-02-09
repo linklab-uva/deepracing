@@ -2,8 +2,10 @@
 
 namespace deepf1
 {
-	screen_video_capture::screen_video_capture(int displayIndex)
+
+	screen_video_capture::screen_video_capture(cv::Rect2d capture_area, int displayIndex)
 	{
+		captureArea = capture_area;
 		if (displayIndex >= 0)
 			open(displayIndex);
 	}
@@ -12,8 +14,6 @@ namespace deepf1
 	{
 		MonitorIndexLookupInfo enumState = { displayIndex, NULL, 0 };
 		EnumDisplayMonitors(NULL, NULL, monitorEnumProc, (LPARAM)&enumState);
-
-		this->captureArea = cv::Rect2d(enumState.outRect.left, enumState.outRect.top, enumState.outRect.right - enumState.outRect.left, enumState.outRect.bottom - enumState.outRect.top);
 		this->targetWindow = GetDesktopWindow();
 
 		printf("Capture Area is %f X %f pixels.\n", captureArea.height, captureArea.width);
