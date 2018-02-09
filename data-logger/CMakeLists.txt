@@ -16,11 +16,17 @@ add_library(${PROJECT_NAME}_data_capture src/simple_udp_listener src/screen_vide
 target_link_libraries(${PROJECT_NAME}_data_capture ${OpenCV_LIBS} ${Boost_THREAD_LIBRARY_RELEASE} ${Boost_CHRONO_LIBRARY_RELEASE} ws2_32)
 
 
-add_library(${PROJECT_NAME}_gsoap_binding src/deepf1_gsoap.cpp src/stdsoap2.cpp)# src/stdsoap2.c)
+add_library(${PROJECT_NAME}_gsoap_binding
+src/stdsoap2.cpp
+src/deepf1_gsoap_env.cpp 
+src/deepf1_gsoap.cpp
+)
 #target_link_libraries(${PROJECT_NAME}_gsoap_binding)
 
 add_executable(${PROJECT_NAME} src/logger.cpp)
-target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_gsoap_binding ${PROJECT_NAME}_data_capture ${OpenCV_LIBS} ${Boost_THREAD_LIBRARY_RELEASE} ${Boost_CHRONO_LIBRARY_RELEASE})
+target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_data_capture ${OpenCV_LIBS} ${Boost_THREAD_LIBRARY_RELEASE} ${Boost_CHRONO_LIBRARY_RELEASE})
 
-add_executable(${PROJECT_NAME}_gsoap_test src/gsoap_test.cpp src/deepf1_gsoap.cpp src/stdsoap2.cpp)# src/stdsoap2.c)
+add_executable(${PROJECT_NAME}_gsoap_test
+src/gsoap_test.cpp 
+)
 target_link_libraries(${PROJECT_NAME}_gsoap_test ${PROJECT_NAME}_gsoap_binding)
