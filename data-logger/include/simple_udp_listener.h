@@ -7,7 +7,6 @@
 #define DEFAULT_PORT 20777   //The port on which to listen for incoming data
 namespace deepf1
 {
-
 	class simple_udp_listener
 	{
 	public:

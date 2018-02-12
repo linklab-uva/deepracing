@@ -10,6 +10,7 @@
 #define UDP_BUFLEN 1289   //Max length of buffer
 #include <boost/program_options.hpp>
 using boost::asio::ip::udp;
+using namespace deepf1;
 namespace po = boost::program_options;
 int main(int argc, char** argv) {
 	unsigned int sleep_time;

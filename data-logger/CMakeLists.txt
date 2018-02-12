@@ -23,16 +23,18 @@ ws2_32
 add_library(${PROJECT_NAME}_gsoap_binding
 src/stdsoap2.cpp
 src/deepf1_gsoap_env.cpp 
-src/deepf1_gsoap.cpp
+src/deepf1_gsoapC.cpp
 )
 
+set(BUILD_GSOAP_TEST 1)
+IF(BUILD_GSOAP_TEST)
 add_executable(${PROJECT_NAME}_gsoap_test
 src/gsoap_test.cpp 
 )
 target_link_libraries(${PROJECT_NAME}_gsoap_test
 ${PROJECT_NAME}_gsoap_binding
 )
-
+ENDIF()
 add_executable(${PROJECT_NAME} src/logger.cpp)
 target_link_libraries(${PROJECT_NAME}
 ${PROJECT_NAME}_data_capture
