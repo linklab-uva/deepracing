@@ -1,4 +1,5 @@
 #pragma once
+
 #include "car_data/timestamped_image_data.h"
 #include <memory>
 #include "screen_video_capture.h"

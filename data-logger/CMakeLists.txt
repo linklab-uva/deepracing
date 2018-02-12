@@ -7,7 +7,7 @@ include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 include_directories(include)
 link_directories(${Boost_LIBRARY_DIR_RELEASE})
 link_directories(${Boost_LIBRARY_DIR_DEBUG})
-add_definitions(-std=c++11)
+add_definitions(-std=c++14)
 
 add_library(${PROJECT_NAME}_data_capture
 src/simple_udp_listener
@@ -38,6 +38,14 @@ target_link_libraries(${PROJECT_NAME}
 ${PROJECT_NAME}_data_capture
 ${OpenCV_LIBS}
 ${Boost_CHRONO_LIBRARY_RELEASE}
+${Boost_SYSTEM_LIBRARY_RELEASE}
 ${PROJECT_NAME}_gsoap_binding
 )
 
+add_executable(${PROJECT_NAME}_simulated_telmetry_server src/simulated_telemetry_server.cpp)
+target_link_libraries(${PROJECT_NAME}_simulated_telmetry_server
+${PROJECT_NAME}_data_capture
+${OpenCV_LIBS}
+${Boost_CHRONO_LIBRARY_RELEASE}
+${Boost_SYSTEM_LIBRARY_RELEASE}
+)

@@ -16,7 +16,7 @@ namespace deepf1
 		this->length = length;
 		this->port_number = port_number;
 		dataz.reserve(length);
-		for (unsigned int i = 0; i < dataz.capacity(); i++)
+		for (unsigned int i = 0; i < length; i++)
 		{
 			timestamped_udp_data_t to_add;
 			to_add.data = new UDPPacket();
@@ -78,8 +78,9 @@ namespace deepf1
 				printf("Socket error when receiving telemetry data.");
 				continue;
 			}
+			std::chrono::time_point<std::chrono::system_clock> time =  std::chrono::system_clock::now();
 			dataz[i].timestamp = timer->elapsed();
-			printf("Steering angle: %f\n", dataz[i].data->m_steer);
+			//printf("Steering angle: %f, timestamp wall time: %lld\n", dataz[i].data->m_steer, dataz[i].timestamp.wall);
 
 		}
 
