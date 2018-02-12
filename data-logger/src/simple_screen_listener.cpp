@@ -3,7 +3,7 @@
 namespace deepf1
 {
 
-	simple_screen_listener::simple_screen_listener(boost::shared_ptr<const boost::timer::cpu_timer>& timer,
+	simple_screen_listener::simple_screen_listener(std::shared_ptr<const boost::timer::cpu_timer> timer,
 		cv::Rect2d capture_area,
 		unsigned int monitor_number,
 		unsigned int length)

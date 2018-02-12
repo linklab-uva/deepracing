@@ -11,9 +11,8 @@
 #include <functional>
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
-#include "opencv2/imgproc/imgproc.hpp"
-#include "opencv2/highgui/highgui.hpp"
 #include <chrono>
+#include <memory>
 //#include <Windows.h>
 #define BUFLEN 1289   //Max length of buffer
 #define PORT 20777   //The port on which to listen for incoming data
@@ -74,17 +73,17 @@ int main(int argc, char** argv) {
 	if (capture_width > 0.0 && capture_height > 0.0) {
 		capture_area = cv::Rect2d(capture_x, capture_y, capture_width, capture_height);
 	}
-	/*
-	deepf1::simple_screen_listener screen_listener(timer2);
-	screen_listener.listen();
-	*/
-	boost::shared_ptr<const boost::timer::cpu_timer> timer(new boost::timer::cpu_timer);
-	deepf1::simple_udp_listener udp_listener(timer, udp_len);
+
+
+	std::shared_ptr<const boost::timer::cpu_timer> timer(new boost::timer::cpu_timer);
+
+
+	deepf1::simple_udp_listener udp_listener(std::shared_ptr<const boost::timer::cpu_timer>(timer), udp_len);
 	std::function<void ()> udp_worker = std::bind(&deepf1::simple_udp_listener::listen, &udp_listener);
 	std::thread udp_thread(udp_worker);
 	//udp_thread.join();
 
-	deepf1::simple_screen_listener screen_listener(timer, capture_area, monitor_number, image_len);
+	deepf1::simple_screen_listener screen_listener(std::shared_ptr<const boost::timer::cpu_timer>(timer), capture_area, monitor_number, image_len);
 	std::function<void()> screen_worker = std::bind(&deepf1::simple_screen_listener::listen, &screen_listener);
 	std::thread screen_thread(screen_worker);
 

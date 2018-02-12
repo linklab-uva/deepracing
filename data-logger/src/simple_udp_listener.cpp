@@ -9,7 +9,7 @@ Simple UDP Server
 #define UDP_BUFLEN 1289   //Max length of buffer
 namespace deepf1
 {
-	simple_udp_listener::simple_udp_listener(boost::shared_ptr<const boost::timer::cpu_timer>& timer,
+	simple_udp_listener::simple_udp_listener(std::shared_ptr<const boost::timer::cpu_timer> timer,
 		unsigned int length,
 		unsigned short port_number) {
 		this->timer = timer;
@@ -69,8 +69,7 @@ namespace deepf1
 			exit(EXIT_FAILURE);
 		}
 		//keep listening for data
-		unsigned int i = 0;
-		while (i++ < dataz.size())
+		for(unsigned int i = 0 ; i<dataz.size(); i++)
 		{
 
 
