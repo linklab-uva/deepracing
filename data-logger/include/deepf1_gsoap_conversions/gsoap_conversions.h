@@ -9,5 +9,6 @@ namespace deepf1{
 		gsoap_conversions();
 		~gsoap_conversions();
 		static deepf1_gsoap::UDPPacket* convert_to_gsoap(const deepf1::UDPPacket& udp_data, soap* soap);
+		static deepf1_gsoap::CarUDPData* convert_to_gsoap(const deepf1::CarUDPData& car_data, soap* soap);
 	};
 }
