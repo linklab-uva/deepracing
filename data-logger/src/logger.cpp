@@ -22,7 +22,7 @@ namespace fs = boost::filesystem;
 using namespace deepf1;
 
 namespace deepf1{
-	void cleanup_soad(soap* soap);
+	void cleanup_soap(soap* soap);
 	void writeToFiles(const std::string& dir,
 		const std::vector<deepf1::timestamped_image_data_t>& screen_data,
 		const std::vector<deepf1::timestamped_udp_data>& udp_data);
@@ -94,9 +94,14 @@ int main(int argc, char** argv) {
 	return 0;
 }
 namespace deepf1{
-	void cleanup_soad(soap* soap)
+	void cleanup_soap(soap* soap)
 	{
-
+		// Delete instances
+		soap_destroy(soap);
+		// Delete data
+		soap_end(soap);
+		// Free soap struct engine context
+		soap_free(soap);
 	}
 	bool udp_data_comparator(const deepf1::timestamped_udp_data& a, const deepf1::timestamped_udp_data& b) {
 		return a.timestamp.wall < b.timestamp.wall;
@@ -125,6 +130,9 @@ namespace deepf1{
 		const std::vector<deepf1::timestamped_image_data_t>& screen_data,
 		const std::vector<deepf1::timestamped_udp_data>& udp_data) {
 		soap* soap = soap_new();
+
+
+		cleanup_soap(soap);
 
 	}
 }
