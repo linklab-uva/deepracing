@@ -13,7 +13,8 @@
 #include <boost/program_options.hpp>
 #include <chrono>
 #include <memory>
-//#include <Windows.h>#define BUFLEN 1289   //Max length of buffer
+//#include <Windows.h>
+#define BUFLEN 1289   //Max length of buffer
 #define PORT 20777   //The port on which to listen for incoming data
 #define DEFAULT_MAX_UDP_FRAMES 2000
 #define DEFAULT_MAX_IMAGE_FRAMES 10
@@ -109,7 +110,7 @@ namespace deepf1{
 	deepf1::timestamped_udp_data find_closest_value(std::vector<deepf1::timestamped_udp_data>& udp_dataz,
 		const boost::timer::cpu_times& timestamp) {
 		deepf1::timestamped_udp_data fake_data;
-		fake_data.timestamp = timestamp;
+		fake_data.timestamp = boost::timer::cpu_times(timestamp);
 		std::vector<deepf1::timestamped_udp_data>::iterator to_comp = std::lower_bound(udp_dataz.begin(), udp_dataz.end(), fake_data, udp_data_comparator);
 		if (to_comp == udp_dataz.begin())
 		{
