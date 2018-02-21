@@ -1,4 +1,4 @@
-
+#pragma once
 #include "deepf1_gsoapH.h"
 SOAP_NMAC struct Namespace namespaces[] = {
         {"SOAP-ENV", NULL, NULL, NULL},

@@ -42,11 +42,9 @@ ENDIF()
 add_executable(${PROJECT_NAME} src/logger.cpp)
 target_link_libraries(${PROJECT_NAME}
 ${PROJECT_NAME}_data_capture
-${OpenCV_LIBS}
 ${PROJECT_NAME}_gsoap_conversions
 ${Boost_CHRONO_LIBRARY_RELEASE}
 ${Boost_SYSTEM_LIBRARY_RELEASE}
-${PROJECT_NAME}_gsoap_binding
 )
 
 add_executable(${PROJECT_NAME}_simulated_telmetry_server src/simulated_telemetry_server.cpp)

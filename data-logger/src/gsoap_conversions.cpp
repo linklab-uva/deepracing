@@ -1,16 +1,35 @@
 #include "deepf1_gsoap_conversions/gsoap_conversions.h"
 
 
-namespace deepf1 {
-	gsoap_conversions::gsoap_conversions()
-	{
-	}
+namespace deepf1_gsoap_conversions {
 
 
 	gsoap_conversions::~gsoap_conversions()
 	{
 	}
-	deepf1_gsoap::CarUDPData* gsoap_conversions::convert_to_gsoap(const deepf1::CarUDPData& car_data, soap* soap) {
+	deepf1_gsoap::CarUDPData gsoap_conversions::convert_to_gsoap(const deepf1::CarUDPData& car_data) {
+		deepf1_gsoap::CarUDPData rtn;
+		rtn.m_bestLapTime = car_data.m_bestLapTime;
+		rtn.m_carPosition = car_data.m_carPosition;
+		rtn.m_currentLapInvalid = car_data.m_currentLapInvalid;
+		rtn.m_currentLapNum = car_data.m_currentLapNum;
+		rtn.m_currentLapTime = car_data.m_currentLapTime;
+		rtn.m_driverId = car_data.m_driverId;
+		rtn.m_inPits = car_data.m_inPits;
+		rtn.m_lapDistance = car_data.m_lapDistance;
+		rtn.m_lastLapTime = car_data.m_lastLapTime;
+		rtn.m_penalties = car_data.m_penalties;
+		rtn.m_sector = car_data.m_sector;
+		rtn.m_sector1Time = car_data.m_sector1Time;
+		rtn.m_sector2Time = car_data.m_sector2Time;
+		rtn.m_teamId = car_data.m_teamId;
+		rtn.m_tyreCompound = car_data.m_tyreCompound;
+		for (unsigned int i = 0; i < 3; i++) {
+			rtn.m_worldPosition[i] = car_data.m_worldPosition[i];
+		}
+		return rtn;
+	}
+	deepf1_gsoap::CarUDPData* gsoap_conversions::convert_to_gsoap_dynamic(const deepf1::CarUDPData& car_data) {
 		deepf1_gsoap::CarUDPData* rtn = deepf1_gsoap::soap_new_CarUDPData(soap);
 		rtn->m_bestLapTime = car_data.m_bestLapTime;
 		rtn->m_carPosition = car_data.m_carPosition;
@@ -32,7 +51,7 @@ namespace deepf1 {
 		}
 		return rtn;
 	}
-	deepf1_gsoap::UDPPacket* gsoap_conversions::convert_to_gsoap(const deepf1::UDPPacket& udp_data, soap* soap) {
+	deepf1_gsoap::UDPPacket* gsoap_conversions::convert_to_gsoap(const deepf1::UDPPacket& udp_data) {
 		deepf1_gsoap::UDPPacket* rtn = deepf1_gsoap::soap_new_UDPPacket(soap);
 		rtn->m_ang_acc_x = udp_data.m_ang_acc_x;
 		rtn->m_ang_acc_y = udp_data.m_ang_acc_y;
@@ -118,7 +137,7 @@ namespace deepf1 {
 		rtn->m_zv = udp_data.m_zv;
 		rtn->m_z_local_velocity = udp_data.m_z_local_velocity;
 		for (unsigned int i = 0; i < 20; i++) {
-			deepf1_gsoap::CarUDPData* gsoap_car_data = convert_to_gsoap(udp_data.m_car_data[i], soap);
+			deepf1_gsoap::CarUDPData* gsoap_car_data = convert_to_gsoap_dynamic(udp_data.m_car_data[i]);
 			rtn->m_car_data[i] = *gsoap_car_data;
 		}
 		for (unsigned int i = 0; i < 4; i++) {

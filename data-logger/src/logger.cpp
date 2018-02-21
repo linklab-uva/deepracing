@@ -1,5 +1,5 @@
-
-#include <deepf1_gsoap/deepf1_gsoap.nsmap>
+#pragma once
+#include "deepf1_gsoap_conversions/gsoap_conversions.h"
 #include <stdio.h>
 #include <boost/timer/timer.hpp>
 #include "simple_udp_listener.h"
@@ -13,24 +13,25 @@
 #include <boost/program_options.hpp>
 #include <chrono>
 #include <memory>
-//#include <Windows.h>
 #define BUFLEN 1289   //Max length of buffer
 #define PORT 20777   //The port on which to listen for incoming data
 #define DEFAULT_MAX_UDP_FRAMES 2000
 #define DEFAULT_MAX_IMAGE_FRAMES 10
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-using namespace deepf1;
+//using namespace deepf1;
 
-namespace deepf1{
+
 	void cleanup_soap(soap* soap);
+
+	
 	void writeToFiles(const std::string& dir,
 		const std::vector<deepf1::timestamped_image_data_t>& screen_data,
 		const std::vector<deepf1::timestamped_udp_data>& udp_data);
 	bool udp_data_comparator(const deepf1::timestamped_udp_data& a, const deepf1::timestamped_udp_data& b);
 	deepf1::timestamped_udp_data find_closest_value(std::vector<deepf1::timestamped_udp_data>& udp_dataz,
 		const boost::timer::cpu_times& timestamp);
-}
+
 
 int main(int argc, char** argv) {
 
@@ -94,7 +95,6 @@ int main(int argc, char** argv) {
 
 	return 0;
 }
-namespace deepf1{
 	void cleanup_soap(soap* soap)
 	{
 		// Delete instances
@@ -111,7 +111,7 @@ namespace deepf1{
 		const boost::timer::cpu_times& timestamp) {
 		deepf1::timestamped_udp_data fake_data;
 		fake_data.timestamp = boost::timer::cpu_times(timestamp);
-		std::vector<deepf1::timestamped_udp_data>::iterator to_comp = std::lower_bound(udp_dataz.begin(), udp_dataz.end(), fake_data, udp_data_comparator);
+		std::vector<deepf1::timestamped_udp_data>::iterator to_comp = ::std::lower_bound(udp_dataz.begin(), udp_dataz.end(), fake_data, udp_data_comparator);
 		if (to_comp == udp_dataz.begin())
 		{
 			return deepf1::timestamped_udp_data(udp_dataz[0]);
@@ -131,9 +131,9 @@ namespace deepf1{
 		const std::vector<deepf1::timestamped_image_data_t>& screen_data,
 		const std::vector<deepf1::timestamped_udp_data>& udp_data) {
 		soap* soap = soap_new();
-
+		deepf1_gsoap_conversions::gsoap_conversions convert(soap);
+		//::deepf1_gsoap::UDPPacket* pack = convert.convert_to_gsoap(*(udp_data[0].data));
 
 		cleanup_soap(soap);
 
 	}
-}

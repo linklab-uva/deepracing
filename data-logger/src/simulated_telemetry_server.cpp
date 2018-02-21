@@ -1,3 +1,4 @@
+#pragma once
 #include "car_data/car_data.h"
 #include <iostream>
 #include <boost/array.hpp>
