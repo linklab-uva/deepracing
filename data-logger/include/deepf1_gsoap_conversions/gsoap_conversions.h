@@ -1,7 +1,7 @@
 #pragma once
 #include "car_data/timestamped_car_data.h"
 #include "car_data/timestamped_image_data.h"
-#include <deepf1_gsoap/deepf1_gsoap.nsmap>
+#include "deepf1_gsoap/deepf1_gsoapH.h"
 namespace deepf1_gsoap_conversions{
 	class gsoap_conversions
 	{

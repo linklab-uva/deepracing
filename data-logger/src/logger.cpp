@@ -132,7 +132,7 @@ int main(int argc, char** argv) {
 		const std::vector<deepf1::timestamped_udp_data>& udp_data) {
 		soap* soap = soap_new();
 		deepf1_gsoap_conversions::gsoap_conversions convert(soap);
-		//::deepf1_gsoap::UDPPacket* pack = convert.convert_to_gsoap(*(udp_data[0].data));
+		::deepf1_gsoap::UDPPacket* pack = convert.convert_to_gsoap(*(udp_data[0].data));
 
 		cleanup_soap(soap);
 
