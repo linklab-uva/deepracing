@@ -7,6 +7,10 @@ include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 include_directories(include)
 link_directories(${Boost_LIBRARY_DIR_RELEASE})
 add_definitions(-std=c++11)
+IF(WIN32)
+	set(BUILD_SHARED_LIBS true)
+	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS true)
+ENDIF()
 add_library(${PROJECT_NAME}_data_capture
 src/simple_udp_listener
 src/screen_video_capture.cpp

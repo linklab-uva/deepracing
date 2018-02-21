@@ -6,8 +6,7 @@ namespace deepf1_gsoap_conversions{
 	class gsoap_conversions
 	{
 	public:
-		gsoap_conversions(soap* soap)
-		{
+		gsoap_conversions(soap* soap){
 			this->soap = soap;
 		}
 		~gsoap_conversions();

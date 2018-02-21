@@ -3,7 +3,7 @@
 
 namespace deepf1_gsoap_conversions {
 
-
+	
 	gsoap_conversions::~gsoap_conversions()
 	{
 	}

@@ -21,6 +21,7 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 //using namespace deepf1;
 
+namespace deepf1{
 
 	void cleanup_soap(soap* soap);
 
@@ -31,8 +32,7 @@ namespace fs = boost::filesystem;
 	bool udp_data_comparator(const deepf1::timestamped_udp_data& a, const deepf1::timestamped_udp_data& b);
 	deepf1::timestamped_udp_data find_closest_value(std::vector<deepf1::timestamped_udp_data>& udp_dataz,
 		const boost::timer::cpu_times& timestamp);
-
-
+}
 int main(int argc, char** argv) {
 
 	unsigned int udp_len, image_len;
@@ -79,6 +79,7 @@ int main(int argc, char** argv) {
 
 	printf("screen timestamp half-way through: %llx \n", screen_data.at(screen_data.size() / 2).timestamp.wall);
 	printf("udp timestamp half-way through: %llx \n", udp_data.at(udp_data.size() / 2).timestamp.wall);
+	writeToFiles("test_dir", screen_data, udp_data);
 /*
 	cv::namedWindow(window);
 	cv::imshow(window,*(data[image_len / 2].image));
@@ -95,6 +96,8 @@ int main(int argc, char** argv) {
 
 	return 0;
 }
+namespace deepf1 {
+
 	void cleanup_soap(soap* soap)
 	{
 		// Delete instances
@@ -132,8 +135,17 @@ int main(int argc, char** argv) {
 		const std::vector<deepf1::timestamped_udp_data>& udp_data) {
 		soap* soap = soap_new();
 		deepf1_gsoap_conversions::gsoap_conversions convert(soap);
+		::deepf1_gsoap::ground_truth_sample * sample = deepf1_gsoap::soap_new_ground_truth_sample(soap);
 		::deepf1_gsoap::UDPPacket* pack = convert.convert_to_gsoap(*(udp_data[0].data));
+		sample->sample = *pack;
+		sample->image_file = "asdf.jpg";
+		fs::path path = fs::path(dir) / fs::path("test.xml");
+		printf("Writing a file to: %s\n", path.string().c_str());
+		soap->os = new std::fstream(path.string(), std::fstream::out);
+		deepf1_gsoap::soap_write_ground_truth_sample(soap, sample);
+		delete soap->os;
 
 		cleanup_soap(soap);
 
 	}
+}
