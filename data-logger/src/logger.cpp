@@ -28,7 +28,8 @@ namespace deepf1{
 	
 	void writeToFiles(const std::string& dir,
 		std::vector<deepf1::timestamped_image_data_t>& screen_data,
-		std::vector<deepf1::timestamped_udp_data>& udp_data);
+		std::vector<deepf1::timestamped_udp_data>& udp_data,
+		const long& max_delta);
 	bool udp_data_comparator(const deepf1::timestamped_udp_data& a, const deepf1::timestamped_udp_data& b);
 	deepf1::timestamped_udp_data find_closest_value(std::vector<deepf1::timestamped_udp_data>& udp_dataz,
 		const boost::timer::cpu_times& timestamp);
@@ -38,6 +39,8 @@ int main(int argc, char** argv) {
 	unsigned int udp_len, image_len;
 	float capture_x, capture_y, capture_width, capture_height;
 	int monitor_number;
+	long max_delta;
+	std::string data_directory;
 	po::options_description desc("Allowed options");
 	desc.add_options()
 		("help", "Hello World!!!")
@@ -48,14 +51,13 @@ int main(int argc, char** argv) {
 		("capture_y", po::value<float>(&capture_y)->default_value(0), "y coordinate for origin of capture area")
 		("capture_width", po::value<float>(&capture_width)->default_value(100), "Width of capture area")
 		("capture_height", po::value<float>(&capture_height)->default_value(100), "height of capture area")
+		("max_delta", po::value<long>(&max_delta)->default_value(20), "Maximum difference in timestamp (in milliseconds) to allow for associating data to an image")
+		("data_directory", po::value<std::string>(&data_directory)->default_value(std::string("data")), "Top-level directory to place the annotations & images.")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
 	po::notify(vm);
-	cv::Rect2d capture_area;
-	if (capture_width > 0.0 && capture_height > 0.0) {
-		capture_area = cv::Rect2d(capture_x, capture_y, capture_width, capture_height);
-	}
+	
 
 	std::shared_ptr<const boost::timer::cpu_timer> timer(new boost::timer::cpu_timer);
 
@@ -64,12 +66,12 @@ int main(int argc, char** argv) {
 	std::function<void ()> udp_worker = std::bind(&deepf1::simple_udp_listener::listen, &udp_listener);
 	std::thread udp_thread(udp_worker);
 
+	cv::Rect2d capture_area = cv::Rect2d(capture_x, capture_y, capture_width, capture_height);
 	deepf1::simple_screen_listener screen_listener(timer, capture_area, monitor_number, image_len);
 	std::function<void()> screen_worker = std::bind(&deepf1::simple_screen_listener::listen, &screen_listener);
 	std::thread screen_thread(screen_worker);
 
-	std::string window;
-	//std::getline(std::cin,window);
+
 	udp_thread.join();
 	screen_thread.join();
 	std::vector<deepf1::timestamped_image_data_t> screen_data = screen_listener.get_data();
@@ -79,7 +81,7 @@ int main(int argc, char** argv) {
 
 	printf("screen timestamp half-way through: %llx \n", screen_data.at(screen_data.size() / 2).timestamp.wall);
 	printf("udp timestamp half-way through: %llx \n", udp_data.at(udp_data.size() / 2).timestamp.wall);
-	writeToFiles("dataset", screen_data, udp_data);
+	writeToFiles(data_directory, screen_data, udp_data, max_delta);
 
 	return 0;
 }
@@ -111,7 +113,7 @@ namespace deepf1 {
 			return deepf1::timestamped_udp_data(udp_dataz[udp_dataz.size() - 1]);
 		}
 		long val = to_comp->timestamp.wall;
-		long val_before = --to_comp->timestamp.wall;
+		long val_before = (--to_comp)->timestamp.wall;
 		if (std::abs(timestamp.wall - val_before) < std::abs(timestamp.wall - val)) {
 			return deepf1::timestamped_udp_data(*to_comp);
 		}
@@ -119,7 +121,8 @@ namespace deepf1 {
 	}
 	void writeToFiles(const std::string& dir,
 		std::vector<deepf1::timestamped_image_data_t>& screen_data,
-		std::vector<deepf1::timestamped_udp_data>& udp_data) {
+		std::vector<deepf1::timestamped_udp_data>& udp_data,
+		const long& max_delta) {
 		fs::create_directory(fs::path(dir));
 		fs::path annotations_dir = fs::path(dir)/ fs::path("annotations");
 		fs::create_directory(annotations_dir);
@@ -130,28 +133,37 @@ namespace deepf1 {
 		unsigned long point_number = 1;
 		for (auto it = screen_data.begin(); it != screen_data.end(); it++) {
 
-			::deepf1_gsoap::ground_truth_sample * sample = deepf1_gsoap::soap_new_ground_truth_sample(soap);
 			deepf1::timestamped_udp_data udp_tag = find_closest_value(udp_data, it->timestamp);
-			std::printf("Associating an image with timestamp %lld to upd packet with timpstamp %lld\n", it->timestamp.wall, udp_tag.timestamp.wall);
+			long delta = (std::abs(udp_tag.timestamp.wall - it->timestamp.wall))/1E6;
+			if (delta < max_delta) {
+				std::printf("Associating an image with timestamp %lld to upd packet with timestamp %lld\n", it->timestamp.wall, udp_tag.timestamp.wall);
+			}
+			else {
+				std::printf("Discarding image because the closest udp data is %lld milliseconds away", delta);
+				continue;
+
+			}
+
+			::deepf1_gsoap::ground_truth_sample * ground_truth = deepf1_gsoap::soap_new_ground_truth_sample(soap);
 			::deepf1_gsoap::UDPPacket* pack = convert.convert_to_gsoap(*(udp_tag.data));
-			sample->sample = *pack;
+			ground_truth->sample = *pack;
 
 
 			std::stringstream image_ss;
 			image_ss << "image_" << point_number << ".jpg";
 			fs::path image_path = images_dir / fs::path(image_ss.str());
 			cv::imwrite(image_path.string(), *(it->image));
-			sample->image_file = image_ss.str();
+			ground_truth->image_file = image_ss.str();
 
 			std::stringstream annotation_ss;
 			annotation_ss << "data_point_" << point_number << ".xml";
 			++point_number;
 			fs::path annotation_path = annotations_dir / fs::path(annotation_ss.str());
-			std::fstream* fs = new std::fstream(annotation_path.string(), std::fstream::out);
-			soap->os = fs;
-			deepf1_gsoap::soap_write_ground_truth_sample(soap, sample);
-			fs->close();
-			delete fs;
+		
+			soap->os = new std::fstream(annotation_path.string(), std::fstream::out);
+			deepf1_gsoap::soap_write_ground_truth_sample(soap, ground_truth);
+			((std::fstream*)(soap->os))->close();
+			delete (soap->os);
 
 		}
 

@@ -3,7 +3,6 @@
 #include <iostream>
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
-#include <Windows.h>
 #include <memory>
 #define BUFLEN 1289   //Max length of buffer
 #define ADDR "127.0.0.1"   //Address to send data to
