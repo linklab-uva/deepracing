@@ -13,13 +13,13 @@
 #include <boost/program_options.hpp>
 #include <chrono>
 #include <memory>
+#include <sstream>
 #define BUFLEN 1289   //Max length of buffer
 #define PORT 20777   //The port on which to listen for incoming data
 #define DEFAULT_MAX_UDP_FRAMES 2000
 #define DEFAULT_MAX_IMAGE_FRAMES 10
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
-//using namespace deepf1;
 
 namespace deepf1{
 
@@ -27,8 +27,8 @@ namespace deepf1{
 
 	
 	void writeToFiles(const std::string& dir,
-		const std::vector<deepf1::timestamped_image_data_t>& screen_data,
-		const std::vector<deepf1::timestamped_udp_data>& udp_data);
+		std::vector<deepf1::timestamped_image_data_t>& screen_data,
+		std::vector<deepf1::timestamped_udp_data>& udp_data);
 	bool udp_data_comparator(const deepf1::timestamped_udp_data& a, const deepf1::timestamped_udp_data& b);
 	deepf1::timestamped_udp_data find_closest_value(std::vector<deepf1::timestamped_udp_data>& udp_dataz,
 		const boost::timer::cpu_times& timestamp);
@@ -79,20 +79,7 @@ int main(int argc, char** argv) {
 
 	printf("screen timestamp half-way through: %llx \n", screen_data.at(screen_data.size() / 2).timestamp.wall);
 	printf("udp timestamp half-way through: %llx \n", udp_data.at(udp_data.size() / 2).timestamp.wall);
-	writeToFiles("test_dir", screen_data, udp_data);
-/*
-	cv::namedWindow(window);
-	cv::imshow(window,*(data[image_len / 2].image));
-	cv::waitKey();
-	*/
-//	deepf1::timestamped_udp_data fake_data;
-//	fake_data.timestamp = data[image_len / 2].timestamp;
-//	std::vector<deepf1::timestamped_udp_data>::iterator to_comp = std::lower_bound(udp_dataz.begin(), udp_dataz.end(), fake_data, udp_data_comparator);
-	
-//	printf("Value is: %f", udp_listener.get_data()[10].data.m_steer);
-	//boost::function<void (const boost::timer::cpu_timer&, timestamped_udp_data_t[], unsigned int)> f1 = boost::bind(&udp_worker, (const boost::timer::cpu_timer) timer, udp_dataz, MAX_FRAMES);
-	//
-	//boost::thread screencap_trhead(boost::bind(&::screencap_worker, image_dataz, timer, MAX_FRAMES));
+	writeToFiles("dataset", screen_data, udp_data);
 
 	return 0;
 }
@@ -131,19 +118,43 @@ namespace deepf1 {
 		return deepf1::timestamped_udp_data(*(++to_comp));
 	}
 	void writeToFiles(const std::string& dir,
-		const std::vector<deepf1::timestamped_image_data_t>& screen_data,
-		const std::vector<deepf1::timestamped_udp_data>& udp_data) {
+		std::vector<deepf1::timestamped_image_data_t>& screen_data,
+		std::vector<deepf1::timestamped_udp_data>& udp_data) {
+		fs::create_directory(fs::path(dir));
+		fs::path annotations_dir = fs::path(dir)/ fs::path("annotations");
+		fs::create_directory(annotations_dir);
+		fs::path images_dir = fs::path(dir)/fs::path("images");
+		fs::create_directory(images_dir);
 		soap* soap = soap_new();
 		deepf1_gsoap_conversions::gsoap_conversions convert(soap);
-		::deepf1_gsoap::ground_truth_sample * sample = deepf1_gsoap::soap_new_ground_truth_sample(soap);
-		::deepf1_gsoap::UDPPacket* pack = convert.convert_to_gsoap(*(udp_data[0].data));
-		sample->sample = *pack;
-		sample->image_file = "asdf.jpg";
-		fs::path path = fs::path(dir) / fs::path("test.xml");
-		printf("Writing a file to: %s\n", path.string().c_str());
-		soap->os = new std::fstream(path.string(), std::fstream::out);
-		deepf1_gsoap::soap_write_ground_truth_sample(soap, sample);
-		delete soap->os;
+		unsigned long point_number = 1;
+		for (auto it = screen_data.begin(); it != screen_data.end(); it++) {
+
+			::deepf1_gsoap::ground_truth_sample * sample = deepf1_gsoap::soap_new_ground_truth_sample(soap);
+			deepf1::timestamped_udp_data udp_tag = find_closest_value(udp_data, it->timestamp);
+			std::printf("Associating an image with timestamp %lld to upd packet with timpstamp %lld\n", it->timestamp.wall, udp_tag.timestamp.wall);
+			::deepf1_gsoap::UDPPacket* pack = convert.convert_to_gsoap(*(udp_tag.data));
+			sample->sample = *pack;
+
+
+			std::stringstream image_ss;
+			image_ss << "image_" << point_number << ".jpg";
+			fs::path image_path = images_dir / fs::path(image_ss.str());
+			cv::imwrite(image_path.string(), *(it->image));
+			sample->image_file = image_ss.str();
+
+			std::stringstream annotation_ss;
+			annotation_ss << "data_point_" << point_number << ".xml";
+			++point_number;
+			fs::path annotation_path = annotations_dir / fs::path(annotation_ss.str());
+			std::fstream* fs = new std::fstream(annotation_path.string(), std::fstream::out);
+			soap->os = fs;
+			deepf1_gsoap::soap_write_ground_truth_sample(soap, sample);
+			fs->close();
+			delete fs;
+
+		}
+
 
 		cleanup_soap(soap);
 

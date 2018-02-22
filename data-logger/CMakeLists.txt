@@ -7,8 +7,8 @@ include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 include_directories(include)
 link_directories(${Boost_LIBRARY_DIR_RELEASE})
 add_definitions(-std=c++11)
+set(BUILD_SHARED_LIBS true)
 IF(WIN32)
-	set(BUILD_SHARED_LIBS true)
 	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS true)
 ENDIF()
 add_library(${PROJECT_NAME}_data_capture
@@ -18,7 +18,7 @@ src/simple_screen_listener.cpp
 )
 target_link_libraries(${PROJECT_NAME}_data_capture
 ${OpenCV_LIBS}
-${Boost_CHRONO_LIBRARY_RELEASE}
+${Boost_CHRONO_LIBRARY_DEBUG}
 ws2_32
 )
 
@@ -48,8 +48,8 @@ add_executable(${PROJECT_NAME} src/logger.cpp)
 target_link_libraries(${PROJECT_NAME}
 ${PROJECT_NAME}_data_capture
 ${PROJECT_NAME}_gsoap_conversions
-${Boost_CHRONO_LIBRARY_RELEASE}
-${Boost_SYSTEM_LIBRARY_RELEASE}
+${Boost_CHRONO_LIBRARY_DEBUG}
+${Boost_SYSTEM_LIBRARY_DEBUG}
 )
 
 add_executable(${PROJECT_NAME}_simulated_telmetry_server src/simulated_telemetry_server.cpp)
@@ -59,3 +59,15 @@ ${OpenCV_LIBS}
 ${Boost_CHRONO_LIBRARY_RELEASE}
 ${Boost_SYSTEM_LIBRARY_RELEASE}
 )
+
+set(${PROJECT_NAME}_INSTALL_TARGETS
+${PROJECT_NAME}_simulated_telmetry_server
+${PROJECT_NAME}_gsoap_conversions
+${PROJECT_NAME}_gsoap_binding
+${PROJECT_NAME}_data_capture
+${PROJECT_NAME}
+)
+install(TARGETS ${${PROJECT_NAME}_INSTALL_TARGETS}
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib)
