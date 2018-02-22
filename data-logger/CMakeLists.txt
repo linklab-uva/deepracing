@@ -10,6 +10,7 @@ add_definitions(-std=c++11)
 set(BUILD_SHARED_LIBS true)
 IF(WIN32)
 	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS true)
+	set(SOCKET_LIBRARY ws2_32)
 ENDIF()
 add_library(${PROJECT_NAME}_data_capture
 src/simple_udp_listener
@@ -19,7 +20,7 @@ src/simple_screen_listener.cpp
 target_link_libraries(${PROJECT_NAME}_data_capture
 ${OpenCV_LIBS}
 ${Boost_CHRONO_LIBRARY_DEBUG}
-ws2_32
+${SOCKET_LIBRARY}
 )
 
 add_library(${PROJECT_NAME}_gsoap_binding

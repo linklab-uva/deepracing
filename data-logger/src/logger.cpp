@@ -164,6 +164,7 @@ namespace deepf1 {
 			deepf1_gsoap::soap_write_ground_truth_sample(soap, ground_truth);
 			((std::fstream*)(soap->os))->close();
 			delete (soap->os);
+			soap_destroy(soap);
 
 		}
 
