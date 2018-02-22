@@ -139,7 +139,7 @@ namespace deepf1 {
 				std::printf("Associating an image with timestamp %lld to upd packet with timestamp %lld\n", it->timestamp.wall, udp_tag.timestamp.wall);
 			}
 			else {
-				std::printf("Discarding image because the closest udp data is %lld milliseconds away", delta);
+				std::printf("Discarding image because the closest udp data is %lld milliseconds away\n", delta);
 				continue;
 
 			}
@@ -164,7 +164,7 @@ namespace deepf1 {
 			deepf1_gsoap::soap_write_ground_truth_sample(soap, ground_truth);
 			((std::fstream*)(soap->os))->close();
 			delete (soap->os);
-			soap_destroy(soap);
+			//soap_destroy(soap);
 
 		}
 
