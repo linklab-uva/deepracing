@@ -128,7 +128,7 @@ namespace deepf1 {
 		fs::create_directory(annotations_dir);
 		fs::path images_dir = fs::path(dir)/fs::path("images");
 		fs::create_directory(images_dir);
-		soap* soap = soap_new();
+		soap* soap = soap_new(SOAP_XML_INDENT);
 		deepf1_gsoap_conversions::gsoap_conversions convert(soap);
 		unsigned long point_number = 1;
 		for (auto it = screen_data.begin(); it != screen_data.end(); it++) {
