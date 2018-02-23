@@ -11,7 +11,7 @@ namespace deepf1
 		screen_video_capture(cv::Rect2d capture_area, int displayIndex = -1);
 		~screen_video_capture();
 
-		void open(int displayIndex);
+		void open(int displayIndex, cv::Rect2d capture_area);
 		void read(cv::Mat* destination);
 		cv::Rect2d capture_area() const;
 		screen_video_capture& operator>>(cv::Mat* destination);
