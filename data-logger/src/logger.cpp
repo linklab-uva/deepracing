@@ -135,7 +135,7 @@ namespace deepf1 {
 
 			deepf1::timestamped_udp_data udp_tag = find_closest_value(udp_data, it->timestamp);
 			long delta = (std::abs(udp_tag.timestamp.wall - it->timestamp.wall))/1E6;
-			if (delta < max_delta) {
+			if (delta <= max_delta) {
 				std::printf("Associating an image with timestamp %lld to upd packet with timestamp %lld\n", it->timestamp.wall, udp_tag.timestamp.wall);
 			}
 			else {
@@ -147,6 +147,7 @@ namespace deepf1 {
 			::deepf1_gsoap::ground_truth_sample * ground_truth = deepf1_gsoap::soap_new_ground_truth_sample(soap);
 			::deepf1_gsoap::UDPPacket* pack = convert.convert_to_gsoap(*(udp_tag.data));
 			ground_truth->sample = *pack;
+			ground_truth->timestamp = udp_tag.timestamp.wall;
 
 
 			std::stringstream image_ss;

@@ -27,7 +27,7 @@ add_library(${PROJECT_NAME}_gsoap_binding
 src/stdsoap2.cpp
 src/deepf1_gsoap_env.cpp 
 src/deepf1_gsoapC.cpp
-src/stdafx.cpp
+src/nsmap.cpp
 )
 
 add_library(${PROJECT_NAME}_gsoap_conversions

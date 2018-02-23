@@ -1,5 +1,4 @@
-
-#include "deepf1_gsoapH.h"
+#include "deepf1_gsoap/deepf1_gsoapH.h"
 SOAP_NMAC struct Namespace namespaces[] = {
         {"SOAP-ENV", "http://schemas.xmlsoap.org/soap/envelope/", "http://www.w3.org/*/soap-envelope", NULL},
         {"SOAP-ENC", "http://schemas.xmlsoap.org/soap/encoding/", "http://www.w3.org/*/soap-encoding", NULL},
