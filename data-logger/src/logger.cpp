@@ -7,7 +7,6 @@
 #include <iostream>
 #include <exception>
 #include <thread>
-#include <string>
 #include <functional>
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
@@ -42,52 +41,49 @@ int main(int argc, char** argv) {
 	int monitor_number;
 	float max_delta;
 	long sleep_time;
+	unsigned short port_number;
 	std::string data_directory;
 	po::options_description desc("Allowed options");
 	desc.add_options()
-		("help,h", "Displays options and exits")
+		("help", "Displays options and exits")
 		("udp_frames,u", po::value<unsigned int>(&udp_len)->default_value(100), "How many frames of game data to capture")
+		("port_number,p", po::value<unsigned short>(&port_number)->default_value(PORT), "Port number to listen for telemetry data on")
 		("screen_frames,s", po::value<unsigned int>(&image_len)->default_value(100), "How many frames of screencap data to capture")
-		("monitor_number,m", po::value<int>(&monitor_number)->default_value(1), "Monitor # to capture")
-		("capture_x,x", po::value<float>(&capture_x)->default_value(0), "x coordinate for origin of capture area")
-		("capture_y,y", po::value<float>(&capture_y)->default_value(0), "y coordinate for origin of capture area")
-		("capture_width,w", po::value<float>(&capture_width)->default_value(100), "Width of capture area")
-		("capture_height,h", po::value<float>(&capture_height)->default_value(100), "height of capture area")
-		("max_delta", po::value<float>(&max_delta)->default_value(20.0), "Maximum difference in timestamp (in milliseconds) to allow for associating data to an image")
-		("data_directory", po::value<std::string>(&data_directory)->default_value(std::string("data")), "Top-level directory to place the annotations & images.")
-		("initial_sleep_time", po::value<long>(&sleep_time)->default_value(7000), "How many milliseconds to sleep before starting data recording.")
+		("monitor_number,n", po::value<int>(&monitor_number)->default_value(1), "Monitor # to capture")
+		("capture_x,x", po::value<float>(&capture_x)->default_value(0), "x coordinate for origin of capture area in pixels")
+		("capture_y,y", po::value<float>(&capture_y)->default_value(0), "y coordinate for origin of capture area pixels")
+		("capture_width,w", po::value<float>(&capture_width)->default_value(100), "Width of capture area pixels")
+		("capture_height,h", po::value<float>(&capture_height)->default_value(100), "height of capture area pixels")
+		("max_delta,m", po::value<float>(&max_delta)->default_value(15.0), "Maximum difference in timestamp (in milliseconds) to allow for associating data to an image")
+		("data_directory,d", po::value<std::string>(&data_directory)->default_value(std::string("data")), "Top-level directory to place the annotations & images.")
+		("initial_sleep_time,i", po::value<long>(&sleep_time)->default_value(5000), "How many milliseconds to sleep before starting data recording.")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
 	po::notify(vm);
-/*
-	if (vm.count("help")) {
-
+	if (vm.find("help") != vm.end()) {
 		std::stringstream ss;
-		ss << "F1 Datalogger. Command line arguments are as follows in this format: " << std::endl << "--<option_name> <default value>" << std::endl;
+		ss << "F1 Datalogger. Command line arguments are as follows:" << std::endl;
 		desc.print(ss);
 		std::printf("%s", ss.str().c_str());
 		exit(0);
-
 	}
-	*/
+
 	cv::Rect2d capture_area = cv::Rect2d(capture_x, capture_y, capture_width, capture_height);
 	std::printf("Starting data capture in %lld milliseconds\n", sleep_time);
 	Sleep(sleep_time);
 
 	
 	std::shared_ptr<const boost::timer::cpu_timer> timer(new boost::timer::cpu_timer);
-
-	deepf1::simple_udp_listener udp_listener(timer, udp_len);
-
-	std::function<void ()> udp_worker = std::bind(&deepf1::simple_udp_listener::listen, &udp_listener);
-	std::thread udp_thread(udp_worker);
-
+	deepf1::simple_udp_listener udp_listener(timer, udp_len, port_number);
 	deepf1::simple_screen_listener screen_listener(timer, capture_area, monitor_number, image_len);
+
+
 	std::function<void()> screen_worker = std::bind(&deepf1::simple_screen_listener::listen, &screen_listener);
+	std::function<void()> udp_worker = std::bind(&deepf1::simple_udp_listener::listen, &udp_listener);
+
+	std::thread udp_thread(udp_worker);
 	std::thread screen_thread(screen_worker);
-
-
 	screen_thread.join();
 	udp_thread.join();
 	std::vector<deepf1::timestamped_image_data_t> screen_data = screen_listener.get_data();
@@ -136,7 +132,7 @@ namespace deepf1 {
 		const float& max_delta) {
 		
 		fs::create_directory(fs::path(dir));
-		fs::path annotations_dir = fs::path(dir)/ fs::path("annotations");
+		fs::path annotations_dir = fs::path(dir)/fs::path("annotations");
 		fs::create_directory(annotations_dir);
 		fs::path images_dir = fs::path(dir)/fs::path("images");
 		fs::create_directory(images_dir);
@@ -149,12 +145,12 @@ namespace deepf1 {
 			deepf1::timestamped_udp_data udp_tag = find_closest_value(udp_data, it->timestamp);
 			float delta = ((float)(std::abs(udp_tag.timestamp.wall - it->timestamp.wall)))/1E6;
 			if (delta <= max_delta) {
-				std::printf("Associating an image with timestamp %lld to upd packet with timestamp %lld\n", it->timestamp.wall, udp_tag.timestamp.wall);
+				std::printf("Associating an image with timestamp %lld to upd packet with timestamp %lld\n", 
+					it->timestamp.wall, udp_tag.timestamp.wall);
 			}
 			else {
 				std::printf("Discarding image because the closest udp data is %f milliseconds away\n", delta);
 				continue;
-
 			}
 
 			::deepf1_gsoap::ground_truth_sample * ground_truth = deepf1_gsoap::soap_new_ground_truth_sample(soap);
@@ -178,11 +174,7 @@ namespace deepf1 {
 			soap->os = file_out.get();
 			deepf1_gsoap::soap_write_ground_truth_sample(soap, ground_truth);
 			file_out->close();
-			//soap_destroy(soap);
-
 		}
-
-
 		cleanup_soap(soap);
 
 	}
