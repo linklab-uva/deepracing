@@ -11,7 +11,6 @@
 #include <functional>
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
-#include <chrono>
 #include <memory>
 #include <sstream>
 #include "boost/filesystem/fstream.hpp" 
@@ -60,17 +59,15 @@ int main(int argc, char** argv) {
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
 	po::notify(vm);
-/*
-	if (vm.count("help")) {
-
+/**/
+	if (vm.find("help") != vm.end()) {
 		std::stringstream ss;
 		ss << "F1 Datalogger. Command line arguments are as follows in this format: " << std::endl << "--<option_name> <default value>" << std::endl;
 		desc.print(ss);
 		std::printf("%s", ss.str().c_str());
-		exit(0);
-
+		exit(EXIT_SUCCESS);
 	}
-	*/
+	
 	cv::Rect2d capture_area = cv::Rect2d(capture_x, capture_y, capture_width, capture_height);
 	std::printf("Starting data capture in %lld milliseconds\n", sleep_time);
 	Sleep(sleep_time);
@@ -134,11 +131,11 @@ namespace deepf1 {
 		std::vector<deepf1::timestamped_image_data_t>& screen_data,
 		std::vector<deepf1::timestamped_udp_data>& udp_data,
 		const float& max_delta) {
-		
-		fs::create_directory(fs::path(dir));
-		fs::path annotations_dir = fs::path(dir)/ fs::path("annotations");
+		fs::path root_dir = fs::path(dir);
+		fs::create_directory(root_dir);
+		fs::path annotations_dir = root_dir / fs::path("annotations");
 		fs::create_directory(annotations_dir);
-		fs::path images_dir = fs::path(dir)/fs::path("images");
+		fs::path images_dir = root_dir / fs::path("images");
 		fs::create_directory(images_dir);
 		soap* soap = soap_new(SOAP_XML_INDENT);
 		deepf1_gsoap_conversions::gsoap_conversions convert(soap);
@@ -154,7 +151,6 @@ namespace deepf1 {
 			else {
 				std::printf("Discarding image because the closest udp data is %f milliseconds away\n", delta);
 				continue;
-
 			}
 
 			::deepf1_gsoap::ground_truth_sample * ground_truth = deepf1_gsoap::soap_new_ground_truth_sample(soap);
@@ -178,7 +174,8 @@ namespace deepf1 {
 			soap->os = file_out.get();
 			deepf1_gsoap::soap_write_ground_truth_sample(soap, ground_truth);
 			file_out->close();
-			//soap_destroy(soap);
+			
+
 
 		}
 
