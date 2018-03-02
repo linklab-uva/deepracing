@@ -162,7 +162,7 @@ namespace deepf1 {
 			std::stringstream image_ss;
 			image_ss << "image_" << point_number << ".jpg";
 			fs::path image_path = images_dir / fs::path(image_ss.str());
-			cv::imwrite(image_path.string(), *(it->image));
+			cv::imwrite(image_path.string(), (it->image));
 			ground_truth->image_file = image_ss.str();
 
 			std::stringstream annotation_ss;
