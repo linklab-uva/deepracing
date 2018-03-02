@@ -21,8 +21,7 @@ namespace deepf1
 		cv::Rect2d captureArea;
 		HWND targetWindow = NULL;
 		HDC hwindowDC, hwindowCompatibleDC;
-
-
+		HBITMAP hbwindow;
 		boost::timer::cpu_times captureHwnd(HWND window, cv::Rect2d targetArea, cv::Mat& dest);
 		static BOOL CALLBACK monitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData);
 	};

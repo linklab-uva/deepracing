@@ -2,7 +2,14 @@
 
 namespace deepf1
 {
+	screen_video_capture::~screen_video_capture()
+	{
 
+		// Clean up memory to avoid leaks
+		DeleteObject(hbwindow);
+		DeleteDC(hwindowCompatibleDC);
+		ReleaseDC(targetWindow, hwindowDC);
+	}
 	screen_video_capture::screen_video_capture(cv::Rect2d capture_area, std::shared_ptr<const boost::timer::cpu_timer> timer, int displayIndex)
 	{
 		this->timer = std::shared_ptr<const boost::timer::cpu_timer>(timer);
@@ -18,7 +25,13 @@ namespace deepf1
 		this->captureArea = cv::Rect2d(enumState.outRect.left + capture_area.x, enumState.outRect.top + capture_area.y,
 			capture_area.width, capture_area.height);
 			//(enumState.outRect.right ) - (enumState.outRect.left ), (enumState.outRect.bottom ) - (enumState.outRect.top ));
-		this->targetWindow = GetDesktopWindow();
+		targetWindow = GetDesktopWindow();
+		hwindowDC = GetDC(targetWindow);
+		hwindowCompatibleDC = CreateCompatibleDC(hwindowDC);
+		SetStretchBltMode(hwindowCompatibleDC, COLORONCOLOR);
+		hbwindow = CreateCompatibleBitmap(hwindowDC, capture_area.width, capture_area.height);
+		hwindowDC = GetDC(targetWindow);
+		SelectObject(hwindowCompatibleDC, hbwindow);
 	}
 	cv::Rect2d screen_video_capture::capture_area() const {
 		return cv::Rect2d(this->captureArea);
@@ -37,9 +50,6 @@ namespace deepf1
 
 	}
 
-	screen_video_capture::~screen_video_capture()
-	{
-	}
 
 	boost::timer::cpu_times screen_video_capture::read(cv::Mat& destination)
 	{
@@ -52,9 +62,8 @@ namespace deepf1
 
 	boost::timer::cpu_times screen_video_capture::captureHwnd(HWND window, cv::Rect2d targetArea, cv::Mat& dest)
 	{
-		HDC hwindowDC, hwindowCompatibleDC;
+		
 
-		HBITMAP hbwindow;
 		BITMAPINFOHEADER  bi;
 		bi.biSize = sizeof(BITMAPINFOHEADER);
 		bi.biWidth = targetArea.width;
@@ -68,24 +77,12 @@ namespace deepf1
 		bi.biYPelsPerMeter = 0;
 		bi.biClrUsed = 0;
 		bi.biClrImportant = 0;
-		hwindowDC = GetDC(window);
-		hwindowCompatibleDC = CreateCompatibleDC(hwindowDC);
-		SetStretchBltMode(hwindowCompatibleDC, COLORONCOLOR);
-		hbwindow = CreateCompatibleBitmap(hwindowDC, targetArea.width, targetArea.height);
-		ReleaseDC(window, hwindowDC);
 
-
-		hwindowDC = GetDC(window);
-		SelectObject(hwindowCompatibleDC, hbwindow);
 		boost::timer::cpu_times times2 = timer->elapsed();
 		BitBlt(hwindowCompatibleDC, 0, 0, targetArea.width, targetArea.height, hwindowDC, targetArea.x, targetArea.y, SRCCOPY);
 		// Copy into our own buffer as device-independent bitmap
 		GetDIBits(hwindowCompatibleDC, hbwindow, 0, targetArea.height, dest.data, (BITMAPINFO *)&bi, DIB_RGB_COLORS);
 
-		// Clean up memory to avoid leaks
-		DeleteObject(hbwindow);
-		DeleteDC(hwindowCompatibleDC);
-		ReleaseDC(window, hwindowDC);
 		return times2;
 	}
 }
