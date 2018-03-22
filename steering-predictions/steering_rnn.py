@@ -64,6 +64,7 @@ class SteeringRNN(object):
         self.char_to_idx = {ch: idx for idx, ch in enumerate(self.vocab)}
         self.idx_to_char = {idx: ch for idx, ch in enumerate(self.vocab)}
         self.D = len(self.char_to_idx)
+        self.input_dim = len(self.char_to_idx)
 
         print("Input has {} characters. Total input size: {}".format(
             len(self.vocab), len(self.text)))
@@ -83,7 +84,7 @@ class SteeringRNN(object):
 
         hidden_output_all, self.hidden_output, _, self.cell_state = LSTM(
             model, input_blob, seq_lengths, (hidden_init, cell_init),
-            self.D, self.hidden_size, scope="LSTM")
+            self.input_dim, self.hidden_size, scope="LSTM")
         output = brew.fc(
             model,
             hidden_output_all,
@@ -95,19 +96,20 @@ class SteeringRNN(object):
 
         # axis is 2 as first two are T (time) and N (batch size).
         # We treat them as one big batch of size T * N
-        softmax = model.net.Softmax('fc_output', 'softmax', axis=2)
 
-        softmax_reshaped, _ = model.net.Reshape(
-            'softmax', ['softmax_reshaped', '_'], shape=[-1, self.D])
+        output_reshaped, _ = model.net.Reshape(
+            'fc_output', ['output_reshaped', '_'], shape=[-1, self.D])
+        target_reshaped, _ = model.net.Reshape(
+            'target', ['target_reshaped', '__'], shape=[-1, self.D])
 
         # Create a copy of the current net. We will use it on the forward
         # pass where we don't need loss and backward operators
         self.forward_net = core.Net(model.net.Proto())
 
-        xent = model.net.LabelCrossEntropy([softmax_reshaped, target], 'xent')
+        squared_norms = model.net.SquaredL2Distance([output_reshaped, target_reshaped], 'l2_norms')
         # Loss is average both across batch and through time
         # Thats why the learning rate below is multiplied by self.seq_length
-        loss = model.net.AveragedLoss(xent, 'loss')
+        loss = model.net.AveragedLoss(squared_norms, 'loss')
         model.AddGradientOperators([loss])
 
         # use build_sdg function to build an optimizer
@@ -120,8 +122,10 @@ class SteeringRNN(object):
         )
 
         self.model = model
-        self.fc_output = output
-        self.predictions = softmax
+        self.predictions = output
+        self.output_reshaped = output_reshaped
+        self.target_reshaped = target_reshaped
+	self.squared_norms = squared_norms
         self.loss = loss
 
         self.prepare_state = core.Net("prepare_state")
@@ -175,13 +179,13 @@ class SteeringRNN(object):
             )
             workspace.RunNet(self.prepare_state.Name())
 
-            input = np.zeros(
-                [self.seq_length, self.batch_size, self.D]
+            input = np.random.rand(
+                self.seq_length, self.batch_size, self.input_dim
             ).astype(np.float32)
-            target = np.zeros(
-                [self.seq_length * self.batch_size]
-            ).astype(np.int32)
-
+            target = np.random.rand(
+                self.seq_length, self.batch_size, self.D
+            ).astype(np.float32)
+	    '''
             for e in range(self.batch_size):
                 for i in range(self.seq_length):
                     pos = text_block_starts[e] + text_block_positions[e]
@@ -191,7 +195,7 @@ class SteeringRNN(object):
                     text_block_positions[e] = (
                         text_block_positions[e] + 1) % text_block_sizes[e]
                     progress += 1
-
+ 	    '''
             workspace.FeedBlob('input_blob', input)
             workspace.FeedBlob('target', target)
            
@@ -199,8 +203,7 @@ class SteeringRNN(object):
             CreateNetOnce(self.model.net)
             workspace.RunNet(self.model.net.Name())
 
-            fc_out = workspace.FetchBlob(self.fc_output)
-            softmax_out = workspace.FetchBlob(self.predictions)
+            predictions_out = workspace.FetchBlob(self.predictions)
             '''  ''' 
 	    print("Input shape:", input.shape)
             print("Input:", input)
@@ -208,12 +211,9 @@ class SteeringRNN(object):
 	    print("Target shape:", target.shape)
 	    print("Target:", target)
             
-	    print("FC Output shape:", fc_out.shape)
-	    print("FC Output:", fc_out)
 
-
-	    print("Softmax Output shape:", softmax_out.shape)
-	    print("Softmax Output:", softmax_out)
+	    print("Predicted Output shape:", predictions_out.shape)
+	    print("Predicted Output:", predictions_out)
 	    break          
 	    
             num_iter += 1
