@@ -64,7 +64,7 @@ class SteeringRNN(object):
         self.char_to_idx = {ch: idx for idx, ch in enumerate(self.vocab)}
         self.idx_to_char = {idx: ch for idx, ch in enumerate(self.vocab)}
         self.D = len(self.char_to_idx)
-        self.input_dim = len(self.char_to_idx)
+        self.input_dim = 30
 
         print("Input has {} characters. Total input size: {}".format(
             len(self.vocab), len(self.text)))
