@@ -81,7 +81,7 @@ class SteeringRNN(object):
                 'cell_init',
                 'target',
             )
-
+ 
         hidden_output_all, self.hidden_output, _, self.cell_state = LSTM(
             model, input_blob, seq_lengths, (hidden_init, cell_init),
             self.input_dim, self.hidden_size, scope="LSTM")
@@ -147,7 +147,7 @@ class SteeringRNN(object):
         last_n_loss = 0.0
         num_iter = 0
         N = len(self.text)
-
+	
         # We split text into batch_size pieces. Each piece will be used only
         # by a corresponding batch during the training process
         text_block_positions = np.zeros(self.batch_size, dtype=np.int32)
@@ -196,6 +196,7 @@ class SteeringRNN(object):
                         text_block_positions[e] + 1) % text_block_sizes[e]
                     progress += 1
  	    '''
+
             workspace.FeedBlob('input_blob', input)
             workspace.FeedBlob('target', target)
            
