@@ -81,7 +81,12 @@ class SteeringRNN(object):
                 'cell_init',
                 'target',
             )
- 
+	'''
+ 	conv1 = brew.conv(model, input_blob, 'conv1', 3, 10, 5)
+	pool1 = brew.max_pool(model, conv1, 'pool1', kernel=2,stride=2)
+ 	conv2 = brew.conv(model, pool1, 'conv2', 3, 10, 5)
+	pool2 = brew.max_pool(model, conv2, 'pool2', kernel=2,stride=2)
+	'''
         hidden_output_all, self.hidden_output, _, self.cell_state = LSTM(
             model, input_blob, seq_lengths, (hidden_init, cell_init),
             self.input_dim, self.hidden_size, scope="LSTM")
