@@ -173,14 +173,6 @@ class SteeringRNN(object):
         num_iter = 0
         N = len(self.text)
 	
-        # We split text into batch_size pieces. Each piece will be used only
-        # by a corresponding batch during the training process
-        text_block_positions = np.zeros(self.batch_size, dtype=np.int32)
-        text_block_size = N // self.batch_size
-        text_block_starts = list(range(0, N, text_block_size))
-        text_block_sizes = [text_block_size] * self.batch_size
-        text_block_sizes[self.batch_size - 1] += N % self.batch_size
-        assert sum(text_block_sizes) == N
 
         # Writing to output states which will be copied to input
         # states within the loop below
@@ -230,9 +222,13 @@ class SteeringRNN(object):
             workspace.RunNet(self.model.net.Name())
 
             predictions_out = workspace.FetchBlob(self.predictions)
+            deep_features = workspace.FetchBlob(self.fc_conv)
             ''' '''
 	    print("Input shape:", input.shape)
             print("Input:", input)
+
+	    print("Deep Feature shape:", deep_features.shape)
+            print("Deep Feature:", deep_features)
 
 	    print("Predicted Output shape:", predictions_out.shape)
 	    print("Predicted Output:", predictions_out)
