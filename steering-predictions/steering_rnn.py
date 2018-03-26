@@ -66,8 +66,8 @@ class SteeringRNN(object):
         self.deepfeature_length = 30
 	self.num_variables=10
 	self.input_channels = 3
-	self.input_width = 124
-	self.input_height = 124
+	self.input_width = 256
+	self.input_height = 256
 
         print("Input has {} characters. Total input size: {}".format(
             len(self.vocab), len(self.text)))
@@ -85,20 +85,24 @@ class SteeringRNN(object):
                 'target',
             )
 	''''''
+	    # Image size: 256 X 256 -> 248 X 248
+	conv0 = brew.conv(model, input_blob, 'conv0', dim_in=self.input_channels, dim_out=20, kernel=5)
+	    # Image size: 248 X 248 -> 124 x 124
+	pool0 = brew.max_pool(model, conv0, 'pool0', kernel=2, stride=2)
 	    # Image size: 124 x 124 -> 120 x 120
-	conv1 = brew.conv(model, input_blob, 'conv1', dim_in=self.input_channels, dim_out=20, kernel=5)
+	conv1 = brew.conv(model, pool0, 'conv1', dim_in=20, dim_out=40, kernel=5)
 	    # Image size: 120 x 120 -> 60 x 60
 	pool1 = brew.max_pool(model, conv1, 'pool1', kernel=2, stride=2)
 	    # Image size: 60 x 60 -> 56 x 56
-	conv2 = brew.conv(model, pool1, 'conv2', dim_in=20, dim_out=40, kernel=5)
+	conv2 = brew.conv(model, pool1, 'conv2', dim_in=40, dim_out=60, kernel=5)
 	    # Image size: 56 x 56 -> 28 x 28
 	pool2 = brew.max_pool(model, conv2, 'pool2', kernel=2, stride=2)
 	    # Image size: 28 x 28 -> 24 x 24
-	conv3 = brew.conv(model, pool2, 'conv3', dim_in=40, dim_out=75, kernel=5)
+	conv3 = brew.conv(model, pool2, 'conv3', dim_in=60, dim_out=80, kernel=5)
 	    # Image size: 24 x 24 -> 12 x 12
 	pool3 = brew.max_pool(model, conv3, 'pool3', kernel=2, stride=2)
 	    # Image size: 12 x 12 -> 8 x 8
-	conv4 = brew.conv(model, pool3, 'conv4', dim_in=75, dim_out=100, kernel=5)
+	conv4 = brew.conv(model, pool3, 'conv4', dim_in=80, dim_out=100, kernel=5)
 	    # Image size: 8 x 8 -> 4 x 4
 	pool4 = brew.max_pool(model, conv4, 'pool4', kernel=2, stride=2)
 	    # Flatten from 100 * 4 * 4 image length to the "deep feature" vector
