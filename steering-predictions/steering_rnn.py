@@ -63,7 +63,7 @@ class SteeringRNN(object):
         self.char_to_idx = {ch: idx for idx, ch in enumerate(self.vocab)}
         self.idx_to_char = {idx: ch for idx, ch in enumerate(self.vocab)}
         self.D = len(self.char_to_idx)
-        self.deepfeature_length = 30
+        self.deepfeature_length = 500
 	self.num_variables=10
 	self.input_channels = 3
 	self.input_width = 256
@@ -86,32 +86,32 @@ class SteeringRNN(object):
             )
 	''''''
 	    # Image size: 256 X 256 -> 248 X 248
-	conv0 = brew.conv(model, input_blob, 'conv0', dim_in=self.input_channels, dim_out=20, kernel=5)
+	self.conv0 = brew.conv(model, input_blob, 'conv0', dim_in=self.input_channels, dim_out=20, kernel=5)
 	    # Image size: 248 X 248 -> 124 x 124
-	pool0 = brew.max_pool(model, conv0, 'pool0', kernel=2, stride=2)
+	self.pool0 = brew.max_pool(model, self.conv0, 'pool0', kernel=2, stride=2)
 	    # Image size: 124 x 124 -> 120 x 120
-	conv1 = brew.conv(model, pool0, 'conv1', dim_in=20, dim_out=40, kernel=5)
+	self.conv1 = brew.conv(model, self.pool0, 'conv1', dim_in=20, dim_out=40, kernel=5)
 	    # Image size: 120 x 120 -> 60 x 60
-	pool1 = brew.max_pool(model, conv1, 'pool1', kernel=2, stride=2)
+	self.pool1 = brew.max_pool(model, self.conv1, 'pool1', kernel=2, stride=2)
 	    # Image size: 60 x 60 -> 56 x 56
-	conv2 = brew.conv(model, pool1, 'conv2', dim_in=40, dim_out=60, kernel=5)
+	self.conv2 = brew.conv(model, self.pool1, 'conv2', dim_in=40, dim_out=60, kernel=5)
 	    # Image size: 56 x 56 -> 28 x 28
-	pool2 = brew.max_pool(model, conv2, 'pool2', kernel=2, stride=2)
+	self.pool2 = brew.max_pool(model, self.conv2, 'pool2', kernel=2, stride=2)
 	    # Image size: 28 x 28 -> 24 x 24
-	conv3 = brew.conv(model, pool2, 'conv3', dim_in=60, dim_out=80, kernel=5)
+	self.conv3 = brew.conv(model, self.pool2, 'conv3', dim_in=60, dim_out=80, kernel=5)
 	    # Image size: 24 x 24 -> 12 x 12
-	pool3 = brew.max_pool(model, conv3, 'pool3', kernel=2, stride=2)
+	self.pool3 = brew.max_pool(model, self.conv3, 'pool3', kernel=2, stride=2)
 	    # Image size: 12 x 12 -> 8 x 8
-	conv4 = brew.conv(model, pool3, 'conv4', dim_in=80, dim_out=100, kernel=5)
+	self.conv4 = brew.conv(model, self.pool3, 'conv4', dim_in=80, dim_out=100, kernel=5)
 	    # Image size: 8 x 8 -> 4 x 4
-	pool4 = brew.max_pool(model, conv4, 'pool4', kernel=2, stride=2)
+	self.pool4 = brew.max_pool(model, self.conv4, 'pool4', kernel=2, stride=2)
 	    # Flatten from 100 * 4 * 4 image length to the "deep feature" vector
-	fc_conv = brew.fc(model, pool4, 'fc_conv', dim_in=100 * 4 * 4, dim_out=self.deepfeature_length)	
+	self.fc_conv = brew.fc(model, self.pool4, 'fc_conv', dim_in=100 * 4 * 4, dim_out=self.deepfeature_length)	
 	    # Reshape to fit what the LSTM implementation in caffe2 expects.
 	fc_conv_reshaped, _ = model.net.Reshape('fc_conv', ['fc_conv_reshaped', '_'], shape=[self.seq_length, 1, self.deepfeature_length])
-	
+	self.fc_conv_reshaped=fc_conv_reshaped
         hidden_output_all, self.hidden_output, _, self.cell_state = LSTM(
-            model, fc_conv_reshaped, seq_lengths, (hidden_init, cell_init),
+            model, self.fc_conv_reshaped, seq_lengths, (hidden_init, cell_init),
             self.deepfeature_length, self.hidden_size, scope="LSTM")
         fc_recurrent = brew.fc(
             model,
@@ -122,12 +122,15 @@ class SteeringRNN(object):
             axis=2, 
 	    debug_info=False
         )
+        self.predictions = fc_recurrent
         # axis is 2 as first two are T (time) and N (batch size).
         # We treat them as one big batch of size T * N
         fc_recurrent_reshaped, _ = model.net.Reshape(
             'fc_recurrent', ['fc_recurrent_reshaped', '__'], shape=[-1, self.num_variables])
+        self.output_reshaped = fc_recurrent_reshaped
         target_reshaped, _ = model.net.Reshape(
             'target', ['target_reshaped', '___'], shape=[-1, self.num_variables])
+        self.target_reshaped = target_reshaped
 
         # Create a copy of the current net. We will use it on the forward
         # pass where we don't need loss and backward operators
@@ -149,9 +152,6 @@ class SteeringRNN(object):
         )
 
         self.model = model
-        self.predictions = fc_recurrent
-        self.output_reshaped = fc_recurrent_reshaped
-        self.target_reshaped = target_reshaped
 
         self.prepare_state = core.Net("prepare_state")
         self.prepare_state.Copy(self.hidden_output, hidden_init)
@@ -239,9 +239,10 @@ class SteeringRNN(object):
 	     
 	    
 	    init_pb, predictor_pb = Export(workspace, self.model.net, self.model.GetParams())
+	    '''
 	    print(predictor_pb)
 	    print(init_pb)
-	    ''''''
+	    '''
 	    break          
 	    
             num_iter += 1
