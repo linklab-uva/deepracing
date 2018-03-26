@@ -19,26 +19,25 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-
+from caffe2.python.net_builder import ops
 from caffe2.python import core, workspace, model_helper, utils, brew
 from caffe2.python.rnn_cell import LSTM
 from caffe2.proto import caffe2_pb2
 from caffe2.python.optimizer import build_sgd
-
+from caffe2.python.predictor.mobile_exporter import Export, add_tensor
+from caffe2.python.predictor.predictor_exporter import get_predictor_exporter_helper, PredictorExportMeta
 
 import argparse
 import logging
 import numpy as np
 from datetime import datetime
 
-'''
-This script takes a text file as input and uses a recurrent neural network
-to learn to predict next character in a sequence.
-'''
+
+
 
 logging.basicConfig()
-log = logging.getLogger("char_rnn")
-log.setLevel(logging.DEBUG)
+log = logging.getLogger("steering_rnn")
+log.setLevel(logging.ERROR)
 
 
 # Default set() here is intentional as it would accumulate values like a global
@@ -65,13 +64,14 @@ class SteeringRNN(object):
         self.idx_to_char = {idx: ch for idx, ch in enumerate(self.vocab)}
         self.D = len(self.char_to_idx)
         self.input_dim = 30
+	self.num_variables=10
 
         print("Input has {} characters. Total input size: {}".format(
             len(self.vocab), len(self.text)))
 
     def CreateModel(self):
         log.debug("Start training")
-        model = model_helper.ModelHelper(name="char_rnn")
+        model = model_helper.ModelHelper(name="steering_rnn")
 
         input_blob, seq_lengths, hidden_init, cell_init, target = \
             model.net.AddExternalInputs(
@@ -90,28 +90,40 @@ class SteeringRNN(object):
         hidden_output_all, self.hidden_output, _, self.cell_state = LSTM(
             model, input_blob, seq_lengths, (hidden_init, cell_init),
             self.input_dim, self.hidden_size, scope="LSTM")
-        output = brew.fc(
+        fc1 = brew.fc(
             model,
             hidden_output_all,
-            'fc_output',
+            'fc1',
             dim_in=self.hidden_size,
             dim_out=self.D,
-            axis=2
+            axis=2, 
+	    debug_info=False
         )
-
+        fc2 = brew.fc(
+            model,
+            fc1,
+            'fc2',
+            dim_in=self.D,
+            dim_out=self.num_variables,
+            axis=2, 
+	    debug_info=False
+        )
         # axis is 2 as first two are T (time) and N (batch size).
         # We treat them as one big batch of size T * N
-
+	'''
         output_reshaped, _ = model.net.Reshape(
             'fc_output', ['output_reshaped', '_'], shape=[-1, self.D])
+	'''
+        fc_reshaped, _ = model.net.Reshape(
+            'fc2', ['output_reshaped', '_'], shape=[-1, self.num_variables])
         target_reshaped, _ = model.net.Reshape(
-            'target', ['target_reshaped', '__'], shape=[-1, self.D])
+            'target', ['target_reshaped', '__'], shape=[-1, self.num_variables])
 
         # Create a copy of the current net. We will use it on the forward
         # pass where we don't need loss and backward operators
         self.forward_net = core.Net(model.net.Proto())
 
-        squared_norms = model.net.SquaredL2Distance([output_reshaped, target_reshaped], 'l2_norms')
+        squared_norms = model.net.SquaredL2Distance([fc_reshaped, target_reshaped], 'l2_norms')
         # Loss is average both across batch and through time
         # Thats why the learning rate below is multiplied by self.seq_length
         loss = model.net.AveragedLoss(squared_norms, 'loss')
@@ -127,8 +139,8 @@ class SteeringRNN(object):
         )
 
         self.model = model
-        self.predictions = output
-        self.output_reshaped = output_reshaped
+        self.predictions = fc2
+        self.output_reshaped = fc_reshaped
         self.target_reshaped = target_reshaped
 	self.squared_norms = squared_norms
         self.loss = loss
@@ -136,7 +148,7 @@ class SteeringRNN(object):
         self.prepare_state = core.Net("prepare_state")
         self.prepare_state.Copy(self.hidden_output, hidden_init)
         self.prepare_state.Copy(self.cell_state, cell_init)
- 	print(model.net.Proto())
+ 	#print(model.net.Proto())
 
     def _idx_at_pos(self, pos):
         return self.char_to_idx[self.text[pos]]
@@ -188,7 +200,7 @@ class SteeringRNN(object):
                 self.seq_length, self.batch_size, self.input_dim
             ).astype(np.float32)
             target = np.random.rand(
-                self.seq_length, self.batch_size, self.D
+                self.seq_length, self.batch_size, self.num_variables
             ).astype(np.float32)
 	    '''
             for e in range(self.batch_size):
@@ -210,16 +222,19 @@ class SteeringRNN(object):
             workspace.RunNet(self.model.net.Name())
 
             predictions_out = workspace.FetchBlob(self.predictions)
-            '''  ''' 
+            ''' 
 	    print("Input shape:", input.shape)
             print("Input:", input)
 
-	    print("Target shape:", target.shape)
-	    print("Target:", target)
-            
-
 	    print("Predicted Output shape:", predictions_out.shape)
 	    print("Predicted Output:", predictions_out)
+	     
+	    peh = get_predictor_exporter_helper(self.model.net.Name())
+	    print(peh)
+	    '''
+	    init_pb, predictor_pb = Export(workspace, self.model.net, self.model.GetParams())
+	  #  print(predictor_pb)
+	    print(init_pb)
 	    break          
 	    
             num_iter += 1
