@@ -52,7 +52,7 @@ def CreateNetOnce(net, created_names=set()): # noqa
 class SteeringRNN(object):
     def __init__(self, args):
         self.seq_length = args.seq_length
-        self.batch_size = args.batch_size
+        self.batch_size = 1
         self.iters_to_report = args.iters_to_report
         self.hidden_size = args.hidden_size
 
@@ -63,8 +63,11 @@ class SteeringRNN(object):
         self.char_to_idx = {ch: idx for idx, ch in enumerate(self.vocab)}
         self.idx_to_char = {idx: ch for idx, ch in enumerate(self.vocab)}
         self.D = len(self.char_to_idx)
-        self.input_dim = 30
+        self.deepfeature_length = 30
 	self.num_variables=10
+	self.input_channels = 3
+	self.input_width = 28
+	self.input_height = 28
 
         print("Input has {} characters. Total input size: {}".format(
             len(self.vocab), len(self.text)))
@@ -81,29 +84,26 @@ class SteeringRNN(object):
                 'cell_init',
                 'target',
             )
-	'''
- 	conv1 = brew.conv(model, input_blob, 'conv1', 3, 10, 5)
-	pool1 = brew.max_pool(model, conv1, 'pool1', kernel=2,stride=2)
- 	conv2 = brew.conv(model, pool1, 'conv2', 3, 10, 5)
-	pool2 = brew.max_pool(model, conv2, 'pool2', kernel=2,stride=2)
-	'''
+	''''''
+	    # Image size: 28 x 28 -> 24 x 24
+	conv1 = brew.conv(model, input_blob, 'conv1', dim_in=self.input_channels, dim_out=20, kernel=5)
+	    # Image size: 24 x 24 -> 12 x 12
+	pool1 = brew.max_pool(model, conv1, 'pool1', kernel=2, stride=2)
+	    # Image size: 12 x 12 -> 8 x 8
+	conv2 = brew.conv(model, pool1, 'conv2', dim_in=20, dim_out=100, kernel=5)
+	    # Image size: 8 x 8 -> 4 x 4
+	pool2 = brew.max_pool(model, conv2, 'pool2', kernel=2, stride=2)
+	fc_conv = brew.fc(model, pool2, 'fc_conv', dim_in=100 * 4 * 4, dim_out=self.deepfeature_length)	
+	fc_conv_reshaped, _ = model.net.Reshape('fc_conv', ['fc_conv_reshaped', '___'], shape=[self.seq_length, 1, self.deepfeature_length])
+	
         hidden_output_all, self.hidden_output, _, self.cell_state = LSTM(
-            model, input_blob, seq_lengths, (hidden_init, cell_init),
-            self.input_dim, self.hidden_size, scope="LSTM")
-        fc1 = brew.fc(
+            model, fc_conv_reshaped, seq_lengths, (hidden_init, cell_init),
+            self.deepfeature_length, self.hidden_size, scope="LSTM")
+        fc_recurrent = brew.fc(
             model,
             hidden_output_all,
-            'fc1',
+            'fc_recurrent',
             dim_in=self.hidden_size,
-            dim_out=self.D,
-            axis=2, 
-	    debug_info=False
-        )
-        fc2 = brew.fc(
-            model,
-            fc1,
-            'fc2',
-            dim_in=self.D,
             dim_out=self.num_variables,
             axis=2, 
 	    debug_info=False
@@ -114,8 +114,8 @@ class SteeringRNN(object):
         output_reshaped, _ = model.net.Reshape(
             'fc_output', ['output_reshaped', '_'], shape=[-1, self.D])
 	'''
-        fc_reshaped, _ = model.net.Reshape(
-            'fc2', ['output_reshaped', '_'], shape=[-1, self.num_variables])
+        fc_recurrent_reshaped, _ = model.net.Reshape(
+            'fc_recurrent', ['fc_recurrent_reshaped', '_'], shape=[-1, self.num_variables])
         target_reshaped, _ = model.net.Reshape(
             'target', ['target_reshaped', '__'], shape=[-1, self.num_variables])
 
@@ -123,11 +123,11 @@ class SteeringRNN(object):
         # pass where we don't need loss and backward operators
         self.forward_net = core.Net(model.net.Proto())
 
-        squared_norms = model.net.SquaredL2Distance([fc_reshaped, target_reshaped], 'l2_norms')
+        self.squared_norms = model.net.SquaredL2Distance([fc_recurrent_reshaped, target_reshaped], 'l2_norms')
         # Loss is average both across batch and through time
         # Thats why the learning rate below is multiplied by self.seq_length
-        loss = model.net.AveragedLoss(squared_norms, 'loss')
-        model.AddGradientOperators([loss])
+        self.loss = model.net.AveragedLoss(self.squared_norms, 'loss')
+        model.AddGradientOperators([self.loss])
 
         # use build_sdg function to build an optimizer
         build_sgd(
@@ -139,11 +139,9 @@ class SteeringRNN(object):
         )
 
         self.model = model
-        self.predictions = fc2
-        self.output_reshaped = fc_reshaped
+        self.predictions = fc_recurrent
+        self.output_reshaped = fc_recurrent_reshaped
         self.target_reshaped = target_reshaped
-	self.squared_norms = squared_norms
-        self.loss = loss
 
         self.prepare_state = core.Net("prepare_state")
         self.prepare_state.Copy(self.hidden_output, hidden_init)
@@ -197,7 +195,7 @@ class SteeringRNN(object):
             workspace.RunNet(self.prepare_state.Name())
 
             input = np.random.rand(
-                self.seq_length, self.batch_size, self.input_dim
+                self.seq_length, self.input_channels, self.input_width, self.input_height
             ).astype(np.float32)
             target = np.random.rand(
                 self.seq_length, self.batch_size, self.num_variables
@@ -222,19 +220,18 @@ class SteeringRNN(object):
             workspace.RunNet(self.model.net.Name())
 
             predictions_out = workspace.FetchBlob(self.predictions)
-            ''' 
+            ''' '''
 	    print("Input shape:", input.shape)
             print("Input:", input)
 
 	    print("Predicted Output shape:", predictions_out.shape)
 	    print("Predicted Output:", predictions_out)
 	     
-	    peh = get_predictor_exporter_helper(self.model.net.Name())
-	    print(peh)
 	    '''
 	    init_pb, predictor_pb = Export(workspace, self.model.net, self.model.GetParams())
-	  #  print(predictor_pb)
+	    print(predictor_pb)
 	    print(init_pb)
+	    '''
 	    break          
 	    
             num_iter += 1
@@ -308,8 +305,6 @@ def main():
                         required=True)
     parser.add_argument("--seq_length", type=int, default=25,
                         help="One training example sequence length")
-    parser.add_argument("--batch_size", type=int, default=1,
-                        help="Training batch size")
     parser.add_argument("--iters_to_report", type=int, default=500,
                         help="How often to report loss and generate text")
     parser.add_argument("--hidden_size", type=int, default=100,
