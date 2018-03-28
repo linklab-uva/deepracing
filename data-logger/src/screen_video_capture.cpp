@@ -2,9 +2,17 @@
 
 namespace deepf1
 {
-
-	screen_video_capture::screen_video_capture(cv::Rect2d capture_area, int displayIndex)
+	screen_video_capture::~screen_video_capture()
 	{
+
+		// Clean up memory to avoid leaks
+		DeleteObject(hbwindow);
+		DeleteDC(hwindowCompatibleDC);
+		ReleaseDC(targetWindow, hwindowDC);
+	}
+	screen_video_capture::screen_video_capture(cv::Rect2d capture_area, std::shared_ptr<const boost::timer::cpu_timer> timer, int displayIndex)
+	{
+		this->timer = std::shared_ptr<const boost::timer::cpu_timer>(timer);
 		//captureArea = capture_area;
 		if (displayIndex >= 0)
 			open(displayIndex, capture_area);
@@ -17,7 +25,13 @@ namespace deepf1
 		this->captureArea = cv::Rect2d(enumState.outRect.left + capture_area.x, enumState.outRect.top + capture_area.y,
 			capture_area.width, capture_area.height);
 			//(enumState.outRect.right ) - (enumState.outRect.left ), (enumState.outRect.bottom ) - (enumState.outRect.top ));
-		this->targetWindow = GetDesktopWindow();
+		targetWindow = GetDesktopWindow();
+		hwindowDC = GetDC(targetWindow);
+		hwindowCompatibleDC = CreateCompatibleDC(hwindowDC);
+		SetStretchBltMode(hwindowCompatibleDC, COLORONCOLOR);
+		hbwindow = CreateCompatibleBitmap(hwindowDC, capture_area.width, capture_area.height);
+		hwindowDC = GetDC(targetWindow);
+		SelectObject(hwindowCompatibleDC, hbwindow);
 	}
 	cv::Rect2d screen_video_capture::capture_area() const {
 		return cv::Rect2d(this->captureArea);
@@ -36,38 +50,21 @@ namespace deepf1
 
 	}
 
-	screen_video_capture::~screen_video_capture()
-	{
-	}
 
-	void screen_video_capture::read(cv::Mat* destination)
+	boost::timer::cpu_times screen_video_capture::read(cv::Mat& destination)
 	{
 		if (targetWindow == NULL)
 			throw new std::exception("No target monitor specified! The 'open()' method must be called to select a target monitor before frames can be read.");
 
-		captureHwnd(targetWindow, captureArea, destination);
+		 return captureHwnd(targetWindow, captureArea, destination);
 	}
 
-	screen_video_capture& screen_video_capture::operator>>(cv::Mat* destination)
-	{
-		read(destination);
-		return *this;
-	}
 
-	void screen_video_capture::captureHwnd(HWND window, cv::Rect2d targetArea, cv::Mat* dest)
+	boost::timer::cpu_times screen_video_capture::captureHwnd(HWND window, cv::Rect2d targetArea, cv::Mat& dest)
 	{
-		HDC hwindowDC, hwindowCompatibleDC;
+		
 
-		HBITMAP hbwindow;
 		BITMAPINFOHEADER  bi;
-
-		hwindowDC = GetDC(window);
-		hwindowCompatibleDC = CreateCompatibleDC(hwindowDC);
-		SetStretchBltMode(hwindowCompatibleDC, COLORONCOLOR);
-		//dest.create(targetArea.height, targetArea.width, CV_8UC4);
-
-		// Initialize a bitmap
-		hbwindow = CreateCompatibleBitmap(hwindowDC, targetArea.width, targetArea.height);
 		bi.biSize = sizeof(BITMAPINFOHEADER);
 		bi.biWidth = targetArea.width;
 		// The negative height is required -- removing the inversion will make the image appear upside-down.
@@ -81,16 +78,11 @@ namespace deepf1
 		bi.biClrUsed = 0;
 		bi.biClrImportant = 0;
 
-		SelectObject(hwindowCompatibleDC, hbwindow);
-		// Copy from the window device context to the bitmap device context
-		// Use BitBlt to do a copy without any stretching -- the output is of the same dimensions as the target area.
+		boost::timer::cpu_times times2 = timer->elapsed();
 		BitBlt(hwindowCompatibleDC, 0, 0, targetArea.width, targetArea.height, hwindowDC, targetArea.x, targetArea.y, SRCCOPY);
 		// Copy into our own buffer as device-independent bitmap
-		GetDIBits(hwindowCompatibleDC, hbwindow, 0, targetArea.height, dest->data, (BITMAPINFO *)&bi, DIB_RGB_COLORS);
+		GetDIBits(hwindowCompatibleDC, hbwindow, 0, targetArea.height, dest.data, (BITMAPINFO *)&bi, DIB_RGB_COLORS);
 
-		// Clean up memory to avoid leaks
-		DeleteObject(hbwindow);
-		DeleteDC(hwindowCompatibleDC);
-		ReleaseDC(window, hwindowDC);
+		return times2;
 	}
 }

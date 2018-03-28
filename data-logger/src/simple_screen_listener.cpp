@@ -11,15 +11,13 @@ namespace deepf1
 		this->timer = timer;
 		this->length = length;
 		dataz.reserve(length);
-		svc.reset(new screen_video_capture(capture_area, monitor_number));
+		svc.reset(new screen_video_capture(capture_area, timer, monitor_number));
 		this->capture_area = svc->capture_area();
 		init_images(this->capture_area.height, this->capture_area.width);
 	}
 	simple_screen_listener::~simple_screen_listener()
 	{
-		for (unsigned int i = 0; i < dataz.size(); i++) {
-			delete dataz[i].image;
-		}
+		
 	}
 	std::vector<timestamped_image_data_t> simple_screen_listener::get_data()
 	{
@@ -29,7 +27,7 @@ namespace deepf1
 	{
 		for (unsigned int i = 0; i < length; i++) {
 			timestamped_image_data_t to_add;
-			to_add.image = new cv::Mat(num_rows, num_columns, CV_8UC4);
+			to_add.image.create(num_rows, num_columns, CV_8UC4);
 			dataz.push_back(to_add);
 		}
 	}
@@ -38,8 +36,7 @@ namespace deepf1
 		for (unsigned int i = 0; i < dataz.size(); i++)
 		{
 		//	printf("Reading image\n");
-			dataz[i].timestamp = timer->elapsed();
-			svc->read(dataz[i].image);
+			 dataz[i].timestamp = svc->read(dataz[i].image);
 		}
 	}
 
