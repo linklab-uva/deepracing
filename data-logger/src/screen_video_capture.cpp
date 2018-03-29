@@ -24,14 +24,27 @@ namespace deepf1
 		EnumDisplayMonitors(NULL, NULL, monitorEnumProc, (LPARAM)&enumState);
 		this->captureArea = cv::Rect2d(enumState.outRect.left + capture_area.x, enumState.outRect.top + capture_area.y,
 			capture_area.width, capture_area.height);
-			//(enumState.outRect.right ) - (enumState.outRect.left ), (enumState.outRect.bottom ) - (enumState.outRect.top ));
+		//(enumState.outRect.right ) - (enumState.outRect.left ), (enumState.outRect.bottom ) - (enumState.outRect.top ));
 		targetWindow = GetDesktopWindow();
 		hwindowDC = GetDC(targetWindow);
 		hwindowCompatibleDC = CreateCompatibleDC(hwindowDC);
 		SetStretchBltMode(hwindowCompatibleDC, COLORONCOLOR);
 		hbwindow = CreateCompatibleBitmap(hwindowDC, capture_area.width, capture_area.height);
 		hwindowDC = GetDC(targetWindow);
-		SelectObject(hwindowCompatibleDC, hbwindow);
+		SelectObject(hwindowCompatibleDC, hbwindow); 
+		bi.biSize = sizeof(BITMAPINFOHEADER);
+		bi.biWidth = capture_area.width;
+		// The negative height is required -- removing the inversion will make the image appear upside-down.
+		bi.biHeight = -capture_area.height;
+		bi.biPlanes = 1;
+		bi.biBitCount = 32;
+		bi.biCompression = BI_RGB;
+		bi.biSizeImage = 0;
+		bi.biXPelsPerMeter = 0;
+		bi.biYPelsPerMeter = 0;
+		bi.biClrUsed = 0;
+		bi.biClrImportant = 0;
+
 	}
 	cv::Rect2d screen_video_capture::capture_area() const {
 		return cv::Rect2d(this->captureArea);
@@ -56,32 +69,17 @@ namespace deepf1
 		if (targetWindow == NULL)
 			throw new std::exception("No target monitor specified! The 'open()' method must be called to select a target monitor before frames can be read.");
 
-		 return captureHwnd(targetWindow, captureArea, destination);
+		 return captureHwnd(destination);
 	}
 
 
-	boost::timer::cpu_times screen_video_capture::captureHwnd(HWND window, cv::Rect2d targetArea, cv::Mat& dest)
+	boost::timer::cpu_times screen_video_capture::captureHwnd(cv::Mat& dest)
 	{
 		
-
-		BITMAPINFOHEADER  bi;
-		bi.biSize = sizeof(BITMAPINFOHEADER);
-		bi.biWidth = targetArea.width;
-		// The negative height is required -- removing the inversion will make the image appear upside-down.
-		bi.biHeight = -targetArea.height;
-		bi.biPlanes = 1;
-		bi.biBitCount = 32;
-		bi.biCompression = BI_RGB;
-		bi.biSizeImage = 0;
-		bi.biXPelsPerMeter = 0;
-		bi.biYPelsPerMeter = 0;
-		bi.biClrUsed = 0;
-		bi.biClrImportant = 0;
-
 		boost::timer::cpu_times times2 = timer->elapsed();
-		BitBlt(hwindowCompatibleDC, 0, 0, targetArea.width, targetArea.height, hwindowDC, targetArea.x, targetArea.y, SRCCOPY);
+		BitBlt(hwindowCompatibleDC, 0, 0, captureArea.width, captureArea.height, hwindowDC, captureArea.x, captureArea.y, SRCCOPY);
 		// Copy into our own buffer as device-independent bitmap
-		GetDIBits(hwindowCompatibleDC, hbwindow, 0, targetArea.height, dest.data, (BITMAPINFO *)&bi, DIB_RGB_COLORS);
+		GetDIBits(hwindowCompatibleDC, hbwindow, 0, captureArea.height, dest.data, (BITMAPINFO *)&bi, DIB_RGB_COLORS);
 
 		return times2;
 	}
