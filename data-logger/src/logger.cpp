@@ -129,9 +129,9 @@ namespace deepf1 {
 		std::vector<deepf1::timestamped_image_data_t>& screen_data,
 		std::vector<deepf1::timestamped_udp_data>& udp_data,
 		const float& max_delta) {
-		
-		fs::create_directory(fs::path(dir));
-		fs::path annotations_dir = fs::path(dir)/fs::path("annotations");
+		fs::path root_dir = fs::path(dir);
+		fs::create_directory(root_dir);
+		fs::path annotations_dir = root_dir / fs::path("annotations");
 		fs::create_directory(annotations_dir);
 		fs::path images_dir = root_dir / fs::path("images");
 		fs::create_directory(images_dir);
