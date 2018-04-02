@@ -24,7 +24,7 @@ from caffe2.python import core, workspace, model_helper, utils, brew
 from caffe2.python.rnn_cell import LSTM
 from caffe2.proto import caffe2_pb2
 from caffe2.python.optimizer import build_sgd
-from caffe2.python.predictor.mobile_exporter import Export, add_tensor
+#from caffe2.python.predictor.mobile_exporter import Export, add_tensor
 from caffe2.python.predictor.predictor_exporter import get_predictor_exporter_helper, PredictorExportMeta
 
 import argparse
@@ -233,9 +233,9 @@ class SteeringRNN(object):
 	    print("Predicted Output shape:", predictions_out.shape)
 	    print("Predicted Output:", predictions_out)
 	     
-	    
-	    init_pb, predictor_pb = Export(workspace, self.model.net, self.model.GetParams())
 	    '''
+	    init_pb, predictor_pb = Export(workspace, self.model.net, self.model.GetParams())
+	    
 	    print(predictor_pb)
 	    print(init_pb)
 	    '''
