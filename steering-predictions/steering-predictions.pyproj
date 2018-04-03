@@ -5,14 +5,16 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{c4ff4944-6e17-4d93-8f07-b95f894a9d4a}</ProjectGuid>
     <ProjectHome />
-    <StartupFile>char_rnn.py</StartupFile>
-    <SearchPath>..\..\stable_caffe2\caffe2\build\</SearchPath>
+    <StartupFile>steering_rnn.py</StartupFile>
+    <SearchPath>C:\Program Files\Caffe2</SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
     <ProjectTypeGuids>{888888a0-9f3d-457c-b088-3a5042f75d52}</ProjectTypeGuids>
     <LaunchProvider>Standard Python launcher</LaunchProvider>
     <InterpreterId>{9a7a9026-48c1-4688-9d5d-e5699d47d074}</InterpreterId>
     <InterpreterVersion>2.7</InterpreterVersion>
+    <CommandLineArguments>--train_data shakespeare.txt --gpu</CommandLineArguments>
+    <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'" />
   <PropertyGroup Condition="'$(Configuration)' == 'Release'" />
@@ -31,16 +33,6 @@
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="{9a7a9026-48c1-4688-9d5d-e5699d47d074}\2.7" />
-  </ItemGroup>
-  <ItemGroup>
-    <Reference Include="..\..\stable_caffe2\caffe2\build\caffe2\python\caffe2_pybind11_state.pyd">
-      <Name>caffe2_pybind11_state.pyd</Name>
-      <PythonExtension>..\..\stable_caffe2\caffe2\build\caffe2\python\caffe2_pybind11_state.pyd</PythonExtension>
-    </Reference>
-    <Reference Include="..\..\stable_caffe2\caffe2\build\caffe2\python\caffe2_pybind11_state_gpu.pyd">
-      <Name>caffe2_pybind11_state_gpu.pyd</Name>
-      <PythonExtension>..\..\stable_caffe2\caffe2\build\caffe2\python\caffe2_pybind11_state_gpu.pyd</PythonExtension>
-    </Reference>
   </ItemGroup>
   <Import Project="$(PtvsTargetsFile)" Condition="Exists($(PtvsTargetsFile))" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" Condition="!Exists($(PtvsTargetsFile))" />
