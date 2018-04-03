@@ -69,12 +69,13 @@ optimized ${Boost_FILESYSTEM_LIBRARY_RELEASE}
 add_executable(${PROJECT_NAME}_steering_extractor src/steering_extractor.cpp)
 target_link_libraries(${PROJECT_NAME}_steering_extractor 
 ${PROJECT_NAME}_data_capture
-${OpenCV_LIBS}
+${PROJECT_NAME}_gsoap_binding
 debug ${Boost_FILESYSTEM_LIBRARY_DEBUG}
 optimized ${Boost_FILESYSTEM_LIBRARY_RELEASE}
 )
 
 set(${PROJECT_NAME}_INSTALL_TARGETS
+${PROJECT_NAME}_steering_extractor
 ${PROJECT_NAME}_simulated_telmetry_server
 ${PROJECT_NAME}_gsoap_conversions
 ${PROJECT_NAME}_gsoap_binding
