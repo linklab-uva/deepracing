@@ -19,8 +19,9 @@ src/simple_screen_listener.cpp
 )
 target_link_libraries(${PROJECT_NAME}_data_capture
 ${OpenCV_LIBS}
-${Boost_CHRONO_LIBRARY_DEBUG}
 ${SOCKET_LIBRARY}
+debug ${Boost_CHRONO_LIBRARY_DEBUG}
+optimized ${Boost_CHRONO_LIBRARY_RELEASE}
 )
 
 add_library(${PROJECT_NAME}_gsoap_binding
@@ -49,16 +50,28 @@ add_executable(${PROJECT_NAME} src/logger.cpp)
 target_link_libraries(${PROJECT_NAME}
 ${PROJECT_NAME}_data_capture
 ${PROJECT_NAME}_gsoap_conversions
-${Boost_CHRONO_LIBRARY_DEBUG}
-${Boost_SYSTEM_LIBRARY_DEBUG}
+debug ${Boost_CHRONO_LIBRARY_DEBUG}
+optimized ${Boost_CHRONO_LIBRARY_RELEASE}
+debug ${Boost_FILESYSTEM_LIBRARY_DEBUG}
+optimized ${Boost_FILESYSTEM_LIBRARY_RELEASE}
 )
 
 add_executable(${PROJECT_NAME}_simulated_telmetry_server src/simulated_telemetry_server.cpp)
 target_link_libraries(${PROJECT_NAME}_simulated_telmetry_server
 ${PROJECT_NAME}_data_capture
 ${OpenCV_LIBS}
-${Boost_CHRONO_LIBRARY_RELEASE}
-${Boost_SYSTEM_LIBRARY_RELEASE}
+debug ${Boost_CHRONO_LIBRARY_DEBUG}
+optimized ${Boost_CHRONO_LIBRARY_RELEASE}
+debug ${Boost_FILESYSTEM_LIBRARY_DEBUG}
+optimized ${Boost_FILESYSTEM_LIBRARY_RELEASE}
+)
+
+add_executable(${PROJECT_NAME}_steering_extractor src/steering_extractor.cpp)
+target_link_libraries(${PROJECT_NAME}_steering_extractor 
+${PROJECT_NAME}_data_capture
+${OpenCV_LIBS}
+debug ${Boost_FILESYSTEM_LIBRARY_DEBUG}
+optimized ${Boost_FILESYSTEM_LIBRARY_RELEASE}
 )
 
 set(${PROJECT_NAME}_INSTALL_TARGETS
