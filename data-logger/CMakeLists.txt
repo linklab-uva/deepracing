@@ -1,7 +1,7 @@
 project(f1_datalogger)
 cmake_minimum_required(VERSION 2.7)
 set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-find_package( Boost COMPONENTS thread chrono system filesystem REQUIRED )
+find_package( Boost COMPONENTS chrono filesystem math_tr1f math_tr1l program_options REQUIRED )
 find_package( OpenCV REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 include_directories(include)
@@ -37,6 +37,10 @@ src/gsoap_conversions.cpp
 target_link_libraries(${PROJECT_NAME}_gsoap_conversions
 ${PROJECT_NAME}_gsoap_binding
 )
+add_library(${PROJECT_NAME}_math_utils
+src/math_utils.cpp
+)
+
 
 IF(BUILD_GSOAP_TEST)
 add_executable(${PROJECT_NAME}_gsoap_test
@@ -46,10 +50,12 @@ target_link_libraries(${PROJECT_NAME}_gsoap_test
 ${PROJECT_NAME}_gsoap_binding
 )
 ENDIF()
+
 add_executable(${PROJECT_NAME} src/logger.cpp)
 target_link_libraries(${PROJECT_NAME}
 ${PROJECT_NAME}_data_capture
 ${PROJECT_NAME}_gsoap_conversions
+${PROJECT_NAME}_math_utils
 debug ${Boost_CHRONO_LIBRARY_DEBUG}
 optimized ${Boost_CHRONO_LIBRARY_RELEASE}
 debug ${Boost_FILESYSTEM_LIBRARY_DEBUG}
@@ -74,8 +80,17 @@ debug ${Boost_FILESYSTEM_LIBRARY_DEBUG}
 optimized ${Boost_FILESYSTEM_LIBRARY_RELEASE}
 )
 
+add_executable(${PROJECT_NAME}_common_extractor src/common_extractor.cpp)
+target_link_libraries(${PROJECT_NAME}_common_extractor
+${PROJECT_NAME}_data_capture
+${PROJECT_NAME}_gsoap_binding
+debug ${Boost_FILESYSTEM_LIBRARY_DEBUG}
+optimized ${Boost_FILESYSTEM_LIBRARY_RELEASE}
+)
+
 set(${PROJECT_NAME}_INSTALL_TARGETS
 ${PROJECT_NAME}_steering_extractor
+${PROJECT_NAME}_common_extractor 
 ${PROJECT_NAME}_simulated_telmetry_server
 ${PROJECT_NAME}_gsoap_conversions
 ${PROJECT_NAME}_gsoap_binding

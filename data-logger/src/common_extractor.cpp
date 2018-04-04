@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
 		("help", "Displays options and exits")
 		("data_directory,d", po::value<std::string>(&data_directory)->default_value(std::string("data")), "Top-level directory to look for the original data dump.")
 		("annotation_prefix,p", po::value<std::string>(&annotation_prefix)->default_value(std::string("data_point_")), "Prefix of the filename for each native annotation file. Each annotation is the prefix followed by a unique integer.")
-		("output_file,o", po::value<std::string>(&output_file)->default_value(std::string("out.csv")), "Output file to dump the steering angles to.")
+		("output_file,o", po::value<std::string>(&output_file)->default_value(std::string("out_common.csv")), "Output file to dump the steering angles to.")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -62,13 +62,13 @@ int main(int argc, char** argv) {
 		::deepf1_gsoap::ground_truth_sample * ground_truth = deepf1_gsoap::soap_new_ground_truth_sample(file_reader);
 		file_reader->is = file_in.get();
 		deepf1_gsoap::soap_read_ground_truth_sample(file_reader, ground_truth);
-		file_out << ground_truth->image_file << "," << ground_truth->sample.m_steer << std::endl;
+		file_out << ground_truth->image_file << "," << ground_truth->sample.m_steer << "," << ground_truth->sample.m_throttle << "," << ground_truth->sample.m_brake << std::endl;
 
 
 		current_file = annotations_dir / fs::path(annotation_prefix + std::to_string(++index) + ".xml");
 		std::cout << "Checking for file: " << current_file.string() << std::endl;
 	}
-	std::cout << "Done. Each row of: " << output_file << " is <image_file>,<steering_angle>" << std::endl;
+	std::cout << "Done. Each row of: "<< output_file << " is <image_file>,<steering_angle>,<throttle_pressure>,<brake_pressure>" <<std::endl;
 
 	deepf1::cleanup_soap(file_reader);
 	return 0;
