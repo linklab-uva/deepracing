@@ -5,13 +5,13 @@ namespace deepf1
 
 	simple_screen_listener::simple_screen_listener(std::shared_ptr<const boost::timer::cpu_timer> timer,
 		cv::Rect2d capture_area,
-		unsigned int monitor_number,
+		std::string application,
 		unsigned int length)
 	{
 		this->timer = timer;
 		this->length = length;
 		dataz.reserve(length);
-		svc.reset(new screen_video_capture(capture_area, timer, monitor_number));
+		svc.reset(new screen_video_capture(capture_area, timer, application));
 		this->capture_area = svc->capture_area();
 		init_images(this->capture_area.height, this->capture_area.width);
 	}

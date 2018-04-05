@@ -48,14 +48,13 @@ int main(int argc, char** argv) {
 	float max_delta;
 	long sleep_time;
 	unsigned short port_number;
-	std::string data_directory;
+	std::string data_directory, application_name;
 	po::options_description desc("Allowed options");
 	desc.add_options()
 		("help", "Displays options and exits")
 		("udp_frames,u", po::value<unsigned int>(&udp_len)->default_value(100), "How many frames of game data to capture")
 		("port_number,p", po::value<unsigned short>(&port_number)->default_value(PORT), "Port number to listen for telemetry data on")
 		("screen_frames,s", po::value<unsigned int>(&image_len)->default_value(100), "How many frames of screencap data to capture")
-		("monitor_number,n", po::value<int>(&monitor_number)->default_value(1), "Monitor # to capture")
 		("capture_x,x", po::value<float>(&capture_x)->default_value(100), "x coordinate for origin of capture area in pixels")
 		("capture_y,y", po::value<float>(&capture_y)->default_value(250), "y coordinate for origin of capture area pixels")
 		("capture_width,w", po::value<float>(&capture_width)->default_value(1600), "Width of capture area pixels")
@@ -63,6 +62,7 @@ int main(int argc, char** argv) {
 		("max_delta,m", po::value<float>(&max_delta)->default_value(25.0), "Maximum difference in timestamp (in milliseconds) to allow for associating data to an image")
 		("data_directory,d", po::value<std::string>(&data_directory)->default_value(std::string("data")), "Top-level directory to place the annotations & images.")
 		("initial_sleep_time,i", po::value<long>(&sleep_time)->default_value(5000), "How many milliseconds to sleep before starting data recording.")
+		("application_name,a", po::value<std::string>(&application_name)->default_value(std::string("")), "Name of the application to capture. If not set, defaults to the desktop window.")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
 	
 	std::shared_ptr<const boost::timer::cpu_timer> timer(new boost::timer::cpu_timer);
 	deepf1::simple_udp_listener udp_listener(timer, udp_len, port_number);
-	deepf1::simple_screen_listener screen_listener(timer, capture_area, monitor_number, image_len);
+	deepf1::simple_screen_listener screen_listener(timer, capture_area, application_name, image_len);
 
 
 	std::function<void()> screen_worker = std::bind(&deepf1::simple_screen_listener::listen, &screen_listener);

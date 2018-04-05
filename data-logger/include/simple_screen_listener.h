@@ -11,8 +11,8 @@ namespace deepf1
 	{
 	public:
 		simple_screen_listener(std::shared_ptr<const boost::timer::cpu_timer> timer,
-			cv::Rect2d capture_area,
-			unsigned int monitor_number = 1,
+			cv::Rect2d capture_area, 
+			std::string application,
 			unsigned int length = 10);
 		~simple_screen_listener();
 		void init_images(int num_rows, int num_columns);

@@ -1,5 +1,5 @@
 #include "screen_video_capture.h"
-
+#include <tchar.h>
 namespace deepf1
 {
 	screen_video_capture::~screen_video_capture()
@@ -10,22 +10,24 @@ namespace deepf1
 		DeleteDC(hwindowCompatibleDC);
 		ReleaseDC(targetWindow, hwindowDC);
 	}
-	screen_video_capture::screen_video_capture(cv::Rect2d capture_area, std::shared_ptr<const boost::timer::cpu_timer> timer, int displayIndex)
+	screen_video_capture::screen_video_capture(cv::Rect2d capture_area, std::shared_ptr<const boost::timer::cpu_timer> timer, std::string application)
 	{
 		this->timer = std::shared_ptr<const boost::timer::cpu_timer>(timer);
 		//captureArea = capture_area;
-		if (displayIndex >= 0)
-			open(displayIndex, capture_area);
+		open(application, capture_area);
 	}
 
-	void screen_video_capture::open(int displayIndex, cv::Rect2d capture_area)
+	void screen_video_capture::open(std::string application, cv::Rect2d capture_area)
 	{
-		MonitorIndexLookupInfo enumState = { displayIndex, NULL, 0 };
-		EnumDisplayMonitors(NULL, NULL, monitorEnumProc, (LPARAM)&enumState);
-		this->captureArea = cv::Rect2d(enumState.outRect.left + capture_area.x, enumState.outRect.top + capture_area.y,
+		this->captureArea = cv::Rect2d( capture_area.x, capture_area.y,
 			capture_area.width, capture_area.height);
 		//(enumState.outRect.right ) - (enumState.outRect.left ), (enumState.outRect.bottom ) - (enumState.outRect.top ));
-		targetWindow = GetDesktopWindow();
+		if (application.compare("") == 0) {
+			targetWindow = GetDesktopWindow();
+		}
+		else {
+			targetWindow = FindWindow(NULL, _T(application.c_str()));
+		}
 		hwindowDC = GetDC(targetWindow);
 		hwindowCompatibleDC = CreateCompatibleDC(hwindowDC);
 		SetStretchBltMode(hwindowCompatibleDC, COLORONCOLOR);

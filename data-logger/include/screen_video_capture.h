@@ -9,14 +9,14 @@ namespace deepf1
 	class screen_video_capture
 	{
 	public:
-		screen_video_capture(cv::Rect2d capture_area, std::shared_ptr<const boost::timer::cpu_timer> timer, int displayIndex = -1);
+		screen_video_capture(cv::Rect2d capture_area, std::shared_ptr<const boost::timer::cpu_timer> timer, std::string application);
 		~screen_video_capture();
 
-		void open(int displayIndex, cv::Rect2d capture_area);
 		boost::timer::cpu_times read(cv::Mat& destination);
 		cv::Rect2d capture_area() const;
 
 	private:
+		void open(std::string application, cv::Rect2d capture_area);
 		std::shared_ptr<const boost::timer::cpu_timer> timer;
 		cv::Rect2d captureArea;
 		HWND targetWindow = NULL;
