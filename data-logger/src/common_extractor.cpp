@@ -62,13 +62,13 @@ int main(int argc, char** argv) {
 		::deepf1_gsoap::ground_truth_sample * ground_truth = deepf1_gsoap::soap_new_ground_truth_sample(file_reader);
 		file_reader->is = file_in.get();
 		deepf1_gsoap::soap_read_ground_truth_sample(file_reader, ground_truth);
-		file_out << ground_truth->image_file << "," << ground_truth->sample.m_steer << "," << ground_truth->sample.m_throttle << "," << ground_truth->sample.m_brake << std::endl;
+		file_out << ground_truth->image_file << "," << ground_truth->sample.m_steer << "," << ground_truth->sample.m_throttle << "," << ground_truth->sample.m_brake << "," << ground_truth->timestamp << std::endl;
 
 
 		current_file = annotations_dir / fs::path(annotation_prefix + std::to_string(++index) + ".xml");
 		std::cout << "Checking for file: " << current_file.string() << std::endl;
 	}
-	std::cout << "Done. Each row of: "<< output_file << " is <image_file>,<steering_angle>,<throttle_pressure>,<brake_pressure>" <<std::endl;
+	std::cout << "Done. Each row of: "<< output_file << " is <image_file>,<steering_angle>,<throttle_pressure>,<brake_pressure>,<timestamp>" <<std::endl;
 
 	deepf1::cleanup_soap(file_reader);
 	return 0;

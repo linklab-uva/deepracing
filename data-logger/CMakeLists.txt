@@ -6,6 +6,8 @@ find_package( OpenCV REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 include_directories(include)
 link_directories(${Boost_LIBRARY_DIR_RELEASE})
+
+
 add_definitions(-std=c++11)
 set(BUILD_SHARED_LIBS false)
 IF(WIN32)
@@ -38,7 +40,19 @@ target_link_libraries(${PROJECT_NAME}_gsoap_conversions
 ${PROJECT_NAME}_gsoap_binding
 )
 add_library(${PROJECT_NAME}_math_utils
-src/math_utils.cpp
+src/alglib/alglibinternal.cpp
+src/alglib/alglibmisc.cpp
+src/alglib/ap.cpp
+src/alglib/dataanalysis.cpp
+src/alglib/diffequations.cpp
+src/alglib/fasttransforms.cpp
+src/alglib/integration.cpp
+src/alglib/interpolation.cpp
+src/alglib/linalg.cpp
+src/alglib/optimization.cpp
+src/alglib/solvers.cpp
+src/alglib/specialfunctions.cpp
+src/alglib/statistics.cpp
 )
 
 
@@ -55,7 +69,7 @@ add_executable(${PROJECT_NAME} src/logger.cpp)
 target_link_libraries(${PROJECT_NAME}
 ${PROJECT_NAME}_data_capture
 ${PROJECT_NAME}_gsoap_conversions
-${PROJECT_NAME}_math_utils
+#${PROJECT_NAME}_math_utils
 debug ${Boost_CHRONO_LIBRARY_DEBUG}
 optimized ${Boost_CHRONO_LIBRARY_RELEASE}
 debug ${Boost_FILESYSTEM_LIBRARY_DEBUG}
@@ -89,6 +103,7 @@ optimized ${Boost_FILESYSTEM_LIBRARY_RELEASE}
 )
 
 set(${PROJECT_NAME}_INSTALL_TARGETS
+${PROJECT_NAME}_math_utils
 ${PROJECT_NAME}_steering_extractor
 ${PROJECT_NAME}_common_extractor 
 ${PROJECT_NAME}_simulated_telmetry_server

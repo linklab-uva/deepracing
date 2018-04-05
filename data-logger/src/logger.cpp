@@ -13,6 +13,7 @@
 #include <memory>
 #include <sstream>
 #include "boost/filesystem/fstream.hpp" 
+#include "math_utils.h" 
 #define BUFLEN 1289   //Max length of buffer
 #define PORT 20777   //The port on which to listen for incoming data
 #define DEFAULT_MAX_UDP_FRAMES 2000
@@ -21,7 +22,6 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 namespace deepf1{
-
 	void cleanup_soap(soap* soap);
 
 	
@@ -60,7 +60,7 @@ int main(int argc, char** argv) {
 		("capture_y,y", po::value<float>(&capture_y)->default_value(250), "y coordinate for origin of capture area pixels")
 		("capture_width,w", po::value<float>(&capture_width)->default_value(1600), "Width of capture area pixels")
 		("capture_height,h", po::value<float>(&capture_height)->default_value(375), "height of capture area pixels")
-		("max_delta,m", po::value<float>(&max_delta)->default_value(15.0), "Maximum difference in timestamp (in milliseconds) to allow for associating data to an image")
+		("max_delta,m", po::value<float>(&max_delta)->default_value(25.0), "Maximum difference in timestamp (in milliseconds) to allow for associating data to an image")
 		("data_directory,d", po::value<std::string>(&data_directory)->default_value(std::string("data")), "Top-level directory to place the annotations & images.")
 		("initial_sleep_time,i", po::value<long>(&sleep_time)->default_value(5000), "How many milliseconds to sleep before starting data recording.")
 		;
