@@ -72,9 +72,10 @@ namespace deepf1
 		}
 		//keep listening for data
 		unsigned int i = 0;
+		struct sockaddr* other = (struct sockaddr *) &si_other;
 		for(; i<dataz.size() && running; i++)
 		{
-			recvfrom(s, (char*)(dataz[i].data), UDP_BUFLEN, 0, (struct sockaddr *) &si_other, &slen);
+			recvfrom(s, (char*)(dataz[i].data), UDP_BUFLEN, 0, other, &slen);
 			dataz[i].timestamp = timer->elapsed();
 		}
 		std::cout << "Returning " << dataz.size() << " elements" << std::endl;
