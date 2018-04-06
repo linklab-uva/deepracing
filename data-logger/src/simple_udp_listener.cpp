@@ -6,6 +6,7 @@ Simple UDP Server
 #include "simple_udp_listener.h"
 #include<stdio.h>
 #include<winsock2.h>
+#include <iostream>
 #define UDP_BUFLEN 1289   //Max length of buffer
 namespace deepf1
 {
@@ -34,6 +35,7 @@ namespace deepf1
 	}
 	void simple_udp_listener::listen()
 	{
+		running = true;
 		SOCKET s;
 		struct sockaddr_in server, si_other;
 		int slen, recv_len;
@@ -69,7 +71,8 @@ namespace deepf1
 			exit(EXIT_FAILURE);
 		}
 		//keep listening for data
-		for(unsigned int i = 0 ; i<dataz.size(); i++)
+		unsigned int i = 0;
+		for(; i<dataz.size() && running; i++)
 		{
 
 
@@ -83,7 +86,7 @@ namespace deepf1
 			//printf("Steering angle: %f, timestamp wall time: %lld\n", dataz[i].data->m_steer, dataz[i].timestamp.wall);
 
 		}
-
+		std::cout << "Returning " << dataz.size() << " elements" << std::endl;
 		closesocket(s);
 		WSACleanup();
 	}

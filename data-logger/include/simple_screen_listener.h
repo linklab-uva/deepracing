@@ -18,7 +18,11 @@ namespace deepf1
 		void init_images(int num_rows, int num_columns);
 		void listen();
 		std::vector<timestamped_image_data_t> get_data();
+		void stop() {
+			running = false;
+		}
 	private:
+		bool running;
 		unsigned int length;
 		std::shared_ptr<const boost::timer::cpu_timer> timer;
 		std::vector<timestamped_image_data_t> dataz;

@@ -15,7 +15,11 @@ namespace deepf1
 		~simple_udp_listener();
 		std::vector<timestamped_udp_data_t> get_data();
 		void listen();
+		void stop() {
+			running = false;
+		}
 	private:
+		bool running;
 		std::shared_ptr<const boost::timer::cpu_timer> timer;
 		std::vector<timestamped_udp_data_t> dataz;
 		unsigned int length;
