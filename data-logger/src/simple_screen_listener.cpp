@@ -33,10 +33,11 @@ namespace deepf1
 	}
 	void simple_screen_listener::listen()
 	{
-		for (unsigned int i = 0; i < dataz.size(); i++)
+		running = true;
+		for (unsigned int i = 0; i < dataz.size() && running; i++)
 		{
-		//	printf("Reading image\n");
 			 dataz[i].timestamp = svc->read(dataz[i].image);
+			 Sleep(5);
 		}
 	}
 
