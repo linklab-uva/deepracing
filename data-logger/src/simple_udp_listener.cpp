@@ -74,17 +74,8 @@ namespace deepf1
 		unsigned int i = 0;
 		for(; i<dataz.size() && running; i++)
 		{
-
-
-			int rcv_len = recvfrom(s, (char*)(dataz[i].data), UDP_BUFLEN, 0, (struct sockaddr *) &si_other, &slen);
-			if (rcv_len != UDP_BUFLEN) {
-				printf("Socket error when receiving telemetry data.");
-				continue;
-			}
-			std::chrono::time_point<std::chrono::system_clock> time =  std::chrono::system_clock::now();
+			recvfrom(s, (char*)(dataz[i].data), UDP_BUFLEN, 0, (struct sockaddr *) &si_other, &slen);
 			dataz[i].timestamp = timer->elapsed();
-			//printf("Steering angle: %f, timestamp wall time: %lld\n", dataz[i].data->m_steer, dataz[i].timestamp.wall);
-
 		}
 		std::cout << "Returning " << dataz.size() << " elements" << std::endl;
 		closesocket(s);
