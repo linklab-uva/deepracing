@@ -5,16 +5,17 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{c4ff4944-6e17-4d93-8f07-b95f894a9d4a}</ProjectGuid>
     <ProjectHome />
-    <StartupFile>steering_rnn.py</StartupFile>
+    <StartupFile>PilotNet.py</StartupFile>
     <SearchPath>C:\Program Files\Caffe2</SearchPath>
-    <WorkingDirectory>.</WorkingDirectory>
+    <WorkingDirectory>D:\test_data</WorkingDirectory>
     <OutputPath>.</OutputPath>
     <ProjectTypeGuids>{888888a0-9f3d-457c-b088-3a5042f75d52}</ProjectTypeGuids>
     <LaunchProvider>Standard Python launcher</LaunchProvider>
     <InterpreterId>{9a7a9026-48c1-4688-9d5d-e5699d47d074}</InterpreterId>
     <InterpreterVersion>2.7</InterpreterVersion>
-    <CommandLineArguments>--train_data shakespeare.txt --gpu</CommandLineArguments>
+    <CommandLineArguments>--gpu</CommandLineArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
+    <IsWindowsApplication>False</IsWindowsApplication>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'" />
   <PropertyGroup Condition="'$(Configuration)' == 'Release'" />
@@ -28,6 +29,7 @@
   <ItemGroup>
     <Compile Include="char_rnn.py" />
     <Compile Include="lmdb_create_example.py" />
+    <Compile Include="PilotNet.py" />
     <Compile Include="resnet50_trainer.py" />
     <Compile Include="steering_rnn.py" />
   </ItemGroup>

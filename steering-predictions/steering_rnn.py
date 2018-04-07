@@ -26,7 +26,7 @@ from caffe2.proto import caffe2_pb2
 from caffe2.python.optimizer import build_sgd
 from caffe2.python.predictor.mobile_exporter import Export, add_tensor
 from caffe2.python.predictor.predictor_exporter import get_predictor_exporter_helper, PredictorExportMeta
-import cv2 as cv
+import cv2
 import argparse
 import logging
 import numpy as np
@@ -55,22 +55,13 @@ class SteeringRNN(object):
         self.batch_size = 1
         self.iters_to_report = args.iters_to_report
         self.hidden_size = args.hidden_size
-
-        with open(args.train_data) as f:
-            self.text = f.read()
-
-        self.vocab = list(set(self.text))
-        self.char_to_idx = {ch: idx for idx, ch in enumerate(self.vocab)}
-        self.idx_to_char = {idx: ch for idx, ch in enumerate(self.vocab)}
-        self.D = len(self.char_to_idx)
         self.deepfeature_length = 500
 	self.num_variables=10
 	self.input_channels = 3
 	self.input_width = 256
 	self.input_height = 256
 
-        print("Input has {} characters. Total input size: {}".format(
-            len(self.vocab), len(self.text)))
+
 
     def CreateModel(self):
         log.debug("Start training")
@@ -84,7 +75,7 @@ class SteeringRNN(object):
                 'cell_init',
                 'target',
             )
-	''''''
+
 	    # Image size: 256 X 256 -> 248 X 248
 	self.conv0 = brew.conv(model, input_blob, 'conv0', dim_in=self.input_channels, dim_out=20, kernel=5)
 	    # Image size: 248 X 248 -> 124 x 124
@@ -158,8 +149,7 @@ class SteeringRNN(object):
         self.prepare_state.Copy(self.cell_state, cell_init)
  	#print(model.net.Proto())
 
-    def _idx_at_pos(self, pos):
-        return self.char_to_idx[self.text[pos]]
+  
 
     def TrainModel(self):
         log.debug("Training model")
@@ -167,11 +157,10 @@ class SteeringRNN(object):
         workspace.RunNetOnce(self.model.param_init_net)
 
         # As though we predict the same probability for each character
-        smooth_loss = -np.log(1.0 / self.D) * self.seq_length
+        smooth_loss = self.loss
         last_n_iter = 0
         last_n_loss = 0.0
         num_iter = 0
-        N = len(self.text)
 	
 
         # Writing to output states which will be copied to input
@@ -274,32 +263,7 @@ class SteeringRNN(object):
                 last_n_loss = 0.0
                 last_n_iter = 0
 
-    def GenerateText(self, num_characters, ch):
-        # Given a starting symbol we feed a fake sequence of size 1 to
-        # our RNN num_character times. After each time we use output
-        # probabilities to pick a next character to feed to the network.
-        # Same character becomes part of the output
-        CreateNetOnce(self.forward_net)
 
-        text = '' + ch
-        for _i in range(num_characters):
-            workspace.FeedBlob(
-                "seq_lengths", np.array([1] * self.batch_size, dtype=np.int32))
-            workspace.RunNet(self.prepare_state.Name())
-
-            input = np.zeros([1, self.batch_size, self.D]).astype(np.float32)
-            input[0][0][self.char_to_idx[ch]] = 1
-
-            workspace.FeedBlob("input_blob", input)
-            workspace.RunNet(self.forward_net.Name())
-
-            p = workspace.FetchBlob(self.predictions)
-            next = np.random.choice(self.D, p=p[0][0])
-
-            ch = self.idx_to_char[next]
-            text += ch
-
-        print(text)
 
 
 @utils.debug
@@ -307,9 +271,9 @@ def main():
     parser = argparse.ArgumentParser(
         description="Caffe2: Char RNN Training"
     )
-    parser.add_argument("--train_data", type=str, default=None,
-                        help="Path to training data in a text file format",
-                        required=True)
+  #  parser.add_argument("--train_data", type=str, default=None,
+  #                      help="Path to training data in a text file format",
+  #                      required=True)
     parser.add_argument("--seq_length", type=int, default=25,
                         help="One training example sequence length")
     parser.add_argument("--iters_to_report", type=int, default=500,
