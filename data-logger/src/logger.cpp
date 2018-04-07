@@ -12,7 +12,6 @@
 #include <sstream>
 #include <Eigen/Core> 
 #include <boost/filesystem/fstream.hpp>
-#include "math_utils.h" 
 #include "simple_udp_listener.h"
 #include "simple_screen_listener.h"
 #define BUFLEN 1289   //Max length of buffer
