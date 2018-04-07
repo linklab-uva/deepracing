@@ -18,12 +18,16 @@ namespace deepf1
 		void stop() {
 			running = false;
 		}
+		const boost::timer::cpu_times& get_collection_start() const {
+			return (const boost::timer::cpu_times)collection_start_;
+		}
 	private:
 		bool running;
 		std::shared_ptr<const boost::timer::cpu_timer> timer;
 		std::vector<timestamped_udp_data_t> dataz;
 		unsigned int length;
-		unsigned short port_number;
+		unsigned short port_number_;
+		boost::timer::cpu_times collection_start_;
 
 
 	};

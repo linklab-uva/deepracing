@@ -15,7 +15,7 @@ namespace deepf1
 		unsigned short port_number) {
 		this->timer = timer;
 		this->length = length;
-		this->port_number = port_number;
+		this->port_number_ = port_number;
 		dataz.reserve(length);
 		for (unsigned int i = 0; i < length; i++)
 		{
@@ -62,7 +62,7 @@ namespace deepf1
 		//Prepare the sockaddr_in structure
 		server.sin_family = AF_INET;
 		server.sin_addr.s_addr = INADDR_ANY;
-		server.sin_port = htons(port_number);
+		server.sin_port = htons(port_number_);
 
 		//Bind
 		if (bind(s, (struct sockaddr *)&server, sizeof(server)) == SOCKET_ERROR)
@@ -73,12 +73,14 @@ namespace deepf1
 		//keep listening for data
 		unsigned int i = 0;
 		struct sockaddr* other = (struct sockaddr *) &si_other;
-		for(; i<dataz.size() && running; i++)
+		collection_start_ = timer->elapsed();
+		unsigned int max = dataz.size();
+		for(; (i < max) && running; i++)
 		{
 			recvfrom(s, (char*)(dataz[i].data), UDP_BUFLEN, 0, other, &slen);
 			dataz[i].timestamp = timer->elapsed();
 		}
-		std::cout << "Returning " << dataz.size() << " elements" << std::endl;
+		std::printf("Returning %d elements \n", dataz.size());
 		closesocket(s);
 		WSACleanup();
 	}

@@ -44,9 +44,12 @@ int main(int argc, char** argv) {
 	data->m_steer = -0.5;
 	data->m_throttle = -0.25;
 	data->m_brake = 0.75;
+	float fake_time = 0;
+	float dt = ((float)(sleep_time)) / 1000.0;
 	while (true) {
-		printf("Sending data.\n");
+		data->m_time = fake_time;
 		socket.send_to(boost::asio::buffer(boost::asio::buffer(data.get(), UDP_BUFLEN)), receiver_endpoint);
+		fake_time += dt;
 		Sleep(sleep_time);
 	}
 	return 0;

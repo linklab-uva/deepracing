@@ -2,8 +2,6 @@
 #include "deepf1_gsoap_conversions/gsoap_conversions.h"
 #include <stdio.h>
 #include <boost/timer/timer.hpp>
-#include "simple_udp_listener.h"
-#include "simple_screen_listener.h"
 #include <iostream>
 #include <exception>
 #include <thread>
@@ -12,8 +10,11 @@
 #include <boost/program_options.hpp>
 #include <memory>
 #include <sstream>
-#include "boost/filesystem/fstream.hpp" 
+#include <Eigen/Core> 
+#include <boost/filesystem/fstream.hpp>
 #include "math_utils.h" 
+#include "simple_udp_listener.h"
+#include "simple_screen_listener.h"
 #define BUFLEN 1289   //Max length of buffer
 #define PORT 20777   //The port on which to listen for incoming data
 #define DEFAULT_MAX_UDP_FRAMES 2000
@@ -27,7 +28,7 @@ namespace deepf1{
 	
 	void writeToFiles(const std::string& dir,
 		std::vector<deepf1::timestamped_image_data_t>& screen_data,
-		std::vector<deepf1::timestamped_udp_data>& udp_data,
+		deepf1::simple_udp_listener& udp_listener,
 		const float& max_delta);
 	bool udp_data_comparator(const deepf1::timestamped_udp_data& a, const deepf1::timestamped_udp_data& b);
 	deepf1::timestamped_udp_data find_closest_value(std::vector<deepf1::timestamped_udp_data>& udp_dataz,
@@ -92,13 +93,12 @@ int main(int argc, char** argv) {
 	std::thread udp_thread(udp_worker);
 	std::thread screen_thread(screen_worker);
 	screen_thread.join();
-	udp_listener.stop();
+	//udp_listener.stop();
 	udp_thread.join();
 	std::vector<deepf1::timestamped_image_data_t> screen_data = screen_listener.get_data();
 	std::vector<deepf1::timestamped_udp_data_t> udp_data = udp_listener.get_data();
-	std::cout << "Received " << udp_data.size() << " elements" << std::endl;
-
-	writeToFiles(data_directory, screen_data, udp_data, max_delta);
+	std::printf("Started receiving packets at timestamp: %ld \n", udp_listener.get_collection_start().wall);
+	writeToFiles(data_directory, screen_data, udp_listener, max_delta);
 
 	return 0;
 }
@@ -138,8 +138,9 @@ namespace deepf1 {
 	}
 	void writeToFiles(const std::string& dir,
 		std::vector<deepf1::timestamped_image_data_t>& screen_data,
-		std::vector<deepf1::timestamped_udp_data>& udp_data,
+		deepf1::simple_udp_listener& udp_listener,
 		const float& max_delta) {
+		std::vector<deepf1::timestamped_udp_data> udp_data = udp_listener.get_data();
 		fs::path root_dir = fs::path(dir);
 		fs::create_directory(root_dir);
 		fs::path annotations_dir = root_dir / fs::path("annotations");
@@ -203,8 +204,10 @@ namespace deepf1 {
 			file_out->close();
 		}
 		raw_point_number = 1;
-		for (int i = 0; i < udp_data.size(); i++) {
+		std::cout << "Writing " << udp_data.size() << " raw annotations to file." << std::endl;
+		for (unsigned int i = 0; i < udp_data.size(); i++) {
 			deepf1::timestamped_udp_data current_data = udp_data[i];
+
 			::deepf1_gsoap::ground_truth_sample * ground_truth = deepf1_gsoap::soap_new_ground_truth_sample(soap);
 			::deepf1_gsoap::UDPPacket* pack = convert.convert_to_gsoap(*(current_data.data));
 			ground_truth->sample = *pack;
