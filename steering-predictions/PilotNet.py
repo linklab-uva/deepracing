@@ -62,10 +62,10 @@ class PilotNet(object):
         # Create a copy of the current net. We will use it on the forward
         # pass where we don't need loss and backward operators
         self.forward_net = core.Net(model.net.Proto())
-        self.squared_norms = model.net.SquaredL2Distance([self.prediction, target], 'squared_norms')
+        self.distances = model.net.L1Distance([self.prediction, target], 'squared_norms', axis = 1)
         #self.norms = model.net.Sqrt(squared_norms, 'l2_norms')
         # Loss is average across batch
-        self.loss = self.squared_norms.AveragedLoss([], ["loss"])
+        self.loss = self.distances.AveragedLoss([], ["loss"])
         model.AddGradientOperators([self.loss])
         # use build_sdg function to build an optimizer
         build_sgd(model,base_learning_rate=0.000005,policy="step",stepsize=1,gamma=0.9999)
@@ -81,7 +81,7 @@ class PilotNet(object):
         workspace.FeedBlob('input_blob', input)
         workspace.FeedBlob('target', target)
         CreateNetOnce(self.model.net)
-        for n in range(1,5):
+        for n in range(1,500):
             np.random.shuffle(possible_vals)
             indices = possible_vals[0:self.batch_size]
             input = images[indices,:].astype(np.float32)
