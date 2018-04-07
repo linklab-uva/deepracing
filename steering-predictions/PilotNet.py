@@ -25,9 +25,9 @@ def CreateNetOnce(net, created_names=set()): # noqa
         created_names.add(name)
         workspace.CreateNet(net)
 class PilotNet(object):
-    def __init__(self):
-        self.batch_size = 10
-        self.output_dim = 1
+    def __init__(self, args):
+        self.batch_size = args.batch_size
+        self.output_dim = args.output_dim
         self.input_channels = 3
         self.input_height = 66
         self.input_width = 200
@@ -90,12 +90,14 @@ def main():
     #                      help="Path to training data in a text file format",
     #                      required=True)
     parser.add_argument("--gpu", action="store_true",  help="If set, training is going to use GPU 0")
+    parser.add_argument("--batch_size", type=int, default=10, help="Batch Size")
+    parser.add_argument("--output_dim", type=int, default=1, help="Dimensionality of predicted control input")
     args = parser.parse_args()
     last_time = datetime.now()
     progress = 0
     device = core.DeviceOption(caffe2_pb2.CUDA if args.gpu else caffe2_pb2.CPU, 0)
     with core.DeviceScope(device):
-        pilotnet = PilotNet()
+        pilotnet = PilotNet(args)
         pilotnet.CreateModel()
         print("yay")
         pilotnet.TrainModel()
