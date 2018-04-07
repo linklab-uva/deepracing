@@ -34,7 +34,7 @@ class PilotNet(object):
     def CreateModel(self):
         log.debug("Start training")
         model = model_helper.ModelHelper(name="PilotNet")
-        input_blob, target =  model.net.AddExternalInputs( 'input_blob', 'target', )
+        input_blob, target =  model.net.AddExternalInputs('input_blob', 'target')
         #3x3 ->Convolutional feature map 64@1x18
         #3x3 ->Convolutional feature map 64@3x20
         #5x5 ->Convolutional feature map 48@5x22
@@ -48,9 +48,9 @@ class PilotNet(object):
 	    # Image size: 14x47 -> 5x22
         self.conv3 = brew.conv(model, self.conv2, 'conv3', dim_in=36, dim_out=48, kernel=5, stride=2)
 	    # Image size: 5x22 -> 3x20
-        self.conv4 = brew.conv(model, self.conv3, 'conv4', dim_in=48, dim_out=64, kernel=3, stride=2)
+        self.conv4 = brew.conv(model, self.conv3, 'conv4', dim_in=48, dim_out=64, kernel=3)
 	    # Image size: 3x20 -> 1x18
-        self.conv5 = brew.conv(model, self.conv4, 'conv5', dim_in=64, dim_out=64, kernel=3, stride=2)
+        self.conv5 = brew.conv(model, self.conv4, 'conv5', dim_in=64, dim_out=64, kernel=3)
 	    # Flatten from 64*1*18 image length to the "deep feature" vector
         self.fc1 = brew.fc(model, self.conv5, 'fc1', dim_in=64*1*18, dim_out=100)
         self.fc2 = brew.fc(model, self.fc1, 'fc2', dim_in=100, dim_out=50)
@@ -66,7 +66,23 @@ class PilotNet(object):
         model.AddGradientOperators([self.loss])
         # use build_sdg function to build an optimizer
         build_sgd(model,base_learning_rate=0.1,policy="step",stepsize=1,gamma=0.9999)
-        self.model = model
+        self.model = model 
+    def TrainModel(self):
+        input = np.random.rand(self.batch_size, self.input_channels, self.input_width, self.input_height).astype(np.float32)
+        target = np.random.rand(self.batch_size, self.output_dim ).astype(np.float32)
+        workspace.RunNetOnce(self.model.param_init_net)
+        workspace.FeedBlob('input_blob', input)
+        workspace.FeedBlob('target', target)
+        CreateNetOnce(self.model.net)
+        workspace.RunNet(self.model.net.Name())
+        predictions = workspace.FetchBlob(self.prediction)
+        deep_features = workspace.FetchBlob(self.fc1)
+        print("Input shape:", input.shape)
+        print("Input:", input)
+        print("Deep Feature shape:", deep_features.shape)
+        print("Deep Feature:", deep_features)
+        print("Predicted Output shape:", predictions.shape)
+        print("Predicted Output:", predictions)
 @utils.debug
 def main():
     parser = argparse.ArgumentParser(description="Caffe2: PilotNet Training")
@@ -79,10 +95,14 @@ def main():
     progress = 0
     device = core.DeviceOption(caffe2_pb2.CUDA if args.gpu else caffe2_pb2.CPU, 0)
     with core.DeviceScope(device):
-        model = PilotNet()
-        model.CreateModel()
+        pilotnet = PilotNet()
+        pilotnet.CreateModel()
         print("yay")
+        pilotnet.TrainModel()
 
+     #   init_pb, predictor_pb = Export(workspace, self.model.net, self.model.GetParams())   
+    #    print(predictor_pb)
+       # print(init_pb)
 if __name__ == '__main__':
     workspace.GlobalInit(['caffe2', '--caffe2_log_level=2'])
     main()
