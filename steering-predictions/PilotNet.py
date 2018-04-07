@@ -12,6 +12,8 @@ from caffe2.python.predictor.predictor_exporter import get_predictor_exporter_he
 import cv2
 import argparse
 import logging
+import os
+from random import randint
 import numpy as np
 from datetime import datetime
 logging.basicConfig()
@@ -52,6 +54,7 @@ class PilotNet(object):
 	    # Image size: 3x20 -> 1x18
         self.conv5 = brew.conv(model, self.conv4, 'conv5', dim_in=64, dim_out=64, kernel=3)
 	    # Flatten from 64*1*18 image length to the "deep feature" vector
+   #     self.deep_features = model.net.FlattenToVec(self.conv5,'deep_features', axis=0)
         self.fc1 = brew.fc(model, self.conv5, 'fc1', dim_in=64*1*18, dim_out=100)
         self.fc2 = brew.fc(model, self.fc1, 'fc2', dim_in=100, dim_out=50)
         self.fc3 = brew.fc(model, self.fc2, 'fc3', dim_in=50, dim_out=10)
@@ -59,30 +62,65 @@ class PilotNet(object):
         # Create a copy of the current net. We will use it on the forward
         # pass where we don't need loss and backward operators
         self.forward_net = core.Net(model.net.Proto())
-        self.squared_norms = model.net.SquaredL2Distance([self.prediction, target], 'l2_norms')
-        # Loss is average both across batch and through time
-        # Thats why the learning rate below is multiplied by self.seq_length
-        self.loss = model.net.AveragedLoss(self.squared_norms, 'loss')
+        self.squared_norms = model.net.SquaredL2Distance([self.prediction, target], 'squared_norms')
+        #self.norms = model.net.Sqrt(squared_norms, 'l2_norms')
+        # Loss is average across batch
+        self.loss = self.squared_norms.AveragedLoss([], ["loss"])
         model.AddGradientOperators([self.loss])
         # use build_sdg function to build an optimizer
-        build_sgd(model,base_learning_rate=0.1,policy="step",stepsize=1,gamma=0.9999)
+        build_sgd(model,base_learning_rate=0.000005,policy="step",stepsize=1,gamma=0.9999)
         self.model = model 
     def TrainModel(self):
-        input = np.random.rand(self.batch_size, self.input_channels, self.input_width, self.input_height).astype(np.float32)
-        target = np.random.rand(self.batch_size, self.output_dim ).astype(np.float32)
         workspace.RunNetOnce(self.model.param_init_net)
+        images, labels = self.read_data("D:/test_data/slow_run_australia_track2","test_file.csv","raw_images")
+        num_images = images.shape[0]
+        possible_vals = np.linspace(0,num_images-1,num_images).astype(np.int32)
+        np.random.seed()
+        input = np.random.rand(self.batch_size, self.input_channels, self.input_height, self.input_width).astype(np.float32)
+        target = np.random.rand(self.batch_size, self.output_dim).astype(np.float32)
         workspace.FeedBlob('input_blob', input)
         workspace.FeedBlob('target', target)
         CreateNetOnce(self.model.net)
-        workspace.RunNet(self.model.net.Name())
-        predictions = workspace.FetchBlob(self.prediction)
-        deep_features = workspace.FetchBlob(self.fc1)
-        print("Input shape:", input.shape)
-        print("Input:", input)
-        print("Deep Feature shape:", deep_features.shape)
-        print("Deep Feature:", deep_features)
-        print("Predicted Output shape:", predictions.shape)
-        print("Predicted Output:", predictions)
+        for n in range(1,5):
+            np.random.shuffle(possible_vals)
+            indices = possible_vals[0:self.batch_size]
+            input = images[indices,:].astype(np.float32)
+            target = labels[indices,:].astype(np.float32)
+            print("input shape:", input.shape)
+            print("target shape:", target.shape)
+            workspace.FeedBlob('input_blob', input)
+            workspace.FeedBlob('target', target)
+          #  CreateNetOnce(self.model.net)
+            workspace.RunNet(self.model.net.Name())
+            predictions = workspace.FetchBlob(self.prediction)
+            deep_features = workspace.FetchBlob(self.fc1)
+            print("Deep Feature shape:", deep_features.shape)
+            print("Predicted Output shape:", predictions.shape)
+            loss = workspace.FetchBlob(self.loss)
+            print("loss", loss)
+           # break
+    def read_data(self, root_folder, annotations_file, images_folder):
+        im_folder = os.path.join(root_folder, images_folder)
+        ann_file = os.path.join(root_folder, annotations_file)
+        f = open(ann_file, "r")
+        # use readlines to read all lines in the file
+        # The variable "lines" is a list containing all lines in the file
+        lines = f.readlines()
+        # close the file after reading the lines.
+        f.close()
+        rtn = np.random.rand(len(lines), self.input_channels, self.input_height, self.input_width).astype(np.float32)
+        labels = np.random.rand(len(lines), self.output_dim).astype(np.float32)
+        for i in range(len(lines)):
+            line = lines[i]
+            im_file, _, steering_angle = line.split(",")
+            full_image_path = os.path.join(im_folder, im_file)
+            img = cv2.imread(full_image_path, cv2.IMREAD_UNCHANGED)
+            img_resized= cv2.resize(img,dsize=(self.input_width,self.input_height), interpolation = cv2.INTER_CUBIC)
+            img_transposed = np.transpose(img_resized, (2, 0, 1))
+            rtn[i]=img_transposed.astype(np.float32)
+            labels[i][0]=float(steering_angle)
+        labels = labels.astype(np.float32)
+        return rtn, labels
 @utils.debug
 def main():
     parser = argparse.ArgumentParser(description="Caffe2: PilotNet Training")
