@@ -55,10 +55,10 @@ class PilotNet(object):
         self.conv5 = brew.conv(model, self.conv4, 'conv5', dim_in=64, dim_out=64, kernel=3)
 	    # Flatten from 64*1*18 image length to the "deep feature" vector
    #     self.deep_features = model.net.FlattenToVec(self.conv5,'deep_features', axis=0)
-        self.fc1 = brew.fc(model, self.conv5, 'fc1', dim_in=64*1*18, dim_out=100)
-        self.fc2 = brew.fc(model, self.fc1, 'fc2', dim_in=100, dim_out=50)
-        self.fc3 = brew.fc(model, self.fc2, 'fc3', dim_in=50, dim_out=10)
-        self.prediction = brew.fc(model, self.fc3, 'prediction', dim_in=10, dim_out=self.output_dim)
+        self.fc1 = brew.fc(model, self.conv5, 'fc1', dim_in=64*1*18, dim_out=100, axis=1)
+        self.fc2 = brew.fc(model, self.fc1, 'fc2', dim_in=100, dim_out=50, axis=1)
+        self.fc3 = brew.fc(model, self.fc2, 'fc3', dim_in=50, dim_out=10, axis=1)
+        self.prediction = brew.fc(model, self.fc3, 'prediction', dim_in=10, dim_out=self.output_dim, axis=1)
         # Create a copy of the current net. We will use it on the forward
         # pass where we don't need loss and backward operators
         self.forward_net = core.Net(model.net.Proto())
@@ -81,7 +81,7 @@ class PilotNet(object):
         workspace.FeedBlob('input_blob', input)
         workspace.FeedBlob('target', target)
         CreateNetOnce(self.model.net)
-        for n in range(1,500):
+        for n in range(1,10):
             np.random.shuffle(possible_vals)
             indices = possible_vals[0:self.batch_size]
             input = images[indices,:].astype(np.float32)
@@ -98,6 +98,13 @@ class PilotNet(object):
             print("Predicted Output shape:", predictions.shape)
             loss = workspace.FetchBlob(self.loss)
             print("loss", loss)
+        init_pb, predictor_pb = Export(workspace, self.model.net, self.model.GetParams())   
+        text_file = open("init_net.pb", "wb")
+        text_file.write(init_pb.SerializeToString())
+        text_file.close()
+        text_file = open("predict_net.pb","wb")
+        text_file.write(predictor_pb.SerializeToString())
+        text_file.close()
            # break
     def read_data(self, root_folder, annotations_file, images_folder):
         im_folder = os.path.join(root_folder, images_folder)
