@@ -33,6 +33,7 @@ class PilotNet(object):
         self.input_channels = 3
         self.input_height = 66
         self.input_width = 200
+        self.num_training_iterations = args.num_iterations
     def CreateModel(self):
         log.debug("Start training")
         model = model_helper.ModelHelper(name="PilotNet")
@@ -53,26 +54,27 @@ class PilotNet(object):
         self.conv4 = brew.conv(model, self.conv3, 'conv4', dim_in=48, dim_out=64, kernel=3)
 	    # Image size: 3x20 -> 1x18
         self.conv5 = brew.conv(model, self.conv4, 'conv5', dim_in=64, dim_out=64, kernel=3)
-	    # Flatten from 64*1*18 image length to the "deep feature" vector
-   #     self.deep_features = model.net.FlattenToVec(self.conv5,'deep_features', axis=0)
-        self.fc1 = brew.fc(model, self.conv5, 'fc1', dim_in=64*1*18, dim_out=100, axis=1)
+	    # Flatten from 64 X 1 X 18 image to the "deep feature" vector
+        self.deep_features = model.net.Reshape("conv5", ["deep_features", "conv5_old"], shape=[self.batch_size, 64*1*18])
+        self.fc1 = brew.fc(model, "deep_features", 'fc1', dim_in=64*1*18, dim_out=100, axis=1)
         self.fc2 = brew.fc(model, self.fc1, 'fc2', dim_in=100, dim_out=50, axis=1)
         self.fc3 = brew.fc(model, self.fc2, 'fc3', dim_in=50, dim_out=10, axis=1)
         self.prediction = brew.fc(model, self.fc3, 'prediction', dim_in=10, dim_out=self.output_dim, axis=1)
         # Create a copy of the current net. We will use it on the forward
         # pass where we don't need loss and backward operators
         self.forward_net = core.Net(model.net.Proto())
-        self.distances = model.net.L1Distance([self.prediction, target], 'squared_norms', axis = 1)
+        self.squared_norms = model.net.SquaredL2Distance([self.prediction, target], 'squared_norms', axis = 1)
         #self.norms = model.net.Sqrt(squared_norms, 'l2_norms')
         # Loss is average across batch
-        self.loss = self.distances.AveragedLoss([], ["loss"])
+        #self.loss = self.squared_norms.AveragedLoss([], ["loss"])
+        self.loss = model.net.AveragedLoss(self.squared_norms, 'loss')
         model.AddGradientOperators([self.loss])
         # use build_sdg function to build an optimizer
-        build_sgd(model,base_learning_rate=0.000005,policy="step",stepsize=1,gamma=0.9999)
+        build_sgd(model,base_learning_rate=0.0000001,policy="step",stepsize=1,gamma=1.0)
         self.model = model 
     def TrainModel(self):
         workspace.RunNetOnce(self.model.param_init_net)
-        images, labels = self.read_data("D:/test_data/slow_run_australia_track2","test_file.csv","raw_images")
+        images, labels = self.read_data("D:/test_data/slow_run_australia_track2","cubic_interpolation.csv","raw_images")
         num_images = images.shape[0]
         possible_vals = np.linspace(0,num_images-1,num_images).astype(np.int32)
         np.random.seed()
@@ -81,21 +83,15 @@ class PilotNet(object):
         workspace.FeedBlob('input_blob', input)
         workspace.FeedBlob('target', target)
         CreateNetOnce(self.model.net)
-        for n in range(1,10):
+        for n in range(1,self.num_training_iterations):
             np.random.shuffle(possible_vals)
             indices = possible_vals[0:self.batch_size]
             input = images[indices,:].astype(np.float32)
             target = labels[indices,:].astype(np.float32)
-            print("input shape:", input.shape)
-            print("target shape:", target.shape)
             workspace.FeedBlob('input_blob', input)
             workspace.FeedBlob('target', target)
           #  CreateNetOnce(self.model.net)
             workspace.RunNet(self.model.net.Name())
-            predictions = workspace.FetchBlob(self.prediction)
-            deep_features = workspace.FetchBlob(self.fc1)
-            print("Deep Feature shape:", deep_features.shape)
-            print("Predicted Output shape:", predictions.shape)
             loss = workspace.FetchBlob(self.loss)
             print("loss", loss)
         init_pb, predictor_pb = Export(workspace, self.model.net, self.model.GetParams())   
@@ -125,7 +121,7 @@ class PilotNet(object):
             img_resized= cv2.resize(img,dsize=(self.input_width,self.input_height), interpolation = cv2.INTER_CUBIC)
             img_transposed = np.transpose(img_resized, (2, 0, 1))
             rtn[i]=img_transposed.astype(np.float32)
-            labels[i][0]=float(steering_angle)
+            labels[i][0]=100.0*float(steering_angle)
         labels = labels.astype(np.float32)
         return rtn, labels
 @utils.debug
@@ -137,6 +133,7 @@ def main():
     parser.add_argument("--gpu", action="store_true",  help="If set, training is going to use GPU 0")
     parser.add_argument("--batch_size", type=int, default=10, help="Batch Size")
     parser.add_argument("--output_dim", type=int, default=1, help="Dimensionality of predicted control input")
+    parser.add_argument("--num_iterations", type=int, default=10000, help="Number of iterations to train")
     args = parser.parse_args()
     last_time = datetime.now()
     progress = 0
