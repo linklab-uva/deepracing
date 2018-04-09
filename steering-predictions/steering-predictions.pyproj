@@ -32,6 +32,9 @@
     <Compile Include="PilotNet.py" />
     <Compile Include="resnet50_trainer.py" />
     <Compile Include="steering_rnn.py" />
+    <Compile Include="TestPilotNet.py">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="{9a7a9026-48c1-4688-9d5d-e5699d47d074}\2.7" />
