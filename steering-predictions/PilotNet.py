@@ -9,6 +9,11 @@ from caffe2.proto import caffe2_pb2
 from caffe2.python.optimizer import build_sgd
 from caffe2.python.predictor.mobile_exporter import Export, add_tensor
 from caffe2.python.predictor.predictor_exporter import get_predictor_exporter_helper, PredictorExportMeta
+
+
+import caffe2.python.predictor.predictor_py_utils as pred_utils
+
+from caffe2.python.predictor_constants import predictor_constants as predictor_constants
 import cv2
 import argparse
 import logging
@@ -35,10 +40,11 @@ class PilotNet(object):
         self.input_width = 200
         self.num_training_iterations = args.num_iterations
         self.input_file = args.input_file
+        self.input_folder = args.input_folder
     def CreateModel(self):
         log.debug("Start training")
         model = model_helper.ModelHelper(name="PilotNet")
-        input_blob, target =  model.net.AddExternalInputs('input_blob', 'target')
+        input_blob =  model.net.AddExternalInputs('input_blob')
         #3x3 ->Convolutional feature map 64@1x18
         #3x3 ->Convolutional feature map 64@3x20
         #5x5 ->Convolutional feature map 48@5x22
@@ -64,6 +70,8 @@ class PilotNet(object):
         # Create a copy of the current net. We will use it on the forward
         # pass where we don't need loss and backward operators
         self.forward_net = core.Net(model.net.Proto())
+        #end forward pass. Add stuff needed for the backward pass and loss minimization
+        target =  model.net.AddExternalInputs('target')
         self.squared_norms = model.net.SquaredL2Distance([self.prediction, target], 'squared_norms', axis = 1)
         #self.norms = model.net.Sqrt(squared_norms, 'l2_norms')
         # Loss is average across batch
@@ -72,10 +80,16 @@ class PilotNet(object):
         model.AddGradientOperators([self.loss])
         # use build_sdg function to build an optimizer
         build_sgd(model,base_learning_rate=0.0000001,policy="step",stepsize=1,gamma=1.0)
-        self.model = model 
+        self.model = model  
+    def add_training_operators(softmax, model, device_opts) :
+        xent = model.LabelCrossEntropy([softmax, "label"], 'xent')
+        loss = model.AveragedLoss(xent, "loss")
+        brew.accuracy(model, [softmax, "label"], "accuracy")
+        model.AddGradientOperators([loss])
+        opt = optimizer.build_sgd(model, base_learning_rate=0.01, policy="step", stepsize=1, gamma=0.999) 
     def TrainModel(self):
         workspace.RunNetOnce(self.model.param_init_net)
-        images, labels = self.read_data("D:/test_data/slow_run_australia_track2",self.input_file,"raw_images")
+        images, labels = self.read_data(self.input_folder,self.input_file,"raw_images")
         num_images = images.shape[0]
         possible_vals = np.linspace(0,num_images-1,num_images).astype(np.int32)
         np.random.seed()
@@ -95,7 +109,7 @@ class PilotNet(object):
             workspace.RunNet(self.model.net.Name())
             loss = workspace.FetchBlob(self.loss)
             print("loss", loss)
-        init_pb, predictor_pb = Export(workspace, self.model.net, self.model.GetParams())   
+        init_pb, predictor_pb = Export(workspace, self.forward_net, self.model.params)   
         file_prefix, file_extension = self.input_file.split(".")
         text_file = open("init_net_" + file_prefix + ".pb", "wb")
         text_file.write(init_pb.SerializeToString())
@@ -136,7 +150,8 @@ def main():
     parser.add_argument("--batch_size", type=int, default=10, help="Batch Size")
     parser.add_argument("--output_dim", type=int, default=1, help="Dimensionality of predicted control input")
     parser.add_argument("--num_iterations", type=int, default=10000, help="Number of iterations to train")
-    parser.add_argument("--input_file", default="annotations.csv", help="Input file to pull annotations from")
+    parser.add_argument("--input_file", type=str, default="annotations.csv", help="Input file to pull annotations from")
+    parser.add_argument("--input_folder", type=str, required=True, help="Input file to pull annotations from")
     args = parser.parse_args()
     last_time = datetime.now()
     progress = 0
