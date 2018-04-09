@@ -34,6 +34,7 @@ class PilotNet(object):
         self.input_height = 66
         self.input_width = 200
         self.num_training_iterations = args.num_iterations
+        self.input_file = args.input_file
     def CreateModel(self):
         log.debug("Start training")
         model = model_helper.ModelHelper(name="PilotNet")
@@ -74,7 +75,7 @@ class PilotNet(object):
         self.model = model 
     def TrainModel(self):
         workspace.RunNetOnce(self.model.param_init_net)
-        images, labels = self.read_data("D:/test_data/slow_run_australia_track2","cubic_interpolation.csv","raw_images")
+        images, labels = self.read_data("D:/test_data/slow_run_australia_track2",self.input_file,"raw_images")
         num_images = images.shape[0]
         possible_vals = np.linspace(0,num_images-1,num_images).astype(np.int32)
         np.random.seed()
@@ -95,10 +96,11 @@ class PilotNet(object):
             loss = workspace.FetchBlob(self.loss)
             print("loss", loss)
         init_pb, predictor_pb = Export(workspace, self.model.net, self.model.GetParams())   
-        text_file = open("init_net.pb", "wb")
+        file_prefix, file_extension = self.input_file.split(".")
+        text_file = open("init_net_" + file_prefix + ".pb", "wb")
         text_file.write(init_pb.SerializeToString())
         text_file.close()
-        text_file = open("predict_net.pb","wb")
+        text_file = open("predict_net_" + file_prefix + ".pb","wb")
         text_file.write(predictor_pb.SerializeToString())
         text_file.close()
            # break
@@ -130,14 +132,15 @@ def main():
     #  parser.add_argument("--train_data", type=str, default=None,
     #                      help="Path to training data in a text file format",
     #                      required=True)
-    parser.add_argument("--gpu", action="store_true",  help="If set, training is going to use GPU 0")
+    parser.add_argument("--gpu", type=int, default=-1,  help="If set, training is going to use the GPU specified")
     parser.add_argument("--batch_size", type=int, default=10, help="Batch Size")
     parser.add_argument("--output_dim", type=int, default=1, help="Dimensionality of predicted control input")
     parser.add_argument("--num_iterations", type=int, default=10000, help="Number of iterations to train")
+    parser.add_argument("--input_file", default="annotations.csv", help="Input file to pull annotations from")
     args = parser.parse_args()
     last_time = datetime.now()
     progress = 0
-    device = core.DeviceOption(caffe2_pb2.CUDA if args.gpu else caffe2_pb2.CPU, 0)
+    device = core.DeviceOption(caffe2_pb2.CUDA if args.gpu>=0 else caffe2_pb2.CPU, args.gpu)
     with core.DeviceScope(device):
         pilotnet = PilotNet(args)
         pilotnet.CreateModel()
