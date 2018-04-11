@@ -35,6 +35,7 @@ class PilotNet(object):
     def __init__(self, args):
         self.batch_size = args.batch_size
         self.output_dim = args.output_dim
+        self.scale_factor = args.scale_factor
         self.input_channels = 3
         self.input_height = 66
         self.input_width = 200
@@ -62,8 +63,8 @@ class PilotNet(object):
 	    # Image size: 3x20 -> 1x18
         self.conv5 = brew.conv(model, self.conv4, 'conv5', dim_in=64, dim_out=64, kernel=3)
 	    # Flatten from 64 X 1 X 18 image to the "deep feature" vector
-        self.deep_features = model.net.Reshape("conv5", ["deep_features", "conv5_old"], shape=[self.batch_size, 64*1*18])
-        self.fc1 = brew.fc(model, "deep_features", 'fc1', dim_in=64*1*18, dim_out=100, axis=1)
+        self.deep_features = model.net.Reshape("conv5", ["deep_features", "conv5_old"], shape=[-1, 64*1*18])
+        self.fc1 = brew.fc(model, 'deep_features', 'fc1', dim_in=64*1*18, dim_out=100, axis=1)
         self.fc2 = brew.fc(model, self.fc1, 'fc2', dim_in=100, dim_out=50, axis=1)
         self.fc3 = brew.fc(model, self.fc2, 'fc3', dim_in=50, dim_out=10, axis=1)
         self.prediction = brew.fc(model, self.fc3, 'prediction', dim_in=10, dim_out=self.output_dim, axis=1)
@@ -102,6 +103,7 @@ class PilotNet(object):
             np.random.shuffle(possible_vals)
             indices = possible_vals[0:self.batch_size]
             input = images[indices,:].astype(np.float32)
+            input = np.divide(input, self.scale_factor)
             target = labels[indices,:].astype(np.float32)
             workspace.FeedBlob('input_blob', input)
             workspace.FeedBlob('target', target)
@@ -152,6 +154,7 @@ def main():
     parser.add_argument("--num_iterations", type=int, default=10000, help="Number of iterations to train")
     parser.add_argument("--input_file", type=str, default="annotations.csv", help="Input file to pull annotations from")
     parser.add_argument("--input_folder", type=str, required=True, help="Input file to pull annotations from")
+    parser.add_argument("--scale_factor", type=float, default=2.55, help="Scaling factor to divide all of the pixels in the training images by")
     args = parser.parse_args()
     last_time = datetime.now()
     progress = 0

@@ -213,23 +213,16 @@ class SteeringRNN(object):
             predictions_out = workspace.FetchBlob(self.predictions)
             deep_features = workspace.FetchBlob(self.fc_conv)
             ''' '''
-	    print("Input shape:", input.shape)
+            print("Input shape:", input.shape)
             print("Input:", input)
-
-	    print("Deep Feature shape:", deep_features.shape)
+            print("Deep Feature shape:", deep_features.shape)
             print("Deep Feature:", deep_features)
-
-	    print("Predicted Output shape:", predictions_out.shape)
-	    print("Predicted Output:", predictions_out)
-	     
-	    
-	    init_pb, predictor_pb = Export(workspace, self.model.net, self.model.GetParams())
-	    
-	    print(predictor_pb)
-	    print(init_pb)
-	    ''''''
-	    break          
-	    
+            print("Predicted Output shape:", predictions_out.shape)
+            print("Predicted Output:", predictions_out)
+            init_pb, predictor_pb = Export(workspace, self.model.net, self.model.GetParams())   
+            print(predictor_pb)
+            print(init_pb)
+            break
             num_iter += 1
             last_n_iter += 1
 
