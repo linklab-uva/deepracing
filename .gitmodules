@@ -1,0 +1,3 @@
+[submodule "caffe2-deployment/third_party/protobuf"]
+	path = caffe2-deployment/third_party/protobuf
+	url = https://github.com/google/protobuf.git
