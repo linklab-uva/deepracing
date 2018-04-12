@@ -1,37 +1,20 @@
 #include <pybind11/pybind11.h>
-
-int add(int i, int j) {
-    return i + j;
-}
-
+#include <screen_video_capture.h>
 namespace py = pybind11;
+PYBIND11_MODULE(pyf1_datalogger, m) {
+	m.doc() = R"pbdoc(
 
-PYBIND11_MODULE(pybind11_cmake_example, m) {
-    m.doc() = R"pbdoc(
-        Pybind11 example plugin
+        Pybind11 plugin for the f1 datalogger
+
         -----------------------
 
-        .. currentmodule:: cmake_example
-
-        .. autosummary::
-           :toctree: _generate
-
-           add
-           subtract
     )pbdoc";
-
-    m.def("add", &add, R"pbdoc(
-        Add two numbers
-
-        Some other explanation about the add function.
-    )pbdoc");
-
-    m.def("subtract", [](int i, int j) { return i - j; }, R"pbdoc(
-        Subtract two numbers
-
-        Some other explanation about the subtract function.
-    )pbdoc");
-
+	py::class_<deepf1::screen_video_capture> ScreenVideoCapture(m, "ScreenVideoCapture");
+	ScreenVideoCapture
+		.def("read", &deepf1::screen_video_capture::read);
+	ScreenVideoCapture
+		.def(py::init<>());
+}
 #ifdef VERSION_INFO
     m.attr("__version__") = VERSION_INFO;
 #else
