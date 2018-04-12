@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
 	po::options_description desc("Allowed options");
 	desc.add_options()
 		("help", "Displays options and exits")
-		("output_folder,f", po::value<std::string>(&data_directory)->default_value(std::string("data")), "Top-level folder to look for the original data dump.")
+		("input_folder,f", po::value<std::string>(&data_directory)->default_value(std::string("data")), "Top-level folder to look for the original data dump.")
 		("annotation_prefix,p", po::value<std::string>(&annotation_prefix)->default_value(std::string("data_point_")), "Prefix of the filename for each native annotation file. Each annotation is the prefix followed by a unique integer.")
 		("output_file,o", po::value<std::string>(&output_file)->default_value(std::string("out.csv")), "Output file to dump the steering angles to.")
 		("interpolation_degree,d", po::value<unsigned int>(&interpolation_degree)->default_value(0), "What degree of polynomial interpolation to use. It left at the default value of 0, no interpolation is done.")

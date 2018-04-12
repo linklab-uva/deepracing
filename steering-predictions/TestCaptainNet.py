@@ -26,8 +26,8 @@ def main():
     device = core.DeviceOption(caffe2_pb2.CUDA , 0)
     with core.DeviceScope(device):
         SCALE_FACTOR=2.55
-        INIT_NET = "init_net_quadratic_interpolation.pb"
-        PREDICT_NET = "predict_net_quadratic_interpolation.pb"
+        INIT_NET = "init_captain_net_all_control_test_file.pb"
+        PREDICT_NET = "predict_captain_net_all_control_test_file.pb"
         init_def = caffe2_pb2.NetDef()
         with open(INIT_NET, 'rb') as f:
             init_def.ParseFromString(f.read())
@@ -44,11 +44,11 @@ def main():
         img = cv2.imread("D:/test_data/slow_run_australia_track2/raw_images/raw_image_872.jpg", cv2.IMREAD_UNCHANGED).astype(np.float32)
         img_resized= cv2.resize(img,dsize=(200,66), interpolation = cv2.INTER_CUBIC)
         img_transposed = np.transpose(img_resized, (2, 0, 1)).astype(np.float32)
-        input = np.random.rand(1,3,66,200)
+        input = np.random.rand(1,3,66,200).astype(np.float32)
         input[0] = img_transposed
         input = np.divide(input, SCALE_FACTOR)
         workspace.FeedBlob('input_blob', input, device_option=device)
-        workspace.RunNet("PilotNet_1")
+        workspace.RunNet("CaptainNet_1")
         pred = workspace.FetchBlob("prediction")
         pred_scaled = np.divide(pred,100.0)
         print(pred_scaled)

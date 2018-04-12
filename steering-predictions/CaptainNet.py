@@ -31,10 +31,10 @@ def CreateNetOnce(net, created_names=set()): # noqa
     if name not in created_names:
         created_names.add(name)
         workspace.CreateNet(net)
-class PilotNet(object):
+class CaptainNet(object):
     def __init__(self, args):
         self.batch_size = args.batch_size
-        self.output_dim = 1
+        self.output_dim = 3
         self.scale_factor = args.scale_factor
         self.input_channels = 3
         self.input_height = 66
@@ -44,7 +44,7 @@ class PilotNet(object):
         self.input_folder = args.input_folder
     def CreateModel(self):
         log.debug("Start training")
-        model = model_helper.ModelHelper(name="PilotNet")
+        model = model_helper.ModelHelper(name="CaptainNet")
         input_blob =  model.net.AddExternalInputs('input_blob')
         #3x3 ->Convolutional feature map 64@1x18
         #3x3 ->Convolutional feature map 64@3x20
@@ -54,14 +54,19 @@ class PilotNet(object):
         #Normalized input planes 3@66x200
 	    # Image size: 66x200 -> 31x98
         self.conv1 = brew.conv(model, input_blob, 'conv1', dim_in=self.input_channels, dim_out=24, kernel=5, stride=2)
+        #self.conv1 = brew.relu(model, self.conv1, self.conv1)
 	    # Image size: 31x98 -> 14x47
         self.conv2 = brew.conv(model, self.conv1, 'conv2', dim_in=24, dim_out=36, kernel=5, stride=2)
+        #self.conv2 = brew.relu(model, self.conv2, self.conv2)
 	    # Image size: 14x47 -> 5x22
         self.conv3 = brew.conv(model, self.conv2, 'conv3', dim_in=36, dim_out=48, kernel=5, stride=2)
+        #self.conv3 = brew.relu(model, self.conv3, self.conv3)
 	    # Image size: 5x22 -> 3x20
         self.conv4 = brew.conv(model, self.conv3, 'conv4', dim_in=48, dim_out=64, kernel=3)
+        #self.conv4 = brew.relu(model, self.conv4, self.conv4)
 	    # Image size: 3x20 -> 1x18
         self.conv5 = brew.conv(model, self.conv4, 'conv5', dim_in=64, dim_out=64, kernel=3)
+        #self.conv5 = brew.relu(model, self.conv5, self.conv5)
 	    # Flatten from 64 X 1 X 18 image to the "deep feature" vector
         self.deep_features = model.net.Reshape("conv5", ["deep_features", "conv5_old"], shape=[-1, 64*1*18])
         self.fc1 = brew.fc(model, 'deep_features', 'fc1', dim_in=64*1*18, dim_out=100, axis=1)
@@ -112,10 +117,10 @@ class PilotNet(object):
             print("loss", loss)
         init_pb, predictor_pb = Export(workspace, self.forward_net, self.model.params)   
         file_prefix, file_extension = self.input_file.split(".")
-        text_file = open("init_pilot_net_" + file_prefix + ".pb", "wb")
+        text_file = open("init_captain_net_" + file_prefix + ".pb", "wb")
         text_file.write(init_pb.SerializeToString())
         text_file.close()
-        text_file = open("predict_pilot_net_" + file_prefix + ".pb","wb")
+        text_file = open("predict_captain_net_" + file_prefix + ".pb","wb")
         text_file.write(predictor_pb.SerializeToString())
         text_file.close()
            # break
@@ -132,7 +137,7 @@ class PilotNet(object):
         labels = np.random.rand(len(lines), self.output_dim).astype(np.float32)
         for i in range(len(lines)):
             line = lines[i]
-            im_file, time_stamp, steering_angle = line.split(",")
+            im_file, timestamp, steering_angle, throttle_pressure, brake_pressure = line.split(",")
             full_image_path = os.path.join(im_folder, im_file)
             img = cv2.imread(full_image_path, cv2.IMREAD_UNCHANGED).astype(np.float32)
             img_resized= cv2.resize(img,dsize=(self.input_width,self.input_height), interpolation = cv2.INTER_CUBIC)
@@ -140,6 +145,8 @@ class PilotNet(object):
             img_scaled = np.divide(img_transposed, self.scale_factor)
             rtn[i]=img_scaled
             labels[i][0]=100.0*float(steering_angle)
+            labels[i][1]=100.0*float(throttle_pressure)
+            labels[i][2]=100.0*float(brake_pressure)
         labels = labels.astype(np.float32)
         return rtn, labels
 @utils.debug
@@ -159,10 +166,10 @@ def main():
     progress = 0
     device = core.DeviceOption(caffe2_pb2.CUDA if args.gpu>=0 else caffe2_pb2.CPU, args.gpu)
     with core.DeviceScope(device):
-        pilotnet = PilotNet(args)
-        pilotnet.CreateModel()
+        captainnet = CaptainNet(args)
+        captainnet.CreateModel()
         print("yay")
-        pilotnet.TrainModel()
+        captainnet.TrainModel()
 
      #   init_pb, predictor_pb = Export(workspace, self.model.net, self.model.GetParams())   
     #    print(predictor_pb)

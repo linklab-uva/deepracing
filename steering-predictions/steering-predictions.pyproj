@@ -32,8 +32,12 @@
     <Compile Include="char_rnn.py" />
     <Compile Include="lmdb_create_example.py" />
     <Compile Include="PilotNet.py" />
+    <Compile Include="playground.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="resnet50_trainer.py" />
     <Compile Include="steering_rnn.py" />
+    <Compile Include="TestCaptainNet.py" />
     <Compile Include="TestPilotNet.py">
       <SubType>Code</SubType>
     </Compile>

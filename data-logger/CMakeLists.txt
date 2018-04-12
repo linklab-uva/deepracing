@@ -1,5 +1,8 @@
 project(f1_datalogger)
 cmake_minimum_required(VERSION 2.7)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 find_package( Boost COMPONENTS chrono filesystem math_tr1f math_tr1l program_options REQUIRED )
 find_package( OpenCV REQUIRED )
@@ -100,6 +103,7 @@ optimized ${Boost_FILESYSTEM_LIBRARY_RELEASE}
 
 add_executable(${PROJECT_NAME}_common_extractor src/common_extractor.cpp)
 target_link_libraries(${PROJECT_NAME}_common_extractor
+${PROJECT_NAME}_math_utils
 ${PROJECT_NAME}_data_capture
 ${PROJECT_NAME}_gsoap_binding
 debug ${Boost_FILESYSTEM_LIBRARY_DEBUG}
