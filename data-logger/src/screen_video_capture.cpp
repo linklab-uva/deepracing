@@ -10,6 +10,14 @@ namespace deepf1
 		DeleteDC(hwindowCompatibleDC);
 		ReleaseDC(targetWindow, hwindowDC);
 	}
+	screen_video_capture::screen_video_capture()
+	{
+	}
+	screen_video_capture::screen_video_capture(cv::Rect2d capture_area, std::string application)
+	{
+		//captureArea = capture_area;
+		open(application, capture_area);
+	}
 	screen_video_capture::screen_video_capture(cv::Rect2d capture_area, std::shared_ptr<const boost::timer::cpu_timer> timer, std::string application)
 	{
 		this->timer = std::shared_ptr<const boost::timer::cpu_timer>(timer);
@@ -65,17 +73,26 @@ namespace deepf1
 
 	}
 
-
-	boost::timer::cpu_times screen_video_capture::read(cv::Mat& destination)
+	cv::Mat screen_video_capture::read() {
+		cv::Mat mat;
+		mat.create(captureArea.height, captureArea.width, CV_8UC4);
+		captureHwnd(mat);
+		return mat;
+	}
+	boost::timer::cpu_times screen_video_capture::readTimed(cv::Mat& destination)
 	{
 		if (targetWindow == NULL)
 			throw new std::exception("No target monitor specified! The 'open()' method must be called to select a target monitor before frames can be read.");
 
-		 return captureHwnd(destination);
+		 return captureHwndTimed(destination);
 	}
 
-
-	boost::timer::cpu_times screen_video_capture::captureHwnd(cv::Mat& dest)
+	void screen_video_capture::captureHwnd(cv::Mat& dest) {
+		BitBlt(hwindowCompatibleDC, 0, 0, captureArea.width, captureArea.height, hwindowDC, captureArea.x, captureArea.y, SRCCOPY);
+		// Copy into our own buffer as device-independent bitmap
+		GetDIBits(hwindowCompatibleDC, hbwindow, 0, captureArea.height, dest.data, (BITMAPINFO *)&bi, DIB_RGB_COLORS);
+	}
+	boost::timer::cpu_times screen_video_capture::captureHwndTimed(cv::Mat& dest)
 	{
 		
 		boost::timer::cpu_times times2 = timer->elapsed();

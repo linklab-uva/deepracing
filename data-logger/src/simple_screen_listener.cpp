@@ -36,7 +36,7 @@ namespace deepf1
 		running = true;
 		for (unsigned int i = 0; i < dataz.size() && running; i++)
 		{
-			 dataz[i].timestamp = svc->read(dataz[i].image);
+			 dataz[i].timestamp = svc->readTimed(dataz[i].image);
 			 Sleep(5);
 		}
 	}
