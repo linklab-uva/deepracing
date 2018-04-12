@@ -11,6 +11,7 @@ include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${EIGEN3_INCLU
 include_directories(include)
 link_directories(${Boost_LIBRARY_DIR_RELEASE})
 option(BUILD_DLLS "Generate Dynamic Link Libraries (DLLs)" OFF)
+option(BUILD_PYTHON_BINDING "Generate pybind11 bindings" OFF)
 
 IF(BUILD_DLLS)
 set(BUILD_SHARED_LIBS true)
@@ -120,6 +121,10 @@ ${PROJECT_NAME}_gsoap_binding
 ${PROJECT_NAME}_data_capture
 ${PROJECT_NAME}
 )
+if(BUILD_PYTHON_BINDING)
+add_subdirectory(python_binding)
+endif()
+
 install(TARGETS ${${PROJECT_NAME}_INSTALL_TARGETS}
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib
