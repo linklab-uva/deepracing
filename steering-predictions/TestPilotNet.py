@@ -23,35 +23,34 @@ log.setLevel(logging.ERROR)
 
 
 def main():
-    device = core.DeviceOption(caffe2_pb2.CUDA , 0)
-    with core.DeviceScope(device):
-        SCALE_FACTOR=2.55
-        INIT_NET = "init_net_quadratic_interpolation.pb"
-        PREDICT_NET = "predict_net_quadratic_interpolation.pb"
-        init_def = caffe2_pb2.NetDef()
-        with open(INIT_NET, 'rb') as f:
-            init_def.ParseFromString(f.read())
-            init_def.device_option.CopyFrom(device)
-        workspace.RunNetOnce(init_def.SerializeToString())
-        #print(init_def)
-        net_def = caffe2_pb2.NetDef()
-        with open(PREDICT_NET, 'rb') as f:
-            net_def.ParseFromString(f.read())
-            net_def.device_option.CopyFrom(device)
-            workspace.CreateNet(net_def.SerializeToString())
-        #`#run the net and return prediction
-        #print(net_def)
-        img = cv2.imread("D:/test_data/slow_run_australia_track2/raw_images/raw_image_872.jpg", cv2.IMREAD_UNCHANGED).astype(np.float32)
-        img_resized= cv2.resize(img,dsize=(200,66), interpolation = cv2.INTER_CUBIC)
-        img_transposed = np.transpose(img_resized, (2, 0, 1)).astype(np.float32)
-        input = np.random.rand(1,3,66,200)
-        input[0] = img_transposed
-        input = np.divide(input, SCALE_FACTOR)
-        workspace.FeedBlob('input_blob', input, device_option=device)
-        workspace.RunNet("PilotNet_1")
-        pred = workspace.FetchBlob("prediction")
-        pred_scaled = np.divide(pred,100.0)
-        print(pred_scaled)
+    SCALE_FACTOR=2.55
+    INIT_NET = "init_net_quadratic_interpolation.pb"
+    PREDICT_NET = "predict_net_quadratic_interpolation.pb"
+    device = device_option=core.DeviceOption(caffe2_pb2.CUDA,0)
+    init_def = caffe2_pb2.NetDef()
+    with open(INIT_NET, 'rb') as f:
+        init_def.ParseFromString(f.read())
+        init_def.device_option.CopyFrom(device)
+    workspace.RunNetOnce(init_def.SerializeToString())
+    #print(init_def)
+    net_def = caffe2_pb2.NetDef()
+    with open(PREDICT_NET, 'rb') as f:
+        net_def.ParseFromString(f.read())
+        net_def.device_option.CopyFrom(device)
+        workspace.CreateNet(net_def.SerializeToString())
+    #`#run the net and return prediction
+    #print(net_def)
+    img = cv2.imread("D:/test_data/slow_run_australia_track2/raw_images/raw_image_872.jpg", cv2.IMREAD_UNCHANGED).astype(np.float32)
+    img_resized= cv2.resize(img,dsize=(200,66), interpolation = cv2.INTER_CUBIC)
+    img_transposed = np.transpose(img_resized, (2, 0, 1)).astype(np.float32)
+    input = np.random.rand(1,3,66,200)
+    input[0] = img_transposed
+    input = np.divide(input, SCALE_FACTOR)
+    workspace.FeedBlob('input_blob', input, device_option=device)
+    workspace.RunNet("PilotNet_1")
+    pred = workspace.FetchBlob("prediction")
+    pred_scaled = np.divide(pred,100.0)
+    print(pred_scaled)
 if __name__ == '__main__':
     workspace.GlobalInit(['caffe2', '--caffe2_log_level=2'])
     main()
