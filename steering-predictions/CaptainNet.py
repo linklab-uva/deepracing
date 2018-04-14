@@ -139,14 +139,14 @@ class CaptainNet(object):
             line = lines[i]
             im_file, timestamp, steering_angle, throttle_pressure, brake_pressure = line.split(",")
             full_image_path = os.path.join(im_folder, im_file)
-            img = cv2.imread(full_image_path, cv2.IMREAD_UNCHANGED).astype(np.float32)
+            img = cv2.imread(full_image_path, cv2.IMREAD_UNCHANGED)
             img_resized= cv2.resize(img,dsize=(self.input_width,self.input_height), interpolation = cv2.INTER_CUBIC)
-            img_transposed = np.transpose(img_resized, (2, 0, 1))
-            img_scaled = np.divide(img_transposed, self.scale_factor)
+            img_transposed = np.transpose(img_resized, (2, 0, 1)).astype(np.float32)
+            img_scaled = np.divide(img_transposed, self.scale_factor).astype(np.float32)
             rtn[i]=img_scaled
-            labels[i][0]=100.0*float(steering_angle)
-            labels[i][1]=100.0*float(throttle_pressure)
-            labels[i][2]=100.0*float(brake_pressure)
+            labels[i][0]=float(steering_angle)
+            labels[i][1]=float(throttle_pressure)
+            labels[i][2]=float(brake_pressure)
         labels = labels.astype(np.float32)
         return rtn, labels
 @utils.debug
@@ -160,7 +160,7 @@ def main():
     parser.add_argument("--num_iterations", type=int, default=10000, help="Number of iterations to train")
     parser.add_argument("--input_file", type=str, default="annotations.csv", help="Input file to pull annotations from")
     parser.add_argument("--input_folder", type=str, required=True, help="Input file to pull annotations from")
-    parser.add_argument("--scale_factor", type=float, default=2.55, help="Scaling factor to divide all of the pixels in the training images by")
+    parser.add_argument("--scale_factor", type=float, default=255.0, help="Scaling factor to divide all of the pixels in the training images by")
     args = parser.parse_args()
     last_time = datetime.now()
     progress = 0
