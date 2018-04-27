@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+import cv2
 from caffe2.python.net_builder import ops
 from caffe2.python import core, workspace, model_helper, utils, brew
 from caffe2.python.rnn_cell import LSTM
@@ -14,7 +15,6 @@ from caffe2.python.predictor.predictor_exporter import get_predictor_exporter_he
 import caffe2.python.predictor.predictor_py_utils as pred_utils
 
 from caffe2.python.predictor_constants import predictor_constants as predictor_constants
-import cv2
 import argparse
 import logging
 import os
