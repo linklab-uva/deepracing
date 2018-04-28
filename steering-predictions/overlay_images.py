@@ -14,14 +14,15 @@ def main():
     args = parser.parse_args()
     x = args.x
     y = args.y
-    img_path = os.path.join('slow_run_australia_track2','raw_images','raw_image_57.jpg')
     annotations_path = os.path.join('slow_run_australia_track2','zeroth_degree_interpolation.csv')
     annotations_file = open(annotations_path,'r')
-    annotations = annotations_file.readlines()
-    background = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
     wheel = cv2.imread('steering_wheel.png', cv2.IMREAD_UNCHANGED)  
+    input_folder = os.path.join('slow_run_australia_track2','raw_images')
     output_folder = os.path.join('slow_run_australia_track2','overlayed_images')
+    annotations = annotations_file.readlines()
     filename, ts, anglestr = annotations[0].split(",")
+    img_path = os.path.join(input_folder,filename)
+    background = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
     anglestr = anglestr.replace("\n","")
     cv2.namedWindow('Display image')          ## create window for display
     imutils.overlay_image(background,wheel,x,y)
