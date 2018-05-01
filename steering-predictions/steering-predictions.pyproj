@@ -27,12 +27,17 @@
     <PtvsTargetsFile>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets</PtvsTargetsFile>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="img_utils\__pycache__\utils.cpython-36.pyc" />
+    <Content Include="img_utils\__pycache__\__init__.cpython-36.pyc" />
     <Content Include="shakespeare.txt" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CaptainNet.py" />
     <Compile Include="char_rnn.py" />
+    <Compile Include="img_utils\utils.py" />
+    <Compile Include="img_utils\__init__.py" />
     <Compile Include="lmdb_create_example.py" />
+    <Compile Include="overlay_images.py" />
     <Compile Include="PilotNet.py" />
     <Compile Include="playground.py">
       <SubType>Code</SubType>
@@ -43,6 +48,10 @@
     <Compile Include="TestPilotNet.py">
       <SubType>Code</SubType>
     </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="img_utils\" />
+    <Folder Include="img_utils\__pycache__\" />
   </ItemGroup>
   <Import Project="$(PtvsTargetsFile)" Condition="Exists($(PtvsTargetsFile))" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" Condition="!Exists($(PtvsTargetsFile))" />
