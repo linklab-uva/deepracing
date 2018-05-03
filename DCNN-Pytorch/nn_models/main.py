@@ -59,10 +59,10 @@ parser.add_argument("--gpu", action="store_true", help="Accelerate with GPU")
 parser.add_argument("--batch_size", type=int, default = 8, help="Batch Size")
 parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs to run")
 parser.add_argument("--learning_rate", type=float, default=0.01, help="Number of training epochs to run")
+parser.add_argument("--momentum", type=float, default=0.0, help="Momentum value to use on the SGD optimizer")
 parser.add_argument("--root_dir", type=str, required=True, help="Root dir of the F1 dataset to use")
 parser.add_argument("--annotation_file", type=str, required=True, help="Annotation file to use")
 args = parser.parse_args()
-learningRate = args.learning_rate
 network = models.PilotNet()
 network.float()
 
@@ -75,6 +75,6 @@ print(trainLoader)
 criterion = nn.MSELoss()
 
 # Definition of optimization strategy.
-optimizer = optim.SGD(network.parameters(), lr = learningRate, momentum=0.01)
+optimizer = optim.SGD(network.parameters(), lr = args.learning_rate, momentum=args.momentum)
 prefix, ext = args.annotation_file.split(".")
 train_model(network, criterion, optimizer, trainLoader, prefix, n_epochs = args.epochs, use_gpu = args.gpu)
