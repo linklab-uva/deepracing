@@ -63,12 +63,13 @@ parser.add_argument("--momentum", type=float, default=0.0, help="Momentum value 
 parser.add_argument("--root_dir", type=str, required=True, help="Root dir of the F1 dataset to use")
 parser.add_argument("--annotation_file", type=str, required=True, help="Annotation file to use")
 args = parser.parse_args()
+prefix, ext = args.annotation_file.split(".")
 network = models.PilotNet()
 network.float()
 
 trainset = loaders.F1Dataset(args.root_dir,args.annotation_file,(3,66,200),1)
-print(trainset)
-trainset.read_pickles('slow_australia_track_run3_images.pkl','slow_australia_track_run3_linear.pkl')
+trainset.read_files()
+trainset.write_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
 trainLoader = torch.utils.data.DataLoader(trainset, batch_size = 8, shuffle = True, num_workers = 0)
 print(trainLoader)
 #Definition of our loss.
@@ -76,5 +77,4 @@ criterion = nn.MSELoss()
 
 # Definition of optimization strategy.
 optimizer = optim.SGD(network.parameters(), lr = args.learning_rate, momentum=args.momentum)
-prefix, ext = args.annotation_file.split(".")
 train_model(network, criterion, optimizer, trainLoader, prefix, n_epochs = args.epochs, use_gpu = args.gpu)
