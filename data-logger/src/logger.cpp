@@ -10,7 +10,6 @@
 #include <boost/program_options.hpp>
 #include <memory>
 #include <sstream>
-#include <Eigen/Core> 
 #include <boost/filesystem/fstream.hpp>
 #include "simple_udp_listener.h"
 #include "simple_screen_listener.h"
@@ -92,6 +91,7 @@ int main(int argc, char** argv) {
 	std::thread udp_thread(udp_worker);
 	std::thread screen_thread(screen_worker);
 	screen_thread.join();
+	std::cout << "Screencapping done" << std::endl;
 	//udp_listener.stop();
 	udp_thread.join();
 	std::vector<deepf1::timestamped_image_data_t> screen_data = screen_listener.get_data();
@@ -142,12 +142,6 @@ namespace deepf1 {
 		std::vector<deepf1::timestamped_udp_data> udp_data = udp_listener.get_data();
 		fs::path root_dir = fs::path(dir);
 		fs::create_directory(root_dir);
-		fs::path annotations_dir = root_dir / fs::path("annotations");
-		fs::create_directory(annotations_dir);
-		fs::path images_dir = root_dir / fs::path("images");
-		fs::create_directory(images_dir);
-
-
 		fs::path raw_annotations_dir = root_dir / fs::path("raw_annotations");
 		fs::create_directory(raw_annotations_dir);
 		fs::path raw_images_dir = root_dir / fs::path("raw_images");
@@ -169,38 +163,7 @@ namespace deepf1 {
 			(*raw_image_timestamps_stream) << raw_image_ss.str() << ", " << (it->timestamp.wall) << std::endl;
 			raw_point_number++;
 
-			deepf1::timestamped_udp_data udp_tag = find_closest_value(udp_data, it->timestamp);
-			float delta = ((float)(std::abs(udp_tag.timestamp.wall - it->timestamp.wall)))/1E6;
-			if (delta <= max_delta) {
-				std::printf("Associating an image with timestamp %lld to upd packet with timestamp %lld\n", 
-					it->timestamp.wall, udp_tag.timestamp.wall);
-			}
-			else {
-				std::printf("Discarding image because the closest udp data is %f milliseconds away\n", delta);
-				continue;
-			}
 
-			::deepf1_gsoap::ground_truth_sample * ground_truth = deepf1_gsoap::soap_new_ground_truth_sample(soap);
-			::deepf1_gsoap::UDPPacket* pack = convert.convert_to_gsoap(*(udp_tag.data));
-			ground_truth->sample = *pack;
-			ground_truth->timestamp = udp_tag.timestamp.wall;
-
-
-			std::stringstream image_ss;
-			image_ss << "image_" << point_number << ".jpg";
-			fs::path image_path = images_dir / fs::path(image_ss.str());
-			cv::imwrite(image_path.string(), (it->image));
-			ground_truth->image_file = image_ss.str();
-
-			std::stringstream annotation_ss;
-			annotation_ss << "data_point_" << point_number << ".xml";
-			++point_number;
-		
-			fs::path annotation_path = annotations_dir / fs::path(annotation_ss.str());
-			file_out.reset(new std::fstream(annotation_path.string(), std::fstream::out));
-			soap->os = file_out.get();
-			deepf1_gsoap::soap_write_ground_truth_sample(soap, ground_truth);
-			file_out->close();
 		}
 		raw_point_number = 1;
 		std::cout << "Writing " << udp_data.size() << " raw annotations to file." << std::endl;
