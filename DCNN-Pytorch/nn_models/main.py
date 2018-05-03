@@ -4,6 +4,7 @@ import numpy as np
 import nn_models
 import data_loading.image_loading as il
 import nn_models.Models as models
+import data_loading.data_loaders as loaders
 import numpy.random
 im = il.load_image("test_image.jpg",size=(66,200),scale_factor=255.0)
 print(im)
@@ -23,3 +24,7 @@ print(captain_net)
 input = torch.from_numpy(np.random.rand(10,3,66,200))
 results = captain_net(input)
 print(results)
+
+dl = loaders.F1Dataset("D:\\test_data\\slow_australia_track_run3","run3_linear.csv")
+print(dl)
+print(dl.__getitem__(5))
