@@ -68,8 +68,11 @@ network = models.PilotNet()
 network.float()
 
 trainset = loaders.F1Dataset(args.root_dir,args.annotation_file,(3,66,200),1)
-trainset.read_files()
-trainset.write_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
+if(os.path.isfile("./" + prefix+"_images.pkl") and os.path.isfile("./" + prefix+"_annotations.pkl")):
+    trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
+else:  
+    trainset.read_files()
+    trainset.write_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
 trainLoader = torch.utils.data.DataLoader(trainset, batch_size = 8, shuffle = True, num_workers = 0)
 print(trainLoader)
 #Definition of our loss.
