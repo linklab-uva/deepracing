@@ -1,7 +1,7 @@
 import torch.nn as nn 
 import torch.nn.functional as F
 import torch.optim as optim
-class PilotNet(object):
+class PilotNet(nn.Module):
     """PyTorch Implementation of NVIDIA's PilotNet"""
     def __init__(self):
         super(PilotNet, self).__init__()

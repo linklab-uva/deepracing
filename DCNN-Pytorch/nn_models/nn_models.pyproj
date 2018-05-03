@@ -3,16 +3,15 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>486734c2-cf0e-49a7-bba3-bdd36e795e14</ProjectGuid>
-    <ProjectHome>
-    </ProjectHome>
+    <ProjectGuid>3394588a-c901-4b2d-85c4-3855a7a87134</ProjectGuid>
+    <ProjectHome>.</ProjectHome>
     <StartupFile>main.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
-    <Name>CNN_Predictions</Name>
-    <RootNamespace>PilotNet</RootNamespace>
+    <Name>nn_models</Name>
+    <RootNamespace>nn_models</RootNamespace>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -29,17 +28,17 @@
     <Compile Include="data_loading\__init__.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="ml_models\PilotNet.py">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="ml_models\__init__.py">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="main.py" />
+    <Compile Include="nn_models\PilotNet.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="nn_models\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="data_loading\" />
-    <Folder Include="ml_models\" />
+    <Folder Include="nn_models\" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
