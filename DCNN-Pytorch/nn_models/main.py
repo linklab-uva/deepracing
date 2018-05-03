@@ -13,6 +13,7 @@ import pickle
 from datetime import datetime
 import os
 import string
+import argparse
 def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
     network.train()  # This is important to call before training!
     cum_loss = 0.0
@@ -51,15 +52,21 @@ def train_model(network, criterion, optimizer, trainLoader, file_prefix, n_epoch
     for epoch in range(0, n_epochs):
         print("Epoch %d of %d" %((epoch+1),n_epochs))
         run_epoch(network, criterion, optimizer, trainLoader, use_gpu)
-        log_path = os.path.join("log",""+file_prefix+str((epoch+1))+ ".model")
+        log_path = os.path.join("log",""+file_prefix+"_epoch"+str((epoch+1))+ ".model")
         torch.save(network.state_dict(), log_path)
-im = il.load_image("test_image.jpg",size=(66,200),scale_factor=255.0)
-print(im)
+parser = argparse.ArgumentParser(description="LSTM URL Classification Training")
+parser.add_argument("--gpu", action="store_true", help="Accelerate with GPU")
+parser.add_argument("--batch_size", type=int, default = 8, help="Batch Size")
+parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs to run")
+parser.add_argument("--learning_rate", type=float, default=0.01, help="Number of training epochs to run")
+parser.add_argument("--root_dir", type=str, required=True, help="Root dir of the F1 dataset to use")
+parser.add_argument("--annotation_file", type=str, required=True, help="Annotation file to use")
+args = parser.parse_args()
+learningRate = args.learning_rate
 network = models.PilotNet()
 network.float()
 
-learningRate = 0.01
-trainset = loaders.F1Dataset("D:\\test_data\\slow_australia_track_run3","run3_linear.csv",(3,66,200),1)
+trainset = loaders.F1Dataset(args.root_dir,args.annotation_file,(3,66,200),1)
 print(trainset)
 trainset.read_pickles('slow_australia_track_run3_images.pkl','slow_australia_track_run3_linear.pkl')
 trainLoader = torch.utils.data.DataLoader(trainset, batch_size = 8, shuffle = True, num_workers = 0)
@@ -69,5 +76,5 @@ criterion = nn.MSELoss()
 
 # Definition of optimization strategy.
 optimizer = optim.SGD(network.parameters(), lr = learningRate, momentum=0.01)
-
-train_model(network, criterion, optimizer, trainLoader, "pilotnet_linear_interpolation", n_epochs = 200, use_gpu = True)
+prefix, ext = args.annotation_file.split(".")
+train_model(network, criterion, optimizer, trainLoader, prefix, n_epochs = args.epochs, use_gpu = args.gpu)
