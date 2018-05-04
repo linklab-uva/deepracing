@@ -41,15 +41,17 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
         t.set_postfix(cum_loss = cum_loss/num_samples)
  
 
-def train_model(network, criterion, optimizer, trainLoader, file_prefix, n_epochs = 10, use_gpu = False):
+def train_model(network, criterion, optimizer, trainLoader, file_prefix, directory, n_epochs = 10, use_gpu = False):
     if use_gpu:
         network = network.cuda()
         criterion = criterion.cuda()
     # Training loop.
+    if(not os.path.isdir(directory)):
+        os.mkdir(directory)
     for epoch in range(0, n_epochs):
         print("Epoch %d of %d" %((epoch+1),n_epochs))
         run_epoch(network, criterion, optimizer, trainLoader, use_gpu)
-        log_path = os.path.join("log",""+file_prefix+"_epoch"+str((epoch+1))+ ".model")
+        log_path = os.path.join(directory,""+file_prefix+"_epoch"+str((epoch+1))+ ".model")
         torch.save(network.state_dict(), log_path)
 def main():
     parser = argparse.ArgumentParser(description="Steering prediction with PilotNet")
@@ -60,17 +62,23 @@ def main():
     parser.add_argument("--momentum", type=float, default=0.0, help="Momentum value to use on the SGD optimizer")
     parser.add_argument("--root_dir", type=str, required=True, help="Root dir of the F1 dataset to use")
     parser.add_argument("--annotation_file", type=str, required=True, help="Annotation file to use")
+    parser.add_argument("--output_dir", type=str, default="log", help="Directory to place the model files")
+    parser.add_argument("--file_prefix", type=str, default="", help="Additional prefix to add to the filename for the saved weight files")
     args = parser.parse_args()
     prefix, ext = args.annotation_file.split(".")
+    prefix = prefix + args.file_prefix
     network = models.PilotNet()
     network.float()
 
-    trainset = loaders.F1Dataset(args.root_dir,args.annotation_file,(3,66,200),1)
+    trainset = loaders.F1Dataset(args.root_dir,args.annotation_file,(3,66,200))
+   # trainset.read_files()
+    
     if(os.path.isfile("./" + prefix+"_images.pkl") and os.path.isfile("./" + prefix+"_annotations.pkl")):
         trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
     else:  
         trainset.read_files()
         trainset.write_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
+    ''' '''
     trainLoader = torch.utils.data.DataLoader(trainset, batch_size = 8, shuffle = True, num_workers = 0)
     print(trainLoader)
     #Definition of our loss.
@@ -78,7 +86,7 @@ def main():
 
     # Definition of optimization strategy.
     optimizer = optim.SGD(network.parameters(), lr = args.learning_rate, momentum=args.momentum)
-    train_model(network, criterion, optimizer, trainLoader, prefix, n_epochs = args.epochs, use_gpu = args.gpu)
+    train_model(network, criterion, optimizer, trainLoader, prefix, args.output_dir, n_epochs = args.epochs, use_gpu = args.gpu)
 
 if __name__ == '__main__':
     main()
