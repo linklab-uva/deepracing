@@ -14,8 +14,8 @@ class F1Dataset(Dataset):
         self.annotations_file = open(os.path.join(self.root_folder,self.annotation_filepath), "r")
         self.annotations = self.annotations_file.readlines()
         self.length = len(self.annotations)
-        self.images = torch.empty(self.__len__(),im_size[0],im_size[1],im_size[2], dtype=torch.float)
-        self.labels = torch.empty(self.__len__(),label_size, dtype=torch.float)
+        self.images = torch.empty(self.length,im_size[0],im_size[1],im_size[2], dtype=torch.float)
+        self.labels = torch.empty(self.length,label_size, dtype=torch.float)
     def write_pickles(self,image_pickle, label_pickle):
         filename = image_pickle
         fp = open(filename, 'wb')
@@ -38,15 +38,13 @@ class F1Dataset(Dataset):
         fp = open(filename, 'rb')
         self.labels =  torch.from_numpy(pickle.load(fp))
         fp.close()
-    def read_files(self):
-        idx = 0
+    def read_files(self, use_float32 = False):
         print("loading data")
-        for line in tqdm(self.annotations):
+        for (idx,line) in tqdm(enumerate(self.annotations)):
             fp, ts, steering, throttle, brake = line.split(",")
             self.labels[idx].fill_(float(steering))
-            im = load_image(os.path.join(self.root_folder,"raw_images",fp),size=(self.im_size[1],self.im_size[2]),scale_factor=255.0)
-            self.images[idx]=torch.from_numpy(im)
-            idx = idx + 1   
+            im = load_image(os.path.join(self.root_folder,"raw_images",fp),size=(self.im_size[1],self.im_size[2]),scale_factor=255.0, use_float32 = use_float32)
+            self.images[idx]=torch.from_numpy(im)  
            
     def __getitem__(self, index):
         return self.images[index], self.labels[index]
