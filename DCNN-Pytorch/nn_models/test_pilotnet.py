@@ -17,9 +17,10 @@ import argparse
 network = models.PilotNet()
 network.float()
 network.cuda()
-print(network)
+print(network.state_dict())
 
-modelpath = '/home/trent/deepf1data/log/run4_linear_epoch200.model'
-network.load_state_dict(torch.load(modelpath))
-print(network)
+modelpath = 'log/run4_linear_epoch200.model'
+state_dict = torch.load(modelpath)
+network.load_state_dict(state_dict)
+print(network.state_dict())
 
