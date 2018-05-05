@@ -67,11 +67,11 @@ def main():
     args = parser.parse_args()
     batch_size = args.batch_size
     prefix, ext = args.annotation_file.split(".")
-    prefix = prefix + args.file_prefix
-    network = models.PilotNet()
+    prefix ="captain_net_" + prefix + args.file_prefix
+    network = models.CaptainNet()
     network.float()
 
-    trainset = loaders.F1Dataset(args.root_dir,args.annotation_file,(3,66,200))
+    trainset = loaders.F1AllControlDataset(args.root_dir,args.annotation_file,(3,66,200))
    # trainset.read_files()
     
     if(os.path.isfile("./" + prefix+"_images.pkl") and os.path.isfile("./" + prefix+"_annotations.pkl")):

@@ -22,6 +22,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="data_loading\data_loaders.py" />
     <Compile Include="data_loading\image_loading.py">
       <SubType>Code</SubType>
     </Compile>
@@ -29,9 +30,8 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="main.py" />
-    <Compile Include="nn_models\PilotNet.py">
-      <SubType>Code</SubType>
-    </Compile>
+    <Compile Include="main_captain.py" />
+    <Compile Include="nn_models\Models.py" />
     <Compile Include="nn_models\__init__.py">
       <SubType>Code</SubType>
     </Compile>
