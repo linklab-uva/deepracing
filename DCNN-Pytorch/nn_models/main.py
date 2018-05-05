@@ -14,6 +14,7 @@ from datetime import datetime
 import os
 import string
 import argparse
+import torchvision.transforms as transforms
 def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
     network.train()  # This is important to call before training!
     cum_loss = 0.0
@@ -43,7 +44,6 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
 
 def train_model(network, criterion, optimizer, trainLoader, file_prefix, directory, n_epochs = 10, use_gpu = False):
     if use_gpu:
-        network = network.cuda()
         criterion = criterion.cuda()
     # Training loop.
     if(not os.path.isdir(directory)):
@@ -64,26 +64,38 @@ def main():
     parser.add_argument("--annotation_file", type=str, required=True, help="Annotation file to use")
     parser.add_argument("--output_dir", type=str, default="log", help="Directory to place the model files")
     parser.add_argument("--file_prefix", type=str, default="", help="Additional prefix to add to the filename for the saved weight files")
+    parser.add_argument("--load_files", action="store_true", help="Load images from file regardless.")
+    parser.add_argument("--checkpoint",  type=str, default="", help="Initial weight file to load")
+    parser.add_argument("--use_float32",  action="store_true", help="Use 32-bit floating point computation")
     args = parser.parse_args()
     batch_size = args.batch_size
     prefix, ext = args.annotation_file.split(".")
     prefix = prefix + args.file_prefix
     network = models.PilotNet()
-    network.float()
-
-    trainset = loaders.F1Dataset(args.root_dir,args.annotation_file,(3,66,200))
+    img_transformation = transforms.Compose([transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
+    label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(100.0))])
+    if(args.use_float32):
+        network.float()
+        trainset = loaders.F1Dataset(args.root_dir,args.annotation_file,(66,200), use_float32=True, img_transformation = img_transformation, label_transformation = label_transformation)
+    else:
+        network.double()
+        trainset = loaders.F1Dataset(args.root_dir,args.annotation_file,(66,200), img_transformation = img_transformation, label_transformation = label_transformation)
+    if(args.gpu):
+        network = network.cuda()
+    
+    
    # trainset.read_files()
     
-    if(os.path.isfile("./" + prefix+"_images.pkl") and os.path.isfile("./" + prefix+"_annotations.pkl")):
-        trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
-    else:  
-        trainset.read_files(use_float32 = True)
+    if(args.load_files or (not os.path.isfile("./" + prefix+"_images.pkl")) or (not os.path.isfile("./" + prefix+"_annotations.pkl"))):
+        trainset.read_files()
         trainset.write_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
+    else:  
+        trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
     ''' '''
     trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = True, num_workers = 0)
     print(trainLoader)
     #Definition of our loss.
-    criterion = nn.L1Loss()
+    criterion = nn.MSELoss()
 
     # Definition of optimization strategy.
     optimizer = optim.SGD(network.parameters(), lr = args.learning_rate, momentum=args.momentum)

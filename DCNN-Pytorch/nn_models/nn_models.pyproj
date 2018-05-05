@@ -35,6 +35,7 @@
     <Compile Include="nn_models\__init__.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="test_pilotnet.py" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="data_loading\" />

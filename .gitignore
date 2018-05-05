@@ -1,4 +1,7 @@
-
+*.model
+*.avi
+*.jpg
+*.png
 *.pkl
 # Byte-compiled / optimized / DLL files
 __pycache__/
