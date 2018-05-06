@@ -80,7 +80,7 @@ def main():
         im = cv2.resize(im, (200, 66), interpolation = cv2.INTER_CUBIC)
         im = np.transpose(im, (2, 0, 1)).astype(np.float64)
         im_tens = torch.from_numpy(im)
-        tensor = torch.zeros(1,3,66,200 dtype=torch.float64)
+        tensor = torch.zeros([1,3,66,200], dtype=torch.float64)
         tensor[0] = img_transformation(im_tens)
         tensor = tensor.cuda()
         pred = network(tensor)
