@@ -67,11 +67,12 @@ def main():
     parser.add_argument("--load_files", action="store_true", help="Load images from file regardless.")
     parser.add_argument("--checkpoint",  type=str, default="", help="Initial weight file to load")
     parser.add_argument("--use_float32",  action="store_true", help="Use 32-bit floating point computation")
+    parser.add_argument("--seq_length",  type=int, default=25, help="sequence length to use")
     args = parser.parse_args()
     batch_size = args.batch_size
     prefix, ext = args.annotation_file.split(".")
     prefix = prefix + args.file_prefix
-    network = models.AdmiralNet()
+    network = models.AdmiralNet(seq_length=args.seq_length)
     img_transformation = transforms.Compose([transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
     label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(100.0))])
     if(args.use_float32):
