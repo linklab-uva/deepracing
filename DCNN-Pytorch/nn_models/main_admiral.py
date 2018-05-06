@@ -68,6 +68,7 @@ def main():
     parser.add_argument("--checkpoint",  type=str, default="", help="Initial weight file to load")
     parser.add_argument("--use_float32",  action="store_true", help="Use 32-bit floating point computation")
     parser.add_argument("--seq_length",  type=int, default=25, help="sequence length to use")
+    parser.add_argument("--workers",  type=int, default=0, help="Multithread the trainloading process")
     args = parser.parse_args()
     batch_size = args.batch_size
     prefix, ext = args.annotation_file.split(".")
@@ -93,7 +94,7 @@ def main():
     else:  
         trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
     ''' '''
-    trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = True, num_workers = 0)
+    trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = True, num_workers = args.workers)
     print(trainLoader)
     #Definition of our loss.
     criterion = nn.MSELoss()
