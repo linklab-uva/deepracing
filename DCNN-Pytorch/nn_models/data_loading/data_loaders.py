@@ -98,8 +98,8 @@ class F1SequenceDataset(Dataset):
         self.sequence_length = sequence_length
         self.context_length = context_length
         self.length = len(self.annotations) - sequence_length - context_length
-        self.images = []
-        self.labels = []
+        self.images = np.tile(0, (len(self.annotations),3,66,200)).astype(np.int8)
+        self.labels = np.tile(0, (len(self.annotations))).astype(np.float64)
         self.preloaded=False
     def write_pickles(self,image_pickle, label_pickle):
         filename = image_pickle
@@ -131,16 +131,14 @@ class F1SequenceDataset(Dataset):
             im = load_image(os.path.join(self.root_folder,"raw_images",fp))
             im = cv2.resize(im, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
             im = np.transpose(im, (2, 0, 1))
-            self.images.append(im)
-            self.labels.append(np.array((float(steering))))
+            self.images[idx] = im
+            self.labels[idx] = float(steering)
         self.preloaded=True
     def __getitem__(self, index):
         if(self.preloaded):
-            images = self.images[index:index+self.context_length]
+            seq = self.images[index:index+self.context_length]
             label_start = index+self.context_length
-            labels = self.labels[label_start:label_start+self.sequence_length]
-            seq = np.array([np.array(xi) for xi in images])
-            seq_labels = np.array([np.array(xi) for xi in labels])
+            seq_labels = self.labels[label_start:label_start+self.sequence_length]
         else:
             raise NotImplementedError("Must preload images for sequence dataset")
         if(self.use_float32):
