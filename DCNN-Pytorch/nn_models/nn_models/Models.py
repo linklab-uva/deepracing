@@ -29,18 +29,18 @@ class PilotNet(nn.Module):
     def forward(self, x):
         out = self.conv1(x)
         out = self.Norm_1(out)
-        
+        out = self.relu(out)
         out = self.conv2(out)
         out = self.Norm_2(out)
-        
+        out = self.relu(out)
         out = self.conv3(out)
         out = self.Norm_3(out)
-        
+        out = self.relu(out)
         out = self.conv4(out)
         out = self.Norm_4(out)
-        
+        out = self.relu(out)
         out = self.conv5(out)
-        
+        out = self.relu(out)
         # This flattens the output of the previous layer into a vector.
         out = out.view(out.size(0), -1) 
         out = self.fc1(out)
