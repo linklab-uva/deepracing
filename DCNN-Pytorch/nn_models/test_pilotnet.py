@@ -18,6 +18,7 @@ from random import randint
 from datetime import datetime
 import imutils.annotation_utils
 from data_loading.image_loading import load_image
+import torchvision.transforms as transforms
 def main():
     parser = argparse.ArgumentParser(description="Deepf1 playground")
     parser.add_argument("--x", type=int, default=25,  help="X coordinate for where to put the center of the steering wheel")
@@ -35,12 +36,8 @@ def main():
     parser.add_argument("--annotation_file", type=str, required=True, help="Annotation file to use")
     parser.add_argument("--plot", action="store_true", help="Plot some statistics of the results")
     args = parser.parse_args()
-    
-    network = models.PilotNet()
-    network.float()
-    network.cuda()
-    state_dict = torch.load(args.model_file)
-    network.load_state_dict(state_dict)
+    prefix, ext = args.annotation_file.split(".")
+
     output_video = args.output_video
     wheelrows = args.wheelrows
     wheelcols = args.wheelcols
@@ -65,22 +62,33 @@ def main():
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     output_vid = os.path.join(args.output_folder,output_video)
     videoout = cv2.VideoWriter(output_vid ,fourcc, 60.0, (size[1], size[0]),True)
+    img_transformation = transforms.Compose([transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
+    label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(100.0))])
+    trainset = loaders.F1Dataset(args.root_dir,args.annotation_file,(66,200), img_transformation = img_transformation, label_transformation = label_transformation)
+    network = models.PilotNet()
+    network.double()
+    network.cuda()
+    state_dict = torch.load(args.model_file)
+    network.load_state_dict(state_dict)
     network.eval()
+
     for idx, annotation in tqdm(enumerate(annotations)):
         filename, _, anglestr, _, _ = annotation.split(",")
         img_path = os.path.join(input_folder,filename)
         background = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
         im = load_image(img_path)
-        input = np.random.rand(1,3,66,200).astype(np.float32)
-        input[0] = im
-        input = np.divide(input, SCALE_FACTOR)
-        tensor = torch.from_numpy(input).cuda()
+        im = cv2.resize(im, (200, 66), interpolation = cv2.INTER_CUBIC)
+        im = np.transpose(im, (2, 0, 1)).astype(np.float64)
+        im_tens = torch.from_numpy(im)
+        tensor = torch.randn(1,3,66,200)
+        tensor[0] = img_transformation(im_tens)
+        tensor = tensor.cuda()
         pred = network(tensor)
         angle = pred.item()/100.0
         ground_truth = float(anglestr.replace("\n",""))
-        diffs.append(ground_truth-angle)
         scaled_ground_truth = max_angle * ground_truth
         scaled_angle = max_angle * angle
+        diffs.append(scaled_ground_truth-scaled_angle)
        # print("Ground Truth: %f. Prediction: %f.\n" %(scaled_ground_truth, scaled_angle))
         M = cv2.getRotationMatrix2D((wheelrows/2,wheelcols/2),scaled_angle,1)
         wheel_rotated = cv2.warpAffine(wheel,M,(wheelrows,wheelcols))
