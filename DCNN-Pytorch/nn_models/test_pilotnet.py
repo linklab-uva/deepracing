@@ -16,9 +16,7 @@ import string
 import argparse
 from random import randint
 from datetime import datetime
-import matplotlib.pyplot as plt
 import imutils.annotation_utils
-from scipy import stats
 from data_loading.image_loading import load_image
 def main():
     parser = argparse.ArgumentParser(description="Deepf1 playground")
@@ -94,6 +92,8 @@ def main():
         cv2.imwrite(output_path,overlayed)
         videoout.write(overlayed)
     if args.plot:
+        from scipy import stats
+        import matplotlib.pyplot as plt
         binz = 100
         res = stats.cumfreq(diffs, numbins=binz)
         x = res.lowerlimit + np.linspace(0, res.binsize*res.cumcount.size, res.cumcount.size)
