@@ -98,7 +98,7 @@ class AdmiralNet(nn.Module):
         #print(x.shape)
         # Unpack for the LSTM.
         x = x.view(-1, self.context_length, 64*1*18) 
-        zeros = torch.zeros([x.shape[0], self.seq_length, 64*1*18], dtype=torch.float64)
+        zeros = torch.zeros([x.shape[0], self.seq_length, 64*1*18], dtype=torch.float64).cuda()
         x, init_hidden = self.lstm(x) 
         x, final_hidden = self.lstm(zeros, init_hidden)
         predictions = self.prediction_layer(x)
