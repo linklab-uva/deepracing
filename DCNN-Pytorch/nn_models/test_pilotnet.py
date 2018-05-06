@@ -70,7 +70,7 @@ def main():
         filename, _, anglestr, _, _ = annotation.split(",")
         img_path = os.path.join(input_folder,filename)
         background = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
-        im = load_image(img_path,size=(66,200),scale_factor=2.55, use_float32 = True)
+        im = load_image(img_path)
         input = np.random.rand(1,3,66,200).astype(np.float32)
         input[0] = im
         input = np.divide(input, SCALE_FACTOR)
