@@ -137,7 +137,8 @@ class F1SequenceDataset(Dataset):
     def __getitem__(self, index):
         if(self.preloaded):
             images = self.images[index:index+self.context_length]
-            labels = self.labels[index+self.context_length:index+self.context_length+self.sequence_length]
+            label_start = index+self.context_length
+            labels = self.labels[label_start:label_start+self.sequence_length]
             seq = np.array([np.array(xi) for xi in images])
             seq_labels = np.array([np.array(xi) for xi in labels])
         else:

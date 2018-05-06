@@ -68,6 +68,7 @@ def main():
     parser.add_argument("--checkpoint",  type=str, default="", help="Initial weight file to load")
     parser.add_argument("--use_float32",  action="store_true", help="Use 32-bit floating point computation")
     parser.add_argument("--seq_length",  type=int, default=25, help="sequence length to use")
+    parser.add_argument("--context_length",  type=int, default=25, help="context length to use")
     parser.add_argument("--workers",  type=int, default=0, help="Multithread the trainloading process")
     args = parser.parse_args()
     batch_size = args.batch_size
@@ -78,10 +79,12 @@ def main():
     label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(100.0))])
     if(args.use_float32):
         network.float()
-        trainset = loaders.F1SequenceDataset(args.root_dir,args.annotation_file,(66,200), use_float32=True, img_transformation = img_transformation, label_transformation = label_transformation)
+        trainset = loaders.F1SequenceDataset(args.root_dir,args.annotation_file,(66,200),\
+        context_length=args.context_length, sequence_length=args.seq_length, use_float32=True, img_transformation = img_transformation, label_transformation = label_transformation)
     else:
         network.double()
-        trainset = loaders.F1SequenceDataset(args.root_dir,args.annotation_file,(66,200), img_transformation = img_transformation, label_transformation = label_transformation)
+        trainset = loaders.F1SequenceDataset(args.root_dir,args.annotation_file,(66,200),\
+        context_length=args.context_length, sequence_length=args.seq_length, img_transformation = img_transformation, label_transformation = label_transformation)
     if(args.gpu):
         network = network.cuda()
     
