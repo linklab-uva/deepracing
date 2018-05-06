@@ -35,6 +35,7 @@ def main():
     parser.add_argument("--model_file", type=str, required=True,  help="Model weights to load from file")
     parser.add_argument("--root_dir", type=str, required=True, help="Root dir of the F1 validation set to use")
     parser.add_argument("--annotation_file", type=str, required=True, help="Annotation file to use")
+    parser.add_argument("--plot", action="store_true", help="Plot some statistics of the results")
     args = parser.parse_args()
     
     network = models.PilotNet()
@@ -92,17 +93,18 @@ def main():
         output_path = os.path.join(args.output_folder,'overlayed_image_' + img_num_str + ".jpg")
         cv2.imwrite(output_path,overlayed)
         videoout.write(overlayed)
-    binz = 100
-    res = stats.cumfreq(diffs, numbins=binz)
-    x = res.lowerlimit + np.linspace(0, res.binsize*res.cumcount.size, res.cumcount.size)
-    fig = plt.figure(figsize=(10, 4))
-    ax1 = fig.add_subplot(1, 2, 1)
-    ax2 = fig.add_subplot(1, 2, 2)
-    ax1.hist(diffs, bins=binz)
-    ax1.set_title('Histogram')
-    ax2.bar(x, res.cumcount, width=res.binsize)
-    ax2.set_title('Cumulative histogram')
-    ax2.set_xlim([x.min(), x.max()])
-    plt.show()
+    if args.plot:
+        binz = 100
+        res = stats.cumfreq(diffs, numbins=binz)
+        x = res.lowerlimit + np.linspace(0, res.binsize*res.cumcount.size, res.cumcount.size)
+        fig = plt.figure(figsize=(10, 4))
+        ax1 = fig.add_subplot(1, 2, 1)
+        ax2 = fig.add_subplot(1, 2, 2)
+        ax1.hist(diffs, bins=binz)
+        ax1.set_title('Histogram')
+        ax2.bar(x, res.cumcount, width=res.binsize)
+        ax2.set_title('Cumulative histogram')
+        ax2.set_xlim([x.min(), x.max()])
+        plt.show()
 if __name__ == '__main__':
     main()
