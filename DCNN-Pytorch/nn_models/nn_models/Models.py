@@ -3,6 +3,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch.utils.data as data
 import numpy as np
+import torch
 class PilotNet(nn.Module):
     """PyTorch Implementation of NVIDIA's PilotNet"""
     def __init__(self):
@@ -51,7 +52,7 @@ class PilotNet(nn.Module):
 
 class AdmiralNet(nn.Module):
     """PyTorch Implementation of NVIDIA's PilotNet"""
-    def __init__(self, seq_length=25):
+    def __init__(self, seq_length=25, context_length = 25):
         super(AdmiralNet, self).__init__()
         # Convolutional layers.
         self.output_size = 1
@@ -68,6 +69,7 @@ class AdmiralNet(nn.Module):
         
         #recurrent layers
         self.seq_length=seq_length
+        self.context_length = context_length
         self.lstm = nn.LSTM(64*1*18, 100, batch_first = True)
 
         # Linear layers.
@@ -95,8 +97,10 @@ class AdmiralNet(nn.Module):
         x = self.relu(x)
         #print(x.shape)
         # Unpack for the LSTM.
-        x = x.view(-1, self.seq_length, 64*1*18) 
-        x, finalHiddenState = self.lstm(x)
+        x = x.view(-1, self.context_length, 64*1*18) 
+        zeros = torch.zeros([x.shape[0], self.seq_length, 64*1*18], dtype=torch.float64)
+        x, init_hidden = self.lstm(x) 
+        x, final_hidden = self.lstm(zeros, init_hidden)
         predictions = self.prediction_layer(x)
         return predictions
 

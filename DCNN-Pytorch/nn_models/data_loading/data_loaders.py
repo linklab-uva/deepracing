@@ -84,7 +84,7 @@ class F1Dataset(Dataset):
         return self.length
 class F1SequenceDataset(Dataset):
     def __init__(self, root_folder, annotation_filepath, im_size,\
-        sequence_length=25, use_float32=False, img_transformation = None, label_transformation = None):
+        context_length = 25, sequence_length=25, use_float32=False, img_transformation = None, label_transformation = None):
         super(F1SequenceDataset, self).__init__()
         self.im_size=im_size
         self.label_size = 1
@@ -95,8 +95,9 @@ class F1SequenceDataset(Dataset):
         self.annotation_filepath = annotation_filepath
         self.annotations_file = open(os.path.join(self.root_folder,self.annotation_filepath), "r")
         self.annotations = self.annotations_file.readlines()
-        self.sequence_length=sequence_length
-        self.length = len(self.annotations) - sequence_length
+        self.sequence_length = sequence_length
+        self.context_length = context_length
+        self.length = len(self.annotations) - sequence_length - context_length
         self.images = []
         self.labels = []
         self.preloaded=False
@@ -135,8 +136,8 @@ class F1SequenceDataset(Dataset):
         self.preloaded=True
     def __getitem__(self, index):
         if(self.preloaded):
-            images = self.images[index:index+self.sequence_length]
-            labels = self.labels[index:index+self.sequence_length]
+            images = self.images[index:index+self.context_length]
+            labels = self.labels[index+self.context_length:index+self.context_length+self.sequence_length]
             seq = np.array([np.array(xi) for xi in images])
             seq_labels = np.array([np.array(xi) for xi in labels])
         else:
