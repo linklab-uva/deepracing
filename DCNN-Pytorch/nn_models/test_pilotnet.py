@@ -71,8 +71,9 @@ def main():
     state_dict = torch.load(args.model_file)
     network.load_state_dict(state_dict)
     network.eval()
-
-    for idx, annotation in tqdm(enumerate(annotations)):
+    diff = 0.0
+    t = tqdm(enumerate(annotations))
+    for idx, annotation in t:
         filename, _, anglestr, _, _ = annotation.split(",")
         img_path = os.path.join(input_folder,filename)
         background = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
@@ -88,7 +89,9 @@ def main():
         ground_truth = float(anglestr.replace("\n",""))
         scaled_ground_truth = max_angle * ground_truth
         scaled_angle = max_angle * angle
-        diffs.append(scaled_ground_truth-scaled_angle)
+        diff = scaled_ground_truth-scaled_angle
+        diffs.append(diff)
+        t.set_postfix(average_diff = diff/(float(idx)+1.0))
        # print("Ground Truth: %f. Prediction: %f.\n" %(scaled_ground_truth, scaled_angle))
         M = cv2.getRotationMatrix2D((wheelrows/2,wheelcols/2),scaled_angle,1)
         wheel_rotated = cv2.warpAffine(wheel,M,(wheelrows,wheelcols))
