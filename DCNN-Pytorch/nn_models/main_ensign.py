@@ -67,24 +67,19 @@ def main():
     parser.add_argument("--load_files", action="store_true", help="Load images from file regardless.")
     parser.add_argument("--checkpoint",  type=str, default="", help="Initial weight file to load")
     parser.add_argument("--use_float32",  action="store_true", help="Use 32-bit floating point computation")
-    parser.add_argument("--seq_length",  type=int, default=25, help="sequence length to use")
-    parser.add_argument("--context_length",  type=int, default=25, help="context length to use")
-    parser.add_argument("--workers",  type=int, default=0, help="Multithread the trainloading process")
     args = parser.parse_args()
     batch_size = args.batch_size
     prefix, ext = args.annotation_file.split(".")
     prefix = prefix + args.file_prefix
-    network = models.AdmiralNet(context_length = args.context_length, seq_length=args.seq_length)
+    network = models.EnsignNet()
     img_transformation = transforms.Compose([transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
     label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(100.0))])
     if(args.use_float32):
         network.float()
-        trainset = loaders.F1SequenceDataset(args.root_dir,args.annotation_file,(66,200),\
-        context_length=args.context_length, sequence_length=args.seq_length, use_float32=True, img_transformation = img_transformation, label_transformation = label_transformation)
+        trainset = loaders.F1Dataset(args.root_dir,args.annotation_file,(66,200), use_float32=True, img_transformation = img_transformation, label_transformation = label_transformation)
     else:
         network.double()
-        trainset = loaders.F1SequenceDataset(args.root_dir,args.annotation_file,(66,200),\
-        context_length=args.context_length, sequence_length=args.seq_length, img_transformation = img_transformation, label_transformation = label_transformation)
+        trainset = loaders.F1Dataset(args.root_dir,args.annotation_file,(66,200), img_transformation = img_transformation, label_transformation = label_transformation)
     if(args.gpu):
         network = network.cuda()
     
@@ -97,7 +92,7 @@ def main():
     else:  
         trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
     ''' '''
-    trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = True, num_workers = args.workers)
+    trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = True, num_workers = 0)
     print(trainLoader)
     #Definition of our loss.
     criterion = nn.MSELoss()
