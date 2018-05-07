@@ -98,7 +98,7 @@ class F1SequenceDataset(Dataset):
         self.sequence_length = sequence_length
         self.context_length = context_length
         self.length = len(self.annotations) - sequence_length - context_length
-        self.images = np.tile(0, (len(self.annotations),3,66,200)).astype(np.int8)
+        self.images = np.tile(0, (len(self.annotations),3,im_size[0],im_size[1])).astype(np.int8)
         self.labels = np.tile(0, (len(self.annotations))).astype(np.float64)
         self.preloaded=False
     def write_pickles(self,image_pickle, label_pickle):
