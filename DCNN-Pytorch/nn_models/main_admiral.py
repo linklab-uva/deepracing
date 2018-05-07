@@ -77,7 +77,6 @@ def main():
     prefix, ext = args.annotation_file.split(".")
     prefix = prefix + args.file_prefix
     network = models.AdmiralNet(context_length = args.context_length, seq_length=args.seq_length, hidden_dim = args.hidden_dim, use_float32 = args.use_float32)
-    network.pre_alloc_zeros(args.batch_size)
     img_transformation = transforms.Compose([transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
     label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(args.label_scale))])
     #label_transformation=None

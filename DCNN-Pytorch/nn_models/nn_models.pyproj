@@ -29,16 +29,23 @@
     <Compile Include="data_loading\__init__.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="imutils\annotation_utils.py" />
+    <Compile Include="imutils\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="main.py" />
+    <Compile Include="main_ensign.py" />
+    <Compile Include="main_admiral.py" />
     <Compile Include="main_captain.py" />
     <Compile Include="nn_models\Models.py" />
     <Compile Include="nn_models\__init__.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="test_pilotnet.py" />
+    <Compile Include="test_ensignnet.py" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="data_loading\" />
+    <Folder Include="imutils\" />
     <Folder Include="nn_models\" />
   </ItemGroup>
   <PropertyGroup>

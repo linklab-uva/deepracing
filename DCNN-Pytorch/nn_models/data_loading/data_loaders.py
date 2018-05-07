@@ -21,8 +21,8 @@ class F1Dataset(Dataset):
         self.annotations_file = open(os.path.join(self.root_folder,self.annotation_filepath), "r")
         self.annotations = self.annotations_file.readlines()
         self.length = len(self.annotations)
-        self.images = []
-        self.labels = []
+        self.images = np.tile(0, (len(self.annotations),3,66,200)).astype(np.int8)
+        self.labels = np.tile(0, (len(self.annotations))).astype(np.float64)
         self.preloaded=False
     def write_pickles(self,image_pickle, label_pickle):
         filename = image_pickle
@@ -54,8 +54,8 @@ class F1Dataset(Dataset):
             im = load_image(os.path.join(self.root_folder,"raw_images",fp))
             im = cv2.resize(im, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
             im = np.transpose(im, (2, 0, 1))
-            self.images.append(im)
-            self.labels.append(np.array((float(steering))))
+            self.images[idx] = im
+            self.labels[idx] = float(steering)
         self.preloaded=True
     def __getitem__(self, index):
         if(self.preloaded):
@@ -73,7 +73,7 @@ class F1Dataset(Dataset):
         else:
             im = im.astype(np.float64)
             label = label.astype(np.float64)
-        label_tensor = torch.from_numpy(label)
+        label_tensor = torch.from_numpy(np.array(label))
         img_tensor = torch.from_numpy(im)
         if(not (self.img_transformation == None)):
             img_tensor = self.img_transformation(img_tensor)

@@ -86,7 +86,6 @@ class AdmiralNet(nn.Module):
     def __init__(self, seq_length=25, context_length = 25, hidden_dim = 100, use_float32 = False):
         super(AdmiralNet, self).__init__()
         self.use_float32=use_float32
-        self.zeros = None
         # Convolutional layers.
         self.output_size = 1
         self.conv1 = nn.Conv2d(3, 24, kernel_size=5, stride=2)
@@ -112,11 +111,6 @@ class AdmiralNet(nn.Module):
         #activations
         self.relu = nn.ReLU()
 
-    def pre_alloc_zeros(self, batch_size):
-        if(self.use_float32):
-            self.zeros = torch.zeros([batch_size, self.seq_length, 64*1*18], dtype=torch.float32).cuda()
-        else:
-            self.zeros = torch.zeros([batch_size, self.seq_length, 64*1*18], dtype=torch.float64).cuda()
     def forward(self, x):
         #resize for convolutional layers
         x = x.view(-1, 3, 66, 200) 
@@ -137,8 +131,12 @@ class AdmiralNet(nn.Module):
         #print(x.shape)
         # Unpack for the LSTM.
         x = x.view(-1, self.context_length, 64*1*18) 
+        if(self.use_float32):
+            zeros = torch.zeros([x.shape[0], self.seq_length, 64*1*18], dtype=torch.float32).cuda()
+        else:
+            zeros = torch.zeros([x.shape[0], self.seq_length, 64*1*18], dtype=torch.float64).cuda()
         x, init_hidden = self.lstm(x) 
-        x, final_hidden = self.lstm(self.zeros, init_hidden)
+        x, final_hidden = self.lstm(zeros, init_hidden)
         predictions = self.prediction_layer(x)
         return predictions
 
