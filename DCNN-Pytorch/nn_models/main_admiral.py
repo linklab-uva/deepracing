@@ -72,7 +72,6 @@ def main():
     parser.add_argument("--context_length",  type=int, default=25, help="context length to use")
     parser.add_argument("--workers",  type=int, default=0, help="Multithread the trainloading process")
     parser.add_argument("--label_scale",  type=float, default=100.0, help="Value to scale all of the labels by")
-    parser.add_argument("--label_scale",  type=float, default=100.0, help="value to scale the labels by")
     args = parser.parse_args()
     batch_size = args.batch_size
     prefix, ext = args.annotation_file.split(".")
