@@ -1,0 +1,4 @@
+learning_rate,0.0001
+annotation_file,australia_fullview_run1/fullview_linear.csv
+label_scale,10.0
+gpu,0
