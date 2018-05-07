@@ -1,5 +1,4 @@
 learning_rate,0.001
 annotation_file,australia_fullview_run1/fullview_linear.csv
-output_dir,pilotnet_baseline
 label_scale,1
 gpu,0
