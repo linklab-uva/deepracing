@@ -21,7 +21,7 @@ class F1Dataset(Dataset):
         self.annotations_file = open(os.path.join(self.root_folder,self.annotation_filepath), "r")
         self.annotations = self.annotations_file.readlines()
         self.length = len(self.annotations)
-        self.images = np.tile(0, (len(self.annotations),3,66,200)).astype(np.int8)
+        self.images = np.tile(0, (len(self.annotations),3,im_size[0],im_size[1])).astype(np.int8)
         self.labels = np.tile(0, (len(self.annotations))).astype(np.float64)
         self.preloaded=False
     def write_pickles(self,image_pickle, label_pickle):
@@ -54,6 +54,7 @@ class F1Dataset(Dataset):
             im = load_image(os.path.join(self.root_folder,"raw_images",fp))
             im = cv2.resize(im, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
             im = np.transpose(im, (2, 0, 1))
+            print(im.shape)
             self.images[idx] = im
             self.labels[idx] = float(steering)
         self.preloaded=True
