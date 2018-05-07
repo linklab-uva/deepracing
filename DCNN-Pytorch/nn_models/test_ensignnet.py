@@ -90,6 +90,8 @@ def main():
         #print(scaled_angle)
         diff = scaled_ground_truth-scaled_angle
         diffs.append(diff)
+        predictions.append(scaled_angle)
+        ground_truths.append(scaled_ground_truth)
         cum_diff += abs(diff)
         t.set_postfix(scaled_angle = scaled_angle, scaled_ground_truth = scaled_ground_truth, average_diff = cum_diff/(float(idx)+1.0))
        # print("Ground Truth: %f. Prediction: %f.\n" %(scaled_ground_truth, scaled_angle))
@@ -105,17 +107,12 @@ def main():
     if args.plot:
         from scipy import stats
         import matplotlib.pyplot as plt
-        binz = 100
-        res = stats.cumfreq(diffs, numbins=binz)
-        x = res.lowerlimit + np.linspace(0, res.binsize*res.cumcount.size, res.cumcount.size)
+        import math
         fig = plt.figure(figsize=(10, 4))
-        ax1 = fig.add_subplot(1, 2, 1)
-        ax2 = fig.add_subplot(1, 2, 2)
-        ax1.hist(diffs, bins=binz)
-        ax1.set_title('Histogram')
-        ax2.bar(x, res.cumcount, width=res.binsize)
-        ax2.set_title('Cumulative histogram')
-        ax2.set_xlim([x.min(), x.max()])
+        t = np.linspace(0, len(annotations), len(annotations))
+        plt.plot(t, predictions, 'r') 
+        plt.plot(t, ground_truths, 'b')  
         plt.show()
+        
 if __name__ == '__main__':
     main()

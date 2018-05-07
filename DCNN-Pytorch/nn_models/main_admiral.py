@@ -22,7 +22,7 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
     num_samples=0
     t = tqdm(enumerate(trainLoader))
     for (i, (inputs, labels)) in t:
-        if use_gpu:
+        if use_gpu>=0:
             inputs = inputs.cuda()
             labels = labels.cuda()
         # Forward pass:
@@ -43,7 +43,7 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
  
 
 def train_model(network, criterion, optimizer, trainLoader, file_prefix, directory, n_epochs = 10, use_gpu = False):
-    if use_gpu:
+    if use_gpu>=0:
         criterion = criterion.cuda()
     # Training loop.
     if(not os.path.isdir(directory)):
@@ -55,7 +55,7 @@ def train_model(network, criterion, optimizer, trainLoader, file_prefix, directo
         torch.save(network.state_dict(), log_path)
 def main():
     parser = argparse.ArgumentParser(description="Steering prediction with PilotNet")
-    parser.add_argument("--gpu", action="store_true", help="Accelerate with GPU")
+    parser.add_argument("--gpu", type=int, default = -1, help="Accelerate with GPU")
     parser.add_argument("--batch_size", type=int, default = 8, help="Batch Size")
     parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs to run")
     parser.add_argument("--learning_rate", type=float, default=0.01, help="Number of training epochs to run")
@@ -67,16 +67,20 @@ def main():
     parser.add_argument("--load_files", action="store_true", help="Load images from file regardless.")
     parser.add_argument("--checkpoint",  type=str, default="", help="Initial weight file to load")
     parser.add_argument("--use_float32",  action="store_true", help="Use 32-bit floating point computation")
-    parser.add_argument("--seq_length",  type=int, default=25, help="sequence length to use")
+    parser.add_argument("--seq_length",  type=int, default=25, help="sequence length to use")    
+    parser.add_argument("--hidden_dim",  type=int, default=100, help="Hidden dimension on the LSTM")  
     parser.add_argument("--context_length",  type=int, default=25, help="context length to use")
     parser.add_argument("--workers",  type=int, default=0, help="Multithread the trainloading process")
+    parser.add_argument("--label_scale",  type=float, default=100.0, help="Value to scale all of the labels by")
     args = parser.parse_args()
     batch_size = args.batch_size
     prefix, ext = args.annotation_file.split(".")
     prefix = prefix + args.file_prefix
-    network = models.AdmiralNet(context_length = args.context_length, seq_length=args.seq_length)
+    network = models.AdmiralNet(context_length = args.context_length, seq_length=args.seq_length, hidden_dim = args.hidden_dim, use_float32 = args.use_float32)
+    network.pre_alloc_zeros(args.batch_size)
     img_transformation = transforms.Compose([transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
-    label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(100.0))])
+    label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(args.label_scale))])
+    #label_transformation=None
     if(args.use_float32):
         network.float()
         trainset = loaders.F1SequenceDataset(args.root_dir,args.annotation_file,(66,200),\
@@ -85,7 +89,8 @@ def main():
         network.double()
         trainset = loaders.F1SequenceDataset(args.root_dir,args.annotation_file,(66,200),\
         context_length=args.context_length, sequence_length=args.seq_length, img_transformation = img_transformation, label_transformation = label_transformation)
-    if(args.gpu):
+    if(args.gpu>=0):
+        torch.cuda.device(args.gpu)
         network = network.cuda()
     
     
