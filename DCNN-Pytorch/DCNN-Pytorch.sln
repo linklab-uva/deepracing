@@ -5,6 +5,15 @@ VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "nn_models", "nn_models\nn_models.pyproj", "{3394588A-C901-4B2D-85C4-3855A7A87134}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{B0E2881E-648A-42B6-AFCE-E4D9A377E7DD}"
+	ProjectSection(SolutionItems) = preProject
+		nn_models\admiral_config.csv = nn_models\admiral_config.csv
+		nn_models\admiral_config_oneprediction_aggressive.csv = nn_models\admiral_config_oneprediction_aggressive.csv
+		nn_models\pilotnet_config_scaled.csv = nn_models\pilotnet_config_scaled.csv
+		nn_models\pilotnet_config_aggressive.csv = nn_models\pilotnet_config_aggressive.csv
+		nn_models\resnet_config_passive.csv = nn_models\resnet_config_passive.csv
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
