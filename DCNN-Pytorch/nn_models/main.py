@@ -73,7 +73,7 @@ def main():
     prefix, ext = args.annotation_file.split(".")
     prefix = prefix + args.file_prefix
     network = models.PilotNet()
-    img_transformation = transforms.Compose([transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
+    img_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.div(255.0)), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
     if(args.label_scale == 1.0):
         label_transformation = None
     else:
