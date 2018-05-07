@@ -54,7 +54,6 @@ class F1Dataset(Dataset):
             im = load_image(os.path.join(self.root_folder,"raw_images",fp))
             im = cv2.resize(im, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
             im = np.transpose(im, (2, 0, 1))
-            print(im.shape)
             self.images[idx] = im
             self.labels[idx] = float(steering)
         self.preloaded=True
