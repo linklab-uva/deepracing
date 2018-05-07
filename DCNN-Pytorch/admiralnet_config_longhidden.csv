@@ -1,0 +1,9 @@
+learning_rate,0.1
+annotation_file,australia_fullview_run1/fullview_linear.csv
+label_scale,1
+gpu,1
+context_length,10
+sequence_length,1
+epochs,100
+hidden_dim,512
+batch_size,8
