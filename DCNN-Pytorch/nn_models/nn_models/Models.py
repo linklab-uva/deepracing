@@ -4,6 +4,23 @@ import torch.optim as optim
 import torch.utils.data as data
 import numpy as np
 import torch
+import torchvision.models as visionmodels
+import torchvision.models.vgg
+class ResNetAdapter(nn.Module):
+    def __init__(self):
+        super(ResNetAdapter, self).__init__()
+        res152_model = visionmodels.resnet152(pretrained=True)
+        self.features = nn.Sequential(*list(res152_model.children())[:-2])
+        self.classifier = nn.Sequential(*[nn.Linear(67584, 2048),nn.ReLU(True),nn.Dropout(),\
+                        nn.Linear(2048, 1024),nn.ReLU(True),nn.Dropout(),\
+                        nn.Linear(1024, 128),nn.ReLU(True),nn.Dropout(),\
+                        nn.Linear(128, 1)])
+    def forward(self, x):
+        x = self.features(x)
+        x = x.view(x.size(0), -1)
+        predictions = self.classifier(x)
+        return predictions
+
 class EnsignNet(nn.Module):
     """PyTorch Implementation of NVIDIA's PilotNet"""
     def __init__(self):
