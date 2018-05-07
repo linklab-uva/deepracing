@@ -73,6 +73,7 @@ class F1Dataset(Dataset):
         else:
             im = im.astype(np.float64)
             label = label.astype(np.float64)
+        im = np.divide(im,255.0)
         label_tensor = torch.from_numpy(np.array(label))
         img_tensor = torch.from_numpy(im)
         if(not (self.img_transformation == None)):
@@ -147,6 +148,7 @@ class F1SequenceDataset(Dataset):
         else:
             seq = seq.astype(np.float64)
             seq_labels = seq_labels.astype(np.float64)
+        seq = np.divide(seq,255.0)
         label_tensor = torch.from_numpy(seq_labels)
         img_tensor = torch.from_numpy(seq)
         if(not (self.img_transformation == None)):
