@@ -71,7 +71,7 @@ def main():
     args = parser.parse_args()
     batch_size = args.batch_size
     prefix, ext = args.annotation_file.split(".")
-    prefix = prefix + args.file_prefix+"resnet"
+    prefix = prefix + args.file_prefix
     network = models.ResNetAdapter()
     img_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.div(255.0)), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
     if(args.label_scale == 1.0):
@@ -80,10 +80,10 @@ def main():
         label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(args.label_scale))])
     if(args.use_float32):
         network.float()
-        trainset = loaders.F1Dataset(args.root_dir,args.annotation_file,(75,350), use_float32=True, img_transformation = img_transformation, label_transformation = label_transformation)
+        trainset = loaders.F1Dataset(args.root_dir,args.annotation_file,(66,200), use_float32=True, img_transformation = img_transformation, label_transformation = label_transformation)
     else:
         network.double()
-        trainset = loaders.F1Dataset(args.root_dir,args.annotation_file,(75,350), img_transformation = img_transformation, label_transformation = label_transformation)
+        trainset = loaders.F1Dataset(args.root_dir,args.annotation_file,(66,200), img_transformation = img_transformation, label_transformation = label_transformation)
     if(args.gpu):
         network = network.cuda(1)
     
