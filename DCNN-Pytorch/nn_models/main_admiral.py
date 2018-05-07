@@ -15,16 +15,16 @@ import os
 import string
 import argparse
 import torchvision.transforms as transforms
-def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
+def run_epoch(network, criterion, optimizer, trainLoader, gpu = -1):
     network.train()  # This is important to call before training!
     cum_loss = 0.0
     batch_size = trainLoader.batch_size
     num_samples=0
     t = tqdm(enumerate(trainLoader))
     for (i, (inputs, labels)) in t:
-        if use_gpu>=0:
-            inputs = inputs.cuda(use_gpu)
-            labels = labels.cuda(use_gpu)
+        if gpu>=0:
+            inputs = inputs.cuda(gpu)
+            labels = labels.cuda(gpu)
         # Forward pass:
         outputs = network(inputs)
         loss = criterion(outputs, labels)
@@ -42,15 +42,15 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
         t.set_postfix(cum_loss = cum_loss/num_samples)
  
 
-def train_model(network, criterion, optimizer, trainLoader, file_prefix, directory, n_epochs = 10, use_gpu = False):
-    if use_gpu>=0:
-        criterion = criterion.cuda(use_gpu)
+def train_model(network, criterion, optimizer, trainLoader, file_prefix, directory, n_epochs = 10, gpu = -1):
+    if gpu>=0:
+        criterion = criterion.cuda(gpu)
     # Training loop.
     if(not os.path.isdir(directory)):
         os.makedirs(directory)
     for epoch in range(0, n_epochs):
         print("Epoch %d of %d" %((epoch+1),n_epochs))
-        run_epoch(network, criterion, optimizer, trainLoader, use_gpu)
+        run_epoch(network, criterion, optimizer, trainLoader, gpu)
         log_path = os.path.join(directory,""+file_prefix+"_epoch"+str((epoch+1))+ ".model")
         torch.save(network.state_dict(), log_path)
 def load_config(filepath):
@@ -74,9 +74,8 @@ def main():
 
     
     learning_rate = float(config['learning_rate'])
-    annotation_file = config['annotation_file']
+    root_dir, annotation_file = os.path.split(config['annotation_file'])
     prefix, _ = annotation_file.split(".")
-    root_dir = config['root_dir']
     output_dir = config['output_dir']
 
     batch_size = int(config.get('batch_size','1'))
@@ -94,7 +93,7 @@ def main():
 
     
     prefix = prefix + file_prefix
-    network = models.AdmiralNet(context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32)
+    network = models.AdmiralNet(context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu)
     img_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.div(255.0)), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
     if(label_scale == 1.0):
         label_transformation = None
@@ -127,7 +126,7 @@ def main():
 
     # Definition of optimization strategy.
     optimizer = optim.SGD(network.parameters(), lr = learning_rate, momentum=momentum)
-    train_model(network, criterion, optimizer, trainLoader, prefix, output_dir, n_epochs = epochs, use_gpu = gpu)
+    train_model(network, criterion, optimizer, trainLoader, prefix, output_dir, n_epochs = epochs, gpu = gpu)
 
 if __name__ == '__main__':
     main()

@@ -1,8 +1,7 @@
 learning_rate,0.001
-annotation_file,run3_linear.csv
-root_dir,/zf18/ttw2xk/deepf1data/slow_australia_track_run3
+annotation_file,australia_fullview_run1/fullview_linear.csv
 output_dir,admiral_one_prediction
 label_scale,1
-gpu,0
+gpu,1
 context_length,10
 sequence_length,1

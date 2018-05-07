@@ -100,8 +100,9 @@ class PilotNet(nn.Module):
 
 class AdmiralNet(nn.Module):
     """PyTorch Implementation of NVIDIA's PilotNet"""
-    def __init__(self, sequence_length=25, context_length = 25, hidden_dim = 100, use_float32 = False):
+    def __init__(self, sequence_length=25, context_length = 25, hidden_dim = 100, use_float32 = False, gpu = -1):
         super(AdmiralNet, self).__init__()
+        self.gpu=gpu
         self.use_float32=use_float32
         # Convolutional layers.
         self.output_size = 1
@@ -149,9 +150,12 @@ class AdmiralNet(nn.Module):
         # Unpack for the LSTM.
         x = x.view(-1, self.context_length, 64*1*18) 
         if(self.use_float32):
-            zeros = torch.zeros([x.shape[0], self.sequence_length, 64*1*18], dtype=torch.float32).cuda()
+            zeros = torch.zeros([x.shape[0], self.sequence_length, 64*1*18], dtype=torch.float32)
+                
         else:
-            zeros = torch.zeros([x.shape[0], self.sequence_length, 64*1*18], dtype=torch.float64).cuda()
+            zeros = torch.zeros([x.shape[0], self.sequence_length, 64*1*18], dtype=torch.float64)
+        if(self.gpu>=0):
+            zeros = zeros.cuda(self.gpu)
         x, init_hidden = self.lstm(x) 
         x, final_hidden = self.lstm(zeros, init_hidden)
         predictions = self.prediction_layer(x)

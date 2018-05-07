@@ -1,0 +1,5 @@
+learning_rate,1E-05
+annotation_file,australia_fullview_run1/fullview_linear.csv
+output_dir,pilotnet_passive
+label_scale,1
+gpu,0
