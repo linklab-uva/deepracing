@@ -20,13 +20,12 @@ namespace deepf1 {
 int main(int argc, char** argv) {
 
 	unsigned int interpolation_degree;
-	std::string data_directory, annotation_prefix, output_file;
+	std::string data_directory, output_file;
 	po::options_description desc("Allowed options");
 	desc.add_options()
 		("help", "Displays options and exits")
 		("input_folder,f", po::value<std::string>(&data_directory)->default_value(std::string("data")), "Top-level folder to look for the original data dump.")
-		("annotation_prefix,p", po::value<std::string>(&annotation_prefix)->default_value(std::string("data_point_")), "Prefix of the filename for each native annotation file. Each annotation is the prefix followed by a unique integer.")
-		("output_file,o", po::value<std::string>(&output_file)->default_value(std::string("out.csv")), "Output file to dump the steering angles to.")
+		("output_file,o", po::value<std::string>(&output_file)->default_value(std::string("out.csv")), "Output file to dump the ground truth annotations to.")
 		("interpolation_degree,d", po::value<unsigned int>(&interpolation_degree)->default_value(0), "What degree of polynomial interpolation to use. It left at the default value of 0, no interpolation is done.")
 		;
 	po::variables_map vm;
@@ -34,7 +33,7 @@ int main(int argc, char** argv) {
 	po::notify(vm);
 	if (vm.find("help") != vm.end()) {
 		std::stringstream ss;
-		ss << "F1 Datadump Steering Angle Extractor. Command line arguments are as follows:" << std::endl;
+		ss << "F1 Datadump Ground Truth Data Extractor. Command line arguments are as follows:" << std::endl;
 		desc.print(ss);
 		std::printf("%s", ss.str().c_str());
 		exit(0);
@@ -57,7 +56,7 @@ int main(int argc, char** argv) {
 	fs::path annotations_dir = root_dir / fs::path("raw_annotations");
 
 	if (!fs::is_directory(annotations_dir)) {
-		std::cerr << "ERROR: Annotations directory " << root_dir.string() << "does not exist." << std::endl;
+		std::cerr << "ERROR: Annotations directory " << annotations_dir.string() << "does not exist." << std::endl;
 		exit(-1);
 	}
 

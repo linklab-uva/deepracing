@@ -25,7 +25,8 @@ namespace deepf1
 		}
 	}
 	simple_udp_listener::~simple_udp_listener() {
-		for (unsigned int i = 0; i < dataz.size(); i++)
+		int size = dataz.size();
+		for (unsigned int i = 0; i < size; i++)
 		{
 			delete dataz[i].data;
 		}
@@ -80,7 +81,11 @@ namespace deepf1
 			recvfrom(s, (char*)(dataz[i].data), UDP_BUFLEN, 0, other, &slen);
 			dataz[i].timestamp = timer->elapsed();
 		}
-		std::printf("Returning %d elements \n", dataz.size());
+		for (int j = i + 1; j < max; j++) {
+			delete dataz[j].data;
+		}
+		dataz.resize(i);
+		printf("Returning %d elements \n", dataz.size());
 		closesocket(s);
 		WSACleanup();
 	}

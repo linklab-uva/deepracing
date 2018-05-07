@@ -95,11 +95,11 @@ namespace deepf1
 	boost::timer::cpu_times screen_video_capture::captureHwndTimed(cv::Mat& dest)
 	{
 		
-		boost::timer::cpu_times times2 = timer->elapsed();
+		boost::timer::cpu_times times = timer->elapsed();
 		BitBlt(hwindowCompatibleDC, 0, 0, captureArea.width, captureArea.height, hwindowDC, captureArea.x, captureArea.y, SRCCOPY);
 		// Copy into our own buffer as device-independent bitmap
 		GetDIBits(hwindowCompatibleDC, hbwindow, 0, captureArea.height, dest.data, (BITMAPINFO *)&bi, DIB_RGB_COLORS);
 
-		return times2;
+		return times;
 	}
 }

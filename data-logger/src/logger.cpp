@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
 		("screen_frames,s", po::value<unsigned int>(&image_len)->default_value(100), "How many frames of screencap data to capture")
 		("capture_x,x", po::value<float>(&capture_x)->default_value(0), "x coordinate for origin of capture area in pixels")
 		("capture_y,y", po::value<float>(&capture_y)->default_value(325), "y coordinate for origin of capture area pixels")
-		("capture_width,w", po::value<float>(&capture_width)->default_value(1600), "Width of capture area pixels")
+		("capture_width,w", po::value<float>(&capture_width)->default_value(1825), "Width of capture area pixels")
 		("capture_height,h", po::value<float>(&capture_height)->default_value(300), "height of capture area pixels")
 		("max_delta,m", po::value<float>(&max_delta)->default_value(25.0), "Maximum difference in timestamp (in milliseconds) to allow for associating data to an image")
 		("data_directory,d", po::value<std::string>(&data_directory)->default_value(std::string("data")), "Top-level directory to place the annotations & images.")
@@ -92,11 +92,11 @@ int main(int argc, char** argv) {
 	std::thread screen_thread(screen_worker);
 	screen_thread.join();
 	std::cout << "Screencapping done" << std::endl;
-	//udp_listener.stop();
+	udp_listener.stop();
 	udp_thread.join();
 	std::vector<deepf1::timestamped_image_data_t> screen_data = screen_listener.get_data();
 	std::vector<deepf1::timestamped_udp_data_t> udp_data = udp_listener.get_data();
-	std::printf("Started receiving packets at timestamp: %ld \n", udp_listener.get_collection_start().wall);
+	std::printf("Started receiving packets at timestamp: %lld \n", udp_listener.get_collection_start().wall);
 	writeToFiles(data_directory, screen_data, udp_listener, max_delta);
 
 	return 0;
@@ -154,6 +154,7 @@ namespace deepf1 {
 		unsigned long raw_point_number = 1;
 		std::shared_ptr<std::fstream> file_out;
 		std::shared_ptr<std::ofstream> raw_image_timestamps_stream(new std::ofstream(raw_images_timestamps.string(), std::fstream::out));
+		std::cout << "Writing " << screen_data.size() << " raw images to file." << std::endl;
 		for (auto it = screen_data.begin(); it != screen_data.end(); it++) {
 			
 			std::stringstream raw_image_ss;
