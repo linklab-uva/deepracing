@@ -69,15 +69,18 @@ def main():
     parser = argparse.ArgumentParser(description="Steering prediction with PilotNet")
     parser.add_argument("--config_file", type=str, required=True, help="Config file to use")
     args = parser.parse_args()
-    config = load_config(args.config_file)
+    config_fp = args.config_file
+    config = load_config(config_fp)
     print("Overwriting these config parameters.", config)
-
+    
     
     learning_rate = float(config['learning_rate'])
     root_dir, annotation_file = os.path.split(config['annotation_file'])
     prefix, _ = annotation_file.split(".")
-    output_dir = config['output_dir']
 
+    _, config_file = os.path.split(config_fp)
+    config_file_name, _ = config_file.split(".")
+    output_dir = config.get('output_dir',config_file_name.replace("\n",""))
     batch_size = int(config.get('batch_size','1'))
     gpu = int(config.get('gpu','-1'))
     epochs = int(config.get('epochs','10'))
