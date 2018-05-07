@@ -92,7 +92,7 @@ def main():
         diff = scaled_ground_truth-scaled_angle
         diffs.append(diff)
         cum_diff += abs(diff)
-        t.set_postfix(average_diff = cum_diff/(float(idx)+1.0))
+        t.set_postfix(scaled_angle = scaled_angle, scaled_ground_truth = scaled_ground_truth, average_diff = cum_diff/(float(idx)+1.0))
        # print("Ground Truth: %f. Prediction: %f.\n" %(scaled_ground_truth, scaled_angle))
         M = cv2.getRotationMatrix2D((wheelrows/2,wheelcols/2),scaled_angle,1)
         wheel_rotated = cv2.warpAffine(wheel,M,(wheelrows,wheelcols))
