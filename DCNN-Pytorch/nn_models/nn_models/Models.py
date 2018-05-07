@@ -100,7 +100,7 @@ class PilotNet(nn.Module):
 
 class AdmiralNet(nn.Module):
     """PyTorch Implementation of NVIDIA's PilotNet"""
-    def __init__(self, seq_length=25, context_length = 25, hidden_dim = 100, use_float32 = False):
+    def __init__(self, sequence_length=25, context_length = 25, hidden_dim = 100, use_float32 = False):
         super(AdmiralNet, self).__init__()
         self.use_float32=use_float32
         # Convolutional layers.
@@ -118,7 +118,7 @@ class AdmiralNet(nn.Module):
         
         #recurrent layers
         self.hidden_dim = hidden_dim
-        self.seq_length=seq_length
+        self.sequence_length=sequence_length
         self.context_length = context_length
         self.lstm = nn.LSTM(64*1*18, hidden_dim, batch_first = True)
 
@@ -149,9 +149,9 @@ class AdmiralNet(nn.Module):
         # Unpack for the LSTM.
         x = x.view(-1, self.context_length, 64*1*18) 
         if(self.use_float32):
-            zeros = torch.zeros([x.shape[0], self.seq_length, 64*1*18], dtype=torch.float32).cuda()
+            zeros = torch.zeros([x.shape[0], self.sequence_length, 64*1*18], dtype=torch.float32).cuda()
         else:
-            zeros = torch.zeros([x.shape[0], self.seq_length, 64*1*18], dtype=torch.float64).cuda()
+            zeros = torch.zeros([x.shape[0], self.sequence_length, 64*1*18], dtype=torch.float64).cuda()
         x, init_hidden = self.lstm(x) 
         x, final_hidden = self.lstm(zeros, init_hidden)
         predictions = self.prediction_layer(x)
