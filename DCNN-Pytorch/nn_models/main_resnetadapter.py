@@ -22,9 +22,9 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
     num_samples=0
     t = tqdm(enumerate(trainLoader))
     for (i, (inputs, labels)) in t:
-        if use_gpu:
-            inputs = inputs.cuda()
-            labels = labels.cuda()
+        if use_gpu>=0:
+            inputs = inputs.cuda(use_gpu)
+            labels = labels.cuda(use_gpu)
         # Forward pass:
         outputs = network(inputs)
         loss = criterion(outputs, labels)
@@ -43,8 +43,8 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
  
 
 def train_model(network, criterion, optimizer, trainLoader, file_prefix, directory, n_epochs = 10, use_gpu = False):
-    if use_gpu:
-        criterion = criterion.cuda()
+    if use_gpu>=0:
+        criterion = criterion.cuda(use_gpu)
     # Training loop.
     if(not os.path.isdir(directory)):
         os.makedirs(directory)
@@ -55,7 +55,7 @@ def train_model(network, criterion, optimizer, trainLoader, file_prefix, directo
         torch.save(network.state_dict(), log_path)
 def main():
     parser = argparse.ArgumentParser(description="Steering prediction with PilotNet")
-    parser.add_argument("--gpu", action="store_true", help="Accelerate with GPU")
+    parser.add_argument("--gpu", type=int, default = -1, help="Accelerate with GPU")
     parser.add_argument("--batch_size", type=int, default = 8, help="Batch Size")
     parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs to run")
     parser.add_argument("--learning_rate", type=float, default=0.01, help="Number of training epochs to run")
@@ -84,8 +84,8 @@ def main():
     else:
         network.double()
         trainset = loaders.F1Dataset(args.root_dir,args.annotation_file,(66,200), img_transformation = img_transformation, label_transformation = label_transformation)
-    if(args.gpu):
-        network = network.cuda()
+    if(args.gpu>=0):
+        network = network.cuda(args.gpu)
     
     
    # trainset.read_files()
