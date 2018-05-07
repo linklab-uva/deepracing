@@ -23,8 +23,8 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
     t = tqdm(enumerate(trainLoader))
     for (i, (inputs, labels)) in t:
         if use_gpu>=0:
-            inputs = inputs.cuda()
-            labels = labels.cuda()
+            inputs = inputs.cuda(use_gpu)
+            labels = labels.cuda(use_gpu)
         # Forward pass:
         outputs = network(inputs)
         loss = criterion(outputs, labels)
@@ -44,7 +44,7 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
 
 def train_model(network, criterion, optimizer, trainLoader, file_prefix, directory, n_epochs = 10, use_gpu = False):
     if use_gpu>=0:
-        criterion = criterion.cuda()
+        criterion = criterion.cuda(use_gpu)
     # Training loop.
     if(not os.path.isdir(directory)):
         os.makedirs(directory)
