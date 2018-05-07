@@ -9,8 +9,8 @@ import torchvision.models.vgg
 class ResNetAdapter(nn.Module):
     def __init__(self):
         super(ResNetAdapter, self).__init__()
-        res50_model = visionmodels.resnet50(pretrained=True)
-        self.features = nn.Sequential(*list(res50_model.children())[:-2])
+        resnet_model = visionmodels.resnet152(pretrained=True)
+        self.features = nn.Sequential(*list(resnet_model.children())[:-2])
         self.classifier = nn.Sequential(*[nn.Linear(43008, 2048),nn.ReLU(True),nn.Dropout(),\
                         nn.Linear(2048, 1024),nn.ReLU(True),nn.Dropout(),\
                         nn.Linear(1024, 128),nn.ReLU(True),nn.Dropout(),\
