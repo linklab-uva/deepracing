@@ -35,6 +35,8 @@ def main():
     parser.add_argument("--root_dir", type=str, required=True, help="Root dir of the F1 validation set to use")
     parser.add_argument("--annotation_file", type=str, required=True, help="Annotation file to use")
     parser.add_argument("--plot", action="store_true", help="Plot some statistics of the results")
+    parser.add_argument("--label_scale", type=float, default=100.0, help="Lable Scaling factor that was used during training so that scaling can be un-done at test time")
+    parser.add_argument("--im_scale", type=float, default=1.0, help="Image Scaling factor that was used during training so that scaling can be un-done at test time")
     args = parser.parse_args()
     prefix, ext = args.annotation_file.split(".")
 
@@ -62,9 +64,9 @@ def main():
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     output_vid = os.path.join(args.output_folder,output_video)
     videoout = cv2.VideoWriter(output_vid ,fourcc, 60.0, (size[1], size[0]),True)
-    img_transformation = transforms.Compose([transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
+    img_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.div(args.im_scale)), transforms.Normalize((args.im_scale*0.4914, args.im_scale*0.4822, args.im_scale*0.4465), (args.im_scale*0.2023, args.im_scale*0.1994, args.im_scale*0.2010))])
     network = models.EnsignNet()
-    network.double()
+    network.float()
     network.cuda()
     state_dict = torch.load(args.model_file)
     network.load_state_dict(state_dict)
@@ -77,21 +79,18 @@ def main():
         background = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
         im = load_image(img_path)
         im = cv2.resize(im, (200, 66), interpolation = cv2.INTER_CUBIC)
-        im = np.transpose(im, (2, 0, 1)).astype(np.float64)
+        im = np.transpose(im, (2, 0, 1)).astype(np.float32)
         im_tens = torch.from_numpy(im)
-        tensor = torch.zeros([1,3,66,200], dtype=torch.float64)
+        tensor = torch.zeros([1,3,66,200], dtype=torch.float32)
         tensor[0] = img_transformation(im_tens)
         tensor = tensor.cuda()
         pred = network(tensor)
-        angle = pred.item()/100.0
+        angle = pred.item()/args.label_scale
         ground_truth = float(anglestr.replace("\n",""))
         scaled_ground_truth = max_angle * ground_truth
         scaled_angle = max_angle * angle
-        #print(scaled_angle)
         diff = scaled_ground_truth-scaled_angle
         diffs.append(diff)
-        predictions.append(scaled_angle)
-        ground_truths.append(scaled_ground_truth)
         cum_diff += abs(diff)
         t.set_postfix(scaled_angle = scaled_angle, scaled_ground_truth = scaled_ground_truth, average_diff = cum_diff/(float(idx)+1.0))
        # print("Ground Truth: %f. Prediction: %f.\n" %(scaled_ground_truth, scaled_angle))
@@ -107,12 +106,17 @@ def main():
     if args.plot:
         from scipy import stats
         import matplotlib.pyplot as plt
-        import math
+        binz = 100
+        res = stats.cumfreq(diffs, numbins=binz)
+        x = res.lowerlimit + np.linspace(0, res.binsize*res.cumcount.size, res.cumcount.size)
         fig = plt.figure(figsize=(10, 4))
-        t = np.linspace(0, len(annotations), len(annotations))
-        plt.plot(t, predictions, 'r') 
-        plt.plot(t, ground_truths, 'b')  
+        ax1 = fig.add_subplot(1, 2, 1)
+        ax2 = fig.add_subplot(1, 2, 2)
+        ax1.hist(diffs, bins=binz)
+        ax1.set_title('Histogram')
+        ax2.bar(x, res.cumcount, width=res.binsize)
+        ax2.set_title('Cumulative histogram')
+        ax2.set_xlim([x.min(), x.max()])
         plt.show()
-        
 if __name__ == '__main__':
     main()

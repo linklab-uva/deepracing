@@ -24,6 +24,10 @@ class F1Dataset(Dataset):
         self.images = np.tile(0, (len(self.annotations),3,im_size[0],im_size[1])).astype(np.int8)
         self.labels = np.tile(0, (len(self.annotations))).astype(np.float64)
         self.preloaded=False
+    def statistics(self):
+        mean = np.mean(self.images,(0,2,3))
+        stdev = np.std(self.images,(0,2,3))
+        return tuple(mean),tuple(stdev)
     def write_pickles(self,image_pickle, label_pickle):
         filename = image_pickle
         fp = open(filename, 'wb')

@@ -22,6 +22,7 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
     num_samples=0
     t = tqdm(enumerate(trainLoader))
     for (i, (inputs, labels)) in t:
+        optimizer.zero_grad()
         if use_gpu>=0:
             inputs = inputs.cuda(use_gpu)
             labels = labels.cuda(use_gpu)
@@ -30,14 +31,14 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
         loss = criterion(outputs, labels)
 
         # Backward pass:
-        optimizer.zero_grad()
         loss.backward() 
 
         # Weight and bias updates.
         optimizer.step()
 
-        # logging information.
-        cum_loss += loss.item()
+        # logging information
+        loss_ = loss.item()
+        cum_loss += loss_
         num_samples += batch_size
         t.set_postfix(cum_loss = cum_loss/num_samples)
  
@@ -87,28 +88,33 @@ def main():
     momentum = float(config.get('momentum','0.0'))
     file_prefix = config.get('file_prefix','')
     load_files = bool(config.get('load_files',''))
+    with_relu = bool(config.get('with_relu','True'))
+    adadelta = bool(config.get('adadelta',''))
     use_float32 = bool(config.get('use_float32',''))
-    label_scale = float(config.get('label_scale','1.0'))
+    label_scale = float(config.get('label_scale','100.0'))
+    im_scale = float(config.get('im_scale','1.0'))
     workers = int(config.get('workers','0'))
     rows = int(config.get('rows','66'))
     cols = int(config.get('cols','200'))
     size = (rows,cols)
     prefix = prefix + file_prefix
-    network = models.PilotNet()
-    img_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.div(255.0)), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
+    if with_relu:
+        network = models.PilotNet()
+    else:
+        network = models.PilotNetNoRelu()
+    print(network)
     if(label_scale == 1.0):
         label_transformation = None
     else:
         label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(label_scale))])
     if(use_float32):
         network.float()
-        trainset = loaders.F1Dataset(root_dir, annotation_file, size, use_float32=True, img_transformation = img_transformation, label_transformation = label_transformation)
+        trainset = loaders.F1Dataset(root_dir, annotation_file, size, use_float32=True, label_transformation = label_transformation)
     else:
         network.double()
-        trainset = loaders.F1Dataset(root_dir, annotation_file, size, img_transformation = img_transformation, label_transformation = label_transformation)
+        trainset = loaders.F1Dataset(root_dir, annotation_file, size, label_transformation = label_transformation)
     if(gpu>=0):
         network = network.cuda(gpu)
-    
     
    # trainset.read_files()
     
@@ -118,13 +124,21 @@ def main():
     else:  
         trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
     ''' '''
+    mean,stdev = trainset.statistics()
+    print(mean)
+    print(stdev)
+    img_transformation = transforms.Compose([transforms.Normalize(mean,stdev)])
+    trainset.img_transformation = img_transformation
     trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = True, num_workers = 0)
     print(trainLoader)
     #Definition of our loss.
     criterion = nn.MSELoss()
 
     # Definition of optimization strategy.
-    optimizer = optim.SGD(network.parameters(), lr = learning_rate, momentum=momentum)
+    if adadelta:
+        optimizer = optim.Adadelta(network.parameters())
+    else:
+        optimizer = optim.SGD(network.parameters(), lr = learning_rate, momentum=momentum)
     train_model(network, criterion, optimizer, trainLoader, prefix, output_dir, n_epochs = epochs, use_gpu = gpu)
 
 if __name__ == '__main__':

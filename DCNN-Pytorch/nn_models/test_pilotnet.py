@@ -35,6 +35,8 @@ def main():
     parser.add_argument("--root_dir", type=str, required=True, help="Root dir of the F1 validation set to use")
     parser.add_argument("--annotation_file", type=str, required=True, help="Annotation file to use")
     parser.add_argument("--plot", action="store_true", help="Plot some statistics of the results")
+    parser.add_argument("--label_scale", type=float, default=100.0, help="Scaling factor that was used during training so that scaling can be un-done at test time")
+    parser.add_argument("--im_scale", type=float, default=1.0, help="Image Scaling factor that was used during training so that scaling can be un-done at test time")
     args = parser.parse_args()
     prefix, ext = args.annotation_file.split(".")
 
@@ -62,11 +64,9 @@ def main():
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     output_vid = os.path.join(args.output_folder,output_video)
     videoout = cv2.VideoWriter(output_vid ,fourcc, 60.0, (size[1], size[0]),True)
-    img_transformation = transforms.Compose([transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
-    label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(100.0))])
-    trainset = loaders.F1Dataset(args.root_dir,args.annotation_file,(66,200), img_transformation = img_transformation, label_transformation = label_transformation)
+    img_transformation = transforms.Compose([transforms.Normalize((0.5*args.im_scale, 0.5*args.im_scale, 0.5*args.im_scale), (0.2*args.im_scale, 0.2*args.im_scale, 0.2*args.im_scale))])
     network = models.PilotNet()
-    network.double()
+    network.float()
     network.cuda()
     state_dict = torch.load(args.model_file)
     network.load_state_dict(state_dict)
@@ -79,13 +79,13 @@ def main():
         background = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
         im = load_image(img_path)
         im = cv2.resize(im, (200, 66), interpolation = cv2.INTER_CUBIC)
-        im = np.transpose(im, (2, 0, 1)).astype(np.float64)
+        im = np.transpose(im, (2, 0, 1)).astype(np.float32)
         im_tens = torch.from_numpy(im)
-        tensor = torch.zeros([1,3,66,200], dtype=torch.float64)
+        tensor = torch.zeros([1,3,66,200], dtype=torch.float32)
         tensor[0] = img_transformation(im_tens)
         tensor = tensor.cuda()
         pred = network(tensor)
-        angle = pred.item()/100.0
+        angle = pred.item()/args.label_scale
         ground_truth = float(anglestr.replace("\n",""))
         scaled_ground_truth = max_angle * ground_truth
         scaled_angle = max_angle * angle
