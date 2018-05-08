@@ -4,5 +4,5 @@ label_scale,100.0
 im_scale,1.0
 gpu,1
 batch_size,32
-epochs,1000
+epochs,4000
 use_float32,True

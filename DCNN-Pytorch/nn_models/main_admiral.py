@@ -96,8 +96,10 @@ def main():
 
     
     prefix = prefix + file_prefix
+    config_dump = open(os.path.join(output_dir,config_file_name+".pkl"), 'wb')
+    pickle.dump(config,config_dump)
+    config_dump.close()
     network = models.AdmiralNet(context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu)
-    img_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.div(255.0)), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
     if(label_scale == 1.0):
         label_transformation = None
     else:
@@ -105,11 +107,11 @@ def main():
     if(use_float32):
         network.float()
         trainset = loaders.F1SequenceDataset(root_dir,annotation_file,(66,200),\
-        context_length=context_length, sequence_length=sequence_length, use_float32=True, img_transformation = img_transformation, label_transformation = label_transformation)
+        context_length=context_length, sequence_length=sequence_length, use_float32=True, label_transformation = label_transformation)
     else:
         network.double()
         trainset = loaders.F1SequenceDataset(root_dir, annotation_file,(66,200),\
-        context_length=context_length, sequence_length=sequence_length, img_transformation = img_transformation, label_transformation = label_transformation)
+        context_length=context_length, sequence_length=sequence_length, label_transformation = label_transformation)
     if(gpu>=0):
         network = network.cuda(gpu)
     
@@ -122,6 +124,11 @@ def main():
     else:  
         trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
     ''' '''
+    mean,stdev = trainset.statistics()
+    print(mean)
+    print(stdev)
+    img_transformation = transforms.Compose([transforms.Normalize(mean,stdev)])
+    trainset.img_transformation = img_transformation
     trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = True, num_workers = workers)
     print(trainLoader)
     #Definition of our loss.

@@ -86,58 +86,14 @@ class F1Dataset(Dataset):
         return img_tensor, label_tensor.view(1)
     def __len__(self):
         return self.length
-class F1SequenceDataset(Dataset):
+class F1SequenceDataset(F1Dataset):
     def __init__(self, root_folder, annotation_filepath, im_size,\
         context_length = 25, sequence_length=25, use_float32=False, img_transformation = None, label_transformation = None):
-        super(F1SequenceDataset, self).__init__()
-        self.im_size=im_size
-        self.label_size = 1
-        self.use_float32=use_float32
-        self.root_folder = root_folder
-        self.img_transformation = img_transformation
-        self.label_transformation = label_transformation
-        self.annotation_filepath = annotation_filepath
-        self.annotations_file = open(os.path.join(self.root_folder,self.annotation_filepath), "r")
-        self.annotations = self.annotations_file.readlines()
+        super(F1SequenceDataset, self).__init__(root_folder, annotation_filepath, im_size, use_float32=use_float32, img_transformation = img_transformation, label_transformation = label_transformation)
         self.sequence_length = sequence_length
         self.context_length = context_length
         self.length = len(self.annotations) - sequence_length - context_length
-        self.images = np.tile(0, (len(self.annotations),3,im_size[0],im_size[1])).astype(np.int8)
-        self.labels = np.tile(0, (len(self.annotations))).astype(np.float64)
-        self.preloaded=False
-    def write_pickles(self,image_pickle, label_pickle):
-        filename = image_pickle
-        fp = open(filename, 'wb')
-        pickle.dump(self.images, fp)
-        fp.close()
-        print('File %s is saved.' % filename)
 
-        filename = label_pickle
-        fp = open(filename, 'wb')
-        pickle.dump(self.labels, fp)
-        fp.close()
-        print('File %s is saved.' % filename)
-    def read_pickles(self,image_pickle, label_pickle):
-        filename = image_pickle
-        fp = open(filename, 'rb')
-        self.images = pickle.load(fp)
-        fp.close()
-
-        filename = label_pickle
-        fp = open(filename, 'rb')
-        self.labels =  pickle.load(fp)
-        fp.close()
-        self.preloaded=True
-    def read_files(self):
-        print("loading data")
-        for (idx,line) in tqdm(enumerate(self.annotations)):
-            fp, ts, steering, throttle, brake = line.split(",")
-            im = load_image(os.path.join(self.root_folder,"raw_images",fp))
-            im = cv2.resize(im, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
-            im = np.transpose(im, (2, 0, 1))
-            self.images[idx] = im
-            self.labels[idx] = float(steering)
-        self.preloaded=True
     def __getitem__(self, index):
         if(self.preloaded):
             seq = self.images[index:index+self.context_length]

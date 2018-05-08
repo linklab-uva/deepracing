@@ -98,6 +98,9 @@ def main():
     cols = int(config.get('cols','200'))
     size = (rows,cols)
     prefix = prefix + file_prefix
+    config_dump = open(os.path.join(output_dir,config_file_name+".pkl"), 'wb')
+    pickle.dump(config,config_dump)
+    config_dump.close()
     if with_relu:
         network = models.PilotNet()
     else:

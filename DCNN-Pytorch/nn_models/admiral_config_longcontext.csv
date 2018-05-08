@@ -5,5 +5,5 @@ gpu,1
 batch_size,8
 use_float32,True
 epochs,4000
-context_length,10
-sequence_length,1
+context_length,50
+sequence_length,10
