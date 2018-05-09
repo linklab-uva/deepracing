@@ -8,9 +8,18 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{B0E2881E-648A-42B6-AFCE-E4D9A377E7DD}"
 	ProjectSection(SolutionItems) = preProject
 		nn_models\admiral_config.csv = nn_models\admiral_config.csv
+		nn_models\admiral_config_aggressive.csv = nn_models\admiral_config_aggressive.csv
+		nn_models\admiral_config_longcontext.csv = nn_models\admiral_config_longcontext.csv
+		nn_models\admiral_config_longcontext_aggressive.csv = nn_models\admiral_config_longcontext_aggressive.csv
+		nn_models\admiral_config_oneprediction.csv = nn_models\admiral_config_oneprediction.csv
 		nn_models\admiral_config_oneprediction_aggressive.csv = nn_models\admiral_config_oneprediction_aggressive.csv
-		nn_models\pilotnet_config_scaled.csv = nn_models\pilotnet_config_scaled.csv
+		admiralnet_config_longhidden.csv = admiralnet_config_longhidden.csv
+		nn_models\ensignnet_config_scaled_aggressive.csv = nn_models\ensignnet_config_scaled_aggressive.csv
 		nn_models\pilotnet_config_aggressive.csv = nn_models\pilotnet_config_aggressive.csv
+		nn_models\pilotnet_config_scaled.csv = nn_models\pilotnet_config_scaled.csv
+		nn_models\pilotnetnorelu_config_scaled.csv = nn_models\pilotnetnorelu_config_scaled.csv
+		nn_models\pilotnet_config_scaled_hyperaggressive.csv = nn_models\pilotnet_config_scaled_hyperaggressive.csv
+		nn_models\pilotnetnorelu_config_scaled_aggressive.csv = nn_models\pilotnetnorelu_config_scaled_aggressive.csv
 		nn_models\resnet_config_passive.csv = nn_models\resnet_config_passive.csv
 	EndProjectSection
 EndProject
