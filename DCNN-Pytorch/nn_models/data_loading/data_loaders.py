@@ -120,10 +120,6 @@ class F1SequenceDataset(F1Dataset):
                     next = cv2.cvtColor(color,cv2.COLOR_BGR2GRAY)
                     seq[i] = cv2.calcOpticalFlowFarneback(prvs,next, None, 0.5, 3, 20, 10, 7, 1.2, 0).transpose(2, 0, 1)
                     i+=1  
-                mean = np.mean(seq,(0,2,3))
-                stdev = np.std(seq,(0,2,3))
-                print("mean: ", mean)
-                print("stdev: ",stdev)
         else:
             raise NotImplementedError("Must preload images for sequence dataset")
         if(self.use_float32):
