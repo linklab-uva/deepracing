@@ -159,8 +159,8 @@ def main():
         print(mean)
         print(stdev)
         trainset.img_transformation = transforms.Compose([transforms.Normalize(mean,stdev)])
-    config['image_transformation'] = img_transformation
-    config['label_transformation'] = label_transformation
+    config['image_transformation'] = trainset.img_transformation
+    config['label_transformation'] = trainset.label_transformation
     print("Using configuration: ", config)
     if(not os.path.isdir(output_dir)):
         os.makedirs(output_dir)
