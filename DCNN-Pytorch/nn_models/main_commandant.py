@@ -21,12 +21,13 @@ def run_epoch(network, criterion, optimizer, trainLoader, gpu = -1):
     batch_size = trainLoader.batch_size
     num_samples=0
     t = tqdm(enumerate(trainLoader))
-    for (i, (inputs, _, labels)) in t:
+    for (i, (inputs, previous_control, labels)) in t:
         if gpu>=0:
             inputs = inputs.cuda(gpu)
             labels = labels.cuda(gpu)
+            previous_control = previous_control.cuda(gpu)
         # Forward pass:
-        outputs = network(inputs)
+        outputs = network(inputs, previous_control)
         loss = criterion(outputs, labels)
 
         # Backward pass:
@@ -115,8 +116,9 @@ def main():
     _, config_file = os.path.split(config_fp)
     config_file_name, _ = config_file.split(".")
     output_dir = config_file_name.replace("\n","")
-    prefix = prefix + file_prefix
-    network = models.AdmiralNet(context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu)
+    prefix = prefix + file_prefix+'commandant'
+    network = models.CommandantNet(context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu)
+    im_size=(125, 400)
     starting_epoch = 0
     if(checkpoint_file!=''):
         dir, file = os.path.split(checkpoint_file)
@@ -130,16 +132,14 @@ def main():
         label_transformation = None
     else:
         label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(label_scale))])
-    if(use_float32):
-        network.float()
-        trainset = loaders.F1SequenceDataset(root_dir,annotation_file,(66,200),\
-        context_length=context_length, sequence_length=sequence_length, use_float32=True, label_transformation = label_transformation)
-    else:
-        network.double()
-        trainset = loaders.F1SequenceDataset(root_dir, annotation_file,(66,200),\
-        context_length=context_length, sequence_length=sequence_length, label_transformation = label_transformation)
     if(gpu>=0):
         network = network.cuda(gpu)
+    if(use_float32):
+        network.float()
+        trainset = loaders.F1SequenceDataset(root_dir,annotation_file, im_size, context_length=context_length, sequence_length=sequence_length, use_float32=True, label_transformation = label_transformation)
+    else:
+        network.double()
+        trainset = loaders.F1SequenceDataset(root_dir, annotation_file, im_size, context_length=context_length, sequence_length=sequence_length, use_float32=False, label_transformation = label_transformation)
     
     
    # trainset.read_files()

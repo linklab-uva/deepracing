@@ -4,6 +4,7 @@ label_scale,1.0
 gpu,1
 batch_size,8
 use_float32,True
-epochs,4000
+epochs,1000
 context_length,50
 sequence_length,10
+checkpoint_file,admiral_config_longcontext_aggressive/fullview_linear_epoch52.model

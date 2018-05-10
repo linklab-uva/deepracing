@@ -43,16 +43,16 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
         t.set_postfix(cum_loss = cum_loss/num_samples)
  
 
-def train_model(network, criterion, optimizer, trainLoader, file_prefix, directory, n_epochs = 10, use_gpu = False):
+def train_model(network, criterion, optimizer, trainLoader, file_prefix, directory, n_epochs = 10, use_gpu = False, starting_epoch = 0):
     if use_gpu>=0:
         criterion = criterion.cuda(use_gpu)
     # Training loop.
     if(not os.path.isdir(directory)):
         os.makedirs(directory)
-    for epoch in range(0, n_epochs):
-        print("Epoch %d of %d" %((epoch+1),n_epochs))
+    for epoch in range(starting_epoch, starting_epoch + n_epochs):
+        print("Epoch %d of %d" %((starting_epoch + epoch+1),n_epochs))
         run_epoch(network, criterion, optimizer, trainLoader, use_gpu)
-        log_path = os.path.join(directory,""+file_prefix+"_epoch"+str((epoch+1))+ ".model")
+        log_path = os.path.join(directory,""+file_prefix+"_epoch"+str((starting_epoch + epoch+1))+ ".model")
         torch.save(network.state_dict(), log_path)
 def load_config(filepath):
     rtn = dict()
@@ -65,6 +65,7 @@ def load_config(filepath):
     rtn['use_float32']=''
     rtn['label_scale']='100.0'
     rtn['workers']='0'
+    rtn['checkpoint_file']=''
 
 
     config_file = open(filepath)
@@ -89,6 +90,7 @@ def main():
 
     #optional parameters
     file_prefix = config['file_prefix']
+    checkpoint_file = config['checkpoint_file']
 
     load_files = bool(config['load_files'])
     use_float32 = bool(config['use_float32'])

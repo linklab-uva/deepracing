@@ -1,0 +1,10 @@
+learning_rate,0.1
+annotation_file,D:/test_data/australia_racing_run1/racingrun1_linear.csv
+label_scale,1.0
+gpu,0
+batch_size,8
+use_float32,True
+epochs,1000
+context_length,10
+sequence_length,1
+checkpoint_file,admiral_config_oneprediction_aggressive_train_racing/racingrun1_linear_epoch35.model

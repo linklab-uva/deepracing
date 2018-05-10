@@ -101,7 +101,7 @@ def main():
         wheelrows = 150
         wheelcols = 150
         wheel = cv2.resize(wheel, (wheelcols,wheelrows), interpolation = cv2.INTER_CUBIC)
-    for idx,(inputs, labels) in t:
+    for idx,(inputs, _, labels) in t:
         if(gpu>=0):
             inputs = inputs.cuda(gpu)
             labels = labels.cuda(gpu)
@@ -138,7 +138,7 @@ def main():
     predictions_array = np.array(predictions)
     ground_truths_array = np.array(ground_truths)
     diffs = np.subtract(predictions_array,ground_truths_array)
-    rms = np.mean(np.array(losses))
+    rms = np.sqrt(np.mean(np.array(losses)))
     print("RMS Error: ", rms)
     if args.plot:
         from scipy import stats
@@ -146,7 +146,7 @@ def main():
         t = np.linspace(0,len(loader)-1,len(loader))
         plt.plot(t,predictions_array,'r')
         plt.plot(t,ground_truths_array,'b')
-        plt.plot(t,diffs)
+        #plt.plot(t,diffs)
         plt.show()
 if __name__ == '__main__':
     main()

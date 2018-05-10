@@ -7,4 +7,4 @@ use_float32,True
 epochs,1000
 context_length,10
 sequence_length,1
-checkpoint_file,admiral_config_oneprediction_aggressive/fullview_linear_epoch182.model
+checkpoint_file,commandant_config_oneprediction_aggressive/fullview_linearcommandant_epoch114.model

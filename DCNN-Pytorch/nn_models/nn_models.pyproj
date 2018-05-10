@@ -34,6 +34,7 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="main.py" />
+    <Compile Include="main_commandant.py" />
     <Compile Include="main_resnetadapter.py" />
     <Compile Include="main_ensign.py" />
     <Compile Include="main_admiral.py" />
@@ -42,6 +43,7 @@
     <Compile Include="nn_models\__init__.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="playground.py" />
     <Compile Include="test_admiralnet.py" />
     <Compile Include="test_ensignnet.py" />
     <Compile Include="test_pilotnet.py" />

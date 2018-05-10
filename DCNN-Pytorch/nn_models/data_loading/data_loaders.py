@@ -92,22 +92,27 @@ class F1SequenceDataset(F1Dataset):
         super(F1SequenceDataset, self).__init__(root_folder, annotation_filepath, im_size, use_float32=use_float32, img_transformation = img_transformation, label_transformation = label_transformation)
         self.sequence_length = sequence_length
         self.context_length = context_length
-        self.length = len(self.annotations) - sequence_length - context_length
+        self.length -= (context_length + sequence_length)
 
     def __getitem__(self, index):
         if(self.preloaded):
-            seq = self.images[index:index+self.context_length]
-            label_start = index+self.context_length
-            seq_labels = self.labels[label_start:label_start+self.sequence_length]
+            label_start = index + self.context_length
+            label_end = label_start + self.sequence_length
+            seq = self.images[index:label_start]
+            previous_control = self.labels[index:label_start]
+            seq_labels = self.labels[label_start:label_end]
         else:
             raise NotImplementedError("Must preload images for sequence dataset")
         if(self.use_float32):
             seq = seq.astype(np.float32)
             seq_labels = seq_labels.astype(np.float32)
+            previous_control = previous_control.astype(np.float32)
         else:
             seq = seq.astype(np.float64)
             seq_labels = seq_labels.astype(np.float64)
+            previous_control = previous_control.astype(np.float64)
         label_tensor = torch.from_numpy(seq_labels)
+        previous_control_tensor = torch.from_numpy(previous_control)
         img_tensor = torch.from_numpy(seq)
         if(not (self.img_transformation == None)):
             for i in range(0, img_tensor.shape[0]):
@@ -115,6 +120,7 @@ class F1SequenceDataset(F1Dataset):
         if(not (self.label_transformation == None)):
             for i in range(0, label_tensor.shape[0]):
                 label_tensor[i]=self.label_transformation(label_tensor[i])
-        return img_tensor, label_tensor.view(self.sequence_length,1)
+                previous_control_tensor[i]=self.label_transformation(previous_control_tensor[i])
+        return img_tensor, previous_control_tensor.view(self.context_length,1), label_tensor.view(self.sequence_length,1)
     def __len__(self):
         return self.length
