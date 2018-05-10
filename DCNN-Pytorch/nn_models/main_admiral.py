@@ -69,6 +69,7 @@ def load_config(filepath):
     rtn['sequence_length']='5'
     rtn['hidden_dim']='100'
     rtn['checkpoint_file']=''
+    rtn['optical_flow']=''
 
 
     config_file = open(filepath)
@@ -97,6 +98,7 @@ def main():
 
     load_files = bool(config['load_files'])
     use_float32 = bool(config['use_float32'])
+    optical_flow = bool(config['optical_flow'])
 
     label_scale = float(config['label_scale'])
     momentum = float(config['momentum'])
@@ -116,7 +118,7 @@ def main():
     config_file_name, _ = config_file.split(".")
     output_dir = config_file_name.replace("\n","")
     prefix = prefix + file_prefix
-    network = models.AdmiralNet(context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu)
+    network = models.AdmiralNet(context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow = optical_flow)
     starting_epoch = 0
     if(checkpoint_file!=''):
         dir, file = os.path.split(checkpoint_file)
@@ -133,11 +135,11 @@ def main():
     if(use_float32):
         network.float()
         trainset = loaders.F1SequenceDataset(root_dir,annotation_file,(66,200),\
-        context_length=context_length, sequence_length=sequence_length, use_float32=True, label_transformation = label_transformation)
+        context_length=context_length, sequence_length=sequence_length, use_float32=True, label_transformation = label_transformation, optical_flow = optical_flow)
     else:
         network.double()
         trainset = loaders.F1SequenceDataset(root_dir, annotation_file,(66,200),\
-        context_length=context_length, sequence_length=sequence_length, label_transformation = label_transformation)
+        context_length=context_length, sequence_length=sequence_length, label_transformation = label_transformation, optical_flow = optical_flow)
     if(gpu>=0):
         network = network.cuda(gpu)
     
@@ -150,13 +152,15 @@ def main():
     else:  
         trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
     ''' '''
-    mean,stdev = trainset.statistics()
-    print(mean)
-    print(stdev)
-    img_transformation = transforms.Compose([transforms.Normalize(mean,stdev)])
-    trainset.img_transformation = img_transformation
-    config['image_transformation'] = img_transformation
-    config['label_transformation'] = label_transformation
+    if optical_flow:
+        trainset.img_transformation = None
+    else:
+        mean,stdev = trainset.statistics()
+        print(mean)
+        print(stdev)
+        trainset.img_transformation = transforms.Compose([transforms.Normalize(mean,stdev)])
+    config['image_transformation'] = trainset.img_transformation
+    config['label_transformation'] = trainset.label_transformation
     print("Using configuration: ", config)
     if(not os.path.isdir(output_dir)):
         os.makedirs(output_dir)

@@ -21,7 +21,7 @@ class F1Dataset(Dataset):
         self.annotations_file = open(os.path.join(self.root_folder,self.annotation_filepath), "r")
         self.annotations = self.annotations_file.readlines()
         self.length = len(self.annotations)
-        self.images = np.tile(0, (len(self.annotations),3,im_size[0],im_size[1])).astype(np.int8)
+        self.images = np.tile(0, (self.length,3,im_size[0],im_size[1])).astype(np.int8)
         self.labels = np.tile(0, (len(self.annotations))).astype(np.float64)
         self.preloaded=False
     def statistics(self):
@@ -88,19 +88,38 @@ class F1Dataset(Dataset):
         return self.length
 class F1SequenceDataset(F1Dataset):
     def __init__(self, root_folder, annotation_filepath, im_size,\
-        context_length = 25, sequence_length=25, use_float32=False, img_transformation = None, label_transformation = None):
+        context_length = 25, sequence_length=25, use_float32=False, img_transformation = None, label_transformation = None, optical_flow = False):
         super(F1SequenceDataset, self).__init__(root_folder, annotation_filepath, im_size, use_float32=use_float32, img_transformation = img_transformation, label_transformation = label_transformation)
         self.sequence_length = sequence_length
         self.context_length = context_length
         self.length -= (context_length + sequence_length)
+        self.optical_flow=optical_flow
+        if self.optical_flow:
+            self.length -= 1
 
     def __getitem__(self, index):
-        if(self.preloaded):
-            label_start = index + self.context_length
-            label_end = label_start + self.sequence_length
-            seq = self.images[index:label_start]
-            previous_control = self.labels[index:label_start]
-            seq_labels = self.labels[label_start:label_end]
+        if(self.preloaded):  
+            if not self.optical_flow:
+                label_start = index + self.context_length
+                label_end = label_start + self.sequence_length
+                previous_control = self.labels[index:label_start]   
+                seq = self.images[index:label_start]
+                seq_labels = self.labels[label_start:label_end]
+            else:
+                label_start = index + self.context_length
+                label_end = label_start + self.sequence_length
+                previous_control = self.labels[index:label_start]
+                seq_labels = self.labels[label_start:label_end]
+                images = self.images[index:label_start]
+                seq = np.random.rand(self.context_length,2,self.im_size[0],self.im_size[1])
+                i = 0
+                for idx in range(index, label_start):
+                    color = self.images[idx].transpose(1,2,0).astype(np.float32)
+                    prvs = cv2.cvtColor(color,cv2.COLOR_BGR2GRAY)
+                    color = self.images[idx+1].transpose(1,2,0).astype(np.float32)
+                    next = cv2.cvtColor(color,cv2.COLOR_BGR2GRAY)
+                    seq[i] = cv2.calcOpticalFlowFarneback(prvs,next, None, 0.5, 3, 15, 10, 3, 1.2, 0).transpose(2, 0, 1)
+                    i+=1     
         else:
             raise NotImplementedError("Must preload images for sequence dataset")
         if(self.use_float32):

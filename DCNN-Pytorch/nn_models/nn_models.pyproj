@@ -6,8 +6,7 @@
     <ProjectGuid>3394588a-c901-4b2d-85c4-3855a7a87134</ProjectGuid>
     <ProjectHome>.</ProjectHome>
     <StartupFile>main.py</StartupFile>
-    <SearchPath>
-    </SearchPath>
+    <SearchPath>C:\Program Files\Caffe2;deformable_convolution</SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
     <Name>nn_models</Name>
