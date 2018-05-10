@@ -136,13 +136,17 @@ class PilotNet(nn.Module):
         return predictions
 class CommandantNet(nn.Module):
     """PyTorch Implementation of NVIDIA's PilotNet"""
-    def __init__(self, sequence_length=25, context_length = 25, hidden_dim = 100, use_float32 = False, gpu = -1):
+    def __init__(self, sequence_length=25, context_length = 25, hidden_dim = 100, use_float32 = False, gpu = -1, optical_flow = False):
         super(CommandantNet, self).__init__()
         self.gpu=gpu
         self.use_float32=use_float32
         # Convolutional layers.
         self.output_size = 1
-        self.conv1 = nn.Conv2d(3, 12, kernel_size=5, stride=2)
+        if optical_flow:
+            self.input_channels = 2
+        else:
+            self.input_channels = 3
+        self.conv1 = nn.Conv2d(self.input_channels, 12, kernel_size=5, stride=2)
         self.conv2 = nn.Conv2d(12, 24, kernel_size=3, stride=2)
         self.conv3 = nn.Conv2d(24, 36, kernel_size=3)
         self.pool1 = nn.MaxPool2d(3,3)
@@ -174,7 +178,7 @@ class CommandantNet(nn.Module):
     def forward(self, x, previous_control):
         #resize for convolutional layers
         batch_size = x.shape[0]
-        x = x.view(-1, 3, 125,400) 
+        x = x.view(-1, self.input_channels, 125,400) 
         x = self.conv1(x)
         x = self.Norm_1(x)
         x = self.relu(x)
