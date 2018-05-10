@@ -159,11 +159,6 @@ def main():
         print(mean)
         print(stdev)
         trainset.img_transformation = transforms.Compose([transforms.Normalize(mean,stdev)])
-    mean,stdev = trainset.statistics()
-    print(mean)
-    print(stdev)
-    img_transformation = transforms.Compose([transforms.Normalize(mean,stdev)])
-    trainset.img_transformation = img_transformation
     config['image_transformation'] = img_transformation
     config['label_transformation'] = label_transformation
     print("Using configuration: ", config)
