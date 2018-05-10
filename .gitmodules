@@ -1,3 +1,6 @@
 [submodule "DCNN-Pytorch/nn_models/deformable_convolution"]
 	path = DCNN-Pytorch/nn_models/deformable_convolution
 	url = https://github.com/1zb/deformable-convolution-pytorch.git
+[submodule "DCNN-Pytorch/nn_models/pyflow"]
+	path = DCNN-Pytorch/nn_models/pyflow
+	url = https://github.com/pathak22/pyflow.git
