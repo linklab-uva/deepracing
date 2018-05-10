@@ -1,0 +1,3 @@
+[submodule "DCNN-Pytorch/nn_models/deformable_convolution"]
+	path = DCNN-Pytorch/nn_models/deformable_convolution
+	url = https://github.com/1zb/deformable-convolution-pytorch.git

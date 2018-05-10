@@ -39,6 +39,15 @@
     <Compile Include="main_ensign.py" />
     <Compile Include="main_admiral.py" />
     <Compile Include="main_captain.py" />
+    <Compile Include="math_utils\distance.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="math_utils\frechet.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="math_utils\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="nn_models\Models.py" />
     <Compile Include="nn_models\__init__.py">
       <SubType>Code</SubType>
@@ -51,6 +60,7 @@
   <ItemGroup>
     <Folder Include="data_loading\" />
     <Folder Include="imutils\" />
+    <Folder Include="math_utils\" />
     <Folder Include="nn_models\" />
   </ItemGroup>
   <PropertyGroup>
