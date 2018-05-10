@@ -53,6 +53,7 @@
     </Compile>
     <Compile Include="playground.py" />
     <Compile Include="test_admiralnet.py" />
+    <Compile Include="test_commandantnet.py" />
     <Compile Include="test_ensignnet.py" />
     <Compile Include="test_pilotnet.py" />
   </ItemGroup>

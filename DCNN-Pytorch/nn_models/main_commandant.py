@@ -146,19 +146,27 @@ def main():
     
    # trainset.read_files()
     
-    if(load_files or (not os.path.isfile("./" + prefix+"_images.pkl")) or (not os.path.isfile("./" + prefix+"_annotations.pkl"))):
-        trainset.read_files()
-        trainset.write_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
-    else:  
-        trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
-    ''' '''
     if optical_flow:
-        trainset.img_transformation = None
+        if(load_files or (not os.path.isfile("./" + prefix+"_commandantopticalflows.pkl")) or (not os.path.isfile("./" + prefix+"_commandantopticalflowannotations.pkl"))):
+            trainset.read_files_flow()
+           # trainset.write_pickles(prefix+"_commandantopticalflows.pkl",prefix+"_commandantopticalflowannotations.pkl")
+        else:  
+            trainset.read_pickles(prefix+"_commandantopticalflows.pkl",prefix+"_commandantopticalflowannotations.pkl")
     else:
-        mean,stdev = trainset.statistics()
-        print(mean)
-        print(stdev)
-        trainset.img_transformation = transforms.Compose([transforms.Normalize(mean,stdev)])
+        if(load_files or (not os.path.isfile("./" + prefix+"_images.pkl")) or (not os.path.isfile("./" + prefix+"_annotations.pkl"))):
+            trainset.read_files()
+            trainset.write_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
+        else:  
+            trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
+    ''' '''
+
+    mean,stdev = trainset.statistics()
+    mean_ = torch.from_numpy(mean)
+    stdev_ = torch.from_numpy(stdev)
+    if use_float32:
+        mean_.float()
+        stdev_.float()
+    trainset.img_transformation = transforms.Normalize(mean_,stdev_)
     config['image_transformation'] = trainset.img_transformation
     config['label_transformation'] = trainset.label_transformation
     print("Using configuration: ", config)
