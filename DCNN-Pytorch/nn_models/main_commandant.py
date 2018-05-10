@@ -138,10 +138,10 @@ def main():
         network = network.cuda(gpu)
     if(use_float32):
         network.float()
-        trainset = loaders.F1SequenceDataset(root_dir,annotation_file, im_size, context_length=context_length, sequence_length=sequence_length, use_float32=True, label_transformation = label_transformation)
+        trainset = loaders.F1SequenceDataset(root_dir,annotation_file, im_size, context_length=context_length, sequence_length=sequence_length, use_float32=True, label_transformation = label_transformation, optical_flow = optical_flow)
     else:
         network.double()
-        trainset = loaders.F1SequenceDataset(root_dir, annotation_file, im_size, context_length=context_length, sequence_length=sequence_length, use_float32=False, label_transformation = label_transformation)
+        trainset = loaders.F1SequenceDataset(root_dir, annotation_file, im_size, context_length=context_length, sequence_length=sequence_length, use_float32=False, label_transformation = label_transformation, optical_flow = optical_flow)
     
     
    # trainset.read_files()
