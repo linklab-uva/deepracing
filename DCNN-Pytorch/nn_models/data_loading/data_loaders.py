@@ -118,7 +118,7 @@ class F1SequenceDataset(F1Dataset):
                     prvs = cv2.cvtColor(color,cv2.COLOR_BGR2GRAY)
                     color = self.images[idx+1].transpose(1,2,0).astype(np.float32)
                     next = cv2.cvtColor(color,cv2.COLOR_BGR2GRAY)
-                    seq[i] = cv2.calcOpticalFlowFarneback(prvs,next, None, 0.5, 3, 15, 10, 3, 1.2, 0).transpose(2, 0, 1)
+                    seq[i] = cv2.calcOpticalFlowFarneback(prvs,next, None, 0.5, 3, 15, 10, 7, 1.2, 0).transpose(2, 0, 1)
                     i+=1     
         else:
             raise NotImplementedError("Must preload images for sequence dataset")
