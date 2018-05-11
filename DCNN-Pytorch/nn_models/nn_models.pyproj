@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>3394588a-c901-4b2d-85c4-3855a7a87134</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>main.py</StartupFile>
+    <StartupFile>main_pilot.py</StartupFile>
     <SearchPath>C:\Program Files\Caffe2;deformable_convolution</SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
@@ -32,7 +32,8 @@
     <Compile Include="imutils\__init__.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="main.py" />
+    <Compile Include="main_pilot_sequence.py" />
+    <Compile Include="main_pilot.py" />
     <Compile Include="main_commandant.py" />
     <Compile Include="main_resnetadapter.py" />
     <Compile Include="main_ensign.py" />
