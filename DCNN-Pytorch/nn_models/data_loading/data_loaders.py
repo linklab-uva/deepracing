@@ -37,13 +37,13 @@ class F1Dataset(Dataset):
     def write_pickles(self,image_pickle, label_pickle):
         filename = image_pickle
         fp = open(filename, 'wb')
-        pickle.dump(self.images, fp)
+        pickle.dump(self.images, fp, protocol=4)
         fp.close()
         print('File %s is saved.' % filename)
 
         filename = label_pickle
         fp = open(filename, 'wb')
-        pickle.dump(self.labels, fp)
+        pickle.dump(self.labels, fp, protocol=4)
         fp.close()
         print('File %s is saved.' % filename)
     def read_pickles(self,image_pickle, label_pickle):

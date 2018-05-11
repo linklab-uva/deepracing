@@ -51,7 +51,7 @@ def train_model(network, criterion, optimizer, trainLoader, file_prefix, directo
         os.makedirs(directory)
     for epoch in range(starting_epoch, starting_epoch + n_epochs):
         epoch_num = epoch + 1
-        print("Epoch %d of %d" %(epoch_num,epoch_num + n_epochs))
+        print("Epoch %d of %d" %(epoch_num,  starting_epoch + n_epochs))
         run_epoch(network, criterion, optimizer, trainLoader, gpu)
         log_path = os.path.join(directory,""+file_prefix+"_epoch"+str(epoch_num)+ ".model")
         torch.save(network.state_dict(), log_path)
@@ -149,7 +149,7 @@ def main():
     if optical_flow:
         if(load_files or (not os.path.isfile("./" + prefix+"_commandantopticalflows.pkl")) or (not os.path.isfile("./" + prefix+"_commandantopticalflowannotations.pkl"))):
             trainset.read_files_flow()
-           # trainset.write_pickles(prefix+"_commandantopticalflows.pkl",prefix+"_commandantopticalflowannotations.pkl")
+            trainset.write_pickles(prefix+"_commandantopticalflows.pkl",prefix+"_commandantopticalflowannotations.pkl")
         else:  
             trainset.read_pickles(prefix+"_commandantopticalflows.pkl",prefix+"_commandantopticalflowannotations.pkl")
     else:
