@@ -87,7 +87,7 @@ def main():
     if use_float32:
         mean_.float()
         stdev_.float()
-    trainset.img_transformation = transforms.Normalize(mean_,stdev_)
+    trainset.img_transformation = config['image_transformation']
     loader = torch.utils.data.DataLoader(trainset, batch_size = 1, shuffle = False, num_workers = 0)
     cum_diff = 0.0
     t = tqdm(enumerate(loader))

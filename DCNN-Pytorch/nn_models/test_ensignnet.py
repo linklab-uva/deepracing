@@ -19,104 +19,130 @@ from datetime import datetime
 import imutils.annotation_utils
 from data_loading.image_loading import load_image
 import torchvision.transforms as transforms
-def main():
-    parser = argparse.ArgumentParser(description="Deepf1 playground")
-    parser.add_argument("--x", type=int, default=25,  help="X coordinate for where to put the center of the steering wheel")
-    parser.add_argument("--y", type=int, default=25,  help="Y coordinate for where to put the center of the steering wheel")
-    parser.add_argument("--wheelrows", type=int, default=50,  help="Number of rows to resize the steering wheel to")
-    parser.add_argument("--wheelcols", type=int, default=50,  help="Number of columns to resize the steering wheel to")
-    parser.add_argument("--max_angle", type=float, default=180.0,\
-          help="Maximum angle that the scaled annotations represent")
-    parser.add_argument("--output_folder", type=str, default='prediction_images',\
-          help="Output video file")
-    parser.add_argument("--output_video", type=str, default='annotated_video.avi',\
-          help="Output video file")
-    parser.add_argument("--model_file", type=str, required=True,  help="Model weights to load from file")
-    parser.add_argument("--root_dir", type=str, required=True, help="Root dir of the F1 validation set to use")
-    parser.add_argument("--annotation_file", type=str, required=True, help="Annotation file to use")
-    parser.add_argument("--plot", action="store_true", help="Plot some statistics of the results")
-    parser.add_argument("--label_scale", type=float, default=100.0, help="Lable Scaling factor that was used during training so that scaling can be un-done at test time")
-    parser.add_argument("--im_scale", type=float, default=1.0, help="Image Scaling factor that was used during training so that scaling can be un-done at test time")
-    args = parser.parse_args()
-    prefix, ext = args.annotation_file.split(".")
 
-    output_video = args.output_video
-    wheelrows = args.wheelrows
-    wheelcols = args.wheelcols
-    x = int(args.x-wheelrows/2)
-    y = int(args.y-wheelcols/2)
-    max_angle = args.max_angle
-    wheel = cv2.imread('steering_wheel.png', cv2.IMREAD_UNCHANGED)  
-    wheel =  cv2.resize(wheel, (wheelrows, wheelcols)) 
-    input_folder = os.path.join(args.root_dir,'raw_images')
-    if(not os.path.isdir(args.output_folder)):
-        os.makedirs(args.output_folder)
-    annotations_path = os.path.join(args.root_dir,args.annotation_file)
-    annotations_file = open(annotations_path,'r')
-    annotations = annotations_file.readlines()
-    predictions = []
-    ground_truths = []
-    diffs = []
-    filename, _, anglestr, _, _ = annotations[0].split(",")
-    img_path = os.path.join(input_folder,filename)
-    background = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
-    size = background.shape
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    output_vid = os.path.join(args.output_folder,output_video)
-    videoout = cv2.VideoWriter(output_vid ,fourcc, 60.0, (size[1], size[0]),True)
-    img_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.div(args.im_scale)), transforms.Normalize((args.im_scale*0.4914, args.im_scale*0.4822, args.im_scale*0.4465), (args.im_scale*0.2023, args.im_scale*0.1994, args.im_scale*0.2010))])
-    network = models.EnsignNet()
-    network.float()
-    network.cuda()
+def main():
+    parser = argparse.ArgumentParser(description="Test AdmiralNet")
+    parser.add_argument("--model_file", type=str, required=True)
+    parser.add_argument("--annotation_file", type=str, required=True)
+    parser.add_argument("--write_images", action="store_true")
+    parser.add_argument("--plot", action="store_true")
+    args = parser.parse_args()
+    plot = args.plot
+    annotation_dir, annotation_file = os.path.split(args.annotation_file)
+    model_dir, model_file = os.path.split(args.model_file)
+    config_path = os.path.join(model_dir,'config.pkl')
+    config_file = open(config_path,'rb')
+    config = pickle.load(config_file)
+    print(config)
+    model_prefix, _ = model_file.split(".")
+   # return
+
+    gpu = int(config['gpu'])
+    use_float32 = bool(config['use_float32'])
+    label_scale = float(config['label_scale'])
+    prefix, _ = annotation_file.split(".")
+    prefix = prefix + config['file_prefix']
+    size = (66, 200)
+    criterion = nn.MSELoss()
+    network = models.EnsignNet(sequence_length = 5)
     state_dict = torch.load(args.model_file)
     network.load_state_dict(state_dict)
-    network.eval()
+    print(network)
+    if(label_scale == 1.0):
+        label_transformation = None
+    else:
+        label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(label_scale))])
+    if(use_float32):
+        network.float()
+        trainset = loaders.F1SequenceDataset(annotation_dir,annotation_file, size, use_float32=True, label_transformation = label_transformation, context_length = 1, sequence_length = 5)
+    else:
+        network.double()
+        trainset = loaders.F1SequenceDataset(annotation_dir, annotation_file, size, label_transformation = label_transformation, context_length = 1, sequence_length = 5)
+    
+    if(gpu>=0):
+        criterion = criterion.cuda(gpu)
+        network = network.cuda(gpu)
+    if((not os.path.isfile("./" + prefix+"_images.pkl")) or (not os.path.isfile("./" + prefix+"_annotations.pkl"))):
+        trainset.read_files()
+        trainset.write_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
+    else:  
+        trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
+    ''' '''
+
+    trainset.img_transformation = config['image_transformation']
+    if plot:
+        batch_size = 1
+    else:
+        batch_size = 32
+    loader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = False, num_workers = 0)
     cum_diff = 0.0
-    t = tqdm(enumerate(annotations))
-    for idx, annotation in t:
-        filename, _, anglestr, _, _ = annotation.split(",")
-        img_path = os.path.join(input_folder,filename)
-        background = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
-        im = load_image(img_path)
-        im = cv2.resize(im, (200, 66), interpolation = cv2.INTER_CUBIC)
-        im = np.transpose(im, (2, 0, 1)).astype(np.float32)
-        im_tens = torch.from_numpy(im)
-        tensor = torch.zeros([1,3,66,200], dtype=torch.float32)
-        tensor[0] = img_transformation(im_tens)
-        tensor = tensor.cuda()
-        pred = network(tensor)
-        angle = pred.item()/args.label_scale
-        ground_truth = float(anglestr.replace("\n",""))
-        scaled_ground_truth = max_angle * ground_truth
-        scaled_angle = max_angle * angle
-        diff = scaled_ground_truth-scaled_angle
-        diffs.append(diff)
-        cum_diff += abs(diff)
-        t.set_postfix(scaled_angle = scaled_angle, scaled_ground_truth = scaled_ground_truth, average_diff = cum_diff/(float(idx)+1.0))
+    t = tqdm(enumerate(loader))
+    network.eval()
+    predictions=[]
+    ground_truths=[]
+    losses=[]
+    if args.write_images:
+        imdir = "admiralnet_prediction_images_" + model_prefix
+        os.mkdir(imdir)
+        annotation_file = open(args.annotation_file,'r')
+        annotations = annotation_file.readlines()
+        annotation_file.close()
+        im,_,_,_,_ = annotations[0].split(",")
+        background = cv2.imread(os.path.join(annotation_dir,'raw_images',im),cv2.IMREAD_UNCHANGED)
+        out_size = background.shape
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        videoout = cv2.VideoWriter(os.path.join(imdir,"video.avi") ,fourcc, 60.0, (out_size[1], out_size[0]),True)
+        wheel = cv2.imread('steering_wheel.png',cv2.IMREAD_UNCHANGED)
+        wheelrows = 150
+        wheelcols = 150
+        wheel = cv2.resize(wheel, (wheelcols,wheelrows), interpolation = cv2.INTER_CUBIC)
+    for idx,(inputs, _, labels) in t:
+        if(gpu>=0):
+            inputs = inputs.cuda(gpu)
+            labels = labels.cuda(gpu)
+        pred = torch.div(network(inputs[:,0,:,:,:]),label_scale)
+        if plot:
+            if pred.shape[1] == 1:
+                angle = pred.item()
+                ground_truth = labels.item()
+            else:
+                angle = pred.squeeze()[0].item()
+                ground_truth = labels.squeeze()[0].item()
+            predictions.append(angle)
+            ground_truths.append(ground_truth)
+            t.set_postfix(angle = angle, ground_truth = ground_truth)
+        loss = criterion(pred, labels)
+        losses.append(torch.mean(loss).item())
        # print("Ground Truth: %f. Prediction: %f.\n" %(scaled_ground_truth, scaled_angle))
-        M = cv2.getRotationMatrix2D((wheelrows/2,wheelcols/2),scaled_angle,1)
-        wheel_rotated = cv2.warpAffine(wheel,M,(wheelrows,wheelcols))
-        overlayed = imutils.annotation_utils.overlay_image(background,wheel_rotated,x,y)
-        name, _ = filename.split(".")
-        _,_,img_num_str = name.split("_")
-        img_num_str = img_num_str.replace("\n","")
-        output_path = os.path.join(args.output_folder,'overlayed_image_' + img_num_str + ".jpg")
-        cv2.imwrite(output_path,overlayed)
-        videoout.write(overlayed)
+        if args.write_images:
+            scaled_angle = 180.0*angle
+            M = cv2.getRotationMatrix2D((wheelrows/2,wheelcols/2),scaled_angle,1)
+            wheel_rotated = cv2.warpAffine(wheel,M,(wheelrows,wheelcols))
+            numpy_im = np.transpose(trainset.images[idx],(1,2,0)).astype(np.float32)
+           # print(numpy_im.shape)
+            im,_,_,_,_ = annotations[idx].split(",")
+            background = cv2.imread(os.path.join(annotation_dir,'raw_images',im),cv2.IMREAD_UNCHANGED)
+            out_size = background.shape
+            #print(background.shape)
+            overlayed = imutils.annotation_utils.overlay_image(background,wheel_rotated,int((out_size[1]-wheelcols)/2),int((out_size[0]-wheelcols)/2))
+            name = "ouput_image_" + str(idx) + ".png"
+            output_path = os.path.join(imdir,name)
+            cv2.imwrite(output_path,overlayed)
+            videoout.write(overlayed)
+        '''
+        '''
+    predictions_array = np.array(predictions)
+    ground_truths_array = np.array(ground_truths)
+    diffs = np.subtract(predictions_array,ground_truths_array)
+    rms = np.sqrt(np.mean(np.array(losses)))
+    print("RMS Error: ", rms)
     if args.plot:
         from scipy import stats
         import matplotlib.pyplot as plt
-        binz = 100
-        res = stats.cumfreq(diffs, numbins=binz)
-        x = res.lowerlimit + np.linspace(0, res.binsize*res.cumcount.size, res.cumcount.size)
-        fig = plt.figure(figsize=(10, 4))
-        ax1 = fig.add_subplot(1, 2, 1)
-        ax2 = fig.add_subplot(1, 2, 2)
-        ax1.hist(diffs, bins=binz)
-        ax1.set_title('Histogram')
-        ax2.bar(x, res.cumcount, width=res.binsize)
-        ax2.set_title('Cumulative histogram')
-        ax2.set_xlim([x.min(), x.max()])
+        t = np.linspace(0,len(loader)-1,len(loader))
+        plt.plot(t,predictions_array,'r')
+        plt.plot(t,ground_truths_array,'b')
+        #plt.plot(t,diffs)
         plt.show()
 if __name__ == '__main__':
     main()

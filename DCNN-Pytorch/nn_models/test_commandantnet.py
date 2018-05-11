@@ -27,7 +27,7 @@ def main():
     parser.add_argument("--write_images", action="store_true")
     parser.add_argument("--plot", action="store_true")
     args = parser.parse_args()
-    
+    plot = args.plot
     annotation_dir, annotation_file = os.path.split(args.annotation_file)
     model_dir, model_file = os.path.split(args.model_file)
     config_path = os.path.join(model_dir,'config.pkl')
@@ -38,6 +38,7 @@ def main():
    # return
 
     gpu = int(config['gpu'])
+    optical_flow = bool(config['optical_flow'])
     use_float32 = bool(config['use_float32'])
     label_scale = float(config['label_scale'])
     prefix, _ = annotation_file.split(".")
@@ -46,7 +47,7 @@ def main():
     sequence_length = int(config['sequence_length'])
     hidden_dim = int(config['hidden_dim'])
     size = (125, 400)
-    network = models.CommandantNet(context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu)
+    network = models.CommandantNet(context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow=optical_flow)
     state_dict = torch.load(args.model_file)
     network.load_state_dict(state_dict)
     print(network)
@@ -56,26 +57,39 @@ def main():
         label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(label_scale))])
     if(use_float32):
         network.float()
-        trainset = loaders.F1SequenceDataset(annotation_dir,annotation_file,size,\
-        context_length=context_length, sequence_length=sequence_length, use_float32=True, label_transformation = label_transformation)
+        trainset = loaders.F1SequenceDataset(annotation_dir,annotation_file,size,context_length=context_length, sequence_length=sequence_length, use_float32=True, label_transformation = label_transformation, optical_flow=optical_flow)
     else:
         network.double()
-        trainset = loaders.F1SequenceDataset(annotation_dir, annotation_file,size,\
-        context_length=context_length, sequence_length=sequence_length, label_transformation = label_transformation)
+        trainset = loaders.F1SequenceDataset(annotation_dir, annotation_file,size,context_length=context_length, sequence_length=sequence_length, label_transformation = label_transformation, optical_flow=optical_flow)
     
     if(gpu>=0):
         network = network.cuda(gpu)
-    if((not os.path.isfile("./" + prefix+"_images.pkl")) or (not os.path.isfile("./" + prefix+"_annotations.pkl"))):
-        trainset.read_files()
-        trainset.write_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
-    else:  
-        trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
+    if optical_flow:
+        if((not os.path.isfile("./" + prefix+"_commandantopticalflows.pkl")) or (not os.path.isfile("./" + prefix+"_commandantopticalflowannotations.pkl"))):
+            trainset.read_files_flow()
+            trainset.write_pickles(prefix+"_commandantopticalflows.pkl",prefix+"_commandantopticalflowannotations.pkl")
+        else:  
+            trainset.read_pickles(prefix+"_commandantopticalflows.pkl",prefix+"_commandantopticalflowannotations.pkl")
+    else:
+        if((not os.path.isfile("./" + prefix+"_images.pkl")) or (not os.path.isfile("./" + prefix+"_annotations.pkl"))):
+            trainset.read_files()
+            trainset.write_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
+        else:  
+            trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
+    ''' '''
+
     mean,stdev = trainset.statistics()
-    print(mean)
-    print(stdev)
-    img_transformation = transforms.Compose([transforms.Normalize(mean,stdev)])
-    trainset.img_transformation = img_transformation
-    loader = torch.utils.data.DataLoader(trainset, batch_size = 1, shuffle = False, num_workers = 0)
+    mean_ = torch.from_numpy(mean)
+    stdev_ = torch.from_numpy(stdev)
+    if use_float32:
+        mean_.float()
+        stdev_.float()
+    trainset.img_transformation = config['image_transformation']
+    if plot:
+        batch_size = 1
+    else:
+        batch_size = 32
+    loader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = False, num_workers = 0)
     cum_diff = 0.0
     t = tqdm(enumerate(loader))
     network.eval()
@@ -106,17 +120,18 @@ def main():
             inputs = inputs.cuda(gpu)
             labels = labels.cuda(gpu)
         pred = torch.div(network(inputs,previous_control),label_scale)
-        if pred.shape[1] == 1:
-            angle = pred.item()
-            ground_truth = labels.item()
-        else:
-            angle = pred.squeeze()[0].item()
-            ground_truth = labels.squeeze()[0].item()
-        predictions.append(angle)
-        ground_truths.append(ground_truth)
+        if plot:
+            if pred.shape[1] == 1:
+                angle = pred.item()
+                ground_truth = labels.item()
+            else:
+                angle = pred.squeeze()[0].item()
+                ground_truth = labels.squeeze()[0].item()
+            predictions.append(angle)
+            ground_truths.append(ground_truth)
+            t.set_postfix(angle = angle, ground_truth = ground_truth)
         loss = criterion(pred, labels)
-        losses.append(loss.item())
-        t.set_postfix(angle = angle, ground_truth = ground_truth)
+        losses.append(torch.mean(loss).item())
        # print("Ground Truth: %f. Prediction: %f.\n" %(scaled_ground_truth, scaled_angle))
         if args.write_images:
             scaled_angle = 180.0*angle

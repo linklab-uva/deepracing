@@ -21,13 +21,13 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
     batch_size = trainLoader.batch_size
     num_samples=0
     t = tqdm(enumerate(trainLoader))
-    for (i, (inputs, _, labels)) in t:
+    for (i, (inputs, labels)) in t:
         optimizer.zero_grad()
         if use_gpu>=0:
             inputs = inputs.cuda(use_gpu)
             labels = labels.cuda(use_gpu)
         # Forward pass:
-        outputs = network(inputs[:,0,:,:,:])
+        outputs = network(inputs)
         loss = criterion(outputs, labels)
 
         # Backward pass:
@@ -110,7 +110,7 @@ def main():
     config_file_name, _ = config_file.split(".")
     output_dir = config_file_name.replace("\n","")
     prefix = prefix + file_prefix
-    network = models.EnsignNet(sequence_length = 5)
+    network = models.PilotNet()
     print(network)
     size=(66,200)
     if(label_scale == 1.0):
@@ -119,10 +119,10 @@ def main():
         label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(label_scale))])
     if(use_float32):
         network.float()
-        trainset = loaders.F1SequenceDataset(root_dir, annotation_file, size, use_float32=True, label_transformation = label_transformation, context_length = 1, sequence_length = 5)
+        trainset = loaders.F1SequenceDataset(root_dir, annotation_file, size, use_float32=True, label_transformation = label_transformation, context_length=1, sequence_length=5)
     else:
         network.double()
-        trainset = loaders.F1SequenceDataset(root_dir, annotation_file, size, label_transformation = label_transformation, context_length = 1, sequence_length = 5)
+        trainset = loaders.F1SequenceDataset(root_dir, annotation_file, size, label_transformation = label_transformation, context_length=1, sequence_length=5)
     if(gpu>=0):
         network = network.cuda(gpu)
     
@@ -147,8 +147,6 @@ def main():
     # Definition of optimization strategy.
     optimizer = optim.SGD(network.parameters(), lr = learning_rate, momentum=momentum)
     config['image_transformation']=trainset.img_transformation
-    if(not os.path.isdir(output_dir)):
-        os.makedirs(output_dir)
     config_dump = open(os.path.join(output_dir,"config.pkl"), 'wb')
     pickle.dump(config,config_dump)
     config_dump.close()

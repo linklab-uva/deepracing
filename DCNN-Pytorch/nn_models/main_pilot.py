@@ -110,9 +110,6 @@ def main():
     config_file_name, _ = config_file.split(".")
     output_dir = config_file_name.replace("\n","")
     prefix = prefix + file_prefix
-    config_dump = open(os.path.join(output_dir,"config.pkl"), 'wb')
-    pickle.dump(config,config_dump)
-    config_dump.close()
     network = models.PilotNet()
     print(network)
     size=(66,200)
@@ -149,6 +146,10 @@ def main():
 
     # Definition of optimization strategy.
     optimizer = optim.SGD(network.parameters(), lr = learning_rate, momentum=momentum)
+    config['image_transformation']=trainset.img_transformation
+    config_dump = open(os.path.join(output_dir,"config.pkl"), 'wb')
+    pickle.dump(config,config_dump)
+    config_dump.close()
     train_model(network, criterion, optimizer, trainLoader, prefix, output_dir, n_epochs = epochs, use_gpu = gpu)
 
 if __name__ == '__main__':
