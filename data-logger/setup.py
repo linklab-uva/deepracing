@@ -3,11 +3,16 @@ import re
 import sys
 import platform
 import subprocess
-
+import os
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 from distutils.version import LooseVersion
+#Environment Variables we respect:
 
+'''
+CMAKE_GENERATOR: sets which build toolchain CMake will use.  Defaults to 'Visual Studio 14 2015 Win64'
+
+'''
 
 class CMakeExtension(Extension):
     def __init__(self, name, sourcedir=''):
@@ -26,14 +31,17 @@ class CMakeBuild(build_ext):
         if platform.system() == "Windows":
             cmake_version = LooseVersion(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
             if cmake_version < '3.1.0':
-                raise RuntimeError("CMake >= 3.1.0 is required on Windows")
+                raise RuntimeError("CMake >= 3.1.0 is required")
+        else:
+            raise RuntimeError("Currently, only Microsoft Windows is supported")
 
         for ext in self.extensions:
             self.build_extension(ext)
 
     def build_extension(self, ext):
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
-        cmake_args = [ '-G' + 'Visual Studio 14 2015 Win64',
+        cmake_args = [ '-G' + os.getenv('CMAKE_GENERATOR', 'Visual Studio 14 2015 Win64'),
+                      #  '-Ax64',
                       '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir,
                       '-DPYTHON_EXECUTABLE=' + sys.executable,
                       '-DBUILD_PYTHON_BINDING=ON']
@@ -43,9 +51,9 @@ class CMakeBuild(build_ext):
 
         if platform.system() == "Windows":
             cmake_args += ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(cfg.upper(), extdir)]
-            build_args += ['--', '/m']
+            #build_args += ['--', '/m']
         else:
-            cmake_args += ['-DCMAKE_BUILD_TYPE=' + cfg]
+            raise RuntimeError("Currently, only Microsoft Windows is supported")
             #build_args += ['--', '-j2']
 
         env = os.environ.copy()
