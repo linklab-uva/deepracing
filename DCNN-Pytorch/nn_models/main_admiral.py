@@ -160,11 +160,8 @@ def main():
     ''' '''
 
     mean,stdev = trainset.statistics()
-    mean_ = torch.from_numpy(mean)
-    stdev_ = torch.from_numpy(stdev)
-    if use_float32:
-        mean_.float()
-        stdev_.float()
+    mean_ = torch.from_numpy(mean).float()
+    stdev_ = torch.from_numpy(stdev).float()
     trainset.img_transformation = transforms.Normalize(mean_,stdev_)
    # trainset.img_transformation = transforms.Normalize([2.5374081e-06, -3.1837547e-07] , [3.0699273e-05, 5.9349504e-06])
     print(trainset.img_transformation)

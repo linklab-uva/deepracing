@@ -165,7 +165,7 @@ class CommandantNet(nn.Module):
         x = self.pool2(x)
 
         # Unpack for the LSTM.
-        x = x.view(batch_size, self.context_length, self.feature_length-previous_control.shape[2]) 
+        x = x.view(batch_size, self.context_length, self.feature_length-1) 
         x = torch.cat((x,previous_control),2)
         x, init_hidden = self.lstm(x) 
         if(self.use_float32):

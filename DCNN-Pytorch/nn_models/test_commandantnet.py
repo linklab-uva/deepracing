@@ -38,7 +38,7 @@ def main():
    # return
 
     gpu = int(config['gpu'])
-    optical_flow = bool(config['optical_flow'])
+    optical_flow = bool(config.get('optical_flow',''))
     use_float32 = bool(config['use_float32'])
     label_scale = float(config['label_scale'])
     prefix, _ = annotation_file.split(".")
