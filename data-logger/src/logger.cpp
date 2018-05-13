@@ -25,8 +25,7 @@ namespace deepf1{
 	
 	void writeToFiles(const std::string& dir,
 		std::vector<deepf1::timestamped_image_data_t>& screen_data,
-		deepf1::simple_udp_listener& udp_listener,
-		const float& max_delta);
+		deepf1::simple_udp_listener& udp_listener);
 	bool udp_data_comparator(const deepf1::timestamped_udp_data& a, const deepf1::timestamped_udp_data& b);
 	deepf1::timestamped_udp_data find_closest_value(std::vector<deepf1::timestamped_udp_data>& udp_dataz,
 		const boost::timer::cpu_times& timestamp);
@@ -43,7 +42,6 @@ int main(int argc, char** argv) {
 	unsigned int udp_len, image_len;
 	float capture_x, capture_y, capture_width, capture_height;
 	int monitor_number;
-	float max_delta;
 	long sleep_time;
 	unsigned short port_number;
 	std::string data_directory, application_name;
@@ -57,7 +55,6 @@ int main(int argc, char** argv) {
 		("capture_y,y", po::value<float>(&capture_y)->default_value(325), "y coordinate for origin of capture area pixels")
 		("capture_width,w", po::value<float>(&capture_width)->default_value(1825), "Width of capture area pixels")
 		("capture_height,h", po::value<float>(&capture_height)->default_value(300), "height of capture area pixels")
-		("max_delta,m", po::value<float>(&max_delta)->default_value(25.0), "Maximum difference in timestamp (in milliseconds) to allow for associating data to an image")
 		("data_directory,d", po::value<std::string>(&data_directory)->default_value(std::string("data")), "Top-level directory to place the annotations & images.")
 		("initial_sleep_time,i", po::value<long>(&sleep_time)->default_value(5000), "How many milliseconds to sleep before starting data recording.")
 		("application_name,a", po::value<std::string>(&application_name)->default_value(std::string("")), "Name of the application to capture. If not set, defaults to the desktop window.")
@@ -96,7 +93,7 @@ int main(int argc, char** argv) {
 	std::vector<deepf1::timestamped_image_data_t> screen_data = screen_listener.get_data();
 	std::vector<deepf1::timestamped_udp_data_t> udp_data = udp_listener.get_data();
 	std::printf("Started receiving packets at timestamp: %lld \n", udp_listener.get_collection_start().wall);
-	writeToFiles(data_directory, screen_data, udp_listener, max_delta);
+	writeToFiles(data_directory, screen_data, udp_listener);
 
 	return 0;
 }
@@ -136,8 +133,7 @@ namespace deepf1 {
 	}
 	void writeToFiles(const std::string& dir,
 		std::vector<deepf1::timestamped_image_data_t>& screen_data,
-		deepf1::simple_udp_listener& udp_listener,
-		const float& max_delta) {
+		deepf1::simple_udp_listener& udp_listener) {
 		std::vector<deepf1::timestamped_udp_data> udp_data = udp_listener.get_data();
 		fs::path root_dir = fs::path(dir);
 		fs::create_directory(root_dir);
