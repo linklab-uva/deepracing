@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
-import AdmiralNet_v2
+import nn_models
+import nn_models.AdmiralNet_v2 as AdmiralNet_v2
 import data_loading.image_loading as il
 import data_loading.data_loaders as loaders
 import numpy.random
