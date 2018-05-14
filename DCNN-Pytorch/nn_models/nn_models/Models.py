@@ -178,7 +178,7 @@ class CommandantNet(nn.Module):
         x, final_hidden = self.lstm(zeros, init_hidden)
         predictions = self.prediction_layer(x)
         return predictions
-class AdmiralNet(nn.Module):
+class AdmiralNet(nn.Module, cell='lstm'):
     def __init__(self, sequence_length=25, context_length = 25, hidden_dim = 100, use_float32 = False, gpu = -1, optical_flow = False):
         super(AdmiralNet, self).__init__()
         self.gpu=gpu
@@ -205,7 +205,13 @@ class AdmiralNet(nn.Module):
         self.hidden_dim = hidden_dim
         self.sequence_length = sequence_length
         self.context_length = context_length
-        self.lstm = nn.LSTM(self.feature_length, hidden_dim, batch_first = True)
+        
+        if(cell=='lstm'):
+            self.rnn = nn.LSTM(self.feature_length, hidden_dim, batch_first = True)
+        elif(cell=='gru'):
+            self.rnn = nn.GRU(self.feature_length, hidden_dim, batch_first = True)
+        else:
+            self.rnn = nn.RNN(self.feature_length, hidden_dim, batch_first = True) 
 
         # Linear layers.
         self.prediction_layer = nn.Linear(hidden_dim, self.output_size)
@@ -232,9 +238,9 @@ class AdmiralNet(nn.Module):
         x = self.conv5(x)
         x = self.relu(x)
         #print(x.shape)
-        # Unpack for the LSTM.
+        # Unpack for the RNN.
         x = x.view(batch_size, self.context_length, self.feature_length) 
-        x, init_hidden = self.lstm(x) 
+        x, init_hidden = self.rnn(x) 
         if(self.use_float32):
             zeros = torch.zeros([batch_size, self.sequence_length, self.feature_length], dtype=torch.float32)
                 
@@ -242,7 +248,7 @@ class AdmiralNet(nn.Module):
             zeros = torch.zeros([batch_size, self.sequence_length, self.feature_length], dtype=torch.float64)
         if(self.gpu>=0):
             zeros = zeros.cuda(self.gpu)
-        x, final_hidden = self.lstm(zeros, init_hidden)
+        x, final_hidden = self.rnn(zeros, init_hidden)
         predictions = self.prediction_layer(x)
         return predictions
 
