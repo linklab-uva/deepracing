@@ -274,7 +274,7 @@ class AdmiralNet_v2(nn.Module):
         
         #RESIDUAL BLOCK 2
         self.conv3 = nn.Conv2d(36, 48, kernel_size=5, padding=2)
-        self.conv3_2 = nn.Conv2d(48, 48, kernel_size=3, padding=2)
+        self.conv3_2 = nn.Conv2d(48, 48, kernel_size=5, padding=2)
         self.conv3_3 = nn.Conv2d(48, 48, kernel_size=5, stride=2)
         
         self.conv4 = nn.Conv2d(48, 64, kernel_size=3)
@@ -291,7 +291,7 @@ class AdmiralNet_v2(nn.Module):
         self.Norm_4 = nn.BatchNorm2d(64)
         
         #recurrent layers
-        self.feature_length = 1*64*2*19
+        self.feature_length = 1*64*3*6
         self.hidden_dim = hidden_dim
         self.sequence_length = sequence_length
         self.context_length = context_length
