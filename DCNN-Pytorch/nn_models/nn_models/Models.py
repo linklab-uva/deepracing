@@ -266,16 +266,16 @@ class AdmiralNet_v2(nn.Module):
         self.output_size = 1
         
         #RESIDUAL BLOCK 1
-        self.conv1 = nn.Conv2d(self.input_channels, 24, kernel_size=3, padding=1)
-        self.conv1_2 = nn.Conv2d(24, 24, kernel_size=3, padding=1)
-        self.conv1_3 = nn.Conv2d(24, 24, kernel_size=3, stride=2)
+        self.conv1 = nn.Conv2d(self.input_channels, 24, kernel_size=5, padding=2)
+        self.conv1_2 = nn.Conv2d(24, 24, kernel_size=5, padding=2)
+        self.conv1_3 = nn.Conv2d(24, 24, kernel_size=5, stride=2)
         
         self.conv2 = nn.Conv2d(24, 36, kernel_size=5, stride=2)
         
         #RESIDUAL BLOCK 2
-        self.conv3 = nn.Conv2d(36, 48, kernel_size=3, padding=1)
-        self.conv3_2 = nn.Conv2d(48, 48, kernel_size=3, padding=1)
-        self.conv3_3 = nn.Conv2d(48, 48, kernel_size=3, stride=2)
+        self.conv3 = nn.Conv2d(36, 48, kernel_size=5, padding=2)
+        self.conv3_2 = nn.Conv2d(48, 48, kernel_size=3, padding=2)
+        self.conv3_3 = nn.Conv2d(48, 48, kernel_size=5, stride=2)
         
         self.conv4 = nn.Conv2d(48, 64, kernel_size=3)
         
