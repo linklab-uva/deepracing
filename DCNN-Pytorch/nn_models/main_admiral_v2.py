@@ -1,8 +1,8 @@
 import cv2
 import numpy as np
 import nn_models
-import nn_models.AdmiralNet_v2 as AdmiralNet_v2
 import data_loading.image_loading as il
+import nn_models.Models as models
 import data_loading.data_loaders as loaders
 import numpy.random
 import torch, random
@@ -15,6 +15,7 @@ import os
 import string
 import argparse
 import torchvision.transforms as transforms
+
 def run_epoch(network, criterion, optimizer, trainLoader, gpu = -1):
     network.train()  # This is important to call before training!
     cum_loss = 0.0
@@ -118,7 +119,7 @@ def main():
     config_file_name, _ = config_file.split(".")
     output_dir = config_file_name.replace("\n","")
     prefix = prefix + file_prefix
-    network = AdmiralNet_v2(context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow = optical_flow)
+    network = models.AdmiralNet_v2(cell='gru',context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow = optical_flow)
     starting_epoch = 0
     if(checkpoint_file!=''):
         dir, file = os.path.split(checkpoint_file)
