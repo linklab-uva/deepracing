@@ -178,8 +178,8 @@ class CommandantNet(nn.Module):
         x, final_hidden = self.lstm(zeros, init_hidden)
         predictions = self.prediction_layer(x)
         return predictions
-class AdmiralNet(nn.Module, cell='lstm'):
-    def __init__(self, sequence_length=25, context_length = 25, hidden_dim = 100, use_float32 = False, gpu = -1, optical_flow = False):
+class AdmiralNet(nn.Module):
+    def __init__(self, cell='lstm', sequence_length=25, context_length = 25, hidden_dim = 100, use_float32 = False, gpu = -1, optical_flow = False):
         super(AdmiralNet, self).__init__()
         self.gpu=gpu
         self.use_float32=use_float32
@@ -205,10 +205,11 @@ class AdmiralNet(nn.Module, cell='lstm'):
         self.hidden_dim = hidden_dim
         self.sequence_length = sequence_length
         self.context_length = context_length
+        self.cell = cell
         
-        if(cell=='lstm'):
+        if(self.cell=='lstm'):
             self.rnn = nn.LSTM(self.feature_length, hidden_dim, batch_first = True)
-        elif(cell=='gru'):
+        elif(self.cell=='gru'):
             self.rnn = nn.GRU(self.feature_length, hidden_dim, batch_first = True)
         else:
             self.rnn = nn.RNN(self.feature_length, hidden_dim, batch_first = True) 
