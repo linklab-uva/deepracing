@@ -118,8 +118,10 @@ def main():
     _, config_file = os.path.split(config_fp)
     config_file_name, _ = config_file.split(".")
     output_dir = config_file_name.replace("\n","")
+    if(os.path.isdir(output_dir)):
+        output_dir+= "_other"
     prefix = prefix + file_prefix
-    network = models.AdmiralNet_v2(cell='gru',context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow = optical_flow)
+    network = models.AdmiralNet_v2(cell='lstm',context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow = optical_flow)
     starting_epoch = 0
     if(checkpoint_file!=''):
         dir, file = os.path.split(checkpoint_file)
