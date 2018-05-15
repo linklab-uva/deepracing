@@ -189,9 +189,9 @@ class AdmiralNet(nn.Module):
             self.input_channels = 3
         # Convolutional layers.
         self.output_size = 1
-        self.conv1 = nn.Conv2d(self.input_channels, 24, kernel_size=5, stride=2)
-        self.conv2 = nn.Conv2d(24, 36, kernel_size=5, stride=2)
-        self.conv3 = nn.Conv2d(36, 48, kernel_size=5, stride=2)
+        self.conv1 = nn.Conv2d(self.input_channels, 24, kernel_size=3, stride=2)
+        self.conv2 = nn.Conv2d(24, 36, kernel_size=3, stride=2)
+        self.conv3 = nn.Conv2d(36, 48, kernel_size=3, stride=2)
         self.conv4 = nn.Conv2d(48, 64, kernel_size=3)
         self.conv5 = nn.Conv2d(64, 64, kernel_size=3)
         #batch norm layers
@@ -201,7 +201,7 @@ class AdmiralNet(nn.Module):
         self.Norm_4 = nn.BatchNorm2d(64)
         
         #recurrent layers
-        self.feature_length = 1152
+        self.feature_length = 1*64*60
         self.hidden_dim = hidden_dim
         self.sequence_length = sequence_length
         self.context_length = context_length
@@ -266,16 +266,16 @@ class AdmiralNet_v2(nn.Module):
         self.output_size = 1
         
         #RESIDUAL BLOCK 1
-        self.conv1 = nn.Conv2d(self.input_channels, 24, kernel_size=5, padding=2)
-        self.conv1_2 = nn.Conv2d(24, 24, kernel_size=5, padding=2)
-        self.conv1_3 = nn.Conv2d(24, 24, kernel_size=5, stride=2)
+        self.conv1 = nn.Conv2d(self.input_channels, 24, kernel_size=3, padding=1)
+        self.conv1_2 = nn.Conv2d(24, 24, kernel_size=3, padding=1)
+        self.conv1_3 = nn.Conv2d(24, 24, kernel_size=3, stride=2)
         
-        self.conv2 = nn.Conv2d(24, 36, kernel_size=5, stride=2)
+        self.conv2 = nn.Conv2d(24, 36, kernel_size=3, stride=2)
         
         #RESIDUAL BLOCK 2
-        self.conv3 = nn.Conv2d(36, 48, kernel_size=5, padding=2)
-        self.conv3_2 = nn.Conv2d(48, 48, kernel_size=5, padding=2)
-        self.conv3_3 = nn.Conv2d(48, 48, kernel_size=5, stride=2)
+        self.conv3 = nn.Conv2d(36, 48, kernel_size=3, padding=1)
+        self.conv3_2 = nn.Conv2d(48, 48, kernel_size=3, padding=1)
+        self.conv3_3 = nn.Conv2d(48, 48, kernel_size=3, stride=2)
         
         self.conv4 = nn.Conv2d(48, 64, kernel_size=3)
         
@@ -291,7 +291,7 @@ class AdmiralNet_v2(nn.Module):
         self.Norm_4 = nn.BatchNorm2d(64)
         
         #recurrent layers
-        self.feature_length = 1*64*3*6
+        self.feature_length = 1*64*60
         self.hidden_dim = hidden_dim
         self.sequence_length = sequence_length
         self.context_length = context_length

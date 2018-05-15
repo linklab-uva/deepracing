@@ -21,7 +21,7 @@ from data_loading.image_loading import load_image
 import torchvision.transforms as transforms
 
 def main():
-    parser = argparse.ArgumentParser(description="Test AdmiralNet")
+    parser = argparse.ArgumentParser(description="Test AdmiralNet_v2")
     parser.add_argument("--model_file", type=str, required=True)
     parser.add_argument("--annotation_file", type=str, required=True)
     parser.add_argument("--write_images", action="store_true")
@@ -48,7 +48,7 @@ def main():
     hidden_dim = int(config['hidden_dim'])
     optical_flow = bool(config.get('optical_flow',''))
 
-    network = models.AdmiralNet(cell='lstm',context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow=optical_flow)
+    network = models.AdmiralNet_v2(cell='gru',context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow=optical_flow)
     state_dict = torch.load(args.model_file)
     network.load_state_dict(state_dict)
     print(network)
@@ -101,7 +101,7 @@ def main():
         criterion = criterion.cuda(gpu)
     if args.write_images:
         imdir = "admiralnet_prediction_images_" + model_prefix
-        os.mkdir(imdir)
+        os.mkdir(imdir) 
         annotation_file = open(args.annotation_file,'r')
         annotations = annotation_file.readlines()
         annotation_file.close()
