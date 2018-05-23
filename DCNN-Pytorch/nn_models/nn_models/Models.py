@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torchvision.models as visionmodels
 import torchvision.models.vgg
+
 class ResNetAdapter(nn.Module):
     def __init__(self):
         super(ResNetAdapter, self).__init__()
@@ -189,9 +190,9 @@ class AdmiralNet(nn.Module):
             self.input_channels = 3
         # Convolutional layers.
         self.output_size = 1
-        self.conv1 = nn.Conv2d(self.input_channels, 24, kernel_size=3, stride=2)
-        self.conv2 = nn.Conv2d(24, 36, kernel_size=3, stride=2)
-        self.conv3 = nn.Conv2d(36, 48, kernel_size=3, stride=2)
+        self.conv1 = nn.Conv2d(self.input_channels, 24, kernel_size=5, stride=2)
+        self.conv2 = nn.Conv2d(24, 36, kernel_size=5, stride=2)
+        self.conv3 = nn.Conv2d(36, 48, kernel_size=5, stride=2)
         self.conv4 = nn.Conv2d(48, 64, kernel_size=3)
         self.conv5 = nn.Conv2d(64, 64, kernel_size=3)
         #batch norm layers
@@ -201,7 +202,7 @@ class AdmiralNet(nn.Module):
         self.Norm_4 = nn.BatchNorm2d(64)
         
         #recurrent layers
-        self.feature_length = 1*64*60
+        self.feature_length = 1*64*18
         self.hidden_dim = hidden_dim
         self.sequence_length = sequence_length
         self.context_length = context_length
@@ -226,21 +227,24 @@ class AdmiralNet(nn.Module):
         x = x.view(-1, self.input_channels, 66, 200) 
         x = self.conv1(x)
         x = self.Norm_1(x)
-        x = self.relu(x)
-        x = self.conv2(x)
+        x1 = self.relu(x)
+        x = self.conv2(x1)
         x = self.Norm_2(x)
-        x = self.relu(x)
-        x = self.conv3(x)
+        x2 = self.relu(x)
+        x = self.conv3(x2)
         x = self.Norm_3(x)
-        x = self.relu(x)
-        x = self.conv4(x)
+        x3 = self.relu(x)
+        x = self.conv4(x3)
         x = self.Norm_4(x)
-        x = self.relu(x)
-        x = self.conv5(x)
-        x = self.relu(x)
+        x4 = self.relu(x)
+        x = self.conv5(x4)
+        x5 = self.relu(x)
+
+        maps=[x1,x2,x3,x4,x5]
+
         #print(x.shape)
         # Unpack for the RNN.
-        x = x.view(batch_size, self.context_length, self.feature_length) 
+        x = x5.view(batch_size, self.context_length, self.feature_length) 
         x, init_hidden = self.rnn(x) 
         if(self.use_float32):
             zeros = torch.zeros([batch_size, self.sequence_length, self.feature_length], dtype=torch.float32)
@@ -251,7 +255,7 @@ class AdmiralNet(nn.Module):
             zeros = zeros.cuda(self.gpu)
         x, final_hidden = self.rnn(zeros, init_hidden)
         predictions = self.prediction_layer(x)
-        return predictions
+        return predictions,maps
 
 class AdmiralNet_v2(nn.Module):
     def __init__(self,cell='lstm', sequence_length=25, context_length = 25, hidden_dim = 100, use_float32 = False, gpu = -1, optical_flow = False):
@@ -270,14 +274,20 @@ class AdmiralNet_v2(nn.Module):
         self.conv1_2 = nn.Conv2d(24, 24, kernel_size=3, padding=1)
         self.conv1_3 = nn.Conv2d(24, 24, kernel_size=3, stride=2)
         
-        self.conv2 = nn.Conv2d(24, 36, kernel_size=3, stride=2)
-        
         #RESIDUAL BLOCK 2
+        self.conv2 = nn.Conv2d(24, 36, kernel_size=3, padding=1)
+        self.conv2_2 = nn.Conv2d(36, 36, kernel_size=3, padding=1)
+        self.conv2_3 = nn.Conv2d(36, 36, kernel_size=3, stride=2)
+        
+        #RESIDUAL BLOCK 3
         self.conv3 = nn.Conv2d(36, 48, kernel_size=3, padding=1)
         self.conv3_2 = nn.Conv2d(48, 48, kernel_size=3, padding=1)
         self.conv3_3 = nn.Conv2d(48, 48, kernel_size=3, stride=2)
         
-        self.conv4 = nn.Conv2d(48, 64, kernel_size=3)
+        #RESIDUAL BLOCK 4
+        self.conv4 = nn.Conv2d(48, 64, kernel_size=3,padding=1)
+        self.conv4_2 = nn.Conv2d(64, 64, kernel_size=3,padding=1)
+        self.conv4_3 = nn.Conv2d(64, 64, kernel_size=3)
         
         #RESIDUAL BLOCK 5
         self.conv5 = nn.Conv2d(64, 64, kernel_size=3,padding=1)
@@ -326,8 +336,14 @@ class AdmiralNet_v2(nn.Module):
         x = self.conv1_3(x+x1)
         x = self.Norm_1(x)
         x = self.relu(x)
-
+        
         x = self.conv2(x)
+        x = self.Norm_2(x)
+        x2 = self.relu(x)
+        x = self.conv2_2(x2)
+        x = self.Norm_2(x)
+        x = self.relu(x)
+        x = self.conv2_3(x+x2)
         x = self.Norm_2(x)
         x = self.relu(x)
 
@@ -340,8 +356,14 @@ class AdmiralNet_v2(nn.Module):
         x = self.conv3_3(x+x3)
         x = self.Norm_3(x)
         x = self.relu(x)
-
+        
         x = self.conv4(x)
+        x = self.Norm_4(x)
+        x4 = self.relu(x)
+        x = self.conv4_2(x4)
+        x = self.Norm_4(x)
+        x = self.relu(x)
+        x = self.conv4_3(x+x4)
         x = self.Norm_4(x)
         x = self.relu(x)
 

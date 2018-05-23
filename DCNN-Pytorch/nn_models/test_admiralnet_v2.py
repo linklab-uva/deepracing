@@ -48,7 +48,7 @@ def main():
     hidden_dim = int(config['hidden_dim'])
     optical_flow = bool(config.get('optical_flow',''))
 
-    network = models.AdmiralNet_v2(cell='gru',context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow=optical_flow)
+    network = models.AdmiralNet_v2(cell='lstm',context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow=optical_flow)
     state_dict = torch.load(args.model_file)
     network.load_state_dict(state_dict)
     print(network)
