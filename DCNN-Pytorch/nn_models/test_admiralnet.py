@@ -114,11 +114,13 @@ def main():
         wheelrows = 150
         wheelcols = 150
         wheel = cv2.resize(wheel, (wheelcols,wheelrows), interpolation = cv2.INTER_CUBIC)
-    for idx,(inputs, _, labels) in t:
+    for idx,(inputs, throttle, brake,_, labels) in t:
         if(gpu>=0):
             inputs = inputs.cuda(gpu)
+            throttle = throttle.cuda(gpu)
+            brake= brake.cuda(gpu)
             labels = labels.cuda(gpu)
-        pred = torch.div(network(inputs),label_scale)
+        pred = torch.div(network(inputs,throttle,brake),label_scale)
         if pred.shape[1] == 1:
             angle = pred.item()
             ground_truth = labels.item()

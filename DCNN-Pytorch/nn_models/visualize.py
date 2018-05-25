@@ -49,10 +49,10 @@ def main():
         prvs_resize = cv2.resize(prvs_grayscale, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
         flow = cv2.calcOpticalFlowFarneback(prvs_resize,next_resize, None, 0.5, 3, 20, 8, 5, 1.2, 0)
         inputfile=flow.transpose(2, 0, 1)
-        inputfile=inputfile.reshape(-1,2,1825,300)    
+        #inputfile=inputfile.reshape(-1,2,1825,300)    
     else:
         inputfile = load_image(args.input_file).astype(np.float32) / 255.0
-        inputfile=inputfile.reshape(-1,3,1825,300)
+        #inputfile=inputfile.reshape(-1,3,1825,300)
 
     network = models.AdmiralNet(cell='lstm',context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow=optical_flow)
     state_dict = torch.load(args.model_file)

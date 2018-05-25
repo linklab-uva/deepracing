@@ -21,12 +21,14 @@ def run_epoch(network, criterion, optimizer, trainLoader, gpu = -1):
     batch_size = trainLoader.batch_size
     num_samples=0
     t = tqdm(enumerate(trainLoader))
-    for (i, (inputs, _, labels)) in t:
+    for (i, (inputs, throttle, brake,_, labels)) in t:
         if gpu>=0:
             inputs = inputs.cuda(gpu)
+            throttle = throttle.cuda(gpu)
+            brake= brake.cuda(gpu)
             labels = labels.cuda(gpu)
         # Forward pass:
-        outputs,_ = network(inputs)
+        outputs = network(inputs,throttle,brake)
         loss = criterion(outputs, labels)
 
         # Backward pass:
@@ -67,7 +69,7 @@ def load_config(filepath):
     rtn['workers']='0'
     rtn['context_length']='10'
     rtn['sequence_length']='5'
-    rtn['hidden_dim']='100'
+    rtn['hidden_dim']='25'
     rtn['checkpoint_file']=''
     rtn['optical_flow']=''
 
@@ -120,7 +122,7 @@ def main():
     if(os.path.isdir(output_dir)):
         output_dir+= "_other"
     prefix = prefix + file_prefix
-    network = models.AdmiralNet(cell='lstm', context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow = optical_flow)
+    network = models.AdmiralNet(cell='gru', context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow = optical_flow)
     starting_epoch = 0
     if(checkpoint_file!=''):
         dir, file = os.path.split(checkpoint_file)
