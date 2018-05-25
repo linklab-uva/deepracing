@@ -221,7 +221,7 @@ class AdmiralNet(nn.Module):
         #activations
         self.relu = nn.ReLU()
 
-    def forward(self, x):
+    def forward(self, x, throttle, brake):
         #resize for convolutional layers
         batch_size = x.shape[0]
         x = x.view(-1, self.input_channels, 66, 200) 
@@ -255,10 +255,10 @@ class AdmiralNet(nn.Module):
             zeros = zeros.cuda(self.gpu)
         x, final_hidden = self.rnn(zeros, init_hidden)
         predictions = self.prediction_layer(x)
-        return predictions,maps
+        return predictions
 
 class AdmiralNet_v2(nn.Module):
-    def __init__(self,cell='lstm', sequence_length=25, context_length = 25, hidden_dim = 100, use_float32 = False, gpu = -1, optical_flow = False):
+    def __init__(self,cell='lstm', sequence_length=25, context_length = 25, hidden_dim = 256, use_float32 = False, gpu = -1, optical_flow = False):
         super(AdmiralNet_v2, self).__init__()
         self.gpu=gpu
         self.use_float32=use_float32
