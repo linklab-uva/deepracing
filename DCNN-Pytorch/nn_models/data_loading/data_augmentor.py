@@ -25,11 +25,14 @@ def main():
     
             img = load_image(os.path.join(image_directory,filename)).astype(np.float32)
             bright = img + 30
+            horizontal_flip_bright = bright[:, ::-1]
             dark = img - 30
+            horizontal_flip_dark = dark[:, ::-1]
             horizontal_flip = img[:, ::-1]
             blured_image = cv2.GaussianBlur(img, (5,5),0)
-            blured_image_dark = cv2.GaussianBlur(dark, (5,5),0)
-                        
+            horizontal_flip_blur = blured_image[:, ::-1]
+            
+            #Horizonatl Flip             
             xml_name_globe = xml_name.split('.')[0] + '.xml'
             et = xml.etree.ElementTree.parse(os.path.join(annotation_directory,xml_name_globe)) 
             root = et.getroot()
@@ -38,7 +41,6 @@ def main():
                     new_steer = -float(steer.text)
                     steer.text = str(new_steer)
             
-            et = xml.etree.ElementTree.parse(os.path.join(annotation_directory,xml_name_globe))
             xml_name = xml_name_globe.split('.')[0] + '_1.xml'
             et.write(os.path.join(annotation_directory,xml_name))
             pre,post = filename.split('.')
@@ -46,6 +48,7 @@ def main():
             fname=pre+'.'+post
             cv2.imwrite(os.path.join(image_directory,fname),horizontal_flip)
             
+            #Blurred Image   
             et = xml.etree.ElementTree.parse(os.path.join(annotation_directory,xml_name_globe))
             xml_name = xml_name_globe.split('.')[0] + '_2.xml'
             et.write(os.path.join(annotation_directory,xml_name))
@@ -54,29 +57,68 @@ def main():
             fname=pre+'.'+post
             cv2.imwrite(os.path.join(image_directory,fname),blured_image)
 
-            et = xml.etree.ElementTree.parse(os.path.join(annotation_directory,xml_name_globe))
+            #Blurred Flip   
+            et = xml.etree.ElementTree.parse(os.path.join(annotation_directory,xml_name_globe)) 
+            root = et.getroot()
+            for steer in root[0].iter('m-steer'):
+                if(float(steer.text)!=0):
+                    new_steer = -float(steer.text)
+                    steer.text = str(new_steer)
+            
             xml_name = xml_name_globe.split('.')[0] + '_3.xml'
+            et.write(os.path.join(annotation_directory,xml_name))
+            pre,post = filename.split('.')
+            pre=pre+'_3'
+            fname=pre+'.'+post
+            cv2.imwrite(os.path.join(image_directory,fname),horizontal_flip_blur)
+
+            #Bright
+            et = xml.etree.ElementTree.parse(os.path.join(annotation_directory,xml_name_globe))
+            xml_name = xml_name_globe.split('.')[0] + '_4.xml'
             et.write(os.path.join(annotation_directory,xml_name))
             pre,post = filename.split('.')
             pre=pre+'_3'
             fname=pre+'.'+post
             cv2.imwrite(os.path.join(image_directory,fname),bright)
 
-            et = xml.etree.ElementTree.parse(os.path.join(annotation_directory,xml_name_globe))
-            xml_name = xml_name_globe.split('.')[0] + '_4.xml'
-            et.write(os.path.join(annotation_directory,xml_name))
-            pre,post = filename.split('.')
-            pre=pre+'_4'
-            fname=pre+'.'+post
-            cv2.imwrite(os.path.join(image_directory,fname),dark)
-
-            et = xml.etree.ElementTree.parse(os.path.join(annotation_directory,xml_name_globe))
+            #Bright Flip
+            et = xml.etree.ElementTree.parse(os.path.join(annotation_directory,xml_name_globe)) 
+            root = et.getroot()
+            for steer in root[0].iter('m-steer'):
+                if(float(steer.text)!=0):
+                    new_steer = -float(steer.text)
+                    steer.text = str(new_steer)
+            
             xml_name = xml_name_globe.split('.')[0] + '_5.xml'
             et.write(os.path.join(annotation_directory,xml_name))
             pre,post = filename.split('.')
             pre=pre+'_5'
             fname=pre+'.'+post
-            cv2.imwrite(os.path.join(image_directory,fname),blured_image_dark)
+            cv2.imwrite(os.path.join(image_directory,fname),horizontal_flip_bright)
+
+            #Dark
+            et = xml.etree.ElementTree.parse(os.path.join(annotation_directory,xml_name_globe))
+            xml_name = xml_name_globe.split('.')[0] + '_6.xml'
+            et.write(os.path.join(annotation_directory,xml_name))
+            pre,post = filename.split('.')
+            pre=pre+'_6'
+            fname=pre+'.'+post
+            cv2.imwrite(os.path.join(image_directory,fname),dark)
+
+            #Dark Flip
+            et = xml.etree.ElementTree.parse(os.path.join(annotation_directory,xml_name_globe)) 
+            root = et.getroot()
+            for steer in root[0].iter('m-steer'):
+                if(float(steer.text)!=0):
+                    new_steer = -float(steer.text)
+                    steer.text = str(new_steer)
+            
+            xml_name = xml_name_globe.split('.')[0] + '_7.xml'
+            et.write(os.path.join(annotation_directory,xml_name))
+            pre,post = filename.split('.')
+            pre=pre+'_7'
+            fname=pre+'.'+post
+            cv2.imwrite(os.path.join(image_directory,fname),horizontal_flip_dark)
             
             
 if __name__ == '__main__':

@@ -202,7 +202,8 @@ class AdmiralNet(nn.Module):
         self.Norm_4 = nn.BatchNorm2d(64)
         
         #recurrent layers
-        self.feature_length = 1*64*18
+        self.img_features = 1*64*18
+        self.feature_length = (1*64*18) + 2
         self.hidden_dim = hidden_dim
         self.sequence_length = sequence_length
         self.context_length = context_length
@@ -239,12 +240,13 @@ class AdmiralNet(nn.Module):
         x4 = self.relu(x)
         x = self.conv5(x4)
         x5 = self.relu(x)
-
-        maps=[x1,x2,x3,x4,x5]
-
-        #print(x.shape)
+        
+        #maps=[x1,x2,x3,x4,x5]
         # Unpack for the RNN.
-        x = x5.view(batch_size, self.context_length, self.feature_length) 
+        x = x5.view(batch_size, self.context_length, self.img_features)
+        throttle = throttle.view(throttle.shape[0],throttle.shape[1],-1) 
+        x = torch.cat((x,throttle),2)
+        x = torch.cat((x,brake),2)
         x, init_hidden = self.rnn(x) 
         if(self.use_float32):
             zeros = torch.zeros([batch_size, self.sequence_length, self.feature_length], dtype=torch.float32)
