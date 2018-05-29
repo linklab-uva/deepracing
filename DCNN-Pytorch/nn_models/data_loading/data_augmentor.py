@@ -20,6 +20,7 @@ def main():
             dark = img - 30
             horizontal_flip = img[:, ::-1]
             blured_image = cv2.GaussianBlur(img, (5,5),0)
+            blured_image_dark = cv2.GaussianBlur(dark, (5,5),0)
             pre,post = filename.split('.')
             pre=pre+'_1'
             fname=pre+'.'+post
@@ -36,6 +37,10 @@ def main():
             pre=pre+'_4'
             fname=pre+'.'+post
             cv2.imwrite(os.path.join(directory,fname),dark)
+            pre,post = filename.split('.')
+            pre=pre+'_5'
+            fname=pre+'.'+post
+            cv2.imwrite(os.path.join(directory,fname),blured_image_dark)
             
 if __name__ == '__main__':
     main()
