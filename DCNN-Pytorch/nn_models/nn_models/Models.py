@@ -244,7 +244,8 @@ class AdmiralNet(nn.Module):
         #maps=[x1,x2,x3,x4,x5]
         # Unpack for the RNN.
         x = x5.view(batch_size, self.context_length, self.img_features)
-        throttle = throttle.view(throttle.shape[0],throttle.shape[1],-1) 
+        throttle = throttle.view(throttle.shape[0],throttle.shape[1],-1)
+        brake = brake.view(brake.shape[0],brake.shape[1],-1)  
         x = torch.cat((x,throttle),2)
         x = torch.cat((x,brake),2)
         x, init_hidden = self.rnn(x) 
