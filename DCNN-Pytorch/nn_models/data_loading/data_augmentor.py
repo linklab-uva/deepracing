@@ -3,7 +3,7 @@ import cv2
 import argparse
 import os
 from tqdm import tqdm as tqdm
-import xml.etree.ElementTree
+import csv
 
 
 def load_image(filepath):
@@ -13,16 +13,19 @@ def load_image(filepath):
 def main():
     parser = argparse.ArgumentParser(description="Data Augmentor")
     parser.add_argument("--path", type=str, required=True)
+    parser.add_argument("--annot",type=str, required=True)
     args = parser.parse_args()
     directory = args.path
+    annot_file = os.path.join(directory,args.annot)
     image_directory = os.path.join(directory,"raw_images")
-    annotation_directory = os.path.join(directory,"raw_annotations")
-    for filename in tqdm(os.listdir(image_directory),desc='Augmenting Data'):
-        if filename.endswith(".jpg"):
-            xml_name = filename.split('_')
-            xml_name = xml_name[2]
-            xml_name = 'raw_data_point_'+xml_name
-    
+    new_data=[]
+    with open(annot_file,'r') as f:
+        reader = csv.reader(f)
+        for row in tqdm(reader,desc='Augmenting Data:'):
+            new_data.append(row)
+            filename = row[0]
+            steer = row[2]
+            
             img = load_image(os.path.join(image_directory,filename)).astype(np.float32)
             bright = img + 30
             horizontal_flip_bright = bright[:, ::-1]
@@ -33,93 +36,68 @@ def main():
             horizontal_flip_blur = blured_image[:, ::-1]
             
             #Horizonatl Flip             
-            xml_name_globe = xml_name.split('.')[0] + '.xml'
-            et = xml.etree.ElementTree.parse(os.path.join(annotation_directory,xml_name_globe)) 
-            root = et.getroot()
-            for steer in root[0].iter('m-steer'):
-                if(float(steer.text)!=0):
-                    new_steer = -float(steer.text)
-                    steer.text = str(new_steer)
-            
-            xml_name = xml_name_globe.split('.')[0] + '_1.xml'
-            et.write(os.path.join(annotation_directory,xml_name))
             pre,post = filename.split('.')
             pre=pre+'_1'
             fname=pre+'.'+post
+            new_steer=0-float(steer)
+            new_row=[fname,row[1],str(new_steer),row[3],row[4]]
+            new_data.append(new_row)
             cv2.imwrite(os.path.join(image_directory,fname),horizontal_flip)
             
             #Blurred Image   
-            et = xml.etree.ElementTree.parse(os.path.join(annotation_directory,xml_name_globe))
-            xml_name = xml_name_globe.split('.')[0] + '_2.xml'
-            et.write(os.path.join(annotation_directory,xml_name))
             pre,post = filename.split('.')
             pre=pre+'_2'
             fname=pre+'.'+post
+            new_row=[fname,row[1],row[2],row[3],row[4]]
+            new_data.append(new_row)
             cv2.imwrite(os.path.join(image_directory,fname),blured_image)
 
             #Blurred Flip   
-            et = xml.etree.ElementTree.parse(os.path.join(annotation_directory,xml_name_globe)) 
-            root = et.getroot()
-            for steer in root[0].iter('m-steer'):
-                if(float(steer.text)!=0):
-                    new_steer = -float(steer.text)
-                    steer.text = str(new_steer)
-            
-            xml_name = xml_name_globe.split('.')[0] + '_3.xml'
-            et.write(os.path.join(annotation_directory,xml_name))
             pre,post = filename.split('.')
             pre=pre+'_3'
             fname=pre+'.'+post
+            new_steer=0-float(steer)
+            new_row=[fname,row[1],str(new_steer),row[3],row[4]]
+            new_data.append(new_row)
             cv2.imwrite(os.path.join(image_directory,fname),horizontal_flip_blur)
 
             #Bright
-            et = xml.etree.ElementTree.parse(os.path.join(annotation_directory,xml_name_globe))
-            xml_name = xml_name_globe.split('.')[0] + '_4.xml'
-            et.write(os.path.join(annotation_directory,xml_name))
             pre,post = filename.split('.')
             pre=pre+'_3'
             fname=pre+'.'+post
+            new_row=[fname,row[1],row[2],row[3],row[4]]
+            new_data.append(new_row)
             cv2.imwrite(os.path.join(image_directory,fname),bright)
 
             #Bright Flip
-            et = xml.etree.ElementTree.parse(os.path.join(annotation_directory,xml_name_globe)) 
-            root = et.getroot()
-            for steer in root[0].iter('m-steer'):
-                if(float(steer.text)!=0):
-                    new_steer = -float(steer.text)
-                    steer.text = str(new_steer)
-            
-            xml_name = xml_name_globe.split('.')[0] + '_5.xml'
-            et.write(os.path.join(annotation_directory,xml_name))
             pre,post = filename.split('.')
             pre=pre+'_5'
             fname=pre+'.'+post
+            new_steer=0-float(steer)
+            new_row=[fname,row[1],str(new_steer),row[3],row[4]]
+            new_data.append(new_row)
             cv2.imwrite(os.path.join(image_directory,fname),horizontal_flip_bright)
 
             #Dark
-            et = xml.etree.ElementTree.parse(os.path.join(annotation_directory,xml_name_globe))
-            xml_name = xml_name_globe.split('.')[0] + '_6.xml'
-            et.write(os.path.join(annotation_directory,xml_name))
             pre,post = filename.split('.')
             pre=pre+'_6'
             fname=pre+'.'+post
+            new_row=[fname,row[1],row[2],row[3],row[4]]
+            new_data.append(new_row)
             cv2.imwrite(os.path.join(image_directory,fname),dark)
 
             #Dark Flip
-            et = xml.etree.ElementTree.parse(os.path.join(annotation_directory,xml_name_globe)) 
-            root = et.getroot()
-            for steer in root[0].iter('m-steer'):
-                if(float(steer.text)!=0):
-                    new_steer = -float(steer.text)
-                    steer.text = str(new_steer)
-            
-            xml_name = xml_name_globe.split('.')[0] + '_7.xml'
-            et.write(os.path.join(annotation_directory,xml_name))
             pre,post = filename.split('.')
             pre=pre+'_7'
             fname=pre+'.'+post
+            new_steer=0-float(steer)
+            new_row=[fname,row[1],str(new_steer),row[3],row[4]]
+            new_data.append(new_row)
             cv2.imwrite(os.path.join(image_directory,fname),horizontal_flip_dark)
-            
+
+    with open(annot_file,'w') as f:
+        writer = csv.writer(f)
+        writer.writerows(new_data)              
             
 if __name__ == '__main__':
     main()
