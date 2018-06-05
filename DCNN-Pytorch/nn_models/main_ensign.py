@@ -41,6 +41,7 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
         cum_loss += loss_
         num_samples += batch_size
         t.set_postfix(cum_loss = cum_loss/num_samples)
+    return cum_loss/num_samples
  
 
 def train_model(network, criterion, optimizer, trainLoader, file_prefix, directory, n_epochs = 10, use_gpu = False, starting_epoch = 0):
@@ -49,11 +50,14 @@ def train_model(network, criterion, optimizer, trainLoader, file_prefix, directo
     # Training loop.
     if(not os.path.isdir(directory)):
         os.makedirs(directory)
+    losses = []
     for epoch in range(starting_epoch, starting_epoch + n_epochs):
         print("Epoch %d of %d" %((starting_epoch + epoch+1),n_epochs))
-        run_epoch(network, criterion, optimizer, trainLoader, use_gpu)
+        loss = run_epoch(network, criterion, optimizer, trainLoader, use_gpu)
+        losses.append(loss)
         log_path = os.path.join(directory,""+file_prefix+"_epoch"+str((starting_epoch + epoch+1))+ ".model")
         torch.save(network.state_dict(), log_path)
+    return losses
 def load_config(filepath):
     rtn = dict()
     rtn['batch_size']='1'
@@ -152,7 +156,14 @@ def main():
     config_dump = open(os.path.join(output_dir,"config.pkl"), 'wb')
     pickle.dump(config,config_dump)
     config_dump.close()
-    train_model(network, criterion, optimizer, trainLoader, prefix, output_dir, n_epochs = epochs, use_gpu = gpu)
+    losses = train_model(network, criterion, optimizer, trainLoader, prefix, output_dir, n_epochs = epochs, use_gpu = gpu)
+    if(optical_flow):
+        loss_path = os.path.join(output_dir,""+prefix+"_"+rnn_cell_type+"_OF.txt")
+    else:
+        loss_path = os.path.join(output_dir,""+prefix+"_"+rnn_cell_type+".txt")
+    f = open(loss_path, "w")
+    f.write("\n".join(map(lambda x: str(x), losses)))
+    f.close()
 
 if __name__ == '__main__':
     main()
