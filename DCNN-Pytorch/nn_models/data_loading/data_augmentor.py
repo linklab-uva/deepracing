@@ -4,7 +4,7 @@ import argparse
 import os
 from tqdm import tqdm as tqdm
 import csv
-
+from operator import itemgetter
 
 def load_image(filepath):
     img = cv2.imread(filepath, cv2.IMREAD_UNCHANGED)
@@ -19,7 +19,7 @@ def main():
     annot_file = os.path.join(directory,args.annot)
     image_directory = os.path.join(directory,"raw_images")
     new_data=[]
-    with open(annot_file,'r') as f:
+    with open(annot_file,'r',newline='') as f:
         reader = csv.reader(f)
         for row in tqdm(reader,desc='Augmenting Data:'):
             new_data.append(row)
@@ -37,16 +37,16 @@ def main():
             
             #Horizonatl Flip             
             pre,post = filename.split('.')
-            pre=pre+'_1'
+            pre='flip_'+pre
             fname=pre+'.'+post
             new_steer=0-float(steer)
-            new_row=[fname,row[1],str(new_steer),row[3],row[4]]
+            new_row=[fname,row[1],new_steer,row[3],row[4]]
             new_data.append(new_row)
             cv2.imwrite(os.path.join(image_directory,fname),horizontal_flip)
             
             #Blurred Image   
             pre,post = filename.split('.')
-            pre=pre+'_2'
+            pre='blur_'+pre
             fname=pre+'.'+post
             new_row=[fname,row[1],row[2],row[3],row[4]]
             new_data.append(new_row)
@@ -54,16 +54,16 @@ def main():
 
             #Blurred Flip   
             pre,post = filename.split('.')
-            pre=pre+'_3'
+            pre='blurFlip_'+pre
             fname=pre+'.'+post
             new_steer=0-float(steer)
-            new_row=[fname,row[1],str(new_steer),row[3],row[4]]
+            new_row=[fname,row[1],new_steer,row[3],row[4]]
             new_data.append(new_row)
             cv2.imwrite(os.path.join(image_directory,fname),horizontal_flip_blur)
 
             #Bright
             pre,post = filename.split('.')
-            pre=pre+'_3'
+            pre='bright_'+pre
             fname=pre+'.'+post
             new_row=[fname,row[1],row[2],row[3],row[4]]
             new_data.append(new_row)
@@ -71,16 +71,16 @@ def main():
 
             #Bright Flip
             pre,post = filename.split('.')
-            pre=pre+'_5'
+            pre='brightFlip_'+pre
             fname=pre+'.'+post
             new_steer=0-float(steer)
-            new_row=[fname,row[1],str(new_steer),row[3],row[4]]
+            new_row=[fname,row[1],new_steer,row[3],row[4]]
             new_data.append(new_row)
             cv2.imwrite(os.path.join(image_directory,fname),horizontal_flip_bright)
 
             #Dark
             pre,post = filename.split('.')
-            pre=pre+'_6'
+            pre='dark_'+pre
             fname=pre+'.'+post
             new_row=[fname,row[1],row[2],row[3],row[4]]
             new_data.append(new_row)
@@ -88,14 +88,15 @@ def main():
 
             #Dark Flip
             pre,post = filename.split('.')
-            pre=pre+'_7'
+            pre='darkFlip_'+pre
             fname=pre+'.'+post
             new_steer=0-float(steer)
-            new_row=[fname,row[1],str(new_steer),row[3],row[4]]
+            new_row=[fname,row[1],new_steer,row[3],row[4]]
             new_data.append(new_row)
             cv2.imwrite(os.path.join(image_directory,fname),horizontal_flip_dark)
 
-    with open(annot_file,'w') as f:
+    new_data = sorted(new_data, key=itemgetter(0))
+    with open(annot_file,'w',newline='') as f:
         writer = csv.writer(f)
         writer.writerows(new_data)              
             

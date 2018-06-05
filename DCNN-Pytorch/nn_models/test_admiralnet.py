@@ -47,11 +47,12 @@ def main():
     sequence_length = int(config['sequence_length'])
     hidden_dim = int(config['hidden_dim'])
     optical_flow = bool(config.get('optical_flow',''))
-
-    network = models.AdmiralNet(cell='gru',context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow=optical_flow)
+    rnn_cell_type='gru'
+    network = models.AdmiralNet(cell=rnn_cell_type,context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow=optical_flow)
     state_dict = torch.load(args.model_file)
     network.load_state_dict(state_dict)
     print(network)
+    #result_data=[]
     if(label_scale == 1.0):
         label_transformation = None
     else:
@@ -121,6 +122,7 @@ def main():
             brake= brake.cuda(gpu)
             labels = labels.cuda(gpu)
         pred = torch.div(network(inputs,throttle,brake),label_scale)
+        #result_data.append([labels,pred])
         if pred.shape[1] == 1:
             angle = pred.item()
             ground_truth = labels.item()
@@ -152,6 +154,13 @@ def main():
         '''
     predictions_array = np.array(predictions)
     ground_truths_array = np.array(ground_truths)
+    log_name = "ouput_log.txt"
+    imdir = "admiralnet_prediction_images_" + model_prefix
+    if(os.path.exists(imdir)==False):
+        os.mkdir(imdir)
+    log_output_path = os.path.join(imdir,log_name)
+    with open(log_output_path, "a") as myfile:
+        myfile.write("%s\n" % list(zip(ground_truths,predictions)))
     diffs = np.subtract(predictions_array,ground_truths_array)
     rms = np.sqrt(np.mean(np.array(losses)))
     print("RMS Error: ", rms)
@@ -163,5 +172,13 @@ def main():
         plt.plot(t,ground_truths_array,'b')
         #plt.plot(t,diffs)
         plt.show()
+    #log_name = "ouput_log"
+    #imdir = "admiralnet_prediction_images_" + model_prefix
+    #if(os.path.exists(imdir)==False):
+        #os.mkdir(imdir)
+    #log_output_path = os.path.join(imdir,log_name)
+    #f = open(log_output_path, "w")
+    #f.write("\n".join(map(lambda x: str(x), result_data)))
+    #f.close()
 if __name__ == '__main__':
     main()

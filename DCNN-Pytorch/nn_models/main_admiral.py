@@ -42,6 +42,7 @@ def run_epoch(network, criterion, optimizer, trainLoader, gpu = -1):
         cum_loss += loss.item()
         num_samples += batch_size
         t.set_postfix(cum_loss = cum_loss/num_samples)
+    return cum_loss/num_samples
  
 
 def train_model(network, criterion, optimizer, trainLoader, file_prefix, directory, n_epochs = 10, gpu = -1, starting_epoch = 0):
@@ -50,12 +51,15 @@ def train_model(network, criterion, optimizer, trainLoader, file_prefix, directo
     # Training loop.
     if(not os.path.isdir(directory)):
         os.makedirs(directory)
+    losses = []
     for epoch in range(starting_epoch, starting_epoch + n_epochs):
         epoch_num = epoch + 1
         print("Epoch %d of %d" %(epoch_num, n_epochs))
-        run_epoch(network, criterion, optimizer, trainLoader, gpu)
+        loss = run_epoch(network, criterion, optimizer, trainLoader, gpu)
+        losses.append(loss)
         log_path = os.path.join(directory,""+file_prefix+"_epoch"+str(epoch_num)+ ".model")
         torch.save(network.state_dict(), log_path)
+    return losses
 def load_config(filepath):
     rtn = dict()
     rtn['batch_size']='1'
@@ -69,7 +73,7 @@ def load_config(filepath):
     rtn['workers']='0'
     rtn['context_length']='10'
     rtn['sequence_length']='5'
-    rtn['hidden_dim']='50'
+    rtn['hidden_dim']='100'
     rtn['checkpoint_file']=''
     rtn['optical_flow']=''
 
@@ -122,7 +126,8 @@ def main():
     if(os.path.isdir(output_dir)):
         output_dir+= "_other"
     prefix = prefix + file_prefix
-    network = models.AdmiralNet(cell='gru', context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow = optical_flow)
+    rnn_cell_type = 'rnn'
+    network = models.AdmiralNet(cell=rnn_cell_type, context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow = optical_flow)
     starting_epoch = 0
     if(checkpoint_file!=''):
         dir, file = os.path.split(checkpoint_file)
@@ -161,7 +166,6 @@ def main():
             trainset.write_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
         else:  
             trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
-    ''' '''
 
     mean,stdev = trainset.statistics()
     mean_ = torch.from_numpy(mean).float()
@@ -184,7 +188,14 @@ def main():
 
     # Definition of optimization strategy.
     optimizer = optim.SGD(network.parameters(), lr = learning_rate, momentum=momentum)
-    train_model(network, criterion, optimizer, trainLoader, prefix, output_dir, n_epochs = epochs, gpu = gpu, starting_epoch = starting_epoch)
+    losses = train_model(network, criterion, optimizer, trainLoader, prefix, output_dir, n_epochs = epochs, gpu = gpu, starting_epoch = starting_epoch)
+    if(optical_flow):
+        loss_path = os.path.join(output_dir,""+prefix+"_"+rnn_cell_type+"_OF.txt")
+    else:
+        loss_path = os.path.join(output_dir,""+prefix+"_"+rnn_cell_type+".txt")
+    f = open(loss_path, "w")
+    f.write("\n".join(map(lambda x: str(x), losses)))
+    f.close()
 
 if __name__ == '__main__':
     main()

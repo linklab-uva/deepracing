@@ -1,9 +1,9 @@
-learning_rate,0.001
+learning_rate,0.0005
 annotation_file,D:/test_data/australia_fullview_run1/fullview_linear.csv
 label_scale,1
 gpu,0
-batch_size,8
+batch_size,4
 use_float32,True
-epochs,100
+epochs,25
 context_length,10
-sequence_length,5
+sequence_length,10
