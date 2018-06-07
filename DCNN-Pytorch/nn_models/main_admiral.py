@@ -45,7 +45,7 @@ def run_epoch(network, criterion, optimizer, trainLoader, gpu = -1):
     return cum_loss/num_samples
  
 
-def train_model(network, criterion, optimizer, trainLoader, file_prefix, directory, n_epochs = 10, gpu = -1, starting_epoch = 0):
+def train_model(network, criterion, optimizer, trainLoader,cell_type, file_prefix, directory, n_epochs = 10, gpu = -1, starting_epoch = 0):
     if gpu>=0:
         criterion = criterion.cuda(gpu)
     # Training loop.
@@ -57,7 +57,7 @@ def train_model(network, criterion, optimizer, trainLoader, file_prefix, directo
         print("Epoch %d of %d" %(epoch_num, n_epochs))
         loss = run_epoch(network, criterion, optimizer, trainLoader, gpu)
         losses.append(loss)
-        log_path = os.path.join(directory,""+file_prefix+"_epoch"+str(epoch_num)+ ".model")
+        log_path = os.path.join(directory,""+file_prefix+"_epoch"+str(epoch_num)+"_"+cell_type+".model")
         torch.save(network.state_dict(), log_path)
     return losses
 def load_config(filepath):
@@ -126,7 +126,7 @@ def main():
     if(os.path.isdir(output_dir)):
         output_dir+= "_other"
     prefix = prefix + file_prefix
-    rnn_cell_type = 'rnn'
+    rnn_cell_type = 'lstm'
     network = models.AdmiralNet(cell=rnn_cell_type, context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow = optical_flow)
     starting_epoch = 0
     if(checkpoint_file!=''):
@@ -188,7 +188,7 @@ def main():
 
     # Definition of optimization strategy.
     optimizer = optim.SGD(network.parameters(), lr = learning_rate, momentum=momentum)
-    losses = train_model(network, criterion, optimizer, trainLoader, prefix, output_dir, n_epochs = epochs, gpu = gpu, starting_epoch = starting_epoch)
+    losses = train_model(network, criterion, optimizer, trainLoader,rnn_cell_type, prefix, output_dir, n_epochs = epochs, gpu = gpu, starting_epoch = starting_epoch)
     if(optical_flow):
         loss_path = os.path.join(output_dir,""+prefix+"_"+rnn_cell_type+"_OF.txt")
     else:
