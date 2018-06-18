@@ -19,6 +19,8 @@ from datetime import datetime
 import imutils.annotation_utils
 from data_loading.image_loading import load_image
 import torchvision.transforms as transforms
+from scipy import stats
+import matplotlib.pyplot as plt
 
 def main():
     parser = argparse.ArgumentParser(description="Test AdmiralNet")
@@ -134,7 +136,7 @@ def main():
         loss = criterion(pred, labels)
         losses.append(loss.item())
         t.set_postfix(angle = angle, ground_truth = ground_truth)
-       # print("Ground Truth: %f. Prediction: %f.\n" %(scaled_ground_truth, scaled_angle))
+        #print("Ground Truth: %f. Prediction: %f.\n" %(scaled_ground_truth, scaled_angle))
         if args.write_images:
             scaled_angle = 180.0*angle
             M = cv2.getRotationMatrix2D((wheelrows/2,wheelcols/2),scaled_angle,1)
@@ -150,8 +152,6 @@ def main():
             output_path = os.path.join(imdir,name)
             cv2.imwrite(output_path,overlayed)
             videoout.write(overlayed)
-        '''
-        '''
     predictions_array = np.array(predictions)
     ground_truths_array = np.array(ground_truths)
     log_name = "ouput_log.txt"
@@ -168,12 +168,12 @@ def main():
     rms = np.sqrt(np.mean(np.array(losses)))
     print("RMS Error: ", rms)
     if args.plot:
-        from scipy import stats
-        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        ax = plt.subplot(111)
         t = np.linspace(0,len(loader)-1,len(loader))
-        plt.plot(t,predictions_array,'r')
-        plt.plot(t,ground_truths_array,'b')
-        #plt.plot(t,diffs)
-        plt.show()
+        ax.plot(t,predictions_array,'r',label='Predicted')
+        ax.plot(t,ground_truths_array,'b',label='Ground Truth')
+        ax.savefig("admiralnet_prediction_images_" + model_prefix+"\plot.jpeg")
+        ax.show()
 if __name__ == '__main__':
     main()

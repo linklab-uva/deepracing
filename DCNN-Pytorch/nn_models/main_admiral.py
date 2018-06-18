@@ -57,7 +57,7 @@ def train_model(network, criterion, optimizer, trainLoader,cell_type, file_prefi
         print("Epoch %d of %d" %(epoch_num, n_epochs))
         loss = run_epoch(network, criterion, optimizer, trainLoader, gpu)
         losses.append(loss)
-        log_path = os.path.join(directory,""+file_prefix+"_epoch"+str(epoch_num)+"_"+cell_type+".model")
+        log_path = os.path.join(directory,""+file_prefix+"_epoch"+str(epoch_num)+".model")
         torch.save(network.state_dict(), log_path)
     return losses
 def load_config(filepath):
@@ -123,10 +123,10 @@ def main():
     _, config_file = os.path.split(config_fp)
     config_file_name, _ = config_file.split(".")
     output_dir = config_file_name.replace("\n","")
-    if(os.path.isdir(output_dir)):
-        output_dir+= "_other"
+    
     prefix = prefix + file_prefix
     rnn_cell_type = 'lstm'
+    output_dir = output_dir +"_"+rnn_cell_type
     network = models.AdmiralNet(cell=rnn_cell_type, context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow = optical_flow)
     starting_epoch = 0
     if(checkpoint_file!=''):
