@@ -27,13 +27,17 @@ def main():
             steer = row[2]
             
             img = load_image(os.path.join(image_directory,filename)).astype(np.float32)
-            bright = img + 30
+            bright = img + 35
             horizontal_flip_bright = bright[:, ::-1]
-            dark = img - 30
+            dark = img - 35
             horizontal_flip_dark = dark[:, ::-1]
             horizontal_flip = img[:, ::-1]
-            blured_image = cv2.GaussianBlur(img, (5,5),0)
+            blured_image = cv2.GaussianBlur(img, (7,7),0)
             horizontal_flip_blur = blured_image[:, ::-1]
+            dark_blured_image = cv2.GaussianBlur(dark, (7,7),0)
+            horizonatal_flip_dark_blur = cv2.GaussianBlur(horizontal_flip_dark, (7,7),0)
+            bright_blured_image = cv2.GaussianBlur(bright, (7,7),0)
+            horizonatal_flip_bright_blur = cv2.GaussianBlur(horizontal_flip_bright, (7,7),0)
             
             #Horizonatl Flip             
             pre,post = filename.split('.')
@@ -94,6 +98,44 @@ def main():
             new_row=[fname,row[1],new_steer,row[3],row[4]]
             new_data.append(new_row)
             cv2.imwrite(os.path.join(image_directory,fname),horizontal_flip_dark)
+            
+            '''
+            #Dark Blur
+            pre,post = filename.split('.')
+            pre='darkBlur_'+pre
+            fname=pre+'.'+post
+            new_row=[fname,row[1],row[2],row[3],row[4]]
+            new_data.append(new_row)
+            cv2.imwrite(os.path.join(image_directory,fname),dark_blured_image)
+            
+            #Dark Blur Flip
+            pre,post = filename.split('.')
+            pre='darkFlipBlur_'+pre
+            fname=pre+'.'+post
+            new_steer=0-float(steer)
+            new_row=[fname,row[1],new_steer,row[3],row[4]]
+            new_data.append(new_row)
+            cv2.imwrite(os.path.join(image_directory,fname),horizonatal_flip_dark_blur)
+
+            #Bright Blur
+            pre,post = filename.split('.')
+            pre='brightBlur_'+pre
+            fname=pre+'.'+post
+            new_row=[fname,row[1],row[2],row[3],row[4]]
+            new_data.append(new_row)
+            cv2.imwrite(os.path.join(image_directory,fname),bright_blured_image)
+            
+            #Bright Blur Flip
+            pre,post = filename.split('.')
+            pre='brightFlipBlur_'+pre
+            fname=pre+'.'+post
+            new_steer=0-float(steer)
+            new_row=[fname,row[1],new_steer,row[3],row[4]]
+            new_data.append(new_row)
+            cv2.imwrite(os.path.join(image_directory,fname),horizonatal_flip_bright_blur)
+
+            '''
+
 
     new_data = sorted(new_data, key=itemgetter(0))
     with open(annot_file,'w',newline='') as f:
