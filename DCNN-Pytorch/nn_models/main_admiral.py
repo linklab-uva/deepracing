@@ -125,7 +125,7 @@ def main():
     output_dir = config_file_name.replace("\n","")
     
     prefix = prefix + file_prefix
-    rnn_cell_type = 'lstm'
+    rnn_cell_type = 'gru'
     output_dir = output_dir +"_"+rnn_cell_type
     network = models.AdmiralNet(cell=rnn_cell_type, context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow = optical_flow)
     starting_epoch = 0
