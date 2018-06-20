@@ -15,12 +15,14 @@ def main():
     parser = argparse.ArgumentParser(description="Data Augmentor")
     parser.add_argument("--path", type=str, required=True)
     parser.add_argument("--clip", type=int, default=0,required=False)
+    parser.add_argument("--name", type=str, required=True)
     args = parser.parse_args()
     directory = args.path
+    fname = args.name
     clip = args.clip
     annot_file = os.path.join(directory,"_slash_training_data.csv")
     output_path = os.path.join(directory,"raw_images")
-    data_file=os.path.join(directory,"data.csv")
+    data_file=os.path.join(directory,fname+".csv")
     final_data=[]
     seen={}
     count=0
@@ -32,7 +34,7 @@ def main():
             for row in tqdm(reader,desc='Processing training Data:'):
                 image=row[13]
                 ts=row[3]
-                steer = 2*float(row[22])-1
+                steer = 1-2*float(row[22])
                 throttle = float(row[16])
                 if(ts not in seen):
                     seen[ts]=steer

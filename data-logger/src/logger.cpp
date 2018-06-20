@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
 		("capture_x,x", po::value<float>(&capture_x)->default_value(0), "x coordinate for origin of capture area in pixels")
 		("capture_y,y", po::value<float>(&capture_y)->default_value(325), "y coordinate for origin of capture area pixels")
 		("capture_width,w", po::value<float>(&capture_width)->default_value(1825), "Width of capture area pixels")
-		("capture_height,h", po::value<float>(&capture_height)->default_value(300), "height of capture area pixels")
+		("capture_height,h", po::value<float>(&capture_height)->default_value(500), "height of capture area pixels")
 		("data_directory,d", po::value<std::string>(&data_directory)->default_value(std::string("data")), "Top-level directory to place the annotations & images.")
 		("initial_sleep_time,i", po::value<long>(&sleep_time)->default_value(5000), "How many milliseconds to sleep before starting data recording.")
 		("application_name,a", po::value<std::string>(&application_name)->default_value(std::string("")), "Name of the application to capture. If not set, defaults to the desktop window.")
