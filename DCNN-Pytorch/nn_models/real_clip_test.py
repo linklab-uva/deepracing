@@ -89,11 +89,6 @@ def main():
     t = tqdm(enumerate(loader))
     network.eval()
     predictions=[]
-    ground_truths=[]
-    losses=[]
-    criterion = nn.MSELoss()
-    if(gpu>=0):
-        criterion = criterion.cuda(gpu)
     if args.write_images:
         imdir = "admiralnet_prediction_images_" + model_prefix
         os.mkdir(imdir)
@@ -119,16 +114,10 @@ def main():
         #result_data.append([labels,pred])
         if pred.shape[1] == 1:
             angle = pred.item()
-            ground_truth = labels.item()
         else:
             angle = pred.squeeze()[0].item()
-            ground_truth = labels.squeeze()[0].item()
         predictions.append(angle)
-        ground_truths.append(ground_truth)
-        loss = criterion(pred, labels)
-        losses.append(loss.item())
-        t.set_postfix(angle = angle, ground_truth = ground_truth)
-        #print("Ground Truth: %f. Prediction: %f.\n" %(scaled_ground_truth, scaled_angle))
+        t.set_postfix(angle = angle)
         if args.write_images:
             scaled_pred_angle = 180.0*angle
             M_pred = cv2.getRotationMatrix2D((wheelrows_pred/2,wheelcols_pred/2),scaled_pred_angle,1)
@@ -140,42 +129,35 @@ def main():
             out_size = background.shape
 
             font                   = cv2.FONT_HERSHEY_SIMPLEX
-            bottomLeftCornerOfText = (int((out_size[1]-wheelcols_pred)/2)-15,int((out_size[0]-wheelcols_pred)/2)-35)
+            bottomLeftCornerOfText = (int((out_size[1]-wheelcols_pred)/2)-15,int((out_size[0]-wheelcols_pred)/2)-55)
             fontScale              = 0.45
             fontColor              = (0,0,0)
             lineType               = 1
             
             overlay = background.copy()
-            cv2.rectangle(overlay, (int((out_size[1]-wheelcols_pred)/2)-20,int((out_size[0]-wheelcols_pred)/2)-33), (int((out_size[1]-wheelcols_pred)/2)+90,int((out_size[0]-wheelcols_pred)/2)-47),(255, 255, 255,0.2), -1)
+            cv2.rectangle(overlay, (int((out_size[1]-wheelcols_pred)/2)-20,int((out_size[0]-wheelcols_pred)/2)-53), (int((out_size[1]-wheelcols_pred)/2)+100,int((out_size[0]-wheelcols_pred)/2)-67),(255, 255, 255,0.2), -1)
 
             alpha=0.5
             cv2.addWeighted(overlay, alpha, background, 1 - alpha,0, background)
 
             cv2.putText(background,'Predicted:' + "{0:.2f}".format(angle),bottomLeftCornerOfText,font,fontScale,fontColor,lineType)
 
-            overlayed_pred = imutils.annotation_utils.overlay_image(background,wheel_pred_rotated,int((out_size[1]-wheelcols_pred)/2),int((out_size[0]-wheelcols_pred)/2)-120)
+            overlayed_pred = imutils.annotation_utils.overlay_image(background,wheel_pred_rotated,int((out_size[1]-wheelcols_pred)/2)+10,int((out_size[0]-wheelcols_pred)/2)-150)
             
             name = "ouput_image_" + str(idx) + ".png"
             output_path = os.path.join(imdir,name)
             cv2.imwrite(output_path,overlayed_pred)
             videoout.write(overlayed_pred)
     predictions_array = np.array(predictions)
-    ground_truths_array = np.array(ground_truths)
     log_name = "ouput_log.txt"
     imdir = "admiralnet_prediction_images_" + model_prefix
     if(os.path.exists(imdir)==False):
         os.mkdir(imdir)
     log_output_path = os.path.join(imdir,log_name)
-    log = list(zip(ground_truths_array,predictions_array))
+    log = predictions_array
     with open(log_output_path, "a") as myfile:
         for x in log:
-            log_item = [x[0],x[1]]
-            myfile.write("{0},{1}\n".format(log_item[0],log_item[1]))
-    diffs = np.subtract(predictions_array,ground_truths_array)
-    rms = np.sqrt(np.mean(np.array(losses)))
-    nrms = np.sqrt(np.mean(np.divide(np.square(np.array(losses)),np.dot(np.mean(np.array(predictions)),np.mean(np.array(ground_truths))))))
-    print("RMS Error: ", rms)
-    print("NRMS Error: ", nrms)
+            myfile.write("{0}\n".format(x))
 
     if args.plot:
         fig = plt.figure()

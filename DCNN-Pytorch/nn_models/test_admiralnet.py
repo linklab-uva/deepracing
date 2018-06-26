@@ -112,7 +112,8 @@ def main():
         background = cv2.imread(os.path.join(annotation_dir,'raw_images',im),cv2.IMREAD_UNCHANGED)
         out_size = background.shape
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        videoout = cv2.VideoWriter(os.path.join(imdir,"video.avi") ,fourcc, 30.0, (out_size[1], out_size[0]),True)
+        fps=60
+        videoout = cv2.VideoWriter(os.path.join(imdir,"video.avi") ,fourcc, fps, (out_size[1], out_size[0]),True)
         wheel_pred = cv2.imread('predicted_fixed.png',cv2.IMREAD_UNCHANGED)
         wheel_ground = cv2.imread('ground_truth_fixed.png',cv2.IMREAD_UNCHANGED)
         wheelrows_pred = 65
@@ -155,25 +156,25 @@ def main():
             out_size = background.shape
 
             font                   = cv2.FONT_HERSHEY_SIMPLEX
-            bottomLeftCornerOfText = (int((out_size[1]-wheelcols_pred)/2)-50,int((out_size[0]-wheelcols_pred)/2)-35)
-            bottomLeftCornerOfText2 = (int((out_size[1]-wheelcols_pred)/2)+60,int((out_size[0]-wheelcols_pred)/2)-35)
-            fontScale              = 0.35
+            bottomLeftCornerOfText = (int((out_size[1]-wheelcols_pred)/2)-90,int((out_size[0]-wheelcols_pred)/3)-25)
+            bottomLeftCornerOfText2 = (int((out_size[1]-wheelcols_pred)/2)+40,int((out_size[0]-wheelcols_pred)/3)-25)
+            fontScale              = 0.45
             fontColor              = (0,0,0)
             lineType               = 1
             
             overlay = background.copy()
-            cv2.rectangle(overlay, (int((out_size[1]-wheelcols_pred)/2)-55,int((out_size[0]-wheelcols_pred)/2)-35), (int((out_size[1]-wheelcols_pred)/2)+5,int((out_size[0]-wheelcols_pred)/2)-42),(255, 255, 255,0.2), -1)
-            cv2.rectangle(overlay, (int((out_size[1]-wheelcols_pred)/2)+55,int((out_size[0]-wheelcols_pred)/2)-35),  (int((out_size[1]-wheelcols_pred)/2)+135,int((out_size[0]-wheelcols_pred)/2)-42),(255, 255, 255,0.2), -1)
+            cv2.rectangle(overlay, (int((out_size[1]-wheelcols_pred)/2)-95,int((out_size[0]-wheelcols_pred)/3)-23), (int((out_size[1]-wheelcols_pred)/2)+25,int((out_size[0]-wheelcols_pred)/3)-37),(255, 255, 255,0.2), -1)
+            cv2.rectangle(overlay, (int((out_size[1]-wheelcols_pred)/2)+35,int((out_size[0]-wheelcols_pred)/3)-23),  (int((out_size[1]-wheelcols_pred)/2)+180,int((out_size[0]-wheelcols_pred)/3)-37),(255, 255, 255,0.2), -1)
 
-            alpha=0.35
+            alpha=0.5
             cv2.addWeighted(overlay, alpha, background, 1 - alpha,0, background)
 
-            cv2.putText(background,'Predicted',bottomLeftCornerOfText,font,fontScale,fontColor,lineType)
-            cv2.putText(background,'Ground Truth',bottomLeftCornerOfText2,font,fontScale,fontColor,lineType)
+            cv2.putText(background,'Predicted:' + "{0:.2f}".format(angle),bottomLeftCornerOfText,font,fontScale,fontColor,lineType)
+            cv2.putText(background,'Ground Truth:' + "{0:.2f}".format(ground_truth),bottomLeftCornerOfText2,font,fontScale,fontColor,lineType)
 
             #print(background.shape)
-            overlayed_pred = imutils.annotation_utils.overlay_image(background,wheel_pred_rotated,int((out_size[1]-wheelcols_pred)/2)-60,int((out_size[0]-wheelcols_pred)/2)-110)
-            overlayed_ground = imutils.annotation_utils.overlay_image(overlayed_pred,wheel_ground_rotated,int((out_size[1]-wheelcols_ground)/2)+60,int((out_size[0]-wheelcols_ground)/2)-110)
+            overlayed_pred = imutils.annotation_utils.overlay_image(background,wheel_pred_rotated,int((out_size[1]-wheelcols_pred)/2)-60,int((out_size[0]-wheelcols_pred)/3))
+            overlayed_ground = imutils.annotation_utils.overlay_image(overlayed_pred,wheel_ground_rotated,int((out_size[1]-wheelcols_ground)/2)+75,int((out_size[0]-wheelcols_ground)/3))
             
             name = "ouput_image_" + str(idx) + ".png"
             output_path = os.path.join(imdir,name)
@@ -193,7 +194,7 @@ def main():
             myfile.write("{0},{1}\n".format(log_item[0],log_item[1]))
     diffs = np.subtract(predictions_array,ground_truths_array)
     rms = np.sqrt(np.mean(np.array(losses)))
-    nrms = np.sqrt(np.mean(np.divide(np.square(np.array(losses)),np.dot(np.mean(np.array(predictions)),np.mean(np.array(ground_truths))))))
+    nrms = np.sqrt(np.mean(np.divide(np.square(np.array(losses)),np.multiply(np.mean(np.array(predictions)),np.mean(np.array(ground_truths))))))
     print("RMS Error: ", rms)
     print("NRMS Error: ", nrms)
 
