@@ -45,20 +45,20 @@ namespace deepf1
 		slen = sizeof(si_other);
 
 		//Initialise winsock
-		printf("\nInitialising Winsock...");
+		//printf("\nInitialising Winsock...");
 		if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
 		{
 			printf("Failed. Error Code : %d", WSAGetLastError());
 			exit(EXIT_FAILURE);
 		}
-		printf("Initialised.\n");
+		//printf("Initialised.\n");
 
 		//Create a socket
 		if ((s = socket(AF_INET, SOCK_DGRAM, 0)) == INVALID_SOCKET)
 		{
 			printf("Could not create socket : %d", WSAGetLastError());
 		}
-		printf("Socket created.\n");
+		//printf("Socket created.\n");
 
 		//Prepare the sockaddr_in structure
 		server.sin_family = AF_INET;
@@ -85,7 +85,7 @@ namespace deepf1
 			delete dataz[j].data;
 		}
 		dataz.resize(i);
-		printf("Returning %d elements \n", dataz.size());
+		//printf("Returning %d elements \n", dataz.size());
 		closesocket(s);
 		WSACleanup();
 	}

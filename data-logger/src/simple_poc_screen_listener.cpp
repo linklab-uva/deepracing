@@ -6,11 +6,10 @@ namespace deepf1
 	simple_screen_listener::simple_screen_listener(std::shared_ptr<const boost::timer::cpu_timer> timer,
 		cv::Rect2d capture_area,
 		std::string application,
-		unsigned int length)
+		)
 	{
 		this->timer = timer;
-		this->length = length;
-		dataz.reserve(length);
+		dataz.reserve(1);
 		svc.reset(new screen_video_capture(capture_area, timer, application));
 		this->capture_area = svc->capture_area();
 		init_images(this->capture_area.height, this->capture_area.width);
@@ -25,7 +24,7 @@ namespace deepf1
 	}
 	void simple_screen_listener::init_images(int num_rows, int num_columns)
 	{
-		for (unsigned int i = 0; i < length; i++) {
+		for (unsigned int i = 0; i < 1; i++) {
 			timestamped_image_data_t to_add;
 			to_add.image.create(num_rows, num_columns, CV_8UC4);
 			dataz.push_back(to_add);
