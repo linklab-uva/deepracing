@@ -15,6 +15,8 @@ import os
 import string
 import argparse
 import torchvision.transforms as transforms
+import matplotlib.pyplot as plt
+
 def run_epoch(network, criterion, optimizer, trainLoader, gpu = -1):
     network.train()  # This is important to call before training!
     cum_loss = 0.0
@@ -45,24 +47,33 @@ def run_epoch(network, criterion, optimizer, trainLoader, gpu = -1):
     return cum_loss/num_samples
  
 
-def train_model(network, criterion, optimizer, trainLoader,cell_type, file_prefix, directory, n_epochs = 10, gpu = -1, starting_epoch = 0):
+def train_model(network, criterion, optimizer, trainLoader,cell_type, file_prefix, directory,super_convergence, n_epochs = 10, gpu = -1, starting_epoch = 0):
     if gpu>=0:
         criterion = criterion.cuda(gpu)
     # Training loop.
     if(not os.path.isdir(directory)):
         os.makedirs(directory)
     losses = []
+    lrs = []
+    learning_rate = optimizer.param_groups[0]['lr']
     for epoch in range(starting_epoch, starting_epoch + n_epochs):
         epoch_num = epoch + 1
-        print("Epoch %d of %d" %(epoch_num, n_epochs))
+        print("Epoch %d of %d, lr= %f" %(epoch_num, n_epochs,optimizer.param_groups[0]['lr']))
         loss = run_epoch(network, criterion, optimizer, trainLoader, gpu)
         losses.append(loss)
+        lrs.append(optimizer.param_groups[0]['lr'])
+        if(super_convergence):
+            if(epoch_num%5!=0):
+                optimizer.param_groups[0]['lr'] += learning_rate
+            else:
+                optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr']*2
+                learning_rate = optimizer.param_groups[0]['lr']
         log_path = os.path.join(directory,""+file_prefix+"_epoch"+str(epoch_num)+".model")
         torch.save(network.state_dict(), log_path)
-    return losses
+    return losses, lrs
 def load_config(filepath):
     rtn = dict()
-    rtn['batch_size']='1'
+    rtn['batch_size']='8'
     rtn['gpu']='-1'
     rtn['epochs']='10'
     rtn['momentum']='0.0'
@@ -72,10 +83,11 @@ def load_config(filepath):
     rtn['label_scale']='100.0'
     rtn['workers']='0'
     rtn['context_length']='10'
-    rtn['sequence_length']='5'
+    rtn['sequence_length']='10'
     rtn['hidden_dim']='100'
     rtn['checkpoint_file']=''
     rtn['optical_flow']=''
+    rtn['super_convergence']=''
 
 
     config_file = open(filepath)
@@ -105,6 +117,7 @@ def main():
     load_files = bool(config['load_files'])
     use_float32 = bool(config['use_float32'])
     optical_flow = bool(config['optical_flow'])
+    super_convergence = bool(config['super_convergence'])
 
     label_scale = float(config['label_scale'])
     momentum = float(config['momentum'])
@@ -116,6 +129,7 @@ def main():
     context_length = int(config['context_length'])
     sequence_length = int(config['sequence_length'])
     hidden_dim = int(config['hidden_dim'])
+    
 
     
     
@@ -125,7 +139,7 @@ def main():
     output_dir = config_file_name.replace("\n","")
     
     prefix = prefix + file_prefix
-    rnn_cell_type = 'gru'
+    rnn_cell_type = 'lstm'
     output_dir = output_dir +"_"+rnn_cell_type
     network = models.AdmiralNet(cell=rnn_cell_type, context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow = optical_flow)
     starting_epoch = 0
@@ -182,13 +196,12 @@ def main():
     pickle.dump(config,config_dump)
     config_dump.close()
     trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = True, num_workers = workers)
-    print(trainLoader)
     #Definition of our loss.
     criterion = nn.MSELoss()
 
     # Definition of optimization strategy.
     optimizer = optim.SGD(network.parameters(), lr = learning_rate, momentum=momentum)
-    losses = train_model(network, criterion, optimizer, trainLoader,rnn_cell_type, prefix, output_dir, n_epochs = epochs, gpu = gpu, starting_epoch = starting_epoch)
+    losses, lrs = train_model(network, criterion, optimizer, trainLoader,rnn_cell_type, prefix, output_dir,super_convergence, n_epochs = epochs, gpu = gpu, starting_epoch = starting_epoch)
     if(optical_flow):
         loss_path = os.path.join(output_dir,""+prefix+"_"+rnn_cell_type+"_OF.txt")
     else:
@@ -196,6 +209,14 @@ def main():
     f = open(loss_path, "w")
     f.write("\n".join(map(lambda x: str(x), losses)))
     f.close()
+
+    if(super_convergence):
+        fig = plt.figure()
+        ax = plt.subplot(111)
+        ax.set_xscale('log')
+        ax.plot(lrs,losses,'b')
+        plt.savefig("admiralnet_super_convergence_plot.jpeg")
+        plt.show()
 
 if __name__ == '__main__':
     main()
