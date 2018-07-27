@@ -129,6 +129,7 @@ def main():
     context_length = int(config['context_length'])
     sequence_length = int(config['sequence_length'])
     hidden_dim = int(config['hidden_dim'])
+    
 
     _, config_file = os.path.split(config_fp)
     config_file_name, _ = config_file.split(".")
