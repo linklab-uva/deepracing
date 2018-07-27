@@ -33,7 +33,7 @@ class F1Dataset(Dataset):
         self.brake = np.tile(0, (self.length)).astype(np.float64)
         self.preloaded=False
     def statistics(self):
-        print('Averaging array with shape: ', self.images.shape)
+        #print('\t\t-->Averaging array with shape: ', self.images.shape)
         mean = np.mean(self.images,(0,2,3))
         stdev = np.std(self.images,(0,2,3))
         return mean,stdev
@@ -69,12 +69,14 @@ class F1Dataset(Dataset):
         prvs_resize = cv2.resize(prvs_grayscale, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
         
         i=0
-        total = len(self.annotations)
+        total = len(self.annotations) -1
         if (int(total/self.partition_size)*self.partition_size == total):
             dumps = int(total/self.partition_size)
         else:
             dumps = int(total/self.partition_size) +1
-        for idx in tqdm(range(1, len(self.annotations))):
+        remaining = total
+        for idx in tqdm(range(1, len(self.annotations)),desc='Loading Data'):
+            remaining-=1
             line = self.annotations[idx]
             fp, ts, steering, throttle, brake = line.split(",")
             next = load_image(os.path.join(self.root_folder,"raw_images",fp)).astype(np.float32) / 255.0
@@ -88,53 +90,116 @@ class F1Dataset(Dataset):
             prvs_resize = next_resize
             if((idx) % self.partition_size ==0):
                 i+=1
-                filename = "saved_image_" + str(i) + ".pkl"
+                filename = "saved_image_opticalflow_" + str(i) + ".pkl"
                 fp = open(filename, 'wb')
+                tqdm.set_description('Writing Pickle %s'%(filename))
                 pickle.dump(self.images, fp, protocol=4)
                 fp.close()
-                #print('File %s is saved.' % filename)
 
-                filename = "saved_labels_" + str(i) + ".pkl"
+                filename = "saved_labels_opticalflow_" + str(i) + ".pkl"
                 fp = open(filename, 'wb')
+                tqdm.set_description('Writing Pickle %s'%(filename))
                 pickle.dump(self.labels, fp, protocol=4)
                 fp.close()
-                #print('File %s is saved.' % filename)
-                if self.optical_flow:
+                
+                tqdm.set_description('Loading Data')
+
+                if(i==(dumps-1)):
+                    self.length = remaining - 1
+                    self.images = np.tile(0, (self.length,2,self.im_size[0],self.im_size[1])).astype(np.float32)
+                    self.labels = np.tile(0, (self.length)).astype(np.float64)
+                    self.throttle = np.tile(0, (self.length)).astype(np.float64)
+                    self.brake = np.tile(0, (self.length)).astype(np.float64)
+                else:
                     self.length = self.partition_size - 1
                     self.images = np.tile(0, (self.length,2,self.im_size[0],self.im_size[1])).astype(np.float32)
-                else:
-                    self.length = self.partition_size
-                    self.images = np.tile(0, (self.length,3,self.im_size[0],self.im_size[1])).astype(np.int8)
-                self.labels = np.tile(0, (self.length)).astype(np.float64)
-                self.throttle = np.tile(0, (self.length)).astype(np.float64)
-                self.brake = np.tile(0, (self.length)).astype(np.float64)
+                    self.labels = np.tile(0, (self.length)).astype(np.float64)
+                    self.throttle = np.tile(0, (self.length)).astype(np.float64)
+                    self.brake = np.tile(0, (self.length)).astype(np.float64)
             
         if(i<dumps):
             i+=1
-            filename = image_pickle + str(i)
+            filename = "saved_image_opticalflow_" + str(i) + ".pkl"
             fp = open(filename, 'wb')
+            tqdm.set_description('Writing Pickle %s'%(filename))
             pickle.dump(self.images, fp, protocol=4)
             fp.close()
-            #print('File %s is saved.' % filename)
 
-            filename = label_pickle + str(i)
+            filename = "saved_labels_opticalflow_" + str(i) + ".pkl"
             fp = open(filename, 'wb')
+            tqdm.set_description('Writing Pickle %s'%(filename))
             pickle.dump(self.labels, fp, protocol=4)
             fp.close()
-            #print('File %s is saved.' % filename)
+            
+            tqdm.set_description('Loading Data')
+
         print('%d pickle files saved'%(i))
         self.preloaded=True
     def read_files(self):
         print("loading data")
-        for (idx,line) in tqdm(enumerate(self.annotations)):
+        i=0
+        total = len(self.annotations)
+        if (int(total/self.partition_size)*self.partition_size == total):
+            dumps = int(total/self.partition_size)
+        else:
+            dumps = int(total/self.partition_size) +1
+        remaining = total
+        for (idx,line) in tqdm(enumerate(self.annotations),desc='Loading Data'):
+            remaining-=1
             fp, ts, steering, throttle, brake = line.split(",")
             im = load_image(os.path.join(self.root_folder,"raw_images",fp))
             im = cv2.resize(im, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
             im = np.transpose(im, (2, 0, 1))
-            self.images[idx] = im
-            self.throttle[idx] = float(throttle)
-            self.brake[idx]=float(brake)
-            self.labels[idx] = float(steering)
+            self.images[(idx%self.partition_size)] = im
+            self.throttle[(idx%self.partition_size)] = float(throttle)
+            self.brake[(idx%self.partition_size)]=float(brake)
+            self.labels[(idx%self.partition_size)] = float(steering)
+            if((idx) % self.partition_size ==0):
+                i+=1
+                filename = "saved_image_" + str(i) + ".pkl"
+                tqdm.set_description('Writing Pickle %s'%(filename))
+                fp = open(filename, 'wb')
+                pickle.dump(self.images, fp, protocol=4)
+                fp.close()
+
+                filename = "saved_labels_" + str(i) + ".pkl"
+                tqdm.set_description('Writing Pickle %s'%(filename))
+                fp = open(filename, 'wb')
+                pickle.dump(self.labels, fp, protocol=4)
+                fp.close()
+                
+                tqdm.set_description('Loading Data')
+
+                if(i==(dumps-1)):
+                    self.length = remaining
+                    self.images = np.tile(0, (self.length,3,self.im_size[0],self.im_size[1])).astype(np.int8)
+                    self.labels = np.tile(0, (self.length)).astype(np.float64)
+                    self.throttle = np.tile(0, (self.length)).astype(np.float64)
+                    self.brake = np.tile(0, (self.length)).astype(np.float64)
+                else:
+                    self.length = self.partition_size
+                    self.images = np.tile(0, (self.length,3,self.im_size[0],self.im_size[1])).astype(np.int8)
+                    self.labels = np.tile(0, (self.length)).astype(np.float64)
+                    self.throttle = np.tile(0, (self.length)).astype(np.float64)
+                    self.brake = np.tile(0, (self.length)).astype(np.float64)
+            
+        if(i<dumps):
+            i+=1
+            filename = "saved_image_" + str(i) + ".pkl"
+            tqdm.set_description('Writing Pickle %s'%(filename))
+            fp = open(filename, 'wb')
+            pickle.dump(self.images, fp, protocol=4)
+            fp.close()
+
+            filename = "saved_labels_" + str(i) + ".pkl"
+            tqdm.set_description('Writing Pickle %s'%(filename))
+            fp = open(filename, 'wb')
+            pickle.dump(self.labels, fp, protocol=4)
+            fp.close()
+        
+            tqdm.set_description('Loading Data')
+
+        print('%d pickle files saved'%(i))
         self.preloaded=True
     def __getitem__(self, index):
         if(self.preloaded):

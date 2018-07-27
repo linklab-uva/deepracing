@@ -13,11 +13,13 @@ import pickle
 from datetime import datetime
 import os
 import string
+import glob
 import argparse
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 
-def run_epoch(network, criterion, optimizer, trainLoader, gpu = -1):
+def train_model(network, criterion, optimizer, trainLoader,cell_type, file_prefix, gpu = -1):
+           
     network.train()  # This is important to call before training!
     cum_loss = 0.0
     batch_size = trainLoader.batch_size
@@ -44,33 +46,8 @@ def run_epoch(network, criterion, optimizer, trainLoader, gpu = -1):
         cum_loss += loss.item()
         num_samples += batch_size
         t.set_postfix(cum_loss = cum_loss/num_samples)
-    return cum_loss/num_samples
- 
 
-def train_model(network, criterion, optimizer, trainLoader,cell_type, file_prefix, directory,super_convergence, n_epochs = 10, gpu = -1, starting_epoch = 0):
-    if gpu>=0:
-        criterion = criterion.cuda(gpu)
-    # Training loop.
-    if(not os.path.isdir(directory)):
-        os.makedirs(directory)
-    losses = []
-    lrs = []
-    learning_rate = optimizer.param_groups[0]['lr']
-    for epoch in range(starting_epoch, starting_epoch + n_epochs):
-        epoch_num = epoch + 1
-        print("Epoch %d of %d, lr= %f" %(epoch_num, n_epochs,optimizer.param_groups[0]['lr']))
-        loss = run_epoch(network, criterion, optimizer, trainLoader, gpu)
-        losses.append(loss)
-        lrs.append(optimizer.param_groups[0]['lr'])
-        if(super_convergence):
-            if(epoch_num%5!=0):
-                optimizer.param_groups[0]['lr'] += learning_rate
-            else:
-                optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr']*2
-                learning_rate = optimizer.param_groups[0]['lr']
-        log_path = os.path.join(directory,""+file_prefix+"_epoch"+str(epoch_num)+".model")
-        torch.save(network.state_dict(), log_path)
-    return losses, lrs
+    return (cum_loss/num_samples),optimizer.param_groups[0]['lr']
 def load_config(filepath):
     rtn = dict()
     rtn['batch_size']='8'
@@ -125,17 +102,18 @@ def main():
     batch_size = int(config['batch_size'])
     gpu = int(config['gpu'])
     epochs = int(config['epochs'])
-    workers = int(config['workers'])
+    workers = int(config['workers']) #Number of workers does not work in windows
     context_length = int(config['context_length'])
     sequence_length = int(config['sequence_length'])
     hidden_dim = int(config['hidden_dim'])
-    
 
     _, config_file = os.path.split(config_fp)
     config_file_name, _ = config_file.split(".")
     output_dir = config_file_name.replace("\n","")
     
     prefix = prefix + file_prefix
+
+    #Declare the Network
     rnn_cell_type = 'lstm'
     output_dir = output_dir +"_"+rnn_cell_type
     network = models.AdmiralNet(cell=rnn_cell_type, context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow = optical_flow)
@@ -162,52 +140,99 @@ def main():
         context_length=context_length, sequence_length=sequence_length, label_transformation = label_transformation, optical_flow = optical_flow)
     if(gpu>=0):
         network = network.cuda(gpu)
-    if optical_flow:
-        if(load_files or (not os.path.isfile("./" + prefix+"_opticalflows.pkl")) or (not os.path.isfile("./" + prefix+"_opticalflowannotations.pkl"))):
-            trainset.read_files_flow()
-            #trainset.write_pickles(prefix+"_opticalflows.pkl",prefix+"_opticalflowannotations.pkl")
-        else:  
-            trainset.read_pickles(prefix+"_opticalflows.pkl",prefix+"_opticalflowannotations.pkl")
-    else:
-        if(load_files or (not os.path.isfile("./" + prefix+"_images.pkl")) or (not os.path.isfile("./" + prefix+"_annotations.pkl"))):
-            trainset.read_files()
-            #trainset.write_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
-        else:  
-            trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
+    
+    #Create Model Dump Directory
+    if(not os.path.isdir(output_dir)):
+        os.makedirs(output_dir)
 
-    mean,stdev = trainset.statistics()
-    mean_ = torch.from_numpy(mean).float()
-    stdev_ = torch.from_numpy(stdev).float()
-    trainset.img_transformation = transforms.Normalize(mean_,stdev_)
+    #Check for data
+    if optical_flow:
+        load_files = glob.glob('saved_image_opticalflow*.pkl')
+    else:
+        load_files = glob.glob('saved_image*.pkl')
+    if(len(load_files)==0):
+        if optical_flow:
+            trainset.read_files_flow()
+            load_files = glob.glob('saved_image_opticalflow*.pkl')
+        else:
+            trainset.read_files()
+            load_files = glob.glob('saved_image*.pkl')
+    print(load_files)
+    final_losses = []
+    final_lrs = []
+
+    criterion = nn.MSELoss()
+    optimizer = optim.SGD(network.parameters(), lr = learning_rate, momentum=momentum)
+
+    #Begin Training
+    print("Beginning Training:")
+    for epoch in range(starting_epoch,epochs):
+        final_loss = 0
+        final_lr = 0
+        learning_rate = optimizer.param_groups[0]['lr']
+        print("Epoch %d of %d, lr= %f" %(epoch+1, epochs,optimizer.param_groups[0]['lr']))
+        for file in load_files:
+            
+            #Load partitioned Trainset
+            if optical_flow:
+                prefix,data_type,op,suffix = file.split('_')
+                data_type='labels'
+                label_file = prefix+'_'+data_type+'_'+op+'_'+suffix
+            else:
+                prefix,data_type,suffix = file.split('_')
+                data_type='labels'
+                label_file = prefix+'_'+data_type+'_'+suffix
+            
+            trainset.read_pickles(file,label_file)
+            print('\t-->Read Trainset %s'%(file))
+
+            mean,stdev = trainset.statistics()
+            mean_ = torch.from_numpy(mean).float()
+            stdev_ = torch.from_numpy(stdev).float()
+            trainset.img_transformation = transforms.Normalize(mean_,stdev_)
+            trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = True, num_workers = workers)
+            if gpu>=0:
+                criterion = criterion.cuda(gpu)
+      
+            loss, lr = train_model(network, criterion, optimizer, trainLoader,rnn_cell_type, prefix, gpu = gpu)
+            final_loss += loss
+            final_lr = lr
+
+        if(super_convergence):
+            if(epoch%5!=0):
+                optimizer.param_groups[0]['lr'] += learning_rate
+            else:
+                optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr']*2
+                learning_rate = optimizer.param_groups[0]['lr']
+        log_path = os.path.join(output_dir,""+file_prefix+"_epoch"+str(epoch_num)+".model")
+        torch.save(network.state_dict(), log_path)
+        final_losses.append(final_loss/float(len(load_files)))
+        final_lrs.append(final_lr)
+    
+    #Save the Config File
     config['image_transformation'] = trainset.img_transformation
     config['label_transformation'] = trainset.label_transformation
     print("Using configuration: ", config)
-    if(not os.path.isdir(output_dir)):
-        os.makedirs(output_dir)
     config_dump = open(os.path.join(output_dir,"config.pkl"), 'wb')
     pickle.dump(config,config_dump)
     config_dump.close()
-    trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = True, num_workers = workers)
-    #Definition of our loss.
-    criterion = nn.MSELoss()
-
-    # Definition of optimization strategy.
-    optimizer = optim.SGD(network.parameters(), lr = learning_rate, momentum=momentum)
-    losses, lrs = train_model(network, criterion, optimizer, trainLoader,rnn_cell_type, prefix, output_dir,super_convergence, n_epochs = epochs, gpu = gpu, starting_epoch = starting_epoch)
+    
+    #Log Loss progress
     if(optical_flow):
         loss_path = os.path.join(output_dir,""+prefix+"_"+rnn_cell_type+"_OF.txt")
     else:
         loss_path = os.path.join(output_dir,""+prefix+"_"+rnn_cell_type+".txt")
     f = open(loss_path, "w")
-    f.write("\n".join(map(lambda x: str(x), losses)))
+    f.write("\n".join(map(lambda x: str(x), final_losses)))
     f.close()
 
+    #Save Superconvergence Graph
     if(super_convergence):
         fig = plt.figure()
         ax = plt.subplot(111)
         ax.set_xscale('log')
-        ax.plot(lrs,losses,'b')
-        plt.savefig("admiralnet_super_convergence_plot.jpeg")
+        ax.plot(final_lrs,final_losses,'b')
+        plt.savefig(os.path.join(output_dir,"admiralnet_super_convergence_plot.jpeg"))
         plt.show()
 
 if __name__ == '__main__':
