@@ -190,17 +190,22 @@ class AdmiralNet(nn.Module):
             self.input_channels = 3
         # Convolutional layers.
         self.output_size = 1
-        self.conv1 = nn.Conv2d(self.input_channels, 24, kernel_size=5, stride=2)
-        self.conv2 = nn.Conv2d(24, 36, kernel_size=5, stride=2)
-        self.conv3 = nn.Conv2d(36, 48, kernel_size=5, stride=2)
-        self.conv4 = nn.Conv2d(48, 64, kernel_size=3)
-        self.conv5 = nn.Conv2d(64, 64, kernel_size=3)
-        #batch norm layers
-        self.Norm_1 = nn.BatchNorm2d(24)
-        self.Norm_2 = nn.BatchNorm2d(36)
-        self.Norm_3 = nn.BatchNorm2d(48) 
-        self.Norm_4 = nn.BatchNorm2d(64)
-        
+        self.feats = nn.Sequential()
+        self.feats.add_module("conv1",nn.Conv2d(self.input_channels, 24, kernel_size=5, stride=2))
+        self.feats.add_module("Norm_1",nn.BatchNorm2d(24))
+        self.feats.add_module("ReLU",nn.ReLU(True))
+        self.feats.add_module("conv2",nn.Conv2d(24, 36, kernel_size=5, stride=2))
+        self.feats.add_module("Norm_2",nn.BatchNorm2d(36))
+        self.feats.add_module("ReLU2",nn.ReLU(True))
+        self.feats.add_module("conv3",nn.Conv2d(36, 48, kernel_size=5, stride=2))
+        self.feats.add_module("Norm_3",nn.BatchNorm2d(48))
+        self.feats.add_module("ReLU3",nn.ReLU(True))
+        self.feats.add_module("conv4",nn.Conv2d(48, 64, kernel_size=3))
+        self.feats.add_module("Norm_4",nn.BatchNorm2d(64))
+        self.feats.add_module("ReLU4",nn.ReLU(True))
+        self.feats.add_module("conv5",nn.Conv2d(64, 64, kernel_size=3))
+        self.feats.add_module("ReLU5",nn.ReLU(True))
+
         #recurrent layers
         self.img_features = 1*64*18
         self.feature_length = (1*64*18)
@@ -218,32 +223,19 @@ class AdmiralNet(nn.Module):
 
         # Linear layers.
         self.prediction_layer = nn.Linear(hidden_dim, self.output_size)
-    
-        #activations
-        self.relu = nn.ReLU()
 
     def forward(self, x, throttle, brake):
-        #resize for convolutional layers
         batch_size = x.shape[0]
-        x = x.view(-1, self.input_channels, 66, 200) 
-        x = self.conv1(x)
-        x = self.Norm_1(x)
-        x1 = self.relu(x)
-        x = self.conv2(x1)
-        x = self.Norm_2(x)
-        x2 = self.relu(x)
-        x = self.conv3(x2)
-        x = self.Norm_3(x)
-        x3 = self.relu(x)
-        x = self.conv4(x3)
-        x = self.Norm_4(x)
-        x4 = self.relu(x)
-        x = self.conv5(x4)
-        x5 = self.relu(x)
+        #resize for convolutional layers
+        x = x.view(-1, self.input_channels, 66, 200)
+        #print(x.size())
+        x = self.feats(x)
         
         #maps=[x1,x2,x3,x4,x5]
         # Unpack for the RNN.
-        x = x5.view(batch_size, self.context_length, self.img_features)
+        #print(x.size())
+        #print(batch_size,self.context_length,self.img_features)
+        x = x.view(batch_size, self.context_length, self.img_features)
         #throttle = throttle.view(throttle.shape[0],throttle.shape[1],-1)
         #brake = brake.view(brake.shape[0],brake.shape[1],-1)  
         #x = torch.cat((x,throttle),2)
