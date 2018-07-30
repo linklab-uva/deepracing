@@ -18,35 +18,39 @@ import argparse
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 
-def train_model(network, criterion, optimizer, trainLoader,cell_type, file_prefix, gpu = -1):
+def train_model(network, criterion, optimizer, trainLoader,cell_type, file_prefix,sequence_length, gpu = -1):
            
     network.train()  # This is important to call before training!
     cum_loss = 0.0
     batch_size = trainLoader.batch_size
     num_samples=0
-    t = tqdm(enumerate(trainLoader))
-    for (i, (inputs, throttle, brake,_, labels)) in t:
-        if gpu>=0:
-            inputs = inputs.cuda(gpu)
-            throttle = throttle.cuda(gpu)
-            brake= brake.cuda(gpu)
-            labels = labels.cuda(gpu)
-        # Forward pass:
-        outputs = network(inputs,throttle,brake)
-        loss = criterion(outputs, labels)
+    t = tqdm(enumerate(trainLoader),desc='Training Data')
+    for (i, (inputs, throttle, brake,_, labels,flag)) in t:
+        if(all(flag.numpy())):
+            if gpu>=0:
+                inputs = inputs.cuda(gpu)
+                throttle = throttle.cuda(gpu)
+                brake= brake.cuda(gpu)
+                labels = labels.cuda(gpu)
+            # Forward pass:
+            if(inputs.size(1)!= sequence_length):
+                continue
+            outputs = network(inputs,throttle,brake)
+            loss = criterion(outputs, labels)
 
-        # Backward pass:
-        optimizer.zero_grad()
-        loss.backward() 
+            # Backward pass:
+            optimizer.zero_grad()
+            loss.backward() 
 
-        # Weight and bias updates.
-        optimizer.step()
+            # Weight and bias updates.
+            optimizer.step()
 
-        # logging information.
-        cum_loss += loss.item()
-        num_samples += batch_size
-        t.set_postfix(cum_loss = cum_loss/num_samples)
-
+            # logging information.
+            cum_loss += loss.item()
+            num_samples += batch_size
+            t.set_postfix(cum_loss = cum_loss/num_samples)
+        else:
+            break
     return (cum_loss/num_samples),optimizer.param_groups[0]['lr']
 def load_config(filepath):
     rtn = dict()
@@ -157,6 +161,7 @@ def main():
         else:
             trainset.read_files()
             load_files = glob.glob('saved_image*.pkl')
+    load_files.sort()
     print(load_files)
     final_losses = []
     final_lrs = []
@@ -170,7 +175,7 @@ def main():
         final_loss = 0
         final_lr = 0
         learning_rate = optimizer.param_groups[0]['lr']
-        print("Epoch %d of %d, lr= %f" %(epoch+1, epochs,optimizer.param_groups[0]['lr']))
+        print("\n#Epoch %d of %d, lr= %f" %(epoch+1, epochs,optimizer.param_groups[0]['lr']))
         for file in load_files:
             
             #Load partitioned Trainset
@@ -183,18 +188,18 @@ def main():
                 data_type='labels'
                 label_file = prefix+'_'+data_type+'_'+suffix
             
+            #print('Reading Trainset %s'%(file))
             trainset.read_pickles(file,label_file)
-            print('\t-->Read Trainset %s'%(file))
 
             mean,stdev = trainset.statistics()
             mean_ = torch.from_numpy(mean).float()
             stdev_ = torch.from_numpy(stdev).float()
             trainset.img_transformation = transforms.Normalize(mean_,stdev_)
-            trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = True, num_workers = workers)
+            trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = False, num_workers = workers)
             if gpu>=0:
                 criterion = criterion.cuda(gpu)
       
-            loss, lr = train_model(network, criterion, optimizer, trainLoader,rnn_cell_type, prefix, gpu = gpu)
+            loss, lr = train_model(network, criterion, optimizer, trainLoader,rnn_cell_type, prefix,sequence_length, gpu = gpu)
             final_loss += loss
             final_lr = lr
 
@@ -204,7 +209,7 @@ def main():
             else:
                 optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr']*2
                 learning_rate = optimizer.param_groups[0]['lr']
-        log_path = os.path.join(output_dir,""+file_prefix+"_epoch"+str(epoch_num)+".model")
+        log_path = os.path.join(output_dir,""+file_prefix+"_epoch"+str(epoch+1)+".model")
         torch.save(network.state_dict(), log_path)
         final_losses.append(final_loss/float(len(load_files)))
         final_lrs.append(final_lr)
