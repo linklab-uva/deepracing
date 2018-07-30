@@ -74,7 +74,7 @@ class F1Dataset(Dataset):
             dumps = int(total/self.partition_size)
         else:
             dumps = int(total/self.partition_size) +1
-        remaining = total
+        remaining = len(self.annotations)
         for idx in tqdm(range(1, len(self.annotations)),desc='Loading Data'):
             remaining-=1
             line = self.annotations[idx]
@@ -92,46 +92,41 @@ class F1Dataset(Dataset):
                 i+=1
                 filename = "saved_image_opticalflow_" + str(i) + ".pkl"
                 fp = open(filename, 'wb')
-                tqdm.set_description('Writing Pickle %s'%(filename))
+                #tqdm.set_description('Writing Pickle %s'%(filename))
                 pickle.dump(self.images, fp, protocol=4)
                 fp.close()
 
                 filename = "saved_labels_opticalflow_" + str(i) + ".pkl"
                 fp = open(filename, 'wb')
-                tqdm.set_description('Writing Pickle %s'%(filename))
+                #tqdm.set_description('Writing Pickle %s'%(filename))
                 pickle.dump(self.labels, fp, protocol=4)
                 fp.close()
                 
-                tqdm.set_description('Loading Data')
+                #tqdm.set_description('Loading Data')
 
                 if(i==(dumps-1)):
-                    self.length = remaining - 1
-                    self.images = np.tile(0, (self.length,2,self.im_size[0],self.im_size[1])).astype(np.float32)
-                    self.labels = np.tile(0, (self.length)).astype(np.float64)
-                    self.throttle = np.tile(0, (self.length)).astype(np.float64)
-                    self.brake = np.tile(0, (self.length)).astype(np.float64)
-                else:
-                    self.length = self.partition_size - 1
-                    self.images = np.tile(0, (self.length,2,self.im_size[0],self.im_size[1])).astype(np.float32)
-                    self.labels = np.tile(0, (self.length)).astype(np.float64)
-                    self.throttle = np.tile(0, (self.length)).astype(np.float64)
-                    self.brake = np.tile(0, (self.length)).astype(np.float64)
+                    self.partition_size = remaining 
+                self.length = self.partition_size - 1
+                self.images = np.tile(0, (self.length,2,self.im_size[0],self.im_size[1])).astype(np.float32)
+                self.labels = np.tile(0, (self.length)).astype(np.float64)
+                self.throttle = np.tile(0, (self.length)).astype(np.float64)
+                self.brake = np.tile(0, (self.length)).astype(np.float64)
             
         if(i<dumps):
             i+=1
             filename = "saved_image_opticalflow_" + str(i) + ".pkl"
             fp = open(filename, 'wb')
-            tqdm.set_description('Writing Pickle %s'%(filename))
+            #tqdm.set_description('Writing Pickle %s'%(filename))
             pickle.dump(self.images, fp, protocol=4)
             fp.close()
 
             filename = "saved_labels_opticalflow_" + str(i) + ".pkl"
             fp = open(filename, 'wb')
-            tqdm.set_description('Writing Pickle %s'%(filename))
+            #tqdm.set_description('Writing Pickle %s'%(filename))
             pickle.dump(self.labels, fp, protocol=4)
             fp.close()
             
-            tqdm.set_description('Loading Data')
+            #tqdm.set_description('Loading Data')
 
         print('%d pickle files saved'%(i))
         self.preloaded=True
@@ -157,47 +152,42 @@ class F1Dataset(Dataset):
             if((idx) % self.partition_size ==0):
                 i+=1
                 filename = "saved_image_" + str(i) + ".pkl"
-                tqdm.set_description('Writing Pickle %s'%(filename))
+                #tqdm.set_description('Writing Pickle %s'%(filename))
                 fp = open(filename, 'wb')
                 pickle.dump(self.images, fp, protocol=4)
                 fp.close()
 
                 filename = "saved_labels_" + str(i) + ".pkl"
-                tqdm.set_description('Writing Pickle %s'%(filename))
+                #tqdm.set_description('Writing Pickle %s'%(filename))
                 fp = open(filename, 'wb')
                 pickle.dump(self.labels, fp, protocol=4)
                 fp.close()
                 
-                tqdm.set_description('Loading Data')
+                #tqdm.set_description('Loading Data')
 
                 if(i==(dumps-1)):
-                    self.length = remaining
-                    self.images = np.tile(0, (self.length,3,self.im_size[0],self.im_size[1])).astype(np.int8)
-                    self.labels = np.tile(0, (self.length)).astype(np.float64)
-                    self.throttle = np.tile(0, (self.length)).astype(np.float64)
-                    self.brake = np.tile(0, (self.length)).astype(np.float64)
-                else:
-                    self.length = self.partition_size
-                    self.images = np.tile(0, (self.length,3,self.im_size[0],self.im_size[1])).astype(np.int8)
-                    self.labels = np.tile(0, (self.length)).astype(np.float64)
-                    self.throttle = np.tile(0, (self.length)).astype(np.float64)
-                    self.brake = np.tile(0, (self.length)).astype(np.float64)
+                    self.partition_size = remaining
+                self.length = self.partition_size
+                self.images = np.tile(0, (self.length,3,self.im_size[0],self.im_size[1])).astype(np.int8)
+                self.labels = np.tile(0, (self.length)).astype(np.float64)
+                self.throttle = np.tile(0, (self.length)).astype(np.float64)
+                self.brake = np.tile(0, (self.length)).astype(np.float64)
             
         if(i<dumps):
             i+=1
             filename = "saved_image_" + str(i) + ".pkl"
-            tqdm.set_description('Writing Pickle %s'%(filename))
+            #tqdm.set_description('Writing Pickle %s'%(filename))
             fp = open(filename, 'wb')
             pickle.dump(self.images, fp, protocol=4)
             fp.close()
 
             filename = "saved_labels_" + str(i) + ".pkl"
-            tqdm.set_description('Writing Pickle %s'%(filename))
+            #tqdm.set_description('Writing Pickle %s'%(filename))
             fp = open(filename, 'wb')
             pickle.dump(self.labels, fp, protocol=4)
             fp.close()
         
-            tqdm.set_description('Loading Data')
+            #tqdm.set_description('Loading Data')
 
         print('%d pickle files saved'%(i))
         self.preloaded=True
@@ -277,6 +267,7 @@ class F1SequenceDataset(F1Dataset):
         
         return self.images
     def __getitem__(self, index):
+        flag=True
         label_start = index + self.context_length
         label_end = label_start + self.sequence_length
         if(self.preloaded):     
@@ -284,7 +275,18 @@ class F1SequenceDataset(F1Dataset):
             seq = self.images[index:label_start]
             seq_throttle = self.throttle[index:label_start]
             seq_brake = self.brake[index:label_start]
-            seq_labels = self.labels[label_start:label_end]        
+            seq_labels = self.labels[label_start:label_end]
+            if(len(seq_labels)!= self.sequence_length):
+                flag=False
+                actual = len(seq_labels)
+                label_start = 0 + self.context_length
+                label_end = label_start + self.sequence_length
+                previous_control = self.labels[0:label_start]
+                seq = self.images[0:label_start]
+                seq_throttle = self.throttle[0:label_start]
+                seq_brake = self.brake[0:label_start]
+                seq_labels = self.labels[label_start:label_end]
+                #print('adjusted sequence used for %d batch (%d,%d)'%(index,actual,self.sequence_length))
         else:
             seq=[]   
             previous_control=[]
@@ -347,6 +349,8 @@ class F1SequenceDataset(F1Dataset):
             for i in range(0, label_tensor.shape[0]):
                 label_tensor[i]=self.label_transformation(label_tensor[i])
                 previous_control_tensor[i]=self.label_transformation(previous_control_tensor[i])
-        return img_tensor,throttle_tensor, brake_tensor, previous_control_tensor.view(self.context_length,1), label_tensor.view(self.sequence_length,1)
+        
+        
+        return img_tensor,throttle_tensor, brake_tensor, previous_control_tensor.view(self.context_length,1), label_tensor.view(self.sequence_length,1),flag
     def __len__(self):
         return self.length
