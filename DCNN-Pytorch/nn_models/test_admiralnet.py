@@ -90,7 +90,7 @@ def main():
         mean_.float()
         stdev_.float()
     trainset.img_transformation = transforms.Normalize(mean_,stdev_)
-'''
+    '''
     trainset.img_transformation = config['image_transformation']
     loader = torch.utils.data.DataLoader(trainset, batch_size = 1, shuffle = False, num_workers = 0)
     cum_diff = 0.0
@@ -104,7 +104,8 @@ def main():
         criterion = criterion.cuda(gpu)
     if args.write_images:
         imdir = "admiralnet_prediction_images_" + model_prefix
-        os.mkdir(imdir)
+        if(not os.path.exists(imdir)):
+            os.mkdir(imdir)
         annotation_file = open(args.annotation_file,'r')
         annotations = annotation_file.readlines()
         annotation_file.close()
@@ -122,64 +123,67 @@ def main():
         wheelrows_ground = 65
         wheelcols_ground = 65
         wheel_ground = cv2.resize(wheel_ground, (wheelcols_ground,wheelrows_ground), interpolation = cv2.INTER_CUBIC)
-    for idx,(inputs, throttle, brake,_, labels) in t:
-        if(gpu>=0):
-            inputs = inputs.cuda(gpu)
-            throttle = throttle.cuda(gpu)
-            brake= brake.cuda(gpu)
-            labels = labels.cuda(gpu)
-        pred = torch.div(network(inputs,throttle,brake),label_scale)
-        #result_data.append([labels,pred])
-        if pred.shape[1] == 1:
-            angle = pred.item()
-            ground_truth = labels.item()
+    for idx,(inputs, throttle, brake,_, labels,flag) in t:
+        if(all(flag.numpy())):
+            if(gpu>=0):
+                inputs = inputs.cuda(gpu)
+                throttle = throttle.cuda(gpu)
+                brake= brake.cuda(gpu)
+                labels = labels.cuda(gpu)
+            pred = torch.div(network(inputs,throttle,brake),label_scale)
+            #result_data.append([labels,pred])
+            if pred.shape[1] == 1:
+                angle = pred.item()
+                ground_truth = labels.item()
+            else:
+                angle = pred.squeeze()[0].item()
+                ground_truth = labels.squeeze()[0].item()
+            predictions.append(angle)
+            ground_truths.append(ground_truth)
+            loss = criterion(pred, labels)
+            losses.append(loss.item())
+            t.set_postfix(angle = angle, ground_truth = ground_truth)
+            #print("Ground Truth: %f. Prediction: %f.\n" %(scaled_ground_truth, scaled_angle))
+            if args.write_images:
+                scaled_pred_angle = 180.0*angle
+                scaled_truth_angle = 180.0*ground_truth
+                M_pred = cv2.getRotationMatrix2D((wheelrows_pred/2,wheelcols_pred/2),scaled_pred_angle,1)
+                wheel_pred_rotated = cv2.warpAffine(wheel_pred,M_pred,(wheelrows_pred,wheelcols_pred))
+                M_ground = cv2.getRotationMatrix2D((wheelrows_ground/2,wheelcols_ground/2),scaled_truth_angle,1)
+                wheel_ground_rotated = cv2.warpAffine(wheel_ground,M_ground,(wheelrows_ground,wheelcols_ground))
+                numpy_im = np.transpose(trainset.images[idx],(1,2,0)).astype(np.float32)
+               # print(numpy_im.shape)
+                im,_,_,_,_ = annotations[idx].split(",")
+                background = cv2.imread(os.path.join(annotation_dir,'raw_images',im),cv2.IMREAD_UNCHANGED)
+                out_size = background.shape
+
+                font                   = cv2.FONT_HERSHEY_SIMPLEX
+                bottomLeftCornerOfText = (int((out_size[1]-wheelcols_pred)/2)-90,int((out_size[0]-wheelcols_pred)/3)-25)
+                bottomLeftCornerOfText2 = (int((out_size[1]-wheelcols_pred)/2)+40,int((out_size[0]-wheelcols_pred)/3)-25)
+                fontScale              = 0.45
+                fontColor              = (0,0,0)
+                lineType               = 1
+            
+                overlay = background.copy()
+                cv2.rectangle(overlay, (int((out_size[1]-wheelcols_pred)/2)-95,int((out_size[0]-wheelcols_pred)/3)-23), (int((out_size[1]-wheelcols_pred)/2)+25,int((out_size[0]-wheelcols_pred)/3)-37),(255, 255, 255,0.2), -1)
+                cv2.rectangle(overlay, (int((out_size[1]-wheelcols_pred)/2)+35,int((out_size[0]-wheelcols_pred)/3)-23),  (int((out_size[1]-wheelcols_pred)/2)+180,int((out_size[0]-wheelcols_pred)/3)-37),(255, 255, 255,0.2), -1)
+
+                alpha=0.5
+                cv2.addWeighted(overlay, alpha, background, 1 - alpha,0, background)
+
+                cv2.putText(background,'Predicted:' + "{0:.2f}".format(angle),bottomLeftCornerOfText,font,fontScale,fontColor,lineType)
+                cv2.putText(background,'Ground Truth:' + "{0:.2f}".format(ground_truth),bottomLeftCornerOfText2,font,fontScale,fontColor,lineType)
+
+                #print(background.shape)
+                overlayed_pred = imutils.annotation_utils.overlay_image(background,wheel_pred_rotated,int((out_size[1]-wheelcols_pred)/2)-60,int((out_size[0]-wheelcols_pred)/3))
+                overlayed_ground = imutils.annotation_utils.overlay_image(overlayed_pred,wheel_ground_rotated,int((out_size[1]-wheelcols_ground)/2)+75,int((out_size[0]-wheelcols_ground)/3))
+            
+                name = "ouput_image_" + str(idx) + ".png"
+                output_path = os.path.join(imdir,name)
+                cv2.imwrite(output_path,overlayed_ground)
+                videoout.write(overlayed_ground)
         else:
-            angle = pred.squeeze()[0].item()
-            ground_truth = labels.squeeze()[0].item()
-        predictions.append(angle)
-        ground_truths.append(ground_truth)
-        loss = criterion(pred, labels)
-        losses.append(loss.item())
-        t.set_postfix(angle = angle, ground_truth = ground_truth)
-        #print("Ground Truth: %f. Prediction: %f.\n" %(scaled_ground_truth, scaled_angle))
-        if args.write_images:
-            scaled_pred_angle = 180.0*angle
-            scaled_truth_angle = 180.0*ground_truth
-            M_pred = cv2.getRotationMatrix2D((wheelrows_pred/2,wheelcols_pred/2),scaled_pred_angle,1)
-            wheel_pred_rotated = cv2.warpAffine(wheel_pred,M_pred,(wheelrows_pred,wheelcols_pred))
-            M_ground = cv2.getRotationMatrix2D((wheelrows_ground/2,wheelcols_ground/2),scaled_truth_angle,1)
-            wheel_ground_rotated = cv2.warpAffine(wheel_ground,M_ground,(wheelrows_ground,wheelcols_ground))
-            numpy_im = np.transpose(trainset.images[idx],(1,2,0)).astype(np.float32)
-           # print(numpy_im.shape)
-            im,_,_,_,_ = annotations[idx].split(",")
-            background = cv2.imread(os.path.join(annotation_dir,'raw_images',im),cv2.IMREAD_UNCHANGED)
-            out_size = background.shape
-
-            font                   = cv2.FONT_HERSHEY_SIMPLEX
-            bottomLeftCornerOfText = (int((out_size[1]-wheelcols_pred)/2)-90,int((out_size[0]-wheelcols_pred)/3)-25)
-            bottomLeftCornerOfText2 = (int((out_size[1]-wheelcols_pred)/2)+40,int((out_size[0]-wheelcols_pred)/3)-25)
-            fontScale              = 0.45
-            fontColor              = (0,0,0)
-            lineType               = 1
-            
-            overlay = background.copy()
-            cv2.rectangle(overlay, (int((out_size[1]-wheelcols_pred)/2)-95,int((out_size[0]-wheelcols_pred)/3)-23), (int((out_size[1]-wheelcols_pred)/2)+25,int((out_size[0]-wheelcols_pred)/3)-37),(255, 255, 255,0.2), -1)
-            cv2.rectangle(overlay, (int((out_size[1]-wheelcols_pred)/2)+35,int((out_size[0]-wheelcols_pred)/3)-23),  (int((out_size[1]-wheelcols_pred)/2)+180,int((out_size[0]-wheelcols_pred)/3)-37),(255, 255, 255,0.2), -1)
-
-            alpha=0.5
-            cv2.addWeighted(overlay, alpha, background, 1 - alpha,0, background)
-
-            cv2.putText(background,'Predicted:' + "{0:.2f}".format(angle),bottomLeftCornerOfText,font,fontScale,fontColor,lineType)
-            cv2.putText(background,'Ground Truth:' + "{0:.2f}".format(ground_truth),bottomLeftCornerOfText2,font,fontScale,fontColor,lineType)
-
-            #print(background.shape)
-            overlayed_pred = imutils.annotation_utils.overlay_image(background,wheel_pred_rotated,int((out_size[1]-wheelcols_pred)/2)-60,int((out_size[0]-wheelcols_pred)/3))
-            overlayed_ground = imutils.annotation_utils.overlay_image(overlayed_pred,wheel_ground_rotated,int((out_size[1]-wheelcols_ground)/2)+75,int((out_size[0]-wheelcols_ground)/3))
-            
-            name = "ouput_image_" + str(idx) + ".png"
-            output_path = os.path.join(imdir,name)
-            cv2.imwrite(output_path,overlayed_ground)
-            videoout.write(overlayed_ground)
+            break
     predictions_array = np.array(predictions)
     ground_truths_array = np.array(ground_truths)
     log_name = "ouput_log.txt"
@@ -201,7 +205,7 @@ def main():
     if args.plot:
         fig = plt.figure()
         ax = plt.subplot(111)
-        t = np.linspace(0,len(loader)-1,len(loader))
+        t = np.linspace(0,len(predictions_array)-1,len(predictions_array))
         ax.plot(t,predictions_array,'r',label='Predicted')
         ax.plot(t,ground_truths_array,'b',label='Ground Truth')
         ax.legend()
