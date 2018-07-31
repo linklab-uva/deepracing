@@ -24,7 +24,7 @@ def train_model(network, criterion, optimizer, trainLoader,cell_type, file_prefi
     cum_loss = 0.0
     batch_size = trainLoader.batch_size
     num_samples=0
-    t = tqdm(enumerate(trainLoader),desc='Training Data')
+    t = tqdm(enumerate(trainLoader),desc='\tTraining Data')
     for (i, (inputs, throttle, brake,_, labels,flag)) in t:
         if(all(flag.numpy())):
             if gpu>=0:
@@ -33,8 +33,6 @@ def train_model(network, criterion, optimizer, trainLoader,cell_type, file_prefi
                 brake= brake.cuda(gpu)
                 labels = labels.cuda(gpu)
             # Forward pass:
-            if(inputs.size(1)!= sequence_length):
-                continue
             outputs = network(inputs,throttle,brake)
             loss = criterion(outputs, labels)
 
@@ -48,10 +46,10 @@ def train_model(network, criterion, optimizer, trainLoader,cell_type, file_prefi
             # logging information.
             cum_loss += loss.item()
             num_samples += batch_size
-            t.set_postfix(cum_loss = cum_loss/num_samples)
+            #t.set_postfix(cum_loss = cum_loss)
         else:
             break
-    return (cum_loss/num_samples),optimizer.param_groups[0]['lr']
+    return cum_loss,num_samples,optimizer.param_groups[0]['lr']
 def load_config(filepath):
     rtn = dict()
     rtn['batch_size']='8'
@@ -168,14 +166,25 @@ def main():
 
     criterion = nn.MSELoss()
     optimizer = optim.SGD(network.parameters(), lr = learning_rate, momentum=momentum)
+    if gpu>=0:
+        criterion = criterion.cuda(gpu)
+
+    #Save the Config File
+    config['image_transformation'] = trainset.img_transformation
+    config['label_transformation'] = trainset.label_transformation
+    #print("Using configuration: ", config)
+    config_dump = open(os.path.join(output_dir,"config.pkl"), 'wb')
+    pickle.dump(config,config_dump)
+    config_dump.close()
 
     #Begin Training
     print("Beginning Training:")
     for epoch in range(starting_epoch,epochs):
         final_loss = 0
         final_lr = 0
+        num_samples=0
         learning_rate = optimizer.param_groups[0]['lr']
-        print("\n#Epoch %d of %d, lr= %f" %(epoch+1, epochs,optimizer.param_groups[0]['lr']))
+        print("#Epoch %d of %d, lr= %f" %(epoch+1, epochs,optimizer.param_groups[0]['lr']))
         for file in load_files:
             
             #Load partitioned Trainset
@@ -191,16 +200,17 @@ def main():
             #print('Reading Trainset %s'%(file))
             trainset.read_pickles(file,label_file)
 
-            mean,stdev = trainset.statistics()
+            '''mean,stdev = trainset.statistics()
             mean_ = torch.from_numpy(mean).float()
             stdev_ = torch.from_numpy(stdev).float()
             trainset.img_transformation = transforms.Normalize(mean_,stdev_)
+            '''
+
             trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = False, num_workers = workers)
-            if gpu>=0:
-                criterion = criterion.cuda(gpu)
-      
-            loss, lr = train_model(network, criterion, optimizer, trainLoader,rnn_cell_type, prefix,sequence_length, gpu = gpu)
+                  
+            loss,n_samples, lr = train_model(network, criterion, optimizer, trainLoader,rnn_cell_type, prefix,sequence_length, gpu = gpu)
             final_loss += loss
+            num_samples+=n_samples
             final_lr = lr
 
         if(super_convergence):
@@ -209,19 +219,12 @@ def main():
             else:
                 optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr']*2
                 learning_rate = optimizer.param_groups[0]['lr']
-        log_path = os.path.join(output_dir,""+file_prefix+"_epoch"+str(epoch+1)+".model")
+        log_path = os.path.join(output_dir,"epoch"+str(epoch+1)+".model")
         torch.save(network.state_dict(), log_path)
-        final_losses.append(final_loss/float(len(load_files)))
+        final_losses.append(final_loss/float(num_samples))
+        print('\nFinal Loss: %f'%(final_loss/float(num_samples)))
         final_lrs.append(final_lr)
-    
-    #Save the Config File
-    config['image_transformation'] = trainset.img_transformation
-    config['label_transformation'] = trainset.label_transformation
-    print("Using configuration: ", config)
-    config_dump = open(os.path.join(output_dir,"config.pkl"), 'wb')
-    pickle.dump(config,config_dump)
-    config_dump.close()
-    
+       
     #Log Loss progress
     if(optical_flow):
         loss_path = os.path.join(output_dir,""+prefix+"_"+rnn_cell_type+"_OF.txt")

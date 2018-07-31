@@ -75,7 +75,7 @@ class F1Dataset(Dataset):
         else:
             dumps = int(total/self.partition_size) +1
         remaining = len(self.annotations)
-        for idx in tqdm(range(1, len(self.annotations)),desc='Loading Data'):
+        for idx in tqdm(range(1, len(self.annotations)),desc='Loading Data',leave=False):
             remaining-=1
             line = self.annotations[idx]
             fp, ts, steering, throttle, brake = line.split(",")
@@ -139,7 +139,7 @@ class F1Dataset(Dataset):
         else:
             dumps = int(total/self.partition_size) +1
         remaining = total
-        for (idx,line) in tqdm(enumerate(self.annotations),desc='Loading Data'):
+        for (idx,line) in tqdm(enumerate(self.annotations),desc='Loading Data',leave=False):
             remaining-=1
             fp, ts, steering, throttle, brake = line.split(",")
             im = load_image(os.path.join(self.root_folder,"raw_images",fp))
