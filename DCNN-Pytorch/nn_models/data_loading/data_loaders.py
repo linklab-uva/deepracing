@@ -18,10 +18,10 @@ class F1Dataset(Dataset):
         self.img_transformation = img_transformation
         self.label_transformation = label_transformation
         self.annotation_filepath = annotation_filepath
-        self.partition_size=80000
         self.optical_flow=optical_flow
         self.annotations_file = open(os.path.join(self.root_folder,self.annotation_filepath), "r")
         self.annotations = self.annotations_file.readlines()
+        self.partition_size=min(80000,len(self.annotations))
         if optical_flow:
             self.length = self.partition_size- 1
             self.images = np.tile(0, (self.length,2,im_size[0],im_size[1])).astype(np.float32)
@@ -62,6 +62,10 @@ class F1Dataset(Dataset):
         fp.close()
         self.preloaded=True
     def read_files_flow(self):
+        pickle_dir,_ = self.annotation_filepath.split('.')
+        pickle_dir+='_data'
+        if(not os.path.exists(pickle_dir)):
+            os.makedirs(pickle_dir)
         print("loading data and computing optical flow")
         fp, ts, steering, throttle, brake = self.annotations[0].split(",")
         prvs = load_image(os.path.join(self.root_folder,"raw_images",fp)).astype(np.float32) / 255.0
@@ -75,7 +79,7 @@ class F1Dataset(Dataset):
         else:
             dumps = int(total/self.partition_size) +1
         remaining = len(self.annotations)
-        for idx in tqdm(range(1, len(self.annotations)),desc='Loading Data',leave=False):
+        for idx in tqdm(range(1, len(self.annotations)),desc='Loading Data',leave=True):
             remaining-=1
             line = self.annotations[idx]
             fp, ts, steering, throttle, brake = line.split(",")
@@ -90,13 +94,13 @@ class F1Dataset(Dataset):
             prvs_resize = next_resize
             if((idx) % self.partition_size ==0):
                 i+=1
-                filename = "saved_image_opticalflow_" + str(i) + ".pkl"
+                filename = os.path.join(pickle_dir,"saved_image_opticalflow_" + str(i) + ".pkl")
                 fp = open(filename, 'wb')
                 #tqdm.set_description('Writing Pickle %s'%(filename))
                 pickle.dump(self.images, fp, protocol=4)
                 fp.close()
 
-                filename = "saved_labels_opticalflow_" + str(i) + ".pkl"
+                filename = os.path.join(pickle_dir,"saved_labels_opticalflow_" + str(i) + ".pkl")
                 fp = open(filename, 'wb')
                 #tqdm.set_description('Writing Pickle %s'%(filename))
                 pickle.dump(self.labels, fp, protocol=4)
@@ -114,13 +118,13 @@ class F1Dataset(Dataset):
             
         if(i<dumps):
             i+=1
-            filename = "saved_image_opticalflow_" + str(i) + ".pkl"
+            filename =  os.path.join(pickle_dir,"saved_image_opticalflow_" + str(i) + ".pkl")
             fp = open(filename, 'wb')
             #tqdm.set_description('Writing Pickle %s'%(filename))
             pickle.dump(self.images, fp, protocol=4)
             fp.close()
 
-            filename = "saved_labels_opticalflow_" + str(i) + ".pkl"
+            filename =  os.path.join(pickle_dir,"saved_labels_opticalflow_" + str(i) + ".pkl")
             fp = open(filename, 'wb')
             #tqdm.set_description('Writing Pickle %s'%(filename))
             pickle.dump(self.labels, fp, protocol=4)
@@ -131,6 +135,10 @@ class F1Dataset(Dataset):
         print('%d pickle files saved'%(i))
         self.preloaded=True
     def read_files(self):
+        pickle_dir,_ = self.annotation_filepath.split('.')
+        pickle_dir+='_data'
+        if(not os.path.exists(pickle_dir)):
+            os.makedirs(pickle_dir)
         print("loading data")
         i=0
         total = len(self.annotations)
@@ -139,7 +147,7 @@ class F1Dataset(Dataset):
         else:
             dumps = int(total/self.partition_size) +1
         remaining = total
-        for (idx,line) in tqdm(enumerate(self.annotations),desc='Loading Data',leave=False):
+        for (idx,line) in tqdm(enumerate(self.annotations),desc='Loading Data',leave=True):
             remaining-=1
             fp, ts, steering, throttle, brake = line.split(",")
             im = load_image(os.path.join(self.root_folder,"raw_images",fp))
@@ -151,13 +159,13 @@ class F1Dataset(Dataset):
             self.labels[(idx%self.partition_size)] = float(steering)
             if((idx) % self.partition_size ==0):
                 i+=1
-                filename = "saved_image_" + str(i) + ".pkl"
+                filename =  os.path.join(pickle_dir,"saved_image_" + str(i) + ".pkl")
                 #tqdm.set_description('Writing Pickle %s'%(filename))
                 fp = open(filename, 'wb')
                 pickle.dump(self.images, fp, protocol=4)
                 fp.close()
 
-                filename = "saved_labels_" + str(i) + ".pkl"
+                filename =  os.path.join(pickle_dir,"saved_labels_" + str(i) + ".pkl")
                 #tqdm.set_description('Writing Pickle %s'%(filename))
                 fp = open(filename, 'wb')
                 pickle.dump(self.labels, fp, protocol=4)
@@ -175,13 +183,13 @@ class F1Dataset(Dataset):
             
         if(i<dumps):
             i+=1
-            filename = "saved_image_" + str(i) + ".pkl"
+            filename =  os.path.join(pickle_dir,"saved_image_" + str(i) + ".pkl")
             #tqdm.set_description('Writing Pickle %s'%(filename))
             fp = open(filename, 'wb')
             pickle.dump(self.images, fp, protocol=4)
             fp.close()
 
-            filename = "saved_labels_" + str(i) + ".pkl"
+            filename =  os.path.join(pickle_dir,"saved_labels_" + str(i) + ".pkl")
             #tqdm.set_description('Writing Pickle %s'%(filename))
             fp = open(filename, 'wb')
             pickle.dump(self.labels, fp, protocol=4)

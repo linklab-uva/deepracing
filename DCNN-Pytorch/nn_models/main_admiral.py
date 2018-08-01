@@ -18,37 +18,52 @@ import argparse
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 
-def train_model(network, criterion, optimizer, trainLoader,cell_type, file_prefix,sequence_length, gpu = -1):
+def train_model(network, criterion, optimizer,trainset, load_files,cell_type, file_prefix,sequence_length,batch_size,optical_flow,workers, gpu = -1):
            
     network.train()  # This is important to call before training!
     cum_loss = 0.0
-    batch_size = trainLoader.batch_size
     num_samples=0
-    t = tqdm(enumerate(trainLoader),desc='\tTraining Data')
-    for (i, (inputs, throttle, brake,_, labels,flag)) in t:
-        if(all(flag.numpy())):
-            if gpu>=0:
-                inputs = inputs.cuda(gpu)
-                throttle = throttle.cuda(gpu)
-                brake= brake.cuda(gpu)
-                labels = labels.cuda(gpu)
-            # Forward pass:
-            outputs = network(inputs,throttle,brake)
-            loss = criterion(outputs, labels)
-
-            # Backward pass:
-            optimizer.zero_grad()
-            loss.backward() 
-
-            # Weight and bias updates.
-            optimizer.step()
-
-            # logging information.
-            cum_loss += loss.item()
-            num_samples += batch_size
-            #t.set_postfix(cum_loss = cum_loss)
+    for file in load_files:
+        #Load partitioned Trainset
+        if optical_flow:
+            dir,file = file.split('\\')
+            prefix,data_type,op,suffix = file.split('_')
+            data_type='labels'
+            label_file = prefix+'_'+data_type+'_'+op+'_'+suffix
         else:
-            break
+            dir,file = file.split('\\')
+            prefix,data_type,suffix = file.split('_')
+            data_type='labels'
+            label_file = prefix+'_'+data_type+'_'+suffix
+            
+        #print('Reading Trainset %s'%(file))
+        trainset.read_pickles(os.path.join(dir,file),os.path.join(dir,label_file))
+        trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = False, num_workers = workers)
+        t = tqdm(enumerate(trainLoader),desc='\tTraining Data',leave=True)
+        for (i, (inputs, throttle, brake,_, labels,flag)) in t:
+            if(all(flag.numpy())):
+                if gpu>=0:
+                    inputs = inputs.cuda(gpu)
+                    throttle = throttle.cuda(gpu)
+                    brake= brake.cuda(gpu)
+                    labels = labels.cuda(gpu)
+                # Forward pass:
+                outputs = network(inputs,throttle,brake)
+                loss = criterion(outputs, labels)
+
+                # Backward pass:
+                optimizer.zero_grad()
+                loss.backward() 
+
+                # Weight and bias updates.
+                optimizer.step()
+
+                # logging information.
+                cum_loss += loss.item()
+                num_samples += batch_size
+                #t.set_postfix(cum_loss = cum_loss)
+            else:
+                break
     return cum_loss,num_samples,optimizer.param_groups[0]['lr']
 def load_config(filepath):
     rtn = dict()
@@ -148,17 +163,22 @@ def main():
         os.makedirs(output_dir)
 
     #Check for data
+    pickle_dir,_ = annotation_file.split('.')
+    pickle_dir+='_data'
+    if(not os.path.exists(pickle_dir)):
+        os.makedirs(pickle_dir)
     if optical_flow:
-        load_files = glob.glob('saved_image_opticalflow*.pkl')
+        load_files = glob.glob(pickle_dir+'\saved_image_opticalflow*.pkl')
     else:
-        load_files = glob.glob('saved_image*.pkl')
+        load_files = glob.glob(pickle_dir+'\saved_image*.pkl')
     if(len(load_files)==0):
         if optical_flow:
             trainset.read_files_flow()
-            load_files = glob.glob('saved_image_opticalflow*.pkl')
+            load_files = glob.glob(pickle_dir+'\saved_image_opticalflow*.pkl')
         else:
             trainset.read_files()
-            load_files = glob.glob('saved_image*.pkl')
+            load_files = glob.glob(pickle_dir+'\saved_image*.pkl')
+ 
     load_files.sort()
     print(load_files)
     final_losses = []
@@ -185,33 +205,11 @@ def main():
         num_samples=0
         learning_rate = optimizer.param_groups[0]['lr']
         print("#Epoch %d of %d, lr= %f" %(epoch+1, epochs,optimizer.param_groups[0]['lr']))
-        for file in load_files:
-            
-            #Load partitioned Trainset
-            if optical_flow:
-                prefix,data_type,op,suffix = file.split('_')
-                data_type='labels'
-                label_file = prefix+'_'+data_type+'_'+op+'_'+suffix
-            else:
-                prefix,data_type,suffix = file.split('_')
-                data_type='labels'
-                label_file = prefix+'_'+data_type+'_'+suffix
-            
-            #print('Reading Trainset %s'%(file))
-            trainset.read_pickles(file,label_file)
-
-            '''mean,stdev = trainset.statistics()
-            mean_ = torch.from_numpy(mean).float()
-            stdev_ = torch.from_numpy(stdev).float()
-            trainset.img_transformation = transforms.Normalize(mean_,stdev_)
-            '''
-
-            trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = False, num_workers = workers)
                   
-            loss,n_samples, lr = train_model(network, criterion, optimizer, trainLoader,rnn_cell_type, prefix,sequence_length, gpu = gpu)
-            final_loss += loss
-            num_samples+=n_samples
-            final_lr = lr
+        loss,n_samples, lr = train_model(network, criterion, optimizer, trainset,load_files,rnn_cell_type, prefix,sequence_length,batch_size,optical_flow,workers, gpu = gpu)
+        final_loss += loss
+        num_samples+=n_samples
+        final_lr = lr
 
         if(super_convergence):
             if(epoch%5!=0):
