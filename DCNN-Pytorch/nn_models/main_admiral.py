@@ -18,7 +18,7 @@ import argparse
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 
-def train_model(network, criterion, optimizer,trainset, load_files,cell_type, file_prefix,sequence_length,batch_size,optical_flow,workers, gpu = -1):
+def train_model(network, criterion, optimizer,trainset, load_files,cell_type, file_prefix,sequence_length,batch_size,optical_flow,workers,epoch, gpu = -1):
            
     network.train()  # This is important to call before training!
     cum_loss = 0.0
@@ -39,7 +39,7 @@ def train_model(network, criterion, optimizer,trainset, load_files,cell_type, fi
         #print('Reading Trainset %s'%(file))
         trainset.read_pickles(os.path.join(dir,file),os.path.join(dir,label_file))
         trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = False, num_workers = workers)
-        t = tqdm(enumerate(trainLoader),desc='\tTraining Data',leave=True)
+        t = tqdm(enumerate(trainLoader),desc='\tTraining Data (Epoch:%d(%d), lr=%f)'%(epoch+1,int(suffix.split('.')[0]),optimizer.param_groups[0]['lr']),leave=True)
         for (i, (inputs, throttle, brake,_, labels,flag)) in t:
             if(all(flag.numpy())):
                 if gpu>=0:
@@ -61,9 +61,9 @@ def train_model(network, criterion, optimizer,trainset, load_files,cell_type, fi
                 # logging information.
                 cum_loss += loss.item()
                 num_samples += batch_size
-                #t.set_postfix(cum_loss = cum_loss)
+                t.set_postfix(cum_loss = cum_loss/num_samples)
             else:
-                break
+                continue #using break breaks the tqdm, ignore the iter count.
     return cum_loss,num_samples,optimizer.param_groups[0]['lr']
 def load_config(filepath):
     rtn = dict()
@@ -132,7 +132,7 @@ def main():
 
     #Declare the Network
     rnn_cell_type = 'lstm'
-    output_dir = output_dir +"_"+rnn_cell_type
+    output_dir = output_dir +"_"+rnn_cell_type+'_'+str(learning_rate)
     network = models.AdmiralNet(cell=rnn_cell_type, context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow = optical_flow)
     starting_epoch = 0
     if(checkpoint_file!=''):
@@ -180,7 +180,7 @@ def main():
             load_files = glob.glob(pickle_dir+'\saved_image*.pkl')
  
     load_files.sort()
-    print(load_files)
+    #print(load_files)
     final_losses = []
     final_lrs = []
 
@@ -206,7 +206,7 @@ def main():
         learning_rate = optimizer.param_groups[0]['lr']
         print("#Epoch %d of %d, lr= %f" %(epoch+1, epochs,optimizer.param_groups[0]['lr']))
                   
-        loss,n_samples, lr = train_model(network, criterion, optimizer, trainset,load_files,rnn_cell_type, prefix,sequence_length,batch_size,optical_flow,workers, gpu = gpu)
+        loss,n_samples, lr = train_model(network, criterion, optimizer, trainset,load_files,rnn_cell_type, prefix,sequence_length,batch_size,optical_flow,workers,epoch, gpu = gpu)
         final_loss += loss
         num_samples+=n_samples
         final_lr = lr
@@ -220,7 +220,7 @@ def main():
         log_path = os.path.join(output_dir,"epoch"+str(epoch+1)+".model")
         torch.save(network.state_dict(), log_path)
         final_losses.append(final_loss/float(num_samples))
-        print('\nFinal Loss: %f'%(final_loss/float(num_samples)))
+        #print('\nFinal Loss: %f'%(final_loss/float(num_samples)))
         final_lrs.append(final_lr)
        
     #Log Loss progress
