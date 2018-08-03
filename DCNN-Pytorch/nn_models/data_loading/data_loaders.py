@@ -21,7 +21,9 @@ class F1Dataset(Dataset):
         self.optical_flow=optical_flow
         self.annotations_file = open(os.path.join(self.root_folder,self.annotation_filepath), "r")
         self.annotations = self.annotations_file.readlines()
-        self.partition_size=min(80000,len(self.annotations))
+        self.partition_size = len(self.annotations)
+        while(self.partition_size>96000):
+            self.partition_size = int(self.partition_size/2)
         if optical_flow:
             self.length = self.partition_size- 1
             self.images = np.tile(0, (self.length,2,im_size[0],im_size[1])).astype(np.float32)
