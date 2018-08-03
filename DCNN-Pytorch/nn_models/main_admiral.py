@@ -20,7 +20,6 @@ import matplotlib.pyplot as plt
 
 def train_model(network, criterion, optimizer,trainset, load_files,cell_type, file_prefix,sequence_length,batch_size,optical_flow,workers,epoch, gpu = -1):
            
-    network.train()  # This is important to call before training!
     cum_loss = 0.0
     num_samples=0
     for file in load_files:
@@ -205,7 +204,8 @@ def main():
         num_samples=0
         learning_rate = optimizer.param_groups[0]['lr']
         print("#Epoch %d of %d, lr= %f" %(epoch+1, epochs,optimizer.param_groups[0]['lr']))
-                  
+        
+        network.train()  # This is important to call before training!          
         loss,n_samples, lr = train_model(network, criterion, optimizer, trainset,load_files,rnn_cell_type, prefix,sequence_length,batch_size,optical_flow,workers,epoch, gpu = gpu)
         final_loss += loss
         num_samples+=n_samples
