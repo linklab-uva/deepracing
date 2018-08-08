@@ -18,11 +18,20 @@ import argparse
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 
-def train_model(network, criterion, optimizer,trainset, load_files,cell_type, file_prefix,sequence_length,batch_size,optical_flow,workers,epoch, gpu = -1):
+def train_model(network, criterion, optimizer,trainset, load_files,cell_type, file_prefix,sequence_length,batch_size,optical_flow,workers,epoch,output_dir, gpu = -1):
            
     cum_loss = 0.0
     num_samples=0
+    entry_flag=True
+
     for file in load_files:
+        if(entry_flag and epoch!=0):
+            log_path = os.path.join(output_dir,"epoch"+str(epoch)+".model")
+            entry_flag=False
+        else:
+            log_path = os.path.join(output_dir,"epoch"+str(epoch+1)+".model")
+        state_dict = torch.load(log_path)
+        network.load_state_dict(state_dict)
         #Load partitioned Trainset
         if optical_flow:
             dir,file = file.split('\\')
@@ -39,6 +48,7 @@ def train_model(network, criterion, optimizer,trainset, load_files,cell_type, fi
         trainset.read_pickles(os.path.join(dir,file),os.path.join(dir,label_file))
         trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = False, num_workers = workers)
         t = tqdm(enumerate(trainLoader),desc='\tTraining Data (Epoch:%d(%d), lr=%f)'%(epoch+1,int(suffix.split('.')[0]),optimizer.param_groups[0]['lr']),leave=True)
+        network.train()  # This is important to call before training!
         for (i, (inputs, throttle, brake,_, labels,flag)) in t:
             if(all(flag.numpy())):
                 if gpu>=0:
@@ -63,6 +73,8 @@ def train_model(network, criterion, optimizer,trainset, load_files,cell_type, fi
                 t.set_postfix(cum_loss = cum_loss/num_samples)
             else:
                 continue #using break breaks the tqdm, ignore the iter count.
+        log_path = os.path.join(output_dir,"epoch"+str(epoch+1)+".model")
+        torch.save(network.state_dict(), log_path)
     return cum_loss,num_samples,optimizer.param_groups[0]['lr']
 def load_config(filepath):
     rtn = dict()
@@ -183,11 +195,6 @@ def main():
     final_losses = []
     final_lrs = []
 
-    criterion = nn.MSELoss()
-    optimizer = optim.SGD(network.parameters(), lr = learning_rate, momentum=momentum)
-    if gpu>=0:
-        criterion = criterion.cuda(gpu)
-
     #Save the Config File
     config['image_transformation'] = trainset.img_transformation
     config['label_transformation'] = trainset.label_transformation
@@ -195,7 +202,13 @@ def main():
     config_dump = open(os.path.join(output_dir,"config.pkl"), 'wb')
     pickle.dump(config,config_dump)
     config_dump.close()
+    log_path = os.path.join(output_dir,"epoch"+str(1)+".model")
+    torch.save(network.state_dict(), log_path)
 
+    criterion = nn.MSELoss()
+    optimizer = optim.SGD(network.parameters(), lr = learning_rate, momentum=momentum)
+    if gpu>=0:
+        criterion = criterion.cuda(gpu)
     #Begin Training
     print("Beginning Training:")
     for epoch in range(starting_epoch,epochs):
@@ -204,9 +217,8 @@ def main():
         num_samples=0
         learning_rate = optimizer.param_groups[0]['lr']
         print("#Epoch %d of %d, lr= %f" %(epoch+1, epochs,optimizer.param_groups[0]['lr']))
-        
-        network.train()  # This is important to call before training!          
-        loss,n_samples, lr = train_model(network, criterion, optimizer, trainset,load_files,rnn_cell_type, prefix,sequence_length,batch_size,optical_flow,workers,epoch, gpu = gpu)
+                  
+        loss,n_samples, lr = train_model(network, criterion, optimizer, trainset,load_files,rnn_cell_type, prefix,sequence_length,batch_size,optical_flow,workers,epoch,output_dir, gpu = gpu)
         final_loss += loss
         num_samples+=n_samples
         final_lr = lr
@@ -217,8 +229,6 @@ def main():
             else:
                 optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr']*2
                 learning_rate = optimizer.param_groups[0]['lr']
-        log_path = os.path.join(output_dir,"epoch"+str(epoch+1)+".model")
-        torch.save(network.state_dict(), log_path)
         final_losses.append(final_loss/float(num_samples))
         #print('\nFinal Loss: %f'%(final_loss/float(num_samples)))
         final_lrs.append(final_lr)

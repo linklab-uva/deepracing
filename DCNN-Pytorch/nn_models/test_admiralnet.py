@@ -43,7 +43,7 @@ def main():
     gpu = int(config['gpu'])
     use_float32 = bool(config['use_float32'])
     label_scale = float(config['label_scale'])
-    size = (66,200)
+    #size = (66,200)
     prefix, _ = annotation_file.split(".")
     prefix = prefix + config['file_prefix']
     context_length = int(config['context_length'])
@@ -86,7 +86,6 @@ def main():
             trainset.read_files()
             load_files = glob.glob(pickle_dir+'\saved_image*.pkl')
     load_files.sort()
-    network.eval()
     predictions=[]
     ground_truths=[]
     losses=[]
@@ -94,6 +93,7 @@ def main():
     cum_diff = 0.0
     if(gpu>=0):
         criterion = criterion.cuda(gpu)
+    network.eval()
     for file in load_files:
         #Load partitioned Dataset
         if optical_flow:

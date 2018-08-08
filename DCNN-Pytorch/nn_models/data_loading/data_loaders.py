@@ -265,6 +265,7 @@ class F1Dataset(Dataset):
         return img_tensor, throttle_tensor, brake_tensor, label_tensor.view(1)
     def __len__(self):
         return self.length
+
 class F1SequenceDataset(F1Dataset):
     def __init__(self, root_folder, annotation_filepath, im_size,\
         context_length = 25, sequence_length=25, use_float32=False, img_transformation = None, label_transformation = None, optical_flow = False):
@@ -333,7 +334,7 @@ class F1SequenceDataset(F1Dataset):
             seq_throttle = self.throttle[index:label_start]
             seq_brake = self.brake[index:label_start]
             seq_labels = self.labels[label_start:label_end]
-            previous_control = np.asarray(previous_control,dtype=np.float32)   
+            previous_control = np.asarray(previous_control,dtype=np.float32)  
             #raise NotImplementedError("Must preload images for sequence dataset")
         if(self.use_float32):
             seq = seq.astype(np.float32)
