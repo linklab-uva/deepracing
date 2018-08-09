@@ -11,26 +11,26 @@ import string
 import argparse
 import time
 
-def right():
+def right(angle):
     ReleaseKey(A)
     PressKey(D)
-    #time.sleep(1)
+    time.sleep(2*(angle*angle))
     ReleaseKey(D)
 
-def left():
+def left(angle):
     ReleaseKey(D)
     PressKey(A)
-    #time.sleep(1)
+    time.sleep(2*(angle*angle))
     ReleaseKey(A)
     
 def straight():
     ReleaseKey(A)
     ReleaseKey(D)
-    #time.sleep(1)
+    #time.sleep(0.05)
     
 
 def grab_screen():
-    screen =  np.array(ImageGrab.grab(bbox=(0,50,2510,1000)))
+    screen =  np.array(ImageGrab.grab(bbox=(0,430,2510,630)))
     return screen
 
 def main():
@@ -67,7 +67,7 @@ def main():
         network = network.cuda(gpu)
     network.eval()
 
-    time.sleep(3000)
+    time.sleep(3)
     inputs = []
     pscreen = grab_screen()
     pscreen = cv2.cvtColor(pscreen,cv2.COLOR_BGR2GRAY)
@@ -80,8 +80,10 @@ def main():
             screen = cv2.resize(screen,(200,66))
             flow = cv2.calcOpticalFlowFarneback(pscreen,screen, None, 0.5, 3, 20, 8, 5, 1.2, 0)
             im= flow.transpose(2, 0, 1)
+            #cv2.imwrite("screen"+str(buffer)+".jpeg",flow[...,1])
             inputs.append(im)
             buffer+=1
+            time.sleep(0.04)
             pscreen = screen
         img_list = np.asarray(inputs)
         img_tensor = torch.from_numpy(img_list)
@@ -97,14 +99,22 @@ def main():
         if pred.shape[1] == 1:
             angle = pred.item()
         else:
-            angle = pred.squeeze()[0].item()
+            angle = torch.sum(pred.squeeze()).item()/float(context_length)
         #print(angle)
         inputs = inputs[1:]
         buffer -= 1
-        if(angle>0.1):
-            left()
-        elif(angle<-0.1):
-            right()
+        if(angle>0.15):
+            if(angle<0.6):
+                right(angle)
+            else:
+                right((1+angle/2)*angle)
+            print('D')
+        elif(angle<-0.15):
+            if(angle<-0.6):
+                left(-1*(angle))
+            else:
+                left(-(1+angle/2)*(angle))
+            print('A')
         else:
             straight()
 
