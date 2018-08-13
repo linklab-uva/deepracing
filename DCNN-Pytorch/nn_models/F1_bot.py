@@ -11,23 +11,27 @@ import string
 import argparse
 import time
 
-def right(angle):
+def right(angle,turn):
     ReleaseKey(A)
     PressKey(D)
-    time.sleep(2*(angle*angle))
+    if(turn>0.17):
+        time.sleep(angle)
+    else:
+        time.sleep(turn)
     ReleaseKey(D)
 
-def left(angle):
+def left(angle,turn):
     ReleaseKey(D)
     PressKey(A)
-    time.sleep(2*(angle*angle))
+    if(turn>0.17):
+        time.sleep(angle)
+    else:
+        time.sleep(turn)
     ReleaseKey(A)
     
 def straight():
     ReleaseKey(A)
-    ReleaseKey(D)
-    #time.sleep(0.05)
-    
+    ReleaseKey(D)    
 
 def grab_screen():
     screen =  np.array(ImageGrab.grab(bbox=(0,430,2510,630)))
@@ -73,6 +77,7 @@ def main():
     pscreen = cv2.cvtColor(pscreen,cv2.COLOR_BGR2GRAY)
     pscreen = cv2.resize(pscreen,(200,66))
     buffer = 0
+    previous_angle = 0
     while(True):
         while(buffer<context_length):
             screen = grab_screen()
@@ -100,23 +105,28 @@ def main():
             angle = pred.item()
         else:
             angle = torch.sum(pred.squeeze()).item()/float(context_length)
-        #print(angle)
         inputs = inputs[1:]
         buffer -= 1
-        if(angle>0.15):
-            if(angle<0.6):
-                right(angle)
+        turn = angle-previous_angle
+        previous_angle=angle
+        #print(angle,turn)        
+        if(turn>0):
+            if (angle<0):
+                straight()
+                #print('s')
             else:
-                right((1+angle/2)*angle)
-            print('D')
-        elif(angle<-0.15):
-            if(angle<-0.6):
-                left(-1*(angle))
+                right(angle,turn)
+                #print('D')
+        elif(turn<0):
+            if(angle>0):
+                straight()
+                #print('s')
             else:
-                left(-(1+angle/2)*(angle))
-            print('A')
+                left(-1*(angle),-1*(turn))
+                #print('A')
         else:
             straight()
+            #print('s')
 
 if __name__ == '__main__':
     main()
