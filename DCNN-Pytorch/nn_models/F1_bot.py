@@ -12,21 +12,29 @@ import argparse
 import time
 
 def right(angle,turn):
+    print(angle,turn)
     ReleaseKey(A)
     PressKey(D)
-    if(turn>0.17):
-        time.sleep(angle)
+    if(turn>0.1 and angle < 0.65):
+        time.sleep(angle*1.3)
+    elif(angle > 0.65):
+        time.sleep(angle*2+0.1)
+        print('hard right')
     else:
-        time.sleep(turn)
+        time.sleep(turn*1.5)
     ReleaseKey(D)
 
 def left(angle,turn):
+    print(angle,turn)
     ReleaseKey(D)
     PressKey(A)
-    if(turn>0.17):
-        time.sleep(angle)
+    if(turn>0.1 and angle < 0.75):
+        time.sleep(angle*1.3)
+    elif(angle > 0.65):
+        time.sleep(angle*2+0.1)
+        print('hard left')
     else:
-        time.sleep(turn)
+        time.sleep(turn*1.5)
     ReleaseKey(A)
     
 def straight():
@@ -88,13 +96,11 @@ def main():
             #cv2.imwrite("screen"+str(buffer)+".jpeg",flow[...,1])
             inputs.append(im)
             buffer+=1
-            time.sleep(0.04)
+            #time.sleep(0.04)
             pscreen = screen
         img_list = np.asarray(inputs)
         img_tensor = torch.from_numpy(img_list)
         img_tensor = img_tensor.view(-1,context_length,2,66,200)
-        screen = grab_screen()
-        screen = torch.from_numpy(screen)
 
         if(gpu>=0):
             img_tensor = img_tensor.cuda(gpu)
