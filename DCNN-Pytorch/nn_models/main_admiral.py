@@ -89,7 +89,7 @@ def load_config(filepath):
     rtn['workers']='0'
     rtn['context_length']='10'
     rtn['sequence_length']='10'
-    rtn['hidden_dim']='100'
+    rtn['hidden_dim']='50'
     rtn['checkpoint_file']=''
     rtn['optical_flow']=''
     rtn['super_convergence']=''
