@@ -18,7 +18,7 @@ import argparse
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 
-def train_model(network, criterion, optimizer,trainset, load_files,cell_type, file_prefix,sequence_length,batch_size,optical_flow,workers,epoch,output_dir, gpu = -1):
+def train_model(network, criterion, optimizer, load_files,cell_type, file_prefix,context_length,sequence_length,batch_size,label_transformation,optical_flow,workers,epoch,output_dir,use_float32,root_dir, annotation_file, gpu = -1):
            
     cum_loss = 0.0
     num_samples=0
@@ -45,10 +45,17 @@ def train_model(network, criterion, optimizer,trainset, load_files,cell_type, fi
             label_file = prefix+'_'+data_type+'_'+suffix
             
         #print('Reading Trainset %s'%(file))
+        if(use_float32):
+            network.float()
+            trainset = loaders.F1SequenceDataset(root_dir,annotation_file,(66,200),\
+            context_length=context_length, sequence_length=sequence_length, use_float32=True, label_transformation = label_transformation, optical_flow = optical_flow)
+        else:
+            network.double()
+            trainset = loaders.F1SequenceDataset(root_dir, annotation_file,(66,200),\
+            context_length=context_length, sequence_length=sequence_length, label_transformation = label_transformation, optical_flow = optical_flow)
         trainset.read_pickles(os.path.join(dir,file),os.path.join(dir,label_file))
         trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = False, num_workers = workers)
         t = tqdm(enumerate(trainLoader),desc='\tTraining Data (Epoch:%d(%d), lr=%f)'%(epoch+1,int(suffix.split('.')[0]),optimizer.param_groups[0]['lr']),leave=True)
-        network.train()  # This is important to call before training!
         for (i, (inputs, throttle, brake,_, labels,flag)) in t:
             if(all(flag.numpy())):
                 if gpu>=0:
@@ -211,6 +218,7 @@ def main():
         criterion = criterion.cuda(gpu)
     #Begin Training
     print("Beginning Training:")
+    network.train()  # This is important to call before training!
     for epoch in range(starting_epoch,epochs):
         final_loss = 0
         final_lr = 0
@@ -218,7 +226,7 @@ def main():
         learning_rate = optimizer.param_groups[0]['lr']
         print("#Epoch %d of %d, lr= %f" %(epoch+1, epochs,optimizer.param_groups[0]['lr']))
                   
-        loss,n_samples, lr = train_model(network, criterion, optimizer, trainset,load_files,rnn_cell_type, prefix,sequence_length,batch_size,optical_flow,workers,epoch,output_dir, gpu = gpu)
+        loss,n_samples, lr = train_model(network, criterion, optimizer,load_files,rnn_cell_type, prefix,context_length,sequence_length,batch_size,label_transformation,optical_flow,workers,epoch,output_dir,use_float32,root_dir, annotation_file, gpu = gpu)
         final_loss += loss
         num_samples+=n_samples
         final_lr = lr

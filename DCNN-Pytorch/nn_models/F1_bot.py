@@ -1,4 +1,5 @@
 import numpy as np
+import py_vjoy
 from PIL import ImageGrab
 import cv2
 from directkeys import PressKey,ReleaseKey, W, A, S, D
@@ -11,27 +12,27 @@ import string
 import argparse
 import time
 
-def right(angle,turn):
-    print(angle,turn)
+'''def right(angle,turn):
+    #print(angle,turn)
     ReleaseKey(A)
     PressKey(D)
     if(turn>0.1 and angle < 0.65):
         time.sleep(angle*1.3)
     elif(angle > 0.65):
-        time.sleep(angle*2+0.1)
+        time.sleep(angle*2+0.2)
         print('hard right')
     else:
         time.sleep(turn*1.5)
     ReleaseKey(D)
 
 def left(angle,turn):
-    print(angle,turn)
+    #print(angle,turn)
     ReleaseKey(D)
     PressKey(A)
     if(turn>0.1 and angle < 0.75):
         time.sleep(angle*1.3)
     elif(angle > 0.65):
-        time.sleep(angle*2+0.1)
+        time.sleep(angle*2+0.2)
         print('hard left')
     else:
         time.sleep(turn*1.5)
@@ -39,10 +40,11 @@ def left(angle,turn):
     
 def straight():
     ReleaseKey(A)
-    ReleaseKey(D)    
+    ReleaseKey(D)  
+'''  
 
 def grab_screen():
-    screen =  np.array(ImageGrab.grab(bbox=(0,430,2510,630)))
+    screen =  np.array(ImageGrab.grab(bbox=(0,430,2510,830)))
     return screen
 
 def main():
@@ -78,14 +80,16 @@ def main():
     if(gpu>=0):
         network = network.cuda(gpu)
     network.eval()
-
-    time.sleep(3)
+    vj = py_vjoy.vJoy()
+    vj.capture(1)
+    vj.reset()
+    js = py_vjoy.Joystick()
+    time.sleep(2)
     inputs = []
     pscreen = grab_screen()
     pscreen = cv2.cvtColor(pscreen,cv2.COLOR_BGR2GRAY)
     pscreen = cv2.resize(pscreen,(200,66))
     buffer = 0
-    previous_angle = 0
     while(True):
         while(buffer<context_length):
             screen = grab_screen()
@@ -113,26 +117,11 @@ def main():
             angle = torch.sum(pred.squeeze()).item()/float(context_length)
         inputs = inputs[1:]
         buffer -= 1
-        turn = angle-previous_angle
-        previous_angle=angle
-        #print(angle,turn)        
-        if(turn>0):
-            if (angle<0):
-                straight()
-                #print('s')
-            else:
-                right(angle,turn)
-                #print('D')
-        elif(turn<0):
-            if(angle>0):
-                straight()
-                #print('s')
-            else:
-                left(-1*(angle),-1*(turn))
-                #print('A')
-        else:
-            straight()
-            #print('s')
-
+        if(angle<0.07 and angle>-0.07):
+            angle = 0
+        data = ((angle+1)/2)*33000       
+        js.setAxisXRot(int(data))
+        js.setAxisYRot(int(data))
+        vj.update(js)
 if __name__ == '__main__':
     main()

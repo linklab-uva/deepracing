@@ -154,8 +154,8 @@ def main():
                 t.set_postfix(angle = angle, ground_truth = ground_truth)
                 #print("Ground Truth: %f. Prediction: %f.\n" %(scaled_ground_truth, scaled_angle))
                 if args.write_images:
-                    scaled_pred_angle = 135.0*angle
-                    scaled_truth_angle = 135.0*ground_truth
+                    scaled_pred_angle = 180.0*angle
+                    scaled_truth_angle = 180.0*ground_truth
                     M_pred = cv2.getRotationMatrix2D((wheelrows_pred/2,wheelcols_pred/2),scaled_pred_angle,1)
                     wheel_pred_rotated = cv2.warpAffine(wheel_pred,M_pred,(wheelrows_pred,wheelcols_pred))
                     M_ground = cv2.getRotationMatrix2D((wheelrows_ground/2,wheelcols_ground/2),scaled_truth_angle,1)
