@@ -12,6 +12,8 @@ link_directories(${Boost_LIBRARY_DIR_RELEASE})
 option(BUILD_DLLS "Generate Dynamic Link Libraries (DLLs)" OFF)
 option(BUILD_PYTHON_BINDING "Generate pybind11 bindings" OFF)
 
+
+
 IF(BUILD_DLLS)
 set(BUILD_SHARED_LIBS true)
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS true)
@@ -121,9 +123,9 @@ ${PROJECT_NAME}_data_capture
 ${PROJECT_NAME}
 )
 if(BUILD_PYTHON_BINDING)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/CMake)
 add_subdirectory(python_binding)
 endif()
-
 install(TARGETS ${${PROJECT_NAME}_INSTALL_TARGETS}
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib

@@ -7,3 +7,6 @@
 [submodule "DCNN-Pytorch/nn_models/pyflow"]
 	path = DCNN-Pytorch/nn_models/pyflow
 	url = https://github.com/pathak22/pyflow.git
+[submodule "data-logger/CMake"]
+	path = data-logger/CMake
+	url = https://github.com/linklab-uva/CMake.git
