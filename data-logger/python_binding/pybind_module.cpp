@@ -7,8 +7,7 @@ namespace deepf1_pybind{
 		
 		}
 		cv::Mat read() {
-			cv::Mat native_mat = svc_imp_.read();
-			return native_mat;
+			return svc_imp_.read();
 		}
 		void open(std::string application, int x, int y, int width, int height) {
 			cv::Rect2d capture_area(x, y, width, height);
