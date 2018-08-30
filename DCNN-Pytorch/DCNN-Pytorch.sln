@@ -29,6 +29,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		nn_models\resnet_config_passive.csv = nn_models\resnet_config_passive.csv
 	EndProjectSection
 EndProject
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "data-logger", "..\data-logger\data-logger.pyproj", "{8905DEA8-04EA-4242-B4D1-DDA74ECFDD92}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -37,6 +39,8 @@ Global
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{3394588A-C901-4B2D-85C4-3855A7A87134}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{3394588A-C901-4B2D-85C4-3855A7A87134}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8905DEA8-04EA-4242-B4D1-DDA74ECFDD92}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8905DEA8-04EA-4242-B4D1-DDA74ECFDD92}.Release|Any CPU.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
