@@ -1,5 +1,6 @@
 import numpy as np
 import py_vjoy
+import argparse
 from PIL import ImageGrab
 import cv2
 import nn_models.Models as models
@@ -8,7 +9,6 @@ import torch.nn as nn
 import pickle
 import os
 import string
-import argparse
 import time
 import pyf1_datalogger
 import torchvision.transforms as transforms
@@ -55,6 +55,7 @@ def main():
     network=network.float()
     network=network.cuda(0)
     print(network)
+    vjoy_max = 32000
     
     throttle = torch.Tensor(1,10)
     brake = torch.Tensor(1,10)
@@ -69,6 +70,9 @@ def main():
     vj.capture(1) #1 is the device ID
     vj.reset()
     js = py_vjoy.Joystick()
+    js.setAxisXRot(int(round(vjoy_max/2))) 
+    js.setAxisYRot(int(round(vjoy_max/2))) 
+    vj.update(js)
     time.sleep(2)
     inputs = []
     '''
@@ -79,7 +83,7 @@ def main():
     wheel_pred = cv2.resize(wheel_pred, (wheelcols_pred,wheelrows_pred), interpolation = cv2.INTER_CUBIC)
     buffer = numpy_ringbuffer.RingBuffer(capacity=context_length, dtype=(np.float32, (2,66,200) ) )
 
-    dt = 50
+    dt = 12
     context_length=10
     debug=True
     app="F1 2017"
@@ -105,7 +109,7 @@ def main():
         outputs = network(buffer_torch, throttle=None, brake=None )
         angle = outputs[0][0].item()
         print("Output: " + str(angle))
-        scaled_pred_angle = 180.0*angle
+        scaled_pred_angle = 180.0*angle+7
         M_pred = cv2.getRotationMatrix2D((wheelrows_pred/2,wheelcols_pred/2),scaled_pred_angle,1)
         wheel_pred_rotated = cv2.warpAffine(wheel_pred,M_pred,(wheelrows_pred,wheelcols_pred))
         background = screen
@@ -115,6 +119,10 @@ def main():
         overlayed_pred = imutils.annotation_utils.overlay_image(background,wheel_pred_rotated,int((out_size[1]-wheelcols_pred)/2),int((out_size[0]-wheelcols_pred)/2))
         if debug:
             cv2.imshow(app,overlayed_pred)
+        vjoy_angle = -angle*vjoy_max + vjoy_max/2.0
+        js.setAxisXRot(int(round(vjoy_angle))) 
+        js.setAxisYRot(int(round(vjoy_angle))) 
+        vj.update(js)
         '''
         '''
         

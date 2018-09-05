@@ -54,6 +54,13 @@ def train_model(network, criterion, optimizer, load_files,cell_type, file_prefix
             trainset = loaders.F1SequenceDataset(root_dir, annotation_file,(66,200),\
             context_length=context_length, sequence_length=sequence_length, label_transformation = label_transformation, optical_flow = optical_flow)
         trainset.read_pickles(os.path.join(dir,file),os.path.join(dir,label_file))
+        mean,stdev = trainset.statistics()
+        mean_ = torch.from_numpy(mean)
+        stdev_ = torch.from_numpy(stdev)
+        if use_float32:
+            mean_.float()
+            stdev_.float()
+        trainset.img_transformation = transforms.Normalize(mean_,stdev_)
         trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = False, num_workers = workers)
         t = tqdm(enumerate(trainLoader),desc='\tTraining Data (Epoch:%d(%d), lr=%f)'%(epoch+1,int(suffix.split('.')[0]),optimizer.param_groups[0]['lr']),leave=True)
         for (i, (inputs, throttle, brake,_, labels,flag)) in t:
@@ -198,7 +205,7 @@ def main():
             load_files = glob.glob(pickle_dir+'\saved_image*.pkl')
  
     load_files.sort()
-    #print(load_files)
+    print(load_files)
     final_losses = []
     final_lrs = []
 
@@ -218,7 +225,7 @@ def main():
         criterion = criterion.cuda(gpu)
     #Begin Training
     print("Beginning Training:")
-    network.train()  # This is important to call before training!
+    #network.train()  # This is important to call before training!
     for epoch in range(starting_epoch,epochs):
         final_loss = 0
         final_lr = 0

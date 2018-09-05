@@ -21,14 +21,15 @@ class F1Dataset(Dataset):
         self.optical_flow=optical_flow
         self.annotations_file = open(os.path.join(self.root_folder,self.annotation_filepath), "r")
         self.annotations = self.annotations_file.readlines()
+        self.remaining = len(self.annotations)
         self.partition_size = len(self.annotations)
-        while(self.partition_size>96000):
+        while(self.partition_size>80000):
             self.partition_size = int(self.partition_size/2)
         if optical_flow:
-            self.length = self.partition_size- 1
+            self.length = min([self.partition_size- 1,self.remaining])
             self.images = np.tile(0, (self.length,2,im_size[0],im_size[1])).astype(np.float32)
         else:
-            self.length = self.partition_size
+            self.length = min([self.partition_size,self.remaining])
             self.images = np.tile(0, (self.length,3,im_size[0],im_size[1])).astype(np.int8)
         self.labels = np.tile(0, (self.length)).astype(np.float64)
         self.throttle = np.tile(0, (self.length)).astype(np.float64)
@@ -80,9 +81,9 @@ class F1Dataset(Dataset):
             dumps = int(total/self.partition_size)
         else:
             dumps = int(total/self.partition_size) +1
-        remaining = len(self.annotations)
+        self.remaining = len(self.annotations)
         for idx in tqdm(range(1, len(self.annotations)),desc='Loading Data',leave=True):
-            remaining-=1
+            self.remaining-=1
             line = self.annotations[idx]
             fp, ts, steering, throttle, brake = line.split(",")
             next = load_image(os.path.join(self.root_folder,"raw_images",fp)).astype(np.float32) / 255.0
@@ -111,7 +112,7 @@ class F1Dataset(Dataset):
                 #tqdm.set_description('Loading Data')
 
                 if(i==(dumps-1)):
-                    self.partition_size = remaining 
+                    self.partition_size = self.remaining 
                 self.length = self.partition_size - 1
                 self.images = np.tile(0, (self.length,2,self.im_size[0],self.im_size[1])).astype(np.float32)
                 self.labels = np.tile(0, (self.length)).astype(np.float64)
@@ -148,9 +149,9 @@ class F1Dataset(Dataset):
             dumps = int(total/self.partition_size)
         else:
             dumps = int(total/self.partition_size) +1
-        remaining = total
+        self.remaining = total
         for (idx,line) in tqdm(enumerate(self.annotations),desc='Loading Data',leave=True):
-            remaining-=1
+            self.remaining-=1
             fp, ts, steering, throttle, brake = line.split(",")
             im = load_image(os.path.join(self.root_folder,"raw_images",fp))
             im = cv2.resize(im, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
@@ -176,7 +177,7 @@ class F1Dataset(Dataset):
                 #tqdm.set_description('Loading Data')
 
                 if(i==(dumps-1)):
-                    self.partition_size = remaining
+                    self.partition_size = self.remaining
                 self.length = self.partition_size
                 self.images = np.tile(0, (self.length,3,self.im_size[0],self.im_size[1])).astype(np.int8)
                 self.labels = np.tile(0, (self.length)).astype(np.float64)
