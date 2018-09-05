@@ -18,7 +18,7 @@ import argparse
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 
-def train_model(network, criterion, optimizer, load_files,cell_type, file_prefix,context_length,sequence_length,batch_size,label_transformation,optical_flow,workers,epoch,output_dir,use_float32,root_dir, annotation_file, gpu = -1):
+def train_model(network, criterion, optimizer, load_files,cell_type, file_prefix,context_length,sequence_length,batch_size,label_transformation,workers,epoch,output_dir,use_float32,root_dir, annotation_file, gpu = -1):
            
     cum_loss = 0.0
     num_samples=0
@@ -33,26 +33,20 @@ def train_model(network, criterion, optimizer, load_files,cell_type, file_prefix
         state_dict = torch.load(log_path)
         network.load_state_dict(state_dict)
         #Load partitioned Trainset
-        if optical_flow:
-            dir,file = file.split('\\')
-            prefix,data_type,op,suffix = file.split('_')
-            data_type='labels'
-            label_file = prefix+'_'+data_type+'_'+op+'_'+suffix
-        else:
-            dir,file = file.split('\\')
-            prefix,data_type,suffix = file.split('_')
-            data_type='labels'
-            label_file = prefix+'_'+data_type+'_'+suffix
+        dir,file = file.split('\\')
+        prefix,data_type,op,suffix = file.split('_')
+        data_type='labels'
+        label_file = prefix+'_'+data_type+'_'+op+'_'+suffix
             
         #print('Reading Trainset %s'%(file))
         if(use_float32):
             network.float()
             trainset = loaders.F1SequenceDataset(root_dir,annotation_file,(66,200),\
-            context_length=context_length, sequence_length=sequence_length, use_float32=True, label_transformation = label_transformation, optical_flow = optical_flow)
+            context_length=context_length, sequence_length=sequence_length, use_float32=True, label_transformation = label_transformation)
         else:
             network.double()
             trainset = loaders.F1SequenceDataset(root_dir, annotation_file,(66,200),\
-            context_length=context_length, sequence_length=sequence_length, label_transformation = label_transformation, optical_flow = optical_flow)
+            context_length=context_length, sequence_length=sequence_length, label_transformation = label_transformation)
         trainset.read_pickles(os.path.join(dir,file),os.path.join(dir,label_file))
         mean,stdev = trainset.statistics()
         mean_ = torch.from_numpy(mean)
@@ -105,7 +99,6 @@ def load_config(filepath):
     rtn['sequence_length']='10'
     rtn['hidden_dim']='50'
     rtn['checkpoint_file']=''
-    rtn['optical_flow']=''
     rtn['super_convergence']=''
 
 
@@ -135,7 +128,6 @@ def main():
 
     load_files = bool(config['load_files'])
     use_float32 = bool(config['use_float32'])
-    optical_flow = bool(config['optical_flow'])
     super_convergence = bool(config['super_convergence'])
 
     label_scale = float(config['label_scale'])
@@ -158,7 +150,7 @@ def main():
     #Declare the Network
     rnn_cell_type = 'lstm'
     output_dir = output_dir +"_"+rnn_cell_type+'_'+str(learning_rate)
-    network = models.AdmiralNet(cell=rnn_cell_type, context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu, optical_flow = optical_flow)
+    network = models.AdmiralNet(cell=rnn_cell_type, context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu)
     starting_epoch = 0
     if(checkpoint_file!=''):
         dir, file = os.path.split(checkpoint_file)
@@ -175,11 +167,11 @@ def main():
     if(use_float32):
         network.float()
         trainset = loaders.F1SequenceDataset(root_dir,annotation_file,(66,200),\
-        context_length=context_length, sequence_length=sequence_length, use_float32=True, label_transformation = label_transformation, optical_flow = optical_flow)
+        context_length=context_length, sequence_length=sequence_length, use_float32=True, label_transformation = label_transformation)
     else:
         network.double()
         trainset = loaders.F1SequenceDataset(root_dir, annotation_file,(66,200),\
-        context_length=context_length, sequence_length=sequence_length, label_transformation = label_transformation, optical_flow = optical_flow)
+        context_length=context_length, sequence_length=sequence_length, label_transformation = label_transformation)
     if(gpu>=0):
         network = network.cuda(gpu)
     
@@ -192,17 +184,10 @@ def main():
     pickle_dir+='_data'
     if(not os.path.exists(pickle_dir)):
         os.makedirs(pickle_dir)
-    if optical_flow:
-        load_files = glob.glob(pickle_dir+'\saved_image_opticalflow*.pkl')
-    else:
-        load_files = glob.glob(pickle_dir+'\saved_image*.pkl')
+    load_files = glob.glob(pickle_dir+'\saved_image_opticalflow*.pkl')
     if(len(load_files)==0):
-        if optical_flow:
-            trainset.read_files_flow()
-            load_files = glob.glob(pickle_dir+'\saved_image_opticalflow*.pkl')
-        else:
-            trainset.read_files()
-            load_files = glob.glob(pickle_dir+'\saved_image*.pkl')
+        trainset.read_files_flow()
+        load_files = glob.glob(pickle_dir+'\saved_image_opticalflow*.pkl')
  
     load_files.sort()
     print(load_files)
@@ -233,7 +218,7 @@ def main():
         learning_rate = optimizer.param_groups[0]['lr']
         print("#Epoch %d of %d, lr= %f" %(epoch+1, epochs,optimizer.param_groups[0]['lr']))
                   
-        loss,n_samples, lr = train_model(network, criterion, optimizer,load_files,rnn_cell_type, prefix,context_length,sequence_length,batch_size,label_transformation,optical_flow,workers,epoch,output_dir,use_float32,root_dir, annotation_file, gpu = gpu)
+        loss,n_samples, lr = train_model(network, criterion, optimizer,load_files,rnn_cell_type, prefix,context_length,sequence_length,batch_size,label_transformation,workers,epoch,output_dir,use_float32,root_dir, annotation_file, gpu = gpu)
         final_loss += loss
         num_samples+=n_samples
         final_lr = lr
@@ -249,10 +234,7 @@ def main():
         final_lrs.append(final_lr)
        
     #Log Loss progress
-    if(optical_flow):
-        loss_path = os.path.join(output_dir,""+prefix+"_"+rnn_cell_type+"_OF.txt")
-    else:
-        loss_path = os.path.join(output_dir,""+prefix+"_"+rnn_cell_type+".txt")
+    loss_path = os.path.join(output_dir,""+prefix+"_"+rnn_cell_type+"_OF.txt")
     f = open(loss_path, "w")
     f.write("\n".join(map(lambda x: str(x), final_losses)))
     f.close()
