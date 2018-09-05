@@ -28,6 +28,7 @@
     <Compile Include="data_loading\__init__.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="F1_bot.py" />
     <Compile Include="imutils\annotation_utils.py" />
     <Compile Include="imutils\__init__.py">
       <SubType>Code</SubType>
