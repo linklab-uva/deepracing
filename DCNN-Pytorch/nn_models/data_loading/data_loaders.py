@@ -22,11 +22,11 @@ class F1Dataset(Dataset):
         self.annotations = self.annotations_file.readlines()
         self.remaining = len(self.annotations)
         self.partition_size = len(self.annotations)
-        while(self.partition_size>50000):
+        while(self.partition_size>91000):
             self.partition_size = int(self.partition_size/2)
         self.length = min([self.partition_size- 1,self.remaining])
         self.images = np.tile(0, (self.length,2,im_size[0],im_size[1])).astype(np.float32)
-        self.images_rgb = np.tile(0, (self.length,3,im_size[0],im_size[1])).astype(np.float32)
+        #self.images_rgb = np.tile(0, (self.length,3,im_size[0],im_size[1])).astype(np.float32)
         self.labels = np.tile(0, (self.length)).astype(np.float64)
         self.throttle = np.tile(0, (self.length)).astype(np.float64)
         self.brake = np.tile(0, (self.length)).astype(np.float64)
@@ -90,14 +90,15 @@ class F1Dataset(Dataset):
             self.throttle[(idx%self.partition_size)-1] = float(throttle)
             self.brake[(idx%self.partition_size)-1]=float(brake) 
             self.labels[(idx%self.partition_size)-1] = float(steering)
-            self.images_rgb[(idx%self.partition_size)-1] = np.transpose(cv2.resize(next,(self.im_size[1],self.im_size[0]),interpolation=cv2.INTER_CUBIC), (2, 0, 1))
+            #self.images_rgb[(idx%self.partition_size)-1] = np.transpose(cv2.resize(next,(self.im_size[1],self.im_size[0]),interpolation=cv2.INTER_CUBIC), (2, 0, 1))
             prvs_resize = next_resize
             if((idx) % self.partition_size ==0):
                 i+=1
                 filename = os.path.join(pickle_dir,"saved_image_opticalflow_" + str(i) + ".pkl")
                 fp = open(filename, 'wb')
                 #tqdm.set_description('Writing Pickle %s'%(filename))
-                pickle.dump(np.hstack(self.images,self.images_rgb), fp, protocol=4)
+                #pickle.dump(np.hstack(self.images,self.images_rgb), fp, protocol=4)
+                pickle.dump(self.images, fp, protocol=4)
                 fp.close()
 
                 filename = os.path.join(pickle_dir,"saved_labels_opticalflow_" + str(i) + ".pkl")
@@ -112,7 +113,7 @@ class F1Dataset(Dataset):
                     self.partition_size = self.remaining 
                 self.length = self.partition_size - 1
                 self.images = np.tile(0, (self.length,2,self.im_size[0],self.im_size[1])).astype(np.float32)
-                self.images_rgb = np.tile(0, (self.length,3,self.im_size[0],self.im_size[1])).astype(np.float32)
+                #self.images_rgb = np.tile(0, (self.length,3,self.im_size[0],self.im_size[1])).astype(np.float32)
                 self.labels = np.tile(0, (self.length)).astype(np.float64)
                 self.throttle = np.tile(0, (self.length)).astype(np.float64)
                 self.brake = np.tile(0, (self.length)).astype(np.float64)
@@ -155,8 +156,8 @@ class F1Dataset(Dataset):
                 next_resize = cv2.resize(next_grayscale, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
                 flow = cv2.calcOpticalFlowFarneback(prvs_resize,next_resize, None, 0.5, 3, 20, 8, 5, 1.2, 0)
                 im= flow.transpose(2, 0, 1)
-                im_rgb = cv2.resize(next, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
-                im_rgb = np.transpose(im_rgb, (2, 0, 1))
+                #im_rgb = cv2.resize(next, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
+                #im_rgb = np.transpose(im_rgb, (2, 0, 1))
                 label = np.array((float(steering)))
                 throttle = np.array(float(throttle))
                 brake=np.array(float(brake))
@@ -170,25 +171,26 @@ class F1Dataset(Dataset):
                 next_resize = cv2.resize(next_grayscale, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
                 flow = cv2.calcOpticalFlowFarneback(prvs_resize,next_resize, None, 0.5, 3, 20, 8, 5, 1.2, 0)
                 im= flow.transpose(2, 0, 1)
-                im_rgb = cv2.resize(next, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
-                im_rgb = np.transpose(im_rgb, (2, 0, 1))
+                #im_rgb = cv2.resize(next, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
+                #im_rgb = np.transpose(im_rgb, (2, 0, 1))
                 label = np.array((float(steering)))
                 throttle = np.array(float(throttle))
                 brake=np.array(float(brake))
         if(self.use_float32):
             im = im.astype(np.float32)
-            im_rgb = im_rgb.astype(np.float32)
+            #im_rgb = im_rgb.astype(np.float32)
             label = label.astype(np.float32)
             throttle = throttle.astype(np.float32)
             brake= brake.astype(np.float32)
         else:
             im = im.astype(np.float64)
-            im_rgb = im_rgb.astype(np.float64)
+            #im_rgb = im_rgb.astype(np.float64)
             label = label.astype(np.float64)
             throttle = throttle.astype(np.float64)
             brake= brake.astype(np.float64)
         label_tensor = torch.from_numpy(np.array(label))
-        img_tensor = torch.from_numpy(np.hstack(im,im_rgb))
+        #img_tensor = torch.from_numpy(np.hstack(im,im_rgb))
+        img_tensor = torch.from_numpy(im)
         brake_tensor = torch.from_numpy(np.array(brake))
         throttle_tensor = torch.from_numpy(np.array(throttle))
         if(not (self.img_transformation == None)):
@@ -216,7 +218,8 @@ class F1SequenceDataset(F1Dataset):
         label_end = label_start + self.sequence_length
         if(self.preloaded):     
             previous_control = self.labels[index:label_start]
-            seq = np.hstack(self.images[index:label_start],self.images_rgb[index:label_start])
+            #seq = np.hstack(self.images[index:label_start],self.images_rgb[index:label_start])
+            seq = self.images[index:label_start]
             seq_throttle = self.throttle[index:label_start]
             seq_brake = self.brake[index:label_start]
             seq_labels = self.labels[label_start:label_end]
@@ -248,9 +251,10 @@ class F1SequenceDataset(F1Dataset):
                 next_resize = cv2.resize(next_grayscale, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
                 flow = cv2.calcOpticalFlowFarneback(prvs_resize,next_resize, None, 0.5, 3, 20, 8, 5, 1.2, 0)
                 im= flow.transpose(2, 0, 1)
-                im_rgb = cv2.resize(next, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
-                im_rgb = np.transpose(im_rgb, (2, 0, 1))
-                seq.append(np.hstack(im,im_rgb))
+                #im_rgb = cv2.resize(next, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
+                #im_rgb = np.transpose(im_rgb, (2, 0, 1))
+                seq.append(im)
+                #seq.append(np.hstack(im,im_rgb))
                 print(seq[0].shape)
                 self.brake[idx] = brake
                 self.throttle[idx] = throttle

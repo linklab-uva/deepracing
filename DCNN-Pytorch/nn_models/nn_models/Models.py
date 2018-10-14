@@ -51,7 +51,8 @@ class EnsignNet(nn.Module):
         out = self.fc2(out)
         out = self.fc3(out)
         out = self.prediction_layer(out)
-        out = out.unsqueeze(2)
+        #out = out.unsqueeze(2)
+        #print(out.size())
         return out
 
 class PilotNet(nn.Module):
@@ -184,7 +185,8 @@ class AdmiralNet(nn.Module):
         super(AdmiralNet, self).__init__()
         self.gpu=gpu
         self.use_float32=use_float32
-        self.input_channels = 5
+        #self.input_channels = 5
+        self.input_channels = 2
         # Convolutional layers.
 
         self.output_size = 1
@@ -241,7 +243,6 @@ class AdmiralNet(nn.Module):
         x4 = self.relu(x)
         x = self.conv5(x4)
         x5 = self.relu(x)
-
         #maps=[x1,x2,x3,x4,x5]
         # Unpack for the RNN.
         x = x5.view(batch_size, self.context_length, self.img_features)

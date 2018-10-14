@@ -3,7 +3,7 @@ import numpy as np
 import nn_models
 import data_loading.image_loading as il
 import nn_models.Models as models
-import data_loading.data_loaders as loaders
+import data_loading.data_loaders_old as loaders
 import numpy.random
 import torch, random
 import torch.nn as nn 
