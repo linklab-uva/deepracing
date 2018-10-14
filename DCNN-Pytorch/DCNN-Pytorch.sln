@@ -7,7 +7,6 @@ Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "nn_models", "nn_models\nn_m
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{B0E2881E-648A-42B6-AFCE-E4D9A377E7DD}"
 	ProjectSection(SolutionItems) = preProject
-		nn_models\admiral_config.csv = nn_models\admiral_config.csv
 		nn_models\admiral_config_aggressive.csv = nn_models\admiral_config_aggressive.csv
 		nn_models\admiral_config_aggressive_optical_flow.csv = nn_models\admiral_config_aggressive_optical_flow.csv
 		nn_models\admiral_config_longcontext.csv = nn_models\admiral_config_longcontext.csv

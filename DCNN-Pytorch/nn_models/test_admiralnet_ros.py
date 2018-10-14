@@ -4,7 +4,7 @@ import numpy as np
 import nn_models
 import data_loading.image_loading as il
 import nn_models.Models as models
-import data_loading.data_loaders as loaders
+import data_loading.data_loaders_old as loaders
 import numpy.random
 import torch, random
 import torch.nn as nn 
@@ -49,7 +49,7 @@ def main():
     context_length = int(config['context_length'])
     sequence_length = int(config['sequence_length'])
     hidden_dim = int(config['hidden_dim'])
-    #optical_flow = bool(config.get('optical_flow',''))
+    optical_flow = bool(config.get('optical_flow',''))
     rnn_cell_type='lstm'
     network = models.AdmiralNet(cell=rnn_cell_type,context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu)
     state_dict = torch.load(args.model_file)
@@ -63,21 +63,28 @@ def main():
     if(use_float32):
         network.float()
         trainset = loaders.F1SequenceDataset(annotation_dir,annotation_file,(66,200),\
-        context_length=context_length, sequence_length=sequence_length, use_float32=True, label_transformation = label_transformation)
+        context_length=context_length, sequence_length=sequence_length, use_float32=True, label_transformation = label_transformation, optical_flow=optical_flow)
     else:
         network.double()
         trainset = loaders.F1SequenceDataset(annotation_dir, annotation_file,(66,200),\
-        context_length=context_length, sequence_length=sequence_length, label_transformation = label_transformation)
+        context_length=context_length, sequence_length=sequence_length, label_transformation = label_transformation, optical_flow=optical_flow)
     
     if(gpu>=0):
         network = network.cuda(gpu)
     
     pickle_dir,_ = annotation_file.split('.')
     pickle_dir+='_data'
-    load_files = glob.glob(pickle_dir+'\saved_image_opticalflow*.pkl')
-    if(len(load_files)==0):
-        trainset.read_files_flow()
+    if optical_flow:
         load_files = glob.glob(pickle_dir+'\saved_image_opticalflow*.pkl')
+    else:
+        load_files = glob.glob(pickle_dir+'\saved_image*.pkl')
+    if(len(load_files)==0):
+        if optical_flow:
+            trainset.read_files_flow()
+            load_files = glob.glob(pickle_dir+'\saved_image_opticalflow*.pkl')
+        else:
+            trainset.read_files()
+            load_files = glob.glob(pickle_dir+'\saved_image*.pkl')
     load_files.sort()
     predictions=[]
     ground_truths=[]
@@ -89,10 +96,16 @@ def main():
     network.eval()
     for file in load_files:
         #Load partitioned Dataset
-        dir,file = file.split('\\')
-        prefix,data_type,op,suffix = file.split('_')
-        data_type='labels'
-        label_file = prefix+'_'+data_type+'_'+op+'_'+suffix
+        if optical_flow:
+            dir,file = file.split('\\')
+            prefix,data_type,op,suffix = file.split('_')
+            data_type='labels'
+            label_file = prefix+'_'+data_type+'_'+op+'_'+suffix
+        else:
+            dir,file = file.split('\\')
+            prefix,data_type,suffix = file.split('_')
+            data_type='labels'
+            label_file = prefix+'_'+data_type+'_'+suffix
         trainset.read_pickles(os.path.join(dir,file),os.path.join(dir,label_file))
         trainset.img_transformation = config['image_transformation']
         loader = torch.utils.data.DataLoader(trainset, batch_size = 1, shuffle = False, num_workers = 0)
@@ -205,6 +218,8 @@ def main():
         ax.plot(t,predictions_array,'r',label='Predicted')
         ax.plot(t,ground_truths_array,'b',label='Ground Truth')
         ax.legend()
+        ax.set_xlabel("Frames")
+        ax.set_ylabel("Steering")
         plt.savefig("admiralnet_prediction_images_" + model_prefix+"\plot.jpeg")
         plt.show()
 if __name__ == '__main__':

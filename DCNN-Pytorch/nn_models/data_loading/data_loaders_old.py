@@ -20,7 +20,7 @@ class F1Dataset(Dataset):
         self.label_transformation = label_transformation
         self.annotation_filepath = annotation_filepath
         self.optical_flow=optical_flow
-        self.annotations_file = open(s.path.join(self.root_folder,self.annotation_filepath), "r")
+        self.annotations_file = open(os.path.join(self.root_folder,self.annotation_filepath), "r")
         self.annotations = self.annotations_file.readlines()
 
         if optical_flow:
