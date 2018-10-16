@@ -152,7 +152,7 @@ def load_config(filepath):
 
     rtn['checkpoint_file']=''
 
-    rtn['optical_flow']=True
+    rtn['optical_flow']=''
 
 
 
@@ -335,6 +335,15 @@ def main():
             trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
 
 
+
+    im = trainset.images[66]
+
+    im = im.transpose(1, 2, 0)
+
+    cv2.namedWindow("im",cv2.WINDOW_AUTOSIZE)
+    cv2.imshow("im",im/255.0)
+    cv2.waitKey(0)
+    cv2.destroyWindow("im")
 
     mean,stdev = trainset.statistics()
 
