@@ -28,7 +28,7 @@ class F1Dataset(Dataset):
             self.images = np.tile(0, (self.length,2,im_size[0],im_size[1])).astype(np.float32)
         else:
             self.length = len(self.annotations)
-            self.images = np.tile(0, (self.length,3,im_size[0],im_size[1])).astype(np.int8)
+            self.images = np.tile(0, (self.length,3,im_size[0],im_size[1])).astype(np.uint8)
         self.labels = np.tile(0, (self.length)).astype(np.float64)
         self.throttle = np.tile(0, (self.length)).astype(np.float64)
         self.brake = np.tile(0, (self.length)).astype(np.float64)
@@ -172,7 +172,7 @@ class F1SequenceDataset(F1Dataset):
 
         label_tensor = torch.from_numpy(seq_labels)
         previous_control_tensor = torch.from_numpy(previous_control)
-        img_tensor = torch.from_numpy(seq)
+        img_tensor = torch.from_numpy(seq/255.0)
         throttle_tensor = torch.from_numpy(seq_throttle)
         brake_tensor = torch.from_numpy(seq_brake)
 
