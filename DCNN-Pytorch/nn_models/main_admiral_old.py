@@ -45,7 +45,6 @@ def run_epoch(network, criterion, optimizer, trainLoader, gpu = -1):
     t = tqdm(enumerate(trainLoader))
 
     for (i, (inputs, throttle, brake,_, labels)) in t:
-
         if gpu>=0:
 
             inputs = inputs.cuda(gpu)
@@ -154,6 +153,8 @@ def load_config(filepath):
 
     rtn['optical_flow']=''
 
+    rtn['apply_normalization']='True'
+
 
 
 
@@ -211,6 +212,8 @@ def main():
     use_float32 = bool(config['use_float32'])
 
     optical_flow = bool(config['optical_flow'])
+
+    apply_norm = bool(config['apply_normalization'])
 
 
 
@@ -340,22 +343,33 @@ def main():
 
     im = im.transpose(1, 2, 0)
 
-    cv2.namedWindow("im",cv2.WINDOW_AUTOSIZE)
-    cv2.imshow("im",im/255.0)
-    cv2.waitKey(0)
-    cv2.destroyWindow("im")
+    #cv2.namedWindow("im",cv2.WINDOW_AUTOSIZE)
+    #cv2.imshow("im",im/255.0)
+   # cv2.waitKey(0)
+   # cv2.destroyWindow("im")
+    
+    print("Dataset has type: " + str(im.dtype) )
 
-    mean,stdev = trainset.statistics()
+   # cv2.imwrite("img.jpg",im)
 
-    mean_ = torch.from_numpy(mean).float()
+    if apply_norm:
+        mean,stdev = trainset.statistics()
 
-    stdev_ = torch.from_numpy(stdev).float()
+        mean_ = torch.from_numpy(mean).float()
 
-    trainset.img_transformation = transforms.Normalize(mean_,stdev_)
+        stdev_ = torch.from_numpy(stdev).float()
+
+        print("Mean")
+        print(mean_)
+        print("Stdev")
+        print(stdev_)
+
+        trainset.img_transformation = transforms.Normalize(mean_,stdev_)
+    else:
+        print("Skipping Normalize")
+        trainset.img_transformation = None
 
    # trainset.img_transformation = transforms.Normalize([2.5374081e-06, -3.1837547e-07] , [3.0699273e-05, 5.9349504e-06])
-
-    print(trainset.img_transformation)
 
     config['image_transformation'] = trainset.img_transformation
 

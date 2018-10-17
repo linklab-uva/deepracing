@@ -8,7 +8,9 @@ import pickle
 import cv2
 import numpy as np
 import torchvision.transforms as transforms
-
+import array as arr
+def all_same(items):
+    return all(x == items[0] for x in items)
 class F1Dataset(Dataset):
     def __init__(self, root_folder, annotation_filepath, im_size, use_float32=False, img_transformation = None, label_transformation = None, optical_flow=False):
         super(F1Dataset, self).__init__()
@@ -36,8 +38,12 @@ class F1Dataset(Dataset):
 
     def statistics(self):
         print('Averaging array with shape: ', self.images.shape)
+
         mean = np.mean(self.images,(0,2,3))
         stdev = np.std(self.images,(0,2,3))
+        if not self.optical_flow:
+            mean = mean/255.0
+            stdev = stdev/255.0
         return mean,stdev
 
     def write_pickles(self,image_pickle, label_pickle):
@@ -88,7 +94,9 @@ class F1Dataset(Dataset):
 
     def read_files(self):
         print("loading data")
-        for (idx,line) in tqdm(enumerate(self.annotations)):
+        idx = 0
+        for line in tqdm(self.annotations):
+
             fp, ts, steering, throttle, brake = line.split(",")
             im = load_image(os.path.join(self.root_folder,"raw_images",fp))
             im = cv2.resize(im, (self.im_size[1], self.im_size[0]), interpolation = cv2.INTER_CUBIC)
@@ -97,6 +105,7 @@ class F1Dataset(Dataset):
             self.throttle[idx] = float(throttle)
             self.brake[idx]=float(brake)
             self.labels[idx] = float(steering)
+            idx += 1
         self.preloaded=True
 
     def __getitem__(self, index):
@@ -124,6 +133,8 @@ class F1Dataset(Dataset):
             throttle = throttle.astype(np.float64)
             brake= brake.astype(np.float64)
         label_tensor = torch.from_numpy(np.array(label))
+        if not self.optical_flow:
+            im=im/255.0
         img_tensor = torch.from_numpy(im)
         brake_tensor = torch.from_numpy(np.array(brake))
         throttle_tensor = torch.from_numpy(np.array(throttle))
@@ -146,6 +157,7 @@ class F1SequenceDataset(F1Dataset):
         self.length -= (context_length + sequence_length)
 
     def __getitem__(self, index):
+
         if(self.preloaded):  
             label_start = index + self.context_length
             label_end = label_start + self.sequence_length
@@ -172,7 +184,9 @@ class F1SequenceDataset(F1Dataset):
 
         label_tensor = torch.from_numpy(seq_labels)
         previous_control_tensor = torch.from_numpy(previous_control)
-        img_tensor = torch.from_numpy(seq/255.0)
+        if not self.optical_flow:
+            seq=seq/255.0
+        img_tensor = torch.from_numpy(seq)
         throttle_tensor = torch.from_numpy(seq_throttle)
         brake_tensor = torch.from_numpy(seq_brake)
 
