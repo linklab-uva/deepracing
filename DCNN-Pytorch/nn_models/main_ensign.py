@@ -71,6 +71,7 @@ def load_config(filepath):
     rtn['label_scale']='100.0'
     rtn['workers']='0'
     rtn['checkpoint_file']=''
+    rtn['apply_normalization']='True'
 
 
     config_file = open(filepath)
@@ -99,6 +100,8 @@ def main():
 
     load_files = bool(config['load_files'])
     use_float32 = bool(config['use_float32'])
+    apply_norm = bool(config['apply_normalization'])
+
 
     label_scale = float(config['label_scale'])
     momentum = float(config['momentum'])
@@ -139,11 +142,22 @@ def main():
     else:  
         trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
     ''' '''
-    mean,stdev = trainset.statistics()
-    print(mean)
-    print(stdev)
-    img_transformation = transforms.Compose([transforms.Normalize(mean,stdev)])
-    trainset.img_transformation = img_transformation
+    if apply_norm:
+        mean,stdev = trainset.statistics()
+
+        mean_ = torch.from_numpy(mean).float()
+
+        stdev_ = torch.from_numpy(stdev).float()
+
+        print("Mean")
+        print(mean_)
+        print("Stdev")
+        print(stdev_)
+
+        trainset.img_transformation = transforms.Normalize(mean_,stdev_)
+    else:
+        print("Skipping Normalize")
+        trainset.img_transformation = None
     trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = True, num_workers = 0)
     print(trainLoader)
     #Definition of our loss.
