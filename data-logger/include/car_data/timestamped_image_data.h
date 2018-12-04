@@ -1,6 +1,6 @@
 #pragma once
 #include <boost/timer/timer.hpp>
-#include <opencv/cv.h>
+#include <opencv2/core.hpp>
 namespace deepf1
 {
 	struct timestamped_image_data {
