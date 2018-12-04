@@ -13,3 +13,4 @@ include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${EIGEN3_INCLU
 include_directories( include )
 
 add_subdirectory( src/alglib )
+add_subdirectory( src/image_logging )
