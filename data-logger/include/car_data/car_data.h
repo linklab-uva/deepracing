@@ -1,5 +1,6 @@
-#pragma once
-// Packet size – 1289 bytes
+#ifndef CAR_DATA_H
+#define CAR_DATA_H
+// Packet size ï¿½ 1289 bytes
 
 namespace deepf1{
 	struct CarUDPData
@@ -28,7 +29,7 @@ namespace deepf1{
 
 		char  m_currentLapNum;
 
-		char  m_tyreCompound; // compound of tyre – 0 = ultra soft, 1 = super soft, 2 = soft, 3 = medium, 4 = hard, 5 = inter, 6 = wet
+		char  m_tyreCompound; // compound of tyre ï¿½ 0 = ultra soft, 1 = super soft, 2 = soft, 3 = medium, 4 = hard, 5 = inter, 6 = wet
 
 		char  m_inPits;           // 0 = none, 1 = pitting, 2 = in pit area
 
@@ -37,9 +38,8 @@ namespace deepf1{
 		char  m_currentLapInvalid; // current lap invalid - 0 = valid, 1 = invalid
 
 		char  m_penalties;  // NEW: accumulated time penalties in seconds to be added
-	};
+	}; typedef struct CarUDPData CarUDPData;
 	struct UDPPacket
-
 	{
 
 		float m_time;
@@ -168,7 +168,7 @@ namespace deepf1{
 
 		char  m_tyres_wear[4]; // tyre wear percentage
 
-		char  m_tyre_compound; // compound of tyre – 0 = ultra soft, 1 = super soft, 2 = soft, 3 = medium, 4 = hard, 5 = inter, 6 = wet
+		char  m_tyre_compound; // compound of tyre ï¿½ 0 = ultra soft, 1 = super soft, 2 = soft, 3 = medium, 4 = hard, 5 = inter, 6 = wet
 
 		char  m_front_brake_bias;         // front brake bias (percentage)
 
@@ -190,7 +190,7 @@ namespace deepf1{
 
 		char  m_exhaust_damage; // exhaust damage (percentage)
 
-		char  m_pit_limiter_status; // pit limiter status – 0 = off, 1 = on
+		char  m_pit_limiter_status; // pit limiter status ï¿½ 0 = off, 1 = on
 
 		char  m_pit_speed_limit; // pit speed limit in mph
 
@@ -232,5 +232,6 @@ namespace deepf1{
 
 		float m_ang_acc_z;                 // NEW (v1.8) angular acceleration z-component
 
-	};
+	}; typedef struct UDPPacket UDPPacket;
 }
+#endif
