@@ -8,8 +8,8 @@ namespace deepf1
 {
 	struct timestamped_image_data {
 		cv::Mat image;
-		std::chrono::microseconds timestamp;
-	};typedef struct timestamped_image_data timestamped_image_data_t;
+		std::chrono::high_resolution_clock::time_point timestamp;
+	};typedef struct timestamped_image_data TimestampedImageData;
 }
 
 

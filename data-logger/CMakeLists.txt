@@ -1,5 +1,5 @@
 project(f1_datalogger)
-cmake_minimum_required(VERSION 2.7)
+cmake_minimum_required(VERSION 3.10)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
@@ -14,3 +14,9 @@ include_directories( include )
 
 add_subdirectory( src/alglib )
 add_subdirectory( src/image_logging )
+
+add_library(${PROJECT_NAME}
+src/f1_datalogger.cpp
+)
+target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_opencv_utils ${PROJECT_NAME}_image_logging)
+
