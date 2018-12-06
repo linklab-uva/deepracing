@@ -97,7 +97,7 @@ void F1FrameGrabManager::onNewFrame_(const scl::Image &img, const scl::Window &m
 void F1FrameGrabManager::start(double capture_frequency)
 {
   capture_manager_ = capture_config_->start_capturing();
-  unsigned int ms = (unsigned int)(std::round(((double)1E3)/capture_frequency));
+  unsigned int ms = (unsigned int)(std::round(((double)1E3)/capture_frequency)); // @suppress("Ambiguous problem")
   capture_manager_->setFrameChangeInterval(std::chrono::milliseconds(ms));
 }
 } /* namespace deepf1 */

@@ -14,9 +14,11 @@ F1DataLogger::F1DataLogger(const std::string& search_string, std::shared_ptr<IF1
     clock_(new std::chrono::high_resolution_clock())
 
 {
+  std::shared_ptr<IF1DatagrabHandler> handler;
   begin_ = clock_->now();
   frame_grab_handler->init(begin_);
   frame_grab_manager_.reset(new F1FrameGrabManager(search_string, clock_, frame_grab_handler) );
+  data_grab_manager_.reset(new F1DataGrabManager(handler));
 
 }
 F1DataLogger::~F1DataLogger()
