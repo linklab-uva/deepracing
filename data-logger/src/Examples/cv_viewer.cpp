@@ -34,7 +34,9 @@ public:
     std::stringstream ss;
     ss << delta << " milliseconds from start";
 
-    cv::putText(data.image, ss.str(), cv::Point(25,100), cv::FONT_HERSHEY_PLAIN, 2.0, cv::Scalar(0.0,0.0,0.0));
+   // cv::putText(data.image, ss.str(), cv::Point(25,100), cv::FONT_HERSHEY_PLAIN, 2.0, cv::Scalar(0.0,0.0,0.0));
+    ss << std::endl;
+    printf("%s", ss.str().c_str());
     cv::imshow(window_name,data.image);
   }
   void init(const std::chrono::high_resolution_clock::time_point& begin) override

@@ -23,11 +23,13 @@ F1DataLogger::F1DataLogger(const std::string& search_string, std::shared_ptr<IF1
 }
 F1DataLogger::~F1DataLogger()
 {
+  data_grab_manager_->stop();
 }
 
 void F1DataLogger::start(double capture_frequency)
 {
   frame_grab_manager_->start(capture_frequency);
+  data_grab_manager_->start();
 }
 
 } /* namespace deepf1 */

@@ -31,7 +31,7 @@ void F1DataGrabManager::run_()
 
     boost::system::error_code error;
     socket_.receive_from(boost::asio::buffer(boost::asio::buffer(rcv_buffer_.get(), 1289)), remote_endpoint_, 0, error);
-    std::cout<<"Got some data. Steering: " << rcv_buffer_->m_steer << std::endl;
+    printf("Got some data. Steering: %f. Throttle: %f. Brake: %f", rcv_buffer_->m_steer, rcv_buffer_->m_throttle, rcv_buffer_->m_brake);
   }
 }
 void F1DataGrabManager::start()

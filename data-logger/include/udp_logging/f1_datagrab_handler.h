@@ -17,6 +17,8 @@ public:
   IF1DatagrabHandler() = default;
   virtual ~IF1DatagrabHandler() = default;
   virtual void handleData(const deepf1::TimestampedUDPData& data) = 0;
+  virtual bool isReady() = 0;
+  virtual void init(const std::chrono::high_resolution_clock::time_point& begin) = 0;
 
 };
 
