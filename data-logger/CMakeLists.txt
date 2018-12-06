@@ -14,11 +14,12 @@ include_directories( include )
 
 add_subdirectory( src/alglib )
 add_subdirectory( src/image_logging )
+add_subdirectory( src/udp_logging )
 
 add_library(${PROJECT_NAME}
 src/f1_datalogger.cpp
 )
-target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_image_logging)
+target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_image_logging ${PROJECT_NAME}_udp_logging ${Boost_LIBRARIES})
 
 
 

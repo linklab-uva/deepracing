@@ -8,6 +8,7 @@
 #ifndef INCLUDE_F1_DATALOGGER_H_
 #define INCLUDE_F1_DATALOGGER_H_
 #include "image_logging/f1_framegrab_manager.h"
+#include "udp_logging/f1_datagrab_manager.h"
 namespace deepf1
 {
 
@@ -20,6 +21,7 @@ public:
   void start(double capture_frequency = 15.0);
 private:
   std::shared_ptr<F1FrameGrabManager> frame_grab_manager_;
+  std::shared_ptr<F1DataGrabManager> data_grab_manager_;
 
   std::shared_ptr<std::chrono::high_resolution_clock> clock_;
 

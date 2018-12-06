@@ -10,7 +10,7 @@ namespace deepf1
 		UDPPacket data;
 		std::chrono::microseconds timestamp;
 	}; 
-	typedef struct timestamped_udp_data timestamped_udp_data_t;
+	typedef struct timestamped_udp_data TimestampedUDPData;
 }
 
 #endif
