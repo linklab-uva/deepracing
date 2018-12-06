@@ -32,11 +32,11 @@ scl::Window findWindow(const std::string& search_string)
       filtereditems.push_back(a);
     }
   }
-  for (unsigned int i = 0; i < filtereditems.size(); i++)
+  for (int i = 0; i < filtereditems.size(); i++)
   {
     scl::Window a = filtereditems[i];
     std::string name(&(a.Name[0]));
-    printf("Enter %u for %s\n", i, name.c_str());
+    printf("Enter %d for %s\n", i, name.c_str());
   }
 
   std::string input;
