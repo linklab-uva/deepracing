@@ -55,16 +55,14 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
   {
     if(queue_->empty())
     {
-   //   std::cout<<"Queue is empty"<<std::endl;
       continue;
     }
     TimestampedImageData data;
     if(!queue_->try_pop(data))
     {
-      std::cout<<"Could not pop"<<std::endl;
       continue;
     }
-    std::cout<<"Pop successful."<<std::endl;
+
     long long milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(data.timestamp - begin_).count();
     std::string fn = "image_" + std::to_string(milliseconds) + ".jpg";
     cv::imwrite(fn,data.image);
