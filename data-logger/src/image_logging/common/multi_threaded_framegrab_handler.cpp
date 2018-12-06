@@ -60,13 +60,14 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
       continue;
     }
     unsigned counter = counter_.fetch_and_increment();
+    std::string images_folder("images/");
     google::protobuf::uint64 delta = (google::protobuf::uint64)(std::chrono::duration_cast<std::chrono::microseconds>(data.timestamp - begin_).count());
-    std::string fn = "image_" + std::to_string(counter) + ".jpg";
+    std::string fn = images_folder + "image_" + std::to_string(counter) + ".jpg";
     cv::imwrite(fn,data.image);
     deepf1::protobuf::TimestampedImage tag;
     tag.set_image_file(fn);
     tag.set_timestamp(delta);
-    std::string pb_fn = "image_" + std::to_string(counter) + ".pb";
+    std::string pb_fn = images_folder + "image_" + std::to_string(counter) + ".pb";
     std::ofstream ostream(pb_fn.c_str());
     tag.SerializeToOstream(&ostream);
     ostream.close();

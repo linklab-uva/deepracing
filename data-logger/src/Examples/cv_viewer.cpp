@@ -27,7 +27,7 @@ public:
   void handleData(const deepf1::TimestampedUDPData& data) override
   {
     deepf1::UDPPacket packet = data.data;
-    printf("Got some data. Steering: %f. Throttle: %f. Brake: %f.\n", packet.m_steer, packet.m_throttle);
+    printf("Got some data. Steering: %f. Throttle: %f. Brake: %f.\n", packet.m_steer, packet.m_throttle, packet.m_brake);
   }
   void init(const std::chrono::high_resolution_clock::time_point& begin) override
   {
