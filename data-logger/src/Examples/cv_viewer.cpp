@@ -12,14 +12,38 @@
 #include <opencv2/imgproc.hpp>
 #include <sstream>
 namespace scl = SL::Screen_Capture;
-class OpenCV_Viewer_Example_Handler : public deepf1::IF1FrameGrabHandler
+class OpenCV_Viewer_Example_DataGrabHandler : public deepf1::IF1DatagrabHandler
 {
 public:
-  OpenCV_Viewer_Example_Handler() : window_name("cv_example")
+  OpenCV_Viewer_Example_DataGrabHandler()
+  {
+
+  }
+  bool isReady() override
+  {
+    return true;
+  }
+  void handleData(const deepf1::TimestampedUDPData& data) override
+  {
+    deepf1::UDPPacket packet = data.data;
+    printf("Got some data. Steering: %f. Throttle: %f. Brake: %f", packet.m_steer, packet.m_throttle, packet.m_brake);
+  }
+  void init(const std::chrono::high_resolution_clock::time_point& begin) override
+  {
+    this->begin = begin;
+  }
+private:
+  std::chrono::high_resolution_clock::time_point begin;
+};
+class OpenCV_Viewer_Example_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
+{
+public:
+  OpenCV_Viewer_Example_FrameGrabHandler() :
+      window_name("cv_example")
   {
     cv::namedWindow(window_name);
   }
-  virtual ~OpenCV_Viewer_Example_Handler()
+  virtual ~OpenCV_Viewer_Example_FrameGrabHandler()
   {
     cv::destroyWindow(window_name);
   }
@@ -34,10 +58,10 @@ public:
     std::stringstream ss;
     ss << delta << " milliseconds from start";
 
-   // cv::putText(data.image, ss.str(), cv::Point(25,100), cv::FONT_HERSHEY_PLAIN, 2.0, cv::Scalar(0.0,0.0,0.0));
+    // cv::putText(data.image, ss.str(), cv::Point(25,100), cv::FONT_HERSHEY_PLAIN, 2.0, cv::Scalar(0.0,0.0,0.0));
     ss << std::endl;
     printf("%s", ss.str().c_str());
-    cv::imshow(window_name,data.image);
+    cv::imshow(window_name, data.image);
   }
   void init(const std::chrono::high_resolution_clock::time_point& begin) override
   {
@@ -55,12 +79,13 @@ int main(int argc, char** argv)
     search = std::string(argv[1]);
   }
   double capture_frequency = 15.0;
-  if(argc>2)
+  if (argc > 2)
   {
     capture_frequency = atof(argv[2]);
   }
-  std::shared_ptr<OpenCV_Viewer_Example_Handler> handler(new OpenCV_Viewer_Example_Handler());
-  deepf1::F1DataLogger dl(search, handler);
+  std::shared_ptr<OpenCV_Viewer_Example_FrameGrabHandler> image_handler(new OpenCV_Viewer_Example_FrameGrabHandler());
+  std::shared_ptr<OpenCV_Viewer_Example_DataGrabHandler> udp_handler(new OpenCV_Viewer_Example_DataGrabHandler());
+  deepf1::F1DataLogger dl(search, image_handler, udp_handler);
   dl.start();
 
   cv::waitKey(0);

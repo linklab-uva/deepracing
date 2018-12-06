@@ -11,6 +11,7 @@
 #include <thread>
 #include <memory>
 #include "udp_logging/f1_datagrab_handler.h"
+#include <chrono>
 using boost::asio::ip::udp;
 using boost::asio::ip::address;
 namespace deepf1
@@ -19,7 +20,9 @@ namespace deepf1
 class F1DataGrabManager
 {
 public:
-  F1DataGrabManager(std::shared_ptr<IF1DatagrabHandler> handler, const std::string host = "127.0.0.1", const unsigned int port=20777);
+  F1DataGrabManager(std::shared_ptr<std::chrono::high_resolution_clock> clock,
+                    std::shared_ptr<IF1DatagrabHandler> handler, const std::string host = "127.0.0.1",
+                    const unsigned int port = 20777);
   virtual ~F1DataGrabManager();
 
   void start();
@@ -34,6 +37,7 @@ private:
 
   std::shared_ptr<UDPPacket> rcv_buffer_;
 
+  std::shared_ptr<std::chrono::high_resolution_clock> clock_;
 
   void run_();
 };
