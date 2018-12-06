@@ -17,10 +17,9 @@ public:
   F1DataLogger(const std::string& search_string, std::shared_ptr<IF1FrameGrabHandler> frame_grab_handler);
   virtual ~F1DataLogger();
 
-  void init();
   void start();
 private:
-  F1FrameGrabManager frame_grab_manager_;
+  std::shared_ptr<F1FrameGrabManager> frame_grab_manager_;
 
   std::shared_ptr<std::chrono::high_resolution_clock> clock_;
 };

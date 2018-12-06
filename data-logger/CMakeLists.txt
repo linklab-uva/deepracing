@@ -18,7 +18,7 @@ add_subdirectory( src/image_logging )
 add_library(${PROJECT_NAME}
 src/f1_datalogger.cpp
 )
-target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_utils ${PROJECT_NAME}_image_logging ${screen_capture_lite_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_image_logging)
 
 
 

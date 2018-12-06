@@ -2,9 +2,7 @@ add_executable(${PROJECT_NAME}_cv_viewer_example
 cv_viewer.cpp
 )
 target_link_libraries(${PROJECT_NAME}_cv_viewer_example
-${PROJECT_NAME} 
-${PROJECT_NAME}_utils 
-${PROJECT_NAME}_image_logging 
+${PROJECT_NAME}
 ${screen_capture_lite_LIBRARIES}
 ${screen_capture_lite_PLATFORM_LIBS}
 )
