@@ -14,6 +14,8 @@ F1DataLogger::F1DataLogger(const std::string& search_string, std::shared_ptr<IF1
     clock_(new std::chrono::high_resolution_clock())
 
 {
+  begin_ = clock_->now();
+  frame_grab_handler->init(begin_);
   frame_grab_manager_.reset(new F1FrameGrabManager(search_string, clock_, frame_grab_handler) );
 
 }
@@ -21,9 +23,9 @@ F1DataLogger::~F1DataLogger()
 {
 }
 
-void F1DataLogger::start()
+void F1DataLogger::start(double capture_frequency)
 {
-  frame_grab_manager_->start();
+  frame_grab_manager_->start(capture_frequency);
 }
 
 } /* namespace deepf1 */

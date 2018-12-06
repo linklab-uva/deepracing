@@ -8,18 +8,20 @@
 #include "f1_datalogger.h"
 #include "image_logging/utils/screencapture_lite_utils.h"
 #include <iostream>
-
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+#include <sstream>
 namespace scl = SL::Screen_Capture;
 class OpenCV_Viewer_Example_Handler : public deepf1::IF1FrameGrabHandler
 {
 public:
-  OpenCV_Viewer_Example_Handler()
+  OpenCV_Viewer_Example_Handler() : window_name("cv_example")
   {
-
+    cv::namedWindow(window_name);
   }
   virtual ~OpenCV_Viewer_Example_Handler()
   {
-
+    cv::destroyWindow(window_name);
   }
   bool isReady() override
   {
@@ -27,80 +29,39 @@ public:
   }
   void handleData(const deepf1::TimestampedImageData& data) override
   {
-    std::cout<<"Got some data"<<std::endl;
+
+    long long delta = std::chrono::duration_cast<std::chrono::nanoseconds>(data.timestamp - this->begin).count();
+    std::stringstream ss;
+    ss << delta << " milliseconds from start";
+
+    cv::putText(data.image, ss.str(), cv::Point(25,100), cv::FONT_HERSHEY_PLAIN, 2.0, cv::Scalar(0.0,0.0,0.0));
+    cv::imshow(window_name,data.image);
   }
+  void init(const std::chrono::high_resolution_clock::time_point& begin) override
+  {
+    this->begin = begin;
+  }
+private:
+  std::chrono::high_resolution_clock::time_point begin;
+  std::string window_name;
 };
-scl::Window findWindow(const std::string& search_string)
-{
-  std::string srchterm(search_string);
-  // convert to lower case for easier comparisons
-  std::transform(srchterm.begin(), srchterm.end(), srchterm.begin(), [](char c)
-  { return std::tolower(c, std::locale());});
-  std::vector<scl::Window> filtereditems;
-
-  std::vector<scl::Window> windows = SL::Screen_Capture::GetWindows(); // @suppress("Function cannot be resolved")
-  std::cout<< "What window do you want to capture?\n" <<std::endl;
-  for (unsigned int i = 0; i < windows.size(); i++)
-  {
-    scl::Window a = windows[i];
-    std::string name = a.Name;
-    std::transform(name.begin(), name.end(), name.begin(), [](char c)
-    { return std::tolower(c, std::locale());});
-    if (name.find(srchterm) != std::string::npos)
-    {
-      filtereditems.push_back(a);
-    }
-  }
-  for (unsigned int i = 0; i < filtereditems.size(); i++)
-  {
-    scl::Window a = filtereditems[i];
-    std::string name = a.Name;
-    printf("Enter %d for %s\n", i, name.c_str());
-  }
-
-  std::string input;
-  std::cin >> input;
-  int selected_index;
-  scl::Window selected_window;
-  try
-  {
-    selected_index = atoi( (const char*) input.c_str() ); // @suppress("Invalid arguments") not sure why this is happening...
-    selected_window = filtereditems.at(selected_index);
-  }
-  catch (std::out_of_range &oor)
-  {
-    std::stringstream ss;
-    ss << "Selected index (" << selected_index << ") is >= than the number of windows" << std::endl;
-    ss << "Underlying exception message: " << std::endl << std::string(oor.what()) << std::endl;
-    std::runtime_error ex(ss.str().c_str());
-    throw ex;
-  }
-  catch (std::runtime_error &e)
-  {
-    std::stringstream ss;
-    ss << "Could not grab selected window " << selected_index << std::endl;
-    ss << "Underlying exception message " << std::string(e.what()) << std::endl;
-    std::runtime_error ex(ss.str().c_str());
-    throw ex;
-  }
-  return selected_window;
-}
 int main(int argc, char** argv)
 {
-  std::string search;
+  std::string search = "CMake";
   if (argc > 1)
   {
     search = std::string(argv[1]);
   }
-  else
+  double capture_frequency = 15.0;
+  if(argc>2)
   {
-    search = "CMake";
+    capture_frequency = atof(argv[2]);
   }
- // scl::Window window = findWindow(search);
   std::shared_ptr<OpenCV_Viewer_Example_Handler> handler(new OpenCV_Viewer_Example_Handler());
   deepf1::F1DataLogger dl(search, handler);
   dl.start();
 
+  cv::waitKey(0);
 
 }
 

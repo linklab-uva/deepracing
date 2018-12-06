@@ -17,11 +17,14 @@ public:
   F1DataLogger(const std::string& search_string, std::shared_ptr<IF1FrameGrabHandler> frame_grab_handler);
   virtual ~F1DataLogger();
 
-  void start();
+  void start(double capture_frequency = 15.0);
 private:
   std::shared_ptr<F1FrameGrabManager> frame_grab_manager_;
 
   std::shared_ptr<std::chrono::high_resolution_clock> clock_;
+
+  std::chrono::high_resolution_clock::time_point begin_;
+
 };
 
 } /* namespace deepf1 */

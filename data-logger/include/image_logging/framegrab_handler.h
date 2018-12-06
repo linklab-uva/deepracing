@@ -18,6 +18,7 @@ public:
   virtual ~IF1FrameGrabHandler() = default;
   virtual bool isReady() = 0;
   virtual void handleData(const TimestampedImageData& data) = 0;
+  virtual void init(const std::chrono::high_resolution_clock::time_point& begin) = 0;
 
 };
 
