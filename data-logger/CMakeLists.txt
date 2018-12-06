@@ -12,6 +12,11 @@ find_package( OpenCV REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS} ${EIGEN_INCLUDE_DIRS} )
 include_directories( include )
 
+set(TBB_ROOT ${CMAKE_SOURCE_DIR}/third_party/tbb)
+include(${TBB_ROOT}/cmake/TBBBuild.cmake)
+tbb_build(TBB_ROOT ${TBB_ROOT} CONFIG_DIR TBB_DIR)
+find_package(TBB REQUIRED)
+
 add_subdirectory( proto )
 add_subdirectory( src/alglib )
 add_subdirectory( src/image_logging )
