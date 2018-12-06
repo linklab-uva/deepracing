@@ -12,7 +12,6 @@
 #include <opencv2/imgproc.hpp>
 #include <sstream>
 
-#include <tbb/concurrent_queue.h>
 namespace scl = SL::Screen_Capture;
 class OpenCV_Viewer_Example_DataGrabHandler : public deepf1::IF1DatagrabHandler
 {
@@ -28,15 +27,13 @@ public:
   void handleData(const deepf1::TimestampedUDPData& data) override
   {
     deepf1::UDPPacket packet = data.data;
-    queue.push(packet);
-    printf("Got some data. Steering: %f. Throttle: %f. Brake: %f. Queue size: %ld\n", packet.m_steer, packet.m_throttle, packet.m_brake, queue.unsafe_size());
+    printf("Got some data. Steering: %f. Throttle: %f. Brake: %f.\n", packet.m_steer, packet.m_throttle);
   }
   void init(const std::chrono::high_resolution_clock::time_point& begin) override
   {
     this->begin = begin;
   }
 private:
-  tbb::concurrent_queue<deepf1::UDPPacket> queue;
   std::chrono::high_resolution_clock::time_point begin;
 };
 class OpenCV_Viewer_Example_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
