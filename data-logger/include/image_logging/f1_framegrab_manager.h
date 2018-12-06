@@ -22,6 +22,11 @@ public:
   virtual ~F1FrameGrabManager();
   void start(double capture_frequency);
 
+  const scl::Window& getWindow() const
+  {
+    return window_;
+  }
+
 private:
   std::shared_ptr<std::chrono::high_resolution_clock> clock_;
 
