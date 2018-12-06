@@ -6,23 +6,22 @@
  */
 
 #include "f1_datalogger.h"
-
+#include "image_logging/utils/screencapture_lite_utils.h"
 namespace deepf1
 {
 
-F1DataLogger::F1DataLogger(const std::string& search_string)
+F1DataLogger::F1DataLogger(const std::string& search_string, std::shared_ptr<IF1FrameGrabHandler> frame_grab_handler) :
+    clock_(new std::chrono::high_resolution_clock()), frame_grab_manager_(ScreencaptureLiteUtils::findWindow(search_string), clock_, frame_grab_handler)
+
 {
-
 }
-F1DataLogger::F1DataLogger(std::shared_ptr<scl::Window> window)
-{
-
-}
-
-
 F1DataLogger::~F1DataLogger()
 {
-  // TODO Auto-generated destructor stub
+}
+
+void F1DataLogger::start()
+{
+  frame_grab_manager_.start();
 }
 
 } /* namespace deepf1 */

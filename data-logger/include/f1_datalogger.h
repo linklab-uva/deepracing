@@ -14,11 +14,15 @@ namespace deepf1
 class F1DataLogger
 {
 public:
-  F1DataLogger(std::shared_ptr<scl::Window> window);
-  F1DataLogger(const std::string& search_string);
+  F1DataLogger(const std::string& search_string, std::shared_ptr<IF1FrameGrabHandler> frame_grab_handler);
   virtual ~F1DataLogger();
-private:
 
+  void init();
+  void start();
+private:
+  F1FrameGrabManager frame_grab_manager_;
+
+  std::shared_ptr<std::chrono::high_resolution_clock> clock_;
 };
 
 } /* namespace deepf1 */
