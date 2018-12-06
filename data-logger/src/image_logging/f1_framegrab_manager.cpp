@@ -94,9 +94,10 @@ void F1FrameGrabManager::onNewFrame_(const scl::Image &img, const scl::Window &m
     capture_handler_->handleData(timestamped_image);
   }
 }
-void F1FrameGrabManager::start()
+void F1FrameGrabManager::start(double capture_frequency)
 {
   capture_manager_ = capture_config_->start_capturing();
-  capture_manager_->setFrameChangeInterval(std::chrono::milliseconds(64));
+  unsigned int ms = (unsigned int)(std::round(((double)1E3)/capture_frequency));
+  capture_manager_->setFrameChangeInterval(std::chrono::milliseconds(ms));
 }
 } /* namespace deepf1 */
