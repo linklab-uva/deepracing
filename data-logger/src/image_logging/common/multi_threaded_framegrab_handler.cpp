@@ -11,9 +11,9 @@
 namespace deepf1
 {
 
-MultiThreadedFrameGrabHandler::MultiThreadedFrameGrabHandler() : running_(false)
+MultiThreadedFrameGrabHandler::MultiThreadedFrameGrabHandler(unsigned int thread_count) : running_(false)
 {
-
+  thread_count_= thread_count;
 }
 
 MultiThreadedFrameGrabHandler::~MultiThreadedFrameGrabHandler()
@@ -29,10 +29,10 @@ bool MultiThreadedFrameGrabHandler::isReady()
 void MultiThreadedFrameGrabHandler::handleData(const TimestampedImageData& data)
 {
 ///  std::cout<<"Handling data"<<std::endl;
-  TimestampedImageData data_copy;
-  data_copy.timestamp = data.timestamp;
-  data.image.copyTo(data_copy.image);
-  queue_->push(data_copy);
+//  TimestampedImageData data_copy;
+//  data_copy.timestamp = data.timestamp;
+//  data.image.copyTo(data_copy.image);
+  queue_->push(data);
 
 }
 void MultiThreadedFrameGrabHandler::init(const std::chrono::high_resolution_clock::time_point& begin,
@@ -42,7 +42,7 @@ void MultiThreadedFrameGrabHandler::init(const std::chrono::high_resolution_cloc
   running_ = true;
   queue_.reset(new tbb::concurrent_queue<TimestampedImageData>);
   thread_pool_.reset(new tbb::task_group);
-  for(int i = 0; i < 1; i ++)
+  for(int i = 0; i < thread_count_; i ++)
   {
     thread_pool_->run(std::bind(&MultiThreadedFrameGrabHandler::workerFunc_,this));
   }
@@ -55,7 +55,7 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
   {
     if(queue_->empty())
     {
-      std::cout<<"Queue is empty"<<std::endl;
+   //   std::cout<<"Queue is empty"<<std::endl;
       continue;
     }
     TimestampedImageData data;

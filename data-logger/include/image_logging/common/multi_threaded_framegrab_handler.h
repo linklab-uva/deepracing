@@ -16,7 +16,7 @@ namespace deepf1
 class MultiThreadedFrameGrabHandler : public IF1FrameGrabHandler
 {
 public:
-  MultiThreadedFrameGrabHandler();
+  MultiThreadedFrameGrabHandler(unsigned int thread_count = 1);
   virtual ~MultiThreadedFrameGrabHandler();
   bool isReady() override;
   void handleData(const TimestampedImageData& data) override;
@@ -26,6 +26,7 @@ private:
   std::shared_ptr< tbb::task_group> thread_pool_ ;
   bool running_;
   std::chrono::high_resolution_clock::time_point begin_;
+  unsigned int thread_count_;
 
   void workerFunc_();
 };
