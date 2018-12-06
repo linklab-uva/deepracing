@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 option(BUILD_SHARED_LIBS "Build Shared Libraries" ON)
-set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 find_package(screen_capture_lite REQUIRED)
 find_package( Boost COMPONENTS filesystem program_options system REQUIRED )
@@ -18,5 +18,8 @@ add_subdirectory( src/image_logging )
 add_library(${PROJECT_NAME}
 src/f1_datalogger.cpp
 )
-target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_opencv_utils ${PROJECT_NAME}_image_logging)
+target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_utils ${PROJECT_NAME}_image_logging ${screen_capture_lite_LIBRARIES})
 
+
+
+add_subdirectory( src/Examples )

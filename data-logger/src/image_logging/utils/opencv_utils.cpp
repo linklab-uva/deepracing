@@ -10,6 +10,7 @@
 namespace deepf1
 {
 
+namespace scl = SL::Screen_Capture;
 OpenCVUtils::OpenCVUtils()
 {
 }

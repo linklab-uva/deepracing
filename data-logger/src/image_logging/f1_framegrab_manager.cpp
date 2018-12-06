@@ -7,14 +7,18 @@
 
 #include "image_logging/f1_framegrab_manager.h"
 #include "image_logging/utils/opencv_utils.h"
+namespace scl = SL::Screen_Capture;
 namespace deepf1
 {
-
 F1FrameGrabManager::F1FrameGrabManager(std::shared_ptr<scl::Window> window,
-                                       std::shared_ptr<std::chrono::high_resolution_clock> clock)
+                                       std::shared_ptr<std::chrono::high_resolution_clock> clock,
+                                       std::shared_ptr<IF1FrameGrabHandler> capture_handler)
 {
+  capture_handler_ = capture_handler;
   clock_ = clock;
   window_ = window;
+  capture_config_ = scl::CreateCaptureConfiguration( (scl::WindowCallback)std::bind(&F1FrameGrabManager::get_windows_, this));
+  capture_config_->onNewFrame((scl::WindowCaptureCallback)std::bind(&F1FrameGrabManager::onNewFrame_, this, std::placeholders::_1, std::placeholders::_2));
 }
 F1FrameGrabManager::~F1FrameGrabManager()
 {
@@ -35,6 +39,7 @@ void F1FrameGrabManager::onNewFrame_(const scl::Image &img, const scl::Window &m
 }
 void F1FrameGrabManager::start()
 {
-
+  capture_manager_ = capture_config_->start_capturing();
+  capture_manager_->setFrameChangeInterval(std::chrono::milliseconds(64));
 }
 } /* namespace deepf1 */

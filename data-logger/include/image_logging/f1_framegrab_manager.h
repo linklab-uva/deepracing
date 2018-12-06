@@ -16,7 +16,8 @@ namespace scl = SL::Screen_Capture;
 class F1FrameGrabManager
 {
 public:
-  F1FrameGrabManager(std::shared_ptr<scl::Window> window, std::shared_ptr<std::chrono::high_resolution_clock> clock);
+  F1FrameGrabManager(std::shared_ptr<scl::Window> window, std::shared_ptr<std::chrono::high_resolution_clock> clock,
+                     std::shared_ptr<IF1FrameGrabHandler> capture_handler);
   virtual ~F1FrameGrabManager();
   void start();
 
