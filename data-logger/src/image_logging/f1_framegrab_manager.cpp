@@ -8,7 +8,6 @@
 #include "image_logging/f1_framegrab_manager.h"
 #include "image_logging/utils/opencv_utils.h"
 #include "image_logging/utils/screencapture_lite_utils.h"
-#include <cstdlib>
 namespace scl = SL::Screen_Capture;
 namespace deepf1
 {
