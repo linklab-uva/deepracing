@@ -29,7 +29,6 @@ F1DataGrabManager::~F1DataGrabManager()
 }
 void F1DataGrabManager::run_()
 {
-  std::cout << "Hello Threads!" << std::endl;
   while (running_)
   {
 

@@ -1,0 +1,6 @@
+syntax = "proto3";
+package deepf1.protobuf;
+message TimestampedImage {
+  string image_file = 1;
+  uint64 timestamp = 2;
+}

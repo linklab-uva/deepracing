@@ -20,7 +20,6 @@ scl::Window findWindow(const std::string& search_string)
   std::vector<scl::Window> filtereditems;
 
   std::vector<scl::Window> windows = SL::Screen_Capture::GetWindows(); // @suppress("Function cannot be resolved")
-  std::cout<< "What window do you want to capture?\n" <<std::endl;
   for (unsigned int i = 0; i < windows.size(); i++)
   {
     scl::Window a = windows[i];
@@ -36,7 +35,7 @@ scl::Window findWindow(const std::string& search_string)
   {
     scl::Window a = filtereditems[i];
     std::string name = a.Name;
-    printf("Enter %d for %s\n", i, name.c_str());
+    printf("Enter %u for %s\n", i, name.c_str());
   }
 
   std::string input;
