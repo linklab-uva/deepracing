@@ -23,5 +23,15 @@ src/f1_datalogger.cpp
 target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_image_logging ${PROJECT_NAME}_udp_logging ${Boost_LIBRARIES})
 
 
+add_executable(${PROJECT_NAME}_multithreaded_capture
+src/multi_threaded_capture.cpp
+)
+target_link_libraries(${PROJECT_NAME}_multithreaded_capture
+${PROJECT_NAME}
+${PROJECT_NAME}_image_logging 
+${PROJECT_NAME}_udp_logging 
+${screen_capture_lite_LIBRARIES}
+${screen_capture_lite_PLATFORM_LIBS}
+)
 
 add_subdirectory( src/Examples )
