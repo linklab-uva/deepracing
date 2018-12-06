@@ -8,7 +8,7 @@ namespace deepf1
 {
 	struct timestamped_udp_data {
 		UDPPacket data;
-		std::chrono::microseconds timestamp;
+		std::chrono::high_resolution_clock::time_point timestamp;
 	}; 
 	typedef struct timestamped_udp_data TimestampedUDPData;
 }
