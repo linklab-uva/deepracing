@@ -5,4 +5,5 @@ target_link_libraries(${PROJECT_NAME}_cv_viewer_example
 ${PROJECT_NAME}
 ${screen_capture_lite_LIBRARIES}
 ${screen_capture_lite_PLATFORM_LIBS}
+tbb
 )

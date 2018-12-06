@@ -1,9 +1,10 @@
 package deepf1.protobuf;
 
 message F1UDPData {
-  required int64 game_time = 1;
-  required int64 logger_time = 2;
-  required float steering = 3;
-  required float throttle = 4;
-  required float brake = 5;
+  required float game_time = 1;
+  required float game_lap_time = 2;
+  required int64 logger_time = 3;
+  required float steering = 4;
+  required float throttle = 5;
+  required float brake = 6;
 }

@@ -11,6 +11,8 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <sstream>
+
+#include <tbb/concurrent_queue.h>
 namespace scl = SL::Screen_Capture;
 class OpenCV_Viewer_Example_DataGrabHandler : public deepf1::IF1DatagrabHandler
 {
@@ -26,13 +28,15 @@ public:
   void handleData(const deepf1::TimestampedUDPData& data) override
   {
     deepf1::UDPPacket packet = data.data;
-    printf("Got some data. Steering: %f. Throttle: %f. Brake: %f", packet.m_steer, packet.m_throttle, packet.m_brake);
+    queue.push(packet);
+    printf("Got some data. Steering: %f. Throttle: %f. Brake: %f. Queue size: %ld\n", packet.m_steer, packet.m_throttle, packet.m_brake, queue.unsafe_size());
   }
   void init(const std::chrono::high_resolution_clock::time_point& begin) override
   {
     this->begin = begin;
   }
 private:
+  tbb::concurrent_queue<deepf1::UDPPacket> queue;
   std::chrono::high_resolution_clock::time_point begin;
 };
 class OpenCV_Viewer_Example_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
@@ -59,8 +63,7 @@ public:
     ss << delta << " milliseconds from start";
 
     // cv::putText(data.image, ss.str(), cv::Point(25,100), cv::FONT_HERSHEY_PLAIN, 2.0, cv::Scalar(0.0,0.0,0.0));
-    ss << std::endl;
-    printf("%s", ss.str().c_str());
+   // printf("%s\n", ss.str().c_str());
     cv::imshow(window_name, data.image);
     cv::Mat img_cv_video;
     cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
