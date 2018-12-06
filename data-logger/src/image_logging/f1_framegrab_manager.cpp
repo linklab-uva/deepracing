@@ -36,7 +36,7 @@ scl::Window findWindow(const std::string& search_string)
   {
     scl::Window a = filtereditems[i];
     std::string name(&(a.Name[0]));
-    printf("Enter %d for %s\n", i, name.c_str());
+    std::cout<<"Enter " << i << " for " << name << std::endl;
   }
 
   std::string input;
