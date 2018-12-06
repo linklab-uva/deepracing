@@ -12,6 +12,7 @@ find_package( OpenCV REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS} ${EIGEN_INCLUDE_DIRS} )
 include_directories( include )
 
+add_subdirectory( proto )
 add_subdirectory( src/alglib )
 add_subdirectory( src/image_logging )
 add_subdirectory( src/udp_logging )

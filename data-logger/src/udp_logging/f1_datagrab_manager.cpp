@@ -34,7 +34,7 @@ void F1DataGrabManager::run_()
   {
 
     boost::system::error_code error;
-    socket_.receive_from(boost::asio::buffer(boost::asio::buffer(rcv_buffer_.get(), 1289)), remote_endpoint_, 0, error);
+    socket_.receive_from(boost::asio::buffer(boost::asio::buffer(rcv_buffer_.get(), sizeof(UDPPacket))), remote_endpoint_, 0, error);
     if (data_handler_->isReady())
     {
       TimestampedUDPData data;
