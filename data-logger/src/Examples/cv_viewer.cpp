@@ -62,12 +62,17 @@ public:
     ss << std::endl;
     printf("%s", ss.str().c_str());
     cv::imshow(window_name, data.image);
+    cv::Mat img_cv_video;
+    cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
+    video_writer_->write(img_cv_video);
   }
-  void init(const std::chrono::high_resolution_clock::time_point& begin) override
+  void init(const std::chrono::high_resolution_clock::time_point& begin, const cv::Size& window_size) override
   {
+    video_writer_.reset(new cv::VideoWriter("out.avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), 10.0, window_size));
     this->begin = begin;
   }
 private:
+  std::shared_ptr<cv::VideoWriter> video_writer_;
   std::chrono::high_resolution_clock::time_point begin;
   std::string window_name;
 };
@@ -78,7 +83,7 @@ int main(int argc, char** argv)
   {
     search = std::string(argv[1]);
   }
-  double capture_frequency = 15.0;
+  double capture_frequency = 10.0;
   if (argc > 2)
   {
     capture_frequency = atof(argv[2]);
