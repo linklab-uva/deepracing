@@ -27,7 +27,7 @@ private:
   bool running_;
   std::chrono::high_resolution_clock::time_point begin_;
   unsigned int thread_count_;
-  tbb::atomic<unsigned> counter_;
+  tbb::atomic<unsigned long> counter_;
 
   void workerFunc_();
 };

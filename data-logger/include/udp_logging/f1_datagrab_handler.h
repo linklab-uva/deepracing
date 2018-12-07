@@ -8,6 +8,7 @@
 #ifndef INCLUDE_UDP_LOGGING_F1_DATAGRAB_HANDLER_H_
 #define INCLUDE_UDP_LOGGING_F1_DATAGRAB_HANDLER_H_
 #include "car_data/timestamped_car_data.h"
+#include <string>
 namespace deepf1
 {
 
@@ -18,7 +19,7 @@ public:
   virtual ~IF1DatagrabHandler() = default;
   virtual void handleData(const deepf1::TimestampedUDPData& data) = 0;
   virtual bool isReady() = 0;
-  virtual void init(const std::chrono::high_resolution_clock::time_point& begin) = 0;
+  virtual void init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin) = 0;
 
 };
 

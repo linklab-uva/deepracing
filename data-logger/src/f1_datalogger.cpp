@@ -20,7 +20,8 @@ F1DataLogger::F1DataLogger(const std::string& search_string, std::shared_ptr<IF1
   const scl::Window& window = frame_grab_manager_->getWindow();
   cv::Size size(window.Size.x, window.Size.y);
   frame_grab_handler->init(begin_, size);
-  data_grab_handler->init(begin_);
+  std::string host("127.0.0.1");
+  data_grab_handler->init(host, 20777, begin_);
 
 }
 F1DataLogger::~F1DataLogger()

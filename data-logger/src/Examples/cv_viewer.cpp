@@ -29,7 +29,7 @@ public:
     deepf1::UDPPacket packet = data.data;
     printf("Got some data. Steering: %f. Throttle: %f. Brake: %f.\n", packet.m_steer, packet.m_throttle, packet.m_brake);
   }
-  void init(const std::chrono::high_resolution_clock::time_point& begin) override
+  void init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin) override
   {
     this->begin = begin;
   }
