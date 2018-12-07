@@ -10,6 +10,7 @@
 #include <iostream>
 #include "TimestampedImage.pb.h"
 #include <fstream>
+#include <boost/filesystem.hpp>
 namespace deepf1
 {
 
@@ -47,6 +48,7 @@ void MultiThreadedFrameGrabHandler::init(const std::chrono::high_resolution_cloc
 
 void MultiThreadedFrameGrabHandler::workerFunc_()
 {
+  namespace fs = boost::filesystem;
   std::cout<<"Spawned a worker thread to log images" <<std::endl;
   while(running_)
   {
@@ -59,15 +61,21 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
     {
       continue;
     }
-    unsigned counter = counter_.fetch_and_increment();
-    std::string images_folder("images/");
+    unsigned long counter = counter_.fetch_and_increment();
+    fs::path  images_folder("images");
     google::protobuf::uint64 delta = (google::protobuf::uint64)(std::chrono::duration_cast<std::chrono::microseconds>(data.timestamp - begin_).count());
-    std::string fn = images_folder + "image_" + std::to_string(counter) + ".jpg";
+
+    fs::path image_file("image_" + std::to_string(counter) + ".jpg");
+    std::string fn = (images_folder / image_file).string();
     cv::imwrite(fn,data.image);
+
+
     deepf1::protobuf::TimestampedImage tag;
     tag.set_image_file(fn);
     tag.set_timestamp(delta);
-    std::string pb_fn = images_folder + "image_" + std::to_string(counter) + ".pb";
+    fs::path pb_file("image_" + std::to_string(counter) + ".pb");
+
+    std::string pb_fn = (images_folder / pb_file).string();
     std::ofstream ostream(pb_fn.c_str());
     tag.SerializeToOstream(&ostream);
     ostream.close();

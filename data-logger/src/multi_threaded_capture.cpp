@@ -29,7 +29,7 @@ public:
   //  deepf1::UDPPacket packet = data.data;
  //   printf("Got some data. Steering: %f. Throttle: %f. Brake: %f.\n", packet.m_steer, packet.m_throttle, packet.m_brake);
   }
-  void init(const std::chrono::high_resolution_clock::time_point& begin) override
+  void init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin) override
   {
     this->begin = begin;
   }
@@ -53,7 +53,9 @@ int main(int argc, char** argv)
   deepf1::F1DataLogger dl(search, frame_handler, udp_handler);
   dl.start();
 
-  std::this_thread::sleep_for(std::chrono::seconds(20));
+  std::cout<<"Enter any key to end " << std::endl;
+  std::string inp;
+  std::cin >> inp;
 }
 
 
