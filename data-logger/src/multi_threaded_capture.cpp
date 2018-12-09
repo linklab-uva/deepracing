@@ -6,6 +6,7 @@
  */
 #include "f1_datalogger.h"
 #include "image_logging/common/multi_threaded_framegrab_handler.h"
+#include "udp_logging/common/multi_threaded_udp_handler.h"
 #include "image_logging/utils/screencapture_lite_utils.h"
 #include <iostream>
 #include <opencv2/highgui.hpp>
@@ -48,13 +49,18 @@ int main(int argc, char** argv)
   {
     capture_frequency = atof(argv[2]);
   }
-  std::shared_ptr<DummyUDPCaptureHandler> udp_handler(new DummyUDPCaptureHandler);
-  std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler);
+  std::cout<<"Creating handlers" <<std::endl;
+  std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler(2));
+  std::shared_ptr<deepf1::MultiThreadedUDPHandler> udp_handler(new deepf1::MultiThreadedUDPHandler(2));
+  std::cout<<"Creating DataLogger" <<std::endl;
   deepf1::F1DataLogger dl(search, frame_handler, udp_handler);
-  dl.start();
+  std::cout<<"Created DataLogger" <<std::endl;
+  std::string inp;
+  std::cout<<"Enter any key to start " << std::endl;
+  std::cin >> inp;
+  dl.start(25.0);
 
   std::cout<<"Enter any key to end " << std::endl;
-  std::string inp;
   std::cin >> inp;
 }
 

@@ -31,6 +31,7 @@ bool MultiThreadedFrameGrabHandler::isReady()
 
 void MultiThreadedFrameGrabHandler::handleData(const TimestampedImageData& data)
 {
+  std::lock_guard<std::mutex> lk(queue_mutex_);
   queue_->push(data);
 }
 void MultiThreadedFrameGrabHandler::init(const std::chrono::high_resolution_clock::time_point& begin,
@@ -57,9 +58,12 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
       continue;
     }
     TimestampedImageData data;
-    if(!queue_->try_pop(data))
     {
-      continue;
+      std::lock_guard<std::mutex> lk(queue_mutex_);
+      if(!queue_->try_pop(data))
+      {
+        continue;
+      }
     }
     unsigned long counter = counter_.fetch_and_increment();
     fs::path  images_folder("images");
