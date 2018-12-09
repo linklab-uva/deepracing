@@ -11,11 +11,17 @@
 #include "TimestampedImage.pb.h"
 #include <fstream>
 #include <boost/filesystem.hpp>
+namespace fs = boost::filesystem;
 namespace deepf1
 {
 
-MultiThreadedFrameGrabHandler::MultiThreadedFrameGrabHandler(unsigned int thread_count) : running_(false), counter_(1)
+MultiThreadedFrameGrabHandler::MultiThreadedFrameGrabHandler(std::string images_folder, unsigned int thread_count) : running_(false), counter_(1)
 {
+  fs::path imf(images_folder);
+  if(not fs::is_directory(imf))
+  {
+    fs::create_directories(imf);
+  }
   thread_count_= thread_count;
 }
 
@@ -49,17 +55,16 @@ void MultiThreadedFrameGrabHandler::init(const std::chrono::high_resolution_cloc
 
 void MultiThreadedFrameGrabHandler::workerFunc_()
 {
-  namespace fs = boost::filesystem;
   std::cout<<"Spawned a worker thread to log images" <<std::endl;
   while(running_)
   {
-    if(queue_->empty())
-    {
-      continue;
-    }
     TimestampedImageData data;
     {
       std::lock_guard<std::mutex> lk(queue_mutex_);
+      if(queue_->empty())
+      {
+        continue;
+      }
       if(!queue_->try_pop(data))
       {
         continue;
