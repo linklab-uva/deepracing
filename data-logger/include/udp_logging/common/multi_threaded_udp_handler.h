@@ -12,25 +12,27 @@
 #include <tbb/concurrent_queue.h>
 #include "tbb/task_group.h"
 #include <memory>
+#include <mutex>
 namespace deepf1
 {
 
 class MultiThreadedUDPHandler : public IF1DatagrabHandler
 {
 public:
-  MultiThreadedUDPHandler(unsigned int thread_count);
+  MultiThreadedUDPHandler(unsigned int thread_count = 5);
   virtual ~MultiThreadedUDPHandler();
   void handleData(const deepf1::TimestampedUDPData& data) override;
   bool isReady() override;
   void init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin) override;
 
 private:
-  std::shared_ptr< tbb::concurrent_queue<TimestampedUDPData> >queue_;
+  std::shared_ptr< tbb::concurrent_queue<TimestampedUDPData> > queue_;
   std::shared_ptr< tbb::task_group> thread_pool_ ;
   bool running_;
   std::chrono::high_resolution_clock::time_point begin_;
   unsigned int thread_count_;
   tbb::atomic<unsigned long> counter_;
+  std::mutex queue_mutex_;
 
   void workerFunc_();
 

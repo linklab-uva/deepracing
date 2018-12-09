@@ -9,7 +9,8 @@
 #define INCLUDE_IMAGE_LOGGING_COMMON_MULTI_THREADED_FRAMEGRAB_HANDLER_H_
 #include "image_logging/framegrab_handler.h"
 #include <tbb/concurrent_queue.h>
- #include "tbb/task_group.h"
+#include "tbb/task_group.h"
+#include <mutex>
 namespace deepf1
 {
 
@@ -28,7 +29,7 @@ private:
   std::chrono::high_resolution_clock::time_point begin_;
   unsigned int thread_count_;
   tbb::atomic<unsigned long> counter_;
-
+  std::mutex queue_mutex_;
   void workerFunc_();
 };
 
