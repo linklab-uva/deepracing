@@ -50,8 +50,8 @@ int main(int argc, char** argv)
     capture_frequency = atof(argv[2]);
   }
   std::cout<<"Creating handlers" <<std::endl;
-  std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler(2));
-  std::shared_ptr<deepf1::MultiThreadedUDPHandler> udp_handler(new deepf1::MultiThreadedUDPHandler(2));
+  std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler("images", 2));
+  std::shared_ptr<deepf1::MultiThreadedUDPHandler> udp_handler(new deepf1::MultiThreadedUDPHandler("udp_data", 2));
   std::cout<<"Creating DataLogger" <<std::endl;
   deepf1::F1DataLogger dl(search, frame_handler, udp_handler);
   std::cout<<"Created DataLogger" <<std::endl;

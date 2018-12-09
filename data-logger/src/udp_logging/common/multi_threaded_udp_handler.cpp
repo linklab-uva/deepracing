@@ -11,11 +11,16 @@
 #include <iostream>
 #include "F1UDPData.pb.h"
 #include <thread>
+namespace fs = boost::filesystem;
 namespace deepf1
 {
-MultiThreadedUDPHandler::MultiThreadedUDPHandler(unsigned int thread_count) : running_(false), counter_(1), thread_count_(thread_count)
+MultiThreadedUDPHandler::MultiThreadedUDPHandler(std::string data_folder, unsigned int thread_count) : running_(false), counter_(1), thread_count_(thread_count)
 {
-
+  fs::path df(data_folder);
+  if(not fs::is_directory(df))
+  {
+    fs::create_directories(df);
+  }
 }
 MultiThreadedUDPHandler::~MultiThreadedUDPHandler()
 {
@@ -34,7 +39,6 @@ bool MultiThreadedUDPHandler::isReady()
 void MultiThreadedUDPHandler::workerFunc_()
 {
 
-  namespace fs = boost::filesystem;
   std::cout<<"Spawned a worker thread to log udp data" <<std::endl;
   while(running_)
   {
