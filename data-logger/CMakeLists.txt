@@ -8,8 +8,6 @@ set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
 include(buildtbb)
-include_directories(${tbb_root}/include)
-message("Found TBB targets: ${TBB_IMPORTED_TARGETS}")
 
 
 find_package(screen_capture_lite REQUIRED)
@@ -31,7 +29,6 @@ ${PROJECT_NAME}_image_logging
 ${PROJECT_NAME}_udp_logging 
 ${PROJECT_NAME}_proto
 ${Boost_LIBRARIES}
-${TBB_IMPORTED_TARGETS}
 )
 
 

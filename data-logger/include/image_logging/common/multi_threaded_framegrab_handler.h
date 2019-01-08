@@ -24,7 +24,7 @@ public:
   void init(const std::chrono::high_resolution_clock::time_point& begin, const cv::Size& window_size) override;
 private:
   std::shared_ptr< tbb::concurrent_queue<TimestampedImageData> >queue_;
-  std::shared_ptr< tbb::task_group> thread_pool_ ;
+  std::shared_ptr< tbb::task_group >  thread_pool_ ;
   bool running_;
   std::chrono::high_resolution_clock::time_point begin_;
   unsigned int thread_count_;
