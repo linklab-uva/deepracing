@@ -1,15 +1,21 @@
 project(f1_datalogger)
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required (VERSION 3.10 FATAL_ERROR)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 option(BUILD_SHARED_LIBS "Build Shared Libraries" ON)
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+
+include(buildtbb)
+include_directories(${tbb_root}/include)
+message("Found TBB targets: ${TBB_IMPORTED_TARGETS}")
+
+
 find_package(screen_capture_lite REQUIRED)
 find_package( Boost COMPONENTS filesystem program_options system REQUIRED )
 find_package( OpenCV REQUIRED )
-include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS} ${EIGEN_INCLUDE_DIRS} )
+include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} )
 include_directories( include )
 
 add_subdirectory( proto )
@@ -25,6 +31,7 @@ ${PROJECT_NAME}_image_logging
 ${PROJECT_NAME}_udp_logging 
 ${PROJECT_NAME}_proto
 ${Boost_LIBRARIES}
+${TBB_IMPORTED_TARGETS}
 )
 
 

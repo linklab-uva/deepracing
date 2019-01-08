@@ -1,0 +1,7 @@
+set(THIRD_PARTY_REPOS ${CMAKE_SOURCE_DIR}/third_party)
+include(${THIRD_PARTY_REPOS}/tbb/cmake/TBBGet.cmake)
+include(${THIRD_PARTY_REPOS}/tbb/cmake/TBBBuild.cmake)
+set(tbb_root ${THIRD_PARTY_REPOS}/tbb)
+#tbb_get(TBB_ROOT tbb_root SOURCE_CODE)
+tbb_build(TBB_ROOT ${tbb_root} CONFIG_DIR TBB_DIR)
+find_package(TBB REQUIRED tbb)
