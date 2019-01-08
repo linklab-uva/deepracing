@@ -24,6 +24,8 @@ MultiThreadedUDPHandler::MultiThreadedUDPHandler(std::string data_folder, unsign
 }
 MultiThreadedUDPHandler::~MultiThreadedUDPHandler()
 {
+  running_ = false;
+  thread_pool_->cancel();
 }
 
 void MultiThreadedUDPHandler::handleData(const deepf1::TimestampedUDPData& data)
