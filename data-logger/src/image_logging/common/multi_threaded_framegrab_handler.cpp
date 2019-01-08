@@ -15,9 +15,10 @@ namespace fs = boost::filesystem;
 namespace deepf1
 {
 
-MultiThreadedFrameGrabHandler::MultiThreadedFrameGrabHandler(std::string images_folder, unsigned int thread_count) : running_(false), counter_(1)
+MultiThreadedFrameGrabHandler::MultiThreadedFrameGrabHandler(std::string images_folder, unsigned int thread_count) 
+: running_(false), counter_(1), images_folder_(images_folder)
 {
-  fs::path imf(images_folder);
+  fs::path imf(images_folder_);
   if(not fs::is_directory(imf))
   {
     fs::create_directories(imf);
@@ -28,9 +29,10 @@ MultiThreadedFrameGrabHandler::MultiThreadedFrameGrabHandler(std::string images_
 MultiThreadedFrameGrabHandler::~MultiThreadedFrameGrabHandler()
 {
   running_ = false;
+  thread_pool_->cancel();
 }
 
-bool MultiThreadedFrameGrabHandler::isReady()
+inline bool MultiThreadedFrameGrabHandler::isReady()
 {
   return true;
 }
@@ -71,7 +73,7 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
       }
     }
     unsigned long counter = counter_.fetch_and_increment();
-    fs::path  images_folder("images");
+    fs::path  images_folder(images_folder_);
     google::protobuf::uint64 delta = (google::protobuf::uint64)(std::chrono::duration_cast<std::chrono::microseconds>(data.timestamp - begin_).count());
 
     fs::path image_file("image_" + std::to_string(counter) + ".jpg");
