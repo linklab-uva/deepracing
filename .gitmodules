@@ -1,0 +1,3 @@
+[submodule "data-logger/third_party/tbb"]
+	path = data-logger/third_party/tbb
+	url = https://github.com/01org/tbb.git
