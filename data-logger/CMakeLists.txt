@@ -17,6 +17,8 @@ include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} )
 include_directories( include )
 
 add_subdirectory( proto )
+include_directories(${PROTOBUF_INCLUDE_DIR})
+include_directories(${ProtobufIncludePath})
 add_subdirectory( src/alglib )
 add_subdirectory( src/image_logging )
 add_subdirectory( src/udp_logging )
