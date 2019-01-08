@@ -6,7 +6,6 @@ message("Generated header: ${${PROJECT_NAME}_PROTO_HEADER}")
 set(ProtobufIncludePath ${CMAKE_CURRENT_BINARY_DIR}
     CACHE INTERNAL "Path to generated protobuf files.")
 
-
 add_library(${PROJECT_NAME}_proto ${${PROJECT_NAME}_PROTO_SRC})
 target_link_libraries(${PROJECT_NAME}_proto ${Protobuf_LIBRARIES})
 target_include_directories(${PROJECT_NAME}_proto PRIVATE ${ProtobufIncludePath})
