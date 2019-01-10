@@ -14,9 +14,10 @@
 namespace fs = boost::filesystem;
 namespace deepf1
 {
-MultiThreadedUDPHandler::MultiThreadedUDPHandler(std::string data_folder, unsigned int thread_count) : running_(false), counter_(1), thread_count_(thread_count)
+MultiThreadedUDPHandler::MultiThreadedUDPHandler(std::string data_folder, unsigned int thread_count)
+ : running_(false), counter_(1), thread_count_(thread_count), data_folder_(data_folder)
 {
-  fs::path df(data_folder);
+  fs::path df(data_folder_);
   if(not fs::is_directory(df))
   {
     fs::create_directories(df);
@@ -57,7 +58,7 @@ void MultiThreadedUDPHandler::workerFunc_()
       }
     }
     unsigned long counter = counter_.fetch_and_increment();
-    fs::path  udp_folder("udp_data");
+    fs::path  udp_folder(data_folder_);
     google::protobuf::uint64 delta = (google::protobuf::uint64)(std::chrono::duration_cast<std::chrono::microseconds>(data.timestamp - begin_).count());
 
 

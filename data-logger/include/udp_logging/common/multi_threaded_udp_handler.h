@@ -33,6 +33,7 @@ private:
   unsigned int thread_count_;
   tbb::atomic<unsigned long> counter_;
   std::mutex queue_mutex_;
+  std::string data_folder_;
 
   void workerFunc_();
 
