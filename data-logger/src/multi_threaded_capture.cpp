@@ -7,7 +7,7 @@
 #include "f1_datalogger.h"
 #include "image_logging/common/multi_threaded_framegrab_handler.h"
 #include "udp_logging/common/multi_threaded_udp_handler.h"
-#include "image_logging/utils/screencapture_lite_utils.h"
+//#include "image_logging/utils/screencapture_lite_utils.h"
 #include <iostream>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>

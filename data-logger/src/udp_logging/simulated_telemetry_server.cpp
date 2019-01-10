@@ -8,29 +8,29 @@
 
 
 #include "car_data/car_data.h"
+#include <boost/program_options.hpp>
 #include <iostream>
-#include <boost/array.hpp>
 #include <boost/asio.hpp>
 #include <memory>
-#include <boost/program_options.hpp>
 #include <thread>
-using boost::asio::ip::udp;
-using namespace deepf1;
-namespace po = boost::program_options;
 int main(int argc, char** argv) {
+	using boost::asio::ip::udp;
+	using namespace deepf1;
+	namespace po = boost::program_options;
         unsigned int BUFLEN = 1289;
         unsigned int UDP_BUFLEN = BUFLEN;
         unsigned int sleep_time;
         unsigned int packet_size = sizeof(UDPPacket);
-        std::string address, port;
-        po::options_description desc("Allowed Options");
+
+		std::string address, port;
+		po::options_description desc("Allowed Options");
         desc.add_options()
                 ("help,h", "Displays options and exits")
                 ("address,a", po::value<std::string>(&address)->default_value("127.0.0.1"), "IPv4 Address to send data to")
                 ("port_number,p", po::value<std::string>(&port)->default_value("20777"), "Port number to send data to")
                 ("sleep_time,s", po::value<unsigned int>(&sleep_time)->default_value(100), "Number of milliseconds to sleep between simulated packets")
                 ;
-        po::variables_map vm;
+		    po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, desc), vm);
         po::notify(vm);
         if (vm.find("help") != vm.end()) {
@@ -62,4 +62,5 @@ int main(int argc, char** argv) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
         }
         return 0;
+		/* */
 }

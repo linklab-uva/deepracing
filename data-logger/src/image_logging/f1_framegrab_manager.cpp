@@ -7,7 +7,9 @@
 
 #include "image_logging/f1_framegrab_manager.h"
 #include "image_logging/utils/opencv_utils.h"
-#include "image_logging/utils/screencapture_lite_utils.h"
+//#include "image_logging/utils/screencapture_lite_utils.h"
+#include <algorithm>
+#include <iostream>
 namespace scl = SL::Screen_Capture;
 namespace deepf1
 {
@@ -15,8 +17,7 @@ scl::Window findWindow(const std::string& search_string)
 {
   std::string srchterm(search_string);
   // convert to lower case for easier comparisons
-  std::transform(srchterm.begin(), srchterm.end(), srchterm.begin(), [](char c)
-  { return std::tolower(c, std::locale());});
+  std::transform(srchterm.begin(), srchterm.end(), srchterm.begin(), ::tolower);
   std::vector<scl::Window> filtereditems;
 
   std::vector<scl::Window> windows = SL::Screen_Capture::GetWindows(); // @suppress("Function cannot be resolved")
@@ -24,8 +25,7 @@ scl::Window findWindow(const std::string& search_string)
   {
     scl::Window a = windows[i];
     std::string name = a.Name;
-    std::transform(name.begin(), name.end(), name.begin(), [](char c)
-    { return std::tolower(c, std::locale());});
+	std::transform(name.begin(), name.end(), name.begin(), ::tolower);
     if (name.find(srchterm) != std::string::npos)
     {
       filtereditems.push_back(a);

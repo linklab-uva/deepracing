@@ -6,7 +6,7 @@
  */
 
 #include "f1_datalogger.h"
-#include "image_logging/utils/screencapture_lite_utils.h"
+//#include "image_logging/utils/screencapture_lite_utils.h"
 #include <iostream>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
