@@ -13,32 +13,41 @@
 #include <boost/asio.hpp>
 #include <memory>
 #include <thread>
+namespace po = boost::program_options;
+void exit_with_help(po::options_description& desc)
+{
+        std::stringstream ss;
+        ss << "F1 Simulated Telemetry Server. Command line arguments are as follows:" << std::endl;
+        desc.print(ss);
+        std::printf("%s", ss.str().c_str());
+        exit(0); // @suppress("Invalid arguments")
+}
 int main(int argc, char** argv) {
 	using boost::asio::ip::udp;
 	using namespace deepf1;
-	namespace po = boost::program_options;
         unsigned int BUFLEN = 1289;
         unsigned int UDP_BUFLEN = BUFLEN;
         unsigned int sleep_time;
         unsigned int packet_size = sizeof(UDPPacket);
 
-		std::string address, port;
-		po::options_description desc("Allowed Options");
-        desc.add_options()
+        std::string address, port;
+        po::options_description desc("Allowed Options");
+	
+        try{
+                desc.add_options()
                 ("help,h", "Displays options and exits")
                 ("address,a", po::value<std::string>(&address)->default_value("127.0.0.1"), "IPv4 Address to send data to")
                 ("port_number,p", po::value<std::string>(&port)->default_value("20777"), "Port number to send data to")
                 ("sleep_time,s", po::value<unsigned int>(&sleep_time)->default_value(100), "Number of milliseconds to sleep between simulated packets")
                 ;
-		    po::variables_map vm;
-        po::store(po::parse_command_line(argc, argv, desc), vm);
-        po::notify(vm);
-        if (vm.find("help") != vm.end()) {
-                std::stringstream ss;
-                ss << "F1 Simulated Telemetry Server. Command line arguments are as follows:" << std::endl;
-                desc.print(ss);
-                std::printf("%s", ss.str().c_str());
-                exit(0); // @suppress("Invalid arguments")
+	        po::variables_map vm;
+                po::store(po::parse_command_line(argc, argv, desc), vm);
+                po::notify(vm);
+                if (vm.find("help") != vm.end()) {
+                        exit_with_help(desc);
+                }
+        }catch(boost::exception& e){
+                exit_with_help(desc);
         }
         boost::asio::io_service io_service;
         udp::resolver resolver(io_service);
