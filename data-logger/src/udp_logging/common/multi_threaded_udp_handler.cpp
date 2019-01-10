@@ -18,7 +18,7 @@ MultiThreadedUDPHandler::MultiThreadedUDPHandler(std::string data_folder, unsign
  : running_(false), counter_(1), thread_count_(thread_count), data_folder_(data_folder)
 {
   fs::path df(data_folder_);
-  if(not fs::is_directory(df))
+  if(!fs::is_directory(df))
   {
     fs::create_directories(df);
   }
@@ -83,7 +83,7 @@ void MultiThreadedUDPHandler::init(const std::string& host, unsigned int port, c
   running_ = true;
   queue_.reset(new tbb::concurrent_queue<TimestampedUDPData>);
   thread_pool_.reset(new tbb::task_group);
-  for(int i = 0; i < thread_count_; i ++)
+  for(unsigned int i = 0; i < thread_count_; i ++)
   {
     thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler::workerFunc_,this));
   }

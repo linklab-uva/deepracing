@@ -19,7 +19,7 @@ MultiThreadedFrameGrabHandler::MultiThreadedFrameGrabHandler(std::string images_
 : running_(false), counter_(1), images_folder_(images_folder)
 {
   fs::path imf(images_folder_);
-  if(not fs::is_directory(imf))
+  if(!fs::is_directory(imf))
   {
     fs::create_directories(imf);
   }
@@ -49,7 +49,7 @@ void MultiThreadedFrameGrabHandler::init(const std::chrono::high_resolution_cloc
   running_ = true;
   queue_.reset(new tbb::concurrent_queue<TimestampedImageData>);
   thread_pool_.reset(new tbb::task_group);
-  for(int i = 0; i < thread_count_; i ++)
+  for(unsigned int i = 0; i < thread_count_; i ++)
   {
     thread_pool_->run(std::bind(&MultiThreadedFrameGrabHandler::workerFunc_,this));
   }

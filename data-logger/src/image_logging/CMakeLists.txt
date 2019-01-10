@@ -13,6 +13,6 @@ common/multi_threaded_framegrab_handler.cpp
 )
 add_library(${PROJECT_NAME}_image_logging ${${PROJECT_NAME}_image_logging_src})
 #target_include_directories(${PROJECT_NAME}_image_logging PRIVATE ${ProtobufIncludePath} ${PROTOBUF_INCLUDE_DIR})
-target_link_libraries(${PROJECT_NAME}_image_logging ${PROJECT_NAME}_utils ${PROJECT_NAME}_proto ${TBB_IMPORTED_TARGETS})
+target_link_libraries(${PROJECT_NAME}_image_logging ${PROJECT_NAME}_utils ${PROJECT_NAME}_proto ${TBB_IMPORTED_TARGETS} ${Boost_LIBRARIES})
 
 

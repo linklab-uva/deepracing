@@ -1,4 +1,3 @@
-set(THIRD_PARTY_REPOS ${CMAKE_SOURCE_DIR}/third_party)
 include(${THIRD_PARTY_REPOS}/tbb/cmake/TBBGet.cmake)
 include(${THIRD_PARTY_REPOS}/tbb/cmake/TBBBuild.cmake)
 set(tbb_root ${THIRD_PARTY_REPOS}/tbb)

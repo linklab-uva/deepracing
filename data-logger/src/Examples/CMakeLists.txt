@@ -8,5 +8,6 @@ ${PROJECT_NAME}_udp_logging
 ${screen_capture_lite_LIBRARIES}
 ${screen_capture_lite_PLATFORM_LIBS}
 ${PROJECT_NAME}_proto
-tbb
+${Boost_LIBRARIES}
+${TBB_IMPORTED_TARGETS}
 )
