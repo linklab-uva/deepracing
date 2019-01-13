@@ -62,24 +62,24 @@ void MultiThreadedUDPHandler::workerFunc_()
     google::protobuf::uint64 delta = (google::protobuf::uint64)(std::chrono::duration_cast<std::chrono::microseconds>(data.timestamp - begin_).count());
 
 
-
     deepf1::protobuf::F1UDPData udp_pb;
-    udp_pb.set_brake(data.data.m_brake);
-    udp_pb.set_logger_time(delta);
-    udp_pb.set_game_lap_time(data.data.m_lapTime);
     udp_pb.set_game_time(data.data.m_time);
+    udp_pb.set_game_lap_time(data.data.m_lapTime);
+    udp_pb.set_logger_time(delta);
     udp_pb.set_steering(data.data.m_steer);
     udp_pb.set_throttle(data.data.m_throttle);
+    udp_pb.set_brake(data.data.m_brake);
     fs::path pb_file("udp_packet_" + std::to_string(counter) + ".pb");
     std::string pb_fn = (udp_folder / pb_file).string();
     std::ofstream ostream(pb_fn.c_str());
     udp_pb.SerializeToOstream(&ostream);
+    ostream.flush();
     ostream.close();
   }
 }
 void MultiThreadedUDPHandler::init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin)
 {
-  begin_ = begin;
+  begin_ = std::chrono::high_resolution_clock::time_point(begin);
   running_ = true;
   queue_.reset(new tbb::concurrent_queue<TimestampedUDPData>);
   thread_pool_.reset(new tbb::task_group);
