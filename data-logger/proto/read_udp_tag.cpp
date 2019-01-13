@@ -15,7 +15,6 @@ void exit_with_help(po::options_description& desc)
 }
 int main(int argc, char** argv)
 {
-    std::cout<<"Hello World!"<<std::endl;
     std::string file_in;
     po::options_description desc("Allowed Options");
     try{
@@ -43,7 +42,6 @@ int main(int argc, char** argv)
     deepf1::protobuf::F1UDPData data_in;
     data_in.ParseFromIstream(&stream_in);
     stream_in.close();
-    std::string data_string = data_in.DebugString();
-    printf("Data: \n%s",data_string.c_str());
-   // printf("Read some data. Brake: %f. Throttle: %f. Steering: %f\n", data_in.brake(), data_in.throttle(), data_in.steering());
+    printf("Game Time: %f\nGame Lap Time: %f\nLogger Time: %ld\nBrake: %f\nThrottle: %f\nSteering: %f\n",
+     data_in.game_time(), data_in.game_lap_time(), data_in.logger_time(), data_in.brake(), data_in.throttle(), data_in.steering());
 }
