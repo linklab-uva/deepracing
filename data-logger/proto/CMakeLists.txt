@@ -17,3 +17,12 @@ add_executable(protobuf_test protobuf_test.cpp)
 target_include_directories(protobuf_test PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
 target_link_libraries(protobuf_test ${PROJECT_NAME}_proto)
 
+add_executable(${PROJECT_NAME}_read_image_tag read_image_tag.cpp)
+target_include_directories(${PROJECT_NAME}_read_image_tag PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
+target_link_libraries(${PROJECT_NAME}_read_image_tag ${PROJECT_NAME}_proto ${Boost_LIBRARIES})
+
+add_executable(${PROJECT_NAME}_read_udp_tag read_udp_tag.cpp)
+target_include_directories(${PROJECT_NAME}_read_udp_tag PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
+target_link_libraries(${PROJECT_NAME}_read_udp_tag ${PROJECT_NAME}_proto ${Boost_LIBRARIES})
+
+
