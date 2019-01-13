@@ -1,16 +1,19 @@
 project(f1_datalogger)
 cmake_minimum_required (VERSION 3.10 FATAL_ERROR)
-set(CMAKE_CXX_STANDARD 11)
+
+if(WIN32)
+    set(cxx_standard 11)
+    option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
+else()
+    set(cxx_standard 14)
+    option(BUILD_SHARED_LIBS "Build Shared Libraries" ON)
+endif()
+
+set(CMAKE_CXX_STANDARD ${cxx_standard})
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 set(THIRD_PARTY_REPOS ${CMAKE_SOURCE_DIR}/third_party)
 option(CMAKE_BUILD_TYPE "Build Type" Release)
-
-if(WIN32)
-    option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
-else()
-    option(BUILD_SHARED_LIBS "Build Shared Libraries" ON)
-endif()
 
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
