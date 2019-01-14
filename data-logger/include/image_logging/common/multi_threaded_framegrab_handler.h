@@ -22,6 +22,7 @@ public:
   inline bool isReady() override;
   void handleData(const TimestampedImageData& data) override;
   void init(const std::chrono::high_resolution_clock::time_point& begin, const cv::Size& window_size) override;
+  const std::string getImagesFolder() const;
 private:
   std::shared_ptr< tbb::concurrent_queue<TimestampedImageData> >queue_;
   std::shared_ptr< tbb::task_group >  thread_pool_ ;

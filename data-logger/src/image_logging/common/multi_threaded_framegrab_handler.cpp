@@ -92,5 +92,8 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
     ostream.close();
   }
 }
-
+const std::string MultiThreadedFrameGrabHandler::getImagesFolder() const
+{
+  return images_folder_;
+}
 } /* namespace deepf1 */
