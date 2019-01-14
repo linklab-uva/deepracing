@@ -45,7 +45,7 @@ void MultiThreadedFrameGrabHandler::handleData(const TimestampedImageData& data)
 void MultiThreadedFrameGrabHandler::init(const std::chrono::high_resolution_clock::time_point& begin,
                                          const cv::Size& window_size)
 {
-  begin_ = begin;
+  begin_ = std::chrono::high_resolution_clock::time_point(begin);
   running_ = true;
   queue_.reset(new tbb::concurrent_queue<TimestampedImageData>);
   thread_pool_.reset(new tbb::task_group);
@@ -75,6 +75,7 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
     unsigned long counter = counter_.fetch_and_increment();
     fs::path  images_folder(images_folder_);
     google::protobuf::uint64 delta = (google::protobuf::uint64)(std::chrono::duration_cast<std::chrono::microseconds>(data.timestamp - begin_).count());
+	std::cout << "Got some image data. Clock Delta = " << delta << std::endl;
 
     fs::path image_file("image_" + std::to_string(counter) + ".jpg");
     std::string fn = (images_folder / image_file).string();

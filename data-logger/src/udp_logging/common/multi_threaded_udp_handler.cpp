@@ -60,7 +60,7 @@ void MultiThreadedUDPHandler::workerFunc_()
     unsigned long counter = counter_.fetch_and_increment();
     fs::path  udp_folder(data_folder_);
     google::protobuf::uint64 delta = (google::protobuf::uint64)(std::chrono::duration_cast<std::chrono::microseconds>(data.timestamp - begin_).count());
-
+	std::cout << "Got some udp data. Clock Delta = " << delta << std::endl;
 
     deepf1::protobuf::F1UDPData udp_pb;
     udp_pb.set_game_time(data.data.m_time);
