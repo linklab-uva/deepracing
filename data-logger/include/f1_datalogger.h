@@ -19,6 +19,8 @@ public:
   virtual ~F1DataLogger();
 
   void start(double capture_frequency = 15.0);
+
+  const std::chrono::high_resolution_clock::time_point getStart() const;
 private:
   std::shared_ptr<F1FrameGrabManager> frame_grab_manager_;
   std::shared_ptr<F1DataGrabManager> data_grab_manager_;

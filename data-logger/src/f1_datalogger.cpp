@@ -38,4 +38,9 @@ void F1DataLogger::start(double capture_frequency)
   data_grab_manager_->start();
 }
 
+const std::chrono::high_resolution_clock::time_point F1DataLogger::getStart() const
+{
+	return begin_;
+}
+
 } /* namespace deepf1 */
