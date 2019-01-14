@@ -24,6 +24,7 @@ public:
   void handleData(const deepf1::TimestampedUDPData& data) override;
   bool isReady() override;
   void init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin) override;
+  const std::string getDataFolder() const;
 
 private:
   std::shared_ptr< tbb::concurrent_queue<TimestampedUDPData> > queue_;
@@ -33,7 +34,7 @@ private:
   unsigned int thread_count_;
   tbb::atomic<unsigned long> counter_;
   std::mutex queue_mutex_;
-  std::string data_folder_;
+  const std::string data_folder_;
 
   void workerFunc_();
 

@@ -12,13 +12,14 @@
 #include <opencv2/imgproc.hpp>
 #include <sstream>
 #include <boost/program_options.hpp>
-
+#include <yaml-cpp/yaml.h>
+#include <fstream>
 namespace scl = SL::Screen_Capture;
 namespace po = boost::program_options;
 void exit_with_help(po::options_description& desc)
 {
         std::stringstream ss;
-        ss << "F1 Simulated Telemetry Server. Command line arguments are as follows:" << std::endl;
+        ss << "F1 Datalogger Multithreaded Capture. Command line arguments are as follows:" << std::endl;
         desc.print(ss);
         std::printf("%s", ss.str().c_str());
         exit(0); // @suppress("Invalid arguments")
@@ -60,12 +61,30 @@ int main(int argc, char** argv)
   std::cout<<"Creating handlers" <<std::endl;
   std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler(images_folder, image_threads));
   std::shared_ptr<deepf1::MultiThreadedUDPHandler> udp_handler(new deepf1::MultiThreadedUDPHandler(udp_folder, udp_threads));
+
+
   std::cout<<"Creating DataLogger" <<std::endl;
   deepf1::F1DataLogger dl(search, frame_handler, udp_handler);
   std::cout<<"Created DataLogger" <<std::endl;
   std::string inp;
   std::cout<<"Enter any key to start " << std::endl;
   std::cin >> inp;
+
+
+  std::ofstream config_out_stream;
+  config_out_stream.open ("config.yaml", std::ofstream::out);
+  YAML::Emitter config_out;
+  config_out << YAML::BeginMap;
+  config_out << YAML::Key << "images_folder";
+  config_out << YAML::Value << frame_handler->getImagesFolder();
+  config_out << YAML::Key << "udp_folder";
+  config_out << YAML::Value << udp_handler->getDataFolder();
+  config_out << YAML::EndMap;
+  
+  std::cout<<"Using the following config information:"<<std::endl<<config_out.c_str()<<std::endl;
+  config_out_stream<<config_out.c_str();
+  config_out_stream.close();
+
   dl.start(25.0);
 
   std::cout<<"Enter any key to end " << std::endl;

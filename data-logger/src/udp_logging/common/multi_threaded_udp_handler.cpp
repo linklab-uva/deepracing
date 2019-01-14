@@ -88,5 +88,8 @@ void MultiThreadedUDPHandler::init(const std::string& host, unsigned int port, c
     thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler::workerFunc_,this));
   }
 }
-
+const std::string MultiThreadedUDPHandler::getDataFolder() const
+{
+  return data_folder_;
+}
 } /* namespace deepf1 */

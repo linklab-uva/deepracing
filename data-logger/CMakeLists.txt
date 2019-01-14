@@ -5,7 +5,7 @@ option(BUILD_SHARED_LIBS "Build Shared Libraries (EXPERIMENTAL)" OFF)
 if(MSVC)
     set(cxx_standard 11)
 else()
-    set(cxx_standard 14)
+    set(cxx_standard 17)
 endif()
 
 set(CMAKE_CXX_STANDARD ${cxx_standard})
@@ -38,6 +38,11 @@ message("Found Boost libraries: ${Boost_LIBRARIES}")
 
 find_package( OpenCV REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} )
+
+
+find_package(yaml-cpp REQUIRED)
+message("Found yaml-cpp include dir: ${YAML_CPP_INCLUDE_DIR}")
+message("Found yaml-cpp libraries: ${YAML_CPP_LIBRARIES}")
 
 if(MSVC)
     message("Getting TBB")

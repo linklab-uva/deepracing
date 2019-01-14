@@ -23,4 +23,5 @@ ${screen_capture_lite_PLATFORM_LIBS}
 ${PROJECT_NAME}_proto
 ${Boost_LIBRARIES}
 ${TBB_IMPORTED_TARGETS}
+${YAML_CPP_LIBRARIES}
 )
