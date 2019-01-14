@@ -37,10 +37,13 @@ message("Found Boost libraries: ${Boost_LIBRARIES}")
 
 
 find_package( OpenCV REQUIRED )
-include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} )
 
-
+if(MSVC)
+find_package(yaml-cpp REQUIRED HINTS "C:\\Program\ Files\\YAML_CPP")
+else()
 find_package(yaml-cpp REQUIRED)
+include_directories(${YAML_CPP_INCLUDE_DIR})
+endif()
 message("Found yaml-cpp include dir: ${YAML_CPP_INCLUDE_DIR}")
 message("Found yaml-cpp libraries: ${YAML_CPP_LIBRARIES}")
 
@@ -55,6 +58,7 @@ else()
 endif()
 
 include_directories( include )
+include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${YAML_CPP_INCLUDE_DIR})
 
 add_subdirectory( proto )
 
