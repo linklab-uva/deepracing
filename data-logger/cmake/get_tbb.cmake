@@ -1,0 +1,5 @@
+include(${THIRD_PARTY_REPOS}/tbb/cmake/TBBGet.cmake)
+tbb_get(TBB_ROOT tbb_root CONFIG_DIR TBB_DIR SYSTEM_NAME Windows)
+find_package(TBB REQUIRED COMPONENTS tbb)
+message("Unpacked TBB to : ${tbb_root}")
+message("TBB Configuration at : ${TBB_DIR}")
