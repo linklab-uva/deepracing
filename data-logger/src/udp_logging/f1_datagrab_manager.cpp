@@ -16,8 +16,8 @@ F1DataGrabManager::F1DataGrabManager(std::shared_ptr<std::chrono::high_resolutio
                                      const unsigned int port) :
     socket_(io_service_), running_(true)
 {
-  socket_.open(udp::v4());
-  socket_.bind(udp::endpoint(address::from_string(host), port));
+  socket_.open(boost::asio::ip::udp::v4());
+  socket_.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(host), port));
   data_handler_ = handler;
   rcv_buffer_.reset(new UDPPacket);
   clock_ = clock;
