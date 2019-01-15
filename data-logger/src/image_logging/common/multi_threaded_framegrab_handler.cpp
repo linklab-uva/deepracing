@@ -75,7 +75,7 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
     unsigned long counter = counter_.fetch_and_increment();
     fs::path  images_folder(images_folder_);
     google::protobuf::uint64 delta = (google::protobuf::uint64)(std::chrono::duration_cast<std::chrono::microseconds>(data.timestamp - begin_).count());
-	std::cout << "Got some image data. Clock Delta = " << delta << std::endl;
+	  //std::cout << "Got some image data. Clock Delta = " << delta << std::endl;
 
     fs::path image_file("image_" + std::to_string(counter) + ".jpg");
     std::string fn = (images_folder / image_file).string();
