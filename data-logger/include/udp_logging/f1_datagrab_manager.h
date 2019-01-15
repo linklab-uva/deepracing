@@ -12,8 +12,6 @@
 #include <memory>
 #include "udp_logging/f1_datagrab_handler.h"
 #include <chrono>
-using boost::asio::ip::udp;
-using boost::asio::ip::address;
 namespace deepf1
 {
 
@@ -29,8 +27,8 @@ public:
   void stop();
 private:
   boost::asio::io_service io_service_;
-  udp::socket socket_;
-  udp::endpoint remote_endpoint_;
+  boost::asio::ip::udp::socket socket_;
+  boost::asio::ip::udp::endpoint remote_endpoint_;
   std::thread run_thread_;
   std::shared_ptr<IF1DatagrabHandler> data_handler_;
   bool running_;
