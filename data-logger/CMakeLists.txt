@@ -79,6 +79,7 @@ target_link_libraries(${PROJECT_NAME}
 ${PROJECT_NAME}_image_logging 
 ${PROJECT_NAME}_udp_logging 
 ${PROJECT_NAME}_proto 
+${PROJECT_NAME}_math_utils 
 ${Boost_LIBRARIES}
 )
 
@@ -106,7 +107,7 @@ install(TARGETS ${install_targets}
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
 )
-install(DIRECTORY include/ 
-    DESTINATION include/${PROJECT_NAME}
+install(DIRECTORY include/${PROJECT_NAME}
+    DESTINATION include
     FILES_MATCHING PATTERN "*.h"
 )

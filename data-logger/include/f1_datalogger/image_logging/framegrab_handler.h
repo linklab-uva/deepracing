@@ -7,7 +7,7 @@
 
 #ifndef INCLUDE_IMAGE_LOGGING_FRAMEGRAB_HANDLER_H_
 #define INCLUDE_IMAGE_LOGGING_FRAMEGRAB_HANDLER_H_
-#include "car_data/timestamped_image_data.h"
+#include "f1_datalogger/car_data/timestamped_image_data.h"
 namespace deepf1
 {
 

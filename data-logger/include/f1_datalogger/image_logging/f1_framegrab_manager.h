@@ -7,7 +7,7 @@
 
 #ifndef INCLUDE_IMAGE_LOGGING_F1_FRAMEGRAB_MANAGER_H_
 #define INCLUDE_IMAGE_LOGGING_F1_FRAMEGRAB_MANAGER_H_
-#include "image_logging/framegrab_handler.h"
+#include "f1_datalogger/image_logging/framegrab_handler.h"
 #include <ScreenCapture.h>
 #include <chrono>
 namespace deepf1

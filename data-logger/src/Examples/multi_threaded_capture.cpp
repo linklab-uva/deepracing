@@ -4,9 +4,9 @@
  *  Created on: Dec 6, 2018
  *      Author: ttw2xk
  */
-#include "f1_datalogger.h"
-#include "image_logging/common/multi_threaded_framegrab_handler.h"
-#include "udp_logging/common/multi_threaded_udp_handler.h"
+#include "f1_datalogger/f1_datalogger.h"
+#include "f1_datalogger/image_logging/common/multi_threaded_framegrab_handler.h"
+#include "f1_datalogger/udp_logging/common/multi_threaded_udp_handler.h"
 #include <iostream>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
