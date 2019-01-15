@@ -5,12 +5,11 @@
  *      Author: ttw2xk
  */
 
-#include <udp_logging/common/multi_threaded_udp_handler.h>
+#include "udp_logging/common/multi_threaded_udp_handler.h"
+#include "F1UDPData.pb.h"
 #include <functional>
 #include <boost/filesystem.hpp>
 #include <iostream>
-#include "F1UDPData.pb.h"
-#include <thread>
 namespace fs = boost::filesystem;
 namespace deepf1
 {
@@ -34,7 +33,7 @@ void MultiThreadedUDPHandler::handleData(const deepf1::TimestampedUDPData& data)
   queue_->push(data);
 }
 
-bool MultiThreadedUDPHandler::isReady()
+inline bool MultiThreadedUDPHandler::isReady()
 {
   return true;
 }
