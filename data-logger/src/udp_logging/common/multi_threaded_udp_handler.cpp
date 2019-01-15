@@ -43,7 +43,7 @@ void MultiThreadedUDPHandler::workerFunc_()
 {
 
   std::cout<<"Spawned a worker thread to log udp data" <<std::endl;
-  while(running_)
+  while(running_ || !queue_->empty())
   {
     if(queue_->empty())
     {

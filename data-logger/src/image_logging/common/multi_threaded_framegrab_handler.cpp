@@ -58,7 +58,7 @@ void MultiThreadedFrameGrabHandler::init(const std::chrono::high_resolution_cloc
 void MultiThreadedFrameGrabHandler::workerFunc_()
 {
   std::cout<<"Spawned a worker thread to log images" <<std::endl;
-  while(running_)
+  while( running_ || !queue_->empty() )
   {
     TimestampedImageData data;
     {
