@@ -22,7 +22,7 @@ public:
   MultiThreadedUDPHandler(std::string data_folder = "udp_data", unsigned int thread_count = 5);
   virtual ~MultiThreadedUDPHandler();
   void handleData(const deepf1::TimestampedUDPData& data) override;
-  bool isReady() override;
+  inline bool isReady() override;
   void init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin) override;
   const std::string getDataFolder() const;
 

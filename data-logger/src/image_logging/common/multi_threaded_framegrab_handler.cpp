@@ -6,9 +6,9 @@
  */
 
 #include "image_logging/common/multi_threaded_framegrab_handler.h"
-#include "opencv2/imgcodecs.hpp"
-#include <iostream>
 #include "TimestampedImage.pb.h"
+#include <opencv2/imgcodecs.hpp>
+#include <iostream>
 #include <fstream>
 #include <boost/filesystem.hpp>
 namespace fs = boost::filesystem;
