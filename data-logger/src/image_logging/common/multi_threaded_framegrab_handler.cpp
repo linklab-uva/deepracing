@@ -29,7 +29,6 @@ MultiThreadedFrameGrabHandler::MultiThreadedFrameGrabHandler(std::string images_
 MultiThreadedFrameGrabHandler::~MultiThreadedFrameGrabHandler()
 {
   running_ = false;
-  thread_pool_->cancel();
 }
 
 inline bool MultiThreadedFrameGrabHandler::isReady()
