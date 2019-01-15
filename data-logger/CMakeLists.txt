@@ -84,3 +84,29 @@ ${Boost_LIBRARIES}
 
 
 add_subdirectory( src/Examples )
+
+
+set(install_targets
+#libraries
+${PROJECT_NAME}_image_logging 
+${PROJECT_NAME}_udp_logging 
+${PROJECT_NAME}_proto 
+${PROJECT_NAME}_math_utils 
+${PROJECT_NAME}
+#executables
+${PROJECT_NAME}_simulated_telemetry_server 
+${PROJECT_NAME}_read_image_tag 
+${PROJECT_NAME}_read_udp_tag 
+${PROJECT_NAME}_multithreaded_capture_example 
+${PROJECT_NAME}_cv_viewer_example 
+)
+
+install(TARGETS ${install_targets}
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+)
+install(DIRECTORY include/ 
+    DESTINATION include/${PROJECT_NAME}
+    FILES_MATCHING PATTERN "*.h"
+)
