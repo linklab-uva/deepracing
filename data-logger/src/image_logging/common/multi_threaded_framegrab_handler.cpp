@@ -5,7 +5,7 @@
  *      Author: ttw2xk
  */
 
-#include "image_logging/common/multi_threaded_framegrab_handler.h"
+#include "f1_datalogger/image_logging/common/multi_threaded_framegrab_handler.h"
 #include "TimestampedImage.pb.h"
 #include <opencv2/imgcodecs.hpp>
 #include <iostream>

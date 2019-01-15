@@ -5,8 +5,8 @@
  *      Author: ttw2xk
  */
 
-#include "image_logging/f1_framegrab_manager.h"
-#include "image_logging/utils/opencv_utils.h"
+#include "f1_datalogger/image_logging/f1_framegrab_manager.h"
+#include "f1_datalogger/image_logging/utils/opencv_utils.h"
 //#include "image_logging/utils/screencapture_lite_utils.h"
 #include <algorithm>
 #include <iostream>

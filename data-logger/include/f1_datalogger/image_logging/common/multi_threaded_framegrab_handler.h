@@ -7,7 +7,7 @@
 
 #ifndef INCLUDE_IMAGE_LOGGING_COMMON_MULTI_THREADED_FRAMEGRAB_HANDLER_H_
 #define INCLUDE_IMAGE_LOGGING_COMMON_MULTI_THREADED_FRAMEGRAB_HANDLER_H_
-#include "image_logging/framegrab_handler.h"
+#include "f1_datalogger/image_logging/framegrab_handler.h"
 #include <tbb/concurrent_queue.h>
 #include <tbb/task_group.h>
 #include <mutex>
