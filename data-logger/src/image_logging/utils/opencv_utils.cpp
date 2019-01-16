@@ -18,14 +18,21 @@ OpenCVUtils::OpenCVUtils()
 OpenCVUtils::~OpenCVUtils()
 {
 }
-cv::Mat OpenCVUtils::toCV(const scl::Image& image_scl)
+cv::Mat OpenCVUtils::toCV(const scl::Image& image_scl, const scl::Point& size)
 {
   cv::Mat rtn;
-  unsigned int height = scl::Height(image_scl);
-  unsigned int width = scl::Width(image_scl);
+  unsigned int height, width;
+  if( size.y == 0 || size.x==0 )
+  {
+    height = scl::Height(image_scl);
+    width = scl::Width(image_scl);
+  }else
+  {
+    height = size.y;
+    width = size.x;
+  }
   rtn.create(height, width, CV_8UC4);
-  unsigned int pixel_size = sizeof(scl::ImageBGRA);
-  scl::Extract(image_scl, rtn.data, height * width * pixel_size);
+  scl::Extract(image_scl, rtn.data, height * width * sizeof(scl::ImageBGRA));
   return rtn;
 }
 } /* namespace deepf1 */
