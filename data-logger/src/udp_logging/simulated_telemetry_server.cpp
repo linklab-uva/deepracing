@@ -66,8 +66,8 @@ int main(int argc, char** argv) {
         while (true) {
                 data->m_time = fake_time;
                 data->m_steer = sin(2*M_PI*freq*fake_time);
-                data->m_throttle = cos(2*M_PI*freq*fake_time);
-                data->m_brake = data->m_steer/data->m_throttle;
+                data->m_throttle = sin(2*M_PI*freq*fake_time + M_PI/3.0);
+                data->m_brake = sin(2*M_PI*freq*fake_time + 2.0*M_PI/3.0);
                 std::cout<<"Sending fake UDP data"<<std::endl;
                 // std::cout<<"fake_time: "<<fake_time<<std::endl;
                 // std::cout<<"Steering: "<<data->m_steer<<std::endl;
