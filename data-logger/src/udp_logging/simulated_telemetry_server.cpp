@@ -13,6 +13,7 @@
 #include <boost/asio.hpp>
 #include <memory>
 #include <thread>
+#include <math.h> 
 namespace po = boost::program_options;
 void exit_with_help(po::options_description& desc)
 {
@@ -58,14 +59,20 @@ int main(int argc, char** argv) {
 
 
         std::shared_ptr<UDPPacket> data(new UDPPacket);
-        data->m_steer = -0.5;
-        data->m_throttle = -0.25;
-        data->m_brake = 0.75;
         float fake_time = 0;
-        float dt = (float)sleep_time;
+        float dt = 1E-3*((float)sleep_time);
+        float period = 5.0;
+        float freq=1/period;
         while (true) {
-                std::cout<<"Sending fake UDP data"<<std::endl;
                 data->m_time = fake_time;
+                data->m_steer = sin(2*M_PI*freq*fake_time);
+                data->m_throttle = cos(2*M_PI*freq*fake_time);
+                data->m_brake = data->m_steer/data->m_throttle;
+                std::cout<<"Sending fake UDP data"<<std::endl;
+                // std::cout<<"fake_time: "<<fake_time<<std::endl;
+                // std::cout<<"Steering: "<<data->m_steer<<std::endl;
+                // std::cout<<"Throttle: "<<data->m_throttle<<std::endl;
+                // std::cout<<"B:rake "<<data->m_brake<<std::endl;
                 socket.send_to(boost::asio::buffer(boost::asio::buffer(data.get(), packet_size)), receiver_endpoint);
                 fake_time += dt;
                 std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
