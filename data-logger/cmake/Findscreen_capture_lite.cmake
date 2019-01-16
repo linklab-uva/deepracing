@@ -28,7 +28,7 @@ set(screen_capture_lite_HEADER_FILE "ScreenCapture.h")
 
 
 # Include dir
-message("Looking for ${screen_capture_lite_HEADER_FILE} in ${INCLUDE_SEARCH_PATHS}")
+message(STATUS "Looking for ${screen_capture_lite_HEADER_FILE} in ${INCLUDE_SEARCH_PATHS}")
 find_path(screen_capture_lite_INCLUDE_DIR
   NAMES ${screen_capture_lite_HEADER_FILE}
   PATHS ${INCLUDE_SEARCH_PATHS}
@@ -53,7 +53,7 @@ elseif(UNIX)
 else()
 endif()
 
-message("Looking for ${screen_capture_lite_LIBRARY_NAME} in ${LIBRARY_SEARCH_PATHS}")
+message(STATUS "Looking for ${screen_capture_lite_LIBRARY_NAME} in ${LIBRARY_SEARCH_PATHS}")
 # Finally the library itself
 find_library(screen_capture_lite_LIBRARY
   NAMES ${screen_capture_lite_LIBRARY_NAME}
