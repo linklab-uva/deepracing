@@ -21,18 +21,14 @@ OpenCVUtils::~OpenCVUtils()
 cv::Mat OpenCVUtils::toCV(const scl::Image& image_scl, const scl::Point& size)
 {
   cv::Mat rtn;
-  unsigned int height, width;
   if( size.y == 0 || size.x==0 )
   {
-    height = scl::Height(image_scl);
-    width = scl::Width(image_scl);
+    rtn.create(scl::Height(image_scl), scl::Width(image_scl), CV_8UC4);
   }else
   {
-    height = size.y;
-    width = size.x;
+    rtn.create(size.y, size.x, CV_8UC4);
   }
-  rtn.create(height, width, CV_8UC4);
-  scl::Extract(image_scl, rtn.data, height * width * sizeof(scl::ImageBGRA));
+  scl::Extract(image_scl, rtn.data, rtn.rows * rtn.cols * sizeof(scl::ImageBGRA));
   return rtn;
 }
 } /* namespace deepf1 */
