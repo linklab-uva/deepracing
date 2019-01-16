@@ -26,3 +26,18 @@ target_include_directories(${PROJECT_NAME}_read_udp_tag PRIVATE ${ProtobufInclud
 target_link_libraries(${PROJECT_NAME}_read_udp_tag ${PROJECT_NAME}_proto ${Boost_LIBRARIES})
 
 
+set(install_targets
+#libraries
+${PROJECT_NAME}_proto 
+#executables
+${PROJECT_NAME}_read_image_tag 
+${PROJECT_NAME}_read_udp_tag 
+)
+install(TARGETS ${install_targets}
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+)
+unset(install_targets)
+
+
