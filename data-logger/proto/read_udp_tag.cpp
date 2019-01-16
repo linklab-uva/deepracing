@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <boost/program_options.hpp>
+#include <google/protobuf/util/json_util.h>
 
 namespace po = boost::program_options;
 void exit_with_help(po::options_description& desc)
@@ -42,6 +43,7 @@ int main(int argc, char** argv)
     deepf1::protobuf::F1UDPData data_in;
     data_in.ParseFromIstream(&stream_in);
     stream_in.close();
-    printf("Game Time: %f\nGame Lap Time: %f\nLogger Time: %ld\nBrake: %f\nThrottle: %f\nSteering: %f\n",
-     data_in.game_time(), data_in.game_lap_time(), data_in.logger_time(), data_in.brake(), data_in.throttle(), data_in.steering());
+    std::string json;
+    google::protobuf::util::MessageToJsonString(data_in, &json);
+    printf("%s",json.c_str());
 }
