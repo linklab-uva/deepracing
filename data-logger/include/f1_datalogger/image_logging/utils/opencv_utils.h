@@ -17,7 +17,7 @@ class OpenCVUtils
 public:
   OpenCVUtils();
   virtual ~OpenCVUtils();
-  static cv::Mat toCV(const scl::Image& image_scl);
+  static cv::Mat toCV(const scl::Image& image_scl, const scl::Point& size = scl::Point() );
 };
 
 } /* namespace deepf1 */
