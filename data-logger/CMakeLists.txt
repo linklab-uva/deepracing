@@ -77,8 +77,10 @@ include_directories(${Protobuf_INCLUDE_DIR})
 include_directories(${ProtobufIncludePath})
 
 add_subdirectory( src/alglib )
+message(STATUS "ALGLIB_DIR: ${ALGLIB_DIR}")
 add_subdirectory( src/image_logging )
 add_subdirectory( src/udp_logging )
+add_subdirectory( src/post_processing )
 
 add_library(${PROJECT_NAME}
 src/f1_datalogger.cpp
@@ -87,7 +89,7 @@ target_link_libraries(${PROJECT_NAME}
 ${PROJECT_NAME}_image_logging 
 ${PROJECT_NAME}_udp_logging 
 ${PROJECT_NAME}_proto 
-${PROJECT_NAME}_math_utils 
+${PROJECT_NAME}_alglib 
 ${Boost_LIBRARIES}
 )
 
