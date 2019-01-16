@@ -15,3 +15,16 @@ common/multi_threaded_udp_handler.cpp
 add_library(${PROJECT_NAME}_udp_logging ${${PROJECT_NAME}_udp_logging_src})
 target_include_directories(${PROJECT_NAME}_udp_logging PRIVATE ${ProtobufIncludePath} ${PROTOBUF_INCLUDE_DIR})
 target_link_libraries(${PROJECT_NAME}_udp_logging ${PROJECT_NAME}_utils ${PROJECT_NAME}_proto ${TBB_IMPORTED_TARGETS} ${Boost_LIBRARIES})
+
+set(install_targets
+#executables.
+${PROJECT_NAME}_simulated_telemetry_server
+#libraries.
+${PROJECT_NAME}_udp_logging
+)
+install(TARGETS ${install_targets}
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+)
+unset(install_targets)

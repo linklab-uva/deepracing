@@ -26,3 +26,15 @@ ${Boost_LIBRARIES}
 ${TBB_IMPORTED_TARGETS}
 ${YAML_CPP_LIBRARIES}
 )
+
+set(install_targets
+#executables.
+${PROJECT_NAME}_multithreaded_capture_example
+${PROJECT_NAME}_cv_viewer_example
+)
+install(TARGETS ${install_targets}
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+)
+unset(install_targets)
