@@ -3,7 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <boost/program_options.hpp>
-
+#include <google/protobuf/util/json_util.h>
 namespace po = boost::program_options;
 void exit_with_help(po::options_description& desc)
 {
@@ -42,6 +42,7 @@ int main(int argc, char** argv)
     deepf1::protobuf::TimestampedImage data_in;
     data_in.ParseFromIstream(&stream_in);
     stream_in.close();
-    printf("Logger Time: %ld\nBrake: %s\n",
-     data_in.timestamp(), data_in.image_file().c_str());
+    std::string json;
+    google::protobuf::util::MessageToJsonString(data_in, &json);
+    printf("%s",json.c_str());
 }
