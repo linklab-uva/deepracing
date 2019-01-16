@@ -1,0 +1,8 @@
+syntax = "proto3";
+package deepf1.protobuf;
+message LabeledImage {
+  string image_file = 1;
+  float steering = 2;
+  float throttle = 3;
+  float brake = 4;
+}
