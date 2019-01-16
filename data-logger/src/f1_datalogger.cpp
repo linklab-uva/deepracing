@@ -21,7 +21,8 @@ F1DataLogger::F1DataLogger(const std::string& search_string, std::shared_ptr<IF1
   data_grab_manager_.reset(new F1DataGrabManager(clock_, data_grab_handler));
   std::cout<<"Created managers"<<std::endl;
   const scl::Window& window = frame_grab_manager_->getWindow();
-  cv::Size size(window.Size.x, window.Size.y);
+  cv::Size size(window.Size.y, window.Size.x);
+  std::cout<<"Got a Window of Size (H x W): " << std::endl << size << std::endl;
   frame_grab_handler->init(begin_, size);
   std::string host("127.0.0.1");
   data_grab_handler->init(host, 20777, begin_);
