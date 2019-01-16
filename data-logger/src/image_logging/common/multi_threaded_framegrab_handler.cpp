@@ -82,7 +82,7 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
 
 
     deepf1::protobuf::TimestampedImage tag;
-    tag.set_image_file(fn);
+    tag.set_image_file(image_file.string());
     tag.set_timestamp(delta);
     fs::path pb_file("image_" + std::to_string(counter) + ".pb");
 
