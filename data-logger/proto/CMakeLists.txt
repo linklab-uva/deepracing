@@ -9,16 +9,23 @@ message(STATUS "Linking against protobuf libraries: ${Protobuf_LIBRARIES}")
 set(ProtobufIncludePath ${CMAKE_CURRENT_BINARY_DIR}
     CACHE INTERNAL "Path to generated protobuf files.")
 file(MAKE_DIRECTORY ${ProtobufIncludePath}/${PROJECT_NAME}/proto/)
-foreach(protofile ${${PROJECT_NAME}_PROTO_HEADER})
-	message(STATUS ${protofile})
-	configure_file(${protofile} ${ProtobufIncludePath}/${PROJECT_NAME}/proto/ COPYONLY)
 
-	install(FILES ${protofile} DESTINATION include/${PROJECT_NAME}/proto)
-
-endforeach(protofile)
 add_library(${PROJECT_NAME}_proto ${${PROJECT_NAME}_PROTO_SRC})
 target_include_directories(${PROJECT_NAME}_proto PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
 target_link_libraries(${PROJECT_NAME}_proto ${Protobuf_LIBRARIES})
+
+foreach(protofile ${${PROJECT_NAME}_PROTO_HEADER})
+	message(STATUS ${protofile})
+##	configure_file(${protofile} ${ProtobufIncludePath}/${PROJECT_NAME}/proto/ COPYONLY)
+
+##	install(FILES ${protofile} DESTINATION include/${PROJECT_NAME}/proto)
+	add_custom_command(
+			TARGET ${PROJECT_NAME}_proto POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy
+					${protofile}
+					${ProtobufIncludePath}/${PROJECT_NAME}/proto/)
+
+endforeach(protofile)
 
 add_executable(protobuf_test protobuf_test.cpp)
 target_include_directories(protobuf_test PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
