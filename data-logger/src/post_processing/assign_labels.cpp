@@ -49,8 +49,8 @@ int main(int argc, char** argv)
 
 	std::printf("Got %lu udp data points.\n", udp_points.size());
 	std::printf("Got %lu image data points.\n", image_points.size());
-
-
+	std::vector<deepf1::protobuf::LabeledImage> labeled_images = 
+		 deepf1::post_processing::PostProcessingUtils::labelImages(udp_points,  image_points, 3);
 
 
 }
