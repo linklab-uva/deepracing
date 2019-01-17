@@ -14,6 +14,7 @@
 #include <memory>
 #include <thread>
 #include <math.h> 
+#include <boost/math/constants/constants.hpp>
 namespace po = boost::program_options;
 void exit_with_help(po::options_description& desc)
 {
@@ -63,11 +64,12 @@ int main(int argc, char** argv) {
         float dt = 1E-3*((float)sleep_time);
         float period = 5.0;
         float freq=1/period;
+		float pi = boost::math::constants::pi<float>();
         while (true) {
                 data->m_time = fake_time;
-                data->m_steer = sin(2*M_PI*freq*fake_time);
-                data->m_throttle = sin(2*M_PI*freq*fake_time + M_PI/3.0);
-                data->m_brake = sin(2*M_PI*freq*fake_time + 2.0*M_PI/3.0);
+                data->m_steer = sin(2*pi*freq*fake_time);
+                data->m_throttle = sin(2*pi*freq*fake_time + pi /3.0);
+                data->m_brake = sin(2*pi*freq*fake_time + 2.0*pi /3.0);
                 std::cout<<"Sending fake UDP data"<<std::endl;
                 // std::cout<<"fake_time: "<<fake_time<<std::endl;
                 // std::cout<<"Steering: "<<data->m_steer<<std::endl;
