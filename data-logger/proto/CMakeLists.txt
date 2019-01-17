@@ -18,12 +18,13 @@ foreach(protofile ${${PROJECT_NAME}_PROTO_HEADER})
 	message(STATUS ${protofile})
 ##	configure_file(${protofile} ${ProtobufIncludePath}/${PROJECT_NAME}/proto/ COPYONLY)
 
-##	install(FILES ${protofile} DESTINATION include/${PROJECT_NAME}/proto)
+	
 	add_custom_command(
 			TARGET ${PROJECT_NAME}_proto POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy
 					${protofile}
 					${ProtobufIncludePath}/${PROJECT_NAME}/proto/)
+    install(FILES ${protofile} DESTINATION include/${PROJECT_NAME}/proto)
 
 endforeach(protofile)
 
