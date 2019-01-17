@@ -1,6 +1,7 @@
 add_library(${PROJECT_NAME}_post_processing
 post_processing_utils.cpp
 )
+add_dependencies(${PROJECT_NAME}_post_processing protocopy)
 target_include_directories(${PROJECT_NAME}_post_processing PRIVATE ${ALGLIB_DIR}/..)
 target_link_libraries(${PROJECT_NAME}_post_processing 
 ${PROJECT_NAME}_proto 
@@ -11,6 +12,7 @@ ${Boost_LIBRARIES}
 add_executable(${PROJECT_NAME}_assign_labels
 assign_labels.cpp
 )
+add_dependencies(${PROJECT_NAME}_assign_labels protocopy)
 target_link_libraries(${PROJECT_NAME}_assign_labels 
 ${PROJECT_NAME}_post_processing
 ${Boost_LIBRARIES}
