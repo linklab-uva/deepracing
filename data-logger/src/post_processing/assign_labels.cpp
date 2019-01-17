@@ -5,6 +5,7 @@
 #include <chrono>
 #include <f1_datalogger/post_processing/post_processing_utils.h>
 #include <algorithm>
+#include <iostream>
 namespace po = boost::program_options;
 
 void exit_with_help(po::options_description& desc)
@@ -46,8 +47,8 @@ int main(int argc, char** argv)
 	std::vector<deepf1::protobuf::TimestampedImage> image_points = deepf1::post_processing::PostProcessingUtils::parseImageDirectory(image_folder);
 
 
-	std::printf("Got %d udp data points.\n", udp_points.size());
-	std::printf("Got %d image data points.\n", image_points.size());
+	std::printf("Got %lu udp data points.\n", udp_points.size());
+	std::printf("Got %lu image data points.\n", image_points.size());
 
 
 

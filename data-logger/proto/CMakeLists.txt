@@ -10,27 +10,35 @@ set(ProtobufIncludePath ${CMAKE_CURRENT_BINARY_DIR}
     CACHE INTERNAL "Path to generated protobuf files.")
 file(MAKE_DIRECTORY ${ProtobufIncludePath}/${PROJECT_NAME}/proto/)
 
+
 add_library(${PROJECT_NAME}_proto ${${PROJECT_NAME}_PROTO_SRC})
 target_include_directories(${PROJECT_NAME}_proto PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
 target_link_libraries(${PROJECT_NAME}_proto ${Protobuf_LIBRARIES})
 
-foreach(protofile ${${PROJECT_NAME}_PROTO_HEADER})
-	message(STATUS ${protofile})
-##	configure_file(${protofile} ${ProtobufIncludePath}/${PROJECT_NAME}/proto/ COPYONLY)
 
-	
-	add_custom_command(
-			TARGET ${PROJECT_NAME}_proto POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy
-					${protofile}
-					${ProtobufIncludePath}/${PROJECT_NAME}/proto/)
-    install(FILES ${protofile} DESTINATION include/${PROJECT_NAME}/proto)
+add_custom_target(protocopy)
+ #   COMMAND ${CMAKE_COMMAND} -E copy ${${PROJECT_NAME}_PROTO_HEADER} ${ProtobufIncludePath}/${PROJECT_NAME}/proto/
+#)
+add_dependencies(protocopy ${PROJECT_NAME}_proto)
+foreach(protoheader ${${PROJECT_NAME}_PROTO_HEADER})
+    message(STATUS ${protoheader})
+    get_filename_component(protoheader_name ${protoheader} NAME)
+    add_custom_command(TARGET protocopy PRE_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${protoheader}
+        ${ProtobufIncludePath}/${PROJECT_NAME}/proto/
+        BYPRODUCTS ${ProtobufIncludePath}/${PROJECT_NAME}/proto/${protoheader_name}       
+    )
+    install(FILES ${protoheader} DESTINATION include/${PROJECT_NAME}/proto)
+endforeach(protoheader)
 
-endforeach(protofile)
+
 
 add_executable(protobuf_test protobuf_test.cpp)
 target_include_directories(protobuf_test PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
 target_link_libraries(protobuf_test ${PROJECT_NAME}_proto)
+
+
 
 add_executable(${PROJECT_NAME}_read_image_tag read_image_tag.cpp)
 target_include_directories(${PROJECT_NAME}_read_image_tag PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
