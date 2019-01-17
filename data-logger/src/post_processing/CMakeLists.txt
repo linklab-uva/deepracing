@@ -17,6 +17,7 @@ target_link_libraries(${PROJECT_NAME}_assign_labels
 ${PROJECT_NAME}_post_processing
 ${Boost_LIBRARIES}
 ${YAML_CPP_LIBRARIES}
+${OpenCV_LIBRARIES}
 )
 
 
