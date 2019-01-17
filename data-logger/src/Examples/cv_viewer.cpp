@@ -56,15 +56,15 @@ public:
   {
 
     long long delta = std::chrono::duration_cast<std::chrono::nanoseconds>(data.timestamp - this->begin).count();
-    std::stringstream ss;
-    ss << delta << " milliseconds from start";
+    //std::stringstream ss;
+    //ss << delta << " milliseconds from start";
 
     // cv::putText(data.image, ss.str(), cv::Point(25,100), cv::FONT_HERSHEY_PLAIN, 2.0, cv::Scalar(0.0,0.0,0.0));
     cv::Mat img_cv_video;
     cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
     cv::imshow(window_name, img_cv_video);
-    cv::Size s = img_cv_video.size();
-    std::cout<<"Image is: " << s.height<< " X " << s.width << std::endl;
+    //cv::Size s = img_cv_video.size();
+   // std::cout<<"Image is: " << s.height<< " X " << s.width << std::endl;
     video_writer_->write(img_cv_video);
   }
   void init(const std::chrono::high_resolution_clock::time_point& begin, const cv::Size& window_size) override
