@@ -75,7 +75,7 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
     fs::path  images_folder(images_folder_);
     google::protobuf::uint64 delta = (google::protobuf::uint64)(std::chrono::duration_cast<std::chrono::microseconds>(data.timestamp - begin_).count());
 	  //std::cout << "Got some image data. Clock Delta = " << delta << std::endl;
-	  std::string image_file("image_" + std::to_string(counter) + ".png");
+	  std::string image_file("image_" + std::to_string(counter) + ".jpg");
     fs::path image_file_path(image_file);
     std::string fn = (images_folder / image_file_path).string();
     cv::imwrite(fn,data.image);
