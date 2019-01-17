@@ -20,7 +20,7 @@ void exit_with_help(po::options_description& desc)
 }
 int main(int argc, char** argv)
 {
-	std::string config_file;
+	std::string config_file, label_dir;
 
 
 	po::options_description desc("F1 Datalogger Multithreaded Capture. Command line arguments are as follows");
@@ -28,17 +28,24 @@ int main(int argc, char** argv)
 		desc.add_options()
 			("help,h", "Displays options and exits")
 			("config_file,f", po::value<std::string>(&config_file)->required(), "Configuration file to load")
+			("label_directory,l", po::value<std::string>(&label_dir)->default_value("image_labels"), "Configuration file to load")
 			;
 		po::variables_map vm;
 		po::store(po::parse_command_line(argc, argv, desc), vm);
 		po::notify(vm);
-		if (vm.find("help") != vm.end()) {
+		if (vm.find("help") != vm.end())
+		{
 			exit_with_help(desc);
 		}
 	}
 	catch (boost::exception& e)
 	{
 		exit_with_help(desc);
+	}
+	fs::path labels_path(label_dir);
+	if ( !fs::is_directory(labels_path) )
+	{
+		fs::create_directories(labels_path);
 	}
 	std::cout << "Loading config file" << std::endl;
 	YAML::Node config_node = YAML::LoadFile(config_file);
@@ -64,17 +71,32 @@ int main(int argc, char** argv)
 		{
 			continue;
 		}
-*/
-		printf("Image file in labeled image: %s", labeled_image.image_file().c_str());
 
+		printf("Image file in labeled image: %s", labeled_image.image_file().c_str());
+		*/
 		fs::path full_image_path = fs::path(image_folder) / fs::path(labeled_image.image_file());
 		std::string json;
 		google::protobuf::util::MessageToJsonString(labeled_image, &json);
+		/**/
 		std::cout << "Label: " << json << std::endl;
-		std::cout << "Opening " << full_image_path.string() << std::endl;
+		
 		cv::Mat im_mat = cv::imread(full_image_path.string());
 		cv::imshow("image", im_mat);
-		cv::waitKey(0);
+		cv::waitKey(17);
+	
+
+		std::string pb_fn = "image_label_" + std::to_string(i) + ".pb";
+		fs::path full_path = labels_path / fs::path(pb_fn);
+		std::ofstream ostream;
+		ostream.open(full_path.c_str() , std::fstream::out);
+		labeled_image.SerializeToOstream(&ostream);
+		ostream.close();
+
+		fs::path json_path = labels_path / fs::path(pb_fn + ".json");
+	//	std::string json;
+	//	google::protobuf::util::MessageToJsonString(labeled_image, &json);
+		ostream.open(json_path.c_str(), std::fstream::out);
+		ostream << json;
 	}
 
 

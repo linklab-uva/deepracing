@@ -80,6 +80,41 @@ namespace post_processing
 
 		return std::pair<deepf1::protobuf::F1UDPData, unsigned int>(sorted_data.at(index), index);
 	}
+	std::vector<float> interp(const std::vector<deepf1::protobuf::F1UDPData>& udp_data, unsigned int closest_index, unsigned int interpolation_order, int64_t image_timestamp)
+	{
+		std::vector<float> rtn(3);
+
+		alglib::barycentricinterpolant steering_interp, brake_interp, throttle_interp;
+		alglib::real_1d_array timestamps, steering, brake, throttle;
+		timestamps.setlength(interpolation_order);
+		steering.setlength(interpolation_order);
+		brake.setlength(interpolation_order);
+		throttle.setlength(interpolation_order);
+		unsigned int lower_bound = closest_index - interpolation_order / 2;
+		unsigned int upper_bound = closest_index + interpolation_order / 2 ;
+		unsigned int idx = 0;
+		printf("Building alglib vectors at index %d. \n", closest_index);
+		for (unsigned int i = lower_bound; i <= upper_bound; i++)
+		{
+			timestamps(idx) = (double)udp_data.at(i).logger_time();
+			steering(idx) = (double)udp_data.at(i).steering();
+			brake(idx) = (double)udp_data.at(i).brake();
+			throttle(idx++) = (double)udp_data.at(i).throttle();
+		}
+		printf("Built alglib vectors. \n");
+		alglib::polynomialbuild(timestamps, steering, interpolation_order, steering_interp);
+		alglib::polynomialbuild(timestamps, brake, interpolation_order, brake_interp);
+		alglib::polynomialbuild(timestamps, throttle, interpolation_order, throttle_interp);
+		printf("Built alglib models. \n");
+		
+		double t = (double)image_timestamp;
+		rtn[0] = (float)alglib::barycentriccalc( steering_interp,  t);
+		rtn[1] = (float)alglib::barycentriccalc( throttle_interp, t);
+		rtn[2] = (float)alglib::barycentriccalc( brake_interp,  t);
+
+
+		return rtn;
+	}
 	std::vector<deepf1::protobuf::LabeledImage> PostProcessingUtils::labelImages(std::vector<deepf1::protobuf::F1UDPData>& udp_data, std::vector<deepf1::protobuf::TimestampedImage>& image_data, unsigned int interpolation_order)
 	{
 		printf("Labeling points.\n");
@@ -96,18 +131,25 @@ namespace post_processing
 			
 			std::pair<deepf1::protobuf::F1UDPData, unsigned int> pair = closestValue(udp_data, image_point.timestamp());
 			deepf1::protobuf::F1UDPData closest_packet = udp_data.at(pair.second);
+			if ( pair.second < interpolation_order || pair.second >(udp_data.size() - interpolation_order) )
+				continue; 
 
 		//	printf("Image file %s with index #%u and timestamp %ld is closest to udp index %u with timestamp %ld. Delta=%ld\n", 
 			//	image_point.image_file().c_str(), i, image_point.timestamp(), pair.second, closest_packet.logger_time(), closest_packet.logger_time()-image_point.timestamp());
 			deepf1::protobuf::LabeledImage im;
-			rtn.at(i).set_image_file(std::string(image_point.image_file()));
-			rtn.at(i).set_brake(-1.0);
-			rtn.at(i).set_throttle(-1.0);
-			rtn.at(i).set_steering(closest_packet.steering());
 
+			printf("Interpolating on order %u \n", interpolation_order);
+			std::vector<float> interp_results = interp(udp_data, pair.second, interpolation_order, image_point.timestamp());
+			rtn.at(i).set_image_file(std::string(image_point.image_file()));
+			rtn.at(i).set_steering(interp_results[0]);
+			rtn.at(i).set_throttle(interp_results[1]);
+			rtn.at(i).set_brake(interp_results[2]);
+			printf("Done interpolating \n", interpolation_order);
+			/*
 			std::string json;
 			google::protobuf::util::MessageToJsonString(rtn.at(i), &json);
 			std::cout << "Labeled image: " << json << std::endl;
+			*/
 			//rtn.push_back(deepf1::protobuf::LabeledImage(im));
 		}
 	//	rtn.shrink_to_fit();
@@ -164,7 +206,6 @@ namespace post_processing
 			stream_in.close();
 			if (!success || data_in.image_file().empty())
 			{
-
 				std::cout << "FOUND EMPTY IMAGE FILENAME" << std::endl;
 				continue;
 			}
