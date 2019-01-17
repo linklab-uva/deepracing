@@ -172,7 +172,7 @@ namespace post_processing
 			deepf1::protobuf::F1UDPData data_in;
 			bool success = data_in.ParseFromIstream(&stream_in);
 			stream_in.close();
-			if (!success)
+			if (!success || data_in.logger_time()==0)
 			{
 
 				std::cout << "FOUND EMPTY UDP PACKET" << std::endl;
