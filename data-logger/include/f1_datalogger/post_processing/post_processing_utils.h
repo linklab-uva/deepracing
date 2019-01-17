@@ -18,7 +18,7 @@ namespace post_processing
 		static std::vector<deepf1::protobuf::F1UDPData> parseUDPDirectory(const std::string& directory);
 		static std::vector<deepf1::protobuf::TimestampedImage> parseImageDirectory(const std::string& directory);
 		static std::vector<deepf1::protobuf::LabeledImage> labelImages(std::vector<deepf1::protobuf::F1UDPData>& udp_data, std::vector<deepf1::protobuf::TimestampedImage>& image_data, unsigned int interpolation_order = 3);
-		static deepf1::protobuf::F1UDPData closestValue(const std::vector<deepf1::protobuf::F1UDPData>& sorted_data, unsigned long long search);
+		static std::pair<deepf1::protobuf::F1UDPData, unsigned int> closestValue(const std::vector<deepf1::protobuf::F1UDPData>& sorted_data, int64_t search);
 
 
 	};

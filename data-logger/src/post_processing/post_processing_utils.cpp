@@ -37,44 +37,64 @@ namespace post_processing
 	{
 		return a.timestamp() < b.timestamp();
 	}
-	deepf1::protobuf::F1UDPData PostProcessingUtils::closestValue(const std::vector<deepf1::protobuf::F1UDPData>& sorted_data, unsigned long long search)
+	unsigned int closestValueHelper(const std::vector<deepf1::protobuf::F1UDPData>& sorted_data,
+	 int64_t search, unsigned int left, unsigned int right)
 	{
-		const deepf1::protobuf::F1UDPData* raw_array = &(sorted_data[0]);
-		deepf1::protobuf::F1UDPData rtn;
-		unsigned int size = sorted_data.size();
-		if (size == 1)
+		if(left == right)
 		{
-			return sorted_data.at(0);
+			return left;
+
 		}
-		unsigned int middle_index = size / 2;
-		deepf1::protobuf::F1UDPData middle_item = sorted_data.at(middle_index);
-		if (middle_item.logger_time() == search)
+		else if((right-left)==1)
 		{
-			return middle_item;
-		}
-		else if (search > middle_item.logger_time())
-		{
-			std::vector<deepf1::protobuf::F1UDPData>::const_iterator first = sorted_data.begin() + middle_index + 1;
-			std::vector<deepf1::protobuf::F1UDPData>::const_iterator last = sorted_data.begin() + size - 1;
-			std::vector<deepf1::protobuf::F1UDPData> newVec(first, last);
-			return closestValue(newVec, search);
+			if(std::abs(sorted_data.at(left).logger_time() - search) < std::abs(sorted_data.at(right).logger_time() - search))
+			{
+				return left;
+			}
+			else
+			{
+				return right;
+			}
 		}
 		else
 		{
-
+			unsigned int middle = (left + right)/2;
+			int64_t query_val = sorted_data.at(middle).logger_time();
+			if(query_val == search)
+			{
+				return middle;
+			}
+			else if(query_val < search)
+			{
+				return closestValueHelper(sorted_data, search, middle, right);
+			}
+			else
+			{
+				return closestValueHelper(sorted_data, search, left, middle);
+			}
 		}
+	}
+	std::pair<deepf1::protobuf::F1UDPData, unsigned int> PostProcessingUtils::closestValue(const std::vector<deepf1::protobuf::F1UDPData>& sorted_data, int64_t search)
+	{
+		unsigned int index = closestValueHelper(sorted_data, search, 0, sorted_data.size()-1);
 
-
-
-
-
-		return rtn;
+		return std::pair<deepf1::protobuf::F1UDPData, unsigned int>(sorted_data.at(index), index);
 	}
 	std::vector<deepf1::protobuf::LabeledImage> PostProcessingUtils::labelImages(std::vector<deepf1::protobuf::F1UDPData>& udp_data, std::vector<deepf1::protobuf::TimestampedImage>& image_data, unsigned int interpolation_order)
 	{
+		printf("Labeling points.\n");
 		std::vector<deepf1::protobuf::LabeledImage> rtn;
 		std::sort(udp_data.begin(), udp_data.end(), &udpComp);
 		std::sort(image_data.begin(), image_data.end(), &imageComp);
+
+		for(unsigned int i = 0; i < image_data.size(); i ++)
+		{
+			deepf1::protobuf::TimestampedImage image_point = image_data.at(i);	
+			std::pair<deepf1::protobuf::F1UDPData, unsigned int> pair = closestValue(udp_data, image_point.timestamp());
+
+			printf("Image #%u with timestamp %ld is closest to udp index %u with timestamp %ld. Delta=%ld\n", 
+				i, image_point.timestamp(), pair.second, pair.first.logger_time(), pair.first.logger_time()-image_point.timestamp());	
+		}
 
 
 		return rtn;
