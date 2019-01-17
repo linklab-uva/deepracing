@@ -6,8 +6,11 @@
 #include <f1_datalogger/post_processing/post_processing_utils.h>
 #include <algorithm>
 #include <iostream>
+#include <opencv2/highgui.hpp>
+#include <boost/filesystem.hpp>
+#include <google/protobuf/util/json_util.h>
 namespace po = boost::program_options;
-
+namespace fs = boost::filesystem;
 void exit_with_help(po::options_description& desc)
 {
 	std::stringstream ss;
@@ -51,6 +54,28 @@ int main(int argc, char** argv)
 	std::printf("Got %lu image data points.\n", image_points.size());
 	std::vector<deepf1::protobuf::LabeledImage> labeled_images = 
 		 deepf1::post_processing::PostProcessingUtils::labelImages(udp_points,  image_points, 3);
+
+	cv::namedWindow("image",cv::WINDOW_AUTOSIZE);
+	for (unsigned int i = 0; i < labeled_images.size(); i ++)
+	{
+		deepf1::protobuf::LabeledImage labeled_image = labeled_images.at(i); 
+/*
+		if (labeled_image.image_file().empty())
+		{
+			continue;
+		}
+*/
+		printf("Image file in labeled image: %s", labeled_image.image_file().c_str());
+
+		fs::path full_image_path = fs::path(image_folder) / fs::path(labeled_image.image_file());
+		std::string json;
+		google::protobuf::util::MessageToJsonString(labeled_image, &json);
+		std::cout << "Label: " << json << std::endl;
+		std::cout << "Opening " << full_image_path.string() << std::endl;
+		cv::Mat im_mat = cv::imread(full_image_path.string());
+		cv::imshow("image", im_mat);
+		cv::waitKey(0);
+	}
 
 
 }

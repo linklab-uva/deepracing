@@ -87,15 +87,30 @@ namespace post_processing
 		std::sort(udp_data.begin(), udp_data.end(), &udpComp);
 		std::sort(image_data.begin(), image_data.end(), &imageComp);
 
+		rtn.resize(image_data.size());
 		for(unsigned int i = 0; i < image_data.size(); i ++)
 		{
 			deepf1::protobuf::TimestampedImage image_point = image_data.at(i);	
+
+			//printf("Processing image with filename: %s", image_point.image_file().c_str());
+			
 			std::pair<deepf1::protobuf::F1UDPData, unsigned int> pair = closestValue(udp_data, image_point.timestamp());
+			deepf1::protobuf::F1UDPData closest_packet = udp_data.at(pair.second);
 
-			printf("Image #%u with timestamp %ld is closest to udp index %u with timestamp %ld. Delta=%ld\n", 
-				i, image_point.timestamp(), pair.second, pair.first.logger_time(), pair.first.logger_time()-image_point.timestamp());	
+		//	printf("Image file %s with index #%u and timestamp %ld is closest to udp index %u with timestamp %ld. Delta=%ld\n", 
+			//	image_point.image_file().c_str(), i, image_point.timestamp(), pair.second, closest_packet.logger_time(), closest_packet.logger_time()-image_point.timestamp());
+			deepf1::protobuf::LabeledImage im;
+			rtn.at(i).set_image_file(std::string(image_point.image_file()));
+			rtn.at(i).set_brake(-1.0);
+			rtn.at(i).set_throttle(-1.0);
+			rtn.at(i).set_steering(closest_packet.steering());
+
+			std::string json;
+			google::protobuf::util::MessageToJsonString(rtn.at(i), &json);
+			std::cout << "Labeled image: " << json << std::endl;
+			//rtn.push_back(deepf1::protobuf::LabeledImage(im));
 		}
-
+	//	rtn.shrink_to_fit();
 
 		return rtn;
 	}
@@ -113,8 +128,15 @@ namespace post_processing
 	//		std::cout << "Loading file: " << current_path.string() << std::endl;
 			stream_in.open(current_path.string().c_str());
 			deepf1::protobuf::F1UDPData data_in;
-			data_in.ParseFromIstream(&stream_in);
+			bool success = data_in.ParseFromIstream(&stream_in);
 			stream_in.close();
+			if (!success)
+			{
+
+				std::cout << "FOUND EMPTY UDP PACKET" << std::endl;
+				continue;
+			}
+
 			//std::string json;
 			//google::protobuf::util::MessageToJsonString(data_in, &json);
 			//std::cout << "Got data: " << std::endl << json << std::endl;
@@ -138,11 +160,19 @@ namespace post_processing
 			//		std::cout << "Loading file: " << current_path.string() << std::endl;
 			stream_in.open(current_path.string().c_str());
 			deepf1::protobuf::TimestampedImage data_in;
-			data_in.ParseFromIstream(&stream_in);
+			bool success = data_in.ParseFromIstream(&stream_in);
 			stream_in.close();
-			//std::string json;
-			//google::protobuf::util::MessageToJsonString(data_in, &json);
-			//std::cout << "Got data: " << std::endl << json << std::endl;
+			if (!success || data_in.image_file().empty())
+			{
+
+				std::cout << "FOUND EMPTY IMAGE FILENAME" << std::endl;
+				continue;
+			}
+			/*
+			std::string json;
+			google::protobuf::util::MessageToJsonString(data_in, &json);
+			std::cout << "Got data: " << std::endl << json << std::endl;
+			*/
 			rtn.push_back(data_in);
 		}
 
