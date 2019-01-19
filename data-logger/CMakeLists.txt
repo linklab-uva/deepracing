@@ -86,31 +86,27 @@ add_subdirectory( src/post_processing )
 if(BUILD_DATALOGGER)
     add_subdirectory( src/image_logging )
     add_subdirectory( src/udp_logging )
-endif()
-add_library(${PROJECT_NAME}
-src/f1_datalogger.cpp
-)
-target_link_libraries(${PROJECT_NAME} 
-${PROJECT_NAME}_image_logging 
-${PROJECT_NAME}_udp_logging 
-${PROJECT_NAME}_proto 
-${PROJECT_NAME}_alglib 
-${Boost_LIBRARIES}
-)
-
-if(BUILD_DATALOGGER)
+    add_library(${PROJECT_NAME}
+    src/f1_datalogger.cpp
+    )
+    target_link_libraries(${PROJECT_NAME} 
+    ${PROJECT_NAME}_image_logging 
+    ${PROJECT_NAME}_udp_logging 
+    ${PROJECT_NAME}_proto 
+    ${PROJECT_NAME}_alglib 
+    ${Boost_LIBRARIES}
+    )
     add_subdirectory( src/Examples )
+    set(install_targets ${PROJECT_NAME} )
+    install(TARGETS ${install_targets}
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+    )
+    install(DIRECTORY include/${PROJECT_NAME}
+        DESTINATION include
+        FILES_MATCHING PATTERN "*.h"
+    )
+    unset(install_targets)
 endif()
 
-
-set(install_targets ${PROJECT_NAME} )
-install(TARGETS ${install_targets}
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
-)
-install(DIRECTORY include/${PROJECT_NAME}
-    DESTINATION include
-    FILES_MATCHING PATTERN "*.h"
-)
-unset(install_targets)
