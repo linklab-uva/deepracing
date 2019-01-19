@@ -10,6 +10,7 @@
 #include <functional>
 #include <boost/filesystem.hpp>
 #include <iostream>
+#include <google/protobuf/util/json_util.h>
 namespace fs = boost::filesystem;
 namespace deepf1
 {
@@ -67,10 +68,24 @@ void MultiThreadedUDPHandler::workerFunc_()
     udp_pb.set_steering(data.data.m_steer);
     udp_pb.set_throttle(data.data.m_throttle);
     udp_pb.set_brake(data.data.m_brake);
-    fs::path pb_file("udp_packet_" + std::to_string(counter) + ".pb");
-    std::string pb_fn = (udp_folder / pb_file).string();
-    std::ofstream ostream(pb_fn.c_str());
+    std::string pb_file("udp_packet_" + std::to_string(counter) + ".pb");
+    std::string pb_fn = ( udp_folder / fs::path(pb_file) ).string();
+    std::ofstream ostream;
+    ostream.open(pb_fn.c_str(), std::ofstream::out);
     udp_pb.SerializeToOstream(&ostream);
+    ostream.flush();
+    ostream.close();
+
+
+    std::shared_ptr<std::string> json(new std::string);
+    google::protobuf::util::JsonOptions opshinz;
+    opshinz.always_print_primitive_fields = true;
+    opshinz.add_whitespace = true;
+    google::protobuf::util::MessageToJsonString(udp_pb, json.get(), opshinz);
+    std::string json_file = pb_file + ".json";
+    std::string json_fn = ( udp_folder / fs::path(json_file) ).string();
+    ostream.open(json_fn.c_str(), std::ofstream::out);
+    ostream << json;
     ostream.flush();
     ostream.close();
   }

@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
         float dt = 1E-3*((float)sleep_time);
         float period = 5.0;
         float freq=1/period;
-		float pi = boost::math::constants::pi<float>();
+	float pi = boost::math::constants::pi<float>();
         while (true) {
                 data->m_time = fake_time;
                 data->m_steer = sin(2*pi*freq*fake_time);
