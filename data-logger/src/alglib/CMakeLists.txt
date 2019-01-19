@@ -1,7 +1,5 @@
 set(_alglib_dir ${CMAKE_CURRENT_SOURCE_DIR} )
-add_library(${PROJECT_NAME}_alglib)
-target_sources(${PROJECT_NAME}_alglib
-PRIVATE
+add_library(${PROJECT_NAME}_alglib
 alglibinternal.cpp
 alglibmisc.cpp
 ap.cpp
