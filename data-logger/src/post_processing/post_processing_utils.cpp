@@ -93,19 +93,20 @@ namespace post_processing
 		unsigned int lower_bound = closest_index - interpolation_order / 2;
 		unsigned int upper_bound = closest_index + interpolation_order / 2 ;
 		unsigned int idx = 0;
-		printf("Building alglib vectors at index %d. \n", closest_index);
+//		printf("Building alglib vectors at index %d. \n", closest_index);
 		for (unsigned int i = lower_bound; i <= upper_bound; i++)
 		{
 			timestamps(idx) = (double)udp_data.at(i).logger_time();
 			steering(idx) = (double)udp_data.at(i).steering();
 			brake(idx) = (double)udp_data.at(i).brake();
-			throttle(idx++) = (double)udp_data.at(i).throttle();
+			throttle(idx) = (double)udp_data.at(i).throttle();
+			idx++;
 		}
-		printf("Built alglib vectors. \n");
+	//	printf("Built alglib vectors. \n");
 		alglib::polynomialbuild(timestamps, steering, interpolation_order, steering_interp);
 		alglib::polynomialbuild(timestamps, brake, interpolation_order, brake_interp);
 		alglib::polynomialbuild(timestamps, throttle, interpolation_order, throttle_interp);
-		printf("Built alglib models. \n");
+	//	printf("Built alglib models. \n");
 		
 		double t = (double)image_timestamp;
 		rtn[0] = (float)alglib::barycentriccalc( steering_interp,  t);
@@ -138,13 +139,13 @@ namespace post_processing
 			//	image_point.image_file().c_str(), i, image_point.timestamp(), pair.second, closest_packet.logger_time(), closest_packet.logger_time()-image_point.timestamp());
 			deepf1::protobuf::LabeledImage im;
 
-			printf("Interpolating on order %u \n", interpolation_order);
+		//	printf("Interpolating on order %u \n", interpolation_order);
 			std::vector<float> interp_results = interp(udp_data, pair.second, interpolation_order, image_point.timestamp());
 			rtn.at(i).set_image_file(std::string(image_point.image_file()));
 			rtn.at(i).set_steering(interp_results[0]);
 			rtn.at(i).set_throttle(interp_results[1]);
 			rtn.at(i).set_brake(interp_results[2]);
-			printf("Done interpolating \n", interpolation_order);
+		//	printf("Done interpolating \n");
 			/*
 			std::string json;
 			google::protobuf::util::MessageToJsonString(rtn.at(i), &json);

@@ -11,6 +11,7 @@
 #include <iostream>
 #include <fstream>
 #include <boost/filesystem.hpp>
+#include <google/protobuf/util/json_util.h>
 namespace fs = boost::filesystem;
 namespace deepf1
 {
@@ -82,11 +83,25 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
     deepf1::protobuf::TimestampedImage tag;
     tag.set_image_file(image_file);
     tag.set_timestamp(delta);
-    fs::path pb_file("image_" + std::to_string(counter) + ".pb");
 
-    std::string pb_fn = (images_folder / pb_file).string();
-    std::ofstream ostream(pb_fn.c_str());
+    std::string pb_filename("image_" + std::to_string(counter) + ".pb");
+    std::string pb_output_file = (images_folder / fs::path(pb_filename)).string();
+    std::ofstream ostream;
+    ostream.open(pb_output_file.c_str(), std::ofstream::out);
     tag.SerializeToOstream(&ostream);
+    ostream.flush();
+    ostream.close();
+
+    std::string json;
+    google::protobuf::util::JsonOptions opshinz;
+    opshinz.always_print_primitive_fields = true;
+    opshinz.add_whitespace = true;
+    google::protobuf::util::MessageToJsonString(tag, &json, opshinz);
+    std::string json_file = pb_filename + ".json";
+    std::string json_fn = ( images_folder / fs::path(json_file) ).string();
+    ostream.open(json_fn.c_str(), std::ofstream::out);
+    ostream << json;
+    ostream.flush();
     ostream.close();
   }
 }

@@ -44,6 +44,9 @@ int main(int argc, char** argv)
     data_in.ParseFromIstream(&stream_in);
     stream_in.close();
     std::string json;
-    google::protobuf::util::MessageToJsonString(data_in, &json);
+    google::protobuf::util::JsonOptions opshinz;
+    opshinz.always_print_primitive_fields = true;
+    opshinz.add_whitespace = true;
+    google::protobuf::util::MessageToJsonString(data_in, &json, opshinz);
     printf("%s",json.c_str());
 }
