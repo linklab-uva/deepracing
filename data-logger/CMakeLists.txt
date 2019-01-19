@@ -17,11 +17,14 @@ option(CMAKE_BUILD_TYPE "Build Type" Release)
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
+option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to read datasets" ON)
+if(BUILD_DATALOGGER)
+    find_package(screen_capture_lite REQUIRED)
+    message(STATUS "Found screen_capture_lite headers: ${screen_capture_lite_INCLUDE_DIRS}")
+    message(STATUS "Found screen_capture_lite libraries: ${screen_capture_lite_LIBRARIES}")
+    include_directories(${screen_capture_lite_INCLUDE_DIRS})
+endif()
 
-find_package(screen_capture_lite REQUIRED)
-message(STATUS "Found screen_capture_lite headers: ${screen_capture_lite_INCLUDE_DIRS}")
-message(STATUS "Found screen_capture_lite libraries: ${screen_capture_lite_LIBRARIES}")
-include_directories(${screen_capture_lite_INCLUDE_DIRS})
 
 if(BUILD_SHARED_LIBS)
     if(MSVC)
@@ -78,10 +81,12 @@ include_directories(${ProtobufIncludePath})
 
 add_subdirectory( src/alglib )
 message(STATUS "ALGLIB_DIR: ${ALGLIB_DIR}")
-add_subdirectory( src/image_logging )
-add_subdirectory( src/udp_logging )
 add_subdirectory( src/post_processing )
 
+if(BUILD_DATALOGGER)
+    add_subdirectory( src/image_logging )
+    add_subdirectory( src/udp_logging )
+endif()
 add_library(${PROJECT_NAME}
 src/f1_datalogger.cpp
 )
@@ -93,8 +98,9 @@ ${PROJECT_NAME}_alglib
 ${Boost_LIBRARIES}
 )
 
-
-add_subdirectory( src/Examples )
+if(BUILD_DATALOGGER)
+    add_subdirectory( src/Examples )
+endif()
 
 
 set(install_targets ${PROJECT_NAME} )
