@@ -17,6 +17,17 @@ import glob
 import argparse
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
+def main():
+    parser = argparse.ArgumentParser(description="Playground")
+    parser.add_argument("--dataset_file", type=str, required=True, help="Dataset file to use")
+    args = parser.parse_args()
+    dataset = loaders.F1OpticalFlowDataset(args.dataset_file,(66,200), 25, 10)
+    dataset.loadFiles()
 
-dl = loaders.F1OpticalFlowDataset("/zf18/ttw2xk/deepf1data/australia_fullview_run2/linear.csv",(66,200), 25, 10)
-dl.loadFiles()
+    flows, labels = dataset[len(dataset)-1]
+
+    print(flows.shape)
+    print(labels.shape)
+
+if __name__ == '__main__':
+    main()
