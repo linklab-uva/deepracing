@@ -21,7 +21,7 @@ def main():
     parser = argparse.ArgumentParser(description="Playground")
     parser.add_argument("--dataset_file", type=str, required=True, help="Dataset file to use")
     args = parser.parse_args()
-    dataset = loaders.F1OpticalFlowDataset(args.dataset_file,(66,200), 25, 10)
+    dataset = loaders.F1OpticalFlowDataset(args.dataset_file,(66,200))
     dataset.loadFiles()
     #dataset.loadPickles()
     flows, labels = dataset[len(dataset)-1]
@@ -35,6 +35,11 @@ def main():
     print(labels)
 
     dataset.writePickles()
+    # window_name = "image"
+    # cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE)
+    # im = cv2.cvtColor(flows.numpy().transpose(1,2,0), cv2.COLOR_RGB2BGR)
+    # cv2.imshow(window_name, im)
+    # cv2.waitKey(0)
 
 if __name__ == '__main__':
     main()
