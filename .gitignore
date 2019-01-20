@@ -326,3 +326,6 @@ ASALocalRun/
 
 # NVidia Nsight GPU debugger configuration file
 *.nvuser
+build_debug
+.vscode/
+install

@@ -1,12 +1,3 @@
-[submodule "data-logger/python_binding/pybind11"]
-	path = data-logger/python_binding/pybind11
-	url = https://github.com/pybind/pybind11.git
-[submodule "DCNN-Pytorch/nn_models/deformable_convolution"]
-	path = DCNN-Pytorch/nn_models/deformable_convolution
-	url = https://github.com/1zb/deformable-convolution-pytorch.git
-[submodule "DCNN-Pytorch/nn_models/pyflow"]
-	path = DCNN-Pytorch/nn_models/pyflow
-	url = https://github.com/pathak22/pyflow.git
-[submodule "data-logger/CMake"]
-	path = data-logger/CMake
-	url = https://github.com/linklab-uva/CMake.git
+[submodule "data-logger/third_party/tbb"]
+	path = data-logger/third_party/tbb
+	url = https://github.com/01org/tbb.git
