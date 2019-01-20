@@ -8,6 +8,8 @@ import pickle
 import cv2
 import numpy as np
 import torchvision.transforms as transforms
+import PIL
+from PIL import Image as PILImage
 class F1Dataset(Dataset):
     def __init__(self, root_folder, annotation_filepath, im_size, use_float32=False, img_transformation = None, label_transformation = None):
         super(F1Dataset, self).__init__()
@@ -200,7 +202,47 @@ class F1Dataset(Dataset):
         return img_tensor, throttle_tensor, brake_tensor, label_tensor.view(1)
     def __len__(self):
         return self.length
+class F1OpticalFlowDataset(Dataset):
+    def __init__(self, annotation_filepath, im_size, context_length = 25, sequence_length=25):
+        super(F1OpticalFlowDataset, self).__init__()
+        self.context_length=context_length
+        self.sequence_length=sequence_length
+        self.totensor = torchvision.transforms.ToTensor()
+        self.grayscale = torchvision.transforms.Grayscale()
+        self.resize = torchvision.transforms.Resize(im_size)
+        self.annotations = open(annotation_file).readlines()
+        self.root_folder = os.path.dirname(self.annotation_file)
+        self.image_folder = os.path.join(self.root_folder,'raw_images')
+        self.len = len(self.annotations) - context_length - sequence_length - 1
+        self.images = torch.zeros(len(self.annotations), im_size[0], im_size[1], dtype = torch.uint8)
+        self.labels = torch.zeros(len(self.annotations), 3, dtype = torch.float32)
+    def loadFiles():
+        for idx in tqdm(range(len(self.annotations)),desc='Loading Data',leave=True):
+            fp, ts, steering, throttle, brake = self.annotations[idx].split(",")
+            im = torch.round(255.0 * self.totensor( self.grayscale( self.resize( PILImage.open( os.path.join( self.image_folder, fp ) ) ) ) ) ).type(torch.uint8)
+            self.images[idx] = im[0]
+            self.labels[idx][0] = float(steering)
+            self.labels[idx][1] = float(throttle)
+            self.labels[idx][2] = float(brake)
+    def __getitem__(self, index):
+        images_start = index
+        images_end = images_start + self.context_length
+        images = self.images[ idx : images_end+1 ]
 
+        flows = torch.zeros(self.context_length, 2, resize.size[0], resize.size[1], dtype = torch.float32)
+        prvs_img = images[0].numpy()
+        for idx in range(1, images.shape[0]):
+            next_img = images[idx].numpy()
+            flow = cv2.calcOpticalFlowFarneback(prvs_img,next_img, None, 0.5, 3, 20, 8, 5, 1.2, 0).astype(np.float32)
+            flows[idx-1] = self.totensor(flow.transpose(2,0,1))
+            prvs_img = next_img
+        
+        labels_start = images_end
+        labels_end = labels_start + self.sequence_length
+        labels = labels[labels_start : labels_end]
+        return flows , labels
+    def __len__(self):
+        return self.len
 class F1SequenceDataset(F1Dataset):
     def __init__(self, root_folder, annotation_filepath, im_size,\
         context_length = 25, sequence_length=25, use_float32=False, img_transformation = None, label_transformation = None):
