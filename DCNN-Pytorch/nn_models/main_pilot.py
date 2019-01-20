@@ -95,7 +95,7 @@ def main():
     file_prefix = config['file_prefix']
 
     load_files = bool(config['load_files'])
-    load_pickles = int(config['load_pickles'])
+    load_pickles = bool(config['load_pickles'])
 
     momentum = float(config['momentum'])
 
@@ -122,7 +122,10 @@ def main():
     trainset = loaders.F1ImageDataset(annotation_file, size)
 
     
-   # trainset.read_files()
+ #   trainset.loadFiles()
+#    trainset.writePickles()
+    print(load_files)
+    print(load_pickles)
     if(load_files):
         trainset.loadFiles()
         trainset.writePickles()
