@@ -211,12 +211,30 @@ class F1OpticalFlowDataset(Dataset):
         self.totensor = torchvision.transforms.ToTensor()
         self.grayscale = torchvision.transforms.Grayscale()
         self.resize = torchvision.transforms.Resize(im_size)
+        self.annotation_filename = os.path.basename(annotation_filepath)
         self.annotations = open(annotation_filepath).readlines()
         self.root_folder = os.path.dirname(annotation_filepath)
         self.image_folder = os.path.join(self.root_folder,'raw_images')
         self.len = len(self.annotations) - context_length - sequence_length - 1
         self.images = torch.zeros(len(self.annotations), im_size[0], im_size[1], dtype = torch.uint8)
         self.labels = torch.zeros(len(self.annotations), 3, dtype = torch.float32)
+    def loadPickles(self):
+        prefix , _ = self.annotation_filename.split(".")
+        lblname = prefix + "_labels.pt"
+        imgname = prefix + "_images.pt"
+        # with open(os.path.join(, 'r+b') as f:
+        #     buffer = io.BytesIO(f.read())
+        self.images = torch.load(os.path.join(self.root_folder,imgname))
+        # with open(, 'r+b') as f:
+        #     buffer = io.BytesIO(f.read())
+        self.labels = torch.load(os.path.join(self.root_folder,lblname))
+
+    def writePickles(self):
+        prefix , _ = self.annotation_filename.split(".")
+        lblname = prefix + "_labels.pt"
+        imgname = prefix + "_images.pt"
+        torch.save(self.labels,open(os.path.join(self.root_folder,lblname), 'w+b'))
+        torch.save(self.images,open(os.path.join(self.root_folder,imgname), 'w+b'))
     def loadFiles(self):
         for idx in tqdm(range(len(self.annotations)),desc='Loading Data',leave=True):
             fp, ts, steering, throttle, brake = self.annotations[idx].split(",")
