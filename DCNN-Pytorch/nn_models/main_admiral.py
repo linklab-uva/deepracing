@@ -62,7 +62,8 @@ def load_config(filepath):
     rtn['epochs']='10'
     rtn['momentum']='0.0'
     rtn['file_prefix']=''
-    rtn['load_files']=''
+    rtn['load_files']='False'
+    rtn['load_pickles']='False'
     rtn['use_float32']=''
     rtn['label_scale']='100.0'
     rtn['workers']='0'
@@ -97,8 +98,9 @@ def main():
     #optional parameters
     file_prefix = config['file_prefix']
 
-    load_files = bool(config['load_files'])
-
+    load_files = (config['load_files'] == 'True')
+    load_pickles = (config['load_pickles'] == 'True')
+    
     momentum = float(config['momentum'])
 
     batch_size = int(config['batch_size'])
@@ -133,7 +135,7 @@ def main():
     if(load_files):
         trainset.loadFiles()
         trainset.writePickles()
-    else:  
+    elif(load_pickles):  
         trainset.loadPickles()
     ''' 
     mean,stdev = trainset.statistics()
