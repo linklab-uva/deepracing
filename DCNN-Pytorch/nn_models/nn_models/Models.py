@@ -22,13 +22,13 @@ class ResNetAdapter(nn.Module):
         predictions = self.classifier(x)
         return predictions
 
-class EnsignNet(nn.Module):
+class PilotNet(nn.Module):
     """PyTorch Implementation of NVIDIA's PilotNet"""
-    def __init__(self, sequence_length = 1):
-        super(EnsignNet, self).__init__()
+    def __init__(self, input_channels = 3, output_dim = 1):
+        super(PilotNet, self).__init__()
         # Convolutional layers.
-        self.output_size = sequence_length
-        self.conv1 = nn.Conv2d(3, 24, kernel_size=5, stride=2)
+        self.output_size = output_dim
+        self.conv1 = nn.Conv2d(input_channels, 24, kernel_size=5, stride=2)
         self.conv2 = nn.Conv2d(24, 36, kernel_size=5, stride=2)
         self.conv3 = nn.Conv2d(36, 48, kernel_size=5, stride=2)
         self.conv4 = nn.Conv2d(48, 64, kernel_size=3)
@@ -53,53 +53,6 @@ class EnsignNet(nn.Module):
         out = self.prediction_layer(out)
         #out = out.unsqueeze(2)
         #print(out.size())
-        return out
-
-class PilotNet(nn.Module):
-    """Upgraded Version of NVIDIA's PilotNet"""
-    def __init__(self, sequence_length = 1):
-        super(PilotNet, self).__init__()
-        # Convolutional layers.
-        self.output_size = sequence_length
-        self.conv1 = nn.Conv2d(3, 24, kernel_size=5, stride=2)
-        self.conv2 = nn.Conv2d(24, 36, kernel_size=5, stride=2)
-        self.conv3 = nn.Conv2d(36, 48, kernel_size=5, stride=2)
-        self.conv4 = nn.Conv2d(48, 64, kernel_size=3)
-        self.conv5 = nn.Conv2d(64, 64, kernel_size=3)
-        self.Norm_1 = nn.BatchNorm2d(24)
-        self.Norm_2 = nn.BatchNorm2d(36)
-        self.Norm_3 = nn.BatchNorm2d(48) 
-        self.Norm_4 = nn.BatchNorm2d(64)
-        # Linear layers.
-        self.fc1 = nn.Linear(64*1*18, 100)
-        self.fc2 = nn.Linear(100, 50)
-        self.fc3 = nn.Linear(50, 10)
-        self.prediction_layer = nn.Linear(10, self.output_size)
-
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        out = self.conv1(x)
-        out = self.Norm_1(out)
-        out = self.relu(out)
-        out = self.conv2(out)
-        out = self.Norm_2(out)
-        out = self.relu(out)
-        out = self.conv3(out)
-        out = self.Norm_3(out)
-        out = self.relu(out)
-        out = self.conv4(out)
-        out = self.Norm_4(out)
-        out = self.relu(out)
-        out = self.conv5(out)
-        out = self.relu(out)
-        # This flattens the output of the previous layer into a vector.
-        out = out.view(out.size(0), -1) 
-        out = self.fc1(out)
-        out = self.fc2(out)
-        out = self.fc3(out)
-        out = self.prediction_layer(out)
-        out = out.unsqueeze(2)
         return out
 class CommandantNet(nn.Module):
     def __init__(self, sequence_length=25, context_length = 25, hidden_dim = 100, use_float32 = False, gpu = -1, optical_flow = False):
@@ -181,15 +134,14 @@ class CommandantNet(nn.Module):
         predictions = self.prediction_layer(x)
         return predictions
 class AdmiralNet(nn.Module):
-    def __init__(self, cell='lstm', sequence_length=25, context_length = 25, hidden_dim = 100, use_float32 = False, gpu = -1):
+    def __init__(self, cell='lstm', input_channels=2, output_dimension = 1, sequence_length=25, context_length = 25, hidden_dim = 100, gpu = -1):
         super(AdmiralNet, self).__init__()
         self.gpu=gpu
-        self.use_float32=use_float32
         #self.input_channels = 5
-        self.input_channels = 2
+        self.input_channels = input_channels
         # Convolutional layers.
 
-        self.output_size = 1
+        self.output_size = output_dimension
         self.conv1 = nn.Conv2d(self.input_channels, 24, kernel_size=5, stride=2)
         self.conv2 = nn.Conv2d(24, 36, kernel_size=5, stride=2)
         self.conv3 = nn.Conv2d(36, 48, kernel_size=5, stride=2)
@@ -225,7 +177,7 @@ class AdmiralNet(nn.Module):
         #activations
         self.relu = nn.ReLU()
 
-    def forward(self, x, throttle, brake):
+    def forward(self, x):
         #resize for convolutional layers
         batch_size = x.shape[0]
         x = x.view(-1, self.input_channels, 66, 200) 
@@ -247,19 +199,11 @@ class AdmiralNet(nn.Module):
         # Unpack for the RNN.
         x = x5.view(batch_size, self.context_length, self.img_features)
 
-        #throttle = throttle.view(throttle.shape[0],throttle.shape[1],-1)
-        #brake = brake.view(brake.shape[0],brake.shape[1],-1)  
-        #x = torch.cat((x,throttle),2)
-        #x = torch.cat((x,brake),2)
-
-        x, init_hidden = self.rnn(x) 
-        if(self.use_float32):
-            zeros = torch.zeros([batch_size, self.sequence_length, self.feature_length], dtype=torch.float32)          
-        else:
-            zeros = torch.zeros([batch_size, self.sequence_length, self.feature_length], dtype=torch.float64)
-
+        x, init_hidden = self.rnn(x)       
         if(self.gpu>=0):
-            zeros = zeros.cuda(self.gpu)
+            zeros = torch.zeros([batch_size, self.sequence_length, self.feature_length], dtype=torch.float32).cuda(self.gpu)
+        else:
+            zeros = torch.zeros([batch_size, self.sequence_length, self.feature_length], dtype=torch.float32)   
 
         x, final_hidden = self.rnn(zeros, init_hidden)
         predictions = self.prediction_layer(x)
