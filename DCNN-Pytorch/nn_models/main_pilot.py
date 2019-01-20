@@ -23,6 +23,7 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
     t = tqdm(enumerate(trainLoader))
     for (i, (inputs, labels)) in t:
         optimizer.zero_grad()
+        labels = labels[:,0]
         if use_gpu>=0:
             inputs = inputs.cuda(use_gpu)
             labels = labels.cuda(use_gpu)
@@ -43,16 +44,16 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
         t.set_postfix(cum_loss = cum_loss/num_samples)
  
 
-def train_model(network, criterion, optimizer, trainLoader, file_prefix, directory, n_epochs = 10, use_gpu = False, starting_epoch = 0):
+def train_model(network, criterion, optimizer, trainLoader, directory, n_epochs = 10, use_gpu = False):
     if use_gpu>=0:
         criterion = criterion.cuda(use_gpu)
     # Training loop.
     if(not os.path.isdir(directory)):
         os.makedirs(directory)
-    for epoch in range(starting_epoch, starting_epoch + n_epochs):
-        print("Epoch %d of %d" %((starting_epoch + epoch+1),n_epochs))
+    for epoch in range(n_epochs):
+        print("Epoch %d of %d" %((epoch+1),n_epochs) )
         run_epoch(network, criterion, optimizer, trainLoader, use_gpu)
-        log_path = os.path.join(directory,""+file_prefix+"_epoch"+str((starting_epoch + epoch+1))+ ".model")
+        log_path = os.path.join(directory,"_epoch"+str(epoch+1)+ ".model")
         torch.save(network.state_dict(), log_path)
 def load_config(filepath):
     rtn = dict()
@@ -85,60 +86,55 @@ def main():
     config = load_config(config_fp)
     #mandatory parameters
     learning_rate = float(config['learning_rate'])
-    root_dir, annotation_file = os.path.split(config['annotation_file'])
-    prefix, _ = annotation_file.split(".")
+    annotation_file = config['annotation_file']
+    dataset_dir = os.path.dirname(annotation_file)
+    dataset_file = os.path.basename(annotation_file)
+    prefix, _ = dataset_file.split(".")
 
     #optional parameters
     file_prefix = config['file_prefix']
-    checkpoint_file = config['checkpoint_file']
 
     load_files = bool(config['load_files'])
-    use_float32 = bool(config['use_float32'])
 
-    label_scale = float(config['label_scale'])
     momentum = float(config['momentum'])
 
     batch_size = int(config['batch_size'])
     gpu = int(config['gpu'])
+    
     epochs = int(config['epochs'])
     workers = int(config['workers'])
 
     
     
 
-    _, config_file = os.path.split(config_fp)
+    config_file = os.path.basename(config_fp)
+    print(config_file)
     config_file_name, _ = config_file.split(".")
     output_dir = config_file_name.replace("\n","")
-    prefix = prefix + file_prefix
+    if(not os.path.isdir(output_dir)):
+        os.mkdir(output_dir)
     network = models.PilotNet()
+    if(gpu>=0):
+        network = network.cuda(0)
     print(network)
     size=(66,200)
-    if(label_scale == 1.0):
-        label_transformation = None
-    else:
-        label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(label_scale))])
-    if(use_float32):
-        network.float()
-        trainset = loaders.F1Dataset(root_dir, annotation_file, size, use_float32=True, label_transformation = label_transformation)
-    else:
-        network.double()
-        trainset = loaders.F1Dataset(root_dir, annotation_file, size, label_transformation = label_transformation)
-    if(gpu>=0):
-        network = network.cuda(gpu)
+    trainset = loaders.F1ImageDataset(annotation_file, size)
+
     
    # trainset.read_files()
     
-    if(load_files or (not os.path.isfile("./" + prefix+"_images.pkl")) or (not os.path.isfile("./" + prefix+"_annotations.pkl"))):
-        trainset.read_files()
-        trainset.write_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
+    if(load_files):
+        trainset.loadFiles()
+        trainset.writePickles()
     else:  
-        trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
-    ''' '''
+        trainset.loadPickles()
+    ''' 
     mean,stdev = trainset.statistics()
     print(mean)
     print(stdev)
     img_transformation = transforms.Compose([transforms.Normalize(mean,stdev)])
     trainset.img_transformation = img_transformation
+    '''
     trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = True, num_workers = 0)
     print(trainLoader)
     #Definition of our loss.
@@ -146,11 +142,11 @@ def main():
 
     # Definition of optimization strategy.
     optimizer = optim.SGD(network.parameters(), lr = learning_rate, momentum=momentum)
-    config['image_transformation']=trainset.img_transformation
-    config_dump = open(os.path.join(output_dir,"config.pkl"), 'wb')
+    config['image_transformation'] = None
+    config_dump = open(os.path.join(output_dir,"config.pkl"), 'w+b')
     pickle.dump(config,config_dump)
     config_dump.close()
-    train_model(network, criterion, optimizer, trainLoader, prefix, output_dir, n_epochs = epochs, use_gpu = gpu)
+    train_model(network, criterion, optimizer, trainLoader, output_dir, n_epochs = epochs, use_gpu = gpu)
 
 if __name__ == '__main__':
     main()
