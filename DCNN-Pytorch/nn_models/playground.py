@@ -21,9 +21,9 @@ def main():
     parser = argparse.ArgumentParser(description="Playground")
     parser.add_argument("--dataset_file", type=str, required=True, help="Dataset file to use")
     args = parser.parse_args()
-    dataset = loaders.F1ImageDataset(args.dataset_file,(66,200))
-    dataset.loadFiles()
-    #dataset.loadPickles()
+    dataset = loaders.F1OpticalFlowDataset(args.dataset_file,(66,200), context_length=15, sequence_length=10)
+    #dataset.loadFiles()
+    dataset.loadPickles()
     flows, labels = dataset[len(dataset)-1]
 
     print(flows.shape)
@@ -34,7 +34,7 @@ def main():
 
     print(labels)
 
-    dataset.writePickles()
+    #dataset.writePickles()
 
 if __name__ == '__main__':
     main()
