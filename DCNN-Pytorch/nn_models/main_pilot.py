@@ -65,9 +65,8 @@ def load_config(filepath):
     rtn['load_files']=''
     rtn['use_float32']=''
     rtn['label_scale']='100.0'
-    rtn['workers']='0'
+    rtn['num_workers']='0'
     rtn['checkpoint_file']=''
-
 
     config_file = open(filepath)
     lines = config_file.readlines()
@@ -102,7 +101,7 @@ def main():
     gpu = int(config['gpu'])
     
     epochs = int(config['epochs'])
-    workers = int(config['workers'])
+    num_workers = int(config['num_workers'])
 
     
     
@@ -115,27 +114,27 @@ def main():
         os.mkdir(output_dir)
     network = models.PilotNet()
     if(gpu>=0):
-        network = network.cuda(0)
+        network = network.cuda(gpu)
     print(network)
     size=(66,200)
     trainset = loaders.F1ImageDataset(annotation_file, size)
 
     
    # trainset.read_files()
-    
+    '''
     if(load_files):
         trainset.loadFiles()
         trainset.writePickles()
     else:  
         trainset.loadPickles()
-    ''' 
+    
     mean,stdev = trainset.statistics()
     print(mean)
     print(stdev)
     img_transformation = transforms.Compose([transforms.Normalize(mean,stdev)])
     trainset.img_transformation = img_transformation
     '''
-    trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = True, num_workers = 0)
+    trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = True, num_workers = num_workers)
     print(trainLoader)
     #Definition of our loss.
     criterion = nn.MSELoss()

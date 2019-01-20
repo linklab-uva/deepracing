@@ -177,6 +177,22 @@ class AdmiralNet(nn.Module):
         #activations
         self.relu = nn.ReLU()
 
+        self.projector_input = torch.FloatTensor( torch.Size( ( self.sequence_length, self.feature_length ) ) )
+        self.projector_input.normal_(std=0.05)
+        if(self.gpu>=0):
+            self.projector_input = self.projector_input.cuda(self.gpu)
+
+        self.init_cell = torch.FloatTensor( torch.Size( ( 1, self.hidden_dim ) ) )
+        self.init_cell.normal_(std=0.05)
+        if(self.gpu>=0):
+            self.init_cell = self.init_cell.cuda(self.gpu)
+
+
+        self.init_hidden = torch.FloatTensor( torch.Size( ( 1, self.hidden_dim ) ) )
+        self.init_hidden.normal_(std=0.05)
+        if(self.gpu>=0):
+            self.init_hidden = self.init_hidden.cuda(self.gpu)
+
     def forward(self, x):
         #resize for convolutional layers
         batch_size = x.shape[0]
@@ -199,13 +215,16 @@ class AdmiralNet(nn.Module):
         # Unpack for the RNN.
         x = x5.view(batch_size, self.context_length, self.img_features)
 
-        x, init_hidden = self.rnn(x)       
-        if(self.gpu>=0):
-            zeros = torch.zeros([batch_size, self.sequence_length, self.feature_length], dtype=torch.float32).cuda(self.gpu)
-        else:
-            zeros = torch.zeros([batch_size, self.sequence_length, self.feature_length], dtype=torch.float32)   
+        init_hidden = self.init_hidden.repeat( 1, batch_size, 1)
+        init_cell = self.init_cell.repeat( 1, batch_size, 1 )
 
-        x, final_hidden = self.rnn(zeros, init_hidden)
+        x, new_hidden = self.rnn(x, (init_hidden,  init_cell) )       
+     #   print(new_hidden[0].shape)   
+      #  print(init_hidden[1].shape)
+
+        projector_input = self.projector_input.repeat(batch_size, 1, 1)
+        x, final_hidden = self.rnn( projector_input, new_hidden )
+
         predictions = self.prediction_layer(x)
 
         return predictions
