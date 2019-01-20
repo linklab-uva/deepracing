@@ -63,11 +63,11 @@ def load_config(filepath):
     rtn['momentum']='0.0'
     rtn['file_prefix']=''
     rtn['load_files']=''
+    rtn['load_pickles']=''
     rtn['use_float32']=''
     rtn['label_scale']='100.0'
     rtn['num_workers']='0'
     rtn['checkpoint_file']=''
-    rtn['load_pickles']=''
 
     config_file = open(filepath)
     lines = config_file.readlines()
@@ -94,8 +94,8 @@ def main():
     #optional parameters
     file_prefix = config['file_prefix']
 
-    load_files = bool(config['load_files'])
-    load_pickles = bool(config['load_pickles'])
+    load_files = (config['load_files'] == 'True')
+    load_pickles = (config['load_pickles'] == 'True')
 
     momentum = float(config['momentum'])
 
