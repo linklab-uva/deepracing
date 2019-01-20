@@ -238,11 +238,12 @@ class F1OpticalFlowDataset(Dataset):
     def loadFiles(self):
         fp, ts, steering, throttle, brake = self.annotations[0].split(",")
         im = torch.round(255.0 * self.totensor( self.grayscale( self.resize( PILImage.open( os.path.join( self.image_folder, fp ) ) ) ) ) ).type(torch.uint8)
-        prvs_img =  im.numpy().transpose(1,2,0)
+        prvs_img =  im[0].numpy()
         for idx in tqdm(range(1,len(self.annotations)),desc='Loading Data',leave=True):
             fp, ts, steering, throttle, brake = self.annotations[idx].split(",")
             im = torch.round(255.0 * self.totensor( self.grayscale( self.resize( PILImage.open( os.path.join( self.image_folder, fp ) ) ) ) ) ).type(torch.uint8)
-            next_img =  im.numpy().transpose(1,2,0)
+          #  print(im.size())
+            next_img =  im[0].numpy()
             flow = cv2.calcOpticalFlowFarneback(prvs_img,next_img, None, 0.5, 3, 20, 8, 5, 1.2, 0).astype(np.float32)
             indx= idx-1
             self.images[indx] = self.totensor(flow)
