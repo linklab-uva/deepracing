@@ -1,0 +1,10 @@
+syntax = "proto3";
+package deepf1.protobuf;
+message F1UDPData {
+  float game_time = 1;
+  float game_lap_time = 2;
+  int64 logger_time = 3;
+  float steering = 4;
+  float throttle = 5;
+  float brake = 6;
+}

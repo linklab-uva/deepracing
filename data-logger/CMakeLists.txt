@@ -1,132 +1,116 @@
 project(f1_datalogger)
-cmake_minimum_required(VERSION 2.7)
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-find_package( Boost COMPONENTS chrono filesystem math_tr1f math_tr1l program_options REQUIRED )
-find_package( OpenCV REQUIRED )
-include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS} ${EIGEN_INCLUDE_DIRS})
-include_directories(include)
-link_directories(${Boost_LIBRARY_DIR_RELEASE})
-option(BUILD_DLLS "Generate Dynamic Link Libraries (DLLs)" OFF)
-option(BUILD_PYTHON_BINDING "Generate pybind11 bindings" OFF)
+cmake_minimum_required (VERSION 3.10 FATAL_ERROR)
 
-IF(BUILD_DLLS)
-set(BUILD_SHARED_LIBS true)
-set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS true)
-ELSE()
-set(BUILD_SHARED_LIBS false)
-ENDIF()
-set(SOCKET_LIBRARY ws2_32)
-add_definitions(-std=c++11)
-add_library(${PROJECT_NAME}_data_capture
-src/simple_udp_listener
-src/screen_video_capture.cpp
-src/simple_screen_listener.cpp
-)
-target_link_libraries(${PROJECT_NAME}_data_capture
-${OpenCV_LIBS}
-${SOCKET_LIBRARY}
-debug ${Boost_CHRONO_LIBRARY_DEBUG}
-optimized ${Boost_CHRONO_LIBRARY_RELEASE}
-)
-
-add_library(${PROJECT_NAME}_gsoap_binding
-src/stdsoap2.cpp
-src/deepf1_gsoap_env.cpp 
-src/deepf1_gsoapC.cpp
-src/nsmap.cpp
-)
-
-add_library(${PROJECT_NAME}_gsoap_conversions
-src/gsoap_conversions.cpp
-)
-target_link_libraries(${PROJECT_NAME}_gsoap_conversions
-${PROJECT_NAME}_gsoap_binding
-)
-add_library(${PROJECT_NAME}_math_utils
-src/alglib/alglibinternal.cpp
-src/alglib/alglibmisc.cpp
-src/alglib/ap.cpp
-src/alglib/dataanalysis.cpp
-src/alglib/diffequations.cpp
-src/alglib/fasttransforms.cpp
-src/alglib/integration.cpp
-src/alglib/interpolation.cpp
-src/alglib/linalg.cpp
-src/alglib/optimization.cpp
-src/alglib/solvers.cpp
-src/alglib/specialfunctions.cpp
-src/alglib/statistics.cpp
-)
-
-
-IF(BUILD_GSOAP_TEST)
-add_executable(${PROJECT_NAME}_gsoap_test
-src/gsoap_test.cpp 
-)
-target_link_libraries(${PROJECT_NAME}_gsoap_test 
-${PROJECT_NAME}_gsoap_binding
-)
-ENDIF()
-
-add_executable(${PROJECT_NAME} src/logger.cpp)
-target_link_libraries(${PROJECT_NAME}
-${PROJECT_NAME}_data_capture
-${PROJECT_NAME}_gsoap_conversions
-#${PROJECT_NAME}_math_utils
-debug ${Boost_CHRONO_LIBRARY_DEBUG}
-optimized ${Boost_CHRONO_LIBRARY_RELEASE}
-debug ${Boost_FILESYSTEM_LIBRARY_DEBUG}
-optimized ${Boost_FILESYSTEM_LIBRARY_RELEASE}
-)
-
-add_executable(${PROJECT_NAME}_simulated_telmetry_server src/simulated_telemetry_server.cpp)
-target_link_libraries(${PROJECT_NAME}_simulated_telmetry_server
-${PROJECT_NAME}_data_capture
-${OpenCV_LIBS}
-debug ${Boost_CHRONO_LIBRARY_DEBUG}
-optimized ${Boost_CHRONO_LIBRARY_RELEASE}
-debug ${Boost_FILESYSTEM_LIBRARY_DEBUG}
-optimized ${Boost_FILESYSTEM_LIBRARY_RELEASE}
-)
-
-add_executable(${PROJECT_NAME}_steering_extractor src/steering_extractor.cpp)
-target_link_libraries(${PROJECT_NAME}_steering_extractor 
-${PROJECT_NAME}_math_utils
-${PROJECT_NAME}_data_capture
-${PROJECT_NAME}_gsoap_binding
-debug ${Boost_FILESYSTEM_LIBRARY_DEBUG}
-optimized ${Boost_FILESYSTEM_LIBRARY_RELEASE}
-)
-
-add_executable(${PROJECT_NAME}_common_extractor src/common_extractor.cpp)
-target_link_libraries(${PROJECT_NAME}_common_extractor
-${PROJECT_NAME}_math_utils
-${PROJECT_NAME}_data_capture
-${PROJECT_NAME}_gsoap_binding
-debug ${Boost_FILESYSTEM_LIBRARY_DEBUG}
-optimized ${Boost_FILESYSTEM_LIBRARY_RELEASE}
-)
-
-set(${PROJECT_NAME}_INSTALL_TARGETS
-${PROJECT_NAME}_math_utils
-${PROJECT_NAME}_steering_extractor
-${PROJECT_NAME}_common_extractor 
-${PROJECT_NAME}_simulated_telmetry_server
-${PROJECT_NAME}_gsoap_conversions
-${PROJECT_NAME}_gsoap_binding
-${PROJECT_NAME}_data_capture
-${PROJECT_NAME}
-)
-if(BUILD_PYTHON_BINDING)
-add_subdirectory(python_binding)
+option(BUILD_SHARED_LIBS "Build Shared Libraries (EXPERIMENTAL)" OFF)
+if(MSVC)
+    set(cxx_standard 11)
+else()
+    set(cxx_standard 17)
 endif()
 
-install(TARGETS ${${PROJECT_NAME}_INSTALL_TARGETS}
+set(CMAKE_CXX_STANDARD ${cxx_standard})
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS ON)
+set(THIRD_PARTY_REPOS ${CMAKE_SOURCE_DIR}/third_party)
+option(CMAKE_BUILD_TYPE "Build Type" Release)
+
+set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+
+option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to read datasets" ON)
+if(BUILD_DATALOGGER)
+    find_package(screen_capture_lite REQUIRED)
+    message(STATUS "Found screen_capture_lite headers: ${screen_capture_lite_INCLUDE_DIRS}")
+    message(STATUS "Found screen_capture_lite libraries: ${screen_capture_lite_LIBRARIES}")
+    include_directories(${screen_capture_lite_INCLUDE_DIRS})
+endif()
+
+
+if(BUILD_SHARED_LIBS)
+    if(MSVC)
+        set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+    endif()
+    set(Boost_USE_STATIC_LIBS OFF)
+else()
+    set(Boost_USE_STATIC_LIBS ON)
+endif()
+find_package( Boost REQUIRED COMPONENTS date_time filesystem program_options regex )
+message(STATUS "Found Boost libraries: ${Boost_LIBRARIES}")
+
+
+
+find_package( OpenCV REQUIRED )
+
+if(MSVC)
+find_package(yaml-cpp REQUIRED HINTS "C:\\Program\ Files\\YAML_CPP")
+else()
+find_package(yaml-cpp REQUIRED)
+include_directories(${YAML_CPP_INCLUDE_DIR})
+endif()
+message(STATUS "Found yaml-cpp include dir: ${YAML_CPP_INCLUDE_DIR}")
+message(STATUS "Found yaml-cpp libraries: ${YAML_CPP_LIBRARIES}")
+message(STATUS "LIB: $ENV{LIB}")
+if(MSVC)
+    message(STATUS "Getting TBB")
+    include(get_tbb)
+    message(STATUS "Got TBB targets: ${TBB_IMPORTED_TARGETS}")
+else()
+    option(GET_TBB "Download TBB from github rather than building it." OFF)
+    if(GET_TBB)
+        message(STATUS "Getting TBB")
+        include(get_tbb)
+        message(STATUS "Got TBB targets: ${TBB_IMPORTED_TARGETS}")
+    else()
+        message(STATUS "Building TBB")
+        include(build_tbb)
+        message(STATUS "Built TBB targets: ${TBB_IMPORTED_TARGETS}")
+    endif()
+endif()
+
+
+include_directories( include )
+include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${YAML_CPP_INCLUDE_DIR})
+
+add_subdirectory( proto )
+
+
+include_directories(${Protobuf_INCLUDE_DIR})
+
+
+include_directories(${ProtobufIncludePath})
+
+add_subdirectory( src/alglib )
+message(STATUS "ALGLIB_DIR: ${ALGLIB_DIR}")
+add_subdirectory( src/post_processing )
+
+if(BUILD_DATALOGGER)
+    add_subdirectory( src/image_logging )
+    add_subdirectory( src/udp_logging )
+    add_library(${PROJECT_NAME}
+    src/f1_datalogger.cpp
+    )
+    target_link_libraries(${PROJECT_NAME} 
+    ${PROJECT_NAME}_image_logging 
+    ${PROJECT_NAME}_udp_logging 
+    ${PROJECT_NAME}_proto 
+    ${PROJECT_NAME}_alglib 
+    ${Boost_LIBRARIES}
+    )
+    add_subdirectory( src/Examples )
+    set(install_targets ${PROJECT_NAME} )
+    install(TARGETS ${install_targets}
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib)
-install(DIRECTORY include/ DESTINATION include/deepf1
-        FILES_MATCHING PATTERN "*.h")
+        ARCHIVE DESTINATION lib
+    )
+    install(DIRECTORY include/${PROJECT_NAME}
+        DESTINATION include
+        FILES_MATCHING PATTERN "*.h"
+    )
+    unset(install_targets)
+endif()
+
+install(DIRECTORY proto/
+DESTINATION share/${PROJECT_NAME}/proto
+FILES_MATCHING PATTERN "*.proto"
+)
