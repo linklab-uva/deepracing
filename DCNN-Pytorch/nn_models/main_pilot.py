@@ -93,7 +93,8 @@ def main():
 
     #optional parameters
     file_prefix = config['file_prefix']
-
+    print(config['load_files'])
+    print(config['load_pickles'])
     load_files = (config['load_files'] == 'True')
     load_pickles = (config['load_pickles'] == 'True')
 
