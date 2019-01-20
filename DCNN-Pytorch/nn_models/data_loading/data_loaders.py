@@ -244,11 +244,11 @@ class F1OpticalFlowDataset(Dataset):
             im = torch.round(255.0 * self.totensor( self.grayscale( self.resize( PILImage.open( os.path.join( self.image_folder, fp ) ) ) ) ) ).type(torch.uint8)
             next_img =  im.numpy().transpose(1,2,0)
             flow = cv2.calcOpticalFlowFarneback(prvs_img,next_img, None, 0.5, 3, 20, 8, 5, 1.2, 0).astype(np.float32)
-            index = idx-1
-            self.images[index] = self.totensor(flow)
-            self.labels[index][0] = float(steering)
-            self.labels[index][1] = float(throttle)
-            self.labels[index][2] = float(brake)
+            indx= idx-1
+            self.images[indx] = self.totensor(flow)
+            self.labels[indx][0] = float(steering)
+            self.labels[indx][1] = float(throttle)
+            self.labels[indx][2] = float(brake)
             prvs_img = next_img
     def __getitem__(self, index):
         images_start = index
