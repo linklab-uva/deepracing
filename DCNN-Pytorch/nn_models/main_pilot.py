@@ -67,6 +67,7 @@ def load_config(filepath):
     rtn['label_scale']='100.0'
     rtn['num_workers']='0'
     rtn['checkpoint_file']=''
+    rtn['load_pickles']=''
 
     config_file = open(filepath)
     lines = config_file.readlines()
@@ -94,6 +95,7 @@ def main():
     file_prefix = config['file_prefix']
 
     load_files = bool(config['load_files'])
+    load_pickles = int(config['load_pickles'])
 
     momentum = float(config['momentum'])
 
@@ -121,13 +123,13 @@ def main():
 
     
    # trainset.read_files()
-    '''
+    
     if(load_files):
         trainset.loadFiles()
         trainset.writePickles()
-    else:  
+    elif():  
         trainset.loadPickles()
-    
+    '''
     mean,stdev = trainset.statistics()
     print(mean)
     print(stdev)
