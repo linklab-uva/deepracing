@@ -1,9 +1,8 @@
 learning_rate,1E-04
-annotation_file,/home/ttw2xk/f1data/australia_fullview_run2/linear.csv
+annotation_file,/zf18/ttw2xk/deepf1data/australia_fullview_run2/linear.csv
 gpu,0
 batch_size,16
 epochs,100
 context_length,30
 sequence_length,1
-load_files,
 output_dimension,1
