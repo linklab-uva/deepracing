@@ -10,6 +10,7 @@ import numpy as np
 import torchvision.transforms as transforms
 import PIL
 from PIL import Image as PILImage
+import torchvision
 class F1Dataset(Dataset):
     def __init__(self, root_folder, annotation_filepath, im_size, use_float32=False, img_transformation = None, label_transformation = None):
         super(F1Dataset, self).__init__()
@@ -210,13 +211,13 @@ class F1OpticalFlowDataset(Dataset):
         self.totensor = torchvision.transforms.ToTensor()
         self.grayscale = torchvision.transforms.Grayscale()
         self.resize = torchvision.transforms.Resize(im_size)
-        self.annotations = open(annotation_file).readlines()
-        self.root_folder = os.path.dirname(self.annotation_file)
+        self.annotations = open(annotation_filepath).readlines()
+        self.root_folder = os.path.dirname(self.annotations)
         self.image_folder = os.path.join(self.root_folder,'raw_images')
         self.len = len(self.annotations) - context_length - sequence_length - 1
         self.images = torch.zeros(len(self.annotations), im_size[0], im_size[1], dtype = torch.uint8)
         self.labels = torch.zeros(len(self.annotations), 3, dtype = torch.float32)
-    def loadFiles():
+    def loadFiles(self):
         for idx in tqdm(range(len(self.annotations)),desc='Loading Data',leave=True):
             fp, ts, steering, throttle, brake = self.annotations[idx].split(",")
             im = torch.round(255.0 * self.totensor( self.grayscale( self.resize( PILImage.open( os.path.join( self.image_folder, fp ) ) ) ) ) ).type(torch.uint8)
@@ -227,9 +228,9 @@ class F1OpticalFlowDataset(Dataset):
     def __getitem__(self, index):
         images_start = index
         images_end = images_start + self.context_length
-        images = self.images[ idx : images_end+1 ]
+        images = self.images[ index : images_end+1 ]
 
-        flows = torch.zeros(self.context_length, 2, resize.size[0], resize.size[1], dtype = torch.float32)
+        flows = torch.zeros(self.context_length, 2, self.resize.size[0], self.resize.size[1], dtype = torch.float32)
         prvs_img = images[0].numpy()
         for idx in range(1, images.shape[0]):
             next_img = images[idx].numpy()
@@ -239,7 +240,7 @@ class F1OpticalFlowDataset(Dataset):
         
         labels_start = images_end
         labels_end = labels_start + self.sequence_length
-        labels = labels[labels_start : labels_end]
+        labels = self.labels[labels_start : labels_end]
         return flows , labels
     def __len__(self):
         return self.len
