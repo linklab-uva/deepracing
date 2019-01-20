@@ -3,3 +3,5 @@ annotation_file,/home/ttw2xk/f1data/australia_fullview_run2/linear.csv
 label_scale,1.0
 gpu,0
 batch_size,32
+epochs,100
+num_workers,10
