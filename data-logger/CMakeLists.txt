@@ -110,3 +110,7 @@ if(BUILD_DATALOGGER)
     unset(install_targets)
 endif()
 
+install(DIRECTORY proto/
+DESTINATION share/${PROJECT_NAME}/proto
+FILES_MATCHING PATTERN "*.proto"
+)
