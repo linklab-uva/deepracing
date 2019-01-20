@@ -17,22 +17,47 @@ import glob
 import argparse
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
+from torch.utils.data.dataset import Subset
 def main():
-    parser = argparse.ArgumentParser(description="Playground")
-    parser.add_argument("--dataset_file", type=str, required=True, help="Dataset file to use")
-    args = parser.parse_args()
-    dataset = loaders.F1OpticalFlowDataset(args.dataset_file,(66,200), context_length=15, sequence_length=10)
-    #dataset.loadFiles()
-    dataset.loadPickles()
-    flows, labels = dataset[len(dataset)-1]
+   # parser = argparse.ArgumentParser(description="Playground")
+   # parser.add_argument("--dataset_file", type=str, required=True, help="Dataset file to use")
+  #  args = parser.parse_args()
+    #dataset1 = loaders.F1ImageDataset("/home/ttw2xk/f1data/test_dataset/linear_1.csv",(66,200))
+    dataset1 = loaders.F1OpticalFlowDataset("/home/ttw2xk/f1data/test_dataset/linear_1.csv",(66,200),\
+      context_length=5, sequence_length=3)
+    dataset1.loadFiles()
+    #dataset1.loadPickles()
+    #dataset1.writePickles()
 
-    print(flows.shape)
+    image, labels = dataset1[5]
+
+
+    #dataset2= loaders.F1ImageDataset("/home/ttw2xk/f1data/test_dataset/linear_2.csv",(66,200))
+    dataset2 = loaders.F1OpticalFlowDataset("/home/ttw2xk/f1data/test_dataset/linear_2.csv",(66,200),\
+      context_length=5, sequence_length=3)
+    dataset2.loadFiles()
+    #dataset2.loadPickles()
+    #dataset2.writePickles()
+    image, labels = dataset2[5]
+
+    bigdataset = torch.utils.data.ConcatDataset((dataset1,dataset2))
+
+    print(len(bigdataset))
+    image, labels = bigdataset[40]
+
+    indices = np.linspace(0,9,9,endpoint=False).astype(np.int32)
+
+    subset = Subset(bigdataset, indices)
+
+
+    image, labels = subset[0]
+
+    print(image.shape)
     print(labels.shape)
 
     print(flows[0])
 #    print(flows[24])
 
-    print(labels)
 
     #dataset.writePickles()
 
