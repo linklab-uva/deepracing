@@ -235,8 +235,9 @@ class F1OpticalFlowDataset(Dataset):
         for idx in range(1, images.shape[0]):
             next_img = images[idx].numpy()
             flow = cv2.calcOpticalFlowFarneback(prvs_img,next_img, None, 0.5, 3, 20, 8, 5, 1.2, 0).astype(np.float32)
-            flows[idx-1] = self.totensor(flow.transpose(2,0,1))
+            flows[idx-1] = self.totensor(flow)
             prvs_img = next_img
+            
         
         labels_start = images_end
         labels_end = labels_start + self.sequence_length
