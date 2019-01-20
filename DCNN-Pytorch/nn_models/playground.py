@@ -23,11 +23,18 @@ def main():
     args = parser.parse_args()
     dataset = loaders.F1OpticalFlowDataset(args.dataset_file,(66,200), 25, 10)
     dataset.loadFiles()
-
+    #dataset.loadPickles()
     flows, labels = dataset[len(dataset)-1]
 
     print(flows.shape)
     print(labels.shape)
+
+    # print(flows[0])
+    # print(flows[24])
+
+    print(labels)
+
+    dataset.writePickles()
 
 if __name__ == '__main__':
     main()
