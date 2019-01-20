@@ -212,7 +212,7 @@ class F1OpticalFlowDataset(Dataset):
         self.grayscale = torchvision.transforms.Grayscale()
         self.resize = torchvision.transforms.Resize(im_size)
         self.annotations = open(annotation_filepath).readlines()
-        self.root_folder = os.path.dirname(self.annotations)
+        self.root_folder = os.path.dirname(annotation_filepath)
         self.image_folder = os.path.join(self.root_folder,'raw_images')
         self.len = len(self.annotations) - context_length - sequence_length - 1
         self.images = torch.zeros(len(self.annotations), im_size[0], im_size[1], dtype = torch.uint8)
