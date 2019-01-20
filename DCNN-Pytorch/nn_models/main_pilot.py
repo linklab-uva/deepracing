@@ -123,11 +123,10 @@ def main():
 
     
    # trainset.read_files()
-    
     if(load_files):
         trainset.loadFiles()
         trainset.writePickles()
-    elif():  
+    elif(load_pickles):  
         trainset.loadPickles()
     '''
     mean,stdev = trainset.statistics()
