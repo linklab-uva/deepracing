@@ -91,8 +91,8 @@ def main():
         #result_data.append([labels,pred])
         print(pred.shape)
         if pred.shape[1] == 1:
-            angle = pred.item()
-            ground_truth = labels.item()
+            angle = pred[0].item()
+            ground_truth = labels[0].item()
         else:
             angle = pred.squeeze()[0].item()
             ground_truth = labels.squeeze()[0].item()
