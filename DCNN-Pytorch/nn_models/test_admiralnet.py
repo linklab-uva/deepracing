@@ -89,6 +89,7 @@ def main():
             labels = labels.cuda(gpu)
         pred = network(inputs)
         #result_data.append([labels,pred])
+        print(pred.shape)
         if pred.shape[1] == 1:
             angle = pred.item()
             ground_truth = labels.item()
