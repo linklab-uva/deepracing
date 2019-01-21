@@ -43,7 +43,7 @@ def main():
     gpu = int(config['gpu'])
     use_float32 = bool(config['use_float32'])
     label_scale = float(config['label_scale'])
-    #size = (66,200)
+    size = (66,200)
     prefix, _ = annotation_file.split(".")
     prefix = prefix + config['file_prefix']
     context_length = int(config['context_length'])
