@@ -127,16 +127,24 @@ def main():
         network = network.cuda(0)
     print(network)
     size=(66,200)
-    trainset = loaders.F1OpticalFlowDataset(annotation_file, size, context_length = context_length, sequence_length = sequence_length)
+    trainset1 = loaders.F1OpticalFlowDataset('/zf18/ttw2xk/deepf1data/australia_fullview_run1/linear_raw_only.csv', \
+    size, context_length = context_length, sequence_length = sequence_length)
+    trainset2 = loaders.F1OpticalFlowDataset('/zf18/ttw2xk/deepf1data/australia_fullview_run2/linear.csv', \
+    size, context_length = context_length, sequence_length = sequence_length)
+
 
     
    # trainset.read_files()
     
     if(load_files):
-        trainset.loadFiles()
-        trainset.writePickles()
+        trainset1.loadFiles()
+        trainset1.writePickles()
+        trainset2.loadFiles()
+        trainset2.writePickles()
     elif(load_pickles):  
-        trainset.loadPickles()
+        trainset1.loadPickles()
+        trainset2.loadPickles()
+    trainset = = torch.utils.data.ConcatDataset((trainset1,trainset2))
     ''' 
     mean,stdev = trainset.statistics()
     print(mean)
