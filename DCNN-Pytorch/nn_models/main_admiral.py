@@ -128,7 +128,7 @@ def main():
     print(network)
     size=(66,200)
 
-    files= ('fullview_linear_raw.csv', 'fullview_linear_flipped.csv')
+    files= {'fullview_linear_darkflipped.csv', 'fullview_linear_raw.csv', 'fullview_linear_brightenned.csv', 'fullview_linear_darkenned.csv', 'fullview_linear_flipped.csv'}
             # 'fullview_linear_darkenned.csv',\
             # 'fullview_linear_darkflipped.csv',\
             # 'fullview_linear_brightenned.csv')
