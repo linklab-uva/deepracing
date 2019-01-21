@@ -83,7 +83,7 @@ def main():
     loader = torch.utils.data.DataLoader(trainset, batch_size = 1, shuffle = False, num_workers = 0)
     
     t = tqdm(enumerate(loader))
-    for idx,(inputs,labels) in t:
+    for idx,(inputs,) in t:
         if(all(flag.numpy())):
         if(gpu>=0):
             inputs = inputs.cuda(gpu)
@@ -106,16 +106,16 @@ def main():
 
     predictions_array = np.array(predictions)
     ground_truths_array = np.array(ground_truths)
-    log_name = "ouput_log.txt"
-    imdir = "admiralnet_prediction_images_" + model_prefix
-    if(os.path.exists(imdir)==False):
-        os.mkdir(imdir)
-    log_output_path = os.path.join(imdir,log_name)
-    log = list(zip(ground_truths_array,predictions_array))
-    with open(log_output_path, "a") as myfile:
-        for x in log:
-            log_item = [x[0],x[1]]
-            myfile.write("{0},{1}\n".format(log_item[0],log_item[1]))
+    # log_name = "ouput_log.txt"
+    # imdir = "admiralnet_prediction_images_" + model_prefix
+    # if(os.path.exists(imdir)==False):
+    #     os.mkdir(imdir)
+    # log_output_path = os.path.join(imdir,log_name)
+    # log = list(zip(ground_truths_array,predictions_array))
+    # with open(log_output_path, "a") as myfile:
+    #     for x in log:
+    #         log_item = [x[0],x[1]]
+    #         myfile.write("{0},{1}\n".format(log_item[0],log_item[1]))
     diffs = np.subtract(predictions_array,ground_truths_array)
     rms = np.sqrt(np.mean(np.array(losses)))
     nrms = np.sqrt(np.mean(np.divide(np.square(np.array(losses)),np.multiply(np.mean(np.array(predictions)),np.mean(np.array(ground_truths))))))
