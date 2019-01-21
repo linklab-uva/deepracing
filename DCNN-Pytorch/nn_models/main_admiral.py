@@ -71,7 +71,7 @@ def load_config(filepath):
     rtn['context_length']='25'
     rtn['sequence_length']='10'
     rtn['output_dimension']='1'
-    rtn['hidden_dimemsion']='100'
+    rtn['hidden_dimension']='100'
 
 
     config_file = open(filepath)
@@ -113,7 +113,7 @@ def main():
     context_length = int(config['context_length'])
     sequence_length = int(config['sequence_length'])
     output_dimension = int(config['output_dimension'])
-    hidden_dimemsion = int(config['hidden_dimemsion'])
+    hidden_dimension = int(config['hidden_dimension'])
 
     
     
@@ -125,7 +125,7 @@ def main():
     if(not os.path.isdir(output_dir)):
         os.mkdir(output_dir)
     network = models.AdmiralNet(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
-    hidden_dimemsion=hidden_dimemsion, output_dimension = output_dimension)
+    hidden_dimemsion=hidden_dimension, output_dimension = output_dimension)
     if(gpu>=0):
         network = network.cuda(0)
     print(network)
