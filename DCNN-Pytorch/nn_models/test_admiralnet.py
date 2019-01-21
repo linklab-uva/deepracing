@@ -83,7 +83,8 @@ def main():
     if(gpu>=0):
         criterion = criterion.cuda(gpu)
     network.eval()
-    loader = torch.utils.data.DataLoader(valset, batch_size = 1, shuffle = False, num_workers = 0)
+    batch_size = 1
+    loader = torch.utils.data.DataLoader(valset, batch_size = batch_size, shuffle = False, num_workers = 0)
     
     t = tqdm(enumerate(loader))
     for (i, (inputs, labels)) in t:
