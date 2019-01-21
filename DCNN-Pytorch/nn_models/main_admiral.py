@@ -21,7 +21,6 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu, output_dimens
     num_samples=0
     t = tqdm(enumerate(trainLoader))
     for (i, (inputs, labels)) in t:
-        optimizer.zero_grad()
         labels = labels[:,0:output_dimension]
         if use_gpu>=0:
             inputs = inputs.cuda(use_gpu)
@@ -31,6 +30,7 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu, output_dimens
         loss = criterion(outputs, labels)
 
         # Backward pass:
+        optimizer.zero_grad()
         loss.backward() 
 
         # Weight and bias updates.
