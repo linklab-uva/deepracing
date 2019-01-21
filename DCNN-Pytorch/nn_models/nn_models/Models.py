@@ -340,18 +340,18 @@ class AdmiralNet_V2(nn.Module):
         y = self.conv3d3(y) 
       #  print(y.shape) 
         y = self.conv3d4(y)
-        print(y.shape)
+       # print(y.shape)
         y = y.view(batch_size, self.sequence_length, self.projection_features)
         y = self.projection_layer(y)
-        print(y.shape)
+     #   print(y.shape)
 
 
 
      #   print(new_hidden[0].shape)   
       #  print(init_hidden[1].shape)
-        zeros = torch.FloatTensor(batch_size, self.sequence_length, self.feature_length).normal_(std=0.05)
-        if(self.gpu>=0):
-            zeros = zeros.cuda(self.gpu)
+        # zeros = torch.FloatTensor(batch_size, self.sequence_length, self.feature_length).normal_(std=0.05)
+        # if(self.gpu>=0):
+        #     zeros = zeros.cuda(self.gpu)
         x, final_hidden = self.rnn(  y, new_hidden )
 
         predictions = self.prediction_layer(x)
