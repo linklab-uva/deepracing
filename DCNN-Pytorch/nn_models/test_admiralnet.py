@@ -95,8 +95,11 @@ def main():
         # Forward pass:
         outputs = network(inputs)
         loss = criterion(outputs, labels)
+        prediction = outputs.cpu()[0][0][0]
+        ground_truth = labels.cpu()[0][0][0]
 
-
+        predictions.append(prediction)
+        ground_truths.append(ground_truth)
         # logging information
         loss_ = loss.item()
         cum_loss += loss_
