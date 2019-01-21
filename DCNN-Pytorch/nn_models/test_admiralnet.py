@@ -86,8 +86,6 @@ def main():
     for idx,(inputs,labels) in t:
         if(gpu>=0):
             inputs = inputs.cuda(gpu)
-            throttle = throttle.cuda(gpu)
-            brake= brake.cuda(gpu)
             labels = labels.cuda(gpu)
         pred = network(inputs)
         #result_data.append([labels,pred])
