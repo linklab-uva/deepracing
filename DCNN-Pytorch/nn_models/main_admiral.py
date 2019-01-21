@@ -149,8 +149,10 @@ def main():
         image_pickle = os.path.join(dataset.root_folder,prefix+"_flow_images.pt")
         labels_pickle = os.path.join(dataset.root_folder,prefix+"_flow_labels.pt")
         if(os.path.isfile(image_pickle) and os.path.isfile(labels_pickle)):
+            print("Loading pickles for: " + datasets.annotation_filename)
             dataset.loadPickles()
         else:  
+            print("Loading files for: " + datasets.annotation_filename)
             dataset.loadFiles()
             dataset.writePickles()
 
