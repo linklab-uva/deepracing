@@ -84,7 +84,6 @@ def main():
     
     t = tqdm(enumerate(loader))
     for idx,(inputs,) in t:
-        if(all(flag.numpy())):
         if(gpu>=0):
             inputs = inputs.cuda(gpu)
             throttle = throttle.cuda(gpu)
