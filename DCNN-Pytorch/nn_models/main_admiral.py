@@ -22,7 +22,7 @@ def run_epoch(network, criterion, optimizer, trainLoader, gpu, output_dimension)
     t = tqdm(enumerate(trainLoader))
     network.train()  # This is important to call before training!
     for (i, (inputs, labels)) in t:
-        labels = labels[:,0:output_dimension]
+        labels = labels[:,:,0:output_dimension]
         if gpu>=0 and (not inputs.is_cuda):
             inputs = inputs.cuda(gpu)
         if gpu>=0 and (not labels.is_cuda):
