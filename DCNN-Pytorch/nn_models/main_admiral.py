@@ -130,24 +130,26 @@ def main():
         network = network.cuda(0)
     print(network)
     size=(66,200)
-    trainset1 = loaders.F1OpticalFlowDataset('/zf18/ttw2xk/deepf1data/australia_fullview_run1/linear_raw_only.csv', \
-    size, context_length = context_length, sequence_length = sequence_length)
-    trainset2 = loaders.F1OpticalFlowDataset('/zf18/ttw2xk/deepf1data/australia_fullview_run2/linear.csv', \
-    size, context_length = context_length, sequence_length = sequence_length)
 
-
+    datasetfiles = []
+    datasetfiles.append('/zf18/ttw2xk/deepf1data/australia_fullview_run1/fullview_linear_darkenned.csv')
+    datasetfiles.append('/zf18/ttw2xk/deepf1data/australia_fullview_run1/fullview_linear_flipped.csv')
+    datasetfiles.append('/zf18/ttw2xk/deepf1data/australia_fullview_run1/fullview_linear_darkflipped.csv ')
+    datasetfiles.append('/zf18/ttw2xk/deepf1data/australia_fullview_run1/fullview_linear_raw.csv ')
+    datasets = []
+    for datasetfile in datasetfiles:
+        datasets.append( loaders.F1OpticalFlowDataset(datasetfile, size, context_length = context_length, sequence_length = sequence_length) )
     
    # trainset.read_files()
     
     if(load_files):
-        trainset1.loadFiles()
-        trainset1.writePickles()
-        trainset2.loadFiles()
-        trainset2.writePickles()
+        for dataset in datasets:
+            dataset.loadFiles()
+            dataset.writePickles()
     elif(load_pickles):  
-        trainset1.loadPickles()
-        trainset2.loadPickles()
-    trainset = torch.utils.data.ConcatDataset((trainset1,trainset2))
+        for dataset in datasets:
+            dataset.loadPickles()
+    trainset = torch.utils.data.ConcatDataset(datasets)
     ''' 
     mean,stdev = trainset.statistics()
     print(mean)
