@@ -76,7 +76,7 @@ class F1ImageSequenceDataset(Dataset):
         return images , labels
     def __len__(self):
         return self.len
-    def cuda(gpu=0):
+    def cuda(self, gpu=0):
         if(self.images is not None and self.labels is not None):
             self.images = self.images.cuda(gpu)
             self.labels = self.labels.cuda(gpu)
