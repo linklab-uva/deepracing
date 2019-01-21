@@ -120,10 +120,10 @@ def main():
     #         log_item = [x[0],x[1]]
     #         myfile.write("{0},{1}\n".format(log_item[0],log_item[1]))
     diffs = np.subtract(predictions_array,ground_truths_array)
-    rms = np.sqrt(np.mean(np.array(losses)))
-    nrms = np.sqrt(np.mean(np.divide(np.square(np.array(losses)),np.multiply(np.mean(np.array(predictions)),np.mean(np.array(ground_truths))))))
-    print("RMS Error: ", rms)
-    print("NRMS Error: ", nrms)
+    # rms = np.sqrt(np.mean(np.array(losses)))
+    # nrms = np.sqrt(np.mean(np.divide(np.square(np.array(losses)),np.multiply(np.mean(np.array(predictions)),np.mean(np.array(ground_truths))))))
+    # print("RMS Error: ", rms)
+    # print("NRMS Error: ", nrms)
 
     if args.plot:
         fig = plt.figure()
