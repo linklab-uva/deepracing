@@ -177,6 +177,11 @@ class AdmiralNet(nn.Module):
         #activations
         self.relu = nn.ReLU()
 
+        self.projector_input = torch.FloatTensor(self.sequence_length, self.feature_length).normal_(std=0.05)
+        if(self.gpu>=0):
+            self.projector_input = self.projector_input.cuda(self.gpu)
+       # self.projector_input.requires_grad_(True)
+
     #     self.projector_input = torch.FloatTensor( torch.Size( ( self.sequence_length, self.feature_length ) ) )
     #     self.projector_input.normal_(std=0.1)
     #     self.projector_input.requires_grad_()
@@ -225,10 +230,9 @@ class AdmiralNet(nn.Module):
         x, new_hidden = self.rnn(x)#, (init_hidden,  init_cell) )       
      #   print(new_hidden[0].shape)   
       #  print(init_hidden[1].shape)
-        zeros = torch.FloatTensor(batch_size, self.sequence_length, self.feature_length).normal_(std=0.05)
-        if(self.gpu>=0):
-            zeros = zeros.cuda(self.gpu)
-        x, final_hidden = self.rnn( zeros, new_hidden )
+        
+        projector = self.projector_input.repeat(batch_size,1,1)
+        x, final_hidden = self.rnn( projector, new_hidden )
 
         predictions = self.prediction_layer(x)
 

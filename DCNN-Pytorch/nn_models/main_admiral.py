@@ -182,12 +182,15 @@ def main():
     # Definition of optimization strategy.
     optimizer = optim.SGD(network.parameters(), lr = learning_rate, momentum=momentum)
     config['image_transformation'] = None
+    print("Using config:")
+    print(config)
     config_dump = open(os.path.join(output_dir,"config.pkl"), 'w+b')
     pickle.dump(config,config_dump)
     config_dump.close()
     # torch.save( self.images, open( os.path.join( self.root_folder, imgname ), 'w+b' ) )
-    '''
+    
     torch.save( network.projector_input, open(os.path.join(output_dir,"projector_input.pt"), 'w+b') )
+    '''
     torch.save( network.init_hidden, open(os.path.join(output_dir,"init_hidden.pt"), 'w+b') )
     torch.save( network.init_cell, open(os.path.join(output_dir,"init_cell.pt"), 'w+b') )
     '''
