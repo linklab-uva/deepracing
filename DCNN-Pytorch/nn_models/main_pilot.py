@@ -69,10 +69,7 @@ def load_config(filepath):
     rtn['label_scale']='100.0'
     rtn['workers']='0'
     rtn['checkpoint_file']=''
-    rtn['context_length']='25'
-    rtn['sequence_length']='10'
     rtn['output_dimension']='1'
-    rtn['hidden_dimension']='100'
 
 
     config_file = open(filepath)
@@ -109,10 +106,7 @@ def main():
     epochs = int(config['epochs'])
     workers = int(config['workers'])
 
-    context_length = int(config['context_length'])
-    sequence_length = int(config['sequence_length'])
     output_dimension = int(config['output_dimension'])
-    hidden_dimension = int(config['hidden_dimension'])
 
     
     
