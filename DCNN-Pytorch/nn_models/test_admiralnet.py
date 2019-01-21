@@ -90,12 +90,12 @@ def main():
         pred = network(inputs)
         #result_data.append([labels,pred])
        # print(pred.shape)
-        angle = pred.cpu()[0][0][0].cpu()
+        angle = pred.cpu()[0][0][0]
         ground_truth = labels.cpu()[0][0][0]
         predictions.append(angle)
         ground_truths.append(ground_truth)
         loss = criterion(pred, labels)
-        losses.append(loss.item())
+        losses.append(loss.cpu().item())
         t.set_postfix(angle = angle, ground_truth = ground_truth)
 
     predictions_array = np.array(predictions)
