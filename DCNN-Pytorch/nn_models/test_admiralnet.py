@@ -38,7 +38,7 @@ def main():
     config_file = open(config_path,'rb')
     config = pickle.load(config_file)
     print(config)
-    model_prefix, _ = model_file.split(".")
+    model_prefix = model_file.split(".")[0]
    # return
 
     gpu = args.gpu
@@ -132,7 +132,7 @@ def main():
         ax.plot(t,predictions_array,'r',label='Predicted')
         ax.plot(t,ground_truths_array,'b',label='Ground Truth')
         ax.legend()
-        plt.savefig("admiralnet_prediction_images_" + model_prefix+"\plot.jpeg")
+        plt.savefig("admiralnet_prediction_images_" + model_prefix+".jpeg")
        # plt.show()
 if __name__ == '__main__':
     main()
