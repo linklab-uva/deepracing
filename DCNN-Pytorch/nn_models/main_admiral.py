@@ -16,7 +16,6 @@ import string
 import argparse
 import torchvision.transforms as transforms
 def run_epoch(network, criterion, optimizer, trainLoader, use_gpu, output_dimension):
-    network.train()  # This is important to call before training!
     cum_loss = 0.0
     batch_size = trainLoader.batch_size
     num_samples=0
@@ -45,6 +44,7 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu, output_dimens
  
 
 def train_model(network, criterion, optimizer, trainLoader, directory, output_dimension, n_epochs = 10, use_gpu = False):
+    network.train()  # This is important to call before training!
     if use_gpu>=0:
         criterion = criterion.cuda(use_gpu)
     # Training loop.
