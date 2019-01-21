@@ -26,13 +26,15 @@ class F1CombinedDataset(Dataset):
         self.len = len(self.annotations) - context_length - sequence_length - 1
         self.images = None
         self.labels = None
+        self.image_pickle_postfix = "_combined_images.pt"
+        self.label_pickle_postfix = "_combined_labels.pt"
     def loadPickles(self):
         
         splits = self.annotation_filename.split(".")
         prefix=splits[0]
 
-        lblname = prefix + "_combined_labels.pt"
-        imgname = prefix + "_combined_images.pt"
+        lblname = prefix + self.label_pickle_postfix
+        imgname = prefix + self.image_pickle_postfix
 
 
         self.images = torch.load(os.path.join(self.root_folder,imgname))
@@ -43,8 +45,8 @@ class F1CombinedDataset(Dataset):
     def writePickles(self):
         splits = self.annotation_filename.split(".")
         prefix=splits[0]
-        lblname = prefix + "_combined_labels.pt"
-        imgname = prefix + "_combined_images.pt"
+        lblname = prefix + self.label_pickle_postfix
+        imgname = prefix + self.image_pickle_postfix
         torch.save(self.labels,open(os.path.join(self.root_folder,lblname), 'w+b'))
         torch.save(self.images,open(os.path.join(self.root_folder,imgname), 'w+b'))
     def loadFiles(self):
@@ -96,13 +98,16 @@ class F1OpticalFlowDataset(Dataset):
         self.len = len(self.annotations) - context_length - sequence_length - 1
         self.images = None
         self.labels = None
+        
+        self.image_pickle_postfix = "_flow_images.pt"
+        self.label_pickle_postfix = "_flow_labels.pt"
     def loadPickles(self):
         
         splits = self.annotation_filename.split(".")
         prefix=splits[0]
 
-        lblname = prefix + "_flow_labels.pt"
-        imgname = prefix + "_flow_images.pt"
+        lblname = prefix + self.label_pickle_postfix
+        imgname = prefix + self.image_pickle_postfix
 
 
         self.images = torch.load(os.path.join(self.root_folder,imgname))
@@ -113,8 +118,8 @@ class F1OpticalFlowDataset(Dataset):
     def writePickles(self):
         splits = self.annotation_filename.split(".")
         prefix=splits[0]
-        lblname = prefix + "_flow_labels.pt"
-        imgname = prefix + "_flow_images.pt"
+        lblname = prefix + self.label_pickle_postfix
+        imgname = prefix + self.image_pickle_postfix
         torch.save(self.labels,open(os.path.join(self.root_folder,lblname), 'w+b'))
         torch.save(self.images,open(os.path.join(self.root_folder,imgname), 'w+b'))
     def loadFiles(self):
@@ -163,23 +168,30 @@ class F1ImageDataset(Dataset):
         self.len = len(self.annotations)
         self.images = None
         self.labels = None
+        
+        self.image_pickle_postfix = "_images.pt"
+        self.label_pickle_postfix = "_labels.pt"
     def loadPickles(self):
+        
         splits = self.annotation_filename.split(".")
         prefix=splits[0]
-        lblname = prefix + "_labels.pt"
-        imgname = prefix + "_images.pt"
-        
+
+        lblname = prefix + self.label_pickle_postfix
+        imgname = prefix + self.image_pickle_postfix
+
+
         self.images = torch.load(os.path.join(self.root_folder,imgname))
-        
+
+
         self.labels = torch.load(os.path.join(self.root_folder,lblname))
 
     def writePickles(self):
         splits = self.annotation_filename.split(".")
         prefix=splits[0]
-        lblname = prefix + "_labels.pt"
-        imgname = prefix + "_images.pt"
-        torch.save( self.labels, open( os.path.join( self.root_folder, lblname ), 'w+b' ) )
-        torch.save( self.images, open( os.path.join( self.root_folder, imgname ), 'w+b' ) )
+        lblname = prefix + self.label_pickle_postfix
+        imgname = prefix + self.image_pickle_postfix
+        torch.save(self.labels,open(os.path.join(self.root_folder,lblname), 'w+b'))
+        torch.save(self.images,open(os.path.join(self.root_folder,imgname), 'w+b'))
     def loadFiles(self):
         window_name = "image"
         # cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE)
