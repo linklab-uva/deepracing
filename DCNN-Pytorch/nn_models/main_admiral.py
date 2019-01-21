@@ -147,7 +147,7 @@ def main():
     elif(load_pickles):  
         trainset1.loadPickles()
         trainset2.loadPickles()
-    trainset = = torch.utils.data.ConcatDataset((trainset1,trainset2))
+    trainset = torch.utils.data.ConcatDataset((trainset1,trainset2))
     ''' 
     mean,stdev = trainset.statistics()
     print(mean)
