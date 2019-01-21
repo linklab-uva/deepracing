@@ -242,8 +242,8 @@ class F1ImageDataset(Dataset):
         self.images = None
         self.labels = None
         
-        self.image_pickle_postfix = "_images.pt"
-        self.label_pickle_postfix = "_labels.pt"
+        self.image_pickle_postfix = "_static_images.pt"
+        self.label_pickle_postfix = "_static_labels.pt"
     def loadPickles(self):
         
         splits = self.annotation_filename.split(".")
