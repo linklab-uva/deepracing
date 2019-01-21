@@ -27,6 +27,7 @@ def main():
     parser = argparse.ArgumentParser(description="Test AdmiralNet")
     parser.add_argument("--model_file", type=str, required=True)
     parser.add_argument("--annotation_file", type=str, required=True)
+    parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--write_images", action="store_true")
     parser.add_argument("--plot", action="store_true")
     args = parser.parse_args()
@@ -40,7 +41,7 @@ def main():
     model_prefix, _ = model_file.split(".")
    # return
 
-    gpu = int(config['gpu'])
+    gpu = args.gpu
     use_float32 = bool(config['use_float32'])
     label_scale = float(config['label_scale'])
     size = (66,200)
