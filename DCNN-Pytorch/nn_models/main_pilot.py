@@ -125,6 +125,7 @@ def main():
             # 'fullview_linear_brightenned.csv')
     datasets = []
     for f in files:    
+        absolute_filepath = os.path.join(annotation_dir,f)
         ds = loaders.F1ImageDataset(absolute_filepath, size)
         datasets.append( ds )
     
