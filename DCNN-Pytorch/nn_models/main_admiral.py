@@ -132,6 +132,7 @@ def main():
     size=(66,200)
 
     datasetfiles = []
+
     datasetfiles.append('/zf18/ttw2xk/deepf1data/australia_fullview_run1/fullview_linear_darkenned.csv')
     datasetfiles.append('/zf18/ttw2xk/deepf1data/australia_fullview_run1/fullview_linear_flipped.csv')
     datasetfiles.append('/zf18/ttw2xk/deepf1data/australia_fullview_run1/fullview_linear_darkflipped.csv')
@@ -149,10 +150,10 @@ def main():
         image_pickle = os.path.join(dataset.root_folder,prefix+"_flow_images.pt")
         labels_pickle = os.path.join(dataset.root_folder,prefix+"_flow_labels.pt")
         if(os.path.isfile(image_pickle) and os.path.isfile(labels_pickle)):
-            print("Loading pickles for: " + datasets.annotation_filename)
+            print("Loading pickles for: " + dataset.annotation_filename)
             dataset.loadPickles()
         else:  
-            print("Loading files for: " + datasets.annotation_filename)
+            print("Loading files for: " + dataset.annotation_filename)
             dataset.loadFiles()
             dataset.writePickles()
 
