@@ -52,7 +52,7 @@ def main():
     hidden_dim = int(config.get('hidden_dim','100'))
     #optical_flow = bool(config.get('optical_flow',''))
     rnn_cell_type='lstm'
-    network = models.AdmiralNet(cell=rnn_cell_type, context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, gpu = gpu)
+    network = models.AdmiralNet(gpu = gpu, cell=rnn_cell_type, context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, gpu = gpu)
     state_dict = torch.load(args.model_file)
     network.load_state_dict(state_dict)
     network.projector_input = torch.load(  open(os.path.join(model_dir,"projector_input.pt"), 'r+b') )
