@@ -95,8 +95,8 @@ def main():
         # Forward pass:
         outputs = network(inputs)
         loss = criterion(outputs, labels)
-        prediction = ((outputs.cpu())[0][0]).item()
-        ground_truth = ((labels.cpu())[0][0]).item()
+        prediction = ((outputs.cpu())[0][0][0]).item()
+        ground_truth = ((labels.cpu())[0][0][0]).item()
 
         predictions.append(prediction)
         ground_truths.append(ground_truth)
