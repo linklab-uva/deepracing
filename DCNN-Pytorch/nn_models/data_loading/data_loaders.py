@@ -76,6 +76,12 @@ class F1ImageSequenceDataset(Dataset):
         return images , labels
     def __len__(self):
         return self.len
+    def cuda(gpu=0):
+        if(self.images is not None and self.labels is not None):
+            self.images = self.images.cuda(gpu)
+            self.labels = self.labels.cuda(gpu)
+
+
 class F1CombinedDataset(Dataset):
     def __init__(self, annotation_filepath, im_size, context_length = 25, sequence_length=25):
         super(F1CombinedDataset, self).__init__()
