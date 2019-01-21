@@ -15,16 +15,16 @@ import os
 import string
 import argparse
 import torchvision.transforms as transforms
-def run_epoch(network, criterion, optimizer, trainLoader, use_gpu, output_dimension):
+def run_epoch(network, criterion, optimizer, trainLoader, gpu, output_dimension):
     cum_loss = 0.0
     batch_size = trainLoader.batch_size
     num_samples=0
     t = tqdm(enumerate(trainLoader))
     for (i, (inputs, labels)) in t:
         labels = labels[:,0:output_dimension]
-        if use_gpu>=0:
-            inputs = inputs.cuda(use_gpu)
-            labels = labels.cuda(use_gpu)
+        if gpu>=0:
+            inputs = inputs.cuda(gpu)
+            labels = labels.cuda(gpu)
         # Forward pass:
         outputs = network(inputs)
         loss = criterion(outputs, labels)
@@ -43,16 +43,16 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu, output_dimens
         t.set_postfix(cum_loss = cum_loss/num_samples)
  
 
-def train_model(network, criterion, optimizer, trainLoader, directory, output_dimension, n_epochs = 10, use_gpu = False):
+def train_model(network, criterion, optimizer, trainLoader, directory, output_dimension, n_epochs = 10, gpu = -1):
     network.train()  # This is important to call before training!
-    if use_gpu>=0:
-        criterion = criterion.cuda(use_gpu)
+    if gpu>=0:
+        criterion = criterion.cuda(gpu)
     # Training loop.
     if(not os.path.isdir(directory)):
         os.makedirs(directory)
     for epoch in range(n_epochs):
         print("Epoch %d of %d" %((epoch+1),n_epochs) )
-        run_epoch(network, criterion, optimizer, trainLoader, use_gpu, output_dimension)
+        run_epoch(network, criterion, optimizer, trainLoader, gpu, output_dimension)
         log_path = os.path.join(directory,"_epoch"+str(epoch+1)+ ".model")
         torch.save(network.state_dict(), log_path)
 def load_config(filepath):
@@ -91,10 +91,7 @@ def main():
     config = load_config(config_fp)
     #mandatory parameters
     learning_rate = float(config['learning_rate'])
-    annotation_file = config['annotation_file']
-    dataset_dir = os.path.dirname(annotation_file)
-    dataset_file = os.path.basename(annotation_file)
-    prefix, _ = dataset_file.split(".")
+    annotation_dir = config['annotation_directory']
 
     #optional parameters
     file_prefix = config['file_prefix']
@@ -131,24 +128,19 @@ def main():
     print(network)
     size=(66,200)
 
-    datasetfiles = []
-
-    datasetfiles.append('/zf18/ttw2xk/deepf1data/australia_fullview_run1/fullview_linear_darkenned.csv')
-    datasetfiles.append('/zf18/ttw2xk/deepf1data/australia_fullview_run1/fullview_linear_flipped.csv')
-    datasetfiles.append('/zf18/ttw2xk/deepf1data/australia_fullview_run1/fullview_linear_darkflipped.csv')
-    datasetfiles.append('/zf18/ttw2xk/deepf1data/australia_fullview_run1/fullview_linear_raw.csv')
+    files = ('fullview_linear_raw.csv', 'fullview_linear_darkenned.csv', 'fullview_linear_flipped.csv')#, \
+           # 'fullview_linear_darkflipped.csv','fullview_linear_brightenned.csv')
     datasets = []
-    for datasetfile in datasetfiles:
-        datasets.append( loaders.F1OpticalFlowDataset(datasetfile, size, context_length = context_length, sequence_length = sequence_length) )
-    
-   # trainset.read_files()
-    
+    for f in files:    
+        absolute_filepath = os.path.join(annotation_dir,f)
+        datasets.append( loaders.F1OpticalFlowDataset(absolute_filepath, size, context_length = context_length, sequence_length = sequence_length) )
+       
 
     for dataset in datasets:
         splits = dataset.annotation_filename.split(".")
         prefix = splits[0]
-        image_pickle = os.path.join(dataset.root_folder,prefix+"_flow_images.pt")
-        labels_pickle = os.path.join(dataset.root_folder,prefix+"_flow_labels.pt")
+        image_pickle = os.path.join(dataset.root_folder,prefix + dataset.image_pickle_postfix)
+        labels_pickle = os.path.join(dataset.root_folder,prefix + dataset.label_pickle_postfix)
         if(os.path.isfile(image_pickle) and os.path.isfile(labels_pickle)):
             print("Loading pickles for: " + dataset.annotation_filename)
             dataset.loadPickles()
@@ -182,7 +174,7 @@ def main():
     torch.save( network.init_hidden, open(os.path.join(output_dir,"init_hidden.pt"), 'w+b') )
     torch.save( network.init_cell, open(os.path.join(output_dir,"init_cell.pt"), 'w+b') )
     '''
-    train_model(network, criterion, optimizer, trainLoader, output_dir, output_dimension, n_epochs = epochs, use_gpu = gpu)
+    train_model(network, criterion, optimizer, trainLoader, output_dir, output_dimension, n_epochs = epochs, gpu = gpu)
 
 if __name__ == '__main__':
     main()
