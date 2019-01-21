@@ -234,137 +234,126 @@ class AdmiralNet(nn.Module):
 
         return predictions
 
-class AdmiralNet_v2(nn.Module):
-    def __init__(self,cell='lstm', sequence_length=25, context_length = 25, hidden_dim = 256, use_float32 = False, gpu = -1, optical_flow = False):
-        super(AdmiralNet_v2, self).__init__()
+class AdmiralNet_V2(nn.Module):
+    def __init__(self, cell='lstm', input_channels=2, output_dimension = 1, sequence_length=25, context_length = 25, hidden_dim = 100, gpu = -1):
+        super(AdmiralNet_V2, self).__init__()
         self.gpu=gpu
-        self.use_float32=use_float32
-        if optical_flow:
-            self.input_channels = 2
-        else:
-            self.input_channels = 3
+        #self.input_channels = 5
+        self.input_channels = input_channels
         # Convolutional layers.
-        self.output_size = 1
-        
-        #RESIDUAL BLOCK 1
-        self.conv1 = nn.Conv2d(self.input_channels, 24, kernel_size=3, padding=1)
-        self.conv1_2 = nn.Conv2d(24, 24, kernel_size=3, padding=1)
-        self.conv1_3 = nn.Conv2d(24, 24, kernel_size=3, stride=2)
-        
-        #RESIDUAL BLOCK 2
-        self.conv2 = nn.Conv2d(24, 36, kernel_size=3, padding=1)
-        self.conv2_2 = nn.Conv2d(36, 36, kernel_size=3, padding=1)
-        self.conv2_3 = nn.Conv2d(36, 36, kernel_size=3, stride=2)
-        
-        #RESIDUAL BLOCK 3
-        self.conv3 = nn.Conv2d(36, 48, kernel_size=3, padding=1)
-        self.conv3_2 = nn.Conv2d(48, 48, kernel_size=3, padding=1)
-        self.conv3_3 = nn.Conv2d(48, 48, kernel_size=3, stride=2)
-        
-        #RESIDUAL BLOCK 4
-        self.conv4 = nn.Conv2d(48, 64, kernel_size=3,padding=1)
-        self.conv4_2 = nn.Conv2d(64, 64, kernel_size=3,padding=1)
-        self.conv4_3 = nn.Conv2d(64, 64, kernel_size=3)
-        
-        #RESIDUAL BLOCK 5
-        self.conv5 = nn.Conv2d(64, 64, kernel_size=3,padding=1)
-        self.conv5_2 = nn.Conv2d(64, 64, kernel_size=3,padding=1)
-        self.conv5_3 = nn.Conv2d(64, 64, kernel_size=3)
-        
+
+        self.output_size = output_dimension
+        self.conv1 = nn.Conv2d(self.input_channels, 24, kernel_size=5, stride=2)
+        self.conv2 = nn.Conv2d(24, 36, kernel_size=5, stride=2)
+        self.conv3 = nn.Conv2d(36, 48, kernel_size=5, stride=2)
+        self.conv4 = nn.Conv2d(48, 64, kernel_size=3)
+        self.conv5 = nn.Conv2d(64, 64, kernel_size=3)
+
         #batch norm layers
         self.Norm_1 = nn.BatchNorm2d(24)
         self.Norm_2 = nn.BatchNorm2d(36)
         self.Norm_3 = nn.BatchNorm2d(48) 
         self.Norm_4 = nn.BatchNorm2d(64)
-        
+
         #recurrent layers
-        self.feature_length = 1*64*60
+        self.img_features = 1*64*18
+        self.feature_length = (1*64*18)
         self.hidden_dim = hidden_dim
         self.sequence_length = sequence_length
         self.context_length = context_length
-
         self.cell = cell
-        
-        #RNN support added
+
+        #projection encoder
+        self.conv3d1 = nn.Conv3d(self.context_length, 8, kernel_size=5, stride = 2, padding=(3,0,0) )
+        self.conv3d2 = nn.Conv3d(8, 12, kernel_size=5, stride = 2, padding=(3,0,0))
+        self.conv3d3 = nn.Conv3d(12, 16, kernel_size=3, padding=(1,0,0))
+        self.conv3d4 = nn.Conv3d(16, self.sequence_length, kernel_size=3, padding=(1,0,0))
+        self.projection_features = input_channels * 10 * 43
+        self.projection_layer = nn.Linear(self.projection_features, self.img_features)
+
         if(self.cell=='lstm'):
             self.rnn = nn.LSTM(self.feature_length, hidden_dim, batch_first = True)
+
         elif(self.cell=='gru'):
             self.rnn = nn.GRU(self.feature_length, hidden_dim, batch_first = True)
+
         else:
             self.rnn = nn.RNN(self.feature_length, hidden_dim, batch_first = True) 
 
         # Linear layers.
         self.prediction_layer = nn.Linear(hidden_dim, self.output_size)
-    
+
         #activations
         self.relu = nn.ReLU()
 
+    #     self.projector_input = torch.FloatTensor( torch.Size( ( self.sequence_length, self.feature_length ) ) )
+    #     self.projector_input.normal_(std=0.1)
+    #     self.projector_input.requires_grad_()
+    #     self.projector_input.zero_()
+    #     if(self.gpu>=0):
+    #         self.projector_input = self.projector_input.cuda(self.gpu)
+
+        # self.init_cell = torch.FloatTensor( torch.Size( ( 1, self.hidden_dim ) ) )
+        # self.init_cell.normal_(std=0.05)
+        # self.init_cell.requires_grad_()
+        # if(self.gpu>=0):
+        #     self.init_cell = self.init_cell.cuda(self.gpu)
+
+
+        # self.init_hidden = torch.FloatTensor( torch.Size( ( 1, self.hidden_dim ) ) )
+        # self.init_hidden.normal_(std=0.05)
+        # self.init_hidden.requires_grad_()
+        # if(self.gpu>=0):
+        #     self.init_hidden = self.init_hidden.cuda(self.gpu)
+        
     def forward(self, x):
         #resize for convolutional layers
         batch_size = x.shape[0]
+        y = self.conv3d1(x)   
+        #print(y.shape)
         x = x.view(-1, self.input_channels, 66, 200) 
-        
         x = self.conv1(x)
         x = self.Norm_1(x)
         x1 = self.relu(x)
-        x = self.conv1_2(x1)
-        x = self.Norm_1(x)
-        x = self.relu(x)
-        x = self.conv1_3(x+x1)
-        x = self.Norm_1(x)
-        x = self.relu(x)
-        
-        x = self.conv2(x)
+        x = self.conv2(x1)
         x = self.Norm_2(x)
         x2 = self.relu(x)
-        x = self.conv2_2(x2)
-        x = self.Norm_2(x)
-        x = self.relu(x)
-        x = self.conv2_3(x+x2)
-        x = self.Norm_2(x)
-        x = self.relu(x)
-
-        x = self.conv3(x)
+        x = self.conv3(x2)
         x = self.Norm_3(x)
         x3 = self.relu(x)
-        x = self.conv3_2(x3)
-        x = self.Norm_3(x)
-        x = self.relu(x)
-        x = self.conv3_3(x+x3)
-        x = self.Norm_3(x)
-        x = self.relu(x)
-        
-        x = self.conv4(x)
+        x = self.conv4(x3)
         x = self.Norm_4(x)
         x4 = self.relu(x)
-        x = self.conv4_2(x4)
-        x = self.Norm_4(x)
-        x = self.relu(x)
-        x = self.conv4_3(x+x4)
-        x = self.Norm_4(x)
-        x = self.relu(x)
-
-        x = self.conv5(x)
-        x = self.Norm_4(x)
+        x = self.conv5(x4)
         x5 = self.relu(x)
-        x = self.conv5_2(x5)
-        x = self.Norm_4(x)
-        x = self.relu(x)
-        x = self.conv5_3(x+x5)
-        x = self.relu(x)
-
-        #print(x.shape)
+        #maps=[x1,x2,x3,x4,x5]
         # Unpack for the RNN.
-        x = x.view(batch_size, self.context_length, self.feature_length) 
-        x, init_hidden = self.rnn(x) 
-        if(self.use_float32):
-            zeros = torch.zeros([batch_size, self.sequence_length, self.feature_length], dtype=torch.float32)
-                
-        else:
-            zeros = torch.zeros([batch_size, self.sequence_length, self.feature_length], dtype=torch.float64)
+        x = x5.view(batch_size, self.context_length, self.img_features)
+
+        # init_hidden = self.init_hidden.repeat( 1, batch_size, 1)
+        # init_cell = self.init_cell.repeat( 1, batch_size, 1 )
+
+        x, new_hidden = self.rnn(x)#, (init_hidden,  init_cell) )
+      
+        y = self.conv3d2(y) 
+      #  print(y.shape) 
+        y = self.conv3d3(y) 
+      #  print(y.shape) 
+        y = self.conv3d4(y)
+        print(y.shape)
+        y = y.view(batch_size, self.sequence_length, self.projection_features)
+        y = self.projection_layer(y)
+        print(y.shape)
+
+
+
+     #   print(new_hidden[0].shape)   
+      #  print(init_hidden[1].shape)
+        zeros = torch.FloatTensor(batch_size, self.sequence_length, self.feature_length).normal_(std=0.05)
         if(self.gpu>=0):
             zeros = zeros.cuda(self.gpu)
-        x, final_hidden = self.rnn(zeros, init_hidden)
-        predictions = self.prediction_layer(x)
-        return predictions
+        x, final_hidden = self.rnn(  y, new_hidden )
 
+        predictions = self.prediction_layer(x)
+
+        return predictions
