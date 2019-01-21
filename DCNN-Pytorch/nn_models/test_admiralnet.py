@@ -68,7 +68,7 @@ def main():
     labels_pickle = os.path.join( annotation_dir, annotation_prefix + "_flow_labels.pt")
     if(os.path.isfile(image_pickle) and os.path.isfile(labels_pickle)):
         valset.loadPickles()
-    elif(load_pickles):  
+    else:  
         valset.loadFiles()
         valset.writePickles()
 
