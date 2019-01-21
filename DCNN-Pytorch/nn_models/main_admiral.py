@@ -23,9 +23,9 @@ def run_epoch(network, criterion, optimizer, trainLoader, gpu, output_dimension)
     network.train()  # This is important to call before training!
     for (i, (inputs, labels)) in t:
         labels = labels[:,0:output_dimension]
-        if gpu>=0:
-            inputs = inputs.cuda(gpu)
-            labels = labels.cuda(gpu)
+        # if gpu>=0:
+        #     inputs = inputs.cuda(gpu)
+        #     labels = labels.cuda(gpu)
         # Forward pass:
         outputs = network(inputs)
         loss = criterion(outputs, labels)
@@ -150,6 +150,8 @@ def main():
             print("Loading files for: " + dataset.annotation_filename)
             dataset.loadFiles()
             dataset.writePickles()
+        if(gpu>=0):
+            dataset = dataset.cuda(gpu)
 
     trainset = torch.utils.data.ConcatDataset(datasets)
     ''' 
