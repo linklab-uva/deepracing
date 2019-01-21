@@ -90,12 +90,8 @@ def main():
         pred = network(inputs)
         #result_data.append([labels,pred])
         print(pred.shape)
-        if pred.shape[1] == 1:
-            angle = pred[0].item()
-            ground_truth = labels[0].item()
-        else:
-            angle = pred.squeeze()[0].item()
-            ground_truth = labels.squeeze()[0].item()
+        angle = pred[0][0][0]
+        ground_truth = labels[0][0][0]
         predictions.append(angle)
         ground_truths.append(ground_truth)
         loss = criterion(pred, labels)
