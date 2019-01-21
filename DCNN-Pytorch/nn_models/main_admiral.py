@@ -182,6 +182,7 @@ def main():
     # Definition of optimization strategy.
     optimizer = optim.SGD(network.parameters(), lr = learning_rate, momentum=momentum)
     config['image_transformation'] = None
+    config['input_channels'] = input_channels
     print("Using config:")
     print(config)
     config_dump = open(os.path.join(output_dir,"config.pkl"), 'w+b')
