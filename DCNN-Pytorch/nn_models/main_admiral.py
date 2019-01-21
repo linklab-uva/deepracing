@@ -125,7 +125,7 @@ def main():
     if(not os.path.isdir(output_dir)):
         os.mkdir(output_dir)
     network = models.AdmiralNet(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
-    hidden_dimension=hidden_dimension, output_dimension = output_dimension)
+    hidden_dim=hidden_dimension, output_dimension = output_dimension)
     if(gpu>=0):
         network = network.cuda(0)
     print(network)
