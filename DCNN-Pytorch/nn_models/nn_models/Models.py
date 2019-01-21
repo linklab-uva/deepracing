@@ -177,12 +177,12 @@ class AdmiralNet(nn.Module):
         #activations
         self.relu = nn.ReLU()
 
-        self.projector_input = torch.FloatTensor( torch.Size( ( self.sequence_length, self.feature_length ) ) )
-       # self.projector_input.normal_(std=0.1)
-       # self.projector_input.requires_grad_()
-        self.projector_input.zero_()
-        if(self.gpu>=0):
-            self.projector_input = self.projector_input.cuda(self.gpu)
+    #     self.projector_input = torch.FloatTensor( torch.Size( ( self.sequence_length, self.feature_length ) ) )
+    #     self.projector_input.normal_(std=0.1)
+    #     self.projector_input.requires_grad_()
+    #     self.projector_input.zero_()
+    #     if(self.gpu>=0):
+    #         self.projector_input = self.projector_input.cuda(self.gpu)
 
         # self.init_cell = torch.FloatTensor( torch.Size( ( 1, self.hidden_dim ) ) )
         # self.init_cell.normal_(std=0.05)
@@ -225,9 +225,10 @@ class AdmiralNet(nn.Module):
         x, new_hidden = self.rnn(x)#, (init_hidden,  init_cell) )       
      #   print(new_hidden[0].shape)   
       #  print(init_hidden[1].shape)
-
-        projector_input = self.projector_input.repeat(batch_size, 1, 1)
-        x, final_hidden = self.rnn( projector_input, new_hidden )
+        zeros = torch.zeros([batch_size, self.sequence_length, self.feature_length], dtype=torch.float32)
+        if(self.gpu>=0):
+            zeros = zeros.cuda(self.gpu)
+        x, final_hidden = self.rnn( zeros, new_hidden )
 
         predictions = self.prediction_layer(x)
 
