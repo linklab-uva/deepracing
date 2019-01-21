@@ -31,8 +31,8 @@ class F1CombinedDataset(Dataset):
         splits = self.annotation_filename.split(".")
         prefix=splits[0]
 
-        lblname = prefix + "_flow_labels.pt"
-        imgname = prefix + "_flow_images.pt"
+        lblname = prefix + "_combined_labels.pt"
+        imgname = prefix + "_combined_images.pt"
 
 
         self.images = torch.load(os.path.join(self.root_folder,imgname))
@@ -43,8 +43,8 @@ class F1CombinedDataset(Dataset):
     def writePickles(self):
         splits = self.annotation_filename.split(".")
         prefix=splits[0]
-        lblname = prefix + "_flow_labels.pt"
-        imgname = prefix + "_flow_images.pt"
+        lblname = prefix + "_combined_labels.pt"
+        imgname = prefix + "_combined_images.pt"
         torch.save(self.labels,open(os.path.join(self.root_folder,lblname), 'w+b'))
         torch.save(self.images,open(os.path.join(self.root_folder,imgname), 'w+b'))
     def loadFiles(self):
