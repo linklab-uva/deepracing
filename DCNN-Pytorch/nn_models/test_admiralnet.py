@@ -48,7 +48,7 @@ def main():
     prefix = prefix + config['file_prefix']
     context_length = int(config['context_length'])
     sequence_length = int(config['sequence_length'])
-    hidden_dim = int(config('hidden_dim','100'))
+    hidden_dim = int(config.get('hidden_dim','100'))
     #optical_flow = bool(config.get('optical_flow',''))
     rnn_cell_type='lstm'
     network = models.AdmiralNet(cell=rnn_cell_type, context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, gpu = gpu)
