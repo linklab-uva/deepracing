@@ -133,6 +133,6 @@ def main():
         ax.plot(t,ground_truths_array,'b',label='Ground Truth')
         ax.legend()
         plt.savefig("admiralnet_prediction_images_" + model_prefix+"\plot.jpeg")
-        plt.show()
+       # plt.show()
 if __name__ == '__main__':
     main()
