@@ -225,7 +225,7 @@ class AdmiralNet(nn.Module):
         x, new_hidden = self.rnn(x)#, (init_hidden,  init_cell) )       
      #   print(new_hidden[0].shape)   
       #  print(init_hidden[1].shape)
-        zeros = torch.zeros([batch_size, self.sequence_length, self.feature_length], dtype=torch.float32)
+        zeros = torch.FloatTensor(batch_size, self.sequence_length, self.feature_length).normal_(std=0.05)
         if(self.gpu>=0):
             zeros = zeros.cuda(self.gpu)
         x, final_hidden = self.rnn( zeros, new_hidden )

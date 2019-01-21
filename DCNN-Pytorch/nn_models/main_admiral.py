@@ -20,6 +20,7 @@ def run_epoch(network, criterion, optimizer, trainLoader, gpu, output_dimension)
     batch_size = trainLoader.batch_size
     num_samples=0
     t = tqdm(enumerate(trainLoader))
+    network.train()  # This is important to call before training!
     for (i, (inputs, labels)) in t:
         labels = labels[:,0:output_dimension]
         if gpu>=0:
@@ -44,7 +45,6 @@ def run_epoch(network, criterion, optimizer, trainLoader, gpu, output_dimension)
  
 
 def train_model(network, criterion, optimizer, trainLoader, directory, output_dimension, n_epochs = 10, gpu = -1):
-    network.train()  # This is important to call before training!
     if gpu>=0:
         criterion = criterion.cuda(gpu)
     # Training loop.
@@ -122,21 +122,20 @@ def main():
     if(not os.path.isdir(output_dir)):
         os.mkdir(output_dir)
     network = models.AdmiralNet(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
-    hidden_dim=hidden_dimension, output_dimension = output_dimension)
+    hidden_dim=hidden_dimension, output_dimension = output_dimension, input_channels=1)
     if(gpu>=0):
         network = network.cuda(gpu)
     print(network)
     size=(66,200)
 
-    files= ('fullview_linear_raw.csv',\
-            'fullview_linear_darkenned.csv',\
-            'fullview_linear_flipped.csv',\
-            'fullview_linear_darkflipped.csv',\
-            'fullview_linear_brightenned.csv')
+    files= ('fullview_linear_raw.csv', 'fullview_linear_flipped.csv')
+            # 'fullview_linear_darkenned.csv',\
+            # 'fullview_linear_darkflipped.csv',\
+            # 'fullview_linear_brightenned.csv')
     datasets = []
     for f in files:    
         absolute_filepath = os.path.join(annotation_dir,f)
-        datasets.append( loaders.F1OpticalFlowDataset(absolute_filepath, size, context_length = context_length, sequence_length = sequence_length) )
+        datasets.append( loaders.F1ImageSequenceDataset(absolute_filepath, size, context_length = context_length, sequence_length = sequence_length) )
        
 
     for dataset in datasets:
