@@ -89,9 +89,9 @@ def main():
             labels = labels.cuda(gpu)
         pred = network(inputs)
         #result_data.append([labels,pred])
-        print(pred.shape)
-        angle = pred[0][0][0]
-        ground_truth = labels[0][0][0]
+       # print(pred.shape)
+        angle = pred.cpu()[0][0][0].cpu()
+        ground_truth = labels.cpu()[0][0][0]
         predictions.append(angle)
         ground_truths.append(ground_truth)
         loss = criterion(pred, labels)
