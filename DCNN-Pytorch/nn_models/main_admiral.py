@@ -127,7 +127,7 @@ def main():
     network = models.AdmiralNet(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
     hidden_dim=hidden_dimension, output_dimension = output_dimension)
     if(gpu>=0):
-        network = network.cuda(0)
+        network = network.cuda(gpu)
     print(network)
     size=(66,200)
 
