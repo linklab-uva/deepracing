@@ -88,8 +88,8 @@ def main():
     for (i, (inputs, labels)) in t:
         labels = labels[:,0:output_dimension]
         if gpu>=0:
-            inputs = inputs.cuda(use_gpu)
-            labels = labels.cuda(use_gpu)
+            inputs = inputs.cuda(gpu)
+            labels = labels.cuda(gpu)
         # Forward pass:
         outputs = network(inputs)
         loss = criterion(outputs, labels)
