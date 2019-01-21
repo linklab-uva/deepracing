@@ -23,9 +23,10 @@ def run_epoch(network, criterion, optimizer, trainLoader, gpu, output_dimension)
     network.train()  # This is important to call before training!
     for (i, (inputs, labels)) in t:
         labels = labels[:,0:output_dimension]
-        # if gpu>=0:
-        #     inputs = inputs.cuda(gpu)
-        #     labels = labels.cuda(gpu)
+        if gpu>=0 and (not inputs.is_cuda):
+            inputs = inputs.cuda(gpu)
+        if gpu>=0 and (not labels.is_cuda):
+            labels = labels.cuda(gpu)
         # Forward pass:
         outputs = network(inputs)
         loss = criterion(outputs, labels)
@@ -92,6 +93,7 @@ def main():
     #mandatory parameters
     learning_rate = float(config['learning_rate'])
     annotation_dir = config['annotation_directory']
+    dataset_type = config['dataset_type']
 
     #optional parameters
     file_prefix = config['file_prefix']
@@ -118,7 +120,7 @@ def main():
     config_file = os.path.basename(config_fp)
     print(config_file)
     config_file_name, _ = config_file.split(".")
-    output_dir = config_file_name.replace("\n","")
+    output_dir = config_file_name.replace("\n","") + "_" + dataset_type
     if(not os.path.isdir(output_dir)):
         os.mkdir(output_dir)
     network = models.AdmiralNet(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
@@ -135,7 +137,15 @@ def main():
     datasets = []
     for f in files:    
         absolute_filepath = os.path.join(annotation_dir,f)
-        datasets.append( loaders.F1ImageSequenceDataset(absolute_filepath, size, context_length = context_length, sequence_length = sequence_length) )
+        if dataset_type=='optical_flow':
+            ds = loaders.F1OpticalFlowDataset(absolute_filepath, size, context_length = context_length, sequence_length = sequence_length)
+        elif dataset_type=='raw_images':
+            ds = loaders.F1ImageSequenceDataset(absolute_filepath, size, context_length = context_length, sequence_length = sequence_length)
+        elif dataset_type=='combined':
+            ds = loaders.F1CombinedDataset(absolute_filepath, size, context_length = context_length, sequence_length = sequence_length)
+        else:
+            raise NotImplementedError('Dataset of type: ' + dataset_type + ' not implemented.')
+        datasets.append( ds )
        
 
     for dataset in datasets:
@@ -150,8 +160,8 @@ def main():
             print("Loading files for: " + dataset.annotation_filename)
             dataset.loadFiles()
             dataset.writePickles()
-        if(gpu>=0):
-            dataset = dataset.cuda(gpu)
+        # if(gpu>=0 and dataset_type=='raw_images'):
+        #     dataset = dataset.cuda(gpu)
 
     trainset = torch.utils.data.ConcatDataset(datasets)
     ''' 
