@@ -179,20 +179,23 @@ class AdmiralNet(nn.Module):
 
         self.projector_input = torch.FloatTensor( torch.Size( ( self.sequence_length, self.feature_length ) ) )
         self.projector_input.normal_(std=0.05)
+        self.projector_input.requires_grad_()
         if(self.gpu>=0):
             self.projector_input = self.projector_input.cuda(self.gpu)
 
         self.init_cell = torch.FloatTensor( torch.Size( ( 1, self.hidden_dim ) ) )
         self.init_cell.normal_(std=0.05)
+        self.init_cell.requires_grad_()
         if(self.gpu>=0):
             self.init_cell = self.init_cell.cuda(self.gpu)
 
 
         self.init_hidden = torch.FloatTensor( torch.Size( ( 1, self.hidden_dim ) ) )
         self.init_hidden.normal_(std=0.05)
+        self.init_hidden.requires_grad_()
         if(self.gpu>=0):
             self.init_hidden = self.init_hidden.cuda(self.gpu)
-
+        
     def forward(self, x):
         #resize for convolutional layers
         batch_size = x.shape[0]

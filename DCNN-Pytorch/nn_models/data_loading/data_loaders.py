@@ -59,7 +59,7 @@ class F1OpticalFlowDataset(Dataset):
           #  print(im.size())
             next_img =  im[0].numpy()
             flow = cv2.calcOpticalFlowFarneback(prvs_img,next_img, None, 0.5, 3, 20, 8, 5, 1.2, 0).astype(np.float32)
-            indx= idx-1
+            indx = idx-1
             self.images[indx] = self.totensor(flow)
             self.labels[indx][0] = float(steering)
             self.labels[indx][1] = float(throttle)
