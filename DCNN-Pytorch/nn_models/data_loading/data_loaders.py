@@ -124,15 +124,16 @@ class F1OpticalFlowDataset(Dataset):
         torch.save(self.images,open(os.path.join(self.root_folder,imgname), 'w+b'))
     def loadFiles(self):
         fp, ts, steering, throttle, brake = self.annotations[0].split(",")
-        im = torch.round(255.0 * self.totensor( self.grayscale( self.resize( PILImage.open( os.path.join( self.image_folder, fp ) ) ) ) ) ).type(torch.uint8)
-        prvs_img =  im[0].numpy()
+        im = self.totensor( self.grayscale( self.resize( PILImage.open( os.path.join( self.image_folder, fp ) ) ) ) ).type(torch.float32)
+        prvs_img =  np.round( 255.0 * im[0].numpy() ).astype(np.uint8)
+
         self.images = torch.zeros(len(self.annotations) - 1, 2, self.resize.size[0], self.resize.size[1], dtype = torch.float32)
         self.labels = torch.zeros(len(self.annotations) - 1, 3, dtype = torch.float32)
         for idx in tqdm(range(1,len(self.annotations)),desc='Loading Data',leave=True):
             fp, ts, steering, throttle, brake = self.annotations[idx].split(",")
-            im = torch.round(255.0 * self.totensor( self.grayscale( self.resize( PILImage.open( os.path.join( self.image_folder, fp ) ) ) ) ) ).type(torch.uint8)
+            im = self.totensor( self.grayscale( self.resize( PILImage.open( os.path.join( self.image_folder, fp ) ) ) ) ).type(torch.float32) 
           #  print(im.size())
-            next_img =  im[0].numpy()
+            next_img = np.round( 255.0 * im[0].numpy() ).astype(np.uint8)
             flow = cv2.calcOpticalFlowFarneback(prvs_img,next_img, None, 0.5, 3, 20, 8, 5, 1.2, 0).astype(np.float32)
             indx = idx-1
             self.images[indx] = self.totensor(flow)
