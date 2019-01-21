@@ -178,23 +178,23 @@ class AdmiralNet(nn.Module):
         self.relu = nn.ReLU()
 
         self.projector_input = torch.FloatTensor( torch.Size( ( self.sequence_length, self.feature_length ) ) )
-        self.projector_input.normal_(std=0.05)
+        self.projector_input.normal_(std=0.1)
         self.projector_input.requires_grad_()
         if(self.gpu>=0):
             self.projector_input = self.projector_input.cuda(self.gpu)
 
-        self.init_cell = torch.FloatTensor( torch.Size( ( 1, self.hidden_dim ) ) )
-        self.init_cell.normal_(std=0.05)
-        self.init_cell.requires_grad_()
-        if(self.gpu>=0):
-            self.init_cell = self.init_cell.cuda(self.gpu)
+        # self.init_cell = torch.FloatTensor( torch.Size( ( 1, self.hidden_dim ) ) )
+        # self.init_cell.normal_(std=0.05)
+        # self.init_cell.requires_grad_()
+        # if(self.gpu>=0):
+        #     self.init_cell = self.init_cell.cuda(self.gpu)
 
 
-        self.init_hidden = torch.FloatTensor( torch.Size( ( 1, self.hidden_dim ) ) )
-        self.init_hidden.normal_(std=0.05)
-        self.init_hidden.requires_grad_()
-        if(self.gpu>=0):
-            self.init_hidden = self.init_hidden.cuda(self.gpu)
+        # self.init_hidden = torch.FloatTensor( torch.Size( ( 1, self.hidden_dim ) ) )
+        # self.init_hidden.normal_(std=0.05)
+        # self.init_hidden.requires_grad_()
+        # if(self.gpu>=0):
+        #     self.init_hidden = self.init_hidden.cuda(self.gpu)
         
     def forward(self, x):
         #resize for convolutional layers
@@ -218,10 +218,10 @@ class AdmiralNet(nn.Module):
         # Unpack for the RNN.
         x = x5.view(batch_size, self.context_length, self.img_features)
 
-        init_hidden = self.init_hidden.repeat( 1, batch_size, 1)
-        init_cell = self.init_cell.repeat( 1, batch_size, 1 )
+        # init_hidden = self.init_hidden.repeat( 1, batch_size, 1)
+        # init_cell = self.init_cell.repeat( 1, batch_size, 1 )
 
-        x, new_hidden = self.rnn(x, (init_hidden,  init_cell) )       
+        x, new_hidden = self.rnn(x)#, (init_hidden,  init_cell) )       
      #   print(new_hidden[0].shape)   
       #  print(init_hidden[1].shape)
 
