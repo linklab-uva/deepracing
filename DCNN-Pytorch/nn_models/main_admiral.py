@@ -156,9 +156,11 @@ def main():
     pickle.dump(config,config_dump)
     config_dump.close()
     # torch.save( self.images, open( os.path.join( self.root_folder, imgname ), 'w+b' ) )
+    '''
     torch.save( network.projector_input, open(os.path.join(output_dir,"projector_input.pt"), 'w+b') )
     torch.save( network.init_hidden, open(os.path.join(output_dir,"init_hidden.pt"), 'w+b') )
     torch.save( network.init_cell, open(os.path.join(output_dir,"init_cell.pt"), 'w+b') )
+    '''
     train_model(network, criterion, optimizer, trainLoader, output_dir, output_dimension, n_epochs = epochs, use_gpu = gpu)
 
 if __name__ == '__main__':
