@@ -123,11 +123,6 @@ def main():
     output_dir = config_file_name.replace("\n","") + "_" + dataset_type
     if(not os.path.isdir(output_dir)):
         os.mkdir(output_dir)
-    network = models.AdmiralNet(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
-    hidden_dim=hidden_dimension, output_dimension = output_dimension, input_channels=1)
-    if(gpu>=0):
-        network = network.cuda(gpu)
-    print(network)
     size=(66,200)
 
     files= {'fullview_linear_raw.csv', 'fullview_linear_brightenned.csv', 'fullview_linear_darkenned.csv', 'fullview_linear_flipped.csv'}
@@ -138,15 +133,23 @@ def main():
     for f in files:    
         absolute_filepath = os.path.join(annotation_dir,f)
         if dataset_type=='optical_flow':
+            input_channels=2
             ds = loaders.F1OpticalFlowDataset(absolute_filepath, size, context_length = context_length, sequence_length = sequence_length)
         elif dataset_type=='raw_images':
+            input_channels=1
             ds = loaders.F1ImageSequenceDataset(absolute_filepath, size, context_length = context_length, sequence_length = sequence_length)
         elif dataset_type=='combined':
+            input_channels=3
             ds = loaders.F1CombinedDataset(absolute_filepath, size, context_length = context_length, sequence_length = sequence_length)
         else:
             raise NotImplementedError('Dataset of type: ' + dataset_type + ' not implemented.')
         datasets.append( ds )
-       
+    
+    network = models.AdmiralNet(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
+    hidden_dim=hidden_dimension, output_dimension = output_dimension, input_channels=input_channels)
+    if(gpu>=0):
+        network = network.cuda(gpu)   
+    print(network)
 
     for dataset in datasets:
         splits = dataset.annotation_filename.split(".")
