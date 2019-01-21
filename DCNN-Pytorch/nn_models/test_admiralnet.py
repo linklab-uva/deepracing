@@ -50,6 +50,7 @@ def main():
     context_length = int(config['context_length'])
     sequence_length = int(config['sequence_length'])
     hidden_dim = int(config.get('hidden_dim','100'))
+    output_dimension = 1
     #optical_flow = bool(config.get('optical_flow',''))
     rnn_cell_type='lstm'
     network = models.AdmiralNet(gpu = gpu, cell=rnn_cell_type, context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim)
@@ -84,20 +85,23 @@ def main():
     loader = torch.utils.data.DataLoader(valset, batch_size = 1, shuffle = False, num_workers = 0)
     
     t = tqdm(enumerate(loader))
-    for idx,(inputs,labels) in t:
-        if(gpu>=0):
-            inputs = inputs.cuda(gpu)
-            labels = labels.cuda(gpu)
-        pred = network(inputs)
-        #result_data.append([labels,pred])
-       # print(pred.shape)
-        angle = pred.cpu()[0][0][0]
-        ground_truth = labels.cpu()[0][0][0]
-        predictions.append(angle)
-        ground_truths.append(ground_truth)
-        loss = criterion(pred, labels)
-        losses.append(loss.cpu().item())
-        t.set_postfix(angle = angle, ground_truth = ground_truth)
+    for (i, (inputs, labels)) in t:
+        optimizer.zero_grad()
+        labels = labels[:,0:output_dimension]
+        if use_gpu>=0:
+            inputs = inputs.cuda(use_gpu)
+            labels = labels.cuda(use_gpu)
+        # Forward pass:
+        outputs = network(inputs)
+        loss = criterion(outputs, labels)
+
+
+        # logging information
+        loss_ = loss.item()
+        cum_loss += loss_
+        num_samples += batch_size
+        t.set_postfix(cum_loss = cum_loss/num_samples)
+ 
 
     predictions_array = np.array(predictions)
     ground_truths_array = np.array(ground_truths)
