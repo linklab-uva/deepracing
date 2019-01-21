@@ -78,7 +78,7 @@ def main():
     ground_truths=[]
     losses=[]
     criterion = nn.MSELoss()
-    cum_diff = 0.0
+    cum_loss = 0.0
     if(gpu>=0):
         criterion = criterion.cuda(gpu)
     network.eval()
