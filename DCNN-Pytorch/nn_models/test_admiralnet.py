@@ -51,34 +51,27 @@ def main():
     hidden_dim = int(config['hidden_dim'])
     #optical_flow = bool(config.get('optical_flow',''))
     rnn_cell_type='lstm'
-    network = models.AdmiralNet(cell=rnn_cell_type,context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, use_float32 = use_float32, gpu = gpu)
+    network = models.AdmiralNet(cell=rnn_cell_type, context_length = context_length, sequence_length=sequence_length, hidden_dim = hidden_dim, gpu = gpu)
     state_dict = torch.load(args.model_file)
     network.load_state_dict(state_dict)
+    network.projector_input = torch.load(  open(os.path.join(model_dir,"projector_input.pt"), 'r+b') )
+    network.init_hidden = torch.load(  open(os.path.join(model_dir,"init_hidden.pt"), 'r+b') )
+    network.init_cell = torch.load(  open(os.path.join(model_dir,"init_cell.pt"), 'r+b') )
+    network = network.float()
     print(network)
-    #result_data=[]
-    if(label_scale == 1.0):
-        label_transformation = None
-    else:
-        label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(label_scale))])
-    if(use_float32):
-        network.float()
-        trainset = loaders.F1SequenceDataset(annotation_dir,annotation_file,(66,200),\
-        context_length=context_length, sequence_length=sequence_length, use_float32=True, label_transformation = label_transformation)
-    else:
-        network.double()
-        trainset = loaders.F1SequenceDataset(annotation_dir, annotation_file,(66,200),\
-        context_length=context_length, sequence_length=sequence_length, label_transformation = label_transformation)
-    
+    valset = loaders.F1OpticalFlowDataset(args.annotation_file, size, context_length = context_length, sequence_length = sequence_length)    
     if(gpu>=0):
         network = network.cuda(gpu)
     
-    pickle_dir,_ = annotation_file.split('.')
-    pickle_dir+='_data'
-    load_files = glob.glob(pickle_dir+'\saved_image_opticalflow*.pkl')
-    if(len(load_files)==0):
-        trainset.read_files_flow()
-        load_files = glob.glob(pickle_dir+'\saved_image_opticalflow*.pkl')
-    load_files.sort()
+    annotation_prefix = annotation_file.split(".")[0]
+    image_pickle = os.path.join( annotation_dir, annotation_prefix + "_flow_images.pt")
+    labels_pickle = os.path.join( annotation_dir, annotation_prefix + "_flow_labels.pt")
+    if(os.path.isfile(image_pickle) and os.path.isfile(labels_pickle)):
+        valset.loadPickles()
+    elif(load_pickles):  
+        valset.loadFiles()
+        valset.writePickles()
+
     predictions=[]
     ground_truths=[]
     losses=[]
@@ -87,99 +80,30 @@ def main():
     if(gpu>=0):
         criterion = criterion.cuda(gpu)
     network.eval()
-    for file in load_files:
-        #Load partitioned Dataset
-        dir,file = file.split('\\')
-        prefix,data_type,op,suffix = file.split('_')
-        data_type='labels'
-        label_file = prefix+'_'+data_type+'_'+op+'_'+suffix
-        trainset.read_pickles(os.path.join(dir,file),os.path.join(dir,label_file))
-        trainset.img_transformation = config['image_transformation']
-        loader = torch.utils.data.DataLoader(trainset, batch_size = 1, shuffle = False, num_workers = 0)
-        
-        t = tqdm(enumerate(loader))
-        if args.write_images:
-            imdir = "admiralnet_prediction_images_" + model_prefix
-            if(not os.path.exists(imdir)):
-                os.mkdir(imdir)
-            annotation_file = open(args.annotation_file,'r')
-            annotations = annotation_file.readlines()
-            annotation_file.close()
-            im,_,_,_,_ = annotations[0].split(",")
-            background = cv2.imread(os.path.join(annotation_dir,'raw_images',im),cv2.IMREAD_UNCHANGED)
-            out_size = background.shape
-            fourcc = cv2.VideoWriter_fourcc(*'XVID')
-            fps=60
-            videoout = cv2.VideoWriter(os.path.join(imdir,"video.avi") ,fourcc, fps, (out_size[1], out_size[0]),True)
-            wheel_pred = cv2.imread('predicted_fixed.png',cv2.IMREAD_UNCHANGED)
-            wheel_ground = cv2.imread('ground_truth_fixed.png',cv2.IMREAD_UNCHANGED)
-            wheelrows_pred = 65
-            wheelcols_pred = 65
-            wheel_pred = cv2.resize(wheel_pred, (wheelcols_pred,wheelrows_pred), interpolation = cv2.INTER_CUBIC)
-            wheelrows_ground = 65
-            wheelcols_ground = 65
-            wheel_ground = cv2.resize(wheel_ground, (wheelcols_ground,wheelrows_ground), interpolation = cv2.INTER_CUBIC)
-        for idx,(inputs, throttle, brake,_, labels,flag) in t:
-            if(all(flag.numpy())):
-                if(gpu>=0):
-                    inputs = inputs.cuda(gpu)
-                    throttle = throttle.cuda(gpu)
-                    brake= brake.cuda(gpu)
-                    labels = labels.cuda(gpu)
-                pred = torch.div(network(inputs,throttle,brake),label_scale)
-                #result_data.append([labels,pred])
-                if pred.shape[1] == 1:
-                    angle = pred.item()
-                    ground_truth = labels.item()
-                else:
-                    angle = pred.squeeze()[0].item()
-                    ground_truth = labels.squeeze()[0].item()
-                predictions.append(angle)
-                ground_truths.append(ground_truth)
-                loss = criterion(pred, labels)
-                losses.append(loss.item())
-                t.set_postfix(angle = angle, ground_truth = ground_truth)
-                #print("Ground Truth: %f. Prediction: %f.\n" %(scaled_ground_truth, scaled_angle))
-                if args.write_images:
-                    scaled_pred_angle = 180.0*angle
-                    scaled_truth_angle = 180.0*ground_truth
-                    M_pred = cv2.getRotationMatrix2D((wheelrows_pred/2,wheelcols_pred/2),scaled_pred_angle,1)
-                    wheel_pred_rotated = cv2.warpAffine(wheel_pred,M_pred,(wheelrows_pred,wheelcols_pred))
-                    M_ground = cv2.getRotationMatrix2D((wheelrows_ground/2,wheelcols_ground/2),scaled_truth_angle,1)
-                    wheel_ground_rotated = cv2.warpAffine(wheel_ground,M_ground,(wheelrows_ground,wheelcols_ground))
-                    numpy_im = np.transpose(trainset.images[idx],(1,2,0)).astype(np.float32)
-                    #print(numpy_im.shape)
-                    im,_,_,_,_ = annotations[idx].split(",")
-                    background = cv2.imread(os.path.join(annotation_dir,'raw_images',im),cv2.IMREAD_UNCHANGED)
-                    out_size = background.shape
+    loader = torch.utils.data.DataLoader(trainset, batch_size = 1, shuffle = False, num_workers = 0)
+    
+    t = tqdm(enumerate(loader))
+    for idx,(inputs,labels) in t:
+        if(all(flag.numpy())):
+        if(gpu>=0):
+            inputs = inputs.cuda(gpu)
+            throttle = throttle.cuda(gpu)
+            brake= brake.cuda(gpu)
+            labels = labels.cuda(gpu)
+        pred = network(inputs)
+        #result_data.append([labels,pred])
+        if pred.shape[1] == 1:
+            angle = pred.item()
+            ground_truth = labels.item()
+        else:
+            angle = pred.squeeze()[0].item()
+            ground_truth = labels.squeeze()[0].item()
+        predictions.append(angle)
+        ground_truths.append(ground_truth)
+        loss = criterion(pred, labels)
+        losses.append(loss.item())
+        t.set_postfix(angle = angle, ground_truth = ground_truth)
 
-                    font                   = cv2.FONT_HERSHEY_SIMPLEX
-                    bottomLeftCornerOfText = (int((out_size[1]-wheelcols_pred)/2)-90,int((out_size[0]-wheelcols_pred)/3)-25)
-                    bottomLeftCornerOfText2 = (int((out_size[1]-wheelcols_pred)/2)+40,int((out_size[0]-wheelcols_pred)/3)-25)
-                    fontScale              = 0.45
-                    fontColor              = (0,0,0)
-                    lineType               = 1
-            
-                    overlay = background.copy()
-                    cv2.rectangle(overlay, (int((out_size[1]-wheelcols_pred)/2)-95,int((out_size[0]-wheelcols_pred)/3)-23), (int((out_size[1]-wheelcols_pred)/2)+25,int((out_size[0]-wheelcols_pred)/3)-37),(255, 255, 255,0.2), -1)
-                    cv2.rectangle(overlay, (int((out_size[1]-wheelcols_pred)/2)+35,int((out_size[0]-wheelcols_pred)/3)-23),  (int((out_size[1]-wheelcols_pred)/2)+180,int((out_size[0]-wheelcols_pred)/3)-37),(255, 255, 255,0.2), -1)
-
-                    alpha=0.5
-                    cv2.addWeighted(overlay, alpha, background, 1 - alpha,0, background)
-
-                    cv2.putText(background,'Predicted:' + "{0:.2f}".format(angle),bottomLeftCornerOfText,font,fontScale,fontColor,lineType)
-                    cv2.putText(background,'Ground Truth:' + "{0:.2f}".format(ground_truth),bottomLeftCornerOfText2,font,fontScale,fontColor,lineType)
-
-                    #print(background.shape)
-                    overlayed_pred = imutils.annotation_utils.overlay_image(background,wheel_pred_rotated,int((out_size[1]-wheelcols_pred)/2)-60,int((out_size[0]-wheelcols_pred)/3))
-                    overlayed_ground = imutils.annotation_utils.overlay_image(overlayed_pred,wheel_ground_rotated,int((out_size[1]-wheelcols_ground)/2)+75,int((out_size[0]-wheelcols_ground)/3))
-            
-                    name = "ouput_image_" + str(idx) + ".png"
-                    output_path = os.path.join(imdir,name)
-                    cv2.imwrite(output_path,overlayed_ground)
-                    videoout.write(overlayed_ground)
-            else:
-                break
     predictions_array = np.array(predictions)
     ground_truths_array = np.array(ground_truths)
     log_name = "ouput_log.txt"
