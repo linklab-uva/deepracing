@@ -142,13 +142,18 @@ def main():
     
    # trainset.read_files()
     
-    if(load_files):
-        for dataset in datasets:
+
+    for dataset in datasets:
+        splits = dataset.annotation_filename.split(".")
+        prefix = splits[0]
+        image_pickle = os.path.join(dataset.root_folder,prefix+"_flow_images.pt")
+        labels_pickle = os.path.join(dataset.root_folder,prefix+"_flow_labels.pt")
+        if(os.path.isfile(image_pickle) and os.path.isfile(labels_pickle)):
+            dataset.loadPickles()
+        else:  
             dataset.loadFiles()
             dataset.writePickles()
-    elif(load_pickles):  
-        for dataset in datasets:
-            dataset.loadPickles()
+
     trainset = torch.utils.data.ConcatDataset(datasets)
     ''' 
     mean,stdev = trainset.statistics()
