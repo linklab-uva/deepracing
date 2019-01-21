@@ -178,8 +178,9 @@ class AdmiralNet(nn.Module):
         self.relu = nn.ReLU()
 
         self.projector_input = torch.FloatTensor( torch.Size( ( self.sequence_length, self.feature_length ) ) )
-        self.projector_input.normal_(std=0.1)
-        self.projector_input.requires_grad_()
+       # self.projector_input.normal_(std=0.1)
+       # self.projector_input.requires_grad_()
+        self.projector_input.zero_()
         if(self.gpu>=0):
             self.projector_input = self.projector_input.cuda(self.gpu)
 
