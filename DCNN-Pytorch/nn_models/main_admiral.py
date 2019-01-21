@@ -134,8 +134,8 @@ def main():
     datasetfiles = []
     datasetfiles.append('/zf18/ttw2xk/deepf1data/australia_fullview_run1/fullview_linear_darkenned.csv')
     datasetfiles.append('/zf18/ttw2xk/deepf1data/australia_fullview_run1/fullview_linear_flipped.csv')
-    datasetfiles.append('/zf18/ttw2xk/deepf1data/australia_fullview_run1/fullview_linear_darkflipped.csv ')
-    datasetfiles.append('/zf18/ttw2xk/deepf1data/australia_fullview_run1/fullview_linear_raw.csv ')
+    datasetfiles.append('/zf18/ttw2xk/deepf1data/australia_fullview_run1/fullview_linear_darkflipped.csv')
+    datasetfiles.append('/zf18/ttw2xk/deepf1data/australia_fullview_run1/fullview_linear_raw.csv')
     datasets = []
     for datasetfile in datasetfiles:
         datasets.append( loaders.F1OpticalFlowDataset(datasetfile, size, context_length = context_length, sequence_length = sequence_length) )
