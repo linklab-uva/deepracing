@@ -86,7 +86,6 @@ def main():
     
     t = tqdm(enumerate(loader))
     for (i, (inputs, labels)) in t:
-        optimizer.zero_grad()
         labels = labels[:,0:output_dimension]
         if use_gpu>=0:
             inputs = inputs.cuda(use_gpu)
