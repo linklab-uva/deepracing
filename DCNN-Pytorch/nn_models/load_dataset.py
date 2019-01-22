@@ -7,13 +7,15 @@ def main():
     fp = args.dataset_file
     dataset_type = args.dataset_type
     if dataset_type=='optical_flow':
-            ds = loaders.F1OpticalFlowDataset(fp, size, context_length = context_length, sequence_length = sequence_length)
-        elif dataset_type=='raw_images':
-            ds = loaders.F1ImageSequenceDataset(fp, size, context_length = context_length, sequence_length = sequence_length)
-        elif dataset_type=='combined':
-            ds = loaders.F1CombinedDataset(fp, size, context_length = context_length, sequence_length = sequence_length)
-        else:
-            raise NotImplementedError('Dataset of type: ' + dataset_type + ' not implemented.')
+        ds = loaders.F1OpticalFlowDataset(fp, size, context_length = context_length, sequence_length = sequence_length)
+    elif dataset_type=='raw_images':
+        ds = loaders.F1ImageSequenceDataset(fp, size, context_length = context_length, sequence_length = sequence_length)
+    elif dataset_type=='combined':
+        ds = loaders.F1CombinedDataset(fp, size, context_length = context_length, sequence_length = sequence_length)
+    elif dataset_type=='static_images':
+        ds = loaders.F1ImageDataset(fp, size)
+    else:
+        raise NotImplementedError('Dataset of type: ' + dataset_type + ' not implemented.')
     ds.loadFiles()
     ds.writePickles()
 
