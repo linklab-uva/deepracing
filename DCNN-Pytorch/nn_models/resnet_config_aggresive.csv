@@ -1,4 +1,4 @@
-learning_rate,1E-04
+learning_rate,1E-03
 annotation_directory,D:/test_data/australia_fullview_run1
 gpu,0
 batch_size,16
