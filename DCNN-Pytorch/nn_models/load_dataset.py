@@ -4,6 +4,8 @@ def main():
     parser = argparse.ArgumentParser(description="DatasetLoader")
     parser.add_argument("--dataset_file", type=str, required=True, help="Labels file to use")
     parser.add_argument("--dataset_type", type=str, required=True, help="Type of dataset to load")
+    parser.add_argument("--context_length", type=int, default=10, help="Context length for sequence datasets")
+    parser.add_argument("--sequence_length", type=int, default=1, help="Sequence length for sequence datasets")
     args = parser.parse_args()
     size=(66,200)
     fp = args.dataset_file
