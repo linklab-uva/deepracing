@@ -22,6 +22,8 @@ from data_loading.image_loading import load_image
 import torchvision.transforms as transforms
 from scipy import stats
 import matplotlib.pyplot as plt
+from sklearn.metrics import mean_squared_error
+from math import sqrt
 
 def main():
     parser = argparse.ArgumentParser(description="Test AdmiralNet")
@@ -98,7 +100,7 @@ def main():
     
     t = tqdm(enumerate(loader))
     for (i, (inputs, labels)) in t:
-        labels = labels[:,0:output_dimension]
+        labels = labels[:,:,0:output_dimension]
         if gpu>=0:
             inputs = inputs.cuda(gpu)
             labels = labels.cuda(gpu)
@@ -132,8 +134,9 @@ def main():
             myfile.write("{0},{1}\n".format(log_item[0],log_item[1]))
     diffs = np.square(np.subtract(predictions_array,ground_truths_array))
     rms = np.sqrt(np.mean(np.array(diffs)))
-    # nrms = np.sqrt(np.mean(np.divide(np.square(np.array(losses)),np.multiply(np.mean(np.array(predictions)),np.mean(np.array(ground_truths))))))
+    rms_scikit = sqrt(mean_squared_error(predictions_array, ground_truths_array))    
     print("RMS Error: ", rms)
+    print("RMS Error scikit: ", rms_scikit)
     # print("NRMS Error: ", nrms)
 
     if args.plot:

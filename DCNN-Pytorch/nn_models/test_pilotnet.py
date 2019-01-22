@@ -22,7 +22,8 @@ from data_loading.image_loading import load_image
 import torchvision.transforms as transforms
 from scipy import stats
 import matplotlib.pyplot as plt
-
+from sklearn.metrics import mean_squared_error
+from math import sqrt
 def main():
     parser = argparse.ArgumentParser(description="Test AdmiralNet")
     parser.add_argument("--model_file", type=str, required=True)
@@ -34,11 +35,12 @@ def main():
     
     annotation_dir, annotation_file = os.path.split(args.annotation_file)
     model_dir, model_file = os.path.split(args.model_file)
+    leaf_model_dir = os.path.basename(model_dir)
     config_path = os.path.join(model_dir,'config.pkl')
     config_file = open(config_path,'rb')
     config = pickle.load(config_file)
     print(config)
-    model_prefix = model_file.split(".")[0]
+    model_prefix = leaf_model_dir + model_file.split(".")[0]
    # return
 
     gpu = args.gpu
@@ -47,27 +49,25 @@ def main():
     size = (66,200)
     prefix, _ = annotation_file.split(".")
     prefix = prefix + config['file_prefix']
-    context_length = int(config['context_length'])
-    sequence_length = int(config['sequence_length'])
-    hidden_dim = int(config.get('hidden_dim','100'))
+    dataset_type = config['dataset_type']
+    input_channels = 3
     output_dimension = 1
+    valset = loaders.F1ImageDataset(args.annotation_file, size)
     #optical_flow = bool(config.get('optical_flow',''))
-    rnn_cell_type='lstm'
     network = models.PilotNet()
     state_dict = torch.load(args.model_file)
-    # network.load_state_dict(state_dict)
-    # network.projector_input = torch.load(  open(os.path.join(model_dir,"projector_input.pt"), 'r+b') ).cuda(gpu)
-    # network.init_hidden = torch.load(  open(os.path.join(model_dir,"init_hidden.pt"), 'r+b') ).cuda(gpu)
-    # network.init_cell = torch.load(  open(os.path.join(model_dir,"init_cell.pt"), 'r+b') ).cuda(gpu)
+    network.load_state_dict(state_dict)
+ #   network.projector_input = torch.load(  open(os.path.join(model_dir,"projector_input.pt"), 'r+b') ).cuda(gpu)
+    #network.init_hidden = torch.load(  open(os.path.join(model_dir,"init_hidden.pt"), 'r+b') ).cuda(gpu)
+  #  network.init_cell = torch.load(  open(os.path.join(model_dir,"init_cell.pt"), 'r+b') ).cuda(gpu)
     network = network.float()
     print(network)
-    valset = loaders.F1ImageDataset(args.annotation_file, size)    
     if(gpu>=0):
         network = network.cuda(gpu)
     
     annotation_prefix = annotation_file.split(".")[0]
-    image_pickle = os.path.join( annotation_dir, annotation_prefix + "_images.pt")
-    labels_pickle = os.path.join( annotation_dir, annotation_prefix + "_labels.pt")
+    image_pickle = os.path.join(valset.root_folder,prefix + valset.image_pickle_postfix)
+    labels_pickle = os.path.join(valset.root_folder,prefix + valset.label_pickle_postfix)
     if(os.path.isfile(image_pickle) and os.path.isfile(labels_pickle)):
         valset.loadPickles()
     else:  
@@ -89,14 +89,16 @@ def main():
     t = tqdm(enumerate(loader))
     for (i, (inputs, labels)) in t:
         labels = labels[:,0:output_dimension]
+      #  print(inputs.shape)
+       # print(labels.shape)
         if gpu>=0:
             inputs = inputs.cuda(gpu)
             labels = labels.cuda(gpu)
         # Forward pass:
         outputs = network(inputs)
         loss = criterion(outputs, labels)
-        prediction = ((outputs.cpu())[0][0]).item()
-        ground_truth = ((labels.cpu())[0][0]).item()
+        prediction = ((outputs.cpu())).item()
+        ground_truth = ((labels.cpu())).item()
 
         predictions.append(prediction)
         ground_truths.append(ground_truth)
@@ -109,20 +111,24 @@ def main():
 
     predictions_array = np.array(predictions)
     ground_truths_array = np.array(ground_truths)
-    # log_name = "ouput_log.txt"
+    output_file_prefix = "pilotnet_prediction_" + model_prefix
+    log_name = output_file_prefix + ".txt"
     # imdir = "admiralnet_prediction_images_" + model_prefix
-    # if(os.path.exists(imdir)==False):
-    #     os.mkdir(imdir)
-    # log_output_path = os.path.join(imdir,log_name)
-    # log = list(zip(ground_truths_array,predictions_array))
-    # with open(log_output_path, "a") as myfile:
-    #     for x in log:
-    #         log_item = [x[0],x[1]]
-    #         myfile.write("{0},{1}\n".format(log_item[0],log_item[1]))
-    diffs = np.subtract(predictions_array,ground_truths_array)
-    # rms = np.sqrt(np.mean(np.array(losses)))
-    # nrms = np.sqrt(np.mean(np.divide(np.square(np.array(losses)),np.multiply(np.mean(np.array(predictions)),np.mean(np.array(ground_truths))))))
-    # print("RMS Error: ", rms)
+    #if(os.path.exists(imdir)==False):
+    #    os.mkdir(imdir)
+    log_output_path = log_name
+    log = list(zip(ground_truths_array,predictions_array))
+    with open(log_output_path, "a") as myfile:
+        for x in log:
+            log_item = [x[0],x[1]]
+            myfile.write("{0},{1}\n".format(log_item[0],log_item[1]))
+            
+    diffs = np.square(np.subtract(predictions_array,ground_truths_array))
+
+    rms = np.sqrt(np.mean(np.array(diffs)))
+    rms_scikit = sqrt(mean_squared_error(predictions_array, ground_truths_array))
+    print("RMS Error: ", rms)
+    print("RMS Error scikit: ", rms_scikit)
     # print("NRMS Error: ", nrms)
 
     if args.plot:
@@ -132,7 +138,7 @@ def main():
         ax.plot(t,predictions_array,'r',label='Predicted')
         ax.plot(t,ground_truths_array,'b',label='Ground Truth')
         ax.legend()
-        plt.savefig("admiralnet_prediction_images_" + model_prefix+".jpeg")
+        plt.savefig(output_file_prefix + ".jpeg")
        # plt.show()
 if __name__ == '__main__':
     main()
