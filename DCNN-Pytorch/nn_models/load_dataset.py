@@ -10,6 +10,8 @@ def main():
     size=(66,200)
     fp = args.dataset_file
     dataset_type = args.dataset_type
+    context_length = args.context_length
+    sequence_length = args.sequence_length
     if dataset_type=='optical_flow':
         ds = loaders.F1OpticalFlowDataset(fp, size, context_length = context_length, sequence_length = sequence_length)
     elif dataset_type=='raw_images':
