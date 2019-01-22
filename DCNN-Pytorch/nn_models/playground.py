@@ -23,39 +23,30 @@ def main():
    # parser.add_argument("--dataset_file", type=str, required=True, help="Dataset file to use")
   #  args = parser.parse_args()
     #dataset1 = loaders.F1ImageDataset("/home/ttw2xk/f1data/test_dataset/linear_1.csv",(66,200))
-    dataset1 = loaders.F1OpticalFlowDataset("/home/ttw2xk/f1data/test_dataset/linear_1.csv",(66,200),\
-      context_length=5, sequence_length=3)
-    dataset1.loadFiles()
-    #dataset1.loadPickles()
-    #dataset1.writePickles()
-
-    image, labels = dataset1[5]
-
-
-    #dataset2= loaders.F1ImageDataset("/home/ttw2xk/f1data/test_dataset/linear_2.csv",(66,200))
-    dataset2 = loaders.F1OpticalFlowDataset("/home/ttw2xk/f1data/test_dataset/linear_2.csv",(66,200),\
-      context_length=5, sequence_length=3)
-    dataset2.loadFiles()
-    #dataset2.loadPickles()
-    #dataset2.writePickles()
-    image, labels = dataset2[5]
-
-    bigdataset = torch.utils.data.ConcatDataset((dataset1,dataset2))
-
-    print(len(bigdataset))
-    image, labels = bigdataset[40]
-
-    indices = np.linspace(0,9,9,endpoint=False).astype(np.int32)
-
-    subset = Subset(bigdataset, indices)
+    context_length = 10
+    sequence_length = 1
+    gpu = 0
+    input_channels = 3
+    size = (66,200)
+    output_dimension = 1
+    hidden_dimension = 100
 
 
-    image, labels = subset[0]
+    dataset = loaders.F1CombinedDataset("D:/test_data/australia_fullview_run1/fullview_test.csv",size,\
+      context_length=context_length, sequence_length=sequence_length)
+    dataset.loadFiles()
 
-    print(image.shape)
-    print(labels.shape)
+    network = models.AdmiralNet_V2(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
+    hidden_dim=hidden_dimension, output_dimension = output_dimension, input_channels=input_channels)
+    network = network.cuda(gpu)
 
-    print(flows[0])
+    inp = torch.rand(1, context_length, input_channels, size[0], size[1]).cuda(gpu)
+    print(inp.shape)
+
+    output = network(inp)
+
+    print(output.shape)
+
 #    print(flows[24])
 
 
