@@ -1,3 +1,5 @@
+import argparse
+import data_loading.data_loaders as loaders
 def main():
     parser = argparse.ArgumentParser(description="DatasetLoader")
     parser.add_argument("--dataset_file", type=str, required=True, help="Labels file to use")
