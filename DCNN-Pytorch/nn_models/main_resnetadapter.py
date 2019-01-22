@@ -30,8 +30,8 @@ def run_epoch(network, criterion, optimizer, trainLoader, gpu, output_dimension)
             labels = labels.cuda(gpu)
         # Forward pass:
         outputs = network(inputs)
-        print("Output shape: ", outputs.shape)
-        print("Label shape: ", labels.shape)
+        #print("Output shape: ", outputs.shape)
+        #print("Label shape: ", labels.shape)
         loss = criterion(outputs, labels)
 
         # Backward pass:
