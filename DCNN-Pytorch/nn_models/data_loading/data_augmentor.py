@@ -47,7 +47,7 @@ def main():
             new_row=[fname,row[1],new_steer,row[3],row[4]]
             new_data.append(new_row)
             cv2.imwrite(os.path.join(image_directory,fname),horizontal_flip)
-            
+            '''
             #Blurred Image   
             pre,post = filename.split('.')
             pre='blur_'+pre
@@ -64,7 +64,7 @@ def main():
             new_row=[fname,row[1],new_steer,row[3],row[4]]
             new_data.append(new_row)
             cv2.imwrite(os.path.join(image_directory,fname),horizontal_flip_blur)
-
+            '''
             #Bright
             pre,post = filename.split('.')
             pre='bright_'+pre

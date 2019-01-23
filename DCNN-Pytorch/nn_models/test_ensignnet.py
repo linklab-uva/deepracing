@@ -3,7 +3,7 @@ import numpy as np
 import nn_models
 import data_loading.image_loading as il
 import nn_models.Models as models
-import data_loading.data_loaders as loaders
+import data_loading.data_loaders_old as loaders
 import numpy.random
 import torch, random
 import torch.nn as nn 
@@ -44,7 +44,7 @@ def main():
     prefix = prefix + config['file_prefix']
     size = (66, 200)
     criterion = nn.MSELoss()
-    network = models.EnsignNet(sequence_length = 5)
+    network = models.EnsignNet()
     state_dict = torch.load(args.model_file)
     network.load_state_dict(state_dict)
     print(network)
@@ -54,10 +54,10 @@ def main():
         label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(label_scale))])
     if(use_float32):
         network.float()
-        trainset = loaders.F1SequenceDataset(annotation_dir,annotation_file, size, use_float32=True, label_transformation = label_transformation, context_length = 1, sequence_length = 5)
+        trainset = loaders.F1Dataset(annotation_dir,annotation_file, size, use_float32=True, label_transformation = label_transformation)
     else:
         network.double()
-        trainset = loaders.F1SequenceDataset(annotation_dir, annotation_file, size, label_transformation = label_transformation, context_length = 1, sequence_length = 5)
+        trainset = loaders.F1Dataset(annotation_dir, annotation_file, size, label_transformation = label_transformation)
     
     if(gpu>=0):
         criterion = criterion.cuda(gpu)
@@ -96,11 +96,11 @@ def main():
         wheelrows = 150
         wheelcols = 150
         wheel = cv2.resize(wheel, (wheelcols,wheelrows), interpolation = cv2.INTER_CUBIC)
-    for idx,(inputs, _, labels) in t:
+    for idx,(inputs, throttle, brake, labels) in t:
         if(gpu>=0):
             inputs = inputs.cuda(gpu)
             labels = labels.cuda(gpu)
-        pred = torch.div(network(inputs[:,0,:,:,:]),label_scale)
+        pred = torch.div(network(inputs),label_scale)
         if plot:
             if pred.shape[1] == 1:
                 angle = pred.item()
@@ -133,9 +133,19 @@ def main():
         '''
     predictions_array = np.array(predictions)
     ground_truths_array = np.array(ground_truths)
+    log_name = "ouput_log.txt"
+    log_output_path = os.path.join(imdir,log_name)
+    log = list(zip(ground_truths_array,predictions_array))
+    with open(log_output_path, "a") as myfile:
+        for x in log:
+            log_item = [x[0],x[1]]
+            myfile.write("{0},{1}\n".format(log_item[0],log_item[1]))
     diffs = np.subtract(predictions_array,ground_truths_array)
     rms = np.sqrt(np.mean(np.array(losses)))
+    nrms = np.sqrt(np.mean(np.divide(np.square(np.array(losses)),np.multiply(np.mean(np.array(predictions)),np.mean(np.array(ground_truths))))))
     print("RMS Error: ", rms)
+    print("RMS Error: ", nrms)
+    
     if args.plot:
         from scipy import stats
         import matplotlib.pyplot as plt

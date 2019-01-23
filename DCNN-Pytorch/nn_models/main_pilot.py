@@ -15,22 +15,24 @@ import os
 import string
 import argparse
 import torchvision.transforms as transforms
-def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
-    network.train()  # This is important to call before training!
+def run_epoch(network, criterion, optimizer, trainLoader, gpu, output_dimension):
     cum_loss = 0.0
     batch_size = trainLoader.batch_size
     num_samples=0
     t = tqdm(enumerate(trainLoader))
+    network.train()  # This is important to call before training!
     for (i, (inputs, labels)) in t:
-        optimizer.zero_grad()
-        if use_gpu>=0:
-            inputs = inputs.cuda(use_gpu)
-            labels = labels.cuda(use_gpu)
+        labels = labels[:,0:output_dimension]
+        if gpu>=0 and (not inputs.is_cuda):
+            inputs = inputs.cuda(gpu)
+        if gpu>=0 and (not labels.is_cuda):
+            labels = labels.cuda(gpu)
         # Forward pass:
         outputs = network(inputs)
         loss = criterion(outputs, labels)
 
         # Backward pass:
+        optimizer.zero_grad()
         loss.backward() 
 
         # Weight and bias updates.
@@ -43,16 +45,16 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
         t.set_postfix(cum_loss = cum_loss/num_samples)
  
 
-def train_model(network, criterion, optimizer, trainLoader, file_prefix, directory, n_epochs = 10, use_gpu = False, starting_epoch = 0):
-    if use_gpu>=0:
-        criterion = criterion.cuda(use_gpu)
+def train_model(network, criterion, optimizer, trainLoader, directory, output_dimension, n_epochs = 10, gpu = -1):
+    if gpu>=0:
+        criterion = criterion.cuda(gpu)
     # Training loop.
     if(not os.path.isdir(directory)):
         os.makedirs(directory)
-    for epoch in range(starting_epoch, starting_epoch + n_epochs):
-        print("Epoch %d of %d" %((starting_epoch + epoch+1),n_epochs))
-        run_epoch(network, criterion, optimizer, trainLoader, use_gpu)
-        log_path = os.path.join(directory,""+file_prefix+"_epoch"+str((starting_epoch + epoch+1))+ ".model")
+    for epoch in range(n_epochs):
+        print("Epoch %d of %d" %((epoch+1),n_epochs) )
+        run_epoch(network, criterion, optimizer, trainLoader, gpu, output_dimension)
+        log_path = os.path.join(directory,"_epoch"+str(epoch+1)+ ".model")
         torch.save(network.state_dict(), log_path)
 def load_config(filepath):
     rtn = dict()
@@ -61,11 +63,13 @@ def load_config(filepath):
     rtn['epochs']='10'
     rtn['momentum']='0.0'
     rtn['file_prefix']=''
-    rtn['load_files']=''
+    rtn['load_files']='False'
+    rtn['load_pickles']='False'
     rtn['use_float32']=''
     rtn['label_scale']='100.0'
     rtn['workers']='0'
     rtn['checkpoint_file']=''
+    rtn['output_dimension']='1'
 
 
     config_file = open(filepath)
@@ -80,65 +84,83 @@ def load_config(filepath):
 def main():
     parser = argparse.ArgumentParser(description="Steering prediction with PilotNet")
     parser.add_argument("--config_file", type=str, required=True, help="Config file to use")
+    parser.add_argument("--ros", action="store_true")
     args = parser.parse_args()
     config_fp = args.config_file
     config = load_config(config_fp)
     #mandatory parameters
     learning_rate = float(config['learning_rate'])
-    root_dir, annotation_file = os.path.split(config['annotation_file'])
-    prefix, _ = annotation_file.split(".")
+    annotation_dir = config['annotation_directory']
+    dataset_type = config['dataset_type']
 
     #optional parameters
     file_prefix = config['file_prefix']
-    checkpoint_file = config['checkpoint_file']
 
-    load_files = bool(config['load_files'])
-    use_float32 = bool(config['use_float32'])
-
-    label_scale = float(config['label_scale'])
+    load_files = (config['load_files'] == 'True')
+    load_pickles = (config['load_pickles'] == 'True')
+    
     momentum = float(config['momentum'])
 
     batch_size = int(config['batch_size'])
     gpu = int(config['gpu'])
+    
     epochs = int(config['epochs'])
     workers = int(config['workers'])
 
+    output_dimension = int(config['output_dimension'])
+
     
     
 
-    _, config_file = os.path.split(config_fp)
+    config_file = os.path.basename(config_fp)
+    print(config_file)
     config_file_name, _ = config_file.split(".")
-    output_dir = config_file_name.replace("\n","")
-    prefix = prefix + file_prefix
-    network = models.PilotNet()
-    print(network)
+    output_dir = config_file_name.replace("\n","") + "_" + dataset_type
+    if(not os.path.isdir(output_dir)):
+        os.mkdir(output_dir)
     size=(66,200)
-    if(label_scale == 1.0):
-        label_transformation = None
+    input_channels = 3
+    if args.ros:
+        files= {'ros_train_blur.csv', 'ros_train_raw.csv', 'ros_train_flip.csv', 'ros_train_bright.csv', 'ros_train_dark.csv'}
     else:
-        label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(label_scale))])
-    if(use_float32):
-        network.float()
-        trainset = loaders.F1Dataset(root_dir, annotation_file, size, use_float32=True, label_transformation = label_transformation)
-    else:
-        network.double()
-        trainset = loaders.F1Dataset(root_dir, annotation_file, size, label_transformation = label_transformation)
+        files= {'fullview_linear_raw.csv', 'fullview_linear_brightenned.csv', 'fullview_linear_darkenned.csv', 'fullview_linear_flipped.csv'}
+            # 'fullview_linear_darkenned.csv',\
+            # 'fullview_linear_darkflipped.csv',\
+            # 'fullview_linear_brightenned.csv')
+    datasets = []
+    for f in files:    
+        absolute_filepath = os.path.join(annotation_dir,f)
+        ds = loaders.F1ImageDataset(absolute_filepath, size)
+        datasets.append( ds )
+    
+    network = models.PilotNet(input_channels=input_channels, output_dim=output_dimension)
     if(gpu>=0):
-        network = network.cuda(gpu)
-    
-   # trainset.read_files()
-    
-    if(load_files or (not os.path.isfile("./" + prefix+"_images.pkl")) or (not os.path.isfile("./" + prefix+"_annotations.pkl"))):
-        trainset.read_files()
-        trainset.write_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
-    else:  
-        trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
-    ''' '''
+        network = network.cuda(gpu)   
+    print(network)
+
+    for dataset in datasets:
+        splits = dataset.annotation_filename.split(".")
+        prefix = splits[0]
+        image_pickle = os.path.join(dataset.root_folder,prefix + dataset.image_pickle_postfix)
+        labels_pickle = os.path.join(dataset.root_folder,prefix + dataset.label_pickle_postfix)
+        if(os.path.isfile(image_pickle) and os.path.isfile(labels_pickle)):
+            print("Loading pickles for: " + dataset.annotation_filename)
+            dataset.loadPickles()
+        else:  
+            print("Loading files for: " + dataset.annotation_filename)
+            dataset.loadFiles()
+            dataset.writePickles()
+        # if(gpu>=0 and dataset_type=='raw_images'):
+        #     dataset = dataset.cuda(gpu)
+
+    trainset = torch.utils.data.ConcatDataset(datasets)
+    ''' 
     mean,stdev = trainset.statistics()
     print(mean)
     print(stdev)
     img_transformation = transforms.Compose([transforms.Normalize(mean,stdev)])
     trainset.img_transformation = img_transformation
+    '''
     trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = True, num_workers = 0)
     print(trainLoader)
     #Definition of our loss.
@@ -146,11 +168,21 @@ def main():
 
     # Definition of optimization strategy.
     optimizer = optim.SGD(network.parameters(), lr = learning_rate, momentum=momentum)
-    config['image_transformation']=trainset.img_transformation
-    config_dump = open(os.path.join(output_dir,"config.pkl"), 'wb')
+    config['image_transformation'] = None
+    config['input_channels'] = input_channels
+    print("Using config:")
+    print(config)
+    config_dump = open(os.path.join(output_dir,"config.pkl"), 'w+b')
     pickle.dump(config,config_dump)
     config_dump.close()
-    train_model(network, criterion, optimizer, trainLoader, prefix, output_dir, n_epochs = epochs, use_gpu = gpu)
+    # torch.save( self.images, open( os.path.join( self.root_folder, imgname ), 'w+b' ) )
+    '''
+    torch.save( network.projector_input, open(os.path.join(output_dir,"projector_input.pt"), 'w+b') )
+    
+    torch.save( network.init_hidden, open(os.path.join(output_dir,"init_hidden.pt"), 'w+b') )
+    torch.save( network.init_cell, open(os.path.join(output_dir,"init_cell.pt"), 'w+b') )
+    '''
+    train_model(network, criterion, optimizer, trainLoader, output_dir, output_dimension, n_epochs = epochs, gpu = gpu)
 
 if __name__ == '__main__':
     main()
