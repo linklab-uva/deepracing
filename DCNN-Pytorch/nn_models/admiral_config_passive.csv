@@ -1,9 +1,0 @@
-learning_rate,1E-04
-annotation_file,/zf18/ttw2xk/deepf1data/australia_fullview_run2/linear.csv
-gpu,0
-batch_size,4
-epochs,100
-context_length,12
-sequence_length,3
-load_files,
-output_dimension,1

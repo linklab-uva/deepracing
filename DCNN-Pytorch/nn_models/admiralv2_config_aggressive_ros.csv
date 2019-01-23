@@ -1,9 +1,0 @@
-learning_rate,1E-03
-annotation_directory,D:/test_data/ros_train
-gpu,0
-batch_size,16
-epochs,100
-context_length,10
-sequence_length,1
-output_dimension,1
-dataset_type,combined
