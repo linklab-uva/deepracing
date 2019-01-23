@@ -133,9 +133,9 @@ class CommandantNet(nn.Module):
         x, final_hidden = self.lstm(zeros, init_hidden)
         predictions = self.prediction_layer(x)
         return predictions
-class AdmiralNet(nn.Module):
+class CNNLSTM(nn.Module):
     def __init__(self, cell='lstm', input_channels=2, output_dimension = 1, sequence_length=25, context_length = 25, hidden_dim = 100, gpu = -1):
-        super(AdmiralNet, self).__init__()
+        super(CNNLSTM, self).__init__()
         self.gpu=gpu
         #self.input_channels = 5
         self.input_channels = input_channels
