@@ -87,6 +87,7 @@ def load_config(filepath):
 def main():
     parser = argparse.ArgumentParser(description="Steering prediction with PilotNet")
     parser.add_argument("--config_file", type=str, required=True, help="Config file to use")
+    parser.add_argument("--ros", action="store_true")
     args = parser.parse_args()
     config_fp = args.config_file
     config = load_config(config_fp)
@@ -122,10 +123,11 @@ def main():
         os.mkdir(output_dir)
     size=(66,200)
     input_channels = 3
-    files= {'fullview_linear_raw.csv', 'fullview_linear_brightenned.csv', 'fullview_linear_darkenned.csv', 'fullview_linear_flipped.csv'}
-            # 'fullview_linear_darkenned.csv',\
-            # 'fullview_linear_darkflipped.csv',\
-            # 'fullview_linear_brightenned.csv')
+    if args.ros:
+        files= {'ros_train_blur.csv', 'ros_train_raw.csv', 'ros_train_flip.csv', 'ros_train_bright.csv', 'ros_train_dark.csv'}
+    else:
+        files= {'fullview_linear_raw.csv', 'fullview_linear_brightenned.csv', 'fullview_linear_darkenned.csv', 'fullview_linear_flipped.csv'} 
+
     datasets = []
     for f in files:    
         absolute_filepath = os.path.join(annotation_dir,f)
