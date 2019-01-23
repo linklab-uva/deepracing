@@ -149,7 +149,7 @@ def main():
             raise NotImplementedError('Dataset of type: ' + dataset_type + ' not implemented.')
         datasets.append( ds )
     
-    network = models.AdmiralNet(gpu=gpu, context_length = context_length, sequence_length = sequence_length,\
+    network = models.CNNLSTM(gpu=gpu, context_length = context_length, sequence_length = sequence_length,\
     hidden_dim=hidden_dimension, output_dimension = output_dimension, input_channels=input_channels)
     if(gpu>=0):
         network = network.cuda(gpu)   
