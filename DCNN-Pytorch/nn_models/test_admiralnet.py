@@ -121,7 +121,7 @@ def main():
 
     predictions_array = np.array(predictions)
     ground_truths_array = np.array(ground_truths)
-    output_file_prefix = "admiralnet_prediction_" + model_prefix
+    output_file_prefix = "admiralnet_prediction_"  + os.path.basename(annotation_dir) + model_prefix
     log_name = output_file_prefix + ".txt"
     # imdir = "admiralnet_prediction_images_" + model_prefix
     #if(os.path.exists(imdir)==False):

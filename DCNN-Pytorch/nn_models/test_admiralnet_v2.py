@@ -121,14 +121,15 @@ def main():
 
     predictions_array = np.array(predictions)
     ground_truths_array = np.array(ground_truths)
-    output_file_prefix = "admiralnetv2_prediction_" + model_prefix
+    output_file_prefix = "admiralnetv2_prediction_"  + os.path.basename(annotation_dir) + model_prefix
     log_name = output_file_prefix + ".txt"
     # imdir = "admiralnet_prediction_images_" + model_prefix
     #if(os.path.exists(imdir)==False):
     #    os.mkdir(imdir)
-    log_output_path = log_name
+    log_output_path = os.path.join(model_dir,log_name)
     log = list(zip(ground_truths_array,predictions_array))
-    with open(log_output_path, "a") as myfile:
+    print("Writing results to: " + log_output_path)
+    with open(log_output_path, "w") as myfile:
         for x in log:
             log_item = [x[0],x[1]]
             myfile.write("{0},{1}\n".format(log_item[0],log_item[1]))
