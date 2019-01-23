@@ -1,7 +1,0 @@
-learning_rate,1E-04
-annotation_directory,D:/test_data/australia_fullview_run1
-gpu,0
-batch_size,16
-epochs,500
-output_dimension,1
-dataset_type,static_images

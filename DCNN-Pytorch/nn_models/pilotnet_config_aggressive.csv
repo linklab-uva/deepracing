@@ -1,8 +1,0 @@
-learning_rate,1E-03
-annotation_file,/zf18/ttw2xk/deepf1data/australia_fullview_run2/linear.csv
-label_scale,1.0
-gpu,1
-batch_size,64
-epochs,500
-num_workers,4
-load_files,True
