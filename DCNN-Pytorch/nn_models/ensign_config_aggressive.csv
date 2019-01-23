@@ -1,9 +1,7 @@
 learning_rate,0.1
-annotation_file,D:/test_data/australia_fullview_run1/fullview_linear.csv
+annotation_file,D:/test_data/data_from_bag_3/data_train.csv
 label_scale,1
 gpu,1
-batch_size,32
+batch_size,4
 use_float32,True
-epochs,2000
-context_length,1
-sequence_length,5
+epochs,50

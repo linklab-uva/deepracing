@@ -3,7 +3,7 @@ import numpy as np
 import nn_models
 import data_loading.image_loading as il
 import nn_models.Models as models
-import data_loading.data_loaders as loaders
+import data_loading.data_loaders_old as loaders
 import numpy.random
 import torch, random
 import torch.nn as nn 
@@ -21,13 +21,14 @@ def run_epoch(network, criterion, optimizer, trainLoader, use_gpu):
     batch_size = trainLoader.batch_size
     num_samples=0
     t = tqdm(enumerate(trainLoader))
-    for (i, (inputs, _, labels)) in t:
+    for (i, (inputs, throttle, brake, labels)) in t:
         optimizer.zero_grad()
         if use_gpu>=0:
             inputs = inputs.cuda(use_gpu)
             labels = labels.cuda(use_gpu)
         # Forward pass:
-        outputs = network(inputs[:,0,:,:,:])
+        #print(labels.size())
+        outputs = network(inputs)
         loss = criterion(outputs, labels)
 
         # Backward pass:
@@ -70,6 +71,7 @@ def load_config(filepath):
     rtn['label_scale']='100.0'
     rtn['workers']='0'
     rtn['checkpoint_file']=''
+    rtn['apply_normalization']='True'
 
 
     config_file = open(filepath)
@@ -98,6 +100,8 @@ def main():
 
     load_files = bool(config['load_files'])
     use_float32 = bool(config['use_float32'])
+    apply_norm = bool(config['apply_normalization'])
+
 
     label_scale = float(config['label_scale'])
     momentum = float(config['momentum'])
@@ -114,7 +118,7 @@ def main():
     config_file_name, _ = config_file.split(".")
     output_dir = config_file_name.replace("\n","")
     prefix = prefix + file_prefix
-    network = models.EnsignNet(sequence_length = 5)
+    network = models.EnsignNet()
     print(network)
     size=(66,200)
     if(label_scale == 1.0):
@@ -123,10 +127,10 @@ def main():
         label_transformation = transforms.Compose([transforms.Lambda(lambda inputs: inputs.mul(label_scale))])
     if(use_float32):
         network.float()
-        trainset = loaders.F1SequenceDataset(root_dir, annotation_file, size, use_float32=True, label_transformation = label_transformation, context_length = 1, sequence_length = 5)
+        trainset = loaders.F1Dataset(root_dir, annotation_file, size, use_float32=True, label_transformation = label_transformation)
     else:
         network.double()
-        trainset = loaders.F1SequenceDataset(root_dir, annotation_file, size, label_transformation = label_transformation, context_length = 1, sequence_length = 5)
+        trainset = loaders.F1Dataset(root_dir, annotation_file, size, label_transformation = label_transformation)
     if(gpu>=0):
         network = network.cuda(gpu)
     
@@ -138,11 +142,22 @@ def main():
     else:  
         trainset.read_pickles(prefix+"_images.pkl",prefix+"_annotations.pkl")
     ''' '''
-    mean,stdev = trainset.statistics()
-    print(mean)
-    print(stdev)
-    img_transformation = transforms.Compose([transforms.Normalize(mean,stdev)])
-    trainset.img_transformation = img_transformation
+    if apply_norm:
+        mean,stdev = trainset.statistics()
+
+        mean_ = torch.from_numpy(mean).float()
+
+        stdev_ = torch.from_numpy(stdev).float()
+
+        print("Mean")
+        print(mean_)
+        print("Stdev")
+        print(stdev_)
+
+        trainset.img_transformation = transforms.Normalize(mean_,stdev_)
+    else:
+        print("Skipping Normalize")
+        trainset.img_transformation = None
     trainLoader = torch.utils.data.DataLoader(trainset, batch_size = batch_size, shuffle = True, num_workers = 0)
     print(trainLoader)
     #Definition of our loss.
