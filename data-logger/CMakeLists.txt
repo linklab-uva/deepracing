@@ -71,9 +71,9 @@ endif()
 include_directories( include )
 include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${YAML_CPP_INCLUDE_DIR})
 
-add_subdirectory( proto )
+add_subdirectory( proto/${PROJECT_NAME}/proto )
 
-
+include_directories(${CMAKE_BINARY_DIR}/proto)
 include_directories(${Protobuf_INCLUDE_DIR})
 
 
@@ -94,6 +94,7 @@ if(BUILD_DATALOGGER)
     ${PROJECT_NAME}_udp_logging 
     ${PROJECT_NAME}_proto 
     ${PROJECT_NAME}_alglib 
+	${PROJECT_NAME}_image_utils
     ${Boost_LIBRARIES}
     )
     add_subdirectory( src/Examples )
