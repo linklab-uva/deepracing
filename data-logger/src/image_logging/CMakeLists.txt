@@ -1,7 +1,6 @@
 
 set(${PROJECT_NAME}_utils_src
 utils/opencv_utils.cpp
-#utils/screencapture_lite_utils.cpp
 )
 add_library(${PROJECT_NAME}_image_utils ${${PROJECT_NAME}_utils_src})
 target_link_libraries(${PROJECT_NAME}_image_utils ${OpenCV_LIBRARIES} ${screen_capture_lite_LIBRARIES})
