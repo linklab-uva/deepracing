@@ -1,11 +1,12 @@
 project(f1_datalogger)
 cmake_minimum_required (VERSION 3.10 FATAL_ERROR)
 
-option(BUILD_SHARED_LIBS "Build Shared Libraries (EXPERIMENTAL)" OFF)
 if(MSVC)
+    option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
     set(cxx_standard 11)
 else()
-    set(cxx_standard 17)
+    option(BUILD_SHARED_LIBS "Build Shared Libraries" ON)
+    set(cxx_standard 14)
 endif()
 
 set(CMAKE_CXX_STANDARD ${cxx_standard})
