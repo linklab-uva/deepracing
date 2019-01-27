@@ -27,8 +27,8 @@ void exit_with_help(po::options_description& desc)
 int main(int argc, char** argv) {
 	using boost::asio::ip::udp;
 	using namespace deepf1;
-        unsigned int BUFLEN = 1289;
-        unsigned int UDP_BUFLEN = BUFLEN;
+        // unsigned int BUFLEN = 1289;
+        // unsigned int UDP_BUFLEN = BUFLEN;
         unsigned int sleep_time;
         unsigned int packet_size = sizeof(UDPPacket);
 
@@ -61,15 +61,15 @@ int main(int argc, char** argv) {
 
         std::shared_ptr<UDPPacket> data(new UDPPacket);
         float fake_time = 0;
-        float dt = 1E-3*((float)sleep_time);
+        float dt = 1E-3*( (float) sleep_time );
         float period = 5.0;
         float freq=1/period;
 	float pi = boost::math::constants::pi<float>();
         while (true) {
                 data->m_time = fake_time;
                 data->m_steer = sin(2*pi*freq*fake_time);
-                data->m_throttle = sin(2*pi*freq*fake_time + pi /3.0);
-                data->m_brake = sin(2*pi*freq*fake_time + 2.0*pi /3.0);
+                data->m_throttle = sin(2*pi*freq*fake_time + pi / 3.0 );
+                data->m_brake = sin(2*pi*freq*fake_time + 2.0*pi / 3.0);
                 std::cout<<"Sending fake UDP data"<<std::endl;
                 // std::cout<<"fake_time: "<<fake_time<<std::endl;
                 // std::cout<<"Steering: "<<data->m_steer<<std::endl;
