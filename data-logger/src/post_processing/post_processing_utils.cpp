@@ -123,7 +123,7 @@ namespace post_processing
 		std::sort(udp_data.begin(), udp_data.end(), &udpComp);
 		std::sort(image_data.begin(), image_data.end(), &imageComp);
 
-		rtn.resize(image_data.size());
+		rtn.reserve(image_data.size());
 		for(unsigned int i = 0; i < image_data.size(); i ++)
 		{
 			deepf1::protobuf::TimestampedImage image_point = image_data.at(i);	
@@ -141,17 +141,17 @@ namespace post_processing
 
 		//	printf("Interpolating on order %u \n", interpolation_order);
 			std::vector<float> interp_results = interp(udp_data, pair.second, interpolation_order, image_point.timestamp());
-			rtn.at(i).set_image_file(std::string(image_point.image_file()));
-			rtn.at(i).set_steering(interp_results[0]);
-			rtn.at(i).set_throttle(interp_results[1]);
-			rtn.at(i).set_brake(interp_results[2]);
+			im.mutable_label()->set_steering(interp_results[0]);
+			im.mutable_label()->set_throttle(interp_results[1]);
+			im.mutable_label()->set_brake(interp_results[2]);
+			im.set_image_file(std::string(image_point.image_file()));
 		//	printf("Done interpolating \n");
 			/*
 			std::string json;
 			google::protobuf::util::MessageToJsonString(rtn.at(i), &json);
 			std::cout << "Labeled image: " << json << std::endl;
 			*/
-			//rtn.push_back(deepf1::protobuf::LabeledImage(im));
+			rtn.push_back(im);
 		}
 	//	rtn.shrink_to_fit();
 
@@ -194,12 +194,12 @@ namespace post_processing
 		std::vector<deepf1::protobuf::TimestampedImage> rtn;
 
 		std::vector<fs::path> paths;
-		fs::path udp_dir(directory);
-		get_all(udp_dir, ".pb", paths);
+		fs::path image_dir(directory);
+		get_all(image_dir, ".pb", paths);
 		std::ifstream stream_in;
 		for (fs::path path : paths)
 		{
-			fs::path current_path = udp_dir / path;
+			fs::path current_path = image_dir / path;
 			//		std::cout << "Loading file: " << current_path.string() << std::endl;
 			stream_in.open(current_path.string().c_str());
 			deepf1::protobuf::TimestampedImage data_in;
