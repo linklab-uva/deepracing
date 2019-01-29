@@ -65,11 +65,12 @@ int main(int argc, char** argv) {
         float period = 5.0;
         float freq=1/period;
 	float pi = boost::math::constants::pi<float>();
+        float factor = 2.0;
         while (true) {
                 data->m_time = fake_time;
-                data->m_steer = sin(2*pi*freq*fake_time);
-                data->m_throttle = sin(2*pi*freq*fake_time + pi / 3.0 );
-                data->m_brake = sin(2*pi*freq*fake_time + 2.0*pi / 3.0);
+                data->m_steer = sin(factor* 2*pi*freq*fake_time);
+                data->m_throttle = sin(factor* 2*pi*freq*fake_time + pi / 3.0 );
+                data->m_brake = sin(factor* 2*pi*freq*fake_time + 2.0*pi / 3.0);
                 std::cout<<"Sending fake UDP data"<<std::endl;
                 // std::cout<<"fake_time: "<<fake_time<<std::endl;
                 // std::cout<<"Steering: "<<data->m_steer<<std::endl;

@@ -1,6 +1,6 @@
 include(FindProtobuf)
 find_package(Protobuf REQUIRED)
-protobuf_generate_cpp(${PROJECT_NAME}_PROTO_SRC ${PROJECT_NAME}_PROTO_HEADER F1UDPData.proto LabeledImage.proto TimestampedImage.proto)
+protobuf_generate_cpp(${PROJECT_NAME}_PROTO_SRC ${PROJECT_NAME}_PROTO_HEADER ImageLabel.proto F1UDPData.proto LabeledImage.proto TimestampedImage.proto)
 message(STATUS "Generated sources: ${${PROJECT_NAME}_PROTO_SRC}")
 message(STATUS "Generated header: ${${PROJECT_NAME}_PROTO_HEADER}")
 message(STATUS "Including protobuf library headers: ${Protobuf_INCLUDE_DIR}")
