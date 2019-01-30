@@ -11,6 +11,7 @@
 #include <boost/filesystem.hpp>
 #include <iostream>
 #include <google/protobuf/util/json_util.h>
+#include <thread>
 namespace fs = boost::filesystem;
 namespace deepf1
 {
@@ -25,9 +26,24 @@ MultiThreadedUDPHandler::MultiThreadedUDPHandler(std::string data_folder, unsign
 }
 MultiThreadedUDPHandler::~MultiThreadedUDPHandler()
 {
-  running_ = false;
+  stop();
 }
-
+void MultiThreadedUDPHandler::stop()
+{
+  running_ = false;
+  ready_ = false;
+}
+void MultiThreadedUDPHandler::join()
+{
+  bool cleaning = true;
+  while(cleaning)
+  {
+    std::lock_guard<std::mutex> lk(queue_mutex_);
+    printf("Cleaning up %d remaining udp packets in the queue.\n", queue_->unsafe_size());
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    cleaning = !queue_->empty();
+  }
+}
 void MultiThreadedUDPHandler::handleData(const deepf1::TimestampedUDPData& data)
 {
   std::lock_guard<std::mutex> lk(queue_mutex_);
@@ -36,7 +52,7 @@ void MultiThreadedUDPHandler::handleData(const deepf1::TimestampedUDPData& data)
 
 inline bool MultiThreadedUDPHandler::isReady()
 {
-  return true;
+  return ready_;
 }
 void MultiThreadedUDPHandler::workerFunc_()
 {
@@ -85,7 +101,7 @@ void MultiThreadedUDPHandler::workerFunc_()
     std::string json_file = pb_file + ".json";
     std::string json_fn = ( udp_folder / fs::path(json_file) ).string();
     ostream.open(json_fn.c_str(), std::ofstream::out);
-    ostream << json;
+    ostream << *json;
     ostream.flush();
     ostream.close();
   }
@@ -100,6 +116,7 @@ void MultiThreadedUDPHandler::init(const std::string& host, unsigned int port, c
   {
     thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler::workerFunc_,this));
   }
+  ready_ = true;
 }
 const std::string MultiThreadedUDPHandler::getDataFolder() const
 {
