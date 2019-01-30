@@ -25,6 +25,8 @@ public:
   inline bool isReady() override;
   void init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin) override;
   const std::string getDataFolder() const;
+  void stop();
+  void join();
 
 private:
   std::shared_ptr< tbb::concurrent_queue<TimestampedUDPData> > queue_;
@@ -38,6 +40,7 @@ private:
 
   void workerFunc_();
 
+  bool ready_;
 };
 
 } /* namespace deepf1 */

@@ -12,6 +12,7 @@
 #include <fstream>
 #include <boost/filesystem.hpp>
 #include <google/protobuf/util/json_util.h>
+#include <thread>
 namespace fs = boost::filesystem;
 namespace deepf1
 {
@@ -29,12 +30,27 @@ MultiThreadedFrameGrabHandler::MultiThreadedFrameGrabHandler(std::string images_
 
 MultiThreadedFrameGrabHandler::~MultiThreadedFrameGrabHandler()
 {
-  running_ = false;
+  stop();
 }
-
+void MultiThreadedFrameGrabHandler::join()
+{
+  bool cleaning = true;
+  while(cleaning)
+  {
+    std::lock_guard<std::mutex> lk(queue_mutex_);
+    printf("Cleaning up %d remaining images in the queue.\n", queue_->unsafe_size());
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    cleaning = !queue_->empty();
+  }
+}
+void MultiThreadedFrameGrabHandler::stop()
+{
+  running_ = false;
+  ready_ = false;
+}
 inline bool MultiThreadedFrameGrabHandler::isReady()
 {
-  return true;
+  return ready_;
 }
 
 void MultiThreadedFrameGrabHandler::handleData(const TimestampedImageData& data)
@@ -53,6 +69,7 @@ void MultiThreadedFrameGrabHandler::init(const std::chrono::high_resolution_cloc
   {
     thread_pool_->run(std::bind(&MultiThreadedFrameGrabHandler::workerFunc_,this));
   }
+  ready_ = true;
 }
 
 void MultiThreadedFrameGrabHandler::workerFunc_()
@@ -92,15 +109,15 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
     ostream.flush();
     ostream.close();
 
-    std::string json;
+    std::shared_ptr<std::string> json(new std::string);
     google::protobuf::util::JsonOptions opshinz;
     opshinz.always_print_primitive_fields = true;
     opshinz.add_whitespace = true;
-    google::protobuf::util::MessageToJsonString(tag, &json, opshinz);
+    google::protobuf::util::MessageToJsonString(tag, json.get(), opshinz);
     std::string json_file = pb_filename + ".json";
     std::string json_fn = ( images_folder / fs::path(json_file) ).string();
     ostream.open(json_fn.c_str(), std::ofstream::out);
-    ostream << json;
+    ostream << *json;
     ostream.flush();
     ostream.close();
   }

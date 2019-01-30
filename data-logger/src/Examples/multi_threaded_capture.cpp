@@ -96,6 +96,11 @@ int main(int argc, char** argv)
   std::cout<<"Capturing data. Enter any key to end " << std::endl;
   std::cin >> inp;
 
+  frame_handler->stop();
+  udp_handler->stop();
+  frame_handler->join();
+  udp_handler->join();
+
 }
 
 
