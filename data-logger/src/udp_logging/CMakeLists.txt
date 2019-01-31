@@ -24,6 +24,7 @@ set(install_targets
 ${PROJECT_NAME}_simulated_telemetry_server
 #libraries.
 ${PROJECT_NAME}_udp_logging
+${PROJECT_NAME}_udp_logging_common
 )
 install(TARGETS ${install_targets}
     RUNTIME DESTINATION bin
