@@ -104,6 +104,8 @@ void MultiThreadedUDPHandler::workerFunc_()
     ostream << *json;
     ostream.flush();
     ostream.close();
+
+    
   }
 }
 void MultiThreadedUDPHandler::init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin)
