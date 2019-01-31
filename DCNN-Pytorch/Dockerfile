@@ -79,7 +79,9 @@ RUN conda install torchvision
 
 RUN pip install opencv_python
 
-copy nn_models/ /deepracing/
+COPY nn_models/make_file.py .
+#ADD nn_models/ /nn_models/
+#ADD /home/ttw2xk /deepracing/
 # Set the default command to python3
-RUN cd /deepracing
+#RUN cd /deepracing
 CMD ["python3"]
