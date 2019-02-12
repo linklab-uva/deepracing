@@ -49,14 +49,15 @@ class DeepF1ImageTensorBackend(DeepF1ImageBackend):
         image_folder = os.path.join(os.path.dirname(annotation_file),"raw_images")
         resize = torchvision.transforms.Resize(im_size)
         totensor = torchvision.transforms.ToTensor()
-        self.image_tensor = torch.Tensor(num_lines, 3, 66, 200)
-        self.image_tensor.type(dtype='torch.float32')
+        self.image_tensor = torch.Tensor(num_lines, 3, im_size[0], im_size[1])
+        self.image_tensor.type(torch.float32)
         self.label_tensor = torch.Tensor(num_lines, 3)
-        self.label_tensor.type(dtype='torch.float32')
+        self.label_tensor.type(torch.float32)
         
         for idx in tqdm(range(len(annotations)),desc='Loading Data',leave=True):
             fp, ts, steering, throttle, brake = annotations[idx].split(",")
             impil = PILImage.open( os.path.join( image_folder, fp ) )
+            print(impil)
             im = totensor( resize( impil ) )
             self.image_tensor[idx] = im
 

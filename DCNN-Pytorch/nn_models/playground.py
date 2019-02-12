@@ -20,19 +20,24 @@ import matplotlib.pyplot as plt
 from torch.utils.data.dataset import Subset
 import data_loading.backend.ImageBackend as image_backends
 def main():
-  image_tensor = torch.load('/home/ttw2xk/deepf1data/australia_fullview_run2/linear_image_tensor.pt')
-  label_tensor = torch.load('/home/ttw2xk/deepf1data/australia_fullview_run2/linear_label_tensor.pt')
-  backend=image_backends.DeepF1ImageTensorBackend(image_tensor=image_tensor, label_tensor=label_tensor)
+  data_dir='E:/deepf1data/australia_fullview_run2'
+  backend = image_backends.DeepF1ImageTensorBackend(image_tensor=torch.load(os.path.join(data_dir,'linear_image_tensor.pt')), label_tensor=torch.load(os.path.join(data_dir,'linear_label_tensor.pt')))
 
- # backend.loadImages('/home/ttw2xk/deepf1data/australia_fullview_run2/linear.csv',(66,200))
- # torch.save(backend.image_tensor, '/home/ttw2xk/deepf1data/australia_fullview_run2/linear_image_tensor.pt')
-  #torch.save(backend.label_tensor, '/home/ttw2xk/deepf1data/australia_fullview_run2/linear_label_tensor.pt')
+
+ # backend=image_backends.DeepF1ImageTensorBackend()
+ # backend.loadImages(os.path.join(data_dir,'linear.csv'),(66,200))
+ # torch.save(backend.image_tensor, os.path.join(data_dir,'linear_image_tensor.pt'))
+ # torch.save(backend.label_tensor, os.path.join(data_dir,'linear_label_tensor.pt'))
+
 
   ds = loaders.F1ImageSequenceDataset(backend)
-  images, labels = ds[0]
+  images, labels = ds[500]
   print(images.shape)
   print(labels.shape)
-  flows = loaders.imagesToFlow(images)
+  
+  flow_ds = loaders.F1OpticalFlowDataset(backend)
+  flows, labels = flow_ds[len(flow_ds)-1]
+  print(flows.shape)
   print(flows.shape)
 if __name__ == '__main__':
   main()
