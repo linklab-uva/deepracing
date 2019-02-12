@@ -12,23 +12,24 @@ import torchvision
 import PIL
 from PIL import Image as PILImage
 import data_loading.backend.ImageBackend as image_backends
-def imagesToFlow(images):
-    images_np = images.numpy().transpose((0,2,3,1))
-    flows = torch.FloatTensor(images_np.shape[0]-1, 2, images_np.shape[1], images_np.shape[2])
-    grayscale = torchvision.transforms.Grayscale()
-    totensor = torchvision.transforms.ToTensor()
-
-    for i in range(1,images_np.shape[0]):
-        first = (255*images_np[i-1]).astype(np.uint8)
-        first_gray = cv2.cvtColor(first, cv2.COLOR_RGB2GRAY)
-        first_bgr = cv2.cvtColor(first, cv2.COLOR_RGB2BGR)
-
-        second = (255*images_np[i]).astype(np.uint8)
+import data_loading.backend.OpticalFlowBackend as of_backends
+def imagesToFlow(images, totensor = torchvision.transforms.ToTensor()):
+    flows=torch.FloatTensor(images.shape[0]-1,2,images.shape[2],images.shape[3])
+    im = images[0]
+    im_np = im.numpy().transpose(1,2,0)
+    first = (255*im_np).astype(np.uint8)
+    first_gray = cv2.cvtColor(first, cv2.COLOR_RGB2GRAY)
+  #  first_bgr = cv2.cvtColor(first, cv2.COLOR_RGB2BGR)
+    for idx in range(1, images.shape[0]):
+        im = images[idx]
+        im_np = im.numpy().transpose(1,2,0)
+        second = (255*im_np).astype(np.uint8)
         second_gray = cv2.cvtColor(second, cv2.COLOR_RGB2GRAY)
-        second_bgr = cv2.cvtColor(second, cv2.COLOR_RGB2BGR)
+        #second_bgr = cv2.cvtColor(second, cv2.COLOR_RGB2BGR)
 
         flow = cv2.calcOpticalFlowFarneback(first_gray,second_gray, None, 0.5, 3, 20, 8, 5, 1.2, 0).astype(np.float32)
-        flows[i-1] = totensor(flow)
+        flows[idx-1] = totensor(flow)
+        first_gray = second_gray
     return flows
 class F1ImageSequenceDataset(Dataset):
     def __init__(self, backend, context_length = 10, sequence_length=1):
@@ -38,7 +39,7 @@ class F1ImageSequenceDataset(Dataset):
         self.backend=backend
         self.context_length=context_length
         self.sequence_length=sequence_length
-        self.len = self.backend.image_tensor.shape[0] - context_length - sequence_length 
+        self.len = self.backend.numberOfImages() - context_length - sequence_length 
     
     def __getitem__(self, index):
         images_start = index
@@ -54,18 +55,32 @@ class F1ImageSequenceDataset(Dataset):
 class F1OpticalFlowDataset(Dataset):
     def __init__(self, backend, context_length = 10, sequence_length=1):
         super(F1OpticalFlowDataset, self).__init__()
-        if not isinstance(backend, image_backends.DeepF1ImageBackend):
-            raise NotImplementedError("backend must be a subtype of " + image_backends.DeepF1ImageBackend.__text_signature__)
         self.backend=backend
         self.context_length=context_length
         self.sequence_length=sequence_length
-        self.im_dataset = F1ImageSequenceDataset(self.backend, context_length = self.context_length+1, sequence_length = self.sequence_length)
-        self.len = len(self.im_dataset) - 1
+        if(isinstance(self.backend, of_backends.DeepF1OpticalFlowBackend)):
+            self.len = self.backend.numberOfFlowImages() - self.context_length - self.sequence_length
+        elif(isinstance(self.backend, image_backends.DeepF1ImageBackend)):
+            self.im_dataset = F1ImageSequenceDataset(self.backend, context_length = self.context_length+1, sequence_length = self.sequence_length)
+            self.len = len(self.im_dataset) - 1
+            self.totensor = torchvision.transforms.ToTensor()
+        else:
+            raise NotImplementedError("backend type " + str(backend) + " not supported")
     
     def __getitem__(self, index):
-        images , labels = self.im_dataset[index]
-        flows = imagesToFlow(images)
-        return flows, labels
+        if(isinstance(self.backend, of_backends.DeepF1OpticalFlowBackend)):
+            images_start = index
+            images_end = images_start + self.context_length
+            flows = self.backend.getFlowImageRange(images_start, images_end)
+
+            labels_start = images_end
+            labels_end = labels_start + self.sequence_length
+            labels = self.backend.getLabelRange(labels_start, labels_end)
+            return flows, labels
+        elif(isinstance(self.backend, image_backends.DeepF1ImageBackend)):
+            images , labels = self.im_dataset[index]
+            flows = imagesToFlow(images, totensor=self.totensor)
+            return flows, labels
     def __len__(self):
         return self.len
 
