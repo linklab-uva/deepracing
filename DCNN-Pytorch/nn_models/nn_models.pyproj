@@ -37,7 +37,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="data_loading\backend\ImageBackend.py" />
-    <Compile Include="data_loading\backend\OpticalFlowBackend.py" />
+    <Compile Include="data_loading\backend\OpticalFlowBackend.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="data_loading\backend\__init__.py" />
     <Compile Include="data_loading\data_augmentor.py" />
     <Compile Include="data_loading\data_loaders.py" />
