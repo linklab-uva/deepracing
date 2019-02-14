@@ -39,6 +39,9 @@
     <Compile Include="data_loading\backend\ImageBackend.py" />
     <Compile Include="data_loading\backend\OpticalFlowBackend.py" />
     <Compile Include="data_loading\backend\__init__.py" />
+    <Compile Include="data_loading\dataset_utils.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="data_loading\data_augmentor.py" />
     <Compile Include="data_loading\data_loaders.py" />
     <Compile Include="data_loading\data_loaders_old.py" />
@@ -76,6 +79,9 @@
     <Compile Include="test_ensignnet.py" />
     <Compile Include="test_pilotnet.py" />
     <Compile Include="train2game.py" />
+    <Compile Include="training_utils\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="visualize.py" />
     <Compile Include="vjoy_test.py" />
     <Compile Include="__init__.py" />
@@ -93,11 +99,16 @@
     <Folder Include="imutils" />
     <Folder Include="math_utils" />
     <Folder Include="nn_models" />
+    <Folder Include="results\" />
+    <Folder Include="results\admiralnet_ros_data\" />
+    <Folder Include="results\admiralnet_ros_data\lstm\" />
     <Folder Include="results\admiralnet_ros_data\lstm\admiralnet_prediction_images_data_train_epoch95" />
     <Folder Include="results\admiralnet_ros_data\lstm\admiral_config_opticalflow_ros_lstm" />
+    <Folder Include="results\admiral_opticalflow\" />
     <Folder Include="results\admiral_opticalflow\admiralnet_prediction_images_fullview_linear_epoch19" />
     <Folder Include="results\admiral_opticalflow\admiral_config_opticalflow_lstm" />
     <Folder Include="results\admiral_opticalflow\admiral_config_opticalflow_rnn" />
+    <Folder Include="training_utils\" />
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="Global|PythonCore|3.6" />
