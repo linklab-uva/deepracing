@@ -61,48 +61,33 @@ def npimagesToFlow(images):
         first = second
     return flows    
 class F1OpticalFlowDataset(Dataset):
-    def __init__(self, backend, context_length = 10, sequence_length=1):
+    def __init__(self, flow_file, label_file, backend, context_length = 10, sequence_length=1):
         super(F1OpticalFlowDataset, self).__init__()
-        self.backend=backend
         self.context_length=context_length
         self.sequence_length=sequence_length
-        if(isinstance(self.backend, of_backends.DeepF1OpticalFlowBackend)):
-            self.len = self.backend.numberOfFlowImages() - self.context_length - self.sequence_length
-        elif(isinstance(self.backend, image_backends.DeepF1ImageTensorBackend)):
-            self.im_dataset = F1ImageSequenceDataset(self.backend, context_length = self.context_length+1, sequence_length = self.sequence_length)
-            self.len = len(self.im_dataset) - 1
-            self.totensor = torchvision.transforms.ToTensor()
-        elif(isinstance(self.backend, image_backends.DeepF1NumpyArrayBackend)):
-            self.len = self.backend.numberOfImages() - self.context_length - self.sequence_length - 1
-        else:
-            raise NotImplementedError("backend type " + str(backend) + " not supported")
-    
+        self.flow_file = flow_file
+        self.label_file = label_file
+        self.backend=backend
+
     def __getitem__(self, index):
-        if(isinstance(self.backend, of_backends.DeepF1OpticalFlowBackend)):
-            images_start = index
-            images_end = images_start + self.context_length
-            flows = self.backend.getFlowImageRange(images_start, images_end)
+        if( not self.loaded() ):
+            print("Preloading files: %s, %s" % (self.flow_file, self.label_file))
+            self.backend.loadPickles(self.flow_file, self.label_file)
+        images_start = index
+        images_end = images_start + self.context_length
+        flows = self.backend.getFlowImageRange(images_start, images_end)
 
-            labels_start = images_end
-            labels_end = labels_start + self.sequence_length
-            labels = self.backend.getLabelRange(labels_start, labels_end)
-            return flows, labels
-        elif(isinstance(self.backend, image_backends.DeepF1ImageTensorBackend)):
-            images , labels = self.im_dataset[index]
-            flows = imagesToFlow(images, totensor=self.totensor)
-            return flows, labels
-        elif(isinstance(self.backend, image_backends.DeepF1NumpyArrayBackend)):
-            images_start = index
-            images_end = images_start + self.context_length+1
-            flows = self.backend.getFlowImageRange(images_start, images_end)
-
-            labels_start = images_end
-            labels_end = labels_start + self.sequence_length
-            labels = self.backend.getLabelRange(labels_start, labels_end)
-            return flows, labels
+        labels_start = images_end
+        labels_end = labels_start + self.sequence_length
+        labels = self.backend.getLabelRange(labels_start, labels_end)
+        return flows, labels
     def __len__(self):
-        return self.len
-
+        if( not self.loaded() ):
+            print("Preloading files: %s, %s" % (self.flow_file, self.label_file))
+            self.backend.loadPickles(self.flow_file, self.label_file)
+        return self.backend.numberOfFlowImages() - self.context_length - self.sequence_length
+    def loaded(self):
+        return (self.flow_file==self.backend.flow_source_file and self.label_file==self.backend.label_source_file)
 
 class F1CombinedDataset(Dataset):
     def __init__(self, annotation_filepath, im_size, context_length = 25, sequence_length=25):
@@ -154,6 +139,7 @@ class F1CombinedDataset(Dataset):
             im = self.totensor( self.grayscale( self.resize( PILImage.open( os.path.join( self.image_folder, fp ) ) ) ) ).type(torch.float32) 
           #  print(im.size())
             next_img = np.round( 255.0 * im[0].numpy() ).astype(np.uint8)
+
             flow = cv2.calcOpticalFlowFarneback(prvs_img,next_img, None, 0.5, 3, 20, 8, 5, 1.2, 0).astype(np.float32)
             indx = idx-1
             self.images[indx][0:2] = self.totensor(flow)
