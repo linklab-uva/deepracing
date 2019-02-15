@@ -11,10 +11,10 @@ import torchvision.transforms as transforms
 import torchvision
 import PIL
 from PIL import Image as PILImage
-import data_loading.backend.ImageBackend as image_backends
+import data_loading.backend.ImageSequenceBackend as image_backends
 import data_loading.backend.OpticalFlowBackend as of_backends
 def imagesToFlow(images, totensor = torchvision.transforms.ToTensor()):
-    flows=torch.FloatTensor(images.shape[0]-1,2,images.shape[2],images.shape[3])
+    flows=torch.zeros((images.shape[0]-1,2,images.shape[2],images.shape[3]), dtype=torch.float32)
     im = images[0]
     im_np = im.numpy().transpose(1,2,0)
     first = (255*im_np).astype(np.uint8)
@@ -32,26 +32,18 @@ def imagesToFlow(images, totensor = torchvision.transforms.ToTensor()):
         first_gray = second_gray
     return flows
 class F1ImageSequenceDataset(Dataset):
-    def __init__(self, backend, context_length = 10, sequence_length=1):
+    def __init__(self, backend : image_backends.DeepF1ImageSequenceBackend):
         super(F1ImageSequenceDataset, self).__init__()
-        if not isinstance(backend, image_backends.DeepF1ImageBackend):
-            raise NotImplementedError("backend must be a subtype of " + image_backends.DeepF1ImageBackend.__text_signature__)
-        self.backend=backend
-        self.context_length=context_length
-        self.sequence_length=sequence_length
-        self.len = self.backend.numberOfImages() - context_length - sequence_length 
+        self.backend : image_backends.DeepF1ImageSequenceBackend=backend
+        self.len = self.backend.numberOfImages() - backend.context_length - backend.sequence_length
     
     def __getitem__(self, index):
-        images_start = index
-        images_end = images_start + self.context_length
-        images = self.backend.getImageRange(images_start, images_end)
-                
-        labels_start = images_end
-        labels_end = labels_start + self.sequence_length
-        labels = self.backend.getLabelRange(labels_start, labels_end)
+        images = self.backend.getImageRange(index)
+        labels = self.backend.getLabelRange(index)
         return images , labels
     def __len__(self):
         return self.len
+
 def npimagesToFlow(images):
     first = images[0]
     flows = np.zeros(images.shape[0]-1, images.shape[1], images.shape[2], 2)
@@ -61,13 +53,13 @@ def npimagesToFlow(images):
         first = second
     return flows    
 class F1OpticalFlowDataset(Dataset):
-    def __init__(self, flow_file, label_file, backend, context_length = 10, sequence_length=1):
+    def __init__(self, flow_file : str, label_file : str, backend : of_backends.DeepF1OpticalFlowBackend, context_length : int = 10, sequence_length : int =1):
         super(F1OpticalFlowDataset, self).__init__()
         self.context_length=context_length
         self.sequence_length=sequence_length
         self.flow_file = flow_file
         self.label_file = label_file
-        self.backend=backend
+        self.backend : of_backends.DeepF1OpticalFlowBackend = backend
 
     def __getitem__(self, index):
         if( not self.loaded() ):
