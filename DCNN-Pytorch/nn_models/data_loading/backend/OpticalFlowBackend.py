@@ -7,20 +7,75 @@ import torchvision
 from tqdm import tqdm as tqdm
 import cv2
 import numpy as np
-class DeepF1OpticalFlowBackend():
-    def __init__(self):
+import abc
+import deepf1_image_reading as imreading
+class DeepF1OptFlowBackend(metaclass=abc.ABCMeta):
+    def __init__(self, context_length : int, sequence_length : int):
+        self.context_length = context_length
+        self.sequence_length = sequence_length
+
+    @abc.abstractmethod
+    def getFlowImageRange(self, index : int):
         pass
-    def getFlowImage(self, index):
-        raise NotImplementedError("DeepF1OpticalFlowBackend classes must implement getFlowImage(self, index)")
-    def getFlowImageRange(self, start, end):
-        raise NotImplementedError("DeepF1OpticalFlowBackend classes must implement getFlowImageRange(self, start, end)")
-    def getLabel(self, index):
-        raise NotImplementedError("DeepF1OpticalFlowBackend classes must implement getLabel(self, index)")
-    def getLabelRange(self, start, end):
-        raise NotImplementedError("DeepF1OpticalFlowBackend classes must implement getLabelRange(self, start, end)")
+    
+    @abc.abstractmethod
+    def getLabelRange(self, index : int):
+        pass
+
+    @abc.abstractmethod
     def numberOfFlowImages(self):
-        raise NotImplementedError("DeepF1OpticalFlowBackend classes must implement numberOfFlowImages(self)")
-class DeepF1OpticalFlowTensorBackend(DeepF1OpticalFlowBackend):
+        pass
+    def __indexRanges__(self, dataset_index : int):
+        image_start = dataset_index
+        image_end = image_start + self.context_length
+        label_start = image_end
+        label_end = label_start + self.sequence_length
+        return image_start, image_end, label_start, label_end
+class DeepF1OptFlowDirectoryBackend(DeepF1OptFlowBackend):
+    def __init__(self, annotation_file : str, context_length : int, sequence_length : int, imsize=(66,200)):
+        super(DeepF1OptFlowDirectoryBackend, self).__init__(context_length, sequence_length)
+        f = open(annotation_file, 'r')
+        annotations = f.readlines()
+        f.close()
+        self.labels = np.empty((len(annotations) - 1, 3))
+        for (i, line)in enumerate(annotations[1:]):
+            _, _, steering, throttle, brake = line.split(",")
+            self.labels[i][0] = float(steering)
+            self.labels[i][1] = float(throttle)
+            self.labels[i][2] = float(brake)
+
+        self.totensor=torchvision.transforms.ToTensor()
+        self.resize=torchvision.transforms.Resize(imsize)
+        self.grayscale=torchvision.transforms.Grayscale()
+        self.image_directory = os.path.join(os.path.dirname(annotation_file),'raw_images')
+
+    def getFlowImageRange(self, index : int):
+        image_start, image_end, _, _ = self.__indexRanges__(index)
+        l = imreading.readImageFlows(os.path.join(self.image_directory,'raw_image_'), image_start, image_end - image_start, self.resize.size )
+        im_array = np.array( l ).transpose(0,3,1,2)
+        # im_array = np.empty((image_end - image_start, 3, self.resize.size[0], self.resize.size[1]))
+        # for (i, index) in enumerate(range(image_start, image_end)):
+        #     fp = os.path.join(self.image_directory,'raw_image_'+str(index+1)+'.jpg')
+        #     image = imreading.readImage( os.path.join( self.image_directory ,fp ) ,cv2.IMREAD_GRAYSCALE )
+        #     imresize = cv2.resize( image, ( self.resize.size[1], self.resize.size[0] ) ) 
+        #     im_array[i] = (imresize.astype(np.float32)/255.0)
+        return im_array
+    def getLabelRange(self, index : int):
+        _, _, label_start, label_end = self.__indexRanges__(index)
+        # label_array = np.empty((label_end - label_start, 3), dtype = np.float32) 
+        # #array_idx = 0
+        # for (i,line) in enumerate(self.annotations[label_start: label_end]):
+        #     _, ts, steering, throttle, brake = line.split(",")
+        #     label_array[i][0] = float(steering)
+        #     label_array[i][1] = float(throttle)
+        #     label_array[i][2] = float(brake)
+        #     #array_idx += 1
+        return self.labels[label_start:label_end]
+
+    def numberOfFlowImages(self):
+        return self.labels.shape[0]
+
+class DeepF1OpticalFlowTensorBackend(DeepF1OptFlowBackend):
     def __init__(self):
         super(DeepF1OpticalFlowTensorBackend, self).__init__()
         self.flow_tensor = None

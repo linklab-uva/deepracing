@@ -14,6 +14,7 @@ import random
 from multiprocessing import Process
 from multiprocessing import Lock as MPLock
 import cv2
+import deepf1_image_reading as imreading
 class DeepF1ImageSequenceBackend(metaclass=abc.ABCMeta):
     def __init__(self, context_length : int, sequence_length : int):
         self.context_length = context_length
@@ -58,13 +59,14 @@ class DeepF1ImageDirectoryBackend(DeepF1ImageSequenceBackend):
 
     def getImageRange(self, index : int):
         image_start, image_end, _, _ = self.__indexRanges__(index)
-        im_array = np.empty( ( self.context_length, self.resize.size[0], self.resize.size[1] ), dtype = np.float32)
-        #array_idx = 0
-        for (i, index) in enumerate(range(image_start, image_end)):
-            fp = os.path.join(self.image_directory,'raw_image_'+str(index+1)+'.jpg')
-            image = cv2.imread( os.path.join( self.image_directory ,fp ) ,cv2.IMREAD_GRAYSCALE )
-            imresize = cv2.resize( image, ( self.resize.size[1], self.resize.size[0] ) ) 
-            im_array[i] = (imresize.astype(np.float32)/255.0)
+        l = imreading.readImages(os.path.join(self.image_directory,'raw_image_'), image_start, image_end - image_start, cv2.IMREAD_GRAYSCALE, self.resize.size )
+        im_array = np.array( l ) / 255.0
+        # im_array = np.empty((image_end - image_start, 3, self.resize.size[0], self.resize.size[1]))
+        # for (i, index) in enumerate(range(image_start, image_end)):
+        #     fp = os.path.join(self.image_directory,'raw_image_'+str(index+1)+'.jpg')
+        #     image = imreading.readImage( os.path.join( self.image_directory ,fp ) ,cv2.IMREAD_GRAYSCALE )
+        #     imresize = cv2.resize( image, ( self.resize.size[1], self.resize.size[0] ) ) 
+        #     im_array[i] = (imresize.astype(np.float32)/255.0)
         return im_array
     def getLabelRange(self, index : int):
         _, _, label_start, label_end = self.__indexRanges__(index)
