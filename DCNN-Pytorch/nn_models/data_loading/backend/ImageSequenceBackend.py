@@ -40,8 +40,17 @@ class DeepF1ImageDirectoryBackend(DeepF1ImageSequenceBackend):
     def __init__(self, annotation_file : str, context_length : int, sequence_length : int, imsize=(66,200)):
         super(DeepF1ImageDirectoryBackend, self).__init__(context_length, sequence_length)
         f = open(annotation_file, 'r')
-        self.annotations = f.readlines()
+        annotations = f.readlines()
         f.close()
+        self.image_file_map : dict = {}
+        self.labels = np.empty((len(annotations), 3))
+        for (i, line)in enumerate(annotations):
+            fp, ts, steering, throttle, brake = line.split(",")
+            self.image_file_map[i] = fp
+            self.labels[i][0] = float(steering)
+            self.labels[i][1] = float(throttle)
+            self.labels[i][2] = float(brake)
+
         self.totensor=torchvision.transforms.ToTensor()
         self.resize=torchvision.transforms.Resize(imsize)
         self.grayscale=torchvision.transforms.Grayscale()
@@ -49,29 +58,28 @@ class DeepF1ImageDirectoryBackend(DeepF1ImageSequenceBackend):
 
     def getImageRange(self, index : int):
         image_start, image_end, _, _ = self.__indexRanges__(index)
-        im_array = np.empty( ( image_end - image_start, self.resize.size[0], self.resize.size[1] ), dtype = np.float32)
-        array_idx = 0
-        for image_index in range(image_start, image_end):
-            fp, _, _, _, _ = self.annotations[image_index].split(",")
+        im_array = np.empty( ( self.context_length, self.resize.size[0], self.resize.size[1] ), dtype = np.float32)
+        #array_idx = 0
+        for (i, index) in enumerate(range(image_start, image_end)):
+            fp = os.path.join(self.image_directory,'raw_image_'+str(index+1)+'.jpg')
             image = cv2.imread( os.path.join( self.image_directory ,fp ) ,cv2.IMREAD_GRAYSCALE )
             imresize = cv2.resize( image, ( self.resize.size[1], self.resize.size[0] ) ) 
-            im_array[array_idx] = (imresize.astype(np.float32)/255.0)
-            array_idx += 1
+            im_array[i] = (imresize.astype(np.float32)/255.0)
         return im_array
     def getLabelRange(self, index : int):
         _, _, label_start, label_end = self.__indexRanges__(index)
-        label_array = np.empty((label_end - label_start, 3), dtype = np.float32) 
-        array_idx = 0
-        for label_index in range(label_start, label_end):
-            _, ts, steering, throttle, brake = self.annotations[label_index].split(",")
-            label_array[array_idx][0] = float(steering)
-            label_array[array_idx][1] = float(throttle)
-            label_array[array_idx][2] = float(brake)
-            array_idx += 1
-        return label_array
+        # label_array = np.empty((label_end - label_start, 3), dtype = np.float32) 
+        # #array_idx = 0
+        # for (i,line) in enumerate(self.annotations[label_start: label_end]):
+        #     _, ts, steering, throttle, brake = line.split(",")
+        #     label_array[i][0] = float(steering)
+        #     label_array[i][1] = float(throttle)
+        #     label_array[i][2] = float(brake)
+        #     #array_idx += 1
+        return self.labels[label_start:label_end]
 
     def numberOfImages(self):
-        return len(self.annotations)
+        return self.labels.shape[0]
 
 class DeepF1LeaderFollowerBackend(DeepF1ImageSequenceBackend):
     def __init__(self, annotation_file : str, context_length : int, sequence_length : int, buffer_size : int):
@@ -88,9 +96,10 @@ class DeepF1LeaderFollowerBackend(DeepF1ImageSequenceBackend):
         self.label_lock = MPLock()
         self.label_leader_index : int = 0
 
-        __l = list(range(len(self.annotations) - context_length - sequence_length ))
-        random.shuffle(__l)
+        __l = range(len(self.annotations) - context_length - sequence_length )
+        
         self.index_order : np.array =  np.array( __l, order = 'C' )
+        np.random.shuffle(self.index_order)
         self.buffer_size = buffer_size
         print('Prefilling the buffer')
         self.resize = torchvision.transforms.Resize((66,200))
