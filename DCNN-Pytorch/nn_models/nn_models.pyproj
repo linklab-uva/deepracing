@@ -36,7 +36,7 @@
     <Content Include="test_image.jpg" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="data_loading\backend\ImageBackend.py" />
+    <Compile Include="data_loading\backend\ImageSequenceBackend.py" />
     <Compile Include="data_loading\backend\OpticalFlowBackend.py" />
     <Compile Include="data_loading\backend\__init__.py" />
     <Compile Include="data_loading\dataset_utils.py">
