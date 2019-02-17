@@ -11,6 +11,7 @@
 #include <tbb/concurrent_queue.h>
 #include <tbb/task_group.h>
 #include <mutex>
+#include <memory>
 namespace deepf1
 {
 
