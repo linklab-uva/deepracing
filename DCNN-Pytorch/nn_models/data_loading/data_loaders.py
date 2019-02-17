@@ -13,6 +13,7 @@ import PIL
 from PIL import Image as PILImage
 import data_loading.backend.ImageSequenceBackend as image_backends
 import data_loading.backend.OpticalFlowBackend as of_backends
+from torch.utils.data.sampler import Sampler as TorchSampler
 def imagesToFlow(images, totensor = torchvision.transforms.ToTensor()):
     flows=torch.zeros((images.shape[0]-1,2,images.shape[2],images.shape[3]), dtype=torch.float32)
     im = images[0]
@@ -31,6 +32,13 @@ def imagesToFlow(images, totensor = torchvision.transforms.ToTensor()):
         flows[idx-1] = totensor(flow)
         first_gray = second_gray
     return flows
+class DeterministicSampler(TorchSampler):
+    def __init__(self, indices):
+        self.indices = indices
+    def __iter__(self):
+        return iter(self.indices)
+    def __len__(self):
+        return len(self.indices)
 class F1ImageSequenceDataset(Dataset):
     def __init__(self, backend : image_backends.DeepF1ImageSequenceBackend):
         super(F1ImageSequenceDataset, self).__init__()
@@ -40,7 +48,7 @@ class F1ImageSequenceDataset(Dataset):
     def __getitem__(self, index):
         images = self.backend.getImageRange(index)
         labels = self.backend.getLabelRange(index)
-        return images , labels
+        return torch.Tensor(images) , torch.Tensor(labels)
     def __len__(self):
         return self.len
 
