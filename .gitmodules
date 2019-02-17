@@ -4,3 +4,24 @@
 [submodule "data-logger/third_party/screen_capture_lite"]
 	path = data-logger/third_party/screen_capture_lite
 	url = https://github.com/smasherprog/screen_capture_lite.git
+[submodule "DCNN-Pytorch/nn_models/data_loading/cpp_backends/-b"]
+	path = DCNN-Pytorch/nn_models/data_loading/cpp_backends/-b
+	url = https://github.com/pybind/pybind11.git
+[submodule "DCNN-Pytorch/nn_models/data_loading/cpp_backends/pybind11"]
+	path = DCNN-Pytorch/nn_models/data_loading/cpp_backends/pybind11
+	url = https://github.com/pybind/pybind11.git
+[submodule "DCNN-Pytorch/nn_models/data_loading/cpp_backends/opencv_numpy"]
+	path = DCNN-Pytorch/nn_models/data_loading/cpp_backends/opencv_numpy
+	url = https://github.com/edmBernard/pybind11_opencv_numpy.git
+[submodule "DCNN-Pytorch/nn_models/data_loading/cpp_backends/--force"]
+	path = DCNN-Pytorch/nn_models/data_loading/cpp_backends/--force
+	url = https://github.com/pybind/pybind11.git
+[submodule "DCNN-Pytorch/nn_models/data_loading/cpp_backends/pybind11_opencv_numpy"]
+	path = DCNN-Pytorch/nn_models/data_loading/cpp_backends/pybind11_opencv_numpy
+	url = https://github.com/edmBernard/pybind11_opencv_numpy.git
+[submodule "DCNN-Pytorch/nn_models/DCNN-Pytorch/nn_models/data_loading/cpp_backends/pybind11_opencv_numpy"]
+	path = DCNN-Pytorch/nn_models/DCNN-Pytorch/nn_models/data_loading/cpp_backends/pybind11_opencv_numpy
+	url = https://github.com/edmBernard/pybind11_opencv_numpy.git
+[submodule "DCNN-Pytorch/nn_models/DCNN-Pytorch/nn_models/data_loading/cpp_backends/pybind11"]
+	path = DCNN-Pytorch/nn_models/DCNN-Pytorch/nn_models/data_loading/cpp_backends/pybind11
+	url = https://github.com/pybind/pybind11.git

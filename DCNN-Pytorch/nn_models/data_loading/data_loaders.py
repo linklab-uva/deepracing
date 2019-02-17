@@ -61,33 +61,16 @@ def npimagesToFlow(images):
         first = second
     return flows    
 class F1OpticalFlowDataset(Dataset):
-    def __init__(self, flow_file : str, label_file : str, backend : of_backends.DeepF1OpticalFlowBackend, context_length : int = 10, sequence_length : int =1):
+    def __init__(self, backend : of_backends.DeepF1OptFlowBackend):
         super(F1OpticalFlowDataset, self).__init__()
-        self.context_length=context_length
-        self.sequence_length=sequence_length
-        self.flow_file = flow_file
-        self.label_file = label_file
-        self.backend : of_backends.DeepF1OpticalFlowBackend = backend
-
+        self.backend : of_backends.DeepF1OptFlowBackend = backend
+        self.len = self.backend.numberOfFlowImages() - backend.context_length - backend.sequence_length
     def __getitem__(self, index):
-        if( not self.loaded() ):
-            print("Preloading files: %s, %s" % (self.flow_file, self.label_file))
-            self.backend.loadPickles(self.flow_file, self.label_file)
-        images_start = index
-        images_end = images_start + self.context_length
-        flows = self.backend.getFlowImageRange(images_start, images_end)
-
-        labels_start = images_end
-        labels_end = labels_start + self.sequence_length
-        labels = self.backend.getLabelRange(labels_start, labels_end)
-        return flows, labels
+        flows = self.backend.getFlowImageRange(index)
+        labels = self.backend.getLabelRange(index)
+        return torch.Tensor(flows), torch.Tensor(labels)
     def __len__(self):
-        if( not self.loaded() ):
-            print("Preloading files: %s, %s" % (self.flow_file, self.label_file))
-            self.backend.loadPickles(self.flow_file, self.label_file)
-        return self.backend.numberOfFlowImages() - self.context_length - self.sequence_length
-    def loaded(self):
-        return (self.flow_file==self.backend.flow_source_file and self.label_file==self.backend.label_source_file)
+        return self.len
 
 class F1CombinedDataset(Dataset):
     def __init__(self, annotation_filepath, im_size, context_length = 25, sequence_length=25):
