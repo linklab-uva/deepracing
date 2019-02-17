@@ -10,6 +10,10 @@ import abc
 from typing import List
 import threading
 import time
+import random
+from multiprocessing import Process
+from multiprocessing import Lock as MPLock
+import cv2
 class DeepF1ImageSequenceBackend(metaclass=abc.ABCMeta):
     def __init__(self, context_length : int, sequence_length : int):
         self.context_length = context_length
@@ -26,8 +30,51 @@ class DeepF1ImageSequenceBackend(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def numberOfImages(self):
         pass
+    def __indexRanges__(self, dataset_index : int):
+        image_start = dataset_index
+        image_end = image_start + self.context_length
+        label_start = image_end
+        label_end = label_start + self.sequence_length
+        return image_start, image_end, label_start, label_end
+class DeepF1ImageDirectoryBackend(DeepF1ImageSequenceBackend):
+    def __init__(self, annotation_file : str, context_length : int, sequence_length : int, imsize=(66,200)):
+        super(DeepF1ImageDirectoryBackend, self).__init__(context_length, sequence_length)
+        f = open(annotation_file, 'r')
+        self.annotations = f.readlines()
+        f.close()
+        self.totensor=torchvision.transforms.ToTensor()
+        self.resize=torchvision.transforms.Resize(imsize)
+        self.grayscale=torchvision.transforms.Grayscale()
+        self.image_directory = os.path.join(os.path.dirname(annotation_file),'raw_images')
+
+    def getImageRange(self, index : int):
+        image_start, image_end, _, _ = self.__indexRanges__(index)
+        im_array = np.empty( ( image_end - image_start, self.resize.size[0], self.resize.size[1] ), dtype = np.float32)
+        array_idx = 0
+        for image_index in range(image_start, image_end):
+            fp, _, _, _, _ = self.annotations[image_index].split(",")
+            image = cv2.imread( os.path.join( self.image_directory ,fp ) ,cv2.IMREAD_GRAYSCALE )
+            imresize = cv2.resize( image, ( self.resize.size[1], self.resize.size[0] ) ) 
+            im_array[array_idx] = (imresize.astype(np.float32)/255.0)
+            array_idx += 1
+        return im_array
+    def getLabelRange(self, index : int):
+        _, _, label_start, label_end = self.__indexRanges__(index)
+        label_array = np.empty((label_end - label_start, 3), dtype = np.float32) 
+        array_idx = 0
+        for label_index in range(label_start, label_end):
+            _, ts, steering, throttle, brake = self.annotations[label_index].split(",")
+            label_array[array_idx][0] = float(steering)
+            label_array[array_idx][1] = float(throttle)
+            label_array[array_idx][2] = float(brake)
+            array_idx += 1
+        return label_array
+
+    def numberOfImages(self):
+        return len(self.annotations)
+
 class DeepF1LeaderFollowerBackend(DeepF1ImageSequenceBackend):
-    def __init__(self, annotation_file : str, index_order: List[int], context_length : int, sequence_length : int, buffer_size : int):
+    def __init__(self, annotation_file : str, context_length : int, sequence_length : int, buffer_size : int):
         super(DeepF1LeaderFollowerBackend, self).__init__(context_length, sequence_length)
         self.annotation_file : str = annotation_file
         self.image_directory = os.path.join(os.path.dirname(annotation_file),'raw_images')
@@ -35,64 +82,117 @@ class DeepF1LeaderFollowerBackend(DeepF1ImageSequenceBackend):
         self.annotations : List[str] = f.readlines()
         f.close()
         self.image_dict : dict = {}
-        self.image_lock = threading.Lock()
+        self.image_lock = MPLock()
         self.image_leader_index : int = 0
         self.label_dict : dict = {}
-        self.label_lock = threading.Lock()
+        self.label_lock = MPLock()
         self.label_leader_index : int = 0
-        self.index_order : List[int] = index_order
+
+        __l = list(range(len(self.annotations) - context_length - sequence_length ))
+        random.shuffle(__l)
+        self.index_order : np.array =  np.array( __l, order = 'C' )
         self.buffer_size = buffer_size
         print('Prefilling the buffer')
         self.resize = torchvision.transforms.Resize((66,200))
         self.totensor = torchvision.transforms.ToTensor()
+        self.running=True
         for i in tqdm(range(buffer_size)):
-            dataset_index = index_order[i]
-            image_start = dataset_index
-            image_end = image_start + context_length
-            image_tensor = torch.FloatTensor(self.context_length, 3, self.resize.size[0], self.resize.size[1])
-            tensor_idx = 0
-            for image_index in range(image_start, image_end):
-                fp, ts, steering, throttle, brake = self.annotations[image_index].split(",")
-                impil = PILImage.open( os.path.join( self.image_directory, fp ) )
-                #print(impil)
-                im = self.totensor( self.resize( impil ) )
-                image_tensor[tensor_idx] = im
-                tensor_idx += 1
-            self.image_dict[dataset_index] = image_tensor
+            self.image_lock.acquire()
+            dataset_index = self.index_order[self.image_leader_index]
             self.image_leader_index += 1
+            self.image_lock.release()
+            self.__loadImages__(dataset_index)
 
-            label_start = image_end
-            label_end = label_start + self.sequence_length
-            tensor_idx = 0
-            label_tensor = torch.FloatTensor(self.sequence_length, 3)
-            for label_index in range(label_start, label_end):
-                _, ts, steering, throttle, brake = self.annotations[label_index].split(",")
-                label_tensor[tensor_idx][0] = float(steering)
-                label_tensor[tensor_idx][1] = float(throttle)
-                label_tensor[tensor_idx][2] = float(brake)
-                tensor_idx += 1
-            self.label_dict[dataset_index] = label_tensor
+            
+            self.label_lock.acquire()
+            dataset_index = self.index_order[self.label_leader_index]
             self.label_leader_index += 1
-    def getLabelRange(self, index : int):
-        while index not in self.label_dict:
-            time.sleep(0.1)
+            self.label_lock.release()
+            self.__loadLabels__(dataset_index)
+        p1 = Process(target=self.imageWorker).start()
+        p2 = Process(target=self.labelWorker).start()
+
+    
+
+    def __loadImages__(self, dataset_index):
+        image_start, image_end, _, _ = self.__indexRanges__(dataset_index)
+
+        image_tensor = torch.FloatTensor(self.context_length, 3, self.resize.size[0], self.resize.size[1])
+        tensor_idx = 0
+        for image_index in range(image_start, image_end):
+            fp, _, _, _, _ = self.annotations[image_index].split(",")
+            impil = PILImage.open( os.path.join( self.image_directory, fp ) )
+            #print(impil)
+            im = self.totensor( self.resize( impil ) )
+            image_tensor[tensor_idx] = im
+            tensor_idx += 1
+        self.image_lock.acquire()
+        self.image_dict[dataset_index] = image_tensor
+        self.image_lock.release()
+    def __loadLabels__(self, dataset_index):
+        _, _, label_start, label_end = self.__indexRanges__(dataset_index)
+        tensor_idx = 0
+        label_tensor = torch.FloatTensor(self.sequence_length, 3)
+        for label_index in range(label_start, label_end):
+            _, ts, steering, throttle, brake = self.annotations[label_index].split(",")
+            label_tensor[tensor_idx][0] = float(steering)
+            label_tensor[tensor_idx][1] = float(throttle)
+            label_tensor[tensor_idx][2] = float(brake)
+            tensor_idx += 1
         self.label_lock.acquire()
-        labels = self.label_dict.pop(index)
+        self.label_dict[dataset_index] = label_tensor
         self.label_lock.release()
+
+    def getLabelRange(self, index : int, pop : bool = True):
+        while index not in self.label_dict:
+            print('Waiting for label at index: %d' %(index))
+            time.sleep(0.05)
+        if pop:
+            self.label_lock.acquire()
+            labels = self.label_dict.pop(index)
+            self.label_lock.release()
+        else:
+            labels = self.label_dict[index]
         return labels
+    def getImageRange(self, index : int, pop : bool = True):
+        while index not in self.image_dict:
+            print('Waiting for image at index: %d' %(index))
+            time.sleep(0.05)
+        if pop:
+            self.image_lock.acquire()
+            images = self.image_dict.pop(index)
+            self.image_lock.release()
+        else:
+            images = self.image_dict[index]
+        return images
     def numberOfImages(self):
         return len(self.annotations)
-    def getImageRange(self, index : int):
-        while index not in self.image_dict:
-            time.sleep(0.1)
-        self.image_lock.acquire()
-        images = self.image_dict.pop(index)
-        self.image_lock.release()
-        return images
     def imageWorker(self):
-        pass
+        print('Spawned an image worker thread')
+        while self.running and self.image_leader_index < len(self.index_order):
+            if True or (len(self.image_dict) < self.buffer_size):
+              #  print('Waiting for image lock')
+                self.image_lock.acquire()
+                dataset_index = self.index_order[self.image_leader_index]
+                print('Loading image at index: %d' %(dataset_index))
+                self.image_leader_index += 1
+                self.image_lock.release()
+                self.__loadImages__(dataset_index)
+        print('Exited an image worker thread')
     def labelWorker(self):
-        pass
+        print('Spawned a label worker thread')
+        while self.running and self.label_leader_index < len(self.index_order):
+            if True or (len(self.label_dict) < self.buffer_size):
+             #   print('Waiting for label lock')
+                self.label_lock.acquire()
+                dataset_index = self.index_order[self.label_leader_index]
+              #  print('Loading label at index: %d' %(dataset_index))
+                self.label_leader_index += 1
+                self.label_lock.release()
+                self.__loadLabels__(dataset_index)
+        print('Exited a label worker thread')
+    def stop(self):
+        self.running=False
 class DeepF1ImageTensorBackend(DeepF1ImageSequenceBackend):
     def __init__(self, context_length : int, sequence_length : int, image_tensor : torch.Tensor = None, label_tensor : torch.Tensor = None):
         super(DeepF1ImageTensorBackend, self).__init__(context_length, sequence_length)
