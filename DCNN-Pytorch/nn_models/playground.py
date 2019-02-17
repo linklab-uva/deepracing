@@ -22,8 +22,9 @@ import data_loading.backend.ImageSequenceBackend as image_backends
 import data_loading.backend.OpticalFlowBackend as of_backends
 from tqdm import tqdm
 import pickle as pkl
+import time
 def main():
-    data_dir = os.path.join('/home/ttw2xk','deepf1data','australia_fullview_run2')
+    data_dir = os.path.join('E:\\','deepf1data','australia_fullview_run2')
     data_file = 'linear'
     context_length = 10
     sequence_length = 1
@@ -32,24 +33,21 @@ def main():
     #backend.loadImages(os.path.join(data_dir,data_file+'.csv'),(66,200))
     #torch.save(backend.image_tensor, os.path.join(data_dir,'linear_image_tensor.pt'))
     #torch.save(backend.label_tensor, os.path.join(data_dir,'linear_label_tensor.pt'))
-    index_order = list(range(11195))
-    lf_backend = image_backends.DeepF1LeaderFollowerBackend(os.path.join(data_dir,data_file+'.csv'),index_order,context_length,sequence_length,150)
+    backend = image_backends.DeepF1ImageDirectoryBackend(os.path.join(data_dir,data_file+'.csv'),context_length,sequence_length, imsize = (66,200))
     #
     
 
 
     #ds = loaders.F1ImageSequenceDataset(numpybackend)
-    ds = loaders.F1ImageSequenceDataset(lf_backend)
-    images,labels=ds[0]
-    print(images)
-    print(labels)
+    ds = loaders.F1ImageSequenceDataset(backend)
+    #images,labels=ds[ds.backend.index_order[0]]
+   # print(images)
    
 
-
-    # trainLoader = torch.utils.data.DataLoader(ds, batch_size = 8, shuffle = True, num_workers = 1)
-    # t = tqdm(enumerate(trainLoader), leave=True)
-    # for (i, (inputs, labels)) in t:
-    #     pass
+    trainLoader = torch.utils.data.DataLoader(ds, batch_size = 8, shuffle = True, num_workers = 5)
+    t = tqdm(enumerate(trainLoader), leave=True)
+    for (i, (inputs, labels)) in t:
+        pass
 
 
 
