@@ -29,12 +29,15 @@ def main():
       data_file = 'linear'
       context_length = 10
       sequence_length = 1
+      batch_size = 8
    # backend = image_backends.DeepF1ImageTensorBackend(image_tensor=torch.load(os.path.join(data_dir,'linear_image_tensor.pt')), label_tensor=torch.load(os.path.join(data_dir,'linear_label_tensor.pt')))  # backend = image_backends.DeepF1ImageTensorBackend()
     #backend=image_backends.DeepF1ImageTensorBackend(context_length, sequence_length)
     #backend.loadImages(os.path.join(data_dir,data_file+'.csv'),(66,200))
     #torch.save(backend.image_tensor, os.path.join(data_dir,'linear_image_tensor.pt'))
     #torch.save(backend.label_tensor, os.path.join(data_dir,'linear_label_tensor.pt'))
-      backend = image_backends.DeepF1ImageDirectoryBackend(os.path.join(data_dir,data_file+'.csv'),context_length,sequence_length, imsize = (66,200))
+      backend = image_backends.DeepF1LMDBBackend(os.path.join(data_dir,data_file+'.csv'),context_length,sequence_length, imsize = (66,200))
+      #backend.writeDatabase(os.path.join(data_dir,'lmdb',data_file+'.mdb'))
+      backend.readDatabase(os.path.join(data_dir,'lmdb',data_file+'.mdb'))
       ofbackend = of_backends.DeepF1OptFlowDirectoryBackend(os.path.join(data_dir,data_file+'.csv'),context_length,sequence_length, imsize = (66,200))
       #flows = ofbackend.getFlowsRange(0)
       #print(flows.shape)
@@ -50,11 +53,16 @@ def main():
       print(images.type())
    
 
-      trainLoader = torch.utils.data.DataLoader(ofds, batch_size = 8, shuffle = False, num_workers = 8)
+      trainLoader = torch.utils.data.DataLoader(ds, batch_size = batch_size, shuffle = True, num_workers = 1 )
       t = tqdm(enumerate(trainLoader), leave=True)
+      cv2.namedWindow("imnp", cv2.WINDOW_AUTOSIZE)
       for (i, (inputs, labels)) in t:
          # print(inputs.shape)
          # print(labels.shape)
+         imtorch = inputs[batch_size-1][5]
+         imnp = cv2.cvtColor(np.round(255.0*imtorch.numpy().transpose(1,2,0)).astype(np.uint8), cv2.COLOR_RGB2BGR)
+         cv2.imshow("imnp",imnp)
+         cv2.waitKey(100)
          pass
 
 
