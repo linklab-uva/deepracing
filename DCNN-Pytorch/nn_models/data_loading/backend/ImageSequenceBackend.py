@@ -15,7 +15,9 @@ from multiprocessing import Process
 from multiprocessing import Lock as MPLock
 import cv2
 import deepf1_image_reading as imreading
+import lmdb
 class DeepF1ImageSequenceBackend(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
     def __init__(self, context_length : int, sequence_length : int):
         self.context_length = context_length
         self.sequence_length = sequence_length
@@ -37,6 +39,57 @@ class DeepF1ImageSequenceBackend(metaclass=abc.ABCMeta):
         label_start = image_end
         label_end = label_start + self.sequence_length
         return image_start, image_end, label_start, label_end
+class DeepF1LMDBBackend(DeepF1ImageSequenceBackend):
+    def __init__(self, annotation_file : str, context_length : int, sequence_length : int, imsize=(66,200)):
+        super(DeepF1LMDBBackend, self).__init__(context_length, sequence_length)
+        f = open(annotation_file, 'r')
+        annotations = f.readlines()
+        f.close()
+        self.image_files : list = []
+        self.labels = np.empty((len(annotations), 3), dtype=np.float32)
+        self.image_directory = os.path.join(os.path.dirname(annotation_file),'raw_images')
+        self.image_db = None
+        self.txn = None
+        self.env = None#lmdb.open(os.path.join(lmdb_dir,data_file+'.mdb'))
+        print("Loading image labels and file paths")
+        for (i, line) in tqdm(enumerate(annotations)):
+            fp, _, steering, throttle, brake = line.replace("\n","").split(",")
+            self.image_files.append(fp)
+            self.labels[i][0] = float(steering)
+            self.labels[i][1] = float(throttle)
+            self.labels[i][2] = float(brake)
+        self.totensor=torchvision.transforms.ToTensor()
+        self.resize=torchvision.transforms.Resize(imsize)
+    def writeDatabase(self, db_path : str):
+        if not os.path.isdir(db_path):
+            os.makedirs(db_path)
+        env = lmdb.open(db_path, map_size=1e9)
+        with env.begin(write=True) as write_txn:
+            print("Loading image data")
+            for (i,fp) in tqdm(enumerate(self.image_files)):
+                impil = PILImage.open(os.path.join(self.image_directory, fp))
+                imnp = np.array(self.resize(impil)).astype(np.uint8).transpose(2,0,1)
+                write_txn.put(fp.encode('ascii'),imnp.flatten().tostring())
+        self.env = lmdb.open(db_path, map_size=1e6)
+    def readDatabase(self, db_path : str):
+        if not os.path.isdir(db_path):
+            raise IOError("Path " + db_path + " is not a directory")
+        self.env = lmdb.open(db_path, map_size=1e6)
+    def getImageRange(self, index : int):
+        image_start, image_end, _, _ = self.__indexRanges__(index)
+        size = (image_end - image_start, 3, self.resize.size[0], self.resize.size[1] )
+        images = np.empty(size, dtype=np.uint8)
+        with self.env.begin(write=False) as read_txn:
+            for (i,fp) in enumerate(self.image_files[image_start:image_end]):
+                im_flat = read_txn.get(fp.encode('ascii'))
+                images[i] = np.frombuffer( im_flat,dtype=np.uint8).reshape(size[1:])
+        return images.astype(np.float32)/255.0
+    def getLabelRange(self, index : int):
+        _, _, label_start, label_end = self.__indexRanges__(index)
+        labels = self.labels[label_start:label_end]
+        return labels
+    def numberOfImages(self):
+        return len(self.image_files)
 class DeepF1ImageDirectoryBackend(DeepF1ImageSequenceBackend):
     def __init__(self, annotation_file : str, context_length : int, sequence_length : int, imsize=(66,200)):
         super(DeepF1ImageDirectoryBackend, self).__init__(context_length, sequence_length)
