@@ -54,7 +54,7 @@ int main(int argc, char** argv)
 	std::string image_folder = config_node["images_folder"].as<std::string>();
 	std::string udp_folder = config_node["udp_folder"].as<std::string>();
 
-	std::vector<deepf1::protobuf::F1UDPData> udp_points = deepf1::post_processing::PostProcessingUtils::parseUDPDirectory(udp_folder);
+	std::vector<deepf1::protobuf::TimestampedUDPData> udp_points = deepf1::post_processing::PostProcessingUtils::parseUDPDirectory(udp_folder);
 	std::vector<deepf1::protobuf::TimestampedImage> image_points = deepf1::post_processing::PostProcessingUtils::parseImageDirectory(image_folder);
 
 

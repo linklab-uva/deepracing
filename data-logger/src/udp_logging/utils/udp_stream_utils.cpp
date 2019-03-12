@@ -11,54 +11,23 @@ UDPStreamUtils::UDPStreamUtils()
 UDPStreamUtils::~UDPStreamUtils()
 {
 }
-/*
-message CarUDPData {
-        repeated float m_worldPosition = 1; // world co-ordinates of vehicle
 
-		float m_lastLapTime = 2;
-
-		float m_currentLapTime = 3;
-
-		float m_bestLapTime = 4;
-
-		float m_sector1Time = 5;
-
-		float m_sector2Time = 6;
-
-		float m_lapDistance = 7;
-
-		uint32 m_driverId = 8;
-
-		uint32 m_teamId = 9;
-
-		uint32 m_carPosition = 10;     // UPDATED: track positions of vehicle
-
-		uint32 m_currentLapNum = 11;
-
-		uint32 m_tyreCompound = 12; // compound of tyre � 0 = ultra soft, 1 = super soft, 2 = soft, 3 = medium, 4 = hard, 5 = inter, 6 = wet
-
-		uint32 m_inPits = 13;           // 0 = none, 1 = pitting, 2 = in pit area
-
-		uint32 m_sector = 14;           // 0 = sector1, 1 = sector2, 2 = sector3
-
-		uint32 m_currentLapInvalid = 15; // current lap invalid - 0 = valid, 1 = invalid
-
-		uint32 m_penalties = 16;  // NEW: accumulated time penalties in seconds to be added
-}
-*/
 deepf1::protobuf::CarUDPData UDPStreamUtils::toProto(const deepf1::CarUDPData& fromStream)
 {
     deepf1::protobuf::CarUDPData rtn;
-    for(unsigned int i = 0 ; i <=3 ; i++)
+    for(unsigned int i = 0 ; i < 4; i++)
     {
         rtn.add_m_worldposition(fromStream.m_worldPosition[i]);
     }
 
     rtn.set_m_lastlaptime(fromStream.m_lastLapTime);
+
     rtn.set_m_currentlaptime(fromStream.m_currentLapTime);
+
     rtn.set_m_bestlaptime(fromStream.m_bestLapTime);
     
     rtn.set_m_sector1time(fromStream.m_sector1Time);
+
     rtn.set_m_sector2time(fromStream.m_sector2Time);
 
     rtn.set_m_lapdistance(fromStream.m_lapDistance);
@@ -95,7 +64,7 @@ deepf1::protobuf::UDPData UDPStreamUtils::toProto(const deepf1::UDPPacket& fromS
     rtn.set_m_ang_acc_z(fromStream.m_ang_acc_z);
 
     rtn.set_m_ang_acc_y(fromStream.m_ang_acc_y);
-	
+
     rtn.set_m_ang_acc_x(fromStream.m_ang_acc_x);
 
     rtn.set_m_z_local_velocity(fromStream.m_z_local_velocity);

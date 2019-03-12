@@ -6,12 +6,14 @@
  */
 
 #include "f1_datalogger/udp_logging/common/multi_threaded_udp_handler.h"
-#include "f1_datalogger/proto/F1UDPData.pb.h"
+#include "f1_datalogger/proto/TimestampedUDPData.pb.h"
+#include "f1_datalogger/udp_logging/utils/udp_stream_utils.h"
 #include <functional>
 #include <boost/filesystem.hpp>
 #include <iostream>
 #include <google/protobuf/util/json_util.h>
 #include <thread>
+
 namespace fs = boost::filesystem;
 namespace deepf1
 {
@@ -77,13 +79,10 @@ void MultiThreadedUDPHandler::workerFunc_()
     google::protobuf::uint64 delta = (google::protobuf::uint64)(std::chrono::duration_cast<std::chrono::microseconds>(data.timestamp - begin_).count());
 	  //std::cout << "Got some udp data. Clock Delta = " << delta << std::endl;
 
-    deepf1::protobuf::F1UDPData udp_pb;
-    udp_pb.set_game_time(data.data.m_time);
-    udp_pb.set_game_lap_time(data.data.m_lapTime);
-    udp_pb.set_logger_time(delta);
-    udp_pb.set_steering(data.data.m_steer);
-    udp_pb.set_throttle(data.data.m_throttle);
-    udp_pb.set_brake(data.data.m_brake);
+    deepf1::protobuf::TimestampedUDPData udp_pb;
+    udp_pb.set_timestamp(delta);
+    deepf1::protobuf::UDPData data_protobuf = deepf1::UDPStreamUtils::toProto(data.data);
+    udp_pb.set_allocated_udp_packet(&data_protobuf);
     std::string pb_file("udp_packet_" + std::to_string(counter) + ".pb");
     std::string pb_fn = ( udp_folder / fs::path(pb_file) ).string();
     std::ofstream ostream;
