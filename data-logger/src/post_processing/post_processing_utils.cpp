@@ -47,7 +47,7 @@ namespace post_processing
 		}
 		else if((right-left)==1)
 		{
-			if(std::abs(((long)sorted_data.at(left).timestamp() - (long)search)) < std::abs(((long)sorted_data.at(right).timestamp() - (long)search)))
+			if((search - sorted_data.at(left).timestamp()) < (sorted_data.at(right).timestamp() - search))
 			{
 				return left;
 			}
@@ -59,7 +59,7 @@ namespace post_processing
 		else
 		{
 			unsigned int middle = (left + right)/2;
-			int64_t query_val = sorted_data.at(middle).timestamp();
+			google::protobuf::uint64 query_val = sorted_data.at(middle).timestamp();
 			if(query_val == search)
 			{
 				return middle;
@@ -74,13 +74,13 @@ namespace post_processing
 			}
 		}
 	}
-	std::pair<deepf1::protobuf::TimestampedUDPData, unsigned int> PostProcessingUtils::closestValue(const std::vector<deepf1::protobuf::TimestampedUDPData>& sorted_data, int64_t search)
+	std::pair<deepf1::protobuf::TimestampedUDPData, unsigned int> PostProcessingUtils::closestValue(const std::vector<deepf1::protobuf::TimestampedUDPData>& sorted_data, google::protobuf::uint64 search)
 	{
 		unsigned int index = closestValueHelper(sorted_data, search, 0, sorted_data.size()-1);
 
 		return std::pair<deepf1::protobuf::TimestampedUDPData, unsigned int>(sorted_data.at(index), index);
 	}
-	std::vector<float> interp(const std::vector<deepf1::protobuf::TimestampedUDPData>& udp_data, unsigned int closest_index, unsigned int interpolation_order, int64_t image_timestamp)
+	std::vector<float> interp(const std::vector<deepf1::protobuf::TimestampedUDPData>& udp_data, unsigned int closest_index, unsigned int interpolation_order, google::protobuf::uint64 image_timestamp)
 	{
 		std::vector<float> rtn(3);
 
