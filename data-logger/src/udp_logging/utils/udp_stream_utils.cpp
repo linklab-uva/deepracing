@@ -86,113 +86,6 @@ deepf1::protobuf::CarUDPData UDPStreamUtils::toProto(const deepf1::CarUDPData& f
 }
 /*
 message UDPData {
-		float m_time = 1;
-
-		float m_lapTime = 2;
-
-		float m_lapDistance = 3;
-
-		float m_totalDistance = 4;
-
-		float m_x = 5; // World space position
-
-		float m_y = 6; // World space position
-
-		float m_z = 7; // World space position
-
-		float m_speed = 8; // Speed of car in MPH
-
-		float m_xv = 9; // Velocity in world space
-
-		float m_yv = 10; // Velocity in world space
-
-		float m_zv = 11; // Velocity in world space
-
-		float m_xr = 12; // World space right direction
-
-		float m_yr = 13; // World space right direction
-
-		float m_zr = 14; // World space right direction
-
-		float m_xd = 15; // World space forward direction
-
-		float m_yd = 16; // World space forward direction
-
-		float m_zd = 17; // World space forward direction
-
-		repeated float m_susp_pos = 18; // Note: All wheel arrays have the order:
-
-		repeated float m_susp_vel = 19; // RL, RR, FL, FR
-
-		repeated float m_wheel_speed = 20;
-
-		float m_throttle = 21;
-
-		float m_steer = 22;
-
-		float m_brake = 23;
-
-		float m_clutch = 24;
-
-		float m_gear = 25;
-
-		float m_gforce_lat = 26;
-
-		float m_gforce_lon = 27;
-
-		float m_lap = 28;
-
-		float m_engineRate = 29;
-
-		float m_sli_pro_native_support = 30; // SLI Pro support
-
-		float m_car_position = 31; // car race position
-
-		float m_kers_level = 32; // kers energy left
-
-		float m_kers_max_level = 33; // kers maximum energy
-
-		float m_drs = 34; // 0 = off, 1 = on
-
-		float m_traction_control = 35; // 0 (off) - 2 (high)
-
-		float m_anti_lock_brakes = 36; // 0 (off) - 1 (on)
-
-		float m_fuel_in_tank = 37; // current fuel mass
-
-		float m_fuel_capacity = 38; // fuel capacity
-
-		float m_in_pits = 39; // 0 = none, 1 = pitting, 2 = in pit area
-
-		float m_sector = 40; // 0 = sector1, 1 = sector2, 2 = sector3
-
-		float m_sector1_time = 41; // time of sector1 (or 0)
-
-		float m_sector2_time = 42; // time of sector2 (or 0)
-
-		repeated float m_brakes_temp = 43; // brakes temperature (centigrade)
-
-		repeated float m_tyres_pressure= 44; // tyres pressure PSI
-
-		float m_team_info = 45; // team ID 
-
-		float m_total_laps = 46; // total number of laps in this race
-
-		float m_track_size = 47; // track size meters
-
-		float m_last_lap_time = 48; // last lap time
-
-		float m_max_rpm = 49; // cars max RPM, at which point the rev limiter will kick in
-
-		float m_idle_rpm = 50; // cars idle RPM
-
-		float m_max_gears = 51; // maximum number of gears
-
-		float m_sessionType = 52; // 0 = unknown, 1 = practice, 2 = qualifying, 3 = race
-
-		
-
-
 
 }
 */
@@ -200,26 +93,23 @@ deepf1::protobuf::UDPData UDPStreamUtils::toProto(const deepf1::UDPPacket& fromS
 {
     deepf1::protobuf::UDPData rtn;
     rtn.set_m_ang_acc_z(fromStream.m_ang_acc_z);
+
     rtn.set_m_ang_acc_y(fromStream.m_ang_acc_y);
+	
     rtn.set_m_ang_acc_x(fromStream.m_ang_acc_x);
 
-    for(unsigned int i = 0 ; i < 4 ; i++)
-    {
-        rtn.add_m_susp_acceleration(fromStream.m_susp_acceleration[i]);
-    }
-
     rtn.set_m_z_local_velocity(fromStream.m_z_local_velocity);
+
     rtn.set_m_y_local_velocity(fromStream.m_y_local_velocity);
+
     rtn.set_m_x_local_velocity(fromStream.m_x_local_velocity);
 
     rtn.set_m_roll(fromStream.m_roll);
+
     rtn.set_m_pitch(fromStream.m_pitch);
+
     rtn.set_m_yaw(fromStream.m_yaw);
 
-    for(unsigned int i = 0 ; i < 20 ; i++)
-    {
-        *(rtn.add_m_car_data()) = toProto(fromStream.m_car_data[i]);
-    }
 	rtn.set_m_player_car_index(fromStream.m_player_car_index);
 
 	rtn.set_m_num_cars(fromStream.m_num_cars);
@@ -248,12 +138,6 @@ deepf1::protobuf::UDPData UDPStreamUtils::toProto(const deepf1::UDPPacket& fromS
 
 	rtn.set_m_front_left_wing_damage(fromStream.m_front_left_wing_damage);
 
-	
-	for(unsigned int i = 0 ; i < 4 ; i++)
-    {
-    }
-
-
 	rtn.set_m_currentlapinvalid(fromStream.m_currentLapInvalid);
 
 	rtn.set_m_fuel_mix(fromStream.m_fuel_mix);
@@ -264,28 +148,6 @@ deepf1::protobuf::UDPData UDPStreamUtils::toProto(const deepf1::UDPPacket& fromS
 
 	rtn.set_m_ang_vel_z(fromStream.m_ang_vel_z);
 
-	for(unsigned int i = 0 ; i < 4 ; i++)
-    {
-        rtn.add_m_tyres_damage(fromStream.m_tyres_damage[i]);
-        rtn.add_m_tyres_wear(fromStream.m_tyres_wear[i]);
-        rtn.add_m_tyres_temperature(fromStream.m_tyres_temperature[i]);
-    }
-
-
-/*
-float m_drsAllowed = 53; // 0 = not allowed, 1 = allowed, -1 = invalid / unknown
-
-		float m_track_number = 54; // -1 for unknown, 0-21 for tracks
-
-		float m_vehicleFIAFlags = 55; // -1 = invalid/unknown, 0 = none, 1 = green, 2 = blue, 3 = yellow, 4 = red
-
-		float m_era = 56;                     // era, 2017 (modern) or 1980 (classic)
-
-		float m_engine_temperature = 57;   // engine temperature (centigrade)
-
-		float m_gforce_vert = 58; // vertical g-force component
-*/
-
 	rtn.set_m_ang_vel_y(fromStream.m_ang_vel_y);
 
 	rtn.set_m_ang_vel_x(fromStream.m_ang_vel_x);
@@ -293,6 +155,124 @@ float m_drsAllowed = 53; // 0 = not allowed, 1 = allowed, -1 = invalid / unknown
 	rtn.set_m_gforce_vert(fromStream.m_gforce_vert);
 
 	rtn.set_m_engine_temperature(fromStream.m_engine_temperature);
+
+	rtn.set_m_era(fromStream.m_era);
+
+	rtn.set_m_vehiclefiaflags(fromStream.m_vehicleFIAFlags);
+
+	rtn.set_m_track_number(fromStream.m_track_number);
+
+	rtn.set_m_drsallowed(fromStream.m_drsAllowed);
+
+	rtn.set_m_sessiontype(fromStream.m_sessionType);
+
+	rtn.set_m_max_gears(fromStream.m_max_gears);
+
+	rtn.set_m_idle_rpm(fromStream.m_idle_rpm);
+
+	rtn.set_m_max_rpm(fromStream.m_max_rpm);
+
+	rtn.set_m_last_lap_time(fromStream.m_last_lap_time);
+
+	rtn.set_m_track_size(fromStream.m_track_size);
+
+	rtn.set_m_total_laps(fromStream.m_total_laps);
+
+	rtn.set_m_team_info(fromStream.m_team_info);
+
+	rtn.set_m_sector2_time(fromStream.m_sector2_time);
+
+	rtn.set_m_sector1_time(fromStream.m_sector1_time);
+
+	rtn.set_m_sector(fromStream.m_sector);
+
+	rtn.set_m_in_pits(fromStream.m_in_pits);
+
+	rtn.set_m_fuel_capacity(fromStream.m_fuel_capacity);
+
+	rtn.set_m_fuel_in_tank(fromStream.m_fuel_in_tank);
+
+	rtn.set_m_anti_lock_brakes(fromStream.m_anti_lock_brakes);
+
+	rtn.set_m_traction_control(fromStream.m_traction_control);
+
+	rtn.set_m_drs(fromStream.m_drs);
+
+	rtn.set_m_kers_max_level(fromStream.m_kers_max_level);
+
+	rtn.set_m_kers_level(fromStream.m_kers_level);
+
+	rtn.set_m_car_position(fromStream.m_car_position);
+
+	rtn.set_m_sli_pro_native_support(fromStream.m_sli_pro_native_support);
+
+	rtn.set_m_enginerate(fromStream.m_engineRate);
+
+	rtn.set_m_lap(fromStream.m_lap);
+
+	rtn.set_m_gforce_lon(fromStream.m_gforce_lon);
+
+	rtn.set_m_gforce_lat(fromStream.m_gforce_lat);
+
+	rtn.set_m_gear(fromStream.m_gear);
+
+	rtn.set_m_brake(fromStream.m_brake);
+
+	rtn.set_m_steer(fromStream.m_steer);
+
+	rtn.set_m_throttle(fromStream.m_throttle);
+
+	rtn.set_m_zd(fromStream.m_zd);
+
+	rtn.set_m_yd(fromStream.m_yd);
+
+	rtn.set_m_xd(fromStream.m_xd);
+
+	rtn.set_m_zr(fromStream.m_zr);
+
+	rtn.set_m_yr(fromStream.m_yr);
+
+	rtn.set_m_xr(fromStream.m_xr);
+
+	rtn.set_m_zv(fromStream.m_zv);
+
+	rtn.set_m_yv(fromStream.m_yv);
+
+	rtn.set_m_xv(fromStream.m_xv);
+
+	rtn.set_m_speed(fromStream.m_speed);
+
+	rtn.set_m_z(fromStream.m_z);
+
+	rtn.set_m_y(fromStream.m_y);
+
+	rtn.set_m_x(fromStream.m_x);
+
+	rtn.set_m_totaldistance(fromStream.m_totalDistance);
+
+	rtn.set_m_lapdistance(fromStream.m_lapDistance);
+
+	rtn.set_m_laptime(fromStream.m_lapTime);
+
+	rtn.set_m_time(fromStream.m_lapTime);
+
+	for(unsigned int i = 0 ; i < 4 ; i++)
+    {
+		rtn.add_m_wheel_speed(fromStream.m_wheel_speed[i]);
+		rtn.add_m_susp_vel(fromStream.m_susp_vel[i]);
+		rtn.add_m_susp_pos(fromStream.m_susp_pos[i]);
+		rtn.add_m_susp_acceleration(fromStream.m_susp_acceleration[i]);
+        rtn.add_m_tyres_damage(fromStream.m_tyres_damage[i]);
+        rtn.add_m_tyres_wear(fromStream.m_tyres_wear[i]);
+        rtn.add_m_tyres_temperature(fromStream.m_tyres_temperature[i]);
+        rtn.add_m_tyres_pressure(fromStream.m_tyres_pressure[i]);
+        rtn.add_m_brakes_temp(fromStream.m_brakes_temp[i]);
+    }
+
+    for(unsigned int i = 0 ; i < 20 ; i++)
+    {
+        *(rtn.add_m_car_data()) = toProto(fromStream.m_car_data[i]);
+    }
 
     return rtn;
 }
