@@ -1,0 +1,191 @@
+syntax = "proto3";
+package deepf1.protobuf;
+import "CarUDPData.proto";
+message UDPData {
+		float m_time = 1;
+
+		float m_lapTime = 2;
+
+		float m_lapDistance = 3;
+
+		float m_totalDistance = 4;
+
+		float m_x = 5; // World space position
+
+		float m_y = 6; // World space position
+
+		float m_z = 7; // World space position
+
+		float m_speed = 8; // Speed of car in MPH
+
+		float m_xv = 9; // Velocity in world space
+
+		float m_yv = 10; // Velocity in world space
+
+		float m_zv = 11; // Velocity in world space
+
+		float m_xr = 12; // World space right direction
+
+		float m_yr = 13; // World space right direction
+
+		float m_zr = 14; // World space right direction
+
+		float m_xd = 15; // World space forward direction
+
+		float m_yd = 16; // World space forward direction
+
+		float m_zd = 17; // World space forward direction
+
+		repeated float m_susp_pos = 18; // Note: All wheel arrays have the order:
+
+		repeated float m_susp_vel = 19; // RL, RR, FL, FR
+
+		repeated float m_wheel_speed = 20;
+
+		float m_throttle = 21;
+
+		float m_steer = 22;
+
+		float m_brake = 23;
+
+		float m_clutch = 24;
+
+		float m_gear = 25;
+
+		float m_gforce_lat = 26;
+
+		float m_gforce_lon = 27;
+
+		float m_lap = 28;
+
+		float m_engineRate = 29;
+
+		float m_sli_pro_native_support = 30; // SLI Pro support
+
+		float m_car_position = 31; // car race position
+
+		float m_kers_level = 32; // kers energy left
+
+		float m_kers_max_level = 33; // kers maximum energy
+
+		float m_drs = 34; // 0 = off, 1 = on
+
+		float m_traction_control = 35; // 0 (off) - 2 (high)
+
+		float m_anti_lock_brakes = 36; // 0 (off) - 1 (on)
+
+		float m_fuel_in_tank = 37; // current fuel mass
+
+		float m_fuel_capacity = 38; // fuel capacity
+
+		float m_in_pits = 39; // 0 = none, 1 = pitting, 2 = in pit area
+
+		float m_sector = 40; // 0 = sector1, 1 = sector2, 2 = sector3
+
+		float m_sector1_time = 41; // time of sector1 (or 0)
+
+		float m_sector2_time = 42; // time of sector2 (or 0)
+
+		repeated float m_brakes_temp = 43; // brakes temperature (centigrade)
+
+		repeated float m_tyres_pressure= 44; // tyres pressure PSI
+
+		float m_team_info = 45; // team ID 
+
+		float m_total_laps = 46; // total number of laps in this race
+
+		float m_track_size = 47; // track size meters
+
+		float m_last_lap_time = 48; // last lap time
+
+		float m_max_rpm = 49; // cars max RPM, at which point the rev limiter will kick in
+
+		float m_idle_rpm = 50; // cars idle RPM
+
+		float m_max_gears = 51; // maximum number of gears
+
+		float m_sessionType = 52; // 0 = unknown, 1 = practice, 2 = qualifying, 3 = race
+
+		float m_drsAllowed = 53; // 0 = not allowed, 1 = allowed, -1 = invalid / unknown
+
+		float m_track_number = 54; // -1 for unknown, 0-21 for tracks
+
+		float m_vehicleFIAFlags = 55; // -1 = invalid/unknown, 0 = none, 1 = green, 2 = blue, 3 = yellow, 4 = red
+
+		float m_era = 56;                     // era, 2017 (modern) or 1980 (classic)
+
+		float m_engine_temperature = 57;   // engine temperature (centigrade)
+
+		float m_gforce_vert = 58; // vertical g-force component
+
+		float m_ang_vel_x = 59; // angular velocity x-component
+
+		float m_ang_vel_y = 60; // angular velocity y-component
+
+		float m_ang_vel_z = 61; // angular velocity z-component
+
+		repeated uint32 m_tyres_temperature = 62; // tyres temperature (centigrade)
+
+		repeated uint32 m_tyres_wear = 63; // tyre wear percentage
+
+		uint32 m_tyre_compound = 64; // compound of tyre � 0 = ultra soft, 1 = super soft, 2 = soft, 3 = medium, 4 = hard, 5 = inter, 6 = wet
+
+		uint32 m_front_brake_bias = 65;         // front brake bias (percentage)
+
+		uint32 m_fuel_mix = 66;                 // fuel mix - 0 = lean, 1 = standard, 2 = rich, 3 = max
+
+		uint32 m_currentLapInvalid = 67;     // current lap invalid - 0 = valid, 1 = invalid
+
+		repeated uint32 m_tyres_damage = 68; // tyre damage (percentage)
+
+		uint32 m_front_left_wing_damage = 69; // front left wing damage (percentage)
+
+		uint32 m_front_right_wing_damage = 70; // front right wing damage (percentage)
+
+		uint32 m_rear_wing_damage = 71; // rear wing damage (percentage)
+
+		uint32 m_engine_damage = 72; // engine damage (percentage)
+
+		uint32 m_gear_box_damage = 73; // gear box damage (percentage)
+
+		uint32 m_exhaust_damage = 74; // exhaust damage (percentage)
+
+		uint32 m_pit_limiter_status = 75; // pit limiter status � 0 = off, 1 = on
+
+		uint32 m_pit_speed_limit = 76; // pit speed limit in mph
+
+		float m_session_time_left = 77;  // NEW: time left in session in seconds 
+
+		uint32 m_rev_lights_percent = 78;  // NEW: rev lights indicator (percentage)
+
+		uint32 m_is_spectating = 79;  // NEW: whether the player is spectating
+
+		uint32 m_spectator_car_index = 80;  // NEW: index of the car being spectated
+
+		uint32 m_num_cars = 81;               // number of cars in data
+
+		uint32 m_player_car_index = 82;         // index of player's car in the array
+
+		repeated CarUDPData m_car_data = 83;   // data for all cars on track
+
+
+		float m_yaw = 84;  // NEW (v1.8)
+
+		float m_pitch = 85;  // NEW (v1.8)
+
+		float m_roll = 86;  // NEW (v1.8)
+
+		float m_x_local_velocity = 87;          // NEW (v1.8) Velocity in local space
+
+		float m_y_local_velocity = 88;          // NEW (v1.8) Velocity in local space
+
+		float m_z_local_velocity = 89;          // NEW (v1.8) Velocity in local space
+
+		repeated float m_susp_acceleration = 90;   // NEW (v1.8) RL, RR, FL, FR
+
+		float m_ang_acc_x = 91;                 // NEW (v1.8) angular acceleration x-component
+
+		float m_ang_acc_y = 92;                 // NEW (v1.8) angular acceleration y-component
+
+		float m_ang_acc_z = 93;                 // NEW (v1.8) angular acceleration z-component
+}

@@ -20,7 +20,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
 option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to read datasets" ON)
 if(BUILD_DATALOGGER)
-    set(SCL_SUBDIR third_party/screen_capture_lite)
+    set(SCL_SUBDIR ${THIRD_PARTY_REPOS}/screen_capture_lite)
     add_subdirectory(${SCL_SUBDIR})
     set(screen_capture_lite_LIBRARIES screen_capture_lite)
     include(screen_capture_lite_PLATFORM_LIBS)

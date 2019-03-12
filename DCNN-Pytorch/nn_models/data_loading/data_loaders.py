@@ -48,27 +48,19 @@ class F1ImageSequenceDataset(Dataset):
     def __getitem__(self, index):
         images = self.backend.getImageRange(index)
         labels = self.backend.getLabelRange(index)
-        return torch.Tensor(images) , torch.Tensor(labels)
+        return torch.Tensor(images.astype(np.float32)/255.0) , torch.Tensor(labels)
     def __len__(self):
         return self.len
-
-def npimagesToFlow(images):
-    first = images[0]
-    flows = np.zeros(images.shape[0]-1, images.shape[1], images.shape[2], 2)
-    for idx in range(1, images.shape[0]):
-        second = images[idx]
-        flows[idx-1] = cv2.calcOpticalFlowFarneback(first, second, None, 0.5, 3, 20, 8, 5, 1.2, 0).astype(np.float32)
-        first = second
-    return flows    
 class F1OpticalFlowDataset(Dataset):
     def __init__(self, backend : of_backends.DeepF1OptFlowBackend):
         super(F1OpticalFlowDataset, self).__init__()
         self.backend : of_backends.DeepF1OptFlowBackend = backend
         self.len = self.backend.numberOfFlowImages() - backend.context_length - backend.sequence_length
     def __getitem__(self, index):
-        flows = self.backend.getFlowImageRange(index)
+        images, flows = self.backend.getFlowImageRange(index)
+        cat = np.concatenate((images[1:].astype(np.float32)/255.0,flows), axis=1)
         labels = self.backend.getLabelRange(index)
-        return torch.Tensor(flows), torch.Tensor(labels)
+        return torch.Tensor(cat), torch.Tensor(labels)
     def __len__(self):
         return self.len
 
