@@ -12,6 +12,12 @@ f1_datagrab_manager.cpp
 )
 add_library(${PROJECT_NAME}_udp_logging ${${PROJECT_NAME}_udp_logging_src})
 
+set(${PROJECT_NAME}_udp_utils_src
+utils/udp_stream_utils.cpp
+)
+add_library( ${PROJECT_NAME}_udp_utils ${${PROJECT_NAME}_udp_utils_src} )
+target_link_libraries( ${PROJECT_NAME}_udp_utils ${PROJECT_NAME}_udp_logging ${PROJECT_NAME}_proto ${Boost_LIBRARIES} )
+
 
 set(${PROJECT_NAME}_udp_logging_common_src
 common/multi_threaded_udp_handler.cpp
@@ -25,6 +31,7 @@ ${PROJECT_NAME}_simulated_telemetry_server
 #libraries.
 ${PROJECT_NAME}_udp_logging
 ${PROJECT_NAME}_udp_logging_common
+${PROJECT_NAME}_udp_utils
 )
 install(TARGETS ${install_targets}
     RUNTIME DESTINATION bin

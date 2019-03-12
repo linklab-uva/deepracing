@@ -17,7 +17,6 @@ import cv2
 import deepf1_image_reading as imreading
 import lmdb
 class DeepF1ImageSequenceBackend(metaclass=abc.ABCMeta):
-    @abc.abstractmethod
     def __init__(self, context_length : int, sequence_length : int):
         self.context_length = context_length
         self.sequence_length = sequence_length
@@ -60,9 +59,10 @@ class DeepF1LMDBBackend(DeepF1ImageSequenceBackend):
             self.labels[i][2] = float(brake)
         self.totensor=torchvision.transforms.ToTensor()
         self.resize=torchvision.transforms.Resize(imsize)
-    def writeDatabase(self, db_path : str):
-        if not os.path.isdir(db_path):
-            os.makedirs(db_path)
+    def readImages(self, db_path : str):
+        if os.path.isdir(db_path):
+            raise IOError("Path " + db_path + " is already a directory")
+        os.makedirs(db_path)
         env = lmdb.open(db_path, map_size=1e9)
         with env.begin(write=True) as write_txn:
             print("Loading image data")
@@ -83,11 +83,11 @@ class DeepF1LMDBBackend(DeepF1ImageSequenceBackend):
             for (i,fp) in enumerate(self.image_files[image_start:image_end]):
                 im_flat = read_txn.get(fp.encode('ascii'))
                 images[i] = np.frombuffer( im_flat,dtype=np.uint8).reshape(size[1:])
-        return images.astype(np.float32)/255.0
+        return images.copy()
     def getLabelRange(self, index : int):
         _, _, label_start, label_end = self.__indexRanges__(index)
         labels = self.labels[label_start:label_end]
-        return labels
+        return labels.copy()
     def numberOfImages(self):
         return len(self.image_files)
 class DeepF1ImageDirectoryBackend(DeepF1ImageSequenceBackend):
