@@ -68,7 +68,7 @@ void MultiThreadedUDPHandler::workerFunc_()
     }
     TimestampedUDPData data;
     {
-      std::lock_guard<std::mutex> lk(queue_mutex_);
+     //std::lock_guard<std::mutex> lk(queue_mutex_);
       if(!queue_->try_pop(data))
       {
         continue;
@@ -82,21 +82,21 @@ void MultiThreadedUDPHandler::workerFunc_()
     deepf1::protobuf::TimestampedUDPData udp_pb;
     udp_pb.set_timestamp(delta);
     deepf1::protobuf::UDPData data_protobuf = deepf1::UDPStreamUtils::toProto(data.data);
-    udp_pb.set_allocated_udp_packet(&data_protobuf);
-    std::string pb_file("udp_packet_" + std::to_string(counter) + ".pb");
+    udp_pb.mutable_udp_packet()->CopyFrom(data_protobuf);
+    std::string pb_file( "udp_packet_" + std::to_string(counter) + ".pb" );
     std::string pb_fn = ( udp_folder / fs::path(pb_file) ).string();
     std::ofstream ostream;
-    ostream.open(pb_fn.c_str(), std::ofstream::out);
+    ostream.open( pb_fn.c_str() , std::ofstream::out );
     udp_pb.SerializeToOstream(&ostream);
     ostream.flush();
     ostream.close();
 
 
-    std::shared_ptr<std::string> json(new std::string);
+    std::shared_ptr<std::string> json( new std::string );
     google::protobuf::util::JsonOptions opshinz;
     opshinz.always_print_primitive_fields = true;
     opshinz.add_whitespace = true;
-    google::protobuf::util::MessageToJsonString(udp_pb, json.get(), opshinz);
+    google::protobuf::util::MessageToJsonString( udp_pb, json.get(), opshinz );
     std::string json_file = pb_file + ".json";
     std::string json_fn = ( udp_folder / fs::path(json_file) ).string();
     ostream.open(json_fn.c_str(), std::ofstream::out);

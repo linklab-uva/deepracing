@@ -1,4 +1,5 @@
 #include "f1_datalogger/udp_logging/utils/udp_stream_utils.h"
+#include <thread>
 namespace deepf1
 { 
 
@@ -14,11 +15,28 @@ UDPStreamUtils::~UDPStreamUtils()
 
 deepf1::protobuf::CarUDPData UDPStreamUtils::toProto(const deepf1::CarUDPData& fromStream)
 {
+//	std::cout<<"Converting CarUDPData"<<std::endl;
     deepf1::protobuf::CarUDPData rtn;
-    for(unsigned int i = 0 ; i < 4; i++)
+//	std::cout<<"Adding worldposition variables"<<std::endl;
+	unsigned int j = 0;
+    while(j<3)
     {
-        rtn.add_m_worldposition(fromStream.m_worldPosition[i]);
+		// if(j>=4)
+		// {
+		// 	break;
+		// }
+	  //  std::cout<<"Adding " << j << "th world variable"<<std::endl;
+		std::this_thread::sleep_for(std::chrono::milliseconds(5));
+		float pos = fromStream.m_worldPosition[j];
+        rtn.add_m_worldposition(pos);
+	    j++;
+	//	std::cout<<(j>=4)<<std::endl;
+		if(j>=3)
+		{
+			break;
+		}
     }
+//	std::cout<<"Added worldposition variables"<<std::endl;
 
     rtn.set_m_lastlaptime(fromStream.m_lastLapTime);
 
@@ -50,17 +68,12 @@ deepf1::protobuf::CarUDPData UDPStreamUtils::toProto(const deepf1::CarUDPData& f
 
     rtn.set_m_penalties(fromStream.m_penalties);
 
-
     return rtn;
 }
-/*
-message UDPData {
-
-}
-*/
 deepf1::protobuf::UDPData UDPStreamUtils::toProto(const deepf1::UDPPacket& fromStream)
 {
     deepf1::protobuf::UDPData rtn;
+
     rtn.set_m_ang_acc_z(fromStream.m_ang_acc_z);
 
     rtn.set_m_ang_acc_y(fromStream.m_ang_acc_y);
@@ -224,7 +237,7 @@ deepf1::protobuf::UDPData UDPStreamUtils::toProto(const deepf1::UDPPacket& fromS
 	rtn.set_m_laptime(fromStream.m_lapTime);
 
 	rtn.set_m_time(fromStream.m_lapTime);
-
+	
 	for(unsigned int i = 0 ; i < 4 ; i++)
     {
 		rtn.add_m_wheel_speed(fromStream.m_wheel_speed[i]);
@@ -240,7 +253,7 @@ deepf1::protobuf::UDPData UDPStreamUtils::toProto(const deepf1::UDPPacket& fromS
 
     for(unsigned int i = 0 ; i < 20 ; i++)
     {
-        *(rtn.add_m_car_data()) = toProto(fromStream.m_car_data[i]);
+	   rtn.add_m_car_data()->CopyFrom(toProto(fromStream.m_car_data[i]));
     }
 
     return rtn;
