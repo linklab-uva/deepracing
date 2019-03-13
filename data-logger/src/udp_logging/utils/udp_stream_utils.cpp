@@ -18,23 +18,12 @@ deepf1::protobuf::CarUDPData UDPStreamUtils::toProto(const deepf1::CarUDPData& f
 //	std::cout<<"Converting CarUDPData"<<std::endl;
     deepf1::protobuf::CarUDPData rtn;
 //	std::cout<<"Adding worldposition variables"<<std::endl;
-	unsigned int j = 0;
-    while(j<3)
+    for(unsigned int i = 0; i <3; i++)
     {
-		// if(j>=4)
-		// {
-		// 	break;
-		// }
-	  //  std::cout<<"Adding " << j << "th world variable"<<std::endl;
-		std::this_thread::sleep_for(std::chrono::milliseconds(5));
-		float pos = fromStream.m_worldPosition[j];
+		//std::this_thread::sleep_for(std::chrono::milliseconds(5));
+		float pos = fromStream.m_worldPosition[i];
         rtn.add_m_worldposition(pos);
-	    j++;
-	//	std::cout<<(j>=4)<<std::endl;
-		if(j>=3)
-		{
-			break;
-		}
+	   
     }
 //	std::cout<<"Added worldposition variables"<<std::endl;
 
