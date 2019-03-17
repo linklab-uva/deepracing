@@ -78,12 +78,12 @@ int main(int argc, char** argv)
 
 
   std::cout<<"Creating handlers" <<std::endl;
-  std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler(image_folder, image_threads));
-  std::shared_ptr<deepf1::MultiThreadedUDPHandler> udp_handler(new deepf1::MultiThreadedUDPHandler(udp_folder, udp_threads));
+  std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler(image_folder, image_threads, true));
+  std::shared_ptr<deepf1::MultiThreadedUDPHandler> udp_handler(new deepf1::MultiThreadedUDPHandler(udp_folder, udp_threads, true));
 
 
   std::cout<<"Creating DataLogger" <<std::endl;
-  std::shared_ptr<deepf1::F1DataLogger> dl(new deepf1::F1DataLogger(search_string, frame_handler, udp_handler));
+  std::shared_ptr<deepf1::F1DataLogger> dl( new deepf1::F1DataLogger( search_string , frame_handler , udp_handler ) );
   std::cout<<"Created DataLogger" <<std::endl;
   std::string inp;
   std::cout<<"Enter anything to start capture" << std::endl;
