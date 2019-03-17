@@ -18,7 +18,7 @@ namespace deepf1
 class MultiThreadedFrameGrabHandler : public IF1FrameGrabHandler
 {
 public:
-  MultiThreadedFrameGrabHandler(std::string images_folder = "images", unsigned int thread_count = 5);
+  MultiThreadedFrameGrabHandler(std::string images_folder = "images", unsigned int thread_count = 5, bool write_json = false);
   virtual ~MultiThreadedFrameGrabHandler();
   inline bool isReady() override;
   void handleData(const TimestampedImageData& data) override;
@@ -39,6 +39,7 @@ private:
   void workerFunc_();
   
   bool ready_;
+  bool write_json_;
 };
 
 } /* namespace deepf1 */
