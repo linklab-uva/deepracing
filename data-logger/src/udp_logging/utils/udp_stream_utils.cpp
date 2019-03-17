@@ -15,17 +15,11 @@ UDPStreamUtils::~UDPStreamUtils()
 
 deepf1::protobuf::CarUDPData UDPStreamUtils::toProto(const deepf1::CarUDPData& fromStream)
 {
-//	std::cout<<"Converting CarUDPData"<<std::endl;
+	
     deepf1::protobuf::CarUDPData rtn;
-//	std::cout<<"Adding worldposition variables"<<std::endl;
-    for(unsigned int i = 0; i <3; i++)
-    {
-		//std::this_thread::sleep_for(std::chrono::milliseconds(5));
-		float pos = fromStream.m_worldPosition[i];
-        rtn.add_m_worldposition(pos);
-	   
-    }
-//	std::cout<<"Added worldposition variables"<<std::endl;
+	
+	rtn.mutable_m_worldposition()->Resize(3, -1.0);
+	memcpy(rtn.mutable_m_worldposition()->mutable_data(),fromStream.m_worldPosition,3*sizeof(float));
 
     rtn.set_m_lastlaptime(fromStream.m_lastLapTime);
 
@@ -225,24 +219,40 @@ deepf1::protobuf::UDPData UDPStreamUtils::toProto(const deepf1::UDPPacket& fromS
 
 	rtn.set_m_laptime(fromStream.m_lapTime);
 
-	rtn.set_m_time(fromStream.m_lapTime);
+	rtn.set_m_time(fromStream.m_time);
 	
-	for(unsigned int i = 0 ; i < 4 ; i++)
-    {
-		rtn.add_m_wheel_speed(fromStream.m_wheel_speed[i]);
-		rtn.add_m_susp_vel(fromStream.m_susp_vel[i]);
-		rtn.add_m_susp_pos(fromStream.m_susp_pos[i]);
-		rtn.add_m_susp_acceleration(fromStream.m_susp_acceleration[i]);
-        rtn.add_m_tyres_damage(fromStream.m_tyres_damage[i]);
-        rtn.add_m_tyres_wear(fromStream.m_tyres_wear[i]);
-        rtn.add_m_tyres_temperature(fromStream.m_tyres_temperature[i]);
-        rtn.add_m_tyres_pressure(fromStream.m_tyres_pressure[i]);
-        rtn.add_m_brakes_temp(fromStream.m_brakes_temp[i]);
-    }
+	rtn.mutable_m_wheel_speed()->Resize(4,-1.0);
+	memcpy(rtn.mutable_m_wheel_speed()->mutable_data(),fromStream.m_wheel_speed,4*sizeof(float));
+	
+	rtn.mutable_m_susp_vel()->Resize(4,-1.0);
+	memcpy(rtn.mutable_m_susp_vel()->mutable_data(),fromStream.m_susp_vel,4*sizeof(float));
+	
+	rtn.mutable_m_susp_pos()->Resize(4,-1.0);
+	memcpy(rtn.mutable_m_susp_pos()->mutable_data(),fromStream.m_susp_pos,4*sizeof(float));
+	
+	rtn.mutable_m_susp_acceleration()->Resize(4,-1.0);
+	memcpy(rtn.mutable_m_susp_acceleration()->mutable_data(),fromStream.m_susp_acceleration,4*sizeof(float));
+	
+	rtn.mutable_m_tyres_pressure()->Resize(4, -1.0);
+	memcpy(rtn.mutable_m_tyres_pressure()->mutable_data(),fromStream.m_tyres_pressure,4*sizeof(float));
+	
+	rtn.mutable_m_brakes_temp()->Resize(4, -1.0);
+	memcpy(rtn.mutable_m_brakes_temp()->mutable_data(),fromStream.m_brakes_temp,4*sizeof(float));
 
+
+	rtn.mutable_m_tyres_damage()->Resize(4, -127);
+	rtn.mutable_m_tyres_wear()->Resize(4, -127);
+	rtn.mutable_m_tyres_temperature()->Resize(4, -127);
+    for(unsigned int i = 0 ; i < 4 ; i++)
+    {
+		rtn.mutable_m_tyres_damage()->Set(i,(google::protobuf::uint32)fromStream.m_tyres_damage[i]);
+		rtn.mutable_m_tyres_wear()->Set(i,(google::protobuf::uint32)fromStream.m_tyres_wear[i]);
+		rtn.mutable_m_tyres_temperature()->Set(i,(google::protobuf::uint32)fromStream.m_tyres_temperature[i]);
+    }
+	rtn.mutable_m_car_data()->Reserve(20);
     for(unsigned int i = 0 ; i < 20 ; i++)
     {
-	   rtn.add_m_car_data()->CopyFrom(toProto(fromStream.m_car_data[i]));
+	   rtn.add_m_car_data()->CopyFrom( toProto( fromStream.m_car_data[i] ) );
     }
 
     return rtn;
