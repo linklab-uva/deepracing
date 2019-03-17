@@ -25,7 +25,6 @@ namespace post_processing
 		{
 			if (fs::is_regular_file(*it) && it->path().extension() == ext) ret.push_back(it->path().filename());
 			++it;
-
 		}
 
 	}
