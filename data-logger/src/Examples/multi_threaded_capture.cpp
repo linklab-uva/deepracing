@@ -80,6 +80,7 @@ int main(int argc, char** argv)
   std::cout<<"Creating handlers" <<std::endl;
   std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler(image_folder, image_threads, true));
   std::shared_ptr<deepf1::MultiThreadedUDPHandler> udp_handler(new deepf1::MultiThreadedUDPHandler(udp_folder, udp_threads, true));
+  std::cout << "Created handlers" << std::endl;
 
 
   std::cout<<"Creating DataLogger" <<std::endl;

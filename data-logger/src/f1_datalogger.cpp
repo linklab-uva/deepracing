@@ -17,8 +17,12 @@ F1DataLogger::F1DataLogger(const std::string& search_string, std::shared_ptr<IF1
 {
   begin_ = std::chrono::high_resolution_clock::time_point(clock_->now());
   std::cout<<"Creating managers"<<std::endl;
-  frame_grab_manager_.reset(new F1FrameGrabManager(clock_, frame_grab_handler, search_string) );
+  std::cout << "Creating Data Grab Manager" << std::endl;
   data_grab_manager_.reset(new F1DataGrabManager(clock_, data_grab_handler));
+  std::cout << "Created Data Grab Manager" << std::endl;
+  std::cout << "Creating Frame Grab Manager" << std::endl;
+  frame_grab_manager_.reset(new F1FrameGrabManager(clock_, frame_grab_handler, search_string) );
+  std::cout << "Created Frame Grab Manager" << std::endl;
   std::cout<<"Created managers"<<std::endl;
   const scl::Window& window = frame_grab_manager_->getWindow();
   cv::Size size;
