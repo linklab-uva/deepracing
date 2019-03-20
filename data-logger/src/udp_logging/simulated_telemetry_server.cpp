@@ -27,10 +27,11 @@ void exit_with_help(po::options_description& desc)
 int main(int argc, char** argv) {
 	using boost::asio::ip::udp;
 	using namespace deepf1;
-        // unsigned int BUFLEN = 1289;
-        // unsigned int UDP_BUFLEN = BUFLEN;
+        unsigned int BUFLEN = 1289;
+        unsigned int UDP_BUFLEN = BUFLEN;
+		unsigned int packet_size = UDP_BUFLEN;
         unsigned int sleep_time;
-        unsigned int packet_size = sizeof(UDPPacket);
+		//unsigned int packet_size = sizeof(UDPPacket);
 
         std::string address, port;
         po::options_description desc("Allowed Options");

@@ -5,7 +5,7 @@
  *      Author: ttw2xk
  */
 
-#ifndef INCLUDE_F1_DATALOGGER_H_
+#ifndef INCLUDE_F1_DATALOGGER_H_ 
 #define INCLUDE_F1_DATALOGGER_H_
 #include "image_logging/f1_framegrab_manager.h"
 #include "udp_logging/f1_datagrab_manager.h"

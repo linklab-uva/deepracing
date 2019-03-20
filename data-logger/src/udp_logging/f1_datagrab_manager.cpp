@@ -29,11 +29,15 @@ F1DataGrabManager::~F1DataGrabManager()
 }
 void F1DataGrabManager::run_()
 {
+  unsigned int BUFLEN = 1289;
+  unsigned int UDP_BUFLEN = BUFLEN;
+  unsigned int packet_size = UDP_BUFLEN;
+  //packet_size = sizeof(UDPPacket);
   while (running_)
   {
 
     boost::system::error_code error;
-    socket_.receive_from(boost::asio::buffer(boost::asio::buffer(rcv_buffer_.get(), sizeof(UDPPacket))), remote_endpoint_, 0, error);
+    socket_.receive_from(boost::asio::buffer(boost::asio::buffer(rcv_buffer_.get(), packet_size)), remote_endpoint_, 0, error);
     if (data_handler_->isReady())
     {
       TimestampedUDPData data;
