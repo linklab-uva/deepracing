@@ -25,6 +25,7 @@ scl::Window findWindow(const std::string& search_string)
   {
     scl::Window a = windows[i];
     std::string name = a.Name;
+	std::cout << name << std::endl;
 	std::transform(name.begin(), name.end(), name.begin(), ::tolower);
     if (name.find(srchterm) != std::string::npos)
     {
@@ -71,6 +72,7 @@ F1FrameGrabManager::F1FrameGrabManager(std::shared_ptr<std::chrono::high_resolut
 {
   capture_handler_ = capture_handler;
   clock_ = clock;
+  std::cout << "Looking for an application with the search string " << search_string << std::endl;
   window_ = findWindow(search_string);
   capture_config_ = scl::CreateCaptureConfiguration( (scl::WindowCallback)std::bind(&F1FrameGrabManager::get_windows_, this));
   capture_config_->onNewFrame((scl::WindowCaptureCallback)std::bind(&F1FrameGrabManager::onNewFrame_, this, std::placeholders::_1, std::placeholders::_2));

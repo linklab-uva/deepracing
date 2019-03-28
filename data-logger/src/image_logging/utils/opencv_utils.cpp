@@ -21,7 +21,7 @@ OpenCVUtils::~OpenCVUtils()
 cv::Mat OpenCVUtils::toCV(const scl::Image& image_scl, const scl::Point& size)
 {
   cv::Mat rtn;
-  if( size.y == 0 || size.x==0 || true)
+  if( size.y == 0 || size.x==0 )//|| true)
   {
     rtn.create(scl::Height(image_scl), scl::Width(image_scl), CV_8UC4);
   }else

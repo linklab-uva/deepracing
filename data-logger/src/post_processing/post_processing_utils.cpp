@@ -25,20 +25,19 @@ namespace post_processing
 		{
 			if (fs::is_regular_file(*it) && it->path().extension() == ext) ret.push_back(it->path().filename());
 			++it;
-
 		}
 
 	}
-	bool udpComp(const deepf1::protobuf::F1UDPData& a, const deepf1::protobuf::F1UDPData& b)
+	bool udpComp(const deepf1::protobuf::TimestampedUDPData& a, const deepf1::protobuf::TimestampedUDPData& b)
 	{
-		return a.logger_time() < b.logger_time();
+		return a.timestamp() < b.timestamp();
 	}
 	bool imageComp(const deepf1::protobuf::TimestampedImage& a, const deepf1::protobuf::TimestampedImage& b)
 	{
 		return a.timestamp() < b.timestamp();
 	}
-	unsigned int closestValueHelper(const std::vector<deepf1::protobuf::F1UDPData>& sorted_data,
-	 int64_t search, unsigned int left, unsigned int right)
+	unsigned int closestValueHelper(const std::vector<deepf1::protobuf::TimestampedUDPData>& sorted_data,
+	 google::protobuf::uint64 search, unsigned int left, unsigned int right)
 	{
 		if(left == right)
 		{
@@ -47,7 +46,7 @@ namespace post_processing
 		}
 		else if((right-left)==1)
 		{
-			if(std::abs(sorted_data.at(left).logger_time() - search) < std::abs(sorted_data.at(right).logger_time() - search))
+			if((search - sorted_data.at(left).timestamp()) < (sorted_data.at(right).timestamp() - search))
 			{
 				return left;
 			}
@@ -59,7 +58,7 @@ namespace post_processing
 		else
 		{
 			unsigned int middle = (left + right)/2;
-			int64_t query_val = sorted_data.at(middle).logger_time();
+			google::protobuf::uint64 query_val = sorted_data.at(middle).timestamp();
 			if(query_val == search)
 			{
 				return middle;
@@ -74,13 +73,13 @@ namespace post_processing
 			}
 		}
 	}
-	std::pair<deepf1::protobuf::F1UDPData, unsigned int> PostProcessingUtils::closestValue(const std::vector<deepf1::protobuf::F1UDPData>& sorted_data, int64_t search)
+	std::pair<deepf1::protobuf::TimestampedUDPData, unsigned int> PostProcessingUtils::closestValue(const std::vector<deepf1::protobuf::TimestampedUDPData>& sorted_data, google::protobuf::uint64 search)
 	{
 		unsigned int index = closestValueHelper(sorted_data, search, 0, sorted_data.size()-1);
 
-		return std::pair<deepf1::protobuf::F1UDPData, unsigned int>(sorted_data.at(index), index);
+		return std::pair<deepf1::protobuf::TimestampedUDPData, unsigned int>(sorted_data.at(index), index);
 	}
-	std::vector<float> interp(const std::vector<deepf1::protobuf::F1UDPData>& udp_data, unsigned int closest_index, unsigned int interpolation_order, int64_t image_timestamp)
+	std::vector<float> interp(const std::vector<deepf1::protobuf::TimestampedUDPData>& udp_data, unsigned int closest_index, unsigned int interpolation_order, google::protobuf::uint64 image_timestamp)
 	{
 		std::vector<float> rtn(3);
 
@@ -96,10 +95,10 @@ namespace post_processing
 //		printf("Building alglib vectors at index %d. \n", closest_index);
 		for (unsigned int i = lower_bound; i <= upper_bound; i++)
 		{
-			timestamps(idx) = (double)udp_data.at(i).logger_time();
-			steering(idx) = (double)udp_data.at(i).steering();
-			brake(idx) = (double)udp_data.at(i).brake();
-			throttle(idx) = (double)udp_data.at(i).throttle();
+			timestamps(idx) = (double)udp_data.at(i).timestamp();
+			steering(idx) = (double)udp_data.at(i).udp_packet().m_steer();
+			brake(idx) = (double)udp_data.at(i).udp_packet().m_brake();
+			throttle(idx) = (double)udp_data.at(i).udp_packet().m_throttle();
 			idx++;
 		}
 	//	printf("Built alglib vectors. \n");
@@ -116,22 +115,22 @@ namespace post_processing
 
 		return rtn;
 	}
-	std::vector<deepf1::protobuf::LabeledImage> PostProcessingUtils::labelImages(std::vector<deepf1::protobuf::F1UDPData>& udp_data, std::vector<deepf1::protobuf::TimestampedImage>& image_data, unsigned int interpolation_order)
+	std::vector<deepf1::protobuf::LabeledImage> PostProcessingUtils::labelImages(std::vector<deepf1::protobuf::TimestampedUDPData>& udp_data, std::vector<deepf1::protobuf::TimestampedImage>& image_data, unsigned int interpolation_order)
 	{
 		printf("Labeling points.\n");
 		std::vector<deepf1::protobuf::LabeledImage> rtn;
 		std::sort(udp_data.begin(), udp_data.end(), &udpComp);
 		std::sort(image_data.begin(), image_data.end(), &imageComp);
 
-		rtn.resize(image_data.size());
+		rtn.reserve(image_data.size());
 		for(unsigned int i = 0; i < image_data.size(); i ++)
 		{
 			deepf1::protobuf::TimestampedImage image_point = image_data.at(i);	
 
 			//printf("Processing image with filename: %s", image_point.image_file().c_str());
 			
-			std::pair<deepf1::protobuf::F1UDPData, unsigned int> pair = closestValue(udp_data, image_point.timestamp());
-			deepf1::protobuf::F1UDPData closest_packet = udp_data.at(pair.second);
+			std::pair<deepf1::protobuf::TimestampedUDPData, unsigned int> pair = closestValue(udp_data, image_point.timestamp());
+			deepf1::protobuf::TimestampedUDPData closest_packet = udp_data.at(pair.second);
 			if ( pair.second < interpolation_order || pair.second >(udp_data.size() - interpolation_order) )
 				continue; 
 
@@ -141,25 +140,25 @@ namespace post_processing
 
 		//	printf("Interpolating on order %u \n", interpolation_order);
 			std::vector<float> interp_results = interp(udp_data, pair.second, interpolation_order, image_point.timestamp());
-			rtn.at(i).set_image_file(std::string(image_point.image_file()));
-			rtn.at(i).set_steering(interp_results[0]);
-			rtn.at(i).set_throttle(interp_results[1]);
-			rtn.at(i).set_brake(interp_results[2]);
+			im.mutable_label()->set_steering(interp_results[0]);
+			im.mutable_label()->set_throttle(interp_results[1]);
+			im.mutable_label()->set_brake(interp_results[2]);
+			im.set_image_file(std::string(image_point.image_file()));
 		//	printf("Done interpolating \n");
 			/*
 			std::string json;
 			google::protobuf::util::MessageToJsonString(rtn.at(i), &json);
 			std::cout << "Labeled image: " << json << std::endl;
 			*/
-			//rtn.push_back(deepf1::protobuf::LabeledImage(im));
+			rtn.push_back(im);
 		}
 	//	rtn.shrink_to_fit();
 
 		return rtn;
 	}
-	std::vector<deepf1::protobuf::F1UDPData> PostProcessingUtils::parseUDPDirectory(const std::string& directory)
+	std::vector<deepf1::protobuf::TimestampedUDPData> PostProcessingUtils::parseUDPDirectory(const std::string& directory)
 	{
-		std::vector<deepf1::protobuf::F1UDPData> rtn;
+		std::vector<deepf1::protobuf::TimestampedUDPData> rtn;
 		
 		std::vector<fs::path> paths;
 		fs::path udp_dir(directory);
@@ -170,10 +169,10 @@ namespace post_processing
 			fs::path current_path = udp_dir / path;
 	//		std::cout << "Loading file: " << current_path.string() << std::endl;
 			stream_in.open(current_path.string().c_str());
-			deepf1::protobuf::F1UDPData data_in;
+			deepf1::protobuf::TimestampedUDPData data_in;
 			bool success = data_in.ParseFromIstream(&stream_in);
 			stream_in.close();
-			if (!success || data_in.logger_time()==0)
+			if (!success || data_in.timestamp()==0)
 			{
 
 				std::cout << "FOUND EMPTY UDP PACKET" << std::endl;
@@ -194,12 +193,12 @@ namespace post_processing
 		std::vector<deepf1::protobuf::TimestampedImage> rtn;
 
 		std::vector<fs::path> paths;
-		fs::path udp_dir(directory);
-		get_all(udp_dir, ".pb", paths);
+		fs::path image_dir(directory);
+		get_all(image_dir, ".pb", paths);
 		std::ifstream stream_in;
 		for (fs::path path : paths)
 		{
-			fs::path current_path = udp_dir / path;
+			fs::path current_path = image_dir / path;
 			//		std::cout << "Loading file: " << current_path.string() << std::endl;
 			stream_in.open(current_path.string().c_str());
 			deepf1::protobuf::TimestampedImage data_in;

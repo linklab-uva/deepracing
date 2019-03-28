@@ -9,6 +9,7 @@
 #include <opencv2/highgui.hpp>
 #include <boost/filesystem.hpp>
 #include <google/protobuf/util/json_util.h>
+#include <opencv2/imgproc.hpp>
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 void exit_with_help(po::options_description& desc)
@@ -53,16 +54,18 @@ int main(int argc, char** argv)
 	std::string image_folder = config_node["images_folder"].as<std::string>();
 	std::string udp_folder = config_node["udp_folder"].as<std::string>();
 
-	std::vector<deepf1::protobuf::F1UDPData> udp_points = deepf1::post_processing::PostProcessingUtils::parseUDPDirectory(udp_folder);
+	std::vector<deepf1::protobuf::TimestampedUDPData> udp_points = deepf1::post_processing::PostProcessingUtils::parseUDPDirectory(udp_folder);
 	std::vector<deepf1::protobuf::TimestampedImage> image_points = deepf1::post_processing::PostProcessingUtils::parseImageDirectory(image_folder);
 
 
 	std::printf("Got %lu udp data points.\n", udp_points.size());
 	std::printf("Got %lu image data points.\n", image_points.size());
+	unsigned int INTERPOLATION_ORDER = 2;
 	std::vector<deepf1::protobuf::LabeledImage> labeled_images = 
-		 deepf1::post_processing::PostProcessingUtils::labelImages(udp_points,  image_points, 3);
+		 deepf1::post_processing::PostProcessingUtils::labelImages(udp_points,  image_points, INTERPOLATION_ORDER);
 
 	cv::namedWindow("image",cv::WINDOW_AUTOSIZE);
+	float arrow_length = 100.0;
 	for (unsigned int i = 0; i < labeled_images.size(); i ++)
 	{
 		deepf1::protobuf::LabeledImage labeled_image = labeled_images.at(i); 
@@ -76,11 +79,26 @@ int main(int argc, char** argv)
 		*/
 		fs::path full_image_path = fs::path(image_folder) / fs::path(labeled_image.image_file());
 		std::string json;
-		google::protobuf::util::MessageToJsonString(labeled_image, &json);
+
+		google::protobuf::util::JsonOptions opshinz;
+		opshinz.always_print_primitive_fields = true;
+		opshinz.add_whitespace = true;
+		google::protobuf::util::MessageToJsonString(labeled_image, &json, opshinz);
 		/**/
 		std::cout << "Label: " << json << std::endl;
 		
 		cv::Mat im_mat = cv::imread(full_image_path.string());
+		cv::Mat arrow_mat(im_mat.rows, im_mat.cols, im_mat.type(), cv::Scalar(255,255,255));
+		
+
+
+		cv::Point p1(im_mat.cols/2, im_mat.rows/2);
+		float real_angle = 2.0*((std::asin<float>(labeled_image.label().steering()).real()));
+		
+		float cos_ = arrow_length*(std::cos<float>(real_angle).real());
+		float sin_ = arrow_length*(std::sin<float>(real_angle).real());
+		cv::Point p2(p1.x - sin_, p1.y - cos_);
+		cv::arrowedLine(im_mat, p1, p2, cv::Scalar(255));
 		cv::imshow("image", im_mat);
 		cv::waitKey(17);
 	
