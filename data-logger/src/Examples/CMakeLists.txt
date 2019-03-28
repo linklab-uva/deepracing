@@ -4,7 +4,9 @@ cv_viewer.cpp
 target_link_libraries(${PROJECT_NAME}_cv_viewer_example
 ${PROJECT_NAME}
 ${PROJECT_NAME}_image_logging
+${PROJECT_NAME}_image_logging_common
 ${PROJECT_NAME}_udp_logging
+${PROJECT_NAME}_udp_logging_common
 ${screen_capture_lite_LIBRARIES}
 ${screen_capture_lite_PLATFORM_LIBS}
 ${Boost_LIBRARIES}
@@ -18,7 +20,9 @@ multi_threaded_capture.cpp
 target_link_libraries(${PROJECT_NAME}_multithreaded_capture_example
 ${PROJECT_NAME}
 ${PROJECT_NAME}_image_logging
+${PROJECT_NAME}_image_logging_common
 ${PROJECT_NAME}_udp_logging
+${PROJECT_NAME}_udp_logging_common
 ${PROJECT_NAME}_proto
 ${screen_capture_lite_LIBRARIES}
 ${screen_capture_lite_PLATFORM_LIBS}

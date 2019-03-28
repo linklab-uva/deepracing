@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: deepf1-image-reading
+Version: 0.0.1
+Summary: A custom pybind module for loading images from file.
+Home-page: UNKNOWN
+Author: Trent Weiss
+Author-email: ttw2xk@virginia.edu
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN

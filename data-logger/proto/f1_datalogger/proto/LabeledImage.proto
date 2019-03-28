@@ -1,0 +1,10 @@
+syntax = "proto3";
+package deepf1.protobuf;
+import "ImageLabel.proto";
+message LabeledImage {
+  string image_file = 1;
+  ImageLabel label = 2;
+  // float steering = 3;
+  // float throttle = 4;
+  // float brake = 5;
+}

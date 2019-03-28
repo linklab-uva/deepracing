@@ -1,6 +1,6 @@
 include(FindProtobuf)
 find_package(Protobuf REQUIRED)
-protobuf_generate_cpp(${PROJECT_NAME}_PROTO_SRC ${PROJECT_NAME}_PROTO_HEADER F1UDPData.proto LabeledImage.proto TimestampedImage.proto)
+protobuf_generate_cpp(${PROJECT_NAME}_PROTO_SRC ${PROJECT_NAME}_PROTO_HEADER UDPData.proto CarUDPData.proto ImageLabel.proto TimestampedUDPData.proto LabeledImage.proto TimestampedImage.proto)
 message(STATUS "Generated sources: ${${PROJECT_NAME}_PROTO_SRC}")
 message(STATUS "Generated header: ${${PROJECT_NAME}_PROTO_HEADER}")
 message(STATUS "Including protobuf library headers: ${Protobuf_INCLUDE_DIR}")
@@ -16,28 +16,21 @@ target_include_directories(${PROJECT_NAME}_proto PRIVATE ${ProtobufIncludePath} 
 target_link_libraries(${PROJECT_NAME}_proto ${Protobuf_LIBRARIES})
 
 
-add_custom_target(protocopy)
- #   COMMAND ${CMAKE_COMMAND} -E copy ${${PROJECT_NAME}_PROTO_HEADER} ${ProtobufIncludePath}/${PROJECT_NAME}/proto/
-#)
-add_dependencies(protocopy ${PROJECT_NAME}_proto)
-foreach(protoheader ${${PROJECT_NAME}_PROTO_HEADER})
-    message(STATUS ${protoheader})
-    get_filename_component(protoheader_name ${protoheader} NAME)
-    add_custom_command(TARGET protocopy PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-        ${protoheader}
-        ${ProtobufIncludePath}/${PROJECT_NAME}/proto/
-        BYPRODUCTS ${ProtobufIncludePath}/${PROJECT_NAME}/proto/${protoheader_name}       
-    )
-    install(FILES ${protoheader} DESTINATION include/${PROJECT_NAME}/proto)
-endforeach(protoheader)
-
-
-
-add_executable(protobuf_test protobuf_test.cpp)
-target_include_directories(protobuf_test PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
-target_link_libraries(protobuf_test ${PROJECT_NAME}_proto)
-
+#add_custom_target(protocopy)
+#  #   COMMAND ${CMAKE_COMMAND} -E copy ${${PROJECT_NAME}_PROTO_HEADER} ${ProtobufIncludePath}/${PROJECT_NAME}/proto/
+# #)
+# add_dependencies(protocopy ${PROJECT_NAME}_proto)
+# foreach(protoheader ${${PROJECT_NAME}_PROTO_HEADER})
+#     message(STATUS ${protoheader})
+#     get_filename_component(protoheader_name ${protoheader} NAME)
+#     add_custom_command(TARGET protocopy PRE_BUILD
+#         COMMAND ${CMAKE_COMMAND} -E copy
+#         ${protoheader}
+#         ${ProtobufIncludePath}/${PROJECT_NAME}/proto/
+#         BYPRODUCTS ${ProtobufIncludePath}/${PROJECT_NAME}/proto/${protoheader_name}       
+#     )
+#     install(FILES ${protoheader} DESTINATION include/${PROJECT_NAME}/proto)
+# endforeach(protoheader)
 
 
 add_executable(${PROJECT_NAME}_read_image_tag read_image_tag.cpp)

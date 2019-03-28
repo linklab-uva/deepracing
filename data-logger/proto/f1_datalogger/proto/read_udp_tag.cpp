@@ -1,4 +1,4 @@
-#include "F1UDPData.pb.h"
+#include "TimestampedUDPData.pb.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -40,7 +40,7 @@ int main(int argc, char** argv)
 
     std::ifstream stream_in;
     stream_in.open(file_in.c_str());
-    deepf1::protobuf::F1UDPData data_in;
+    deepf1::protobuf::TimestampedUDPData data_in;
     data_in.ParseFromIstream(&stream_in);
     stream_in.close();
     std::string json;

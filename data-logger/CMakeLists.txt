@@ -1,11 +1,12 @@
 project(f1_datalogger)
 cmake_minimum_required (VERSION 3.10 FATAL_ERROR)
 
-option(BUILD_SHARED_LIBS "Build Shared Libraries (EXPERIMENTAL)" OFF)
 if(MSVC)
+    option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
     set(cxx_standard 11)
 else()
-    set(cxx_standard 17)
+    option(BUILD_SHARED_LIBS "Build Shared Libraries" ON)
+    set(cxx_standard 14)
 endif()
 
 set(CMAKE_CXX_STANDARD ${cxx_standard})
@@ -19,10 +20,12 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
 option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to read datasets" ON)
 if(BUILD_DATALOGGER)
-    find_package(screen_capture_lite REQUIRED)
-    message(STATUS "Found screen_capture_lite headers: ${screen_capture_lite_INCLUDE_DIRS}")
-    message(STATUS "Found screen_capture_lite libraries: ${screen_capture_lite_LIBRARIES}")
-    include_directories(${screen_capture_lite_INCLUDE_DIRS})
+    set(SCL_SUBDIR ${THIRD_PARTY_REPOS}/screen_capture_lite)
+    add_subdirectory(${SCL_SUBDIR})
+    set(screen_capture_lite_LIBRARIES screen_capture_lite)
+    include(screen_capture_lite_PLATFORM_LIBS)
+    message(STATUS "Found screen_capture_lite platform libraries: ${screen_capture_lite_PLATFORM_LIBS}")
+    include_directories(${SCL_SUBDIR}/include)
 endif()
 
 
@@ -71,9 +74,9 @@ endif()
 include_directories( include )
 include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${YAML_CPP_INCLUDE_DIR})
 
-add_subdirectory( proto )
+add_subdirectory( proto/${PROJECT_NAME}/proto )
 
-
+include_directories(${CMAKE_BINARY_DIR}/proto)
 include_directories(${Protobuf_INCLUDE_DIR})
 
 
@@ -94,6 +97,7 @@ if(BUILD_DATALOGGER)
     ${PROJECT_NAME}_udp_logging 
     ${PROJECT_NAME}_proto 
     ${PROJECT_NAME}_alglib 
+	${PROJECT_NAME}_image_utils
     ${Boost_LIBRARIES}
     )
     add_subdirectory( src/Examples )

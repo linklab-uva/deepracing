@@ -19,12 +19,14 @@ namespace deepf1
 class MultiThreadedUDPHandler : public IF1DatagrabHandler
 {
 public:
-  MultiThreadedUDPHandler(std::string data_folder = "udp_data", unsigned int thread_count = 5);
+  MultiThreadedUDPHandler(std::string data_folder = "udp_data", unsigned int thread_count = 5, bool write_json = false);
   virtual ~MultiThreadedUDPHandler();
   void handleData(const deepf1::TimestampedUDPData& data) override;
   inline bool isReady() override;
   void init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin) override;
   const std::string getDataFolder() const;
+  void stop();
+  void join();
 
 private:
   std::shared_ptr< tbb::concurrent_queue<TimestampedUDPData> > queue_;
@@ -38,6 +40,8 @@ private:
 
   void workerFunc_();
 
+  bool ready_;
+  bool write_json_;
 };
 
 } /* namespace deepf1 */
