@@ -25,10 +25,12 @@ def make_video(images, outimg=None, fps=2, size=None, is_color=True, format="MJP
     return vid
 parser = argparse.ArgumentParser(description='Turn a bunch of images into a video.')
 parser.add_argument('--folder', type=str, required=True)
+parser.add_argument('--output_file', type=str, default="image_video.avi", required=False)
+parser.add_argument('--fps', type=int, default=60, required=False)
 args = parser.parse_args()
 folder = args.folder
 files = [os.path.join(folder,f) for f in os.listdir(folder) if os.path.isfile(os.path.join(folder, f)) and str.lower(os.path.join(folder, f).split(".")[-1])=="jpg"]
 print(files)
 filessorted = sorted(files,key=sortkey)
 print(filessorted)
-video = make_video(filessorted,fps=60)
+video = make_video(filessorted,fps=args.fps, outvid=args.output_file)
