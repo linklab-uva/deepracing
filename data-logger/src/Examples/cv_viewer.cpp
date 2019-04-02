@@ -27,7 +27,7 @@ public:
   void handleData(const deepf1::TimestampedUDPData& data) override
   {
     deepf1::UDPPacket packet = data.data;
-    printf("Got some data. Steering: %f. Throttle: %f. Brake: %f.\n", packet.m_steer, packet.m_throttle, packet.m_brake);
+    printf("Got some data. Steering: %f. Throttle: %f. Brake: %f. Lap Time: %f\n", packet.m_steer, packet.m_throttle, packet.m_brake, packet.m_lapTime);
   }
   void init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin) override
   {
@@ -92,7 +92,7 @@ int main(int argc, char** argv)
   std::shared_ptr<OpenCV_Viewer_Example_FrameGrabHandler> image_handler(new OpenCV_Viewer_Example_FrameGrabHandler());
   std::shared_ptr<OpenCV_Viewer_Example_DataGrabHandler> udp_handler(new OpenCV_Viewer_Example_DataGrabHandler());
   deepf1::F1DataLogger dl(search, image_handler, udp_handler);
-  dl.start();
+  dl.start(capture_frequency);
 
   cv::waitKey(0);
 
