@@ -43,7 +43,8 @@ int main(int argc, char** argv)
 		po::variables_map vm;
 		po::store(po::parse_command_line(argc, argv, desc), vm);
 		po::notify(vm);
-		if (vm.find("help") != vm.end()) {
+		if (vm.find("help") != vm.end()) 
+		{
 			exit_with_help(desc);
 		}
 	}
@@ -148,7 +149,7 @@ int main(int argc, char** argv)
 	}
 	else if(specified_control.compare("t") == 0)
 	{
-		for (unsigned int throttleval = 0; throttleval <= max; throttleval += 50)
+		for (unsigned int throttleval = 0; throttleval <= max; throttleval += dt)
 		{
 			printf("Setting throttle val: %lu \n", throttleval);
 			joystick_value.wAxisZ = throttleval;
@@ -156,7 +157,7 @@ int main(int argc, char** argv)
 			std::this_thread::sleep_for(std::chrono::microseconds(sleeptime));
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(250));
-		for (int throttleval = max; throttleval >= 0; throttleval -= 50)
+		for (int throttleval = max; throttleval >= 0; throttleval -= dt)
 		{
 			printf("Setting throttle val: %ld \n", throttleval);
 			joystick_value.wAxisZ = throttleval;
@@ -166,7 +167,7 @@ int main(int argc, char** argv)
 	}
 	else if (specified_control.compare("b") == 0)
 	{
-		for (unsigned int brakeval = 0; brakeval <= max; brakeval += 50)
+		for (unsigned int brakeval = 0; brakeval <= max; brakeval += dt)
 		{
 			printf("Setting brake val: %lu \n", brakeval);
 			joystick_value.wAxisZRot = brakeval;
@@ -174,7 +175,7 @@ int main(int argc, char** argv)
 			std::this_thread::sleep_for(std::chrono::microseconds(sleeptime));
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(250));
-		for (int brakeval = max; brakeval >= 0; brakeval -= 50)
+		for (int brakeval = max; brakeval >= 0; brakeval -= dt)
 		{
 			printf("Setting brake val: %ld \n", brakeval);
 			joystick_value.wAxisZRot = brakeval;
