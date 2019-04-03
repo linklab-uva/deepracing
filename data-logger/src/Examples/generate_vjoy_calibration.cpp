@@ -30,14 +30,14 @@ int main(int argc, char** argv)
 {
 	std::cout<<"Hello World!"<<std::endl; 
 	unsigned int DevID, sleeptime;
-	std::string specified_direction;
+	std::string specified_control;
 	po::options_description desc("Allowed Options");
 
 	try {
 		desc.add_options()
 			("help,h", "Displays options and exits")
-			("direction,d", po::value<std::string>(&specified_direction)->required(), "Direction to turn the wheel, must be one of: + (steer left), - (steer right), or t (throttle), or b (brake)")
-			("device_id,i", po::value<unsigned int>(&DevID)->default_value(1), "vJoy device ID to attach to")
+			("control,c", po::value<std::string>(&specified_control)->required(), "Control input to calibrate, must be one of: + (steer left), - (steer right), or t (throttle), or b (brake)")
+			("device_id,d", po::value<unsigned int>(&DevID)->default_value(1), "vJoy device ID to attach to")
 			("sleep_time,s", po::value<unsigned int>(&sleeptime)->default_value(50), "Number of milliseconds to sleep between wheel updates")
 			;
 		po::variables_map vm;
@@ -51,27 +51,27 @@ int main(int argc, char** argv)
 		exit_with_help(desc);
 	}
 	int direction;
-	if (specified_direction.compare("+")==0)
+	if (specified_control.compare("+")==0)
 	{
 		direction = 1;
 	}
-	else if (specified_direction.compare("-") == 0)
+	else if (specified_control.compare("-") == 0)
 	{
 
 		direction = -1;
 	}
-	else if (specified_direction.compare("t") == 0 || specified_direction.compare("b") == 0)
+	else if (specified_control.compare("t") == 0 || specified_control.compare("b") == 0)
 	{
 		direction = 0;
 	}
 	else
 	{
-		std::cerr << "Invalid direction specifier " << argv[2] << std::endl;
+		std::cerr << "Invalid direction specifier " << specified_control << std::endl;
 		exit(-1);
 	}
 	if (!vjoy_plusplus::vJoy::enabled())
 	{
-		std::cerr << "VJoy driver is not installed/enabled." << std::endl;
+		std::cerr << "vJoy driver is not installed/enabled." << std::endl;
 		exit(-1);
 	}
 	vjoy_plusplus::VjoyDeviceStatus status = vjoy_plusplus::vJoy::getStatus(DevID);
@@ -146,7 +146,7 @@ int main(int argc, char** argv)
 			std::this_thread::sleep_for(std::chrono::microseconds(sleeptime));
 		}
 	}
-	else if(specified_direction.compare("t") == 0)
+	else if(specified_control.compare("t") == 0)
 	{
 		for (unsigned int throttleval = 0; throttleval <= max; throttleval += 50)
 		{
@@ -155,6 +155,7 @@ int main(int argc, char** argv)
 			vjoy->update(joystick_value);
 			std::this_thread::sleep_for(std::chrono::microseconds(sleeptime));
 		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(250));
 		for (int throttleval = max; throttleval >= 0; throttleval -= 50)
 		{
 			printf("Setting throttle val: %ld \n", throttleval);
@@ -163,7 +164,7 @@ int main(int argc, char** argv)
 			std::this_thread::sleep_for(std::chrono::microseconds(sleeptime));
 		}
 	}
-	else if (specified_direction.compare("b") == 0)
+	else if (specified_control.compare("b") == 0)
 	{
 		for (unsigned int brakeval = 0; brakeval <= max; brakeval += 50)
 		{
@@ -172,6 +173,7 @@ int main(int argc, char** argv)
 			vjoy->update(joystick_value);
 			std::this_thread::sleep_for(std::chrono::microseconds(sleeptime));
 		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(250));
 		for (int brakeval = max; brakeval >= 0; brakeval -= 50)
 		{
 			printf("Setting brake val: %ld \n", brakeval);
