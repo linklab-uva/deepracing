@@ -3,13 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cbook as cbook
 
-def read_datafile(file_name):
-    # the skiprows keyword is for heading, but I don't know if trailing lines
-    # can be specified
-    data = np.loadtxt(file_name, delimiter=',')
-    return data
-
-data = read_datafile('out.csv')
+data = np.loadtxt("out.csv", delimiter=',')
 
 x = data[:,0]
 y = data[:,1]
