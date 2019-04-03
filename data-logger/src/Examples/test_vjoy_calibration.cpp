@@ -99,16 +99,17 @@ int main(int argc, char** argv)
 	vjoy->update(iReport);
 	std::this_thread::sleep_for(std::chrono::seconds(3));
 	std::ofstream ostream(outfile);
-	for(unsigned long angle = 0; angle <=max; angle+=25)
+	//Best fit line is : y = -16383.813867*x + 16383.630437
+	for(double angle = 1.0; angle >= -1.0; angle-=0.0005)
 	{
-		iReport.wAxisY = angle;
+		unsigned int vjoyangle = (unsigned int)std::round(-16383.813867*angle + 16383.630437);
+		iReport.wAxisY = vjoyangle;
 		vjoy->update(iReport);
 		std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
 		deepf1::UDPPacket current_packet_ = udp_handler->getCurrentPacket();
-		printf("Current vJoy value: %ld\n", angle);
-		printf("Current Data: Steering: %f. Throttle: %f. Brake: %f. Lap Time: %f\n", current_packet_.m_steer, current_packet_.m_throttle, current_packet_.m_brake, current_packet_.m_lapTime);
-		ostream << angle << "," << current_packet_.m_steer << std::endl;
-
+		printf("Input Angle: %f\n", angle);
+		printf("Current Steering: %f\n.", current_packet_.m_steer);
+		ostream << current_packet_.m_steer << "," << angle << std::endl;
 	}
 	ostream.close();
 	//cv::waitKey(0);
