@@ -6,6 +6,22 @@ if(WITH_VJOY)
     find_package(vJoy++ REQUIRED)
     message(STATUS "vJoy++ include dir: ${vJoy++_INCLUDE_DIR}")
     message(STATUS "vJoy++ libraries: ${vJoy++_LIBRARIES}")
+	add_executable(${PROJECT_NAME}_replay_dataset
+    replay_dataset.cpp
+    )
+    target_link_libraries(${PROJECT_NAME}_replay_dataset
+        ${PROJECT_NAME}
+        ${PROJECT_NAME}_image_logging
+        ${PROJECT_NAME}_image_logging_common
+        ${PROJECT_NAME}_udp_logging
+        ${PROJECT_NAME}_udp_logging_common
+        ${Boost_LIBRARIES}
+		${screen_capture_lite_LIBRARIES}
+		${screen_capture_lite_PLATFORM_LIBS}
+        ${vJoy++_LIBRARIES}
+    )
+    target_include_directories(${PROJECT_NAME}_replay_dataset PRIVATE ${vJoy++_INCLUDE_DIR})
+
 	add_executable(${PROJECT_NAME}_generate_vjoy_calibration
     generate_vjoy_calibration.cpp
     )

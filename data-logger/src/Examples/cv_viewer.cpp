@@ -27,7 +27,7 @@ public:
   void handleData(const deepf1::TimestampedUDPData& data) override
   {
     deepf1::UDPPacket packet = data.data;
-    printf("Got some data. Steering: %f. Throttle: %f. Brake: %f. Lap Time: %f\n", packet.m_steer, packet.m_throttle, packet.m_brake, packet.m_lapTime);
+    printf("Got some data. Steering: %f. Throttle: %f. Brake: %f. Global Time: %f. Lap Time: %f. FIA Flags: %f. Is spectating: %d\n", packet.m_steer, packet.m_throttle, packet.m_brake, packet.m_time, packet.m_lapTime, packet.m_vehicleFIAFlags, packet.m_is_spectating);
   }
   void init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin) override
   {
@@ -84,7 +84,7 @@ int main(int argc, char** argv)
   {
     search = std::string(argv[1]);
   }
-  double capture_frequency = 10.0;
+  double capture_frequency = 60.0;
   if (argc > 2)
   {
     capture_frequency = atof(argv[2]);
