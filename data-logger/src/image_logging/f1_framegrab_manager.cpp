@@ -25,7 +25,7 @@ scl::Window findWindow(const std::string& search_string)
   {
     scl::Window a = windows[i];
     std::string name = a.Name;
-	std::cout << name << std::endl;
+	//std::cout << name << std::endl;
 	std::transform(name.begin(), name.end(), name.begin(), ::tolower);
     if (name.find(srchterm) != std::string::npos)
     {

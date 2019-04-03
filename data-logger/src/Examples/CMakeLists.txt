@@ -15,6 +15,7 @@ if(WITH_VJOY)
         ${PROJECT_NAME}_image_logging_common
         ${PROJECT_NAME}_udp_logging
         ${PROJECT_NAME}_udp_logging_common
+		${PROJECT_NAME}_post_processing
         ${Boost_LIBRARIES}
 		${screen_capture_lite_LIBRARIES}
 		${screen_capture_lite_PLATFORM_LIBS}
@@ -92,7 +93,12 @@ set(install_targets
 #executables.
 ${PROJECT_NAME}_multithreaded_capture_example
 ${PROJECT_NAME}_cv_viewer_example
+${PROJECT_NAME}_replay_dataset
 )
+if(WITH_VJOY)
+list(APPEND install_targets ${PROJECT_NAME}_test_vjoy_calibration)
+list(APPEND install_targets ${PROJECT_NAME}_generate_vjoy_calibration)
+endif()
 install(TARGETS ${install_targets}
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
