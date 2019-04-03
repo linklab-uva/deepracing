@@ -11,6 +11,7 @@
 #include <sstream>
 #include <thread>
 #include <chrono>
+#include <fstream>
 #include <vJoy++/vjoy.h>
 
 class VJoyCalibration_DataGrabHandler : public deepf1::IF1DatagrabHandler
@@ -67,15 +68,20 @@ private:
 };
 int main(int argc, char** argv)
 {
-	std::string search = "CMake";
+	std::string search = "2017";
+	std::string outfile = "out.csv";
 	if (argc > 1)
 	{
 		search = std::string(argv[1]);
 	}
-	double sleeptime = 0.2;
+	double sleeptime = 0.5;
 	if (argc > 2)
 	{
 		sleeptime = atof(argv[2]);
+	}
+	if (argc > 3)
+	{
+		outfile = std::string(argv[3]);
 	}
 	unsigned long milliseconds = (unsigned long)std::round(sleeptime*1000.0);
 	std::shared_ptr<VJoyCalibration_FrameGrabHandler> image_handler(new VJoyCalibration_FrameGrabHandler());
@@ -85,21 +91,26 @@ int main(int argc, char** argv)
 	std::unique_ptr<vjoy_plusplus::vJoy> vjoy(new vjoy_plusplus::vJoy(1));
 	vjoy_plusplus::JoystickPosition iReport;
 	iReport.lButtons = 0x00000000;
-	unsigned int min = 0, max = 32750;
+	unsigned int min = vjoy_plusplus::vJoy::minAxisvalue(), max = vjoy_plusplus::vJoy::maxAxisvalue();
 	unsigned int middle = (min + max) / 2;
 	iReport.wAxisY = 0;
 	iReport.wAxisZ = 0;
 	iReport.wAxisZRot = 0;
 	vjoy->update(iReport);
 	std::this_thread::sleep_for(std::chrono::seconds(3));
-	for(unsigned int angle = 0; angle <=max; angle+=50)
+	std::ofstream ostream(outfile);
+	for(unsigned long angle = 0; angle <=max; angle+=25)
 	{
 		iReport.wAxisY = angle;
 		vjoy->update(iReport);
 		std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
 		deepf1::UDPPacket current_packet_ = udp_handler->getCurrentPacket();
+		printf("Current vJoy value: %ld\n", angle);
 		printf("Current Data: Steering: %f. Throttle: %f. Brake: %f. Lap Time: %f\n", current_packet_.m_steer, current_packet_.m_throttle, current_packet_.m_brake, current_packet_.m_lapTime);
+		ostream << angle << "," << current_packet_.m_steer << std::endl;
+
 	}
+	ostream.close();
 	//cv::waitKey(0);
 
 }

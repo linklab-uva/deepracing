@@ -7,6 +7,9 @@ data = np.loadtxt("out.csv", delimiter=',')
 
 x = data[:,0]
 y = data[:,1]
+saturated = data[y<=-1.0]
+minx = min(saturated[:,0].tolist())
+print(minx)
 
 fig = plt.figure()
 
