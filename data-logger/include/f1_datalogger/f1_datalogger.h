@@ -20,6 +20,12 @@ public:
 
   void start(double capture_frequency = 15.0);
 
+
+  void stopUDP()
+  {
+	  data_grab_manager_->stop();
+  }
+
   const std::chrono::high_resolution_clock::time_point getStart() const;
 private:
   std::shared_ptr<F1FrameGrabManager> frame_grab_manager_;

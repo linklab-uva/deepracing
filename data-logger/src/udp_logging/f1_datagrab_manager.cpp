@@ -38,7 +38,7 @@ void F1DataGrabManager::run_()
 
     boost::system::error_code error;
     socket_.receive_from(boost::asio::buffer(boost::asio::buffer(rcv_buffer_.get(), packet_size)), remote_endpoint_, 0, error);
-    if (data_handler_->isReady())
+    if (!(!data_handler_) && data_handler_->isReady())
     {
       TimestampedUDPData data;
       data.data = *rcv_buffer_;
@@ -54,6 +54,8 @@ void F1DataGrabManager::start()
 }
 void F1DataGrabManager::stop()
 {
-  running_ = false;
+	running_ = false;
+	data_handler_.reset();
+	socket_.close();
 }
 } /* namespace deepf1 */
