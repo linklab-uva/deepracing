@@ -137,9 +137,10 @@ int main(int argc, char** argv)
 	unsigned int min = vjoy_plusplus::vJoy::minAxisvalue(), max = vjoy_plusplus::vJoy::maxAxisvalue();
 	unsigned int middle = (unsigned int)std::round(0.5*(double)(min + max));
 	js.lButtons = 0x00000000;
-	js.wAxisY = middle;
-	js.wAxisZ = 0;
-	js.wAxisZRot = 0;
+	js.wAxisX = 0;
+	js.wAxisY = 0;
+	js.wAxisXRot = 0;
+	js.wAxisYRot = 0;
 	vjoy.update(js);
 	std::vector<deepf1::protobuf::TimestampedUDPData> data = deepf1::post_processing::PostProcessingUtils::parseUDPDirectory(*dir);
 	std::vector<deepf1::protobuf::TimestampedUDPData> sorted_data;
@@ -228,9 +229,23 @@ int main(int argc, char** argv)
 		//{
 		//	break;
 		//}
-		js.wAxisY = (unsigned int)std::round(-16383.813867 * steering[idx] + 16383.630437);
-		js.wAxisZ = (unsigned int)std::round(max_vjoythrottle*throttle[idx]);
-		js.wAxisZRot = (unsigned int)std::round(max_vjoybrake*brake[idx]);
+		if (steering[idx] > 1E-3)
+		{
+			js.wAxisX = (unsigned int)std::round(max_vjoysteer * steering[idx]);
+			js.wAxisY = 0;
+		}
+		else if (steering[idx] < -(1E-3))
+		{
+			js.wAxisX = 0;
+			js.wAxisY = (unsigned int)std::round(max_vjoysteer * -steering[idx]);
+		}
+		else
+		{
+			js.wAxisX = 0;
+			js.wAxisY = 0;
+		}
+		js.wAxisXRot = (unsigned int)std::round(max_vjoythrottle*throttle[idx]);
+		js.wAxisYRot = (unsigned int)std::round(max_vjoybrake*brake[idx]);
 		vjoy.update(js);
 	}
 	std::cout << "Thanks for Playing!" << std::endl;
