@@ -19,6 +19,7 @@ if(WITH_VJOY)
         ${Boost_LIBRARIES}
 		${screen_capture_lite_LIBRARIES}
 		${screen_capture_lite_PLATFORM_LIBS}
+		${TBB_IMPORTED_TARGETS}
         ${vJoy++_LIBRARIES}
     )
     target_include_directories(${PROJECT_NAME}_replay_dataset PRIVATE ${vJoy++_INCLUDE_DIR})
