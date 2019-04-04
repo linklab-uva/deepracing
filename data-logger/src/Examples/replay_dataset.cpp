@@ -213,15 +213,18 @@ int main(int argc, char** argv)
 	boost::barrier bar(2);
 	std::shared_ptr<ReplayDataset_FrameGrabHandler> image_handler(new ReplayDataset_FrameGrabHandler());
 	std::shared_ptr<ReplayDataset_DataGrabHandler> udp_handler(new ReplayDataset_DataGrabHandler(boost::ref(bar)));
-	deepf1::F1DataLogger dl(*search, image_handler, udp_handler);
-	dl.start();
+	std::unique_ptr<deepf1::F1DataLogger> dl(new deepf1::F1DataLogger(*search, image_handler, udp_handler));
+	dl->start();
 	double time;
     int idx;
+	time = 0.0;
+	double maxtime = laptimes.back();
 	bar.wait();
 	//std::cout << "Got past the barrier" << std::endl;
 	std::chrono::high_resolution_clock::time_point begin = clock.now();
+	//dl.reset();
 	//Best fit line is : y = -16383.813867*x + 16383.630437
-	while (true)
+	while (time< maxtime)
 	{
 		time = 1E-6*((double)(std::chrono::duration_cast<std::chrono::microseconds>(clock.now() - begin).count()));
 		idx = (std::upper_bound(laptimes.begin(), laptimes.end(), time) - laptimes.begin());
@@ -249,6 +252,11 @@ int main(int argc, char** argv)
 		vjoy.update(js);
 	}
 	std::cout << "Thanks for Playing!" << std::endl;
+	js.wAxisX = 0;
+	js.wAxisY = 0;
+	js.wAxisXRot = 0;
+	js.wAxisYRot = 0;
+	vjoy.update(js);
 	//cv::waitKey(0);
 
 }

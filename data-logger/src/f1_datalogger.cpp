@@ -38,6 +38,8 @@ F1DataLogger::F1DataLogger(const std::string& search_string, std::shared_ptr<IF1
 F1DataLogger::~F1DataLogger()
 {
   data_grab_manager_->stop();
+  data_grab_manager_.reset();
+  frame_grab_manager_.reset();
 }
 
 void F1DataLogger::start(double capture_frequency)
