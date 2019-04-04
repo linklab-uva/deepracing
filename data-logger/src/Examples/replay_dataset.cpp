@@ -15,9 +15,12 @@
 #include <vJoy++/vjoy.h>
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
+#include <f1_datalogger/udp_logging/utils/udp_stream_utils.h>
 #include <f1_datalogger/post_processing/post_processing_utils.h>
 #include <google/protobuf/util/json_util.h>
 #include <boost/thread/barrier.hpp> 
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 void exit_with_help(po::options_description& desc)
@@ -59,10 +62,32 @@ public:
 			bar_.wait();
 			waiting_ = false;
 		}
+		else
+		{
+			deepf1::protobuf::TimestampedUDPData data_pb;
+			data_pb.mutable_udp_packet()->CopyFrom(deepf1::UDPStreamUtils::toProto(data.data));
+			data_pb.set_timestamp((google::protobuf::uint64)(std::chrono::duration_cast<std::chrono::milliseconds>(data.timestamp - begin).count()));
+			std::string json;
+			google::protobuf::util::JsonOptions opshinz;
+			opshinz.always_print_primitive_fields = true;
+			opshinz.add_whitespace = true;
+			google::protobuf::util::MessageToJsonString(data_pb, &json, opshinz);
+			std::string json_file = "packet_" + std::to_string(++idx) + ".pb.json";
+			std::string json_fn = (dir / fs::path(json_file)).string();
+			ostream->open(json_fn.c_str(), std::ofstream::out);
+			ostream->write(json.c_str(), json.length());
+			ostream->flush();
+			ostream->close();
+		}
 	}
 	void init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin) override
 	{
-		
+		dir = fs::path("playback");
+		ostream.reset(new std::ofstream);
+		if (!fs::is_directory(dir))
+		{
+			fs::create_directory(dir);
+		}
 		this->begin = begin;
 	}
 	std::chrono::high_resolution_clock::time_point getBegin()
@@ -70,9 +95,12 @@ public:
 		return begin;
 	}
 private:
+	std::unique_ptr<std::ofstream> ostream;
+	fs::path dir;
 	std::chrono::high_resolution_clock::time_point begin;
 	boost::barrier& bar_;
 	bool waiting_;
+	unsigned long idx;
 };
 class ReplayDataset_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
 {
@@ -91,17 +119,26 @@ public:
 	void handleData(const deepf1::TimestampedImageData& data) override
 	{
 
+		cv::Mat img_cv_video;
+		cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
+		//cv::imshow(window_name, img_cv_video);
+		//cv::Size s = img_cv_video.size();
+	   // std::cout<<"Image is: " << s.height<< " X " << s.width << std::endl;
+		video_writer_->write(img_cv_video);
 	}
 	void init(const std::chrono::high_resolution_clock::time_point& begin, const cv::Size& window_size) override
 	{
+		video_writer_.reset(new cv::VideoWriter("playback.avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), captureFreq, window_size));
 		this->begin = begin;
 	}
 	std::chrono::high_resolution_clock::time_point getBegin()
 	{
 		return begin;
 	}
+	const double captureFreq = 60.0;
 private:
 	std::chrono::high_resolution_clock::time_point begin;
+	std::shared_ptr<cv::VideoWriter> video_writer_;
 };
 void setControls(const std::vector<double>& laptimes, const std::vector<double>& steering,
 	const std::vector<double>& throttle, const std::vector<double>& brake, 
@@ -214,14 +251,14 @@ int main(int argc, char** argv)
 	std::shared_ptr<ReplayDataset_FrameGrabHandler> image_handler(new ReplayDataset_FrameGrabHandler());
 	std::shared_ptr<ReplayDataset_DataGrabHandler> udp_handler(new ReplayDataset_DataGrabHandler(boost::ref(bar)));
 	std::unique_ptr<deepf1::F1DataLogger> dl(new deepf1::F1DataLogger(*search, image_handler, udp_handler));
-	dl->start();
+	dl->start(image_handler->captureFreq);
 	double time;
     int idx;
 	time = 0.0;
 	double maxtime = laptimes.back();
+	std::chrono::high_resolution_clock::time_point begin;
 	bar.wait();
-	//std::cout << "Got past the barrier" << std::endl;
-	std::chrono::high_resolution_clock::time_point begin = clock.now();
+	begin = clock.now();
 	//dl.reset();
 	//Best fit line is : y = -16383.813867*x + 16383.630437
 	while (time< maxtime)
