@@ -18,9 +18,11 @@
 #include <f1_datalogger/udp_logging/utils/udp_stream_utils.h>
 #include <f1_datalogger/post_processing/post_processing_utils.h>
 #include <google/protobuf/util/json_util.h>
-#include <boost/thread/barrier.hpp> 
+#include <boost/thread.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include <tbb/concurrent_queue.h>
+#include <tbb/task_group.h>
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 void exit_with_help(po::options_description& desc)
@@ -48,22 +50,35 @@ class ReplayDataset_DataGrabHandler : public deepf1::IF1DatagrabHandler
 {
 public:
 	ReplayDataset_DataGrabHandler(boost::barrier& bar) :
-		bar_(bar), waiting_(true)
+		bar_(bar), waiting_(true), counter_(1)
 	{
+	}
+	virtual ~ReplayDataset_DataGrabHandler()
+	{
+		stop();
 	}
 	bool isReady() override
 	{
 		return true;
 	}
-	void handleData(const deepf1::TimestampedUDPData& data) override
+	void stop()
 	{
-		if (waiting_ && data.data.m_lapTime<=1E-3)
+		running_ = false;
+	}
+	void workerFunc()
+	{
+		while (running_ || !queue_->empty())
 		{
-			bar_.wait();
-			waiting_ = false;
-		}
-		else
-		{
+			if (queue_->empty())
+			{
+				continue;
+			}
+			deepf1::TimestampedUDPData data;
+			//std::lock_guard<std::mutex> lk(queue_mutex_);
+			if (!queue_->try_pop(data))
+			{
+				continue;
+			}
 			deepf1::protobuf::TimestampedUDPData data_pb;
 			data_pb.mutable_udp_packet()->CopyFrom(deepf1::UDPStreamUtils::toProto(data.data));
 			data_pb.set_timestamp((google::protobuf::uint64)(std::chrono::duration_cast<std::chrono::milliseconds>(data.timestamp - begin).count()));
@@ -72,7 +87,7 @@ public:
 			opshinz.always_print_primitive_fields = true;
 			opshinz.add_whitespace = true;
 			google::protobuf::util::MessageToJsonString(data_pb, &json, opshinz);
-			std::string json_file = "packet_" + std::to_string(++idx) + ".pb.json";
+			std::string json_file = "packet_" + std::to_string(counter_.fetch_and_increment()) + ".pb.json";
 			std::string json_fn = (dir / fs::path(json_file)).string();
 			ostream->open(json_fn.c_str(), std::ofstream::out);
 			ostream->write(json.c_str(), json.length());
@@ -80,8 +95,21 @@ public:
 			ostream->close();
 		}
 	}
+	void handleData(const deepf1::TimestampedUDPData& data) override
+	{
+		if (waiting_ && data.data.m_lapTime<=1E-3)
+		{
+			bar_.wait();
+			waiting_ = false;
+		}
+		else if (!waiting_)
+		{
+			queue_->push(data);
+		}
+	}
 	void init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin) override
 	{
+		idx = 0;
 		dir = fs::path("playback");
 		ostream.reset(new std::ofstream);
 		if (!fs::is_directory(dir))
@@ -89,23 +117,35 @@ public:
 			fs::create_directory(dir);
 		}
 		this->begin = begin;
+		running_ = true;
+		queue_.reset(new tbb::concurrent_queue<deepf1::TimestampedUDPData>);
+		thread_pool_.reset(new tbb::task_group);
+		for (unsigned int i = 1; i <= 2; i++)
+		{
+			thread_pool_->run(std::bind<void>(&ReplayDataset_DataGrabHandler::workerFunc, this));
+		}
 	}
 	std::chrono::high_resolution_clock::time_point getBegin()
 	{
 		return begin;
 	}
 private:
+	std::shared_ptr< tbb::concurrent_queue< deepf1::TimestampedUDPData> > queue_;
+	std::shared_ptr< tbb::task_group> thread_pool_;
+	bool running_;
 	std::unique_ptr<std::ofstream> ostream;
 	fs::path dir;
 	std::chrono::high_resolution_clock::time_point begin;
 	boost::barrier& bar_;
 	bool waiting_;
 	unsigned long idx;
+	tbb::atomic<unsigned long> counter_;
 };
 class ReplayDataset_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
 {
 public:
-	ReplayDataset_FrameGrabHandler()
+	ReplayDataset_FrameGrabHandler(double freq=60.0) 
+		: captureFreq(freq)
 	{
 	}
 	virtual ~ReplayDataset_FrameGrabHandler()
@@ -135,7 +175,7 @@ public:
 	{
 		return begin;
 	}
-	const double captureFreq = 60.0;
+	const double captureFreq;
 private:
 	std::chrono::high_resolution_clock::time_point begin;
 	std::shared_ptr<cv::VideoWriter> video_writer_;
@@ -288,12 +328,15 @@ int main(int argc, char** argv)
 		js.wAxisYRot = (unsigned int)std::round(max_vjoybrake*brake[idx]);
 		vjoy.update(js);
 	}
-	std::cout << "Thanks for Playing!" << std::endl;
+	std::cout << "Thanks for Playing! Enter anything to exit." << std::endl;
 	js.wAxisX = 0;
 	js.wAxisY = 0;
 	js.wAxisXRot = 0;
 	js.wAxisYRot = 0;
 	vjoy.update(js);
+	udp_handler->stop();
+	std::string s;
+	std::cin >> s;
 	//cv::waitKey(0);
 
 }

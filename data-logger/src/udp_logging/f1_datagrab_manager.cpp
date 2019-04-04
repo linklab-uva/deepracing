@@ -30,8 +30,7 @@ F1DataGrabManager::~F1DataGrabManager()
 void F1DataGrabManager::run_()
 {
   unsigned int BUFLEN = 1289;
-  unsigned int UDP_BUFLEN = BUFLEN;
-  unsigned int packet_size = UDP_BUFLEN;
+  unsigned int packet_size = BUFLEN;
   //packet_size = sizeof(UDPPacket);
   while (running_)
   {
