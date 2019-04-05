@@ -19,7 +19,6 @@ F1DataGrabManager::F1DataGrabManager(std::shared_ptr<std::chrono::high_resolutio
   socket_.open(boost::asio::ip::udp::v4());
   socket_.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(host), port));
   data_handler_ = handler;
-  rcv_buffer_.reset(new UDPPacket);
   clock_ = clock;
 }
 
@@ -29,18 +28,19 @@ F1DataGrabManager::~F1DataGrabManager()
 }
 void F1DataGrabManager::run_()
 {
-  unsigned int BUFLEN = 1289;
-  unsigned int packet_size = BUFLEN;
-  //packet_size = sizeof(UDPPacket);
+  unsigned int packet_size=1289;
+  //make space on the stack to receive packets.
+  boost::system::error_code error;
+  char rcv_buffer[packet_size];
   while (running_)
   {
-
-    boost::system::error_code error;
-    socket_.receive_from(boost::asio::buffer(boost::asio::buffer(rcv_buffer_.get(), packet_size)), remote_endpoint_, 0, error);
+    std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(rcv_buffer, packet_size), remote_endpoint_, 0, error);
+    UDPPacket* fromChar = reinterpret_cast<UDPPacket*>(rcv_buffer);
+    //std::cout<<"Got " << received_bytes << " bytes from the telemetry stream." << std::endl;
     if (!(!data_handler_) && data_handler_->isReady())
     {
       TimestampedUDPData data;
-      data.data = *rcv_buffer_;
+      data.data = *fromChar;
       data.timestamp = clock_->now();
       data_handler_->handleData(data);
 
