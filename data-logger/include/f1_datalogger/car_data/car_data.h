@@ -38,7 +38,7 @@ namespace deepf1{
 		char  m_currentLapInvalid; // current lap invalid - 0 = valid, 1 = invalid
 
 		char  m_penalties;  // NEW: accumulated time penalties in seconds to be added
-	}; typedef struct CarUDPData CarUDPData;
+	}; //typedef struct CarUDPData CarUDPData;
 	struct UDPPacket
 	{
 
@@ -232,6 +232,6 @@ namespace deepf1{
 
 		float m_ang_acc_z;                 // NEW (v1.8) angular acceleration z-component
 
-	}; typedef struct UDPPacket UDPPacket;
+	};// typedef struct UDPPacket UDPPacket;
 }
 #endif

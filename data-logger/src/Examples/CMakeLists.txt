@@ -94,11 +94,11 @@ set(install_targets
 #executables.
 ${PROJECT_NAME}_multithreaded_capture_example
 ${PROJECT_NAME}_cv_viewer_example
-${PROJECT_NAME}_replay_dataset
 )
 if(WITH_VJOY)
-list(APPEND install_targets ${PROJECT_NAME}_test_vjoy_calibration)
-list(APPEND install_targets ${PROJECT_NAME}_generate_vjoy_calibration)
+    list(APPEND install_targets ${PROJECT_NAME}_test_vjoy_calibration)
+    list(APPEND install_targets ${PROJECT_NAME}_generate_vjoy_calibration)
+    list(APPEND install_targets ${PROJECT_NAME}_replay_dataset)
 endif()
 install(TARGETS ${install_targets}
     RUNTIME DESTINATION bin
