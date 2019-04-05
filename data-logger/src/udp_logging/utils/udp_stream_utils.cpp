@@ -255,7 +255,6 @@ deepf1::protobuf::UDPData UDPStreamUtils::toProto(const deepf1::UDPPacket& fromS
 		deepf1::protobuf::CarUDPData* added = rtn.add_m_car_data();
 		const deepf1::protobuf::CarUDPData fromstream = toProto(fromStream.m_car_data[i]);
 		added->CopyFrom(fromstream);
-	//   rtn.mutable_m_car_data(i)->CopyFrom( toProto( fromStream.m_car_data[i] ) );
     }
 
     return rtn;
