@@ -35,10 +35,9 @@ void F1DataGrabManager::run_()
   while (running_)
   {
     std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(rcv_buffer, packet_size), remote_endpoint_, 0, error);
-    char convert_buffer[received_bytes];
-    memcpy(convert_buffer,rcv_buffer,received_bytes);
-    UDPPacket* fromChar = reinterpret_cast<UDPPacket*>(convert_buffer);
-    //std::cout<<"Got " << received_bytes << " bytes from the telemetry stream." << std::endl;
+    UDPPacket* fromChar = reinterpret_cast<UDPPacket*>(rcv_buffer);
+    std::cout<<"Got " << received_bytes << " bytes from the telemetry stream." << std::endl;
+    std::cout<<"The struct has size " << sizeof(*fromChar) << " ." << std::endl;
     if (!(!data_handler_) && data_handler_->isReady())
     {
       TimestampedUDPData data;
