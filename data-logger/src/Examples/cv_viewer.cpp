@@ -28,7 +28,7 @@ public:
   {
     deepf1::UDPPacket packet = data.data;
     printf("Got some data. Steering: %f. Throttle: %f. Brake: %f. Global Time: %f. Lap Time: %f. FIA Flags: %f. Is spectating: %d\n", packet.m_steer, packet.m_throttle, packet.m_brake, packet.m_time, packet.m_lapTime, packet.m_vehicleFIAFlags, packet.m_is_spectating);
-    printf("X, Y, Z: %f %f %f\n", data.data.m_car_data[1].m_worldPosition[0], data.data.m_car_data[1].m_worldPosition[1],data.data.m_car_data[1].m_worldPosition[2]);
+    printf("X, Y, Z: %f %f %f\n", data.data.m_x, data.data.m_y, data.data.m_z);
 
   }
   void init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin) override
