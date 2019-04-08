@@ -238,7 +238,7 @@ int main(int argc, char** argv)
 	}
 	std::cout << "Extracted with " << sorted_data.size() << " elements from dataset." << std::endl;
 	std::vector<double> laptimes, steering, throttle, brake;
-	double timesteps = 3.0;
+	double timesteps = 2.0;
 	for (unsigned int i = 1; i < sorted_data.size(); i++)
 	{
 		double currentTime = sorted_data.at(i - 1).udp_packet().m_laptime();
@@ -301,6 +301,7 @@ int main(int argc, char** argv)
 	begin = clock.now();
 	//dl.reset();
 	//Best fit line is : y = -16383.813867*x + 16383.630437
+	float fake_zero=1E-3;
 	while (time< maxtime)
 	{
 		time = 1E-6*((double)(std::chrono::duration_cast<std::chrono::microseconds>(clock.now() - begin).count()));
@@ -309,15 +310,17 @@ int main(int argc, char** argv)
 		//{
 		//	break;
 		//}
-		if (steering[idx] > 1E-3)
+		//vjoy = 32767.253637*f1 + 0.128575
+
+		if (steering[idx] > fake_zero )
 		{
-			js.wAxisX = (unsigned int)std::round(max_vjoysteer * steering[idx]);
+			js.wAxisX = (unsigned int)std::round(max_vjoysteer*steering[idx]);
 			js.wAxisY = 0;
 		}
-		else if (steering[idx] < -(1E-3))
+		else if (steering[idx] < -fake_zero )
 		{
 			js.wAxisX = 0;
-			js.wAxisY = (unsigned int)std::round(max_vjoysteer * -steering[idx]);
+			js.wAxisY = (unsigned int)std::round(-max_vjoysteer*steering[idx]);
 		}
 		else
 		{

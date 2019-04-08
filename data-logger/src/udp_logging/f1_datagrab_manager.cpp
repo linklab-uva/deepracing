@@ -8,6 +8,7 @@
 #include "f1_datalogger/udp_logging/f1_datagrab_manager.h"
 #include <iostream>
 #include <functional>
+
 namespace deepf1
 {
 
@@ -28,13 +29,12 @@ F1DataGrabManager::~F1DataGrabManager()
 }
 void F1DataGrabManager::run_()
 {
-  unsigned int packet_size=1289;
   //make space on the stack to receive packets.
   boost::system::error_code error;
-  char rcv_buffer[packet_size];
+  char rcv_buffer[BUFFER_SIZE];
   while (running_)
   {
-    std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(rcv_buffer, packet_size), remote_endpoint_, 0, error);
+    std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(rcv_buffer, BUFFER_SIZE), remote_endpoint_, 0, error);
     if (bool(data_handler_) && data_handler_->isReady())
     {
       TimestampedUDPData data;

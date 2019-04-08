@@ -29,22 +29,27 @@ def extractPositions(packets: list, first_zero : int =0):
     return arr, times
 def findFirstZero(packets: list):
     for idx in range(len(packets)):
-        if packets[idx].udp_packet.m_lapTime<1E-4:
+        if packets[idx].udp_packet.m_lapTime<1E-2:
             return idx
+        # else:
+        #     print(packets[idx].udp_packet.m_lapTime)
     raise AttributeError("List of packets has no laptime of zero.")
 
         
-playback_directree = '/home/ttw2xk/deepf1data/usa_gp_playback_recalibrated2_1/playback'
-recording_directree = '/home/ttw2xk/deepf1data/usa_gp_recalibrated2/udp_data'
+playback_directree = 'C:\\Users\\ttw2x\\Documents\\f1_data\\usa_gp_playback_recalibrated2\\playback'
+recording_directree = 'C:\\Users\\ttw2x\\Documents\\f1_data\\usa_gp_recalibrated2\\udp_data'
 playback_packets = sorted(getAllPacketz(playback_directree), key=sortkey)
-print(playback_packets[-1])
+#print(playback_packets[-1])
 recording_packets = sorted(getAllPacketz(recording_directree), key=sortkey)
-print(recording_packets[-1])
+#print(recording_packets[-1])
 
 
 
-first_playback_zero = findFirstZero(playback_packets)
-playback_raceline, playback_times = extractPositions(playback_packets, first_zero=first_playback_zero)
+for i in range(305):
+    print(recording_packets[i].udp_packet.m_lapTime)
+first_recording_zero = findFirstZero(recording_packets)
+print(recording_packets[first_recording_zero])
+playback_raceline, playback_times = extractPositions(playback_packets, first_zero=0)
 
 
 first_recording_zero = findFirstZero( recording_packets )
