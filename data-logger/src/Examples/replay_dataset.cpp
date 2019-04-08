@@ -49,8 +49,8 @@ bool sortByTimestamp(const deepf1::protobuf::TimestampedUDPData& a, const deepf1
 class ReplayDataset_DataGrabHandler : public deepf1::IF1DatagrabHandler
 {
 public:
-	ReplayDataset_DataGrabHandler(boost::barrier& bar) :
-		bar_(bar), waiting_(true), counter_(1)
+	ReplayDataset_DataGrabHandler(boost::barrier& bar, unsigned int num_threads) :
+		bar_(bar), waiting_(true), counter_(1), num_threads_(num_threads)
 	{
 	}
 	virtual ~ReplayDataset_DataGrabHandler()
@@ -120,7 +120,7 @@ public:
 		running_ = true;
 		queue_.reset(new tbb::concurrent_queue<deepf1::TimestampedUDPData>);
 		thread_pool_.reset(new tbb::task_group);
-		for (unsigned int i = 1; i <= 2; i++)
+		for (unsigned int i = 1; i <= num_threads_; i++)
 		{
 			thread_pool_->run(std::bind<void>(&ReplayDataset_DataGrabHandler::workerFunc, this));
 		}
@@ -139,6 +139,7 @@ private:
 	boost::barrier& bar_;
 	bool waiting_;
 	unsigned long idx;
+	unsigned int num_threads_;
 	tbb::atomic<unsigned long> counter_;
 };
 class ReplayDataset_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
@@ -190,6 +191,7 @@ int main(int argc, char** argv)
 {
 	std::unique_ptr<std::string> search(new std::string);
 	std::unique_ptr<std::string> dir(new std::string);
+	unsigned int num_threads;
 	po::options_description desc("Allowed Options");
 
 	try {
@@ -197,6 +199,7 @@ int main(int argc, char** argv)
 			("help,h", "Displays options and exits")
 			("search_string,s", po::value<std::string>(search.get())->default_value("2017"), "Search string to find the window name for F1 2017")
 			("data_dir,d", po::value<std::string>(dir.get())->required(), "Directory to look for stored UDP data")
+			("num_threads,t", po::value<unsigned int>(&num_threads)->default_value(1), "Number of threads to spawn for recording the resulting game data.")
 			;
 		po::variables_map vm;
 		po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -289,7 +292,7 @@ int main(int argc, char** argv)
 	std::chrono::high_resolution_clock clock;
 	boost::barrier bar(2);
 	std::shared_ptr<ReplayDataset_FrameGrabHandler> image_handler(new ReplayDataset_FrameGrabHandler());
-	std::shared_ptr<ReplayDataset_DataGrabHandler> udp_handler(new ReplayDataset_DataGrabHandler(boost::ref(bar)));
+	std::shared_ptr<ReplayDataset_DataGrabHandler> udp_handler(new ReplayDataset_DataGrabHandler(boost::ref(bar), num_threads));
 	std::unique_ptr<deepf1::F1DataLogger> dl(new deepf1::F1DataLogger(*search, image_handler, udp_handler));
 	dl->start(image_handler->captureFreq);
 	double time;
@@ -302,6 +305,7 @@ int main(int argc, char** argv)
 	//dl.reset();
 	//Best fit line is : y = -16383.813867*x + 16383.630437
 	float fake_zero=1E-3;
+	float positive_deadband = fake_zero, negative_deadband = -fake_zero;
 	while (time< maxtime)
 	{
 		time = 1E-6*((double)(std::chrono::duration_cast<std::chrono::microseconds>(clock.now() - begin).count()));
@@ -312,12 +316,12 @@ int main(int argc, char** argv)
 		//}
 		//vjoy = 32767.253637*f1 + 0.128575
 
-		if (steering[idx] > fake_zero )
+		if (steering[idx] > positive_deadband)
 		{
 			js.wAxisX = (unsigned int)std::round(max_vjoysteer*steering[idx]);
 			js.wAxisY = 0;
 		}
-		else if (steering[idx] < -fake_zero )
+		else if (steering[idx] < negative_deadband)
 		{
 			js.wAxisX = 0;
 			js.wAxisY = (unsigned int)std::round(-max_vjoysteer*steering[idx]);

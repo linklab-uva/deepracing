@@ -31,14 +31,12 @@ void F1DataGrabManager::run_()
 {
   //make space on the stack to receive packets.
   boost::system::error_code error;
-  char rcv_buffer[BUFFER_SIZE];
+  TimestampedUDPData data;
   while (running_)
   {
-    std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(rcv_buffer, BUFFER_SIZE), remote_endpoint_, 0, error);
+    std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(&(data.data), BUFFER_SIZE), remote_endpoint_, 0, error);
     if (bool(data_handler_) && data_handler_->isReady())
     {
-      TimestampedUDPData data;
-      data.data = *(reinterpret_cast<UDPPacket*>(rcv_buffer));
       data.timestamp = clock_->now();
       data_handler_->handleData(data);
 
