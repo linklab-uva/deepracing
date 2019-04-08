@@ -36,8 +36,8 @@ def findFirstZero(packets: list):
     raise AttributeError("List of packets has no laptime of zero.")
 
         
-playback_directree = 'C:\\Users\\ttw2x\\Documents\\f1_data\\usa_gp_playback_recalibrated2\\playback'
-recording_directree = 'C:\\Users\\ttw2x\\Documents\\f1_data\\usa_gp_recalibrated2\\udp_data'
+playback_directree = 'D:\\test_data\\grand_prix_usa\\playback'
+recording_directree = 'D:\\test_data\\grand_prix_usa\\udp_data'
 playback_packets = sorted(getAllPacketz(playback_directree), key=sortkey)
 #print(playback_packets[-1])
 recording_packets = sorted(getAllPacketz(recording_directree), key=sortkey)
