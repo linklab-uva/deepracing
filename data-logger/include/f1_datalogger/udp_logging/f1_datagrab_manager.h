@@ -25,6 +25,7 @@ public:
 
   void start();
   void stop();
+  static const int BUFFER_SIZE = 1289;	
 private:
   boost::asio::io_service io_service_;
   boost::asio::ip::udp::socket socket_;
