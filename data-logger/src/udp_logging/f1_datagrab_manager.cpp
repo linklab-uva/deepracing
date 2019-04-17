@@ -37,10 +37,10 @@ void F1DataGrabManager::run_()
     std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(&(data.data), BUFFER_SIZE), remote_endpoint_, 0, error);
     if (bool(data_handler_) && data_handler_->isReady())
     {
-      data.timestamp = clock_->now();
+	  data.timestamp = clock_->now();
       data_handler_->handleData(data);
-
     }
+	//std::this_thread::sleep_for(std::chrono::milliseconds(sleeptime));
   }
 }
 void F1DataGrabManager::start()

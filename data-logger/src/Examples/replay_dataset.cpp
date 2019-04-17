@@ -160,12 +160,12 @@ public:
 	void handleData(const deepf1::TimestampedImageData& data) override
 	{
 
-		cv::Mat img_cv_video;
-		cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
+		//cv::Mat img_cv_video;
+		//cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
 		//cv::imshow(window_name, img_cv_video);
 		//cv::Size s = img_cv_video.size();
 	   // std::cout<<"Image is: " << s.height<< " X " << s.width << std::endl;
-		video_writer_->write(img_cv_video);
+		//video_writer_->write(img_cv_video);
 	}
 	void init(const std::chrono::high_resolution_clock::time_point& begin, const cv::Size& window_size) override
 	{
@@ -240,16 +240,20 @@ int main(int argc, char** argv)
 		}
 	}
 	std::cout << "Extracted with " << sorted_data.size() << " elements from dataset." << std::endl;
-	std::vector<double> laptimes, steering, throttle, brake;
-	double timesteps = 2.0;
+	std::vector<double> steering, throttle, brake;
+	//std::vector<double> laptimes;
+	std::vector<long long> laptimes;
+	double timesteps = 3.0;
+	double t0 = sorted_data.at(0).udp_packet().m_time();
+	double resolution = 1E6;
 	for (unsigned int i = 1; i < sorted_data.size(); i++)
 	{
-		double currentTime = sorted_data.at(i - 1).udp_packet().m_laptime();
+		double currentTime = sorted_data.at(i - 1).udp_packet().m_time()- t0;
 		double currentSteer = sorted_data.at(i - 1).udp_packet().m_steer();
 		double currentThrottle = sorted_data.at(i - 1).udp_packet().m_throttle();
 		double currentBrake = sorted_data.at(i - 1).udp_packet().m_brake();
 
-		double timeUB = sorted_data.at(i).udp_packet().m_laptime();
+		double timeUB = sorted_data.at(i).udp_packet().m_time() - t0;
 		double steerUB = sorted_data.at(i).udp_packet().m_steer();
 		double throttleUB = sorted_data.at(i).udp_packet().m_throttle();
 		double brakeUB = sorted_data.at(i).udp_packet().m_brake();
@@ -265,7 +269,7 @@ int main(int argc, char** argv)
 		double steer_command;
 		double throttle_command;
 		double brake_command;
-		laptimes.push_back(currentTime);
+		laptimes.push_back((long long)std::round(currentTime*resolution));
 		steering.push_back(currentSteer);
 		throttle.push_back(currentThrottle);
 		brake.push_back(currentBrake);
@@ -281,11 +285,12 @@ int main(int argc, char** argv)
 			steer_command = currentSteer + steer_slope * dt;
 		    throttle_command = currentThrottle + throttle_slope * dt;
 			brake_command = currentBrake + brake_slope * dt;
-			laptimes.push_back(time);
+			laptimes.push_back((long long)std::round(time * resolution));
 			steering.push_back(steer_command);
 			throttle.push_back(throttle_command);
 			brake.push_back(brake_command);
 		}
+
 	}
 	double max_vjoysteer = (double)vjoy_plusplus::vJoy::maxAxisvalue(), max_vjoythrottle = (double)vjoy_plusplus::vJoy::maxAxisvalue(), max_vjoybrake = (double)vjoy_plusplus::vJoy::maxAxisvalue();
 	double middle_vjoysteer = max_vjoysteer / 2.0;
@@ -295,7 +300,7 @@ int main(int argc, char** argv)
 	std::shared_ptr<ReplayDataset_DataGrabHandler> udp_handler(new ReplayDataset_DataGrabHandler(boost::ref(bar), num_threads));
 	std::unique_ptr<deepf1::F1DataLogger> dl(new deepf1::F1DataLogger(*search, image_handler, udp_handler));
 	dl->start(image_handler->captureFreq);
-	double time;
+	unsigned int time;
     int idx;
 	time = 0.0;
 	double maxtime = laptimes.back();
@@ -304,11 +309,11 @@ int main(int argc, char** argv)
 	begin = clock.now();
 	//dl.reset();
 	//Best fit line is : y = -16383.813867*x + 16383.630437
-	float fake_zero=1E-3;
+	float fake_zero=1E-2;
 	float positive_deadband = fake_zero, negative_deadband = -fake_zero;
 	while (time< maxtime)
 	{
-		time = 1E-6*((double)(std::chrono::duration_cast<std::chrono::microseconds>(clock.now() - begin).count()));
+		time = std::chrono::duration_cast<std::chrono::microseconds>(clock.now() - begin).count();
 		idx = (std::upper_bound(laptimes.begin(), laptimes.end(), time) - laptimes.begin());
 		//if (idx >= laptimes.size() - (unsigned int)timesteps - 1)
 		//{
@@ -318,21 +323,21 @@ int main(int argc, char** argv)
 
 		if (steering[idx] > positive_deadband)
 		{
-			js.wAxisX = (unsigned int)std::round(max_vjoysteer*steering[idx]);
+			js.wAxisX = std::round(32767.253637*steering[idx] + 0.128575);
 			js.wAxisY = 0;
 		}
 		else if (steering[idx] < negative_deadband)
 		{
 			js.wAxisX = 0;
-			js.wAxisY = (unsigned int)std::round(-max_vjoysteer*steering[idx]);
+			js.wAxisY = std::round(-32767.253637*steering[idx] + 0.128575);
 		}
 		else
 		{
 			js.wAxisX = 0;
 			js.wAxisY = 0;
 		}
-		js.wAxisXRot = (unsigned int)std::round(max_vjoythrottle*throttle[idx]);
-		js.wAxisYRot = (unsigned int)std::round(max_vjoybrake*brake[idx]);
+		js.wAxisXRot = std::round(max_vjoythrottle*throttle[idx]);
+		js.wAxisYRot = std::round(max_vjoybrake*brake[idx]);
 		vjoy.update(js);
 	}
 	std::cout << "Thanks for Playing! Enter anything to exit." << std::endl;
