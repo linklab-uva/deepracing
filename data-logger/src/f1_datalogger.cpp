@@ -11,14 +11,15 @@
 namespace deepf1
 {
 
-F1DataLogger::F1DataLogger(const std::string& search_string, std::shared_ptr<IF1FrameGrabHandler> frame_grab_handler, std::shared_ptr<IF1DatagrabHandler> data_grab_handler) :
+F1DataLogger::F1DataLogger(const std::string& search_string, std::shared_ptr<IF1FrameGrabHandler> frame_grab_handler, std::shared_ptr<IF1DatagrabHandler> data_grab_handler,
+	std::string host, unsigned int port) :
     clock_(new std::chrono::high_resolution_clock())
 
 {
   begin_ = std::chrono::high_resolution_clock::time_point(clock_->now());
   std::cout<<"Creating managers"<<std::endl;
   std::cout << "Creating Data Grab Manager" << std::endl;
-  data_grab_manager_.reset(new F1DataGrabManager(clock_, data_grab_handler));
+  data_grab_manager_.reset(new F1DataGrabManager(clock_, data_grab_handler, host, port));
   std::cout << "Created Data Grab Manager" << std::endl;
   std::cout << "Creating Frame Grab Manager" << std::endl;
   frame_grab_manager_.reset(new F1FrameGrabManager(clock_, frame_grab_handler, search_string) );
@@ -31,8 +32,7 @@ F1DataLogger::F1DataLogger(const std::string& search_string, std::shared_ptr<IF1
 
   std::cout<<"Got a Window of Size (W x H): " << std::endl << size << std::endl;
   frame_grab_handler->init(begin_, size);
-  std::string host("127.0.0.1");
-  data_grab_handler->init(host, 20777, begin_);
+  data_grab_handler->init(host, port, begin_);
 
 }
 F1DataLogger::~F1DataLogger()
