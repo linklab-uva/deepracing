@@ -10,7 +10,7 @@ set(${PROJECT_NAME}_image_logging_src
 f1_framegrab_manager.cpp
 )
 add_library(${PROJECT_NAME}_image_logging ${${PROJECT_NAME}_image_logging_src})
-target_link_libraries(${PROJECT_NAME}_image_logging ${PROJECT_NAME}_image_utils)
+target_link_libraries(${PROJECT_NAME}_image_logging ${PROJECT_NAME}_image_utils ${screen_capture_lite_PLATFORM_LIBS})
 
 
 set(${PROJECT_NAME}_image_logging_common_src
