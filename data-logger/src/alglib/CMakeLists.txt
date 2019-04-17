@@ -14,7 +14,7 @@ solvers.cpp
 specialfunctions.cpp
 statistics.cpp
 )
-target_include_directories(${PROJECT_NAME}_alglib PRIVATE ${_alglib_dir}/..)
+target_include_directories(${PROJECT_NAME}_alglib PRIVATE ${CMAKE_SOURCE_DIR}/include/f1_datalogger)
 
 set(install_targets
 #libraries.

@@ -18,13 +18,16 @@ def getAllPacketz(directree : str):
         google.protobuf.json_format.Parse(jsonstring,data)
         rtn.append(data)
     return rtn
-def extractPositions(packets: list, first_zero : int =0):
-    arr = np.zeros((len(packets)-first_zero,3))
+def extractDataz(packets: list, first_zero : int =0):
+    arr = np.zeros((len(packets)-first_zero,6))
     times = np.zeros(len(packets)-first_zero)
     for idx in range(first_zero,len(packets)):
         arr[idx-first_zero][0]=packets[idx].udp_packet.m_x
         arr[idx-first_zero][1]=packets[idx].udp_packet.m_y
         arr[idx-first_zero][2]=packets[idx].udp_packet.m_z
+        arr[idx-first_zero][3]=packets[idx].udp_packet.m_steer
+        arr[idx-first_zero][4]=packets[idx].udp_packet.m_throttle
+        arr[idx-first_zero][5]=packets[idx].udp_packet.m_brake
         times[idx-first_zero]=packets[idx].udp_packet.m_lapTime
     return arr, times
 def findFirstZero(packets: list):
@@ -49,11 +52,11 @@ for i in range(305):
     print(recording_packets[i].udp_packet.m_lapTime)
 first_recording_zero = findFirstZero(recording_packets)
 print(recording_packets[first_recording_zero])
-playback_raceline, playback_times = extractPositions(playback_packets, first_zero=0)
+playback_raceline, playback_times = extractDataz(playback_packets, first_zero=0)
 
 
 first_recording_zero = findFirstZero( recording_packets )
-recording_raceline, recording_times = extractPositions( recording_packets, first_zero=first_recording_zero )
+recording_raceline, recording_times = extractDataz( recording_packets, first_zero=first_recording_zero )
 cutofftime = np.max( recording_times )
 I = playback_times<cutofftime
 playback_raceline=playback_raceline[ I ]
@@ -64,42 +67,44 @@ print("Got %d points out of %d samples from recording" % (recording_times.shape[
 x_interpolants = np.interp( playback_times, recording_times, recording_raceline[:,0] )
 y_interpolants = np.interp( playback_times, recording_times, recording_raceline[:,1] )
 z_interpolants = np.interp( playback_times, recording_times, recording_raceline[:,2] )
-recording_interpolants = np.stack( (x_interpolants,y_interpolants,z_interpolants), axis=1 )
+steer_interpolants = np.interp( playback_times, recording_times, recording_raceline[:,3] )
+throttle_interpolants = np.interp( playback_times, recording_times, recording_raceline[:,4] )
+brake_interpolants = np.interp( playback_times, recording_times, recording_raceline[:,5] )
+recording_interpolants = np.stack( (x_interpolants,y_interpolants,z_interpolants, steer_interpolants, throttle_interpolants, brake_interpolants), axis=1 )
 
-fig = plt.figure()
+playback_steering = playback_raceline[:,3]
+recording_steering = recording_raceline[:,3]
+fig = plt.figure("Steering")
+plt.plot(playback_times, playback_steering, label='Playback')
+plt.plot(recording_times, recording_steering, label='Recording')
+fig.legend()
 
-ax = fig.add_subplot(111, projection='3d')
-ax.scatter(recording_interpolants[:,0], recording_interpolants[:,1], recording_interpolants[:,2], 'r')
-plt.title('Recording Raceline')
-plt.savefig('recording_raceline.png')
+playback_throttle = playback_raceline[:,4]
+recording_throttle = recording_raceline[:,4]
+fig = plt.figure("Throttle")
+plt.plot(playback_times, playback_throttle, label='Playback')
+plt.plot(recording_times, recording_throttle, label='Recording')
+fig.legend()
 
-fig2 = plt.figure()
-ax2 = fig2.add_subplot(111, projection='3d')
-ax2.scatter(playback_raceline[:,0], playback_raceline[:,1], playback_raceline[:,2], 'b')
-plt.title('Playback Raceline')
-plt.savefig('playback_raceline.png')
 
-ax.set_xlabel('X')
-ax.set_ylabel('Y')
-ax.set_zlabel('Z')
-ax2.set_xlabel('X')
-ax2.set_ylabel('Y')
-ax2.set_zlabel('Z')
 
-diffs = playback_raceline-recording_interpolants
-squared_diffs = np.square(diffs)
-squared_norms = np.sum(squared_diffs,axis=1)
-distances = np.sqrt(squared_norms)
+playback_brake = playback_raceline[:,5]
+recording_brake = recording_raceline[:,5]
+fig = plt.figure("Brake")
+plt.plot(playback_times, playback_brake, label='Playback')
+plt.plot(recording_times, recording_brake, label='Recording')
+fig.legend()
 
-fig3 = plt.figure()
-plt.plot(playback_times, distances, 'b')
-plt.title('Distance between recording and playback vs Time')
-plt.xlabel("time (seconds)")
-plt.ylabel("distance (meters???? I think?)")
-plt.savefig('distances.png')
-print("Mean Distance: %f" % (np.mean(distances)) )
-#plt.axis([0, 6, 0, 20])
+
+
+
+diffs = playback_steering - steer_interpolants
+absdiffs = np.abs(diffs)
+fig = plt.figure("Diffs")
+plt.plot(playback_times, diffs)
 plt.show()
+
+
 
 
 # with open(filename, 'r') as file:

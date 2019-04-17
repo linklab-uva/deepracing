@@ -2,7 +2,7 @@
 #include <boost/filesystem.hpp>
 #include <iostream>
 #include <google/protobuf/util/json_util.h>
-#include <alglib/interpolation.h>
+#include "f1_datalogger/alglib/interpolation.h"
 #include <sstream>
 namespace fs = boost::filesystem;
 namespace deepf1

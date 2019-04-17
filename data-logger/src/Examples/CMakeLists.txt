@@ -11,6 +11,7 @@ if(WITH_VJOY)
     )
     target_link_libraries(${PROJECT_NAME}_replay_dataset
         ${PROJECT_NAME}
+        ${PROJECT_NAME}_alglib
         ${PROJECT_NAME}_image_logging
         ${PROJECT_NAME}_image_logging_common
         ${PROJECT_NAME}_udp_logging
