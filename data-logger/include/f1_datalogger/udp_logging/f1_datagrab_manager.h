@@ -25,7 +25,7 @@ public:
 
   void start();
   void stop();
-  static const int BUFFER_SIZE = sizeof(deepf1::UDPPacket);	
+  static const unsigned int BUFFER_SIZE = sizeof(deepf1::UDPPacket);	
 private:
   boost::asio::io_service io_service_;
   boost::asio::ip::udp::socket socket_;
@@ -33,6 +33,7 @@ private:
   std::thread run_thread_;
   std::shared_ptr<IF1DatagrabHandler> data_handler_;
   bool running_;
+  static const unsigned int sleeptime = 2;
 
 
   std::shared_ptr<std::chrono::high_resolution_clock> clock_;
