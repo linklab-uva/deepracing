@@ -42,7 +42,7 @@ else()
     set(Boost_USE_STATIC_LIBS ON)
 endif()
 find_package( Boost REQUIRED COMPONENTS date_time filesystem program_options regex thread)
-message(STATUS "Found Boost libraries: ${Boost_LIBRARIES}")
+message(STATUS "Found Boost libraries: ${Boost_LIBRARIES} in directory: ${Boost_LIBRARY_DIRS}")
 
 
 
