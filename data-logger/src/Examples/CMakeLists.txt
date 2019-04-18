@@ -6,8 +6,13 @@ if(WITH_VJOY)
     find_package(vJoy++ REQUIRED)
     message(STATUS "vJoy++ include dir: ${vJoy++_INCLUDE_DIR}")
     message(STATUS "vJoy++ libraries: ${vJoy++_LIBRARIES}")
+
+
+	set(${PROJECT_NAME}_generate_vjoy_calibration_srcfile generate_vjoy_calibration.cpp)
+	set(${PROJECT_NAME}_test_vjoy_calibration_srcfile test_vjoy_calibration.cpp)
+	set(${PROJECT_NAME}_replay_dataset_srcfile replay_dataset.cpp)
 	add_executable(${PROJECT_NAME}_replay_dataset
-    replay_dataset.cpp
+     ${${PROJECT_NAME}_replay_dataset_srcfile}
     )
     target_link_libraries(${PROJECT_NAME}_replay_dataset
         ${PROJECT_NAME}
@@ -26,7 +31,7 @@ if(WITH_VJOY)
     target_include_directories(${PROJECT_NAME}_replay_dataset PRIVATE ${vJoy++_INCLUDE_DIR})
 
 	add_executable(${PROJECT_NAME}_generate_vjoy_calibration
-    generate_vjoy_calibration.cpp
+    ${${PROJECT_NAME}_generate_vjoy_calibration_srcfile}
     )
     target_link_libraries(${PROJECT_NAME}_generate_vjoy_calibration
         ${PROJECT_NAME}
@@ -42,7 +47,7 @@ if(WITH_VJOY)
     target_include_directories(${PROJECT_NAME}_generate_vjoy_calibration PRIVATE ${vJoy++_INCLUDE_DIR})
 
     add_executable(${PROJECT_NAME}_test_vjoy_calibration
-    test_vjoy_calibration.cpp
+    ${${PROJECT_NAME}_test_vjoy_calibration_srcfile}
     )
     target_link_libraries(${PROJECT_NAME}_test_vjoy_calibration
         ${PROJECT_NAME}
@@ -56,6 +61,8 @@ if(WITH_VJOY)
         ${vJoy++_LIBRARIES}
     )
     target_include_directories(${PROJECT_NAME}_test_vjoy_calibration PRIVATE ${vJoy++_INCLUDE_DIR})
+	set_target_properties(${PROJECT_NAME}_test_vjoy_calibration ${PROJECT_NAME}_generate_vjoy_calibration ${PROJECT_NAME}_replay_dataset
+                      PROPERTIES FOLDER vjoy)
 endif()
 
 add_executable(${PROJECT_NAME}_cv_viewer_example
@@ -91,6 +98,10 @@ ${TBB_IMPORTED_TARGETS}
 ${YAML_CPP_LIBRARIES}
 )
 
+
+set_target_properties(${PROJECT_NAME}_cv_viewer_example ${PROJECT_NAME}_multithreaded_capture_example
+                    PROPERTIES FOLDER examples)
+
 set(install_targets
 #executables.
 ${PROJECT_NAME}_multithreaded_capture_example
@@ -107,3 +118,4 @@ install(TARGETS ${install_targets}
     ARCHIVE DESTINATION lib
 )
 unset(install_targets)
+
