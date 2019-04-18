@@ -2,9 +2,11 @@ project(f1_datalogger)
 cmake_minimum_required (VERSION 3.10 FATAL_ERROR)
 
 if(MSVC)
+    set_property(GLOBAL PROPERTY USE_FOLDERS ON)
     option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
     set(cxx_standard 11)
 else()
+    set_property(GLOBAL PROPERTY USE_FOLDERS OFF)
     option(BUILD_SHARED_LIBS "Build Shared Libraries" ON)
     set(cxx_standard 14)
 endif()
@@ -79,6 +81,8 @@ include_directories( include )
 include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${YAML_CPP_INCLUDE_DIR})
 
 add_subdirectory( proto/${PROJECT_NAME}/proto )
+set_target_properties(${PROJECT_NAME}_proto
+                    PROPERTIES FOLDER proto)
 
 include_directories(${CMAKE_BINARY_DIR}/proto)
 include_directories(${Protobuf_INCLUDE_DIR})
@@ -89,10 +93,16 @@ include_directories(${ProtobufIncludePath})
 add_subdirectory( src/alglib )
 message(STATUS "ALGLIB_DIR: ${ALGLIB_DIR}")
 add_subdirectory( src/post_processing )
+set_target_properties(${PROJECT_NAME}_alglib ${PROJECT_NAME}_post_processing ${PROJECT_NAME}_assign_labels
+                    PROPERTIES FOLDER utils)
 
 if(BUILD_DATALOGGER)
     add_subdirectory( src/image_logging )
     add_subdirectory( src/udp_logging )
+	set_target_properties(${PROJECT_NAME}_udp_utils ${PROJECT_NAME}_simulated_telemetry_server ${PROJECT_NAME}_image_utils
+						PROPERTIES FOLDER utils)
+	set_target_properties(screen_capture_example
+						PROPERTIES FOLDER utils)
     add_library(${PROJECT_NAME}
     src/f1_datalogger.cpp
     )
@@ -105,6 +115,13 @@ if(BUILD_DATALOGGER)
     ${Boost_LIBRARIES}
     )
     add_subdirectory( src/Examples )
+
+	
+	set_target_properties(${PROJECT_NAME} ${PROJECT_NAME}_udp_logging ${PROJECT_NAME}_image_logging  screen_capture_lite
+						PROPERTIES FOLDER core)
+	set_target_properties(${PROJECT_NAME}_udp_logging_common ${PROJECT_NAME}_image_logging_common
+						PROPERTIES FOLDER common)
+
     set(install_targets ${PROJECT_NAME} )
     install(TARGETS ${install_targets}
         RUNTIME DESTINATION bin

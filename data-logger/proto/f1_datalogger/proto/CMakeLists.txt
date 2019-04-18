@@ -16,38 +16,11 @@ target_include_directories(${PROJECT_NAME}_proto PRIVATE ${ProtobufIncludePath} 
 target_link_libraries(${PROJECT_NAME}_proto ${Protobuf_LIBRARIES})
 
 
-#add_custom_target(protocopy)
-#  #   COMMAND ${CMAKE_COMMAND} -E copy ${${PROJECT_NAME}_PROTO_HEADER} ${ProtobufIncludePath}/${PROJECT_NAME}/proto/
-# #)
-# add_dependencies(protocopy ${PROJECT_NAME}_proto)
-# foreach(protoheader ${${PROJECT_NAME}_PROTO_HEADER})
-#     message(STATUS ${protoheader})
-#     get_filename_component(protoheader_name ${protoheader} NAME)
-#     add_custom_command(TARGET protocopy PRE_BUILD
-#         COMMAND ${CMAKE_COMMAND} -E copy
-#         ${protoheader}
-#         ${ProtobufIncludePath}/${PROJECT_NAME}/proto/
-#         BYPRODUCTS ${ProtobufIncludePath}/${PROJECT_NAME}/proto/${protoheader_name}       
-#     )
-#     install(FILES ${protoheader} DESTINATION include/${PROJECT_NAME}/proto)
-# endforeach(protoheader)
-
-
-add_executable(${PROJECT_NAME}_read_image_tag read_image_tag.cpp)
-target_include_directories(${PROJECT_NAME}_read_image_tag PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
-target_link_libraries(${PROJECT_NAME}_read_image_tag ${PROJECT_NAME}_proto ${Boost_LIBRARIES})
-
-add_executable(${PROJECT_NAME}_read_udp_tag read_udp_tag.cpp)
-target_include_directories(${PROJECT_NAME}_read_udp_tag PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
-target_link_libraries(${PROJECT_NAME}_read_udp_tag ${PROJECT_NAME}_proto ${Boost_LIBRARIES})
 
 
 set(install_targets
 #libraries
 ${PROJECT_NAME}_proto 
-#executables
-${PROJECT_NAME}_read_image_tag 
-${PROJECT_NAME}_read_udp_tag 
 )
 install(TARGETS ${install_targets}
     RUNTIME DESTINATION bin
