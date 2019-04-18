@@ -182,12 +182,7 @@ private:
 	std::chrono::high_resolution_clock::time_point begin;
 	std::shared_ptr<cv::VideoWriter> video_writer_;
 };
-void setControls(const std::vector<double>& laptimes, const std::vector<double>& steering,
-	const std::vector<double>& throttle, const std::vector<double>& brake, 
-	const double& time, const double& max_vjoy, vjoy_plusplus::JoystickPosition& js)
-{
-	
-}
+
 int main(int argc, char** argv)
 {
 	std::unique_ptr<std::string> search(new std::string);
@@ -267,18 +262,18 @@ int main(int argc, char** argv)
 	brake_al.attach_to_ptr(brake.size(), &brake[0]);
 
 	alglib::spline1dinterpolant steering_interpolant,throttle_interpolant,brake_interpolant;
-	alglib::spline1dbuildcubic(laptimes_al, steering_al, steering_interpolant);
-	alglib::spline1dbuildcubic(laptimes_al, throttle_al, throttle_interpolant);
-	alglib::spline1dbuildcubic(laptimes_al, brake_al, brake_interpolant);
+	alglib::spline1dbuildlinear(laptimes_al, steering_al, steering_interpolant);
+	alglib::spline1dbuildlinear(laptimes_al, throttle_al, throttle_interpolant);
+	alglib::spline1dbuildlinear(laptimes_al, brake_al, brake_interpolant);
 
 	double max_vjoysteer = (double)vjoy_plusplus::vJoy::maxAxisvalue(), max_vjoythrottle = (double)vjoy_plusplus::vJoy::maxAxisvalue(), max_vjoybrake = (double)vjoy_plusplus::vJoy::maxAxisvalue();
 	double middle_vjoysteer = max_vjoysteer / 2.0;
 	std::chrono::high_resolution_clock clock;
 	boost::barrier bar(2);
-	std::shared_ptr<ReplayDataset_FrameGrabHandler> image_handler(new ReplayDataset_FrameGrabHandler());
+	std::shared_ptr<deepf1::IF1FrameGrabHandler> image_handler;//(new ReplayDataset_FrameGrabHandler());
 	std::shared_ptr<ReplayDataset_DataGrabHandler> udp_handler(new ReplayDataset_DataGrabHandler(boost::ref(bar), num_threads));
 	std::unique_ptr<deepf1::F1DataLogger> dl(new deepf1::F1DataLogger(*search, image_handler, udp_handler));
-	dl->start(image_handler->captureFreq);
+	dl->start();
 	double maxtime = laptimes.back();
 	std::chrono::high_resolution_clock::time_point begin;
 	bar.wait();
@@ -290,13 +285,22 @@ int main(int argc, char** argv)
 	float positive_deadband = fake_zero, negative_deadband = -fake_zero;
 	double currentSteering, currentThrottle, currentBrake;
 	double t = 0.0;
+	double maxtmicroseconds = (maxt*1E6);
 	std::chrono::milliseconds sleeptime = std::chrono::milliseconds(10);
+	unsigned int idx;
 	while (t < 1.0)
 	{
-		t = (1E-3*(double)(std::chrono::duration_cast<std::chrono::milliseconds>(clock.now() - begin).count()))/maxt;
+		t = ((double)(std::chrono::duration_cast<std::chrono::microseconds>(clock.now() - begin).count())) / maxtmicroseconds;
 		currentSteering = alglib::spline1dcalc(steering_interpolant, t);
 		currentThrottle = alglib::spline1dcalc(throttle_interpolant, t);
 		currentBrake = alglib::spline1dcalc(brake_interpolant, t);
+
+		//idx = (unsigned int)(std::lower_bound(laptimes.begin(), laptimes.end(), t)- laptimes.begin());
+		//currentSteering = steering[idx];
+		//currentThrottle = throttle[idx];
+		//currentBrake = brake[idx];
+
+
 		if (currentSteering > positive_deadband)
 		{
 			js.wAxisX = std::round(max_vjoysteer*currentSteering);
@@ -322,8 +326,7 @@ int main(int argc, char** argv)
 	js.wAxisY = 0;
 	js.wAxisXRot = 0;
 	js.wAxisYRot = 0;
-	vjoy.update(js);
-	udp_handler->stop();
+	dl.reset();
 	std::string s;
 	std::cin >> s;
 	cv::waitKey(0);
