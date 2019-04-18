@@ -270,9 +270,8 @@ int main(int argc, char** argv)
 	double middle_vjoysteer = max_vjoysteer / 2.0;
 	std::chrono::high_resolution_clock clock;
 	boost::barrier bar(2);
-	std::shared_ptr<deepf1::IF1FrameGrabHandler> image_handler;//(new ReplayDataset_FrameGrabHandler());
 	std::shared_ptr<ReplayDataset_DataGrabHandler> udp_handler(new ReplayDataset_DataGrabHandler(boost::ref(bar), num_threads));
-	std::unique_ptr<deepf1::F1DataLogger> dl(new deepf1::F1DataLogger(*search, image_handler, udp_handler));
+	std::unique_ptr<deepf1::F1DataLogger> dl(new deepf1::F1DataLogger(*search, std::shared_ptr<deepf1::IF1FrameGrabHandler>(), udp_handler));
 	dl->start();
 	double maxtime = laptimes.back();
 	std::chrono::high_resolution_clock::time_point begin;
@@ -285,20 +284,14 @@ int main(int argc, char** argv)
 	float positive_deadband = fake_zero, negative_deadband = -fake_zero;
 	double currentSteering, currentThrottle, currentBrake;
 	double t = 0.0;
-	double maxtmicroseconds = (maxt*1E6);
 	std::chrono::milliseconds sleeptime = std::chrono::milliseconds(10);
 	unsigned int idx;
 	while (t < 1.0)
 	{
-		t = ((double)(std::chrono::duration_cast<std::chrono::microseconds>(clock.now() - begin).count())) / maxtmicroseconds;
+		t = ((double)(std::chrono::duration_cast<std::chrono::microseconds>(clock.now() - begin).count())) / (1E6*maxt);
 		currentSteering = alglib::spline1dcalc(steering_interpolant, t);
 		currentThrottle = alglib::spline1dcalc(throttle_interpolant, t);
 		currentBrake = alglib::spline1dcalc(brake_interpolant, t);
-
-		//idx = (unsigned int)(std::lower_bound(laptimes.begin(), laptimes.end(), t)- laptimes.begin());
-		//currentSteering = steering[idx];
-		//currentThrottle = throttle[idx];
-		//currentBrake = brake[idx];
 
 
 		if (currentSteering > positive_deadband)
