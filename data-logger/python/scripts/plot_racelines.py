@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy.linalg as la
+import cv2
 def sortkey(packet):
     return packet.udp_packet.m_time
 def getAllPacketz(directree : str):
@@ -38,14 +39,17 @@ def findFirstZero(packets: list):
         #     print(packets[idx].udp_packet.m_lapTime)
     raise AttributeError("List of packets has no laptime of zero.")
 
-        
+image_directree = 'D:\\test_data\\grand_prix_usa\\images'
 playback_directree = 'D:\\test_data\\grand_prix_usa\\playback'
 recording_directree = 'D:\\test_data\\grand_prix_usa\\udp_data'
+image = cv2.imread(os.path.join(image_directree,'image_4955.jpg'))
+cv2.imshow("image",image)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
 playback_packets = sorted(getAllPacketz(playback_directree), key=sortkey)
 #print(playback_packets[-1])
 recording_packets = sorted(getAllPacketz(recording_directree), key=sortkey)
 #print(recording_packets[-1])
-
 
 
 for i in range(305):

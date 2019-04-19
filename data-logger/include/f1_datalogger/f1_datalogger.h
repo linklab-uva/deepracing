@@ -19,13 +19,12 @@ public:
 	  std::string host="127.0.0.1", unsigned int port= 20777);
   virtual ~F1DataLogger();
 
+  static void countdown(unsigned int seconds, std::string txt="");
+
   void start(double capture_frequency = 60.0);
 
 
-  void stopUDP()
-  {
-	  data_grab_manager_->stop();
-  }
+  void stop();
 
   const std::chrono::high_resolution_clock::time_point getStart() const;
 private:

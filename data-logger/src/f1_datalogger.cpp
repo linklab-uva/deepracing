@@ -49,14 +49,32 @@ F1DataLogger::F1DataLogger(const std::string& search_string, std::shared_ptr<IF1
 }
 F1DataLogger::~F1DataLogger()
 {
-	if (!(!data_grab_manager_))
-	{
-		data_grab_manager_->stop();
-	}
+	stop();
 	data_grab_manager_.reset();
 	frame_grab_manager_.reset();
 }
 
+void F1DataLogger::countdown(unsigned int seconds, std::string txt)
+{
+	std::cout << txt << std::endl;
+	for (int i = seconds; i > 0; i--)
+	{
+		std::cout << i << std::endl;
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+	}
+}
+
+void F1DataLogger::stop()
+{
+	if (!(!frame_grab_manager_))
+	{
+		frame_grab_manager_->stop();
+	}
+	if (!(!data_grab_manager_))
+	{
+		data_grab_manager_->stop();
+	}
+}
 void F1DataLogger::start(double capture_frequency)
 {
 	if (!(!frame_grab_manager_))
