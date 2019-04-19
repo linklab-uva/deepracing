@@ -15,6 +15,10 @@ public:
     explicit VjoyCalibrationWindow(QWidget *parent = nullptr);
     ~VjoyCalibrationWindow();
 
+private slots:
+
+    void on_openFile_clicked();
+
 private:
     Ui::VjoyCalibrationWindow *ui;
 };

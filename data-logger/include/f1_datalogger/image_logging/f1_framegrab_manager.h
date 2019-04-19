@@ -20,6 +20,7 @@ public:
                      std::shared_ptr<IF1FrameGrabHandler> capture_handler,
                      const std::string& search_string = "F12017");
   virtual ~F1FrameGrabManager();
+  void stop();
   void start(double capture_frequency);
 
   const scl::Window& getWindow() const

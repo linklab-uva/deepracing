@@ -45,7 +45,7 @@ scl::Window findWindow(const std::string& search_string)
   scl::Window selected_window;
   try
   {
-    selected_index = atoi( (const char*) input.c_str() ); // @suppress("Invalid arguments") not sure why this is happening...
+    selected_index = std::atoi( (const char*) input.c_str() );
     selected_window = filtereditems.at(selected_index);
   }
   catch (std::out_of_range &oor)
@@ -79,6 +79,7 @@ F1FrameGrabManager::F1FrameGrabManager(std::shared_ptr<std::chrono::high_resolut
 }
 F1FrameGrabManager::~F1FrameGrabManager()
 {
+	stop();
 }
 
 std::vector<scl::Window> F1FrameGrabManager::get_windows_()
@@ -94,6 +95,12 @@ void F1FrameGrabManager::onNewFrame_(const scl::Image &img, const scl::Window &m
     timestamped_image.timestamp = clock_->now();
     capture_handler_->handleData(timestamped_image);
   }
+}
+
+void F1FrameGrabManager::stop()
+{
+	capture_manager_.reset();
+	capture_config_.reset();
 }
 void F1FrameGrabManager::start(double capture_frequency)
 {
