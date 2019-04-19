@@ -98,10 +98,32 @@ fig.legend()
 
 
 
-diffs = playback_steering - steer_interpolants
-absdiffs = np.abs(diffs)
-fig = plt.figure("Diffs")
-plt.plot(playback_times, diffs)
+steering_diffs = playback_steering - steer_interpolants
+abs_steering_diffs = np.abs(steering_diffs)
+fig = plt.figure("Steering Diffs")
+plt.plot(playback_times, steering_diffs)
+
+throttle_diffs = playback_throttle - throttle_interpolants
+abs_throttle_diffs = np.abs(throttle_diffs)
+fig = plt.figure("Throttle Diffs")
+plt.plot(playback_times, throttle_diffs)
+
+brake_diffs = playback_brake - brake_interpolants
+abs_brake_diffs = np.abs(brake_diffs)
+fig = plt.figure("Brake Diffs")
+plt.plot(playback_times, brake_diffs)
+
+
+rmssteer = np.sqrt(np.mean(np.square(steering_diffs)))
+rmsbrake = np.sqrt(np.mean(np.square(brake_diffs)))
+rmsthrottle = np.sqrt(np.mean(np.square(throttle_diffs)))
+print( "RMS steering: %f" % (rmssteer) )
+print( "RMS brake: %f" % (rmsbrake) )
+print( "RMS throttle: %f" % (rmsthrottle) )
+
+print( "Max steering error: %f" % (np.max(np.abs(steering_diffs))) )
+print( "Max brake error: %f" % (np.max(np.abs(brake_diffs)))  )
+print( "Max throttle error: %f" % (np.max(np.abs(throttle_diffs)))  )
 plt.show()
 
 

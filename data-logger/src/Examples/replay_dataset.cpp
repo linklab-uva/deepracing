@@ -262,9 +262,9 @@ int main(int argc, char** argv)
 	brake_al.attach_to_ptr(brake.size(), &brake[0]);
 
 	alglib::spline1dinterpolant steering_interpolant,throttle_interpolant,brake_interpolant;
-	alglib::spline1dbuildlinear(laptimes_al, steering_al, steering_interpolant);
-	alglib::spline1dbuildlinear(laptimes_al, throttle_al, throttle_interpolant);
-	alglib::spline1dbuildlinear(laptimes_al, brake_al, brake_interpolant);
+	alglib::spline1dbuildcubic(laptimes_al, steering_al, steering_interpolant);
+	alglib::spline1dbuildcubic(laptimes_al, throttle_al, throttle_interpolant);
+	alglib::spline1dbuildcubic(laptimes_al, brake_al, brake_interpolant);
 
 	double max_vjoysteer = (double)vjoy_plusplus::vJoy::maxAxisvalue(), max_vjoythrottle = (double)vjoy_plusplus::vJoy::maxAxisvalue(), max_vjoybrake = (double)vjoy_plusplus::vJoy::maxAxisvalue();
 	double middle_vjoysteer = max_vjoysteer / 2.0;

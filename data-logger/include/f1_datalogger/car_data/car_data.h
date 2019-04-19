@@ -50,8 +50,7 @@ namespace deepf1{
 		char  m_currentLapInvalid; // current lap invalid - 0 = valid, 1 = invalid
 
 		char  m_penalties;  // NEW: accumulated time penalties in seconds to be added
-	})
-	; //typedef struct CarUDPData CarUDPData;
+	}); 
 
 	PACK(
 	struct UDPPacket

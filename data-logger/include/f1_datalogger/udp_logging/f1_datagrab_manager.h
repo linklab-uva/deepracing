@@ -33,7 +33,6 @@ private:
   std::thread run_thread_;
   std::shared_ptr<IF1DatagrabHandler> data_handler_;
   bool running_;
-  static const unsigned int sleeptime = 2;
 
 
   std::shared_ptr<std::chrono::high_resolution_clock> clock_;

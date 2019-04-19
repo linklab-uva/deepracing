@@ -27,13 +27,13 @@ public:
   void handleData(const deepf1::TimestampedUDPData& data) override
   {
     deepf1::UDPPacket packet = data.data;
-	t2 = packet.m_lapTime;
+	/*t2 = packet.m_lapTime;
 	float deltat = t2 - t1;
 	printf("t1, t2, dt: %f %f %f\n", t1, t2, deltat);
-	t1 = t2;
+	t1 = t2;*/
 
   //  printf("Got some data. Steering: %f. Throttle: %f. Brake: %f. Global Time: %f. Lap Time: %f. FIA Flags: %f. Is spectating: %d\n", packet.m_steer, packet.m_throttle, packet.m_brake, packet.m_time, packet.m_lapTime, packet.m_vehicleFIAFlags, packet.m_is_spectating);
-  //  printf("X, Y, Z: %f %f %f\n", data.data.m_x, data.data.m_y, data.data.m_z);
+    printf("Car is at position %f, %f, %f\n", data.data.m_x, data.data.m_y, data.data.m_z);
 
   }
   void init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin) override
@@ -51,7 +51,7 @@ public:
   OpenCV_Viewer_Example_FrameGrabHandler() :
       window_name("cv_example")
   {
-    
+	  
   }
   virtual ~OpenCV_Viewer_Example_FrameGrabHandler()
   {
@@ -79,9 +79,10 @@ public:
   void init(const std::chrono::high_resolution_clock::time_point& begin, const cv::Size& window_size) override
   {
 	cv::namedWindow(window_name);
-    video_writer_.reset(new cv::VideoWriter("out.avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), 50.0, window_size));
+    video_writer_.reset(new cv::VideoWriter("out.avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), captureFreq, window_size));
     this->begin = begin;
   }
+  static constexpr float captureFreq = 30.0;
 private:
   std::shared_ptr<cv::VideoWriter> video_writer_;
   std::chrono::high_resolution_clock::time_point begin;
@@ -94,15 +95,11 @@ int main(int argc, char** argv)
   {
     search = std::string(argv[1]);
   }
-  double capture_frequency = 60.0;
-  if (argc > 2)
-  {
-    capture_frequency = atof(argv[2]);
-  }
   std::shared_ptr<OpenCV_Viewer_Example_FrameGrabHandler> image_handler(new OpenCV_Viewer_Example_FrameGrabHandler());
   std::shared_ptr<OpenCV_Viewer_Example_DataGrabHandler> udp_handler(new OpenCV_Viewer_Example_DataGrabHandler());
+
   deepf1::F1DataLogger dl(search, image_handler, udp_handler);
-  dl.start(capture_frequency);
+  dl.start(OpenCV_Viewer_Example_FrameGrabHandler::captureFreq);
 
   cv::waitKey(0);
 
