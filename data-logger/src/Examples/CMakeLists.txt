@@ -61,7 +61,29 @@ if(WITH_VJOY)
         ${vJoy++_LIBRARIES}
     )
     target_include_directories(${PROJECT_NAME}_test_vjoy_calibration PRIVATE ${vJoy++_INCLUDE_DIR})
-	set_target_properties(${PROJECT_NAME}_test_vjoy_calibration ${PROJECT_NAME}_generate_vjoy_calibration ${PROJECT_NAME}_replay_dataset
+
+	
+	add_executable(${PROJECT_NAME}_generate_sine_waves
+      generate_sine_waves.cpp
+    )
+    target_link_libraries(${PROJECT_NAME}_generate_sine_waves
+        ${PROJECT_NAME}
+        ${PROJECT_NAME}_alglib
+        ${PROJECT_NAME}_image_logging
+        ${PROJECT_NAME}_image_logging_common
+        ${PROJECT_NAME}_udp_logging
+        ${PROJECT_NAME}_udp_logging_common
+		${PROJECT_NAME}_post_processing
+        ${Boost_LIBRARIES}
+		${screen_capture_lite_LIBRARIES}
+		${screen_capture_lite_PLATFORM_LIBS}
+		${TBB_IMPORTED_TARGETS}
+        ${vJoy++_LIBRARIES}
+		${YAML_CPP_LIBRARIES}
+    )
+    target_include_directories(${PROJECT_NAME}_generate_sine_waves PRIVATE ${vJoy++_INCLUDE_DIR})
+
+	set_target_properties(${PROJECT_NAME}_test_vjoy_calibration ${PROJECT_NAME}_generate_vjoy_calibration ${PROJECT_NAME}_replay_dataset ${PROJECT_NAME}_generate_sine_waves
                       PROPERTIES FOLDER vjoy)
 endif()
 
@@ -111,6 +133,7 @@ if(WITH_VJOY)
     list(APPEND install_targets ${PROJECT_NAME}_test_vjoy_calibration)
     list(APPEND install_targets ${PROJECT_NAME}_generate_vjoy_calibration)
     list(APPEND install_targets ${PROJECT_NAME}_replay_dataset)
+	list(APPEND install_targets ${PROJECT_NAME}_generate_sine_waves)
 endif()
 install(TARGETS ${install_targets}
     RUNTIME DESTINATION bin
