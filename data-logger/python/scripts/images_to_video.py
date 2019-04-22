@@ -19,7 +19,7 @@ def make_video(images, outimg=None, fps=2, size=None, is_color=True, format="MJP
             if size is None:
                 size = img.shape[1], img.shape[0]
             vid = cv2.VideoWriter(outvid, fourcc, float(fps), size, is_color)
-        cv2.putText(img,basename, tuple(np.round(np.array(((size[0]/2 - 15*len(basename),size[1]/2)))).astype(np.int32)), cv2.FONT_HERSHEY_SIMPLEX, 2, (255,0,0))
+        #cv2.putText(img,basename, tuple(np.round(np.array(((size[0]/2 - 15*len(basename),size[1]/2)))).astype(np.int32)), cv2.FONT_HERSHEY_SIMPLEX, 2, (255,0,0))
         vid.write(img)
     vid.release()
     return vid
