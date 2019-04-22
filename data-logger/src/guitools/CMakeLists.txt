@@ -13,7 +13,11 @@ set(vjoycalibration_SRCS
     vjoycalibration/vjoycalibrationwindow.cpp
     vjoycalibration/main.cpp
 )
-# Tell CMake to create the helloworld executable
-add_executable(vjoycalibrationgui WIN32 ${vjoycalibration_SRCS})
+# Tell CMake to create the vjoycalibrationgui executable
+if(WIN32)
+    add_executable(vjoycalibrationgui WIN32 ${vjoycalibration_SRCS})
+else()
+    add_executable(vjoycalibrationgui ${vjoycalibration_SRCS})
+endif()
 # Use the Widgets module from Qt 5
 target_link_libraries(vjoycalibrationgui Qt5::Widgets)
