@@ -2,6 +2,7 @@
 #define VJOYCALIBRATIONWINDOW_H
 
 #include <QMainWindow>
+#include <QGraphicsScene>
 
 namespace Ui {
 class VjoyCalibrationWindow;
@@ -21,6 +22,7 @@ private slots:
 
 private:
     Ui::VjoyCalibrationWindow *ui;
+    QGraphicsScene* scene;
 };
 
 #endif // VJOYCALIBRATIONWINDOW_H
