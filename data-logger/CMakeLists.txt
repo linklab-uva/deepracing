@@ -135,6 +135,16 @@ if(BUILD_DATALOGGER)
     unset(install_targets)
 endif()
 
+
+# Find the QtWidgets library
+find_package(Qt5Widgets)
+find_package(Qt5Core)
+find_package(Qt5Gui)
+if(${Qt5Widgets_FOUND} AND ${Qt5Core_FOUND} AND ${Qt5Gui_FOUND})
+    add_subdirectory(src/guitools)
+endif()
+
+
 install(DIRECTORY proto/
 DESTINATION share/${PROJECT_NAME}/proto
 FILES_MATCHING PATTERN "*.proto"
