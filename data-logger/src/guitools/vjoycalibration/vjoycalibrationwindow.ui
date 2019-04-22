@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>814</width>
-    <height>644</height>
+    <width>1239</width>
+    <height>930</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,8 +17,8 @@
    <widget class="QPushButton" name="openFile">
     <property name="geometry">
      <rect>
-      <x>300</x>
-      <y>170</y>
+      <x>30</x>
+      <y>20</y>
       <width>261</width>
       <height>171</height>
      </rect>
@@ -27,14 +27,40 @@
      <string>Open A File</string>
     </property>
    </widget>
+   <widget class="QLabel" name="label">
+    <property name="geometry">
+     <rect>
+      <x>480</x>
+      <y>40</y>
+      <width>171</width>
+      <height>121</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>This Is an Image</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QGraphicsView" name="graphicsView">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>220</y>
+      <width>1201</width>
+      <height>661</height>
+     </rect>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>814</width>
-     <height>21</height>
+     <width>1239</width>
+     <height>23</height>
     </rect>
    </property>
   </widget>
