@@ -1,6 +1,6 @@
 #-------------------------------------------------
 #
-# Project created by QtCreator 2019-04-19T09:48:50
+# Project created by QtCreator 2019-04-24T12:02:22
 #
 #-------------------------------------------------
 
@@ -8,7 +8,7 @@ QT       += core gui
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
-TARGET = vjoycalibration
+TARGET = datacatpure
 TEMPLATE = app
 
 # The following define makes your compiler emit warnings if you use
@@ -26,13 +26,13 @@ CONFIG += c++11
 
 SOURCES += \
         main.cpp \
-        vjoycalibrationwindow.cpp
+        datacapture.cpp
 
 HEADERS += \
-        vjoycalibrationwindow.h
+        datacapture.h
 
 FORMS += \
-        vjoycalibrationwindow.ui
+        datacapture.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

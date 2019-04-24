@@ -1,10 +1,10 @@
-#include "vjoycalibrationwindow.h"
+#include "datacapture.h"
 #include <QApplication>
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
-    VjoyCalibrationWindow w;
+    datacapture w;
     w.show();
 
     return a.exec();
