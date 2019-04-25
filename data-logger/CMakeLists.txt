@@ -49,6 +49,11 @@ message(STATUS "Found Boost libraries: ${Boost_LIBRARIES} in directory: ${Boost_
 
 
 find_package( OpenCV REQUIRED )
+find_package(Qt5Widgets CONFIG)
+find_package(Qt5Core CONFIG)
+find_package(Qt5Gui CONFIG)
+set(_gotqt ${Qt5Widgets_FOUND} AND ${Qt5Core_FOUND} AND ${Qt5Gui_FOUND})
+
 
 if(MSVC)
 find_package(yaml-cpp REQUIRED HINTS "C:\\Program\ Files\\YAML_CPP")
@@ -137,10 +142,7 @@ endif()
 
 
 # Find the QtWidgets library
-find_package(Qt5Widgets)
-find_package(Qt5Core)
-find_package(Qt5Gui)
-if(${Qt5Widgets_FOUND} AND ${Qt5Core_FOUND} AND ${Qt5Gui_FOUND})
+if(${_gotqt})
     add_subdirectory(src/guitools)
 endif()
 
