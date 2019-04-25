@@ -102,7 +102,6 @@ ${Boost_LIBRARIES}
 ${TBB_IMPORTED_TARGETS}
 )
 
-
 add_executable(${PROJECT_NAME}_multithreaded_capture_example
 multi_threaded_capture.cpp
 )
