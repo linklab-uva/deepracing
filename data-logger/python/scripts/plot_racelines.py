@@ -39,10 +39,10 @@ def findFirstZero(packets: list):
         #     print(packets[idx].udp_packet.m_lapTime)
     raise AttributeError("List of packets has no laptime of zero.")
 
-image_directree = 'D:\\test_data\\grand_prix_usa\\images'
-playback_directree = 'D:\\test_data\\grand_prix_usa\\playback'
-recording_directree = 'D:\\test_data\\grand_prix_usa\\udp_data'
-image = cv2.imread(os.path.join(image_directree,'image_4955.jpg'))
+image_directree = 'D:\\test_data\\usa_gp_short\\capture_images'
+playback_directree = 'D:\\test_data\\usa_gp_short\\playback_udp'
+recording_directree = 'D:\\test_data\\usa_gp_short\\capture_udp'
+image = cv2.imread(os.path.join(image_directree,'image_500.jpg'))
 cv2.imshow("image",image)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
@@ -68,9 +68,12 @@ playback_times=playback_times[ I ]
 print("Got %d points out of %d samples from playback" % (playback_times.shape[0],len(playback_packets)))
 print("Got %d points out of %d samples from recording" % (recording_times.shape[0],len(recording_packets)))
 
-x_interpolants = np.interp( playback_times, recording_times, recording_raceline[:,0] )
-y_interpolants = np.interp( playback_times, recording_times, recording_raceline[:,1] )
-z_interpolants = np.interp( playback_times, recording_times, recording_raceline[:,2] )
+recording_racelinex = recording_raceline[:,0]
+recording_raceliney = recording_raceline[:,1]
+recording_racelinez = recording_raceline[:,2]
+x_interpolants = np.interp( playback_times, recording_times, recording_racelinex )
+y_interpolants = np.interp( playback_times, recording_times, recording_raceliney )
+z_interpolants = np.interp( playback_times, recording_times, recording_racelinez )
 steer_interpolants = np.interp( playback_times, recording_times, recording_raceline[:,3] )
 throttle_interpolants = np.interp( playback_times, recording_times, recording_raceline[:,4] )
 brake_interpolants = np.interp( playback_times, recording_times, recording_raceline[:,5] )
@@ -128,6 +131,19 @@ print( "RMS throttle: %f" % (rmsthrottle) )
 print( "Max steering error: %f" % (np.max(np.abs(steering_diffs))) )
 print( "Max brake error: %f" % (np.max(np.abs(brake_diffs)))  )
 print( "Max throttle error: %f" % (np.max(np.abs(throttle_diffs)))  )
+
+racelinediffs = np.stack((recording_racelinex,recording_raceliney,recording_racelinez),axis=1) - np.stack((x_interpolants,y_interpolants,z_interpolants),axis=1)
+racenorms = np.linalg.norm(racelinediffs,axis=1)
+rmsraceline = np.mean(racenorms)
+print( "RMS raceline: %f" % (rmsthrottle) )
+fig = plt.figure("Raceline Diffs")
+plt.plot(playback_times, racenorms)
+
+
+fig = plt.figure("racelines")
+ax = fig.add_subplot(111, projection='3d')
+ax.scatter(recording_racelinex,recording_raceliney,recording_racelinez)
+ax.scatter(x_interpolants,y_interpolants,z_interpolants)
 plt.show()
 
 

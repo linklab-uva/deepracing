@@ -24,6 +24,7 @@
 #include <tbb/concurrent_queue.h>
 #include <tbb/task_group.h>
 #include "f1_datalogger/alglib/interpolation.h"
+#include "f1_datalogger/image_logging/common/multi_threaded_framegrab_handler.h"
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 void exit_with_help(po::options_description& desc)
@@ -111,7 +112,7 @@ public:
 	void init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin) override
 	{
 		idx = 0;
-		dir = fs::path("playback");
+		dir = fs::path("playback_udp");
 		ostream.reset(new std::ofstream);
 		if (!fs::is_directory(dir))
 		{
@@ -143,46 +144,6 @@ private:
 	unsigned int num_threads_;
 	tbb::atomic<unsigned long> counter_;
 };
-class ReplayDataset_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
-{
-public:
-	ReplayDataset_FrameGrabHandler(double freq=60.0) 
-		: captureFreq(freq)
-	{
-	}
-	virtual ~ReplayDataset_FrameGrabHandler()
-	{
-		
-	}
-	bool isReady() override
-	{
-		return true;
-	}
-	void handleData(const deepf1::TimestampedImageData& data) override
-	{
-
-		//cv::Mat img_cv_video;
-		//cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
-		//cv::imshow(window_name, img_cv_video);
-		//cv::Size s = img_cv_video.size();
-	   // std::cout<<"Image is: " << s.height<< " X " << s.width << std::endl;
-		//video_writer_->write(img_cv_video);
-	}
-	void init(const std::chrono::high_resolution_clock::time_point& begin, const cv::Size& window_size) override
-	{
-		video_writer_.reset(new cv::VideoWriter("playback.avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), captureFreq, window_size));
-		this->begin = begin;
-	}
-	std::chrono::high_resolution_clock::time_point getBegin()
-	{
-		return begin;
-	}
-	const double captureFreq;
-private:
-	std::chrono::high_resolution_clock::time_point begin;
-	std::shared_ptr<cv::VideoWriter> video_writer_;
-};
-
 int main(int argc, char** argv)
 {
 	std::unique_ptr<std::string> search(new std::string);
@@ -247,7 +208,7 @@ int main(int argc, char** argv)
 		double currentSteer = sorted_data.at(i).udp_packet().m_steer();
 		double currentThrottle = sorted_data.at(i).udp_packet().m_throttle();
 		double currentBrake = sorted_data.at(i).udp_packet().m_brake();
-		laptimes.push_back(currentTime/maxt);
+		laptimes.push_back(currentTime);
 		steering.push_back(currentSteer);
 		throttle.push_back(currentThrottle);
 		brake.push_back(currentBrake);
@@ -271,7 +232,8 @@ int main(int argc, char** argv)
 	std::chrono::high_resolution_clock clock;
 	boost::barrier bar(2);
 	std::shared_ptr<ReplayDataset_DataGrabHandler> udp_handler(new ReplayDataset_DataGrabHandler(boost::ref(bar), num_threads));
-	std::unique_ptr<deepf1::F1DataLogger> dl(new deepf1::F1DataLogger(*search, std::shared_ptr<deepf1::IF1FrameGrabHandler>(), udp_handler));
+	std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler("playback_images", 3, true));
+	std::unique_ptr<deepf1::F1DataLogger> dl(new deepf1::F1DataLogger(*search, frame_handler, udp_handler));
 	dl->start();
 	double maxtime = laptimes.back();
 	std::chrono::high_resolution_clock::time_point begin;
@@ -286,9 +248,9 @@ int main(int argc, char** argv)
 	double t = 0.0;
 	std::chrono::milliseconds sleeptime = std::chrono::milliseconds(10);
 	unsigned int idx;
-	while (t < 1.0)
+	while (t < maxt)
 	{
-		t = ((double)(std::chrono::duration_cast<std::chrono::microseconds>(clock.now() - begin).count())) / (1E6*maxt);
+		t = ((double)(std::chrono::duration_cast<std::chrono::microseconds>(clock.now() - begin).count())) / (1E6);
 		currentSteering = alglib::spline1dcalc(steering_interpolant, t);
 		currentThrottle = alglib::spline1dcalc(throttle_interpolant, t);
 		currentBrake = alglib::spline1dcalc(brake_interpolant, t);
@@ -319,10 +281,9 @@ int main(int argc, char** argv)
 	js.wAxisY = 0;
 	js.wAxisXRot = 0;
 	js.wAxisYRot = 0;
-	dl.reset();
 	std::string s;
 	std::cin >> s;
-	cv::waitKey(0);
+	dl.reset();
 
 }
 
