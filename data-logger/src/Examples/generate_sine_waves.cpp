@@ -18,7 +18,7 @@
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <yaml-cpp/yaml.h>
-#include <boost/math/constants/constants.hpp>
+#include <boost/math/special_functions.hpp>
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 void exit_with_help(po::options_description& desc)
@@ -144,7 +144,8 @@ int main(int argc, char** argv)
 	while (t < 1.5*maxt)
 	{
 		t = 1E-6*((double)(std::chrono::duration_cast<std::chrono::microseconds>(clock.now() - begin).count()));
-		currentSteering = std::sin(t*twopi*sine_frequency);
+
+		currentSteering = boost::math::sin_pi(2 * sine_frequency * t);
 		if (currentSteering > positive_deadband)
 		{
 			joystick_value.wAxisX = std::round(max_vjoysteer*currentSteering);
