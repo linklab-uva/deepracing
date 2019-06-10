@@ -1,5 +1,6 @@
 project(f1_datalogger)
 cmake_minimum_required (VERSION 3.10 FATAL_ERROR)
+option(WITH_VJOY "Compile vJoy bindings. ONLY SUPPORTED ON WINDOWS" OFF)
 
 if(MSVC)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -19,7 +20,7 @@ set(CMAKE_CXX_STANDARD ${cxx_standard})
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 set(THIRD_PARTY_REPOS ${CMAKE_SOURCE_DIR}/third_party)
-option(CMAKE_BUILD_TYPE "Build Type" Release)
+option(CMAKE_BUILD_TYPE "Release")
 
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
@@ -144,6 +145,9 @@ endif()
 # Find the QtWidgets library
 if(${_gotqt})
     add_subdirectory(src/guitools)
+endif()
+if(WITH_VJOY)
+	add_subdirectory(src/controllers)
 endif()
 
 

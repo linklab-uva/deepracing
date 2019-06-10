@@ -1,4 +1,3 @@
-option(WITH_VJOY "Compile vJoy bindings. ONLY SUPPORTED ON WINDOWS" OFF)
 if(WITH_VJOY)
     if(NOT MSVC)
         message(FATAL_ERROR "vJoy bindings only work on windows.")
