@@ -14,6 +14,7 @@
 #include "f1_datalogger/udp_logging/common/measurement_handler.h"
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
+#include <f1_datalogger/controllers/pure_pursuit_controller.h>
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 void exit_with_help(po::options_description& desc)
@@ -53,5 +54,7 @@ int main(int argc, char** argv)
 
 	deepf1::F1DataLogger dl(search_string, image_handler, udp_handler);
 	dl.start();
+	deepf1::PurePursuitController control(udp_handler,1.0);
+	control.run();
 }
 
