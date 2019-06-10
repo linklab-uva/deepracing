@@ -2,11 +2,12 @@
 
 
 
-PurePursuitController::PurePursuitController()
+deepf1::PurePursuitController::PurePursuitController(std::shared_ptr<MeasurementHandler> measurement_handler, double Kv)
 {
+	measurement_handler_ = measurement_handler;
 }
 
 
-PurePursuitController::~PurePursuitController()
+deepf1::PurePursuitController::~PurePursuitController()
 {
 }

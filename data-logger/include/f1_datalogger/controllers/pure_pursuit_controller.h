@@ -1,7 +1,12 @@
-
-class PurePursuitController
+#include "f1_datalogger/udp_logging/common/measurement_handler.h"
+namespace deepf1
 {
-public:
-	PurePursuitController();
-	~PurePursuitController();
-};
+	class PurePursuitController
+	{
+	public:
+		PurePursuitController(std::shared_ptr<MeasurementHandler> measurement_handler, double Kv=1.0);
+		~PurePursuitController();
+	private:
+		std::shared_ptr<MeasurementHandler> measurement_handler_;
+	};
+}
