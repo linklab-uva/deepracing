@@ -84,6 +84,29 @@ if(WITH_VJOY)
 
 	set_target_properties(${PROJECT_NAME}_test_vjoy_calibration ${PROJECT_NAME}_generate_vjoy_calibration ${PROJECT_NAME}_replay_dataset ${PROJECT_NAME}_generate_sine_waves
                       PROPERTIES FOLDER vjoy)
+
+	add_executable(${PROJECT_NAME}_pure_pursuit_control
+      pure_pursuit_control.cpp
+    )
+    target_link_libraries(${PROJECT_NAME}_pure_pursuit_control
+        ${PROJECT_NAME}
+        ${PROJECT_NAME}_alglib
+        ${PROJECT_NAME}_image_logging
+        ${PROJECT_NAME}_image_logging_common
+        ${PROJECT_NAME}_udp_logging
+        ${PROJECT_NAME}_udp_logging_common
+		${PROJECT_NAME}_post_processing
+        ${Boost_LIBRARIES}
+		${screen_capture_lite_LIBRARIES}
+		${screen_capture_lite_PLATFORM_LIBS}
+		${TBB_IMPORTED_TARGETS}
+        ${vJoy++_LIBRARIES}
+		${YAML_CPP_LIBRARIES}
+    )
+    target_include_directories(${PROJECT_NAME}_pure_pursuit_control PRIVATE ${vJoy++_INCLUDE_DIR})
+	set_target_properties(${PROJECT_NAME}_pure_pursuit_control PROPERTIES FOLDER vjoy)
+
+
 endif()
 
 add_executable(${PROJECT_NAME}_cv_viewer_example
