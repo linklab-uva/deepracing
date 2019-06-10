@@ -91,11 +91,12 @@ if(WITH_VJOY)
     target_link_libraries(${PROJECT_NAME}_pure_pursuit_control
         ${PROJECT_NAME}
         ${PROJECT_NAME}_alglib
+		${PROJECT_NAME}_controllers
         ${PROJECT_NAME}_image_logging
         ${PROJECT_NAME}_image_logging_common
+		${PROJECT_NAME}_post_processing
         ${PROJECT_NAME}_udp_logging
         ${PROJECT_NAME}_udp_logging_common
-		${PROJECT_NAME}_post_processing
         ${Boost_LIBRARIES}
 		${screen_capture_lite_LIBRARIES}
 		${screen_capture_lite_PLATFORM_LIBS}
@@ -151,6 +152,7 @@ ${PROJECT_NAME}_multithreaded_capture_example
 ${PROJECT_NAME}_cv_viewer_example
 )
 if(WITH_VJOY)
+    list(APPEND install_targets ${PROJECT_NAME}_pure_pursuit_control)
     list(APPEND install_targets ${PROJECT_NAME}_test_vjoy_calibration)
     list(APPEND install_targets ${PROJECT_NAME}_generate_vjoy_calibration)
     list(APPEND install_targets ${PROJECT_NAME}_replay_dataset)

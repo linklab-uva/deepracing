@@ -1,10 +1,7 @@
 #include "f1_datalogger/udp_logging/common/measurement_handler.h"
 deepf1::MeasurementHandler::MeasurementHandler()
 {
-		
 }
-
-
 deepf1::MeasurementHandler::~MeasurementHandler()
 {
 }
