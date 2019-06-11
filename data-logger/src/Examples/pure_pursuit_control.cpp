@@ -26,7 +26,7 @@ void exit_with_help(po::options_description& desc)
 }
 int main(int argc, char** argv)
 {
-	std::string search_string;
+	std::string search_string, trackfile;
 	double lookahead_gain, throttle;
 
 
@@ -35,6 +35,7 @@ int main(int argc, char** argv)
 		desc.add_options()
 			("help,h", "Displays options and exits")
 			("search_string,s", po::value<std::string>(&search_string)->required(), "Search string for application to capture")
+			("trackfile,f", po::value<std::string>(&trackfile)->required(), "Trackfile to read the raceline from.")
 			("lookahead_gain,g", po::value<double>(&lookahead_gain)->required(), "Linear Lookahead gain for the pure pursuit controller")
 			("throttle,t", po::value<double>(&throttle)->default_value(0.2), "Fixed throttle value to use.")
 			;
@@ -56,7 +57,7 @@ int main(int argc, char** argv)
 	deepf1::F1DataLogger dl(search_string, image_handler, udp_handler);
 	dl.start();
 	deepf1::PurePursuitController control(udp_handler,lookahead_gain,3.7,1.0,throttle);
-	deepf1::F1DataLogger::countdown(5, "Running pure pursuit in ");
-	control.run();
+	deepf1::F1DataLogger::countdown(3, "Running pure pursuit in ");
+	control.run(trackfile);
 }
 
