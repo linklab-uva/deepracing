@@ -27,7 +27,7 @@ void exit_with_help(po::options_description& desc)
 int main(int argc, char** argv)
 {
 	std::string search_string;
-	double lookahead_gain;
+	double lookahead_gain, throttle;
 
 
 	po::options_description desc("F1 Datalogger Multithreaded Capture. Command line arguments are as follows");
@@ -36,6 +36,7 @@ int main(int argc, char** argv)
 			("help,h", "Displays options and exits")
 			("search_string,s", po::value<std::string>(&search_string)->required(), "Search string for application to capture")
 			("lookahead_gain,g", po::value<double>(&lookahead_gain)->required(), "Linear Lookahead gain for the pure pursuit controller")
+			("throttle,t", po::value<double>(&throttle)->default_value(0.2), "Fixed throttle value to use.")
 			;
 		po::variables_map vm;
 		po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -54,7 +55,8 @@ int main(int argc, char** argv)
 
 	deepf1::F1DataLogger dl(search_string, image_handler, udp_handler);
 	dl.start();
-	deepf1::PurePursuitController control(udp_handler,1.0);
+	deepf1::PurePursuitController control(udp_handler,lookahead_gain,3.7,1.0,throttle);
+	deepf1::F1DataLogger::countdown(5, "Running pure pursuit in ");
 	control.run();
 }
 

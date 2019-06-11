@@ -2,6 +2,13 @@ project(f1_datalogger)
 cmake_minimum_required (VERSION 3.10 FATAL_ERROR)
 option(WITH_VJOY "Compile vJoy bindings. ONLY SUPPORTED ON WINDOWS" OFF)
 
+if(WITH_VJOY)
+    if(NOT MSVC)
+        message(FATAL_ERROR "vJoy bindings only work on windows.")
+    endif()
+    find_package(vJoy++ REQUIRED)
+endif()
+
 if(MSVC)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
     option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)

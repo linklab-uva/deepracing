@@ -1,8 +1,4 @@
 if(WITH_VJOY)
-    if(NOT MSVC)
-        message(FATAL_ERROR "vJoy bindings only work on windows.")
-    endif()
-    find_package(vJoy++ REQUIRED)
     message(STATUS "vJoy++ include dir: ${vJoy++_INCLUDE_DIR}")
     message(STATUS "vJoy++ libraries: ${vJoy++_LIBRARIES}")
 
