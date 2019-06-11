@@ -1,6 +1,5 @@
 
 find_package(Eigen3 REQUIRED)
-find_package(nanoflann REQUIRED)
 
 set(controllers_SRCS
     pure_pursuit_controller.cpp
@@ -19,7 +18,7 @@ ${screen_capture_lite_PLATFORM_LIBS}
 ${vJoy++_LIBRARIES}
 Eigen3::Eigen
 )
-target_include_directories(${PROJECT_NAME}_controllers PRIVATE ${vJoy++_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR} ${nanoflann_INCLUDE_DIR})
+target_include_directories(${PROJECT_NAME}_controllers PRIVATE ${vJoy++_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR})
 set_target_properties(${PROJECT_NAME}_controllers
                       PROPERTIES FOLDER vjoy)
 set(install_targets
