@@ -89,7 +89,7 @@ void deepf1::PurePursuitController::run(const std::string& trackfile)
 	{
 		data = measurement_handler_->getData();
 		speed = data.data.m_speed;
-		lookahead_dist = std::max(Kv_ * speed,0.1);
+		lookahead_dist = Kv_ * (speed*10/36);
 		Eigen::Vector3d forward(data.data.m_xd, data.data.m_yd, data.data.m_zd);
 		Eigen::Vector3d right(data.data.m_xr, data.data.m_yr, data.data.m_zr);
 		Eigen::Vector3d up = right.cross(forward);
@@ -97,7 +97,7 @@ void deepf1::PurePursuitController::run(const std::string& trackfile)
 	//	std::printf("Forward Direction: %f %f %f\n", forward.x(), forward.y(), forward.z());
 	//	std::printf("Up Direction: %f %f %f\n", up.x(), up.y(), up.z());
 		Eigen::Vector3d position(data.data.m_x, data.data.m_y, data.data.m_z);
-		Eigen::Vector3d real_axle_position = position - L_*forward;
+		Eigen::Vector3d real_axle_position = position - L_*forward/2;
 		/*Eigen::MatrixXd queryPoint(3,1);
 		queryPoint.col(0) = position;*/
 		kdtree.query(real_axle_position, 1, idx, dists);
@@ -138,13 +138,13 @@ void deepf1::PurePursuitController::run(const std::string& trackfile)
 		}
 		if (delta > positive_deadband)
 		{
-			js.wAxisX = std::round(max_vjoysteer*alpha);
+			js.wAxisX = std::round(max_vjoysteer*delta);
 			js.wAxisY = 0;
 		}
 		else if (delta < negative_deadband)
 		{
 			js.wAxisX = 0;
-			js.wAxisY = std::round(max_vjoysteer * std::abs(alpha));
+			js.wAxisY = std::round(max_vjoysteer * std::abs(delta));
 		}
 		else
 		{
@@ -154,6 +154,6 @@ void deepf1::PurePursuitController::run(const std::string& trackfile)
 		js.wAxisXRot = std::round(max_vjoythrottle*throttle_);
 		js.wAxisYRot = 0;
 		vjoy.update(js);
-		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
 	}while (true);
 }
