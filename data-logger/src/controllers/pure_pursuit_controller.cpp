@@ -88,8 +88,8 @@ void deepf1::PurePursuitController::run(const std::string& trackfile)
 	do
 	{
 		data = measurement_handler_->getData();
-		speed = data.data.m_speed;
-		lookahead_dist = Kv_ * (speed*10/36);
+		speed = data.data.m_speed * 0.277778;
+		lookahead_dist = Kv_ * (speed);
 		Eigen::Vector3d forward(data.data.m_xd, data.data.m_yd, data.data.m_zd);
 		Eigen::Vector3d right(data.data.m_xr, data.data.m_yr, data.data.m_zr);
 		Eigen::Vector3d up = right.cross(forward);
