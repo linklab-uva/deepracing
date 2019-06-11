@@ -58,7 +58,7 @@ std::vector<Eigen::Vector3d> deepf1::PurePursuitController::loadTrackFile(const 
 	return rtn;
 }
 
-void deepf1::PurePursuitController::run()
+void deepf1::PurePursuitController::run(const std::string& trackfile)
 {
 	deepf1::TimestampedUDPData data;
 	vjoy_plusplus::vJoy vjoy(1);
@@ -71,7 +71,7 @@ void deepf1::PurePursuitController::run()
 	js.wAxisXRot = std::round(max_vjoythrottle*throttle_);
 	js.wAxisYRot = 0;
 	vjoy.update(js);
-	std::vector<Eigen::Vector3d> raceline = loadTrackFile("Australia_racingline.track");
+	std::vector<Eigen::Vector3d> raceline = loadTrackFile(trackfile);
 	int cols = raceline.size();
 	Eigen::MatrixXd racelinematrix(3, cols);
 	for (int i = 0; i < cols; ++i)
@@ -97,17 +97,17 @@ void deepf1::PurePursuitController::run()
 	//	std::printf("Forward Direction: %f %f %f\n", forward.x(), forward.y(), forward.z());
 	//	std::printf("Up Direction: %f %f %f\n", up.x(), up.y(), up.z());
 		Eigen::Vector3d position(data.data.m_x, data.data.m_y, data.data.m_z);
-		Eigen::Vector3d real_axel_position = position - L_*forward;
+		Eigen::Vector3d real_axle_position = position - L_*forward;
 		/*Eigen::MatrixXd queryPoint(3,1);
 		queryPoint.col(0) = position;*/
-		kdtree.query(real_axel_position, 1, idx, dists);
-		std::printf("Cars XYZ real axle position: %f %f %f\n", real_axel_position.x(), real_axel_position.y(), real_axel_position.z());
+		kdtree.query(real_axle_position, 1, idx, dists);
+		std::printf("Cars XYZ real axle position: %f %f %f\n", real_axle_position.x(), real_axle_position.y(), real_axle_position.z());
 		unsigned int raceline_index = idx(0);
 		Eigen::Vector3d closestpoint(racelinematrix.col(raceline_index));
 		//std::printf("Closest point in raceline: %f %f %f\n", closestpoint.x(), closestpoint.y(), closestpoint.z());
 		unsigned int num_cols = racelinematrix.cols() - raceline_index;
 		Eigen::MatrixXd forwardPoints(racelinematrix.rightCols(num_cols));
-		Eigen::VectorXd forwardDiffs = (forwardPoints.colwise() - real_axel_position).colwise().norm();
+		Eigen::VectorXd forwardDiffs = (forwardPoints.colwise() - real_axle_position).colwise().norm();
 	//	std::cout << "Forward Diffs has size : " << forwardDiffs.size() << std::endl;
 		Eigen::VectorXd lookaheadDiffs = (forwardDiffs - lookahead_dist*Eigen::VectorXd::Ones(forwardDiffs.size())).cwiseAbs();
 		//std::cout << "Lookahead Diffs has size : " << lookaheadDiffs.size() << std::endl;
@@ -116,7 +116,7 @@ void deepf1::PurePursuitController::run()
 
 		Eigen::Vector3d lookaheadPoint = forwardPoints.col(min_index);
 		std::printf("Lookahead point: %f %f %f\n", lookaheadPoint.x(), lookaheadPoint.y(), lookaheadPoint.z());
-		Eigen::Vector3d lookaheadVector = (lookaheadPoint - real_axel_position);
+		Eigen::Vector3d lookaheadVector = (lookaheadPoint - real_axle_position);
 		lookaheadVector.normalize();
 		Eigen::Vector3d crossVector = forward.cross(lookaheadVector);
 		crossVector.normalize();
