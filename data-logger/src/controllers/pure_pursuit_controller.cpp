@@ -1,10 +1,13 @@
 #include "f1_datalogger/controllers/pure_pursuit_controller.h"
 #include <thread>
-#include <vJoy++/vjoy.h>
+#include "f1_datalogger/controllers/vjoy_interface.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <Eigen/Eigenvalues>
+#include <Eigen/Geometry>
 #include "f1_datalogger/controllers/kdtree_eigen.h"
+#include <boost/circular_buffer.hpp>
 deepf1::PurePursuitController::PurePursuitController(std::shared_ptr<MeasurementHandler> measurement_handler,
 	double Kv, double L, double max_angle, double throttle)
 {
@@ -13,6 +16,7 @@ deepf1::PurePursuitController::PurePursuitController(std::shared_ptr<Measurement
 	L_ = L;
 	max_angle_ = max_angle;
 	throttle_ = throttle;
+	f1_interface_.reset(new deepf1::VJoyInterface);
 }
 
 
@@ -57,20 +61,30 @@ std::vector<Eigen::Vector3d> deepf1::PurePursuitController::loadTrackFile(const 
 
 	return rtn;
 }
+std::pair < Eigen::Vector3d, Eigen::Vector3d > best_line_from_points(const Eigen::MatrixXd & points)
+{
+	// copy coordinates to  matrix in Eigen format
+	Eigen::MatrixXd centers = points.transpose();
+	
 
+	Eigen::Vector3d origin = centers.colwise().mean();
+	Eigen::MatrixXd centered = centers.rowwise() - origin.transpose();
+	Eigen::MatrixXd cov = centered.adjoint() * centered;
+	Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eig(cov);
+	Eigen::Vector3d axis = eig.eigenvectors().col(2).normalized();
+
+	return std::make_pair(origin, axis);
+}
 void deepf1::PurePursuitController::run(const std::string& trackfile)
 {
 	deepf1::TimestampedUDPData data;
-	vjoy_plusplus::vJoy vjoy(1);
-	vjoy_plusplus::JoystickPosition js;
-	double max_vjoysteer = (double)vjoy_plusplus::vJoy::maxAxisvalue(), max_vjoythrottle = (double)vjoy_plusplus::vJoy::maxAxisvalue(), max_vjoybrake = (double)vjoy_plusplus::vJoy::maxAxisvalue();
-	double middle_vjoysteer = max_vjoysteer / 2.0;
-	js.lButtons = 0x00000000;
-	js.wAxisX = 0;
-	js.wAxisY = 0;
-	js.wAxisXRot = std::round(max_vjoythrottle*throttle_);
-	js.wAxisYRot = 0;
-	vjoy.update(js);
+	std::cout << "Making vjoy interface" << std::endl;
+	std::cout << "Made vjoy interface" << std::endl;
+	F1ControlCommand commands;
+	commands.throttle = throttle_;
+	std::cout << "Setting initial command" << std::endl;
+	f1_interface_->setCommands(commands);
+	std::cout << "Set initial command" << std::endl;
 	std::vector<Eigen::Vector3d> raceline = loadTrackFile(trackfile);
 	int cols = raceline.size();
 	Eigen::MatrixXd racelinematrix(3, cols);
@@ -89,7 +103,7 @@ void deepf1::PurePursuitController::run(const std::string& trackfile)
 	{
 		data = measurement_handler_->getData();
 		speed = data.data.m_speed * 0.277778;
-		lookahead_dist = Kv_ * (speed);
+		lookahead_dist = std::min(6.0, Kv_ * (speed));
 		Eigen::Vector3d forward(data.data.m_xd, data.data.m_yd, data.data.m_zd);
 		Eigen::Vector3d right(data.data.m_xr, data.data.m_yr, data.data.m_zr);
 		Eigen::Vector3d up = right.cross(forward);
@@ -115,7 +129,21 @@ void deepf1::PurePursuitController::run(const std::string& trackfile)
 		lookaheadDiffs.minCoeff(&min_index);
 
 		Eigen::Vector3d lookaheadPoint = forwardPoints.col(min_index);
-		std::printf("Lookahead point: %f %f %f\n", lookaheadPoint.x(), lookaheadPoint.y(), lookaheadPoint.z());
+		Eigen::Vector3d lookaheadStart = forwardPoints.col(0);
+		if ((lookaheadPoint - lookaheadStart).norm() < 1.0)
+		{
+			lookaheadPoint = forwardPoints.col(2);
+		}
+		//Eigen::MatrixXd lookaheadPoints = forwardPoints.leftCols(50);
+		//std::pair<Eigen::Vector3d, Eigen::Vector3d> bfl = best_line_from_points(lookaheadPoints);
+		//Eigen::ParametrizedLine< Eigen::Vector3d::Scalar, Eigen::Dynamic> line(bfl.first, bfl.second);
+		//Eigen::Vector3d origin = lookaheadPoints.rowwise().mean();
+		//double sstot = (lookaheadPoints.colwise() - origin).colwise().squaredNorm().sum(), ssres = 0;
+		//for (unsigned int i = 0; i < lookaheadPoints.cols(); i++)
+		//{
+		//	ssres += line.squaredDistance(lookaheadPoints.col(i));
+		//}
+		//double R2 = 1.0 - (ssres / sstot);
 		Eigen::Vector3d lookaheadVector = (lookaheadPoint - real_axle_position);
 		lookaheadVector.normalize();
 		Eigen::Vector3d crossVector = forward.cross(lookaheadVector);
@@ -127,33 +155,24 @@ void deepf1::PurePursuitController::run(const std::string& trackfile)
 			alpha *= -1.0;
 		}
 		double delta =  std::atan((2 * L_*std::sin(alpha)) / lookahead_dist)  / max_angle_;
+		commands.steering = delta;
+		double accel = throttle_;
+		
+		//if (accel < 0)
+		//{
+		//	commands.brake = std::min(std::abs(accel),1.0);
+		//	commands.throttle = 0.0;
+		//}
+		//else
+		//{
+		//	commands.brake = 0.0;
+		//	commands.throttle = std::min(accel, 1.0);
+		//}
+		commands.brake = 0.0;
+		commands.throttle = throttle_;
+		std::printf("Resolved lookahead distance: %f. accel: %f\n", (lookaheadPoint - lookaheadStart).norm(), accel);
 		std::printf("Suggested Steering %f\n", delta);
-		if (delta > 1.0)
-		{
-			delta = 1.0;
-		}
-		else if (delta < -1.0)
-		{
-			delta = -1.0;
-		}
-		if (delta > positive_deadband)
-		{
-			js.wAxisX = std::round(max_vjoysteer*delta);
-			js.wAxisY = 0;
-		}
-		else if (delta < negative_deadband)
-		{
-			js.wAxisX = 0;
-			js.wAxisY = std::round(max_vjoysteer * std::abs(delta));
-		}
-		else
-		{
-			js.wAxisX = 0;
-			js.wAxisY = 0;
-		}
-		js.wAxisXRot = std::round(max_vjoythrottle*throttle_);
-		js.wAxisYRot = 0;
-		vjoy.update(js);
+		f1_interface_->setCommands(commands);
 		std::this_thread::sleep_for(std::chrono::milliseconds(50));
 	}while (true);
 }

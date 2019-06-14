@@ -4,6 +4,8 @@
 #include "Eigen/Core"
 #include <vector>
 #include <boost/math/constants/constants.hpp>
+#include "f1_datalogger/controllers/f1_interface.h"
+#include <memory>
 namespace deepf1
 {
 	class PurePursuitController
@@ -19,6 +21,8 @@ namespace deepf1
 	private:
 		std::shared_ptr<MeasurementHandler> measurement_handler_;
 		double Kv_, L_,  max_angle_, throttle_;
+		std::shared_ptr<deepf1::F1Interface> f1_interface_;
+
 	};
 }
 #endif
