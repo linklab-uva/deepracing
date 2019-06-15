@@ -26,10 +26,6 @@ deepf1::PurePursuitController::PurePursuitController(std::shared_ptr<Measurement
 deepf1::PurePursuitController::~PurePursuitController()
 {
 }
-bool sortPredicate(const std::pair< double, Eigen::Vector3d>& a, const std::pair< double, Eigen::Vector3d>& b)
-{
-	return a.first < b.first;
-}
 std::vector< std::pair< double, Eigen::Vector3d> > deepf1::PurePursuitController::loadTrackFile(const std::string& filename)
 {
 	std::vector< std::pair< double, Eigen::Vector3d> > rtn;
@@ -95,7 +91,9 @@ std::vector< std::pair< double, Eigen::Vector3d> > deepf1::PurePursuitController
 		}
 	}
 	rtn.insert(rtn.end(), interpolated_points.begin(), interpolated_points.end());
-	std::sort(rtn.begin(), rtn.end(), sortPredicate);
+	std::sort(rtn.begin(), rtn.end(),
+		[](const std::pair< double, Eigen::Vector3d>& a, const std::pair< double, Eigen::Vector3d>& b) 
+		  { return a.first < b.first; });
 	return rtn;
 }
 std::pair < Eigen::Vector3d, Eigen::Vector3d > best_line_from_points(const Eigen::MatrixXd & points)
@@ -227,7 +225,7 @@ void deepf1::PurePursuitController::run(const std::string& trackfile, float velK
 		{
 			alpha *= -1.0;
 		}
-		double delta =  std::atan((2 * L_*std::sin(alpha)) / lookahead_dist)  / max_angle_;
+		double delta =  std::atan((2 * L_*std::sin(alpha)) / lookahead_dist)  * max_angle_;
 		double deadband = 0.025;
 		if (delta < -1.0) delta = -1.0;
 		else if (delta > 1.0) delta = 1.0;
