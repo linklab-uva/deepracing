@@ -1,5 +1,5 @@
 #include "f1_datalogger/udp_logging/common/measurement_handler.h"
-deepf1::MeasurementHandler::MeasurementHandler(unsigned int buffer_capacity) : speed_buffer_(buffer_capacity), time_buffer_(buffer_capacity)
+deepf1::MeasurementHandler::MeasurementHandler(unsigned int buffer_capacity)
 {
 }
 deepf1::MeasurementHandler::~MeasurementHandler()
@@ -14,8 +14,6 @@ deepf1::TimestampedUDPData deepf1::MeasurementHandler::getData() const
 void deepf1::MeasurementHandler::handleData(const deepf1::TimestampedUDPData& data)
 {
 	this->data_ = data;
-	speed_buffer_.push_back((double) data.data.m_speed);
-	time_buffer_.push_back((double)data.data.m_time);
 }
 
 bool deepf1::MeasurementHandler::isReady()

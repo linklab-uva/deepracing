@@ -36,6 +36,8 @@ void deepf1::VJoyInterface::setCommands(const F1ControlCommand& command)
 		js.wAxisY = 0;
 	}
 	js.wAxisXRot = std::round(max_vjoythrottle_*command.throttle);
+	//std::printf("Requested brake: %f\n", command.brake);
 	js.wAxisYRot = std::round(max_vjoybrake_*command.brake);
+	//std::printf("Setting yrot to: %f\n", js.wAxisYRot);
 	vjoy_.update(js);
 }
