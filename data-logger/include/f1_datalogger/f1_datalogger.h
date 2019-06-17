@@ -15,10 +15,16 @@ namespace deepf1
 class F1DataLogger
 {
 public:
-  F1DataLogger(const std::string& search_string, std::shared_ptr<IF1FrameGrabHandler> frame_grab_handler, std::shared_ptr<IF1DatagrabHandler> data_grab_handler);
+  F1DataLogger(const std::string& search_string, std::shared_ptr<IF1FrameGrabHandler> frame_grab_handler, std::shared_ptr<IF1DatagrabHandler> data_grab_handler,
+	  std::string host="127.0.0.1", unsigned int port= 20777);
   virtual ~F1DataLogger();
 
-  void start(double capture_frequency = 15.0);
+  static void countdown(unsigned int seconds, std::string txt="");
+
+  void start(double capture_frequency = 60.0);
+
+
+  void stop();
 
   const std::chrono::high_resolution_clock::time_point getStart() const;
 private:

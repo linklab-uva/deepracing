@@ -86,6 +86,8 @@ int main(int argc, char** argv)
   std::cout<<"Creating DataLogger" <<std::endl;
   std::shared_ptr<deepf1::F1DataLogger> dl( new deepf1::F1DataLogger( search_string , frame_handler , udp_handler ) );
   std::cout<<"Created DataLogger" <<std::endl;
+
+
   std::string inp;
   std::cout<<"Enter anything to start capture" << std::endl;
   std::cin >> inp;

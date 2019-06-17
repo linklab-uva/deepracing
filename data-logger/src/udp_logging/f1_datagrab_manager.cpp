@@ -8,6 +8,7 @@
 #include "f1_datalogger/udp_logging/f1_datagrab_manager.h"
 #include <iostream>
 #include <functional>
+
 namespace deepf1
 {
 
@@ -16,10 +17,20 @@ F1DataGrabManager::F1DataGrabManager(std::shared_ptr<std::chrono::high_resolutio
                                      const unsigned int port) :
     socket_(io_service_), running_(true)
 {
+  //socket_.set_option(boost::asio::ip::udp::socket::reuse_address(true));
   socket_.open(boost::asio::ip::udp::v4());
-  socket_.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(host), port));
+  if (host.compare("") == 0)
+  {
+	  std::cout << "Listening in broadcast mode on port " << port << std::endl;
+	  socket_.set_option(boost::asio::socket_base::broadcast(true));
+	  socket_.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), port));
+  }
+  else
+  {
+	  std::cout << "Binding to host " <<host<<" on port " << port << std::endl;
+	  socket_.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(host), port));
+  }
   data_handler_ = handler;
-  rcv_buffer_.reset(new UDPPacket);
   clock_ = clock;
 }
 
@@ -29,23 +40,18 @@ F1DataGrabManager::~F1DataGrabManager()
 }
 void F1DataGrabManager::run_()
 {
-  unsigned int BUFLEN = 1289;
-  unsigned int UDP_BUFLEN = BUFLEN;
-  unsigned int packet_size = UDP_BUFLEN;
-  //packet_size = sizeof(UDPPacket);
+  //make space on the stack to receive packets.
+  boost::system::error_code error;
+  TimestampedUDPData data;
   while (running_)
   {
-
-    boost::system::error_code error;
-    socket_.receive_from(boost::asio::buffer(boost::asio::buffer(rcv_buffer_.get(), packet_size)), remote_endpoint_, 0, error);
-    if (data_handler_->isReady())
+    std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(&(data.data), BUFFER_SIZE), remote_endpoint_, 0, error);
+    if (bool(data_handler_) && data_handler_->isReady())
     {
-      TimestampedUDPData data;
-      data.data = *rcv_buffer_;
-      data.timestamp = clock_->now();
+	  data.timestamp = clock_->now();
       data_handler_->handleData(data);
-
     }
+	//std::this_thread::sleep_for(std::chrono::milliseconds(sleeptime));
   }
 }
 void F1DataGrabManager::start()
@@ -54,6 +60,8 @@ void F1DataGrabManager::start()
 }
 void F1DataGrabManager::stop()
 {
-  running_ = false;
+	running_ = false;
+	data_handler_.reset();
+	socket_.close();
 }
 } /* namespace deepf1 */

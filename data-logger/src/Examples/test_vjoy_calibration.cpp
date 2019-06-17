@@ -14,6 +14,15 @@
 #include <fstream>
 #include <vJoy++/vjoy.h>
 
+void countdown(unsigned int seconds, std::string text = "")
+{
+	std::cout << text << std::endl;
+	for (unsigned int i = seconds; i > 0; i--)
+	{
+		std::cout << i << std::endl;
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+	}
+}
 class VJoyCalibration_DataGrabHandler : public deepf1::IF1DatagrabHandler
 {
 public:
@@ -70,18 +79,14 @@ int main(int argc, char** argv)
 {
 	std::string search = "2017";
 	std::string outfile = "out.csv";
+	double sleeptime = 0.5;
 	if (argc > 1)
 	{
-		search = std::string(argv[1]);
+		sleeptime = atof(argv[1]);
 	}
-	double sleeptime = 0.5;
 	if (argc > 2)
 	{
-		sleeptime = atof(argv[2]);
-	}
-	if (argc > 3)
-	{
-		outfile = std::string(argv[3]);
+		outfile = std::string(argv[2]);
 	}
 	unsigned long milliseconds = (unsigned long)std::round(sleeptime*1000.0);
 	std::shared_ptr<VJoyCalibration_FrameGrabHandler> image_handler(new VJoyCalibration_FrameGrabHandler());
@@ -89,27 +94,42 @@ int main(int argc, char** argv)
 	deepf1::F1DataLogger dl(search, image_handler, udp_handler);
 	dl.start();
 	std::unique_ptr<vjoy_plusplus::vJoy> vjoy(new vjoy_plusplus::vJoy(1));
-	vjoy_plusplus::JoystickPosition iReport;
-	iReport.lButtons = 0x00000000;
+	vjoy_plusplus::JoystickPosition joystick_value;
+	joystick_value.lButtons = 0x00000000;
 	unsigned int min = vjoy_plusplus::vJoy::minAxisvalue(), max = vjoy_plusplus::vJoy::maxAxisvalue();
 	unsigned int middle = (min + max) / 2;
-	iReport.wAxisY = 0;
-	iReport.wAxisZ = 0;
-	iReport.wAxisZRot = 0;
-	vjoy->update(iReport);
-	std::this_thread::sleep_for(std::chrono::seconds(3));
+	joystick_value.wAxisX = 0;
+	joystick_value.wAxisY = 0;
+	joystick_value.wAxisXRot = 0;
+	joystick_value.wAxisYRot = 0;
+	vjoy->update(joystick_value);
+	countdown(3, "Testing calibration in");
 	std::ofstream ostream(outfile);
 	//Best fit line is : y = -16383.813867*x + 16383.630437
-	for(double angle = 1.0; angle >= -1.0; angle-=0.0005)
+	for(int vjoyangle = max; vjoyangle >= 0; vjoyangle -=25)
 	{
-		unsigned int vjoyangle = (unsigned int)std::round(-16383.813867*angle + 16383.630437);
-		iReport.wAxisY = vjoyangle;
-		vjoy->update(iReport);
+		joystick_value.wAxisX = vjoyangle;
+		vjoy->update(joystick_value);
 		std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
 		deepf1::UDPPacket current_packet_ = udp_handler->getCurrentPacket();
-		printf("Input Angle: %f\n", angle);
+		printf("Input Angle: %d\n", vjoyangle);
 		printf("Current Steering: %f\n.", current_packet_.m_steer);
-		ostream << current_packet_.m_steer << "," << angle << std::endl;
+		ostream << current_packet_.m_steer << "," << vjoyangle << std::endl;
+	}
+	joystick_value.wAxisX = 0;
+	joystick_value.wAxisY = 0;
+	joystick_value.wAxisXRot = 0;
+	joystick_value.wAxisYRot = 0;
+	vjoy->update(joystick_value);
+	for (int vjoyangle = 0; vjoyangle <= max; vjoyangle += 25)
+	{
+		joystick_value.wAxisY = vjoyangle;
+		vjoy->update(joystick_value);
+		std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+		deepf1::UDPPacket current_packet_ = udp_handler->getCurrentPacket();
+		printf("Input Angle: %d\n", vjoyangle);
+		printf("Current Steering: %f\n.", current_packet_.m_steer);
+		ostream << current_packet_.m_steer << "," << vjoyangle << std::endl;
 	}
 	ostream.close();
 	//cv::waitKey(0);

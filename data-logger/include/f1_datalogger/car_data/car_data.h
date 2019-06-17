@@ -1,8 +1,20 @@
+
+
+#ifndef PACK
+#ifdef _MSC_VER
+#define PACK( __Declaration__ ) __pragma( pack(push, 1) ) __Declaration__ __pragma( pack(pop) )
+#else
+#define PACK( __Declaration__ ) __Declaration__ __attribute__((__packed__))
+#endif
+#endif
+
+
 #ifndef CAR_DATA_H
 #define CAR_DATA_H
-// Packet size � 1289 bytes
+
 
 namespace deepf1{
+	PACK(
 	struct CarUDPData
 
 	{
@@ -38,7 +50,9 @@ namespace deepf1{
 		char  m_currentLapInvalid; // current lap invalid - 0 = valid, 1 = invalid
 
 		char  m_penalties;  // NEW: accumulated time penalties in seconds to be added
-	}; typedef struct CarUDPData CarUDPData;
+	}); 
+
+	PACK(
 	struct UDPPacket
 	{
 
@@ -232,6 +246,6 @@ namespace deepf1{
 
 		float m_ang_acc_z;                 // NEW (v1.8) angular acceleration z-component
 
-	}; typedef struct UDPPacket UDPPacket;
+	});
 }
 #endif

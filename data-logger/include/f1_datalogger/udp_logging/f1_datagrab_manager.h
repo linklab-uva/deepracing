@@ -25,6 +25,7 @@ public:
 
   void start();
   void stop();
+  static const unsigned int BUFFER_SIZE = sizeof(deepf1::UDPPacket);	
 private:
   boost::asio::io_service io_service_;
   boost::asio::ip::udp::socket socket_;
@@ -33,7 +34,6 @@ private:
   std::shared_ptr<IF1DatagrabHandler> data_handler_;
   bool running_;
 
-  std::shared_ptr<UDPPacket> rcv_buffer_;
 
   std::shared_ptr<std::chrono::high_resolution_clock> clock_;
 

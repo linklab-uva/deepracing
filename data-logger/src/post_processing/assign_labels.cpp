@@ -58,8 +58,8 @@ int main(int argc, char** argv)
 	std::vector<deepf1::protobuf::TimestampedImage> image_points = deepf1::post_processing::PostProcessingUtils::parseImageDirectory(image_folder);
 
 
-	std::printf("Got %lu udp data points.\n", udp_points.size());
-	std::printf("Got %lu image data points.\n", image_points.size());
+	std::printf("Got %lu udp data points.\n", (unsigned long)udp_points.size());
+	std::printf("Got %lu image data points.\n", (unsigned long)image_points.size());
 	unsigned int INTERPOLATION_ORDER = 2;
 	std::vector<deepf1::protobuf::LabeledImage> labeled_images = 
 		 deepf1::post_processing::PostProcessingUtils::labelImages(udp_points,  image_points, INTERPOLATION_ORDER);

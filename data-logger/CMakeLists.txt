@@ -1,19 +1,35 @@
 project(f1_datalogger)
 cmake_minimum_required (VERSION 3.10 FATAL_ERROR)
+option(WITH_VJOY "Compile vJoy bindings. ONLY SUPPORTED ON WINDOWS" OFF)
+
+if(WITH_VJOY)
+    if(NOT MSVC)
+        message(FATAL_ERROR "vJoy bindings only work on windows.")
+    endif()
+    find_package(vJoy++ REQUIRED)
+endif()
 
 if(MSVC)
+    set_property(GLOBAL PROPERTY USE_FOLDERS ON)
     option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
     set(cxx_standard 11)
 else()
+    set_property(GLOBAL PROPERTY USE_FOLDERS OFF)
     option(BUILD_SHARED_LIBS "Build Shared Libraries" ON)
     set(cxx_standard 14)
+endif()
+
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/install CACHE PATH "..." FORCE)
 endif()
 
 set(CMAKE_CXX_STANDARD ${cxx_standard})
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 set(THIRD_PARTY_REPOS ${CMAKE_SOURCE_DIR}/third_party)
-option(CMAKE_BUILD_TYPE "Build Type" Release)
+find_package(Eigen3 REQUIRED)
+include_directories(${EIGEN3_INCLUDE_DIR})
+add_subdirectory(${THIRD_PARTY_REPOS}/libIntegrate)
 
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
@@ -37,12 +53,17 @@ if(BUILD_SHARED_LIBS)
 else()
     set(Boost_USE_STATIC_LIBS ON)
 endif()
-find_package( Boost REQUIRED COMPONENTS date_time filesystem program_options regex )
-message(STATUS "Found Boost libraries: ${Boost_LIBRARIES}")
+find_package( Boost REQUIRED COMPONENTS date_time filesystem program_options regex thread)
+message(STATUS "Found Boost libraries: ${Boost_LIBRARIES} in directory: ${Boost_LIBRARY_DIRS}")
 
 
 
 find_package( OpenCV REQUIRED )
+find_package(Qt5Widgets CONFIG)
+find_package(Qt5Core CONFIG)
+find_package(Qt5Gui CONFIG)
+set(_gotqt ${Qt5Widgets_FOUND} AND ${Qt5Core_FOUND} AND ${Qt5Gui_FOUND})
+
 
 if(MSVC)
 find_package(yaml-cpp REQUIRED HINTS "C:\\Program\ Files\\YAML_CPP")
@@ -75,6 +96,8 @@ include_directories( include )
 include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${YAML_CPP_INCLUDE_DIR})
 
 add_subdirectory( proto/${PROJECT_NAME}/proto )
+set_target_properties(${PROJECT_NAME}_proto
+                    PROPERTIES FOLDER proto)
 
 include_directories(${CMAKE_BINARY_DIR}/proto)
 include_directories(${Protobuf_INCLUDE_DIR})
@@ -85,10 +108,16 @@ include_directories(${ProtobufIncludePath})
 add_subdirectory( src/alglib )
 message(STATUS "ALGLIB_DIR: ${ALGLIB_DIR}")
 add_subdirectory( src/post_processing )
+set_target_properties(${PROJECT_NAME}_alglib ${PROJECT_NAME}_post_processing ${PROJECT_NAME}_assign_labels
+                    PROPERTIES FOLDER utils)
 
 if(BUILD_DATALOGGER)
     add_subdirectory( src/image_logging )
     add_subdirectory( src/udp_logging )
+	set_target_properties(${PROJECT_NAME}_udp_utils ${PROJECT_NAME}_simulated_telemetry_server ${PROJECT_NAME}_image_utils
+						PROPERTIES FOLDER utils)
+	set_target_properties(screen_capture_example
+						PROPERTIES FOLDER utils)
     add_library(${PROJECT_NAME}
     src/f1_datalogger.cpp
     )
@@ -101,6 +130,13 @@ if(BUILD_DATALOGGER)
     ${Boost_LIBRARIES}
     )
     add_subdirectory( src/Examples )
+
+	
+	set_target_properties(${PROJECT_NAME} ${PROJECT_NAME}_udp_logging ${PROJECT_NAME}_image_logging  screen_capture_lite
+						PROPERTIES FOLDER core)
+	set_target_properties(${PROJECT_NAME}_udp_logging_common ${PROJECT_NAME}_image_logging_common
+						PROPERTIES FOLDER common)
+
     set(install_targets ${PROJECT_NAME} )
     install(TARGETS ${install_targets}
         RUNTIME DESTINATION bin
@@ -113,6 +149,16 @@ if(BUILD_DATALOGGER)
     )
     unset(install_targets)
 endif()
+
+
+# Find the QtWidgets library
+if(${_gotqt})
+    add_subdirectory(src/guitools)
+endif()
+if(WITH_VJOY)
+	add_subdirectory(src/controllers)
+endif()
+
 
 install(DIRECTORY proto/
 DESTINATION share/${PROJECT_NAME}/proto

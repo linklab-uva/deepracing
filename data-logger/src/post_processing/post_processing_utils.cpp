@@ -2,7 +2,8 @@
 #include <boost/filesystem.hpp>
 #include <iostream>
 #include <google/protobuf/util/json_util.h>
-#include <alglib/interpolation.h>
+#include "f1_datalogger/alglib/interpolation.h"
+#include <sstream>
 namespace fs = boost::filesystem;
 namespace deepf1
 {
@@ -162,21 +163,27 @@ namespace post_processing
 		
 		std::vector<fs::path> paths;
 		fs::path udp_dir(directory);
-		get_all(udp_dir, ".pb", paths);
-		std::ifstream stream_in;
+		get_all(udp_dir, ".json", paths);
 		for (fs::path path : paths)
 		{
 			fs::path current_path = udp_dir / path;
-	//		std::cout << "Loading file: " << current_path.string() << std::endl;
-			stream_in.open(current_path.string().c_str());
+
+			std::ifstream stream_in(current_path.string());
+			std::stringstream buffer;
+			buffer << stream_in.rdbuf();
 			deepf1::protobuf::TimestampedUDPData data_in;
-			bool success = data_in.ParseFromIstream(&stream_in);
+			google::protobuf::util::Status st = google::protobuf::util::JsonStringToMessage(buffer.str(), &data_in);
+			bool success = st == google::protobuf::util::Status::OK;
 			stream_in.close();
 			if (!success || data_in.timestamp()==0)
 			{
 
-				std::cout << "FOUND EMPTY UDP PACKET" << std::endl;
+				std::cerr << "FOUND EMPTY UDP PACKET" << std::endl;
 				continue;
+			}
+			else
+			{
+				//std::printf("Got a udp packet with Steering: %f, Throttle: %f, Brake: %f\n", data_in.udp_packet().m_steer(), data_in.udp_packet().m_throttle(), data_in.udp_packet().m_brake());
 			}
 
 			//std::string json;
