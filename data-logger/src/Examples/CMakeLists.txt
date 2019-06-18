@@ -123,7 +123,12 @@ if(WITH_VJOY)
     )
     target_include_directories(${PROJECT_NAME}_pure_pursuit_control PRIVATE ${vJoy++_INCLUDE_DIR})
 	set_target_properties(${PROJECT_NAME}_pure_pursuit_control PROPERTIES FOLDER vjoy)
-
+	get_target_property(PP_OUTPUT_DIR ${PROJECT_NAME}_pure_pursuit_control RUNTIME_OUTPUT_DIRECTORY)
+	file(GLOB TRACKFILES
+	  "${CMAKE_SOURCE_DIR}/tracks/*.track"
+	)
+	message(STATUS "Output trackfile dir: ${PP_OUTPUT_DIR}")
+	file(COPY ${TRACKFILES} DESTINATION ${PP_OUTPUT_DIR})
 
 endif()
 
@@ -174,6 +179,8 @@ if(WITH_VJOY)
     list(APPEND install_targets ${PROJECT_NAME}_generate_vjoy_calibration)
     list(APPEND install_targets ${PROJECT_NAME}_replay_dataset)
 	list(APPEND install_targets ${PROJECT_NAME}_generate_sine_waves)
+	install(DIRECTORY ${CMAKE_SOURCE_DIR}/tracks/ DESTINATION bin
+        FILES_MATCHING PATTERN "*.track")
 endif()
 install(TARGETS ${install_targets}
     RUNTIME DESTINATION bin
