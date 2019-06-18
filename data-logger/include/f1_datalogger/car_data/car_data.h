@@ -9,8 +9,8 @@
 #endif
 
 
-#ifndef CAR_DATA_H
-#define CAR_DATA_H
+#ifndef F1_DATALOGGER_CAR_DATA_H
+#define F1_DATALOGGER_CAR_DATA_H
 #include <cstdint>
 
 namespace deepf1{

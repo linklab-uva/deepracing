@@ -25,7 +25,7 @@ public:
 
   void start();
   void stop();
-  static const unsigned int BUFFER_SIZE = sizeof(deepf1::UDPPacket2017);
+  static const unsigned int BUFFER_SIZE = sizeof(deepf1::twenty_eighteen::PacketMotionData);
 private:
   boost::asio::io_service io_service_;
   boost::asio::ip::udp::socket socket_;

@@ -6,9 +6,10 @@
 #include <chrono>
 namespace deepf1
 {
+	typedef std::chrono::high_resolution_clock::time_point TimePoint;
 	struct timestamped_udp_data {
 		UDPPacket2017 data;
-		std::chrono::high_resolution_clock::time_point timestamp;
+		TimePoint timestamp;
 	}; 
 	typedef struct timestamped_udp_data TimestampedUDPData;
 }
