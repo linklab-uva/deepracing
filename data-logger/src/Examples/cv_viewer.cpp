@@ -26,7 +26,7 @@ public:
   }
   void handleData(const deepf1::TimestampedUDPData& data) override
   {
-    deepf1::UDPPacket packet = data.data;
+    deepf1::UDPPacket2017 packet = data.data;
 	/*t2 = packet.m_lapTime;
 	float deltat = t2 - t1;
 	printf("t1, t2, dt: %f %f %f\n", t1, t2, deltat);

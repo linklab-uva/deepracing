@@ -36,19 +36,19 @@ public:
 	}
 	void handleData(const deepf1::TimestampedUDPData& data) override
 	{
-		current_packet_ = deepf1::UDPPacket(data.data);
+		current_packet_ = deepf1::UDPPacket2017(data.data);
 	}
 	void init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin) override
 	{
 		this->begin = begin;
 	}
-	deepf1::UDPPacket getCurrentPacket()
+	deepf1::UDPPacket2017 getCurrentPacket()
 	{
 		return current_packet_;
 	}
 private:
 	std::chrono::high_resolution_clock::time_point begin;
-	deepf1::UDPPacket current_packet_;
+	deepf1::UDPPacket2017 current_packet_;
 };
 class VJoyCalibration_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
 {
@@ -111,7 +111,7 @@ int main(int argc, char** argv)
 		joystick_value.wAxisX = vjoyangle;
 		vjoy->update(joystick_value);
 		std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
-		deepf1::UDPPacket current_packet_ = udp_handler->getCurrentPacket();
+		deepf1::UDPPacket2017 current_packet_ = udp_handler->getCurrentPacket();
 		printf("Input Angle: %d\n", vjoyangle);
 		printf("Current Steering: %f\n.", current_packet_.m_steer);
 		ostream << current_packet_.m_steer << "," << vjoyangle << std::endl;
@@ -126,7 +126,7 @@ int main(int argc, char** argv)
 		joystick_value.wAxisY = vjoyangle;
 		vjoy->update(joystick_value);
 		std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
-		deepf1::UDPPacket current_packet_ = udp_handler->getCurrentPacket();
+		deepf1::UDPPacket2017 current_packet_ = udp_handler->getCurrentPacket();
 		printf("Input Angle: %d\n", vjoyangle);
 		printf("Current Steering: %f\n.", current_packet_.m_steer);
 		ostream << current_packet_.m_steer << "," << vjoyangle << std::endl;

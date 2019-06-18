@@ -13,7 +13,7 @@ UDPStreamUtils::~UDPStreamUtils()
 {
 }
 
-deepf1::protobuf::CarUDPData UDPStreamUtils::toProto(const deepf1::CarUDPData& fromStream)
+deepf1::protobuf::CarUDPData UDPStreamUtils::toProto(const deepf1::CarUDPData2017& fromStream)
 {
 	
     deepf1::protobuf::CarUDPData rtn;
@@ -53,7 +53,7 @@ deepf1::protobuf::CarUDPData UDPStreamUtils::toProto(const deepf1::CarUDPData& f
 
     return rtn;
 }
-deepf1::protobuf::UDPData UDPStreamUtils::toProto(const deepf1::UDPPacket& fromStream)
+deepf1::protobuf::UDPData UDPStreamUtils::toProto(const deepf1::UDPPacket2017& fromStream)
 {
     deepf1::protobuf::UDPData rtn;
 
