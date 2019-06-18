@@ -59,7 +59,7 @@ int main(int argc, char** argv)
 
 	deepf1::F1DataLogger dl(search_string, image_handler, udp_handler);
 	dl.start();
-	deepf1::PurePursuitController control(udp_handler,lookahead_gain,3.7,1.0, velocity);
+	deepf1::PurePursuitController control(udp_handler,lookahead_gain,3.7, 1.57, velocity);
 	deepf1::F1DataLogger::countdown(3, "Running pure pursuit in ");
 	control.run(trackfile, kp, ki, kd);
 }

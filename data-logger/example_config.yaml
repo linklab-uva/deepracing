@@ -1,9 +1,0 @@
-search_string: "2017"
-track_name: "Australia"
-driver_name: "Trent"
-images_folder: "images"
-udp_folder: "udp_data"
-udp_threads: 1
-image_threads: 6 
-image_capture_frequency: 60.0
-initial_delay_time: 3.5

@@ -174,7 +174,7 @@ void deepf1::PurePursuitController::run(const std::string& trackfile, float velK
 	{
 		data = measurement_handler_->getData();
 		speed = data.data.m_speed;
-		lookahead_dist = std::max(10.0, Kv_ * (speed));
+		lookahead_dist = std::max(6.0, Kv_ * (speed));
 		Eigen::Vector3d forward(data.data.m_xd, data.data.m_yd, data.data.m_zd);
 		Eigen::Vector3d right(data.data.m_xr, data.data.m_yr, data.data.m_zr);
 		Eigen::Vector3d up = right.cross(forward);
@@ -225,7 +225,7 @@ void deepf1::PurePursuitController::run(const std::string& trackfile, float velK
 		{
 			alpha *= -1.0;
 		}
-		double delta =  std::atan((2 * L_*std::sin(alpha)) / lookahead_dist)  * max_angle_;
+		double delta =  std::atan((2 * L_*std::sin(alpha)) / lookahead_dist)  / max_angle_;
 		double deadband = 0.025;
 		if (delta < -1.0) delta = -1.0;
 		else if (delta > 1.0) delta = 1.0;

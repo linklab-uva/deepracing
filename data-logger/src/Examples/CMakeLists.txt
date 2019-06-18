@@ -6,6 +6,27 @@ if(WITH_VJOY)
 	set(${PROJECT_NAME}_generate_vjoy_calibration_srcfile generate_vjoy_calibration.cpp)
 	set(${PROJECT_NAME}_test_vjoy_calibration_srcfile test_vjoy_calibration.cpp)
 	set(${PROJECT_NAME}_replay_dataset_srcfile replay_dataset.cpp)
+	set(${PROJECT_NAME}_go_in_circle_srcfile go_in_circle.cpp)
+	add_executable(${PROJECT_NAME}_go_in_circle
+     ${${PROJECT_NAME}_go_in_circle_srcfile}
+    )
+    target_link_libraries(${PROJECT_NAME}_go_in_circle
+        ${PROJECT_NAME}
+        ${PROJECT_NAME}_alglib
+		${PROJECT_NAME}_controllers
+        ${PROJECT_NAME}_image_logging
+        ${PROJECT_NAME}_image_logging_common
+        ${PROJECT_NAME}_udp_logging
+        ${PROJECT_NAME}_udp_logging_common
+		${PROJECT_NAME}_post_processing
+        ${Boost_LIBRARIES}
+		${screen_capture_lite_LIBRARIES}
+		${screen_capture_lite_PLATFORM_LIBS}
+		${TBB_IMPORTED_TARGETS}
+        ${vJoy++_LIBRARIES}
+    )
+    target_include_directories(${PROJECT_NAME}_go_in_circle PRIVATE ${Eigen3_INCLUDE_DIR} ${vJoy++_INCLUDE_DIR})
+
 	add_executable(${PROJECT_NAME}_replay_dataset
      ${${PROJECT_NAME}_replay_dataset_srcfile}
     )
@@ -78,7 +99,7 @@ if(WITH_VJOY)
     )
     target_include_directories(${PROJECT_NAME}_generate_sine_waves PRIVATE ${vJoy++_INCLUDE_DIR})
 
-	set_target_properties(${PROJECT_NAME}_test_vjoy_calibration ${PROJECT_NAME}_generate_vjoy_calibration ${PROJECT_NAME}_replay_dataset ${PROJECT_NAME}_generate_sine_waves
+	set_target_properties(${PROJECT_NAME}_go_in_circle ${PROJECT_NAME}_test_vjoy_calibration ${PROJECT_NAME}_generate_vjoy_calibration ${PROJECT_NAME}_replay_dataset ${PROJECT_NAME}_generate_sine_waves
                       PROPERTIES FOLDER vjoy)
 
 	add_executable(${PROJECT_NAME}_pure_pursuit_control
