@@ -21,7 +21,6 @@ ${screen_capture_lite_LIBRARIES}
 ${screen_capture_lite_PLATFORM_LIBS}
 ${vJoy++_LIBRARIES}
 Eigen3::Eigen
-Integrate
 )
 target_include_directories(${PROJECT_NAME}_controllers PRIVATE ${vJoy++_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR} ${THIRD_PARTY_REPOS}/libIntegrate/src)
 set_target_properties(${PROJECT_NAME}_controllers

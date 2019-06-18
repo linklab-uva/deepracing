@@ -8,9 +8,7 @@
 #include <Eigen/Geometry>
 #include "f1_datalogger/controllers/kdtree_eigen.h"
 #include <boost/circular_buffer.hpp>
-#include <Integrate.hpp>
 #include "f1_datalogger/alglib/interpolation.h"
-#include <unsupported/Eigen/Splines>
 deepf1::PurePursuitController::PurePursuitController(std::shared_ptr<MeasurementHandler> measurement_handler,
 	double Kv, double L, double max_angle, double velocity_setpoint)
 {
@@ -116,7 +114,6 @@ void velocityControlLoop(std::shared_ptr<deepf1::MeasurementHandler> measurement
 	deepf1::TimestampedUDPData data;
 	float speed, speed_mph;
 	boost::circular_buffer<float> speed_buffer(10), time_buffer(10), error_buffer(10);
-	_1D::TrapezoidRule<float> tr;
 	while (true)
 	{
 		data = measurement_handler_->getData();
@@ -133,14 +130,21 @@ void velocityControlLoop(std::shared_ptr<deepf1::MeasurementHandler> measurement
 			*out = 0.0;
 			continue;
 		}
-		std::vector<float> errorvec(error_buffer.size());
-		std::vector<float> timevec(time_buffer.size());
-		for (unsigned int i = 0; i < error_buffer.size(); i++)
+
+		float* errorptr = error_buffer.linearize();
+		std::vector<float> errorvec(errorptr, errorptr + error_buffer.size());
+
+		float* timeptr = time_buffer.linearize();
+		std::vector<float> timevec(timeptr, timeptr + time_buffer.size());
+
+		float integral = 0.0;
+		unsigned int upperbound = timevec.size() - 1;
+		for (unsigned int i = 0; i < upperbound; i++)
 		{
-			errorvec.push_back(error_buffer.at(i));
-			timevec.push_back(time_buffer.at(i));
+			integral += (errorvec[i] + errorvec[i + 1])*(timevec[i + 1] - timevec[i]);
 		}
-		*out  = velKp * current_error + velKi * tr(timevec, errorvec) + velKd * (errorvec.back() - errorvec.at(errorvec.size() - 2)) / (timevec.back() - timevec.at(errorvec.size() - 2));
+		integral /= 2.0;
+		*out  = velKp * current_error + velKi * integral + velKd * (errorvec.back() - errorvec.at(errorvec.size() - 2)) / (timevec.back() - timevec.at(errorvec.size() - 2));
 		std::this_thread::sleep_for(std::chrono::milliseconds(25));
 	}
 }
@@ -167,7 +171,6 @@ void deepf1::PurePursuitController::run(const std::string& trackfile, float velK
 	kdt::KDTreed::MatrixI idx;
 	float speed, speed_mph, lookahead_dist, fake_zero = 0.0, vel_setpoint, positive_deadband = fake_zero, negative_deadband = -fake_zero, accel;
 	boost::circular_buffer<float> speed_buffer(10), time_buffer(10), error_buffer(10);
-	_1D::TrapezoidRule<float> tr;
 	vel_setpoint = velocity_setpoint_;
 	std::thread control_loop(velocityControlLoop,measurement_handler_, velKp, velKi, velKd, &vel_setpoint, &accel);
 	do
