@@ -21,6 +21,7 @@ target_link_libraries( ${PROJECT_NAME}_udp_utils ${PROJECT_NAME}_udp_logging ${P
 
 set(${PROJECT_NAME}_udp_logging_common_src
 common/multi_threaded_udp_handler.cpp
+common/multi_threaded_udp_handler_2018.cpp
 common/measurement_handler.cpp
 )
 add_library( ${PROJECT_NAME}_udp_logging_common ${${PROJECT_NAME}_udp_logging_common_src} )
