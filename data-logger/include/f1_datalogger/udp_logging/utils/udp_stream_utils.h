@@ -47,6 +47,7 @@ namespace deepf1
 			static deepf1::twenty_eighteen::protobuf::LapData toProto(const deepf1::twenty_eighteen::LapData& fromStream);
 			static deepf1::twenty_eighteen::protobuf::CarMotionData toProto(const deepf1::twenty_eighteen::CarMotionData& fromStream);
 			static deepf1::twenty_eighteen::protobuf::ParticipantData toProto(const deepf1::twenty_eighteen::ParticipantData& fromStream);
+			static deepf1::twenty_eighteen::protobuf::PacketHeader toProto(const deepf1::twenty_eighteen::PacketHeader& fromStream);
 		};
 	}
 }

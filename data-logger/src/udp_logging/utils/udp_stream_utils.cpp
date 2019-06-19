@@ -313,6 +313,18 @@ namespace twenty_eighteen
 		return rtn;		
 	}
 
+	deepf1::twenty_eighteen::protobuf::PacketHeader TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketHeader& fromStream)
+	{
+		deepf1::twenty_eighteen::protobuf::PacketHeader rtn;
+		rtn.set_m_frameidentifier(fromStream.m_frameIdentifier);
+		rtn.set_m_packetformat(fromStream.m_packetFormat);
+		rtn.set_m_packetid(fromStream.m_packetId);
+		rtn.set_m_packetversion(fromStream.m_packetVersion);
+		rtn.set_m_playercarindex(fromStream.m_playerCarIndex);
+		rtn.set_m_sessiontime(fromStream.m_sessionTime);
+		rtn.set_m_sessionuid(fromStream.m_sessionUID);
+	}
+
 
 	deepf1::twenty_eighteen::protobuf::CarStatusData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::CarStatusData& fromStream)
 	{
