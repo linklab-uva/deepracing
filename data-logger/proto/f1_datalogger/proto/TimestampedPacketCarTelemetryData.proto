@@ -1,0 +1,7 @@
+syntax = "proto3";
+package deepf1.twenty_eighteen.protobuf;
+import "PacketCarTelemetryData.proto";
+message TimestampedPacketCarTelemetryData {
+		PacketCarTelemetryData udp_packet = 1;
+        uint64 timestamp = 2;
+}

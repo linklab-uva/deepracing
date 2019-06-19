@@ -1,28 +1,10 @@
 include(FindProtobuf)
 find_package(Protobuf REQUIRED)
+file(GLOB PROTOFILES
+  "*.proto"
+)
 protobuf_generate_cpp(${PROJECT_NAME}_PROTO_SRC ${PROJECT_NAME}_PROTO_HEADER 
-UDPData.proto 
-CarUDPData.proto 
-ImageLabel.proto 
-TimestampedUDPData.proto 
-LabeledImage.proto 
-TimestampedImage.proto
-PacketHeader.proto
-CarMotionData.proto
-PacketMotionData.proto
-MarshalZone.proto
-PacketSessionData.proto
-LapData.proto
-PacketLapData.proto
-PacketEventData.proto
-ParticipantData.proto
-PacketParticipantsData.proto
-CarSetupData.proto
-PacketCarSetupData.proto
-CarTelemetryData.proto
-PacketCarTelemetryData.proto
-CarStatusData.proto
-PacketCarStatusData.proto
+${PROTOFILES}
 )
 message(STATUS "Generated sources: ${${PROJECT_NAME}_PROTO_SRC}")
 message(STATUS "Generated header: ${${PROJECT_NAME}_PROTO_HEADER}")
