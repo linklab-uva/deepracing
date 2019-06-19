@@ -353,11 +353,52 @@ namespace twenty_eighteen
 	deepf1::twenty_eighteen::protobuf::CarSetupData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::CarSetupData& fromStream)
 	{
 		deepf1::twenty_eighteen::protobuf::CarSetupData rtn;
+		rtn.set_m_ballast(fromStream.m_ballast);
+		rtn.set_m_brakebias(fromStream.m_brakeBias);
+		rtn.set_m_brakepressure(fromStream.m_brakePressure);
+		rtn.set_m_frontantirollbar(fromStream.m_frontAntiRollBar);
+		rtn.set_m_frontcamber(fromStream.m_frontCamber);
+		rtn.set_m_frontsuspension(fromStream.m_frontSuspension);
+		rtn.set_m_frontsuspensionheight(fromStream.m_frontSuspensionHeight);
+		rtn.set_m_fronttoe(fromStream.m_frontToe);
+		rtn.set_m_fronttyrepressure(fromStream.m_frontTyrePressure);
+		rtn.set_m_frontwing(fromStream.m_frontWing);
+		rtn.set_m_fuelload(fromStream.m_fuelLoad);
+		rtn.set_m_offthrottle(fromStream.m_offThrottle);
+		rtn.set_m_onthrottle(fromStream.m_onThrottle);
+		rtn.set_m_rearantirollbar(fromStream.m_rearAntiRollBar);
+		rtn.set_m_rearcamber(fromStream.m_rearCamber);
+		rtn.set_m_rearsuspension(fromStream.m_rearSuspension);
+		rtn.set_m_rearsuspensionheight(fromStream.m_rearSuspensionHeight);
+		rtn.set_m_reartoe(fromStream.m_rearToe);
+		rtn.set_m_reartyrepressure(fromStream.m_rearTyrePressure);
+		rtn.set_m_rearwing(fromStream.m_rearWing);
 		return rtn;		
 	}
 	deepf1::twenty_eighteen::protobuf::CarTelemetryData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::CarTelemetryData& fromStream)
 	{
 		deepf1::twenty_eighteen::protobuf::CarTelemetryData rtn;
+		rtn.mutable_m_brakestemperature()->Resize(4,4294967295);
+		rtn.mutable_m_tyresinnertemperature()->Resize(4,4294967295);
+		rtn.mutable_m_tyrespressure()->Resize(4,4294967295);
+		rtn.mutable_m_tyressurfacetemperature()->Resize(4,4294967295);
+		for(unsigned int i = 0 ; i < 4 ; i++)
+		{
+			rtn.mutable_m_brakestemperature()->Set(i,(google::protobuf::uint32)fromStream.m_brakesTemperature[i]);
+			rtn.mutable_m_tyresinnertemperature()->Set(i,(google::protobuf::uint32)fromStream.m_tyresInnerTemperature[i]);
+			rtn.mutable_m_tyrespressure()->Set(i,(google::protobuf::uint32)fromStream.m_tyresPressure[i]);
+			rtn.mutable_m_tyressurfacetemperature()->Set(i,(google::protobuf::uint32)fromStream.m_tyresSurfaceTemperature[i]);
+		}
+		rtn.set_m_brake(fromStream.m_brake);
+		rtn.set_m_clutch(fromStream.m_clutch);
+		rtn.set_m_drs(fromStream.m_drs);
+		rtn.set_m_enginerpm(fromStream.m_engineRPM);
+		rtn.set_m_enginetemperature(fromStream.m_engineTemperature);
+		rtn.set_m_gear(fromStream.m_gear);
+		rtn.set_m_revlightspercent(fromStream.m_revLightsPercent);
+		rtn.set_m_speed(fromStream.m_speed);
+		rtn.set_m_steer(fromStream.m_steer);
+		rtn.set_m_throttle(fromStream.m_throttle);
 		return rtn;		
 	}
 	deepf1::twenty_eighteen::protobuf::LapData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::LapData& fromStream)
