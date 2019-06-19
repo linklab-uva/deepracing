@@ -102,9 +102,9 @@ void F1FrameGrabManager::stop()
 void F1FrameGrabManager::start(double capture_frequency, 
                     std::shared_ptr<IF1FrameGrabHandler> capture_handler)
 {
+  unsigned int ms = (unsigned int)(std::round(((double)1E3)/capture_frequency)); 
   capture_config_->onNewFrame((scl::WindowCaptureCallback)std::bind(&F1FrameGrabManager::onNewFrame_, this, std::placeholders::_1, std::placeholders::_2, capture_handler));
   capture_manager_ = capture_config_->start_capturing();
-  unsigned int ms = (unsigned int)(std::round(((double)1E3)/capture_frequency)); 
   capture_manager_->setFrameChangeInterval(std::chrono::milliseconds(ms));
 }
 } /* namespace deepf1 */

@@ -274,42 +274,156 @@ namespace twenty_eighteen
 	deepf1::twenty_eighteen::protobuf::PacketCarStatusData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketCarStatusData& fromStream)
 	{
 		deepf1::twenty_eighteen::protobuf::PacketCarStatusData rtn;
+		rtn.mutable_m_header()->CopyFrom(toProto(fromStream.m_header));
+		unsigned int num_cars = 20;
+		rtn.mutable_m_carstatusdata()->Reserve(num_cars);
+		for(unsigned int i = 0; i < num_cars; i++)
+		{
+			deepf1::twenty_eighteen::protobuf::CarStatusData* added = rtn.add_m_carstatusdata();
+			deepf1::twenty_eighteen::protobuf::CarStatusData fromstream = toProto(fromStream.m_carStatusData[i]);
+			added->CopyFrom(fromstream);
+		}
 		
 		return rtn;
 	}
 	deepf1::twenty_eighteen::protobuf::PacketCarSetupData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketCarSetupData& fromStream)
 	{
 		deepf1::twenty_eighteen::protobuf::PacketCarSetupData rtn;
+		rtn.mutable_m_header()->CopyFrom(toProto(fromStream.m_header));
+		unsigned int num_cars = 20;
+		rtn.mutable_m_carsetups()->Reserve(num_cars);
+		for(unsigned int i = 0; i < num_cars; i++)
+		{
+			deepf1::twenty_eighteen::protobuf::CarSetupData* added = rtn.add_m_carsetups();
+			deepf1::twenty_eighteen::protobuf::CarSetupData fromstream = toProto(fromStream.m_carSetups[i]);
+			added->CopyFrom(fromstream);
+		}
 		return rtn;		
 	}
 	deepf1::twenty_eighteen::protobuf::PacketCarTelemetryData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketCarTelemetryData& fromStream)
 	{
 		deepf1::twenty_eighteen::protobuf::PacketCarTelemetryData rtn;
+		rtn.mutable_m_header()->CopyFrom(toProto(fromStream.m_header));
+		unsigned int num_cars = 20;
+		rtn.mutable_m_cartelemetrydata()->Reserve(num_cars);
+		for(unsigned int i = 0; i < num_cars; i++)
+		{
+			deepf1::twenty_eighteen::protobuf::CarTelemetryData* added = rtn.add_m_cartelemetrydata();
+			deepf1::twenty_eighteen::protobuf::CarTelemetryData fromstream = toProto(fromStream.m_carTelemetryData[i]);
+			added->CopyFrom(fromstream);
+		}
+		rtn.set_m_buttonstatus(fromStream.m_buttonStatus);
 		return rtn;		
 	}
 	deepf1::twenty_eighteen::protobuf::PacketEventData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketEventData& fromStream)
 	{
 		deepf1::twenty_eighteen::protobuf::PacketEventData rtn;
+		rtn.mutable_m_header()->CopyFrom(toProto(fromStream.m_header));
+		char code[4];
+		for(unsigned int i = 0; i < 4; i++)
+		{
+			code[i] = fromStream.m_eventStringCode[i];
+		}
+		rtn.set_m_eventstringcode(std::string(code));
 		return rtn;		
 	}
 	deepf1::twenty_eighteen::protobuf::PacketLapData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketLapData& fromStream)
 	{
 		deepf1::twenty_eighteen::protobuf::PacketLapData rtn;
+		rtn.mutable_m_header()->CopyFrom(toProto(fromStream.m_header));
+		unsigned int num_cars = 20;
+		rtn.mutable_m_lapdata()->Reserve(num_cars);
+		for(unsigned int i = 0; i < num_cars; i++)
+		{
+			deepf1::twenty_eighteen::protobuf::LapData* added = rtn.add_m_lapdata();
+			deepf1::twenty_eighteen::protobuf::LapData fromstream = toProto(fromStream.m_lapData[i]);
+			added->CopyFrom(fromstream);
+		}
 		return rtn;		
 	}
 	deepf1::twenty_eighteen::protobuf::PacketMotionData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketMotionData& fromStream)
 	{
 		deepf1::twenty_eighteen::protobuf::PacketMotionData rtn;
+		rtn.mutable_m_header()->CopyFrom(toProto(fromStream.m_header));
+		unsigned int num_cars = 20;
+		rtn.mutable_m_carmotiondata()->Reserve(num_cars);
+		for(unsigned int i = 0; i < num_cars; i++)
+		{
+			deepf1::twenty_eighteen::protobuf::CarMotionData* added = rtn.add_m_carmotiondata();
+			deepf1::twenty_eighteen::protobuf::CarMotionData fromstream = toProto(fromStream.m_carMotionData[i]);
+			added->CopyFrom(fromstream);
+		}
+
+		rtn.mutable_m_suspensionacceleration()->Resize(4,-1E5);
+		rtn.mutable_m_suspensionposition()->Resize(4,-1E5);
+		rtn.mutable_m_suspensionvelocity()->Resize(4,-1E5);
+		rtn.mutable_m_wheelslip()->Resize(4,-1E5);
+		rtn.mutable_m_wheelspeed()->Resize(4,-1E5);
+		
+		
+		memcpy(rtn.mutable_m_suspensionacceleration()->mutable_data(), fromStream.m_suspensionAcceleration, 4*sizeof(float));
+		memcpy(rtn.mutable_m_suspensionposition()->mutable_data(), fromStream.m_suspensionPosition, 4*sizeof(float));
+		memcpy(rtn.mutable_m_suspensionvelocity()->mutable_data(), fromStream.m_suspensionVelocity, 4*sizeof(float));
+		memcpy(rtn.mutable_m_wheelslip()->mutable_data(), fromStream.m_wheelSlip, 4*sizeof(float));
+		memcpy(rtn.mutable_m_wheelspeed()->mutable_data(), fromStream.m_wheelSpeed, 4*sizeof(float));
+
+		rtn.set_m_angularaccelerationx(fromStream.m_angularAccelerationX);
+		rtn.set_m_angularaccelerationy(fromStream.m_angularAccelerationY);
+		rtn.set_m_angularaccelerationz(fromStream.m_angularAccelerationZ);
+		rtn.set_m_angularvelocityx(fromStream.m_angularVelocityX);
+		rtn.set_m_angularvelocityy(fromStream.m_angularVelocityY);
+		rtn.set_m_angularvelocityz(fromStream.m_angularVelocityZ);
+		rtn.set_m_frontwheelsangle(fromStream.m_frontWheelsAngle);
+		rtn.set_m_localvelocityx(fromStream.m_localVelocityX);
+		rtn.set_m_localvelocityy(fromStream.m_localVelocityY);
+		rtn.set_m_localvelocityz(fromStream.m_localVelocityZ);
+
 		return rtn;		
 	}
 	deepf1::twenty_eighteen::protobuf::PacketParticipantsData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketParticipantsData& fromStream)
 	{
 		deepf1::twenty_eighteen::protobuf::PacketParticipantsData rtn;
+		rtn.mutable_m_header()->CopyFrom(toProto(fromStream.m_header));
+		unsigned int num_cars = 20;
+		rtn.set_m_numcars(fromStream.m_numCars);
+		rtn.mutable_m_participants()->Reserve(num_cars);
+		for(unsigned int i = 0; i < num_cars; i++)
+		{
+			deepf1::twenty_eighteen::protobuf::ParticipantData* added = rtn.add_m_participants();
+			deepf1::twenty_eighteen::protobuf::ParticipantData fromstream = toProto(fromStream.m_participants[i]);
+			added->CopyFrom(fromstream);
+		}
 		return rtn;		
 	}
 	deepf1::twenty_eighteen::protobuf::PacketSessionData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketSessionData& fromStream)
 	{
 		deepf1::twenty_eighteen::protobuf::PacketSessionData rtn;
+		rtn.mutable_m_header()->CopyFrom(toProto(fromStream.m_header));
+		unsigned int num_zones = 21;
+		rtn.mutable_m_marshalzones()->Reserve(num_zones);
+		for(unsigned int i = 0; i < num_zones; i++)
+		{
+			deepf1::twenty_eighteen::protobuf::MarshalZone* added = rtn.add_m_marshalzones();
+			deepf1::twenty_eighteen::protobuf::MarshalZone fromstream = toProto(fromStream.m_marshalZones[i]);
+			added->CopyFrom(fromstream);
+		}
+		rtn.set_m_airtemperature(fromStream.m_airTemperature);
+		rtn.set_m_era(fromStream.m_era);
+		rtn.set_m_gamepaused(fromStream.m_gamePaused);
+		rtn.set_m_isspectating(fromStream.m_isSpectating);
+		rtn.set_m_networkgame(fromStream.m_networkGame);
+		rtn.set_m_nummarshalzones(fromStream.m_numMarshalZones);
+		rtn.set_m_pitspeedlimit(fromStream.m_pitSpeedLimit);
+		rtn.set_m_safetycarstatus(fromStream.m_safetyCarStatus);
+		rtn.set_m_sessionduration(fromStream.m_sessionDuration);
+		rtn.set_m_sessiontimeleft(fromStream.m_sessionTimeLeft);
+		rtn.set_m_sessiontype(fromStream.m_sessionType);
+		rtn.set_m_slipronativesupport(fromStream.m_spectatorCarIndex);
+		rtn.set_m_totallaps(fromStream.m_totalLaps);
+		rtn.set_m_trackid(fromStream.m_trackId);
+		rtn.set_m_tracklength(fromStream.m_trackLength);
+		rtn.set_m_tracktemperature(fromStream.m_trackTemperature);
+		rtn.set_m_weather(fromStream.m_weather);
 		return rtn;		
 	}
 
@@ -470,6 +584,14 @@ namespace twenty_eighteen
 		return rtn;		
 	}
 	
+	deepf1::twenty_eighteen::protobuf::MarshalZone TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::MarshalZone& fromStream)
+	{
+		deepf1::twenty_eighteen::protobuf::MarshalZone rtn;
+		rtn.set_m_zoneflag(fromStream.m_zoneFlag);
+		rtn.set_m_zonestart(fromStream.m_zoneStart);
+		return rtn;
+	}
+
 }
 
 }
