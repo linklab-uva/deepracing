@@ -41,6 +41,7 @@ namespace twenty_eighteen
 			this->data=data;
 			this->timestamp=timestamp;	
 		}
+		TimestampedPacketCarSetupData() = default;
 		deepf1::twenty_eighteen::PacketCarSetupData data;
 		TimePoint timestamp;
 	};
@@ -50,6 +51,7 @@ namespace twenty_eighteen
 			this->data=data;
 			this->timestamp=timestamp;	
 		}
+		TimestampedPacketCarStatusData() = default;
 		deepf1::twenty_eighteen::PacketCarStatusData data;
 		TimePoint timestamp;
 	};
@@ -59,6 +61,7 @@ namespace twenty_eighteen
 			this->data=data;
 			this->timestamp=timestamp;	
 		}
+		TimestampedPacketCarTelemetryData() = default;
 		deepf1::twenty_eighteen::PacketCarTelemetryData data;
 		TimePoint timestamp;
 	};
@@ -68,6 +71,7 @@ namespace twenty_eighteen
 			this->data=data;
 			this->timestamp=timestamp;	
 		}
+		TimestampedPacketEventData() = default;
 		deepf1::twenty_eighteen::PacketEventData data;
 		TimePoint timestamp;
 	};
@@ -77,6 +81,7 @@ namespace twenty_eighteen
 			this->data=data;
 			this->timestamp=timestamp;	
 		}
+		TimestampedPacketLapData() = default;
 		deepf1::twenty_eighteen::PacketLapData data;
 		TimePoint timestamp;
 	};
@@ -86,6 +91,7 @@ namespace twenty_eighteen
 			this->data=data;
 			this->timestamp=timestamp;	
 		}
+		TimestampedPacketMotionData() = default;
 		deepf1::twenty_eighteen::PacketMotionData data;
 		TimePoint timestamp;
 	};
@@ -95,6 +101,7 @@ namespace twenty_eighteen
 			this->data=data;
 			this->timestamp=timestamp;	
 		}
+		TimestampedPacketParticipantsData() = default;
 		deepf1::twenty_eighteen::PacketParticipantsData data;
 		TimePoint timestamp;
 	};
@@ -104,6 +111,7 @@ namespace twenty_eighteen
 			this->data=data;
 			this->timestamp=timestamp;	
 		}
+		TimestampedPacketSessionData () = default;
 		deepf1::twenty_eighteen::PacketSessionData data;
 		TimePoint timestamp;
 	};
