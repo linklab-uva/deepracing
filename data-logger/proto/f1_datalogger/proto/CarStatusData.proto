@@ -1,33 +1,33 @@
 syntax = "proto3";
 package deepf1.twenty_eighteen.protobuf;
 message CarStatusData {
-		uint8       m_tractionControl = 1;          // 0 (off) - 2 (high)
-		uint8       m_antiLockBrakes = 2;           // 0 (off) - 1 (on)
-		uint8       m_fuelMix = 3;                  // Fuel mix - 0 = lean, 1 = standard, 2 = rich, 3 = max
-		uint8       m_frontBrakeBias = 4;           // Front brake bias (percentage)
-		uint8       m_pitLimiterStatus = 5;         // Pit limiter status - 0 = off, 1 = on
+		uint32       m_tractionControl = 1;          // 0 (off) - 2 (high)
+		uint32       m_antiLockBrakes = 2;           // 0 (off) - 1 (on)
+		uint32       m_fuelMix = 3;                  // Fuel mix - 0 = lean, 1 = standard, 2 = rich, 3 = max
+		uint32       m_frontBrakeBias = 4;           // Front brake bias (percentage)
+		uint32       m_pitLimiterStatus = 5;         // Pit limiter status - 0 = off, 1 = on
 		float       m_fuelInTank = 6;               // Current fuel mass
 		float       m_fuelCapacity = 7;             // Fuel capacity
-		uint16      m_maxRPM = 8;                   // Cars max RPM, point of rev limiter
-		uint16      m_idleRPM = 9;                  // Cars idle RPM
-		uint8       m_maxGears = 10;                 // Maximum number of gears
-		uint8       m_drsAllowed = 11;               // 0 = not allowed, 1 = allowed, -1 = unknown
-		repeated uint8       m_tyresWear= 12;             // Tyre wear percentage
-		uint8       m_tyreCompound = 13;             // Modern - 0 = hyper soft, 1 = ultra soft
+		uint32      m_maxRPM = 8;                   // Cars max RPM, point of rev limiter
+		uint32      m_idleRPM = 9;                  // Cars idle RPM
+		uint32       m_maxGears = 10;                 // Maximum number of gears
+		uint32       m_drsAllowed = 11;               // 0 = not allowed, 1 = allowed, -1 = unknown
+		repeated uint32       m_tyresWear= 12;             // Tyre wear percentage
+		uint32       m_tyreCompound = 13;             // Modern - 0 = hyper soft, 1 = ultra soft
 												// 2 = super soft, 3 = soft, 4 = medium, 5 = hard
 												// 6 = super hard, 7 = inter, 8 = wet
 												// Classic - 0-6 = dry, 7-8 = wet
-		repeated uint8       m_tyresDamage = 14;           // Tyre damage (percentage)
-		uint8       m_frontLeftWingDamage = 15;      // Front left wing damage (percentage)
-		uint8       m_frontRightWingDamage = 16;     // Front right wing damage (percentage)
-		uint8       m_rearWingDamage = 17;           // Rear wing damage (percentage)
-		uint8       m_engineDamage = 18;             // Engine damage (percentage)
-		uint8       m_gearBoxDamage = 19;            // Gear box damage (percentage)
-		uint8       m_exhaustDamage = 20;            // Exhaust damage (percentage)
-		int8        m_vehicleFiaFlags = 21;          // -1 = invalid/unknown, 0 = none, 1 = green
+		repeated uint32       m_tyresDamage = 14;           // Tyre damage (percentage)
+		uint32       m_frontLeftWingDamage = 15;      // Front left wing damage (percentage)
+		uint32       m_frontRightWingDamage = 16;     // Front right wing damage (percentage)
+		uint32       m_rearWingDamage = 17;           // Rear wing damage (percentage)
+		uint32       m_engineDamage = 18;             // Engine damage (percentage)
+		uint32       m_gearBoxDamage = 19;            // Gear box damage (percentage)
+		uint32       m_exhaustDamage = 20;            // Exhaust damage (percentage)
+		int32        m_vehicleFiaFlags = 21;          // -1 = invalid/unknown, 0 = none, 1 = green
 												// 2 = blue, 3 = yellow, 4 = red
 		float       m_ersStoreEnergy = 22;           // ERS energy store in Joules
-		uint8       m_ersDeployMode = 23;            // ERS deployment mode, 0 = none, 1 = low, 2 = medium
+		uint32       m_ersDeployMode = 23;            // ERS deployment mode, 0 = none, 1 = low, 2 = medium
 												// 3 = high, 4 = overtake, 5 = hotlap
 		float       m_ersHarvestedThisLapMGUK = 24;  // ERS energy harvested this lap by MGU-K
 		float       m_ersHarvestedThisLapMGUH = 25;  // ERS energy harvested this lap by MGU-H

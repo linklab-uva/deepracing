@@ -1,18 +1,18 @@
 syntax = "proto3";
 package deepf1.twenty_eighteen.protobuf;
 message CarTelemetryData {
-		uint16  m_speed = 1;                      // Speed of car in kilometres per hour
-		uint8   m_throttle = 2;                   // Amount of throttle applied (0 to 100)
-		int8    m_steer = 3;                      // Steering (-100 (full lock left) to 100 (full lock right))
-		uint8   m_brake = 4;                      // Amount of brake applied (0 to 100)
-		uint8   m_clutch = 5;                     // Amount of clutch applied (0 to 100)
-		int8    m_gear = 6;                       // Gear selected (1-8, N=0, R=-1)
-		uint16  m_engineRPM = 7;                  // Engine RPM
-		uint8   m_drs = 8;                       // 0 = off, 1 = on
-		uint8   m_revLightsPercent = 9;           // Rev lights indicator (percentage)
-		uint16  m_brakesTemperature[4] = 10;       // Brakes temperature (celsius)
-		repeated uint16  m_tyresSurfaceTemperature = 11; // Tyres surface temperature (celsius)
-		repeated uint16  m_tyresInnerTemperature = 12;   // Tyres inner temperature (celsius)
-		uint16  m_engineTemperature = 13;          // Engine temperature (celsius)
+		uint32  m_speed = 1;                      // Speed of car in kilometres per hour
+		uint32   m_throttle = 2;                   // Amount of throttle applied (0 to 100)
+		sint32    m_steer = 3;                      // Steering (-100 (full lock left) to 100 (full lock right))
+		uint32   m_brake = 4;                      // Amount of brake applied (0 to 100)
+		uint32   m_clutch = 5;                     // Amount of clutch applied (0 to 100)
+		int32    m_gear = 6;                       // Gear selected (1-8, N=0, R=-1)
+		uint32  m_engineRPM = 7;                  // Engine RPM
+		uint32   m_drs = 8;                       // 0 = off, 1 = on
+		uint32   m_revLightsPercent = 9;           // Rev lights indicator (percentage)
+		repeated uint32  m_brakesTemperature = 10;       // Brakes temperature (celsius)
+		repeated uint32  m_tyresSurfaceTemperature = 11; // Tyres surface temperature (celsius)
+		repeated uint32  m_tyresInnerTemperature = 12;   // Tyres inner temperature (celsius)
+		uint32  m_engineTemperature = 13;          // Engine temperature (celsius)
 		repeated float     m_tyresPressure = 14;           // Tyres pressure (PSI)
 }
