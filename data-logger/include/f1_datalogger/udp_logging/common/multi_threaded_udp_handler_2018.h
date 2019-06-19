@@ -13,28 +13,20 @@
 #include <tbb/task_group.h>
 #include <memory>
 #include <mutex>
+#include <google/protobuf/util/json_util.h>
 namespace deepf1
 {
 
 class MultiThreadedUDPHandler2018 : public IF12018DataGrabHandler
 {
 public:
-  MultiThreadedUDPHandler2018(std::string data_folder = "udp_data", bool write_json = false);
+  MultiThreadedUDPHandler2018(std::string data_folder = "udp_data", bool write_json = false, unsigned int sleeptime = 75);
   virtual ~MultiThreadedUDPHandler2018();
   inline bool isReady() override;
   void init(const std::string& host, unsigned int port, const deepf1::TimePoint& begin) override;
   const std::string getDataFolder() const;
   void stop();
   void join();
-  void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarSetupData& data) override;
-  void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarStatusData& data) override;
-  void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData& data) override;
-  void handleData(const deepf1::twenty_eighteen::TimestampedPacketEventData& data) override;
-  void handleData(const deepf1::twenty_eighteen::TimestampedPacketLapData& data) override;
-  void handleData(const deepf1::twenty_eighteen::TimestampedPacketMotionData& data) override;
-  void handleData(const deepf1::twenty_eighteen::TimestampedPacketParticipantsData& data) override;
-  void handleData(const deepf1::twenty_eighteen::TimestampedPacketSessionData& data) override;
-
 private:
   std::shared_ptr< tbb::task_group > thread_pool_ ;
   bool running_;
@@ -52,6 +44,22 @@ private:
 
   bool ready_;
   bool write_json_;
+  unsigned int sleeptime_;
+  google::protobuf::util::JsonOptions json_options_;
+
+  void workerFunc(deepf1::twenty_eighteen::PacketID packetType);
+
+
+
+  void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarSetupData& data) override;
+  void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarStatusData& data) override;
+  void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData& data) override;
+  void handleData(const deepf1::twenty_eighteen::TimestampedPacketEventData& data) override;
+  void handleData(const deepf1::twenty_eighteen::TimestampedPacketLapData& data) override;
+  void handleData(const deepf1::twenty_eighteen::TimestampedPacketMotionData& data) override;
+  void handleData(const deepf1::twenty_eighteen::TimestampedPacketParticipantsData& data) override;
+  void handleData(const deepf1::twenty_eighteen::TimestampedPacketSessionData& data) override;
+
 };
 
 } /* namespace deepf1 */
