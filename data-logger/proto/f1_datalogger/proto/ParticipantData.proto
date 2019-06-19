@@ -1,0 +1,11 @@
+syntax = "proto3";
+package deepf1.twenty_eighteen.protobuf;
+message ParticipantData {
+		uint8      m_aiControlled = 1;           // Whether the vehicle is AI (1) or Human (0) controlled
+		uint8     m_driverId = 2;               // Driver id - see appendix
+		uint8      m_teamId = 3;                 // Team id - see appendix
+		uint8      m_raceNumber = 4;             // Race number of the car
+		uint8      m_nationality = 5;            // Nationality of the driver
+		string       m_name = 6;               // Name of participant in UTF-8 format – null terminated
+											 // Will be truncated with … (U+2026) if too long
+}

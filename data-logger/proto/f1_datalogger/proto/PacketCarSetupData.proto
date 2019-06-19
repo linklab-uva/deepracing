@@ -1,0 +1,8 @@
+syntax = "proto3";
+package deepf1.twenty_eighteen.protobuf;
+import "PacketHeader.proto";
+message PacketCarSetupData {
+		PacketHeader    m_header = 1;            // Header
+
+		repeated CarSetupData    m_carSetups = 2;
+}

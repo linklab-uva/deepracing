@@ -1,0 +1,12 @@
+syntax = "proto3";
+package deepf1.twenty_eighteen.protobuf;
+import "PacketHeader.proto";
+import "CarTelemetryData.proto";
+message PacketCarTelemetryData {
+		PacketHeader        m_header = 1;                // Header
+
+		repeated CarTelemetryData    m_carTelemetryData = 2;
+
+		uint32              m_buttonStatus = 3;         // Bit flags specifying which buttons are being
+													// pressed currently - see appendices
+}

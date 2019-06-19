@@ -1,0 +1,26 @@
+syntax = "proto3";
+package deepf1.twenty_eighteen.protobuf;
+import "PacketHeader.proto";
+import "CarMotionData.proto";
+message PacketMotionData {
+		PacketHeader    m_header = 1;               // Header
+
+		repeated CarMotionData   m_carMotionData = 2;    // Data for all cars on track
+
+		// Extra player car ONLY data
+		repeated float         m_suspensionPosition = 3;       // Note: All wheel arrays have the following order:
+		repeated float         m_suspensionVelocity = 4;       // RL, RR, FL, FR
+		repeated float         m_suspensionAcceleration = 5;   // RL, RR, FL, FR
+		repeated float         m_wheelSpeed = 6;               // Speed of each wheel
+		repeated float         m_wheelSlip = 7;                // Slip ratio for each wheel
+		float         m_localVelocityX = 8;              // Velocity in local space
+		float         m_localVelocityY = 9;              // Velocity in local space
+		float         m_localVelocityZ = 10;              // Velocity in local space
+		float         m_angularVelocityX = 11;            // Angular velocity x-component
+		float         m_angularVelocityY = 12;            // Angular velocity y-component
+		float         m_angularVelocityZ = 13;            // Angular velocity z-component
+		float         m_angularAccelerationX = 14;        // Angular velocity x-component
+		float         m_angularAccelerationY = 15;        // Angular velocity y-component
+		float         m_angularAccelerationZ = 16;        // Angular velocity z-component
+		float         m_frontWheelsAngle = 17;            // Current front wheels angle in radians
+}
