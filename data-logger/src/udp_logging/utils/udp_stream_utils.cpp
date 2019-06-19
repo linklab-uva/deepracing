@@ -274,6 +274,7 @@ namespace twenty_eighteen
 	deepf1::twenty_eighteen::protobuf::PacketCarStatusData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketCarStatusData& fromStream)
 	{
 		deepf1::twenty_eighteen::protobuf::PacketCarStatusData rtn;
+		
 		return rtn;
 	}
 	deepf1::twenty_eighteen::protobuf::PacketCarSetupData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketCarSetupData& fromStream)
@@ -309,6 +310,69 @@ namespace twenty_eighteen
 	deepf1::twenty_eighteen::protobuf::PacketSessionData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketSessionData& fromStream)
 	{
 		deepf1::twenty_eighteen::protobuf::PacketSessionData rtn;
+		return rtn;		
+	}
+
+
+	deepf1::twenty_eighteen::protobuf::CarStatusData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::CarStatusData& fromStream)
+	{
+		deepf1::twenty_eighteen::protobuf::CarStatusData rtn;
+		rtn.mutable_m_tyresdamage()->Resize(4, 255);
+		rtn.mutable_m_tyreswear()->Resize(4, 255);
+		for(unsigned int i = 0 ; i < 4 ; i++)
+		{
+			rtn.mutable_m_tyresdamage()->Set(i,(google::protobuf::uint32)fromStream.m_tyresDamage[i]);
+			rtn.mutable_m_tyreswear()->Set(i,(google::protobuf::uint32)fromStream.m_tyresWear[i]);
+		}
+		rtn.set_m_antilockbrakes(fromStream.m_antiLockBrakes);
+		rtn.set_m_drsallowed(fromStream.m_drsAllowed);
+		rtn.set_m_enginedamage(fromStream.m_engineDamage);
+		rtn.set_m_ersdeployedthislap(fromStream.m_ersDeployedThisLap);
+		rtn.set_m_ersdeploymode(fromStream.m_ersDeployMode);
+		rtn.set_m_ersharvestedthislapmguh(fromStream.m_ersHarvestedThisLapMGUH);
+		rtn.set_m_ersharvestedthislapmguk(fromStream.m_ersHarvestedThisLapMGUK);
+		rtn.set_m_ersstoreenergy(fromStream.m_ersStoreEnergy);
+		rtn.set_m_exhaustdamage(fromStream.m_exhaustDamage);
+		rtn.set_m_frontbrakebias(fromStream.m_frontBrakeBias);
+		rtn.set_m_frontleftwingdamage(fromStream.m_frontLeftWingDamage);
+		rtn.set_m_frontrightwingdamage(fromStream.m_frontRightWingDamage);
+		rtn.set_m_fuelcapacity(fromStream.m_fuelCapacity);
+		rtn.set_m_fuelintank(fromStream.m_fuelInTank);
+		rtn.set_m_fuelmix(fromStream.m_fuelMix);
+		rtn.set_m_gearboxdamage(fromStream.m_gearBoxDamage);
+		rtn.set_m_idlerpm(fromStream.m_idleRPM);
+		rtn.set_m_maxgears(fromStream.m_maxGears);
+		rtn.set_m_maxrpm(fromStream.m_maxRPM);
+		rtn.set_m_pitlimiterstatus(fromStream.m_pitLimiterStatus);
+		rtn.set_m_rearwingdamage(fromStream.m_rearWingDamage);
+		rtn.set_m_tractioncontrol(fromStream.m_tractionControl);
+		rtn.set_m_tyrecompound(fromStream.m_tyreCompound);
+		rtn.set_m_vehiclefiaflags(fromStream.m_vehicleFiaFlags);
+		return rtn;
+	}
+	deepf1::twenty_eighteen::protobuf::CarSetupData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::CarSetupData& fromStream)
+	{
+		deepf1::twenty_eighteen::protobuf::CarSetupData rtn;
+		return rtn;		
+	}
+	deepf1::twenty_eighteen::protobuf::CarTelemetryData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::CarTelemetryData& fromStream)
+	{
+		deepf1::twenty_eighteen::protobuf::CarTelemetryData rtn;
+		return rtn;		
+	}
+	deepf1::twenty_eighteen::protobuf::LapData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::LapData& fromStream)
+	{
+		deepf1::twenty_eighteen::protobuf::LapData rtn;
+		return rtn;		
+	}
+	deepf1::twenty_eighteen::protobuf::CarMotionData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::CarMotionData& fromStream)
+	{
+		deepf1::twenty_eighteen::protobuf::CarMotionData rtn;
+		return rtn;		
+	}
+	deepf1::twenty_eighteen::protobuf::ParticipantData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::ParticipantData& fromStream)
+	{
+		deepf1::twenty_eighteen::protobuf::ParticipantData rtn;
 		return rtn;		
 	}
 	

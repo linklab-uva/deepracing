@@ -15,7 +15,7 @@ PacketSessionData.proto
 LapData.proto
 PacketLapData.proto
 PacketEventData.proto
-ParticipantsData.proto
+ParticipantData.proto
 PacketParticipantsData.proto
 CarSetupData.proto
 PacketCarSetupData.proto

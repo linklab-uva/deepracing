@@ -39,6 +39,14 @@ namespace deepf1
 			static deepf1::twenty_eighteen::protobuf::PacketMotionData toProto(const deepf1::twenty_eighteen::PacketMotionData& fromStream);
 			static deepf1::twenty_eighteen::protobuf::PacketParticipantsData toProto(const deepf1::twenty_eighteen::PacketParticipantsData& fromStream);
 			static deepf1::twenty_eighteen::protobuf::PacketSessionData toProto(const deepf1::twenty_eighteen::PacketSessionData& fromStream);
+
+
+			static deepf1::twenty_eighteen::protobuf::CarStatusData toProto(const deepf1::twenty_eighteen::CarStatusData& fromStream);
+			static deepf1::twenty_eighteen::protobuf::CarSetupData toProto(const deepf1::twenty_eighteen::CarSetupData& fromStream);
+			static deepf1::twenty_eighteen::protobuf::CarTelemetryData toProto(const deepf1::twenty_eighteen::CarTelemetryData& fromStream);
+			static deepf1::twenty_eighteen::protobuf::LapData toProto(const deepf1::twenty_eighteen::LapData& fromStream);
+			static deepf1::twenty_eighteen::protobuf::CarMotionData toProto(const deepf1::twenty_eighteen::CarMotionData& fromStream);
+			static deepf1::twenty_eighteen::protobuf::ParticipantData toProto(const deepf1::twenty_eighteen::ParticipantData& fromStream);
 		};
 	}
 }
