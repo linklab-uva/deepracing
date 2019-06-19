@@ -57,8 +57,8 @@ int main(int argc, char** argv)
 	std::shared_ptr<deepf1::MeasurementHandler> udp_handler(new deepf1::MeasurementHandler());
 	std::shared_ptr<deepf1::IF1FrameGrabHandler> image_handler;
 
-	deepf1::F1DataLogger dl(search_string, image_handler, udp_handler);
-	dl.start();
+	deepf1::F1DataLogger dl(search_string);
+	dl.start(60.0, udp_handler, image_handler);
 	deepf1::PurePursuitController control(udp_handler,lookahead_gain,3.7, 1.57, velocity);
 	deepf1::F1DataLogger::countdown(3, "Running pure pursuit in ");
 	control.run(trackfile, kp, ki, kd);

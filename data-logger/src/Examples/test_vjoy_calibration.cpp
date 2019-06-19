@@ -91,8 +91,8 @@ int main(int argc, char** argv)
 	unsigned long milliseconds = (unsigned long)std::round(sleeptime*1000.0);
 	std::shared_ptr<VJoyCalibration_FrameGrabHandler> image_handler(new VJoyCalibration_FrameGrabHandler());
 	std::shared_ptr<VJoyCalibration_DataGrabHandler> udp_handler(new VJoyCalibration_DataGrabHandler());
-	deepf1::F1DataLogger dl(search, image_handler, udp_handler);
-	dl.start();
+	deepf1::F1DataLogger dl(search);
+	dl.start(60.0, udp_handler, image_handler);
 	std::unique_ptr<vjoy_plusplus::vJoy> vjoy(new vjoy_plusplus::vJoy(1));
 	vjoy_plusplus::JoystickPosition joystick_value;
 	joystick_value.lButtons = 0x00000000;

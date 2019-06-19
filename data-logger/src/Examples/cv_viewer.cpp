@@ -48,8 +48,8 @@ private:
 class OpenCV_Viewer_Example_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
 {
 public:
-  OpenCV_Viewer_Example_FrameGrabHandler() :
-      window_name("cv_example")
+  OpenCV_Viewer_Example_FrameGrabHandler()
+   : window_name("cv_example")
   {
 	  
   }
@@ -72,13 +72,11 @@ public:
     cv::Mat img_cv_video;
     cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
     cv::imshow(window_name, img_cv_video);
-    //cv::Size s = img_cv_video.size();
-   // std::cout<<"Image is: " << s.height<< " X " << s.width << std::endl;
     video_writer_->write(img_cv_video);
   }
   void init(const std::chrono::high_resolution_clock::time_point& begin, const cv::Size& window_size) override
   {
-	cv::namedWindow(window_name);
+  	cv::namedWindow(window_name);
     video_writer_.reset(new cv::VideoWriter("out.avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), captureFreq, window_size));
     this->begin = begin;
   }
@@ -98,9 +96,18 @@ int main(int argc, char** argv)
   std::shared_ptr<OpenCV_Viewer_Example_FrameGrabHandler> image_handler(new OpenCV_Viewer_Example_FrameGrabHandler());
   std::shared_ptr<OpenCV_Viewer_Example_DataGrabHandler> udp_handler(new OpenCV_Viewer_Example_DataGrabHandler());
 
-  deepf1::F1DataLogger dl(search, image_handler, udp_handler);
-  dl.start(OpenCV_Viewer_Example_FrameGrabHandler::captureFreq);
+  deepf1::F1DataLogger dl(search);
+  // dl.start((double)OpenCV_Viewer_Example_FrameGrabHandler::captureFreq, udp_handler, std::shared_ptr<deepf1::IF1FrameGrabHandler>());
 
+  // std::string inp;
+  // std::cout<<"Enter anything to exit."<<std::endl;
+  // std::cin>>inp;
+
+  
+  dl.start((double)OpenCV_Viewer_Example_FrameGrabHandler::captureFreq, udp_handler, image_handler);
+  std::string inp;
+  // std::cout<<"Enter anything to exit."<<std::endl;
+  // std::cin>>inp;
   cv::waitKey(0);
 
 }

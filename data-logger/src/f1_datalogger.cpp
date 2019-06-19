@@ -11,40 +11,26 @@
 namespace deepf1
 {
 
-F1DataLogger::F1DataLogger(const std::string& search_string, std::shared_ptr<IF1FrameGrabHandler> frame_grab_handler, std::shared_ptr<IF1DatagrabHandler> data_grab_handler,
-	std::string host, unsigned int port) :
-    clock_(new std::chrono::high_resolution_clock())
+F1DataLogger::F1DataLogger(const std::string& search_string, std::string host, unsigned int port) :
+    clock_(new std::chrono::high_resolution_clock()), host_(host), port_(port)
 
 {
   begin_ = std::chrono::high_resolution_clock::time_point(clock_->now());
   std::cout<<"Creating managers"<<std::endl;
-
-  if (!(!data_grab_handler))
-  {
-	  std::cout << "Creating Data Grab Manager" << std::endl;
-	  data_grab_manager_.reset(new F1DataGrabManager(clock_, data_grab_handler, host, port));
-	  std::cout << "Created Data Grab Manager" << std::endl;
-  }
-  if (!(!frame_grab_handler))
-  {
-	  std::cout << "Creating Frame Grab Manager" << std::endl;
-	  frame_grab_manager_.reset(new F1FrameGrabManager(clock_, frame_grab_handler, search_string));
-	  std::cout << "Created Frame Grab Manager" << std::endl;
-  }
+	
+	std::cout << "Creating Data Grab Manager" << std::endl;
+  data_grab_manager_.reset(new F1DataGrabManager(clock_, host, port));
+	std::cout << "Created Data Grab Manager" << std::endl;
+  
+	
+	std::cout << "Creating Frame Grab Manager" << std::endl;
+	frame_grab_manager_.reset(new F1FrameGrabManager(clock_, search_string));
+	std::cout << "Created Frame Grab Manager" << std::endl;
+  
   std::cout<<"Created managers"<<std::endl;
-  if (!(!frame_grab_handler))
-  {
-	  const scl::Window& window = frame_grab_manager_->getWindow();
-	  cv::Size size;
-	  size.height = window.Size.y;
-	  size.width = window.Size.x;
-	  std::cout << "Got a Window of Size (W x H): " << std::endl << size << std::endl;
-	  frame_grab_handler->init(begin_, size);
-  }
-  if (!(!data_grab_handler))
-  {
-	  data_grab_handler->init(host, port, begin_);
-  }
+  
+ 
+
 
 }
 F1DataLogger::~F1DataLogger()
@@ -75,19 +61,50 @@ void F1DataLogger::stop()
 		data_grab_manager_->stop();
 	}
 }
-void F1DataLogger::start(double capture_frequency)
+
+void F1DataLogger::start(double capture_frequency, 
+std::shared_ptr<IF12018DataGrabHandler> udp_handler, 
+std::shared_ptr<IF1FrameGrabHandler> image_handler)
 {
-	if (!(!frame_grab_manager_))
+	if (bool(image_handler))
 	{
-		frame_grab_manager_->start(capture_frequency);
+	  const scl::Window& window = frame_grab_manager_->window_;
+	  cv::Size size;
+	  size.height = window.Size.y;
+	  size.width = window.Size.x;
+	  std::cout << "Got a Window of Size (W x H): " << std::endl << size << std::endl;
+	  image_handler->init(begin_, size);
+		frame_grab_manager_->start(capture_frequency, image_handler);
 	}
-	if (!(!data_grab_manager_))
+	if (bool(udp_handler))
 	{
-		data_grab_manager_->start();
+			udp_handler->init(host_, port_, begin_);
+	  	data_grab_manager_->start(udp_handler);
 	}
 }
 
-const std::chrono::high_resolution_clock::time_point F1DataLogger::getStart() const
+void F1DataLogger::start(double capture_frequency, 
+std::shared_ptr<IF1DatagrabHandler> udp_handler, 
+std::shared_ptr<IF1FrameGrabHandler> image_handler)
+{
+	if (bool(udp_handler))
+	{
+			udp_handler->init(host_, port_, begin_);
+	  	data_grab_manager_->start(udp_handler);
+	}
+	if (bool(image_handler))
+	{
+	  const scl::Window& window = frame_grab_manager_->window_;
+	  cv::Size size;
+	  size.height = window.Size.y;
+	  size.width = window.Size.x;
+	  std::cout << "Got a Window of Size (W x H): " << std::endl << size << std::endl;
+	  image_handler->init(begin_, size);
+		frame_grab_manager_->start(capture_frequency, image_handler);
+	}
+}
+
+const deepf1::TimePoint F1DataLogger::getStart() const
 {
 	return begin_;
 }

@@ -84,7 +84,7 @@ int main(int argc, char** argv)
 
 
   std::cout<<"Creating DataLogger" <<std::endl;
-  std::shared_ptr<deepf1::F1DataLogger> dl( new deepf1::F1DataLogger( search_string , frame_handler , udp_handler ) );
+  std::shared_ptr<deepf1::F1DataLogger> dl( new deepf1::F1DataLogger( search_string ) );
   std::cout<<"Created DataLogger" <<std::endl;
 
 
@@ -94,7 +94,7 @@ int main(int argc, char** argv)
 
   std::cout << "Starting capture in " << initial_delay_time << " seconds." << std::endl;
   std::this_thread::sleep_for(std::chrono::microseconds((long)std::round(initial_delay_time*1E6)));
-  dl->start(image_capture_frequency);
+  dl->start(image_capture_frequency, udp_handler  , frame_handler );
 
   std::cout<<"Capturing data. Enter any key to end " << std::endl;
   std::cin >> inp;

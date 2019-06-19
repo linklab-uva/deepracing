@@ -12,8 +12,7 @@
 namespace deepf1
 {
 
-F1DataGrabManager::F1DataGrabManager(std::shared_ptr<std::chrono::high_resolution_clock> clock,
-                                     std::shared_ptr<IF1DatagrabHandler> handler, const std::string host,
+F1DataGrabManager::F1DataGrabManager(std::shared_ptr<std::chrono::high_resolution_clock> clock,const std::string host,
                                      const unsigned int port) :
     socket_(io_service_), running_(true)
 {
@@ -30,15 +29,13 @@ F1DataGrabManager::F1DataGrabManager(std::shared_ptr<std::chrono::high_resolutio
 	  std::cout << "Binding to host " <<host<<" on port " << port << std::endl;
 	  socket_.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(host), port));
   }
-  data_handler_ = handler;
   clock_ = clock;
 }
-
 F1DataGrabManager::~F1DataGrabManager()
 {
   running_ = false;
 }
-void F1DataGrabManager::run_()
+void F1DataGrabManager::run2017(std::shared_ptr<IF1DatagrabHandler> data_handler)
 {
   //make space on the stack to receive packets.
   boost::system::error_code error;
@@ -46,22 +43,33 @@ void F1DataGrabManager::run_()
   while (running_)
   {
     std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(&(data.data), BUFFER_SIZE), remote_endpoint_, 0, error);
-    if (bool(data_handler_) && data_handler_->isReady())
+    if (bool(data_handler) && data_handler->isReady())
     {
-	  data.timestamp = clock_->now();
-      data_handler_->handleData(data);
+	    data.timestamp = clock_->now();
+      data_handler->handleData(data);
     }
 	//std::this_thread::sleep_for(std::chrono::milliseconds(sleeptime));
   }
 }
-void F1DataGrabManager::start()
+void F1DataGrabManager::run2018(std::shared_ptr<IF12018DataGrabHandler> data_handler)
 {
-  run_thread_ = std::thread(std::bind(&F1DataGrabManager::run_, this));
+
 }
+
+void F1DataGrabManager::start(std::shared_ptr<IF12018DataGrabHandler> data_handler)
+{
+  run_thread_ = std::thread(std::bind(&F1DataGrabManager::run2018, this, data_handler));
+}
+
+void F1DataGrabManager::start(std::shared_ptr<IF1DatagrabHandler> data_handler)
+{
+  run_thread_ = std::thread(std::bind(&F1DataGrabManager::run2017, this, data_handler));
+}
+
 void F1DataGrabManager::stop()
 {
 	running_ = false;
-	data_handler_.reset();
 	socket_.close();
 }
+
 } /* namespace deepf1 */

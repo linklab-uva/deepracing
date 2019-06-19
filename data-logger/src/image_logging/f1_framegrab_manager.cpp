@@ -67,15 +67,12 @@ scl::Window findWindow(const std::string& search_string)
   return selected_window;
 }
 F1FrameGrabManager::F1FrameGrabManager(std::shared_ptr<std::chrono::high_resolution_clock> clock,
-                                       std::shared_ptr<IF1FrameGrabHandler> capture_handler,
                                        const std::string& search_string)
 {
-  capture_handler_ = capture_handler;
   clock_ = clock;
   std::cout << "Looking for an application with the search string " << search_string << std::endl;
   window_ = findWindow(search_string);
   capture_config_ = scl::CreateCaptureConfiguration( (scl::WindowCallback)std::bind(&F1FrameGrabManager::get_windows_, this));
-  capture_config_->onNewFrame((scl::WindowCaptureCallback)std::bind(&F1FrameGrabManager::onNewFrame_, this, std::placeholders::_1, std::placeholders::_2));
 }
 F1FrameGrabManager::~F1FrameGrabManager()
 {
@@ -86,14 +83,14 @@ std::vector<scl::Window> F1FrameGrabManager::get_windows_()
 {
   return std::vector<scl::Window> {window_};
 }
-void F1FrameGrabManager::onNewFrame_(const scl::Image &img, const scl::Window &monitor)
+void F1FrameGrabManager::onNewFrame_(const scl::Image &img, const scl::Window &monitor, std::shared_ptr<IF1FrameGrabHandler> capture_handler)
 {
-  if(capture_handler_->isReady())
+  if(capture_handler->isReady())
   {
     TimestampedImageData timestamped_image;
-    timestamped_image.image = deepf1::OpenCVUtils::toCV(img);
+    timestamped_image.image = deepf1::OpenCVUtils::toCV(img, window_.Size);
     timestamped_image.timestamp = clock_->now();
-    capture_handler_->handleData(timestamped_image);
+    capture_handler->handleData(timestamped_image);
   }
 }
 
@@ -102,8 +99,10 @@ void F1FrameGrabManager::stop()
 	capture_manager_.reset();
 	capture_config_.reset();
 }
-void F1FrameGrabManager::start(double capture_frequency)
+void F1FrameGrabManager::start(double capture_frequency, 
+                    std::shared_ptr<IF1FrameGrabHandler> capture_handler)
 {
+  capture_config_->onNewFrame((scl::WindowCaptureCallback)std::bind(&F1FrameGrabManager::onNewFrame_, this, std::placeholders::_1, std::placeholders::_2, capture_handler));
   capture_manager_ = capture_config_->start_capturing();
   unsigned int ms = (unsigned int)(std::round(((double)1E3)/capture_frequency)); 
   capture_manager_->setFrameChangeInterval(std::chrono::milliseconds(ms));
