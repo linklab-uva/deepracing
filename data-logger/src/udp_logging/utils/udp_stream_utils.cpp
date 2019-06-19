@@ -426,6 +426,24 @@ namespace twenty_eighteen
 	deepf1::twenty_eighteen::protobuf::CarMotionData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::CarMotionData& fromStream)
 	{
 		deepf1::twenty_eighteen::protobuf::CarMotionData rtn;
+		rtn.set_m_gforcelateral(fromStream.m_gForceLateral);
+		rtn.set_m_gforcelongitudinal(fromStream.m_gForceLongitudinal);
+		rtn.set_m_gforcevertical(fromStream.m_gForceVertical);
+		rtn.set_m_pitch(fromStream.m_pitch);
+		rtn.set_m_roll(fromStream.m_roll);
+		rtn.set_m_worldforwarddirx(fromStream.m_worldForwardDirX);
+		rtn.set_m_worldforwarddiry(fromStream.m_worldForwardDirY);
+		rtn.set_m_worldforwarddirz(fromStream.m_worldForwardDirZ);
+		rtn.set_m_worldpositionx(fromStream.m_worldPositionX);
+		rtn.set_m_worldpositiony(fromStream.m_worldPositionY);
+		rtn.set_m_worldpositionz(fromStream.m_worldPositionZ);
+		rtn.set_m_worldrightdirx(fromStream.m_worldRightDirX);
+		rtn.set_m_worldrightdiry(fromStream.m_worldRightDirY);
+		rtn.set_m_worldrightdirz(fromStream.m_worldRightDirZ);
+		rtn.set_m_worldvelocityx(fromStream.m_worldVelocityX);
+		rtn.set_m_worldvelocityy(fromStream.m_worldVelocityY);
+		rtn.set_m_worldvelocityz(fromStream.m_worldVelocityZ);
+		rtn.set_m_yaw(fromStream.m_yaw);
 		return rtn;		
 	}
 	deepf1::twenty_eighteen::protobuf::ParticipantData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::ParticipantData& fromStream)
