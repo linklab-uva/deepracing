@@ -404,6 +404,23 @@ namespace twenty_eighteen
 	deepf1::twenty_eighteen::protobuf::LapData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::LapData& fromStream)
 	{
 		deepf1::twenty_eighteen::protobuf::LapData rtn;
+		rtn.set_m_bestlaptime(fromStream.m_bestLapTime);
+		rtn.set_m_carposition(fromStream.m_carPosition);
+		rtn.set_m_currentlapinvalid(fromStream.m_currentLapInvalid);
+		rtn.set_m_currentlapnum(fromStream.m_currentLapNum);
+		rtn.set_m_currentlaptime(fromStream.m_currentLapTime);
+		rtn.set_m_driverstatus(fromStream.m_driverStatus);
+		rtn.set_m_gridposition(fromStream.m_gridPosition);
+		rtn.set_m_lapdistance(fromStream.m_lapDistance);
+		rtn.set_m_lastlaptime(fromStream.m_lastLapTime);
+		rtn.set_m_penalties(fromStream.m_penalties);
+		rtn.set_m_pitstatus(fromStream.m_pitStatus);
+		rtn.set_m_resultstatus(fromStream.m_resultStatus);
+		rtn.set_m_safetycardelta(fromStream.m_safetyCarDelta);
+		rtn.set_m_sector1time(fromStream.m_sector1Time);
+		rtn.set_m_sector2time(fromStream.m_sector2Time);
+		rtn.set_m_sector(fromStream.m_sector);
+		rtn.set_m_totaldistance(fromStream.m_totalDistance);
 		return rtn;		
 	}
 	deepf1::twenty_eighteen::protobuf::CarMotionData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::CarMotionData& fromStream)
