@@ -1,0 +1,16 @@
+
+#ifndef INCLUDE_UDP_LOGGING_F1_PROTOCOL_VERSIONS_H_
+#define INCLUDE_UDP_LOGGING_F1_PROTOCOL_VERSIONS_H_
+namespace deepf1
+{
+
+    enum F1ProtocolVersion
+    {
+    TWENTYSEVENTEEN=2017,
+    TWENTYEIGHTEEN=2018,
+    TWENTYNINTEEN=2019
+    };
+
+}
+
+#endif
