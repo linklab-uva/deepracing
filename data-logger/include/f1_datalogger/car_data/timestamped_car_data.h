@@ -24,6 +24,17 @@ namespace deepf1
 */
 namespace twenty_eighteen
 {
+	enum PacketID
+	{
+		MOTION=0,
+		SESSION=1,
+		LAPDATA=2,
+		EVENT=3,
+		PARTICIPANTS=4,
+		CARSETUPS=5,
+		CARTELEMETRY=6,
+		CARSTATUS=7
+	};
 	struct TimestampedPacketCarSetupData{
 		TimestampedPacketCarSetupData(const PacketCarSetupData& data, const TimePoint& timestamp)
 		{
