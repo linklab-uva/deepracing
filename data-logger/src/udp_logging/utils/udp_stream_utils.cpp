@@ -449,6 +449,12 @@ namespace twenty_eighteen
 	deepf1::twenty_eighteen::protobuf::ParticipantData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::ParticipantData& fromStream)
 	{
 		deepf1::twenty_eighteen::protobuf::ParticipantData rtn;
+		rtn.set_m_aicontrolled(fromStream.m_aiControlled);
+		rtn.set_m_driverid(fromStream.m_driverId);
+		rtn.set_m_name(std::string(fromStream.m_name));
+		rtn.set_m_nationality(fromStream.m_nationality);
+		rtn.set_m_racenumber(fromStream.m_raceNumber);
+		rtn.set_m_teamid(fromStream.m_teamId);
 		return rtn;		
 	}
 	
