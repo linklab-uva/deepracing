@@ -6,7 +6,7 @@ message CarTelemetryData {
 		sint32    m_steer = 3;                      // Steering (-100 (full lock left) to 100 (full lock right))
 		uint32   m_brake = 4;                      // Amount of brake applied (0 to 100)
 		uint32   m_clutch = 5;                     // Amount of clutch applied (0 to 100)
-		int32    m_gear = 6;                       // Gear selected (1-8, N=0, R=-1)
+		sint32    m_gear = 6;                       // Gear selected (1-8, N=0, R=-1)
 		uint32  m_engineRPM = 7;                  // Engine RPM
 		uint32   m_drs = 8;                       // 0 = off, 1 = on
 		uint32   m_revLightsPercent = 9;           // Rev lights indicator (percentage)

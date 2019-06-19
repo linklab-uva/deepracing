@@ -260,4 +260,58 @@ deepf1::protobuf::UDPData UDPStreamUtils::toProto(const deepf1::UDPPacket2017& f
     return rtn;
 }
 
+namespace twenty_eighteen
+{
+	TwentyEighteenUDPStreamUtils::TwentyEighteenUDPStreamUtils()
+	{
+
+	}
+	TwentyEighteenUDPStreamUtils::~TwentyEighteenUDPStreamUtils()
+	{
+		
+	}
+	
+	deepf1::twenty_eighteen::protobuf::PacketCarStatusData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketCarStatusData& fromStream)
+	{
+		deepf1::twenty_eighteen::protobuf::PacketCarStatusData rtn;
+		return rtn;
+	}
+	deepf1::twenty_eighteen::protobuf::PacketCarSetupData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketCarSetupData& fromStream)
+	{
+		deepf1::twenty_eighteen::protobuf::PacketCarSetupData rtn;
+		return rtn;		
+	}
+	deepf1::twenty_eighteen::protobuf::PacketCarTelemetryData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketCarTelemetryData& fromStream)
+	{
+		deepf1::twenty_eighteen::protobuf::PacketCarTelemetryData rtn;
+		return rtn;		
+	}
+	deepf1::twenty_eighteen::protobuf::PacketEventData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketEventData& fromStream)
+	{
+		deepf1::twenty_eighteen::protobuf::PacketEventData rtn;
+		return rtn;		
+	}
+	deepf1::twenty_eighteen::protobuf::PacketLapData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketLapData& fromStream)
+	{
+		deepf1::twenty_eighteen::protobuf::PacketLapData rtn;
+		return rtn;		
+	}
+	deepf1::twenty_eighteen::protobuf::PacketMotionData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketMotionData& fromStream)
+	{
+		deepf1::twenty_eighteen::protobuf::PacketMotionData rtn;
+		return rtn;		
+	}
+	deepf1::twenty_eighteen::protobuf::PacketParticipantsData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketParticipantsData& fromStream)
+	{
+		deepf1::twenty_eighteen::protobuf::PacketParticipantsData rtn;
+		return rtn;		
+	}
+	deepf1::twenty_eighteen::protobuf::PacketSessionData TwentyEighteenUDPStreamUtils::toProto(const deepf1::twenty_eighteen::PacketSessionData& fromStream)
+	{
+		deepf1::twenty_eighteen::protobuf::PacketSessionData rtn;
+		return rtn;		
+	}
+	
+}
+
 }
