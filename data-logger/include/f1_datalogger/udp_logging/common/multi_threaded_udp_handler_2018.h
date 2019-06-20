@@ -27,10 +27,12 @@ public:
   void init(const std::string& host, unsigned int port, const deepf1::TimePoint& begin) override;
   const std::string getDataFolder() const;
   void stop();
+  void hardStop();
   void join(unsigned int extra_threads = 1);
 private:
   std::shared_ptr< tbb::task_group > thread_pool_ ;
   bool running_;
+  bool hard_stopped_;
   deepf1::TimePoint begin_;
   const std::string data_folder_;
 

@@ -21,14 +21,15 @@
 #include "f1_datalogger/proto/TimestampedPacketMotionData.pb.h"
 #include "f1_datalogger/proto/TimestampedPacketParticipantsData.pb.h"
 #include "f1_datalogger/proto/TimestampedPacketSessionData.pb.h"
-
+#include <sstream>
 namespace fs = boost::filesystem;
 namespace deepf1
 {
 MultiThreadedUDPHandler2018::MultiThreadedUDPHandler2018( std::string data_folder, bool write_json, unsigned int sleeptime )
- : running_(false), data_folder_(data_folder), write_json_(write_json), sleeptime_(sleeptime),
+ : running_(false), hard_stopped_(true), data_folder_(data_folder), write_json_(write_json), sleeptime_(sleeptime),
     setups_counter(1), status_counter(1), telemetry_counter(1), lapdata_counter(1),
                               motion_counter(1), participants_counter(1), session_counter(1)
+                              
 {
   fs::path main_dir(data_folder);
   if(!fs::is_directory(main_dir))
@@ -46,16 +47,17 @@ MultiThreadedUDPHandler2018::MultiThreadedUDPHandler2018( std::string data_folde
 }
 MultiThreadedUDPHandler2018::~MultiThreadedUDPHandler2018()
 {
-  stop();
+  hardStop();
+}
+void MultiThreadedUDPHandler2018::hardStop()
+{
+  running_ = false;
+  ready_ = false;
+  hard_stopped_ = true;
   thread_pool_->cancel();
 }
 void MultiThreadedUDPHandler2018::stop()
 {
-  running_ = false;
-  ready_ = false;
-}
-void MultiThreadedUDPHandler2018::join(unsigned int extra_threads)
-{ 
   std::cout<<"Cleaning up remaining udp packets"<<std::endl;
   std::printf("Motion Data Packets Remaining: %lu\n", motion_data_queue_->unsafe_size());
   std::printf("Car Setup Data Packets Remaining: %lu\n", setup_data_queue_->unsafe_size());
@@ -64,6 +66,11 @@ void MultiThreadedUDPHandler2018::join(unsigned int extra_threads)
   std::printf("Lap Data Packets Remaining: %lu\n", lap_data_queue_->unsafe_size());
   std::printf("Participant Data Packets Remaining: %lu\n", participant_data_queue_->unsafe_size());
   std::printf("Session Data Packets Remaining: %lu\n", session_data_queue_->unsafe_size());
+  running_ = false;
+  ready_ = false;
+}
+void MultiThreadedUDPHandler2018::join(unsigned int extra_threads)
+{ 
   for(unsigned int i = 0; i < extra_threads; i ++)
   {
     thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::CARSTATUS));
@@ -159,7 +166,7 @@ void MultiThreadedUDPHandler2018::workerFunc(deepf1::twenty_eighteen::PacketID p
     case deepf1::twenty_eighteen::PacketID::MOTION:
     {
       deepf1::twenty_eighteen::TimestampedPacketMotionData timestamped_packet_f1;
-      while(running_ || !(motion_data_queue_->empty()))
+      while(!hard_stopped_ && (running_ || !(motion_data_queue_->empty())))
       {
         if(!motion_data_queue_->try_pop(timestamped_packet_f1))
         {
@@ -174,7 +181,7 @@ void MultiThreadedUDPHandler2018::workerFunc(deepf1::twenty_eighteen::PacketID p
     case deepf1::twenty_eighteen::PacketID::SESSION:
     {
       deepf1::twenty_eighteen::TimestampedPacketSessionData timestamped_packet_f1;
-      while(running_ || !(session_data_queue_->empty()))
+      while(!hard_stopped_ && (running_ || !(session_data_queue_->empty())))
       {
         if(!session_data_queue_->try_pop(timestamped_packet_f1))
         {
@@ -189,7 +196,7 @@ void MultiThreadedUDPHandler2018::workerFunc(deepf1::twenty_eighteen::PacketID p
     case deepf1::twenty_eighteen::PacketID::LAPDATA:
     {
       deepf1::twenty_eighteen::TimestampedPacketLapData timestamped_packet_f1;
-      while(running_ || !(lap_data_queue_->empty()))
+      while(!hard_stopped_ && (running_ || !(lap_data_queue_->empty())))
       {
         if(!lap_data_queue_->try_pop(timestamped_packet_f1))
         {
@@ -208,7 +215,7 @@ void MultiThreadedUDPHandler2018::workerFunc(deepf1::twenty_eighteen::PacketID p
     case deepf1::twenty_eighteen::PacketID::PARTICIPANTS:
     {
       deepf1::twenty_eighteen::TimestampedPacketParticipantsData timestamped_packet_f1;
-      while(running_ || !(participant_data_queue_->empty()))
+      while(!hard_stopped_ && (running_ || !(participant_data_queue_->empty())))
       {
         if(!participant_data_queue_->try_pop(timestamped_packet_f1))
         {
@@ -223,7 +230,7 @@ void MultiThreadedUDPHandler2018::workerFunc(deepf1::twenty_eighteen::PacketID p
     case deepf1::twenty_eighteen::PacketID::CARSETUPS:
     {
       deepf1::twenty_eighteen::TimestampedPacketCarSetupData timestamped_packet_f1;
-      while(running_ || !(setup_data_queue_->empty()))
+      while(!hard_stopped_ && (running_ || !(setup_data_queue_->empty())))
       {
         if(!setup_data_queue_->try_pop(timestamped_packet_f1))
         {
@@ -238,7 +245,7 @@ void MultiThreadedUDPHandler2018::workerFunc(deepf1::twenty_eighteen::PacketID p
     case deepf1::twenty_eighteen::PacketID::CARTELEMETRY:
     {
       deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData timestamped_packet_f1;
-      while(running_ || !(telemetry_data_queue_->empty()))
+      while(!hard_stopped_ && (running_ || !(telemetry_data_queue_->empty())))
       {
         if(!telemetry_data_queue_->try_pop(timestamped_packet_f1))
         {
@@ -253,7 +260,7 @@ void MultiThreadedUDPHandler2018::workerFunc(deepf1::twenty_eighteen::PacketID p
     case deepf1::twenty_eighteen::PacketID::CARSTATUS:
     {
       deepf1::twenty_eighteen::TimestampedPacketCarStatusData timestamped_packet_f1;
-      while(running_ || !(status_data_queue_->empty()))
+      while(!hard_stopped_ && (running_ || !(status_data_queue_->empty())))
       {
         if(!status_data_queue_->try_pop(timestamped_packet_f1))
         {
@@ -311,6 +318,7 @@ void MultiThreadedUDPHandler2018::init(const std::string& host, unsigned int por
   thread_pool_.reset(new tbb::task_group);
   ready_ = true;
   running_ = true;
+  hard_stopped_ = false;
   thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc, this, deepf1::twenty_eighteen::PacketID::CARSETUPS));
   thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::CARSTATUS));
   thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::CARTELEMETRY));
