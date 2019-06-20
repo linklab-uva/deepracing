@@ -432,11 +432,12 @@ namespace twenty_eighteen
 		deepf1::twenty_eighteen::protobuf::PacketHeader rtn;
 		rtn.set_m_frameidentifier(fromStream.m_frameIdentifier);
 		rtn.set_m_packetformat(fromStream.m_packetFormat);
-		rtn.set_m_packetid(fromStream.m_packetId);
+		rtn.set_m_packetid(google::protobuf::uint32(fromStream.m_packetId));
 		rtn.set_m_packetversion(fromStream.m_packetVersion);
 		rtn.set_m_playercarindex(fromStream.m_playerCarIndex);
 		rtn.set_m_sessiontime(fromStream.m_sessionTime);
 		rtn.set_m_sessionuid(fromStream.m_sessionUID);
+		return rtn;
 	}
 
 
