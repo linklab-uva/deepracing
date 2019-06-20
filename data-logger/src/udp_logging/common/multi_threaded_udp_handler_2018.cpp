@@ -22,6 +22,7 @@
 #include "f1_datalogger/proto/TimestampedPacketParticipantsData.pb.h"
 #include "f1_datalogger/proto/TimestampedPacketSessionData.pb.h"
 #include <sstream>
+#include <exception>
 namespace fs = boost::filesystem;
 namespace deepf1
 {
@@ -32,10 +33,12 @@ MultiThreadedUDPHandler2018::MultiThreadedUDPHandler2018( std::string data_folde
                               
 {
   fs::path main_dir(data_folder);
-  if(!fs::is_directory(main_dir))
+  if(fs::is_directory(main_dir))
   {
-    fs::create_directories(main_dir);
+    throw std::runtime_error("UDP Packet Directory " + fs::absolute(main_dir).string() + " already exists.");
   }
+  fs::create_directories(main_dir);
+    
   setup_data_queue_.reset(new tbb::concurrent_queue<deepf1::twenty_eighteen::TimestampedPacketCarSetupData>);
   status_data_queue_.reset(new tbb::concurrent_queue<deepf1::twenty_eighteen::TimestampedPacketCarStatusData>);
   telemetry_data_queue_.reset(new tbb::concurrent_queue<deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData>);
@@ -319,13 +322,18 @@ void MultiThreadedUDPHandler2018::init(const std::string& host, unsigned int por
   ready_ = true;
   running_ = true;
   hard_stopped_ = false;
-  thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc, this, deepf1::twenty_eighteen::PacketID::CARSETUPS));
+  thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::CARSTATUS));
   thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::CARSTATUS));
   thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::CARTELEMETRY));
+  thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::CARTELEMETRY));
+  thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::LAPDATA));
   thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::LAPDATA));
   thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::MOTION));
+  thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::MOTION));
+  
   thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::PARTICIPANTS));
   thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::SESSION));
+  thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc, this, deepf1::twenty_eighteen::PacketID::CARSETUPS));
 }
 
 const std::string MultiThreadedUDPHandler2018::getDataFolder() const
