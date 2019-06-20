@@ -19,14 +19,15 @@ namespace deepf1
 
 class MultiThreadedUDPHandler2018 : public IF12018DataGrabHandler
 {
+  using timeunit = std::chrono::milliseconds;
 public:
-  MultiThreadedUDPHandler2018(std::string data_folder = "udp_data", bool write_json = false, unsigned int sleeptime = 75);
+  MultiThreadedUDPHandler2018(std::string data_folder = "udp_data", bool write_json = false, unsigned int sleeptime = 100);
   virtual ~MultiThreadedUDPHandler2018();
   inline bool isReady() override;
   void init(const std::string& host, unsigned int port, const deepf1::TimePoint& begin) override;
   const std::string getDataFolder() const;
   void stop();
-  void join();
+  void join(unsigned int extra_threads = 1);
 private:
   std::shared_ptr< tbb::task_group > thread_pool_ ;
   bool running_;
@@ -41,13 +42,17 @@ private:
   std::shared_ptr< tbb::concurrent_queue<deepf1::twenty_eighteen::TimestampedPacketMotionData> > motion_data_queue_;
   std::shared_ptr< tbb::concurrent_queue<deepf1::twenty_eighteen::TimestampedPacketParticipantsData> > participant_data_queue_;
   std::shared_ptr< tbb::concurrent_queue<deepf1::twenty_eighteen::TimestampedPacketSessionData> > session_data_queue_;
+  tbb::atomic<unsigned long> setups_counter,status_counter,telemetry_counter,lapdata_counter,
+                              motion_counter,participants_counter,session_counter;
 
   bool ready_;
   bool write_json_;
   unsigned int sleeptime_;
   google::protobuf::util::JsonOptions json_options_;
 
-  void workerFunc(deepf1::twenty_eighteen::PacketID packetType);
+  void workerFunc(deepf1::twenty_eighteen::PacketID packetType); 
+  
+
 
 
 
