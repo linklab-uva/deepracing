@@ -5,8 +5,8 @@
  *      Author: ttw2xk
  */
 
-#ifndef INCLUDE_UDP_LOGGING_COMMON_MULTI_THREADED_UDP_HANDLER_H_
-#define INCLUDE_UDP_LOGGING_COMMON_MULTI_THREADED_UDP_HANDLER_H_
+#ifndef INCLUDE_UDP_LOGGING_COMMON_MULTI_THREADED_UDP_HANDLER_2018_H_
+#define INCLUDE_UDP_LOGGING_COMMON_MULTI_THREADED_UDP_HANDLER_2018_H_
 
 #include "f1_datalogger/udp_logging/f1_2018_datagrab_handler.h"
 #include <tbb/concurrent_queue.h>
