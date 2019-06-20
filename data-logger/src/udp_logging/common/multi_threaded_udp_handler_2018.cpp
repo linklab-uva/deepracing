@@ -79,8 +79,8 @@ inline bool MultiThreadedUDPHandler2018::isReady()
   return ready_;
 }
 
-template<typename ProtoType, typename F1Type, typename timeunit>
-void dispositionProto(ProtoType& data_pb, F1Type& timestamped_packet_f1, const unsigned int& sleeptime,
+template<class ProtoType, class F1Type, class timeunit>
+inline void dispositionProto(ProtoType& data_pb, F1Type& timestamped_packet_f1, const unsigned int& sleeptime,
 const deepf1::TimePoint& begin, const fs::path& output_dir, tbb::atomic<unsigned long>& counter)
 {
   google::protobuf::util::JsonOptions json_options;
@@ -180,8 +180,8 @@ void MultiThreadedUDPHandler2018::workerFunc(deepf1::twenty_eighteen::PacketID p
         {
           continue;
         }
-        deepf1::twenty_eighteen::protobuf::TimestamedPacketSessionData data_pb;
-        dispositionProto<deepf1::twenty_eighteen::protobuf::TimestamedPacketSessionData, deepf1::twenty_eighteen::TimestampedPacketSessionData, timeunit>
+        deepf1::twenty_eighteen::protobuf::TimestampedPacketSessionData data_pb;
+        dispositionProto<deepf1::twenty_eighteen::protobuf::TimestampedPacketSessionData, deepf1::twenty_eighteen::TimestampedPacketSessionData, timeunit>
         (data_pb, timestamped_packet_f1, sleeptime_, begin_, output_dir, session_counter);
       }
       break;
