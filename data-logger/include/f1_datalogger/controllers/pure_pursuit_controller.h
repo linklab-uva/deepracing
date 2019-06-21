@@ -15,7 +15,7 @@ namespace deepf1
 		PurePursuitController(std::shared_ptr<MeasurementHandler> measurement_handler, 
 			double Kv=1.0, double L = 3.7, double max_angle = 0.78539816339744830961566084581988, double velocity_setpoint = 100.0);
 		~PurePursuitController();
-		void run(const std::string& trackfile = "Australia_racingline.track", float velKp=1.0, float velKi= 0.1, float velKd = -0.1);
+		void run(const std::string& trackfile = "Australia_racingline.track", float velKp=1.0, float velKi= 0.1, float velKd = -0.1, float velocity_lookahead_gain = 1.5);
 		static std::vector<std::pair< double, Eigen::Vector3d> > loadTrackFile(const std::string& filename);
 
 	private:

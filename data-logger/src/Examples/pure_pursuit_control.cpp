@@ -27,7 +27,7 @@ void exit_with_help(po::options_description& desc)
 int main(int argc, char** argv)
 {
 	std::string search_string, trackfile;
-	double lookahead_gain, velocity, kp, ki, kd;
+	double lookahead_gain, velocity, kp, ki, kd, velocity_lookahead_gain;
 
 
 	po::options_description desc("F1 Datalogger Multithreaded Capture. Command line arguments are as follows");
@@ -41,6 +41,7 @@ int main(int argc, char** argv)
 			("proportional_gain,kp", po::value<double>(&kp)->default_value(.25), "P gain for the velocity control.")
 			("integral_gain,ki", po::value<double>(&ki)->default_value(0.00001), "I gain for the velocity control.")
 			("derivative_gain,kd", po::value<double>(&kd)->default_value(-0.01), "D gain for the velocity control.")
+			("velocity_lookahead_gain", po::value<double>(&velocity_lookahead_gain)->default_value(1.5), "Linear Lookahead gain for the longitudinal controller.")
 			;
 		po::variables_map vm;
 		po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -59,8 +60,8 @@ int main(int argc, char** argv)
 
 	deepf1::F1DataLogger dl(search_string);
 	dl.start(60.0, udp_handler, image_handler);
-	deepf1::PurePursuitController control(udp_handler,lookahead_gain,3.7, 1.57, velocity);
+	deepf1::PurePursuitController control(udp_handler,lookahead_gain,3.7, .27, velocity);
 	deepf1::F1DataLogger::countdown(3, "Running pure pursuit in ");
-	control.run(trackfile, kp, ki, kd);
+	control.run(trackfile, kp, ki, kd, velocity_lookahead_gain);
 }
 

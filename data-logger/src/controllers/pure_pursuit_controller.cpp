@@ -64,7 +64,7 @@ std::vector< std::pair< double, Eigen::Vector3d> > deepf1::PurePursuitController
 	std::vector<double> T = { 0.0, (1.0/3.0), (2.0 / 3.0), 1.0 };
 	alglib::real_1d_array t_alglib;
 	t_alglib.attach_to_ptr(4, &T[0]);
-	for (unsigned int i = 0; i < max_index; i++)
+	for (unsigned int i = 0; i < max_index; i+=3)
 	{
 		double x0 = rtn.at(i).first;
 		double x1 = rtn.at(i + 1).first;
@@ -122,6 +122,11 @@ void velocityControlLoop(std::shared_ptr<deepf1::MeasurementHandler> measurement
 		speed_mph = speed * 2.23694;
 
 		float current_error = *setpoint - speed_mph;
+		if (isnan(current_error))
+		{
+			//*out = 1.0;
+			continue;
+		}
 		error_buffer.push_back(current_error);
 		speed_buffer.push_back(speed);
 		time_buffer.push_back(data.data.m_time);
@@ -141,14 +146,27 @@ void velocityControlLoop(std::shared_ptr<deepf1::MeasurementHandler> measurement
 		unsigned int upperbound = timevec.size() - 1;
 		for (unsigned int i = 0; i < upperbound; i++)
 		{
-			integral += (errorvec[i] + errorvec[i + 1])*(timevec[i + 1] - timevec[i]);
+			if( isnan(errorvec[i]) || isnan(errorvec[i+1]) || isnan(timevec[i + 1]) || isnan(timevec[i]) )
+			{
+				continue;
+			}
+			integral += 0.5* (errorvec[i] + errorvec[i + 1])*(timevec[i + 1] - timevec[i]);
 		}
-		integral /= 2.0;
-		*out  = velKp * current_error + velKi * integral + velKd * (errorvec.back() - errorvec.at(errorvec.size() - 2)) / (timevec.back() - timevec.at(errorvec.size() - 2));
+		float derivative = (errorvec.back() - errorvec.at(errorvec.size() - 2)) / (timevec.back() - timevec.at(errorvec.size() - 2));
+		if (isnan(derivative))
+		{
+			derivative = 0.0;
+		}
+		if(isnan(integral))
+		{
+			integral = 0.0;
+		}
+		*out  = velKp * current_error + velKi * integral + velKd * derivative;
 		std::this_thread::sleep_for(std::chrono::milliseconds(25));
+		std::printf("Current speed: %f Current error: %f\n", data.data.m_speed, current_error);
 	}
 }
-void deepf1::PurePursuitController::run(const std::string& trackfile, float velKp, float velKi, float velKd)
+void deepf1::PurePursuitController::run(const std::string& trackfile, float velKp, float velKi, float velKd, float velocity_lookahead_gain)
 {
 	deepf1::TimestampedUDPData data;
 	F1ControlCommand commands;
@@ -169,7 +187,7 @@ void deepf1::PurePursuitController::run(const std::string& trackfile, float velK
 	kdtree.build();
 	kdt::KDTreed::Matrix dists;  
 	kdt::KDTreed::MatrixI idx;
-	float speed, speed_mph, lookahead_dist, fake_zero = 0.0, vel_setpoint, positive_deadband = fake_zero, negative_deadband = -fake_zero, accel;
+	float speed, speed_mph, velocity_lookahead_dist, lookahead_dist, fake_zero = 0.0, vel_setpoint, positive_deadband = fake_zero, negative_deadband = -fake_zero, accel;
 	boost::circular_buffer<float> speed_buffer(10), time_buffer(10), error_buffer(10);
 	vel_setpoint = velocity_setpoint_;
 	std::thread control_loop(velocityControlLoop,measurement_handler_, velKp, velKi, velKd, &vel_setpoint, &accel);
@@ -178,6 +196,7 @@ void deepf1::PurePursuitController::run(const std::string& trackfile, float velK
 		data = measurement_handler_->getData();
 		speed = data.data.m_speed;
 		lookahead_dist = std::max(6.0, Kv_ * (speed));
+		velocity_lookahead_dist = std::max(6.0, (double) (velocity_lookahead_gain * (speed)));
 		Eigen::Vector3d forward(data.data.m_xd, data.data.m_yd, data.data.m_zd);
 		Eigen::Vector3d right(data.data.m_xr, data.data.m_yr, data.data.m_zr);
 		Eigen::Vector3d up = right.cross(forward);
@@ -196,15 +215,25 @@ void deepf1::PurePursuitController::run(const std::string& trackfile, float velK
 		Eigen::VectorXd forwardDiffs = (forwardPoints.colwise() - real_axle_position).colwise().norm();
 	//	std::cout << "Forward Diffs has size : " << forwardDiffs.size() << std::endl;
 		Eigen::VectorXd lookaheadDiffs = (forwardDiffs - lookahead_dist*Eigen::VectorXd::Ones(forwardDiffs.size())).cwiseAbs();
+		Eigen::VectorXd lookaheadDiffsVelocity = (forwardDiffs - velocity_lookahead_dist * Eigen::VectorXd::Ones(forwardDiffs.size())).cwiseAbs();
+
 		//std::cout << "Lookahead Diffs has size : " << lookaheadDiffs.size() << std::endl;
 		Eigen::VectorXd::Index min_index;
 		lookaheadDiffs.minCoeff(&min_index);
 
+		Eigen::VectorXd::Index min_index_velocity;
+		lookaheadDiffsVelocity.minCoeff(&min_index_velocity);
+
 		Eigen::Vector3d lookaheadPoint = forwardPoints.col(min_index);
+		Eigen::Vector3d lookaheadPointVelocity = forwardPoints.col(min_index_velocity);
 		Eigen::Vector3d lookaheadStart = forwardPoints.col(0);
 		if ((lookaheadPoint - lookaheadStart).norm() < 1.0)
 		{
 			lookaheadPoint = forwardPoints.col(2);
+		}
+		if ((lookaheadPointVelocity - lookaheadStart).norm() < 1.0)
+		{
+			lookaheadPointVelocity = forwardPoints.col(2);
 		}
 		//Eigen::MatrixXd lookaheadPoints = forwardPoints.leftCols((int)std::round(1.5*((double)min_index)));
 		//std::pair<Eigen::Vector3d, Eigen::Vector3d> bfl = best_line_from_points(lookaheadPoints);
@@ -219,22 +248,50 @@ void deepf1::PurePursuitController::run(const std::string& trackfile, float velK
 		//std::printf("Forward Direction: %f %f %f\n", forward.x(), forward.y(), forward.z());
 		//std::printf("Best fit line axis: %f %f %f\n", line.direction().x(), line.direction().y(), line.direction().z());
 		Eigen::Vector3d lookaheadVector = (lookaheadPoint - real_axle_position);
+		Eigen::Vector3d lookaheadVectorVelocity = (lookaheadPointVelocity - real_axle_position);
 		lookaheadVector.normalize();
+		lookaheadVectorVelocity.normalize();
 		Eigen::Vector3d crossVector = forward.cross(lookaheadVector);
 		crossVector.normalize();
 		//std::printf("Cross Vector: %f %f %f\n", crossVector.x(), crossVector.y(), crossVector.z());
 		double alpha = std::abs(std::acos(lookaheadVector.dot(forward)));
+		double alphaVelocity = std::abs(std::acos(lookaheadVectorVelocity.dot(forward)));
 		if (crossVector.y() < 0)
 		{
 			alpha *= -1.0;
+			alphaVelocity *= -1.0;
 		}
-		double delta =  std::atan((2 * L_*std::sin(alpha)) / lookahead_dist)  / max_angle_;
+		double physical_angle = std::atan((2 * L_*std::sin(alpha)) / lookahead_dist);
+		double delta;
+		if (physical_angle > 0)
+		{
+			delta = physical_angle / 0.298673;
+		}
+		else
+		{
+			delta = physical_angle / 0.263473;
+		}
 		double deadband = 0.025;
 		if (delta < -1.0) delta = -1.0;
 		else if (delta > 1.0) delta = 1.0;
 		else if (std::abs(deadband) < deadband) delta = 0.0;
 		commands.steering = delta;
-		vel_setpoint = std::max(velocity_setpoint_ * std::pow(1- std::abs(alpha)/3.14, 7), 40.0);
+		double ratio = std::abs(alphaVelocity) / 1.57;
+		double ratio_complement = 1.0 - ratio;
+		double vel_factor;
+		if (ratio_complement>.95)
+		{
+			vel_factor = 1.0;
+		}
+		else if (ratio_complement > .9)
+		{
+			vel_factor = std::pow(ratio_complement, 5);
+		}
+		else
+		{
+			vel_factor = std::pow(ratio_complement, 8);
+		}
+		vel_setpoint = std::max(velocity_setpoint_ * vel_factor, 40.0);
 		 
 		if (accel < 0)
 		{
