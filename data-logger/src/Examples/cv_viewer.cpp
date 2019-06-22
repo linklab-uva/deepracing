@@ -11,7 +11,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <sstream>
-
+#include <Eigen/Core>
 namespace scl = SL::Screen_Capture;class OpenCV_Viewer_Example_2018DataGrabHandler : public deepf1::IF12018DataGrabHandler
 {
 public:
@@ -32,10 +32,11 @@ public:
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData& data) override
   {
      //std::printf("Got a car telemetry packet\n");
-	  std::printf("Steering ratio: %d. \n", data.data.m_carTelemetryData[0].m_steer);
+	//  std::printf("Steering ratio: %d. \n", data.data.m_carTelemetryData[0].m_steer);
      //data.data.m_carTelemetryData[car_index].m_steer, data.data.m_carTelemetryData[car_index].m_speed);
      //std::printf(". Throttle Ratio: %d. Brake Ratio: %u\n",
      //data.data.m_carTelemetryData[car_index].m_throttle, data.data.m_carTelemetryData[car_index].m_brake);
+	  std::printf("Stated Speed: %u\n", data.data.m_carTelemetryData[0].m_speed);
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketEventData& data) override
   {
@@ -45,13 +46,12 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketMotionData& data) override
   {
-	  std::printf("Front Wheel Angle: %f\n", data.data.m_frontWheelsAngle);
-/*     std::printf(". World Position: %f %f %f\n",
+	  /*   std::printf("Front Wheel Angle: %f\n", data.data.m_frontWheelsAngle);
+      std::printf(". World Position: %f %f %f\n",
      data.data.m_carMotionData[car_index].m_worldPositionX, data.data.m_carMotionData[car_index].m_worldPositionY, data.data.m_carMotionData[car_index].m_worldPositionZ);
-  */
-  
-  //  std::printf("Got a motion packet. Wheel angle: %f\n", data.data.m_frontWheelsAngle);
-  //  std::printf("Wheel Speeds: %f %f\n\t\t%f %f\n", data.data.m_wheelSpeed[2], data.data.m_wheelSpeed[3], data.data.m_wheelSpeed[0], data.data.m_wheelSpeed[1]);
+		*/
+	  std::printf("Velocity Norm: %f. \n", Eigen::Vector3d(data.data.m_carMotionData[0].m_worldVelocityX,
+		  data.data.m_carMotionData[0].m_worldVelocityY, data.data.m_carMotionData[0].m_worldVelocityZ).norm());
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketParticipantsData& data) override
   {

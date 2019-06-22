@@ -55,7 +55,7 @@ int main(int argc, char** argv)
 		exit_with_help(desc);
 	}
 
-	std::shared_ptr<deepf1::MeasurementHandler> udp_handler(new deepf1::MeasurementHandler());
+	std::shared_ptr<deepf1::MeasurementHandler2018> udp_handler(new deepf1::MeasurementHandler2018());
 	std::shared_ptr<deepf1::IF1FrameGrabHandler> image_handler;
 
 	deepf1::F1DataLogger dl(search_string);

@@ -1,6 +1,6 @@
 
-#ifndef INCLUDE_UDP_LOGGING_COMMON_MEASUREMENT_HANDLER_H_
-#define INCLUDE_UDP_LOGGING_COMMON_MEASUREMENT_HANDLER_H_
+#ifndef INCLUDE_UDP_LOGGING_COMMON_2018_MEASUREMENT_HANDLER_H_
+#define INCLUDE_UDP_LOGGING_COMMON_2018_MEASUREMENT_HANDLER_H_
 #include "f1_datalogger/udp_logging/f1_2018_datagrab_handler.h"
 namespace deepf1
 {
@@ -19,7 +19,16 @@ namespace deepf1
 			void handleData(const deepf1::twenty_eighteen::TimestampedPacketSessionData& data) override;
 			inline bool isReady() override;
 			void init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin) override;
-					   
+		     
+			const deepf1::twenty_eighteen::TimestampedPacketCarSetupData getCurrentSetupData() const;
+			const deepf1::twenty_eighteen::TimestampedPacketCarStatusData getCurrentStatusData() const;
+			const deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData getCurrentTelemetryData() const;
+			const deepf1::twenty_eighteen::TimestampedPacketEventData getCurrentEventData() const;
+			const deepf1::twenty_eighteen::TimestampedPacketLapData getCurrentLapData() const;
+			const deepf1::twenty_eighteen::TimestampedPacketMotionData getCurrentMotionData() const;
+			const deepf1::twenty_eighteen::TimestampedPacketParticipantsData getCurrentParticipantData() const;
+			const deepf1::twenty_eighteen::TimestampedPacketSessionData getCurrentSessionData() const;
+
 		private:
 
 			deepf1::twenty_eighteen::TimestampedPacketCarSetupData current_setup_data_;
