@@ -33,6 +33,7 @@ set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
 option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to read datasets" ON)
+option(GUI_TOOLS "Attempt to build the GUI tools" ON)
 if(BUILD_DATALOGGER)
     set(SCL_SUBDIR ${THIRD_PARTY_REPOS}/screen_capture_lite)
     add_subdirectory(${SCL_SUBDIR})
@@ -150,7 +151,7 @@ endif()
 
 
 # Find the QtWidgets library
-if(${_gotqt})
+if(${_gotqt} AND GUI_TOOLS)
     add_subdirectory(src/guitools)
 endif()
 if(WITH_VJOY)
