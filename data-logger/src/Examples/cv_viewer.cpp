@@ -31,27 +31,18 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData& data) override
   {
-     //std::printf("Got a car telemetry packet\n");
-	//  std::printf("Steering ratio: %d. \n", data.data.m_carTelemetryData[0].m_steer);
-     //data.data.m_carTelemetryData[car_index].m_steer, data.data.m_carTelemetryData[car_index].m_speed);
-     //std::printf(". Throttle Ratio: %d. Brake Ratio: %u\n",
-     //data.data.m_carTelemetryData[car_index].m_throttle, data.data.m_carTelemetryData[car_index].m_brake);
-	  std::printf("Stated Speed: %u\n", data.data.m_carTelemetryData[0].m_speed);
+	  std::printf("Got a telemetry packet. Steering Ratio: %d\n", data.data.m_carTelemetryData[car_index].m_steer);
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketEventData& data) override
   {
+	  std::printf("Got an event packet %s.\n", (data.data.m_eventStringCode));
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketLapData& data) override
   {
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketMotionData& data) override
   {
-	  /*   std::printf("Front Wheel Angle: %f\n", data.data.m_frontWheelsAngle);
-      std::printf(". World Position: %f %f %f\n",
-     data.data.m_carMotionData[car_index].m_worldPositionX, data.data.m_carMotionData[car_index].m_worldPositionY, data.data.m_carMotionData[car_index].m_worldPositionZ);
-		*/
-	  std::printf("Velocity Norm: %f. \n", Eigen::Vector3d(data.data.m_carMotionData[0].m_worldVelocityX,
-		  data.data.m_carMotionData[0].m_worldVelocityY, data.data.m_carMotionData[0].m_worldVelocityZ).norm());
+	 // std::printf("Got a motion data packet. Session timestamp: %f\n", data.data.m_header.m_sessionTime);
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketParticipantsData& data) override
   {
@@ -59,7 +50,6 @@ public:
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketSessionData& data) override
   {
     car_index = data.data.m_spectatorCarIndex;
-   // std::printf("Index of watched car: %u\n", car_index);
     
   }
   void init(const std::string& host, unsigned int port, const deepf1::TimePoint& begin) override
@@ -125,27 +115,36 @@ public:
   void handleData(const deepf1::TimestampedImageData& data) override
   {
 
-    long long delta = std::chrono::duration_cast<std::chrono::nanoseconds>(data.timestamp - this->begin).count();
-    //std::stringstream ss;
-    //ss << delta << " milliseconds from start";
+    long long delta = std::chrono::duration_cast<std::chrono::milliseconds>(data.timestamp - this->begin).count();
+    std::stringstream ss;
+    ss << delta << " milliseconds from start"<<std::endl;
+	after = deepf1::TimePoint(data.timestamp);
+	std::chrono::duration<double, std::ratio<1,1000> > deltat = (after - before);
+	std::cout << "Delta t in milliseconds"
+		<< deltat.count() << std::endl;
+	before = deepf1::TimePoint(after);
 
-    // cv::putText(data.image, ss.str(), cv::Point(25,100), cv::FONT_HERSHEY_PLAIN, 2.0, cv::Scalar(0.0,0.0,0.0));
-    cv::Mat img_cv_video;
-    cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
-  //  cv::imshow(window_name, img_cv_video);
-    video_writer_->write(img_cv_video);
+ //   cv::Mat img_cv_video;
+ //   cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
+	//cv::putText(img_cv_video, ss.str(), cv::Point(img_cv_video.cols/2 - ss.str().length(), img_cv_video.rows / 2), cv::FONT_HERSHEY_PLAIN, 2.0, cv::Scalar(0.0, 0.0, 0.0));
+ //  // cv::imshow(window_name, data.image);
+ //   video_writer_->write(img_cv_video);
   }
-  void init(const std::chrono::high_resolution_clock::time_point& begin, const cv::Size& window_size) override
+  void init(const deepf1::TimePoint& begin, const cv::Size& window_size) override
   {
-  //	cv::namedWindow(window_name);
-    video_writer_.reset(new cv::VideoWriter("out.avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), captureFreq, window_size));
-    this->begin = begin;
+   // cv::namedWindow(window_name);
+  	//std::printf("Got a window of size: (W X H) (%d X %d)\n", window_size.width, window_size.height);
+	this->begin = deepf1::TimePoint(begin);
+	before = deepf1::TimePoint(begin);
+	after = deepf1::TimePoint(begin);
+	video_writer_.reset(new cv::VideoWriter("out.avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), captureFreq, window_size));
   }
   static constexpr float captureFreq = 30.0;
 private:
   std::shared_ptr<cv::VideoWriter> video_writer_;
-  std::chrono::high_resolution_clock::time_point begin;
+  deepf1::TimePoint begin;
   std::string window_name;
+  deepf1::TimePoint before, after;
 };
 int main(int argc, char** argv)
 {
@@ -155,18 +154,14 @@ int main(int argc, char** argv)
     search = std::string(argv[1]);
   }
   std::shared_ptr<OpenCV_Viewer_Example_FrameGrabHandler> image_handler(new OpenCV_Viewer_Example_FrameGrabHandler());
-  //std::shared_ptr<OpenCV_Viewer_Example_DataGrabHandler> udp_handler(new OpenCV_Viewer_Example_DataGrabHandler());
   std::shared_ptr<OpenCV_Viewer_Example_2018DataGrabHandler> udp_handler(new OpenCV_Viewer_Example_2018DataGrabHandler());
   std::string inp;
-  deepf1::F1DataLogger dl(search);
-  // dl.start((double)OpenCV_Viewer_Example_FrameGrabHandler::captureFreq, udp_handler, std::shared_ptr<deepf1::IF1FrameGrabHandler>());
-  // std::cout<<"Enter anything to exit."<<std::endl;
-  // std::cin>>inp;
-
-  
+  deepf1::F1DataLogger dl(search);  
   dl.start((double)OpenCV_Viewer_Example_FrameGrabHandler::captureFreq, udp_handler, image_handler);
   std::cout<<"Enter anything to exit."<<std::endl;
   std::cin>>inp;
+  dl.stop();
+  std::cout << "Thanks for playing!" << std::endl;
 
 }
 

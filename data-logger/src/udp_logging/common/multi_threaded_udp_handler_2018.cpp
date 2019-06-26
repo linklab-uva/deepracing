@@ -295,9 +295,9 @@ void MultiThreadedUDPHandler2018::handleData(const deepf1::twenty_eighteen::Time
 }
 void MultiThreadedUDPHandler2018::handleData(const deepf1::twenty_eighteen::TimestampedPacketEventData& data)
 {
-    //event_data_queue_->push(data);
-    std::string eventString((char*)data.data.m_eventStringCode, 4);
-    std::printf("Got an event packet, %s", eventString.c_str());
+	std::string eventString((char*)data.data.m_eventStringCode, 4);
+	std::printf("Got an event packet, %s", eventString.c_str());
+	event_data_queue_->push(data);
 }
 void MultiThreadedUDPHandler2018::handleData(const deepf1::twenty_eighteen::TimestampedPacketLapData& data)
 {

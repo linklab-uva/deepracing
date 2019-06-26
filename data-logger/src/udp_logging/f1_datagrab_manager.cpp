@@ -40,12 +40,13 @@ void F1DataGrabManager::run2017(std::shared_ptr<IF1DatagrabHandler> data_handler
   //make space on the stack to receive packets.
   boost::system::error_code error;
   TimestampedUDPData data;
+  boost::asio::mutable_buffer buff;
   while (running_)
   {
     std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(&(data.data), BUFFER_SIZE), remote_endpoint_, 0, error);
     if (bool(data_handler) && data_handler->isReady())
     {
-	    data.timestamp = clock_->now();
+	  data.timestamp = clock_->now();
       data_handler->handleData(data);
     }
   }
@@ -53,7 +54,7 @@ void F1DataGrabManager::run2017(std::shared_ptr<IF1DatagrabHandler> data_handler
 void F1DataGrabManager::run2018(std::shared_ptr<IF12018DataGrabHandler> data_handler)
 {
   boost::system::error_code error;
-  char buffer[BUFFER_SIZE];
+  char buffer[ BUFFER_SIZE ];
   deepf1::TimePoint timestamp;
   deepf1::twenty_eighteen::PacketHeader* header;
   while (running_)
@@ -63,8 +64,8 @@ void F1DataGrabManager::run2018(std::shared_ptr<IF12018DataGrabHandler> data_han
     if (bool(data_handler) && data_handler->isReady())
     {
       header = reinterpret_cast<deepf1::twenty_eighteen::PacketHeader*>(buffer);
-      //std::printf("Packet Id: %u\n", header->m_packetId);
-      /*
+	  /*
+	  std::printf("Packet Id: %u. Number of bytes: %u \n", header->m_packetId, received_bytes);
       *enum PacketID
         {
           MOTION=0,
@@ -85,6 +86,12 @@ void F1DataGrabManager::run2018(std::shared_ptr<IF12018DataGrabHandler> data_han
           data_handler->handleData(data);
           break;
         }
+		case deepf1::twenty_eighteen::PacketID::EVENT:
+		{
+			deepf1::twenty_eighteen::TimestampedPacketEventData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketEventData*>(buffer)), timestamp);
+			data_handler->handleData(data);
+			break;
+		}
         case deepf1::twenty_eighteen::PacketID::SESSION:
         {
           deepf1::twenty_eighteen::TimestampedPacketSessionData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketSessionData*>(buffer)), timestamp);

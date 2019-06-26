@@ -30,7 +30,7 @@ private:
   std::shared_ptr<F1FrameGrabManager> frame_grab_manager_;
   std::shared_ptr<F1DataGrabManager> data_grab_manager_;
 
-  std::shared_ptr<std::chrono::high_resolution_clock> clock_;
+  ClockPtr clock_;
 
   deepf1::TimePoint begin_;
 

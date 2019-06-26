@@ -37,7 +37,7 @@ private:
   bool running_;
 
 
-  std::shared_ptr<std::chrono::high_resolution_clock> clock_;
+  ClockPtr clock_;
 };
 
 } /* namespace deepf1 */

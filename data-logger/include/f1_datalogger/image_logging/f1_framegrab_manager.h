@@ -18,8 +18,8 @@ class F1FrameGrabManager
 
   friend class F1DataLogger;
 public:
-  F1FrameGrabManager(std::shared_ptr<std::chrono::high_resolution_clock> clock,
-                     const std::string& search_string = "F12017");
+  F1FrameGrabManager(ClockPtr clock,
+                     const std::string& search_string = "2018");
   virtual ~F1FrameGrabManager();
 private:
   void stop();
@@ -27,7 +27,7 @@ private:
                     std::shared_ptr<IF1FrameGrabHandler> capture_handler);
 
 
-  std::shared_ptr<std::chrono::high_resolution_clock> clock_;
+  ClockPtr clock_;
 
   scl::Window window_;
 

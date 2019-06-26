@@ -66,7 +66,7 @@ scl::Window findWindow(const std::string& search_string)
   }
   return selected_window;
 }
-F1FrameGrabManager::F1FrameGrabManager(std::shared_ptr<std::chrono::high_resolution_clock> clock,
+F1FrameGrabManager::F1FrameGrabManager(ClockPtr clock,
                                        const std::string& search_string)
 {
   clock_ = clock;
@@ -88,15 +88,15 @@ void F1FrameGrabManager::onNewFrame_(const scl::Image &img, const scl::Window &m
   if(capture_handler->isReady())
   {
     TimestampedImageData timestamped_image;
-    timestamped_image.image = deepf1::OpenCVUtils::toCV(img, monitor.Size);
-    timestamped_image.timestamp = clock_->now();
+	timestamped_image.timestamp = clock_->now();
+	timestamped_image.image = deepf1::OpenCVUtils::toCV(img , monitor.Size);
     capture_handler->handleData(timestamped_image);
   }
 }
 
 void F1FrameGrabManager::stop()
 {
-	capture_manager_.reset();
+//	capture_manager_.reset();
 	capture_config_.reset();
 }
 void F1FrameGrabManager::start(double capture_frequency, 

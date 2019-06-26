@@ -58,7 +58,7 @@ void MultiThreadedFrameGrabHandler::handleData(const TimestampedImageData& data)
 //  std::lock_guard<std::mutex> lk(queue_mutex_);
   queue_->push(data);
 }
-void MultiThreadedFrameGrabHandler::init(const std::chrono::high_resolution_clock::time_point& begin,
+void MultiThreadedFrameGrabHandler::init(const deepf1::TimePoint& begin,
                                          const cv::Size& window_size)
 {
   begin_ = std::chrono::high_resolution_clock::time_point(begin);
@@ -99,7 +99,7 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
 
     deepf1::protobuf::TimestampedImage tag;
     tag.set_image_file(image_file);
-    google::protobuf::uint64 delta = (google::protobuf::uint64)(std::chrono::duration_cast<std::chrono::milliseconds>(data.timestamp - begin_).count());
+    google::protobuf::uint64 delta = (google::protobuf::uint64)(std::chrono::duration_cast<timeunit>(data.timestamp - begin_).count());
     tag.set_timestamp(delta);
 
     if(write_json_)
