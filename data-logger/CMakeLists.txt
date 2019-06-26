@@ -57,9 +57,6 @@ message(STATUS "Found Boost libraries: ${Boost_LIBRARIES} in directory: ${Boost_
 
 
 find_package( OpenCV REQUIRED )
-find_package( cereal REQUIRED )
-message(STATUS "cereal include dir: ${cereal_INCLUDE_DIR}")
-include_directories( ${CEREAL_INCLUDE_DIR} )
 find_package(Qt5Widgets CONFIG)
 find_package(Qt5Core CONFIG)
 find_package(Qt5Gui CONFIG)
