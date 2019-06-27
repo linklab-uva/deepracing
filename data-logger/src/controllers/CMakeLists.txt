@@ -14,6 +14,7 @@ ${PROJECT_NAME}
 ${PROJECT_NAME}_alglib
 ${PROJECT_NAME}_image_logging
 ${PROJECT_NAME}_image_logging_common
+${PROJECT_NAME}_post_processing
 ${PROJECT_NAME}_udp_logging
 ${PROJECT_NAME}_udp_logging_common
 ${Boost_LIBRARIES}

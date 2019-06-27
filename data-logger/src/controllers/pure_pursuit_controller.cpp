@@ -7,8 +7,9 @@
 #include <Eigen/Eigenvalues>
 #include <Eigen/Geometry>
 #include "f1_datalogger/controllers/kdtree_eigen.h"
-#include <boost/circular_buffer.hpp>
 #include "f1_datalogger/alglib/interpolation.h"
+#include <boost/circular_buffer.hpp>
+#include "f1_datalogger/post_processing/post_processing_utils.h"
 deepf1::PurePursuitController::PurePursuitController(std::shared_ptr<MeasurementHandler2018> measurement_handler,
 	double Kv, double L, double max_angle, double velocity_setpoint)
 {
@@ -179,13 +180,10 @@ void deepf1::PurePursuitController::run(const std::string& trackfile, float velK
 	std::cout << "Setting initial command" << std::endl;
 	f1_interface_->setCommands(commands);
 	std::cout << "Set initial command" << std::endl;
-	std::vector<std::pair<double,Eigen::Vector3d> > raceline = loadTrackFile(trackfile);
-	int cols = raceline.size();
-	Eigen::MatrixXd racelinematrix(3, cols);
-	for (int i = 0; i < cols; ++i)
-	{
-		racelinematrix.col(i) = raceline[i].second;
-	}
+	//std::vector<std::pair<double,Eigen::Vector3d> > raceline = loadTrackFile(trackfile);
+	Eigen::MatrixXd raceline = deepf1::post_processing::PostProcessingUtils::readTrackFile(trackfile);
+	int cols = raceline.cols();
+	Eigen::MatrixXd racelinematrix = raceline(Eigen::seqN(1, Eigen::last, 1), Eigen::all);
 	kdt::KDTreed kdtree(racelinematrix);
 	kdtree.build();
 	kdt::KDTreed::Matrix dists;  
