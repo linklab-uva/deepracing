@@ -9,7 +9,7 @@
 #include "f1_datalogger/controllers/kdtree_eigen.h"
 #include "f1_datalogger/alglib/interpolation.h"
 #include <boost/circular_buffer.hpp>
-#include "f1_datalogger/post_processing/post_processing_utils.h"
+#include "f1_datalogger/udp_logging/utils/eigen_utils.h"
 deepf1::PurePursuitController::PurePursuitController(std::shared_ptr<MeasurementHandler2018> measurement_handler,
 	double Kv, double L, double max_angle, double velocity_setpoint)
 {
@@ -24,90 +24,6 @@ deepf1::PurePursuitController::PurePursuitController(std::shared_ptr<Measurement
 
 deepf1::PurePursuitController::~PurePursuitController()
 {
-}
-std::vector< std::pair< double, Eigen::Vector3d> > deepf1::PurePursuitController::loadTrackFile(const std::string& filename)
-{
-	std::vector< std::pair< double, Eigen::Vector3d> > rtn;
-	std::ifstream file;
-	file.open(filename);
-	std::string header;
-	std::string labels;
-	std::getline(file, header);
-	std::cout << header << std::endl;
-	std::getline(file, labels);
-	std::cout << labels << std::endl;
-	std::string line;
-
-	while (true)
-	{
-		std::getline(file, line);
-		if (file.eof())
-		{
-			break;
-		}
-		std::stringstream ss(line);
-		std::vector<double> vec;
-		while (ss.good())
-		{
-			std::string substr;
-			std::getline(ss, substr, ',');
-			vec.push_back(std::atof(substr.c_str()));
-		}
-		Eigen::Vector3d p(vec[1], vec[3], vec[2]);
-		rtn.push_back(std::make_pair(vec[0],p));
-		//std::cout <<std::endl;
-		//std::cout << eigenvec <<std::endl;
-		//std::cout << std::endl;
-	}
-	std::vector< std::pair< double, Eigen::Vector3d > > interpolated_points;
-	unsigned int max_index = rtn.size() - 3;
-	double dt = (1.0/16.0);
-	std::vector<double> T = { 0.0, (1.0/3.0), (2.0 / 3.0), 1.0 };
-	alglib::real_1d_array t_alglib;
-	t_alglib.attach_to_ptr(4, &T[0]);
-	for (unsigned int i = 0; i < max_index; i+=3)
-	{
-		double x0 = rtn.at(i).first;
-		double x1 = rtn.at(i + 1).first;
-		double x2 = rtn.at(i + 2).first;
-		double x3 = rtn.at(i+3).first;
-		std::vector<double> X = { x0, x1, x2, x3};
-		alglib::real_1d_array x_alglib;
-		x_alglib.attach_to_ptr(4, &X[0]);
-		alglib::spline1dinterpolant x_interpolant;
-		alglib::spline1dbuildcubic(t_alglib, x_alglib, x_interpolant);
-		double deltax = x3 - x0;
-		Eigen::Vector3d P0 = rtn.at(i).second;
-		Eigen::Vector3d P1 = rtn.at(i+1).second;
-		Eigen::Vector3d P2 = rtn.at(i+2).second;
-		Eigen::Vector3d P3 = rtn.at(i+3).second;
-		for (double t = dt; t < 1.0; t += dt)
-		{
-			Eigen::Vector3d Pinterp = std::pow(1 - t, 3)*P0 + 3 * t*std::pow(1 - t, 2)*P1 +
-				3 * std::pow(t, 2)*(1 - t)*P2 + std::pow(t, 3)*P3;
-			double xinterp = alglib::spline1dcalc(x_interpolant, t);
-			interpolated_points.push_back(std::make_pair(xinterp, Pinterp));
-		}
-	}
-	rtn.insert(rtn.end(), interpolated_points.begin(), interpolated_points.end());
-	std::sort(rtn.begin(), rtn.end(),
-		[](const std::pair< double, Eigen::Vector3d>& a, const std::pair< double, Eigen::Vector3d>& b) 
-		  { return a.first < b.first; });
-	return rtn;
-}
-std::pair < Eigen::Vector3d, Eigen::Vector3d > best_line_from_points(const Eigen::MatrixXd & points)
-{
-	// copy coordinates to  matrix in Eigen format
-	Eigen::MatrixXd centers = points.transpose();
-	
-
-	Eigen::Vector3d origin = centers.colwise().mean();
-	Eigen::MatrixXd centered = centers.rowwise() - origin.transpose();
-	Eigen::MatrixXd cov = centered.adjoint() * centered;
-	Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eig(cov);
-	Eigen::Vector3d axis = eig.eigenvectors().col(2).normalized();
-
-	return std::make_pair(origin, axis);
 }
 void velocityControlLoop(std::shared_ptr<deepf1::MeasurementHandler2018> measurement_handler_,
 	float velKp, float velKi, float velKd, float* setpoint, float* out)
@@ -181,9 +97,10 @@ void deepf1::PurePursuitController::run(const std::string& trackfile, float velK
 	f1_interface_->setCommands(commands);
 	std::cout << "Set initial command" << std::endl;
 	//std::vector<std::pair<double,Eigen::Vector3d> > raceline = loadTrackFile(trackfile);
-	Eigen::MatrixXd raceline = deepf1::post_processing::PostProcessingUtils::readTrackFile(trackfile);
-	int cols = raceline.cols();
-	Eigen::MatrixXd racelinematrix = raceline(Eigen::seqN(1, Eigen::last, 1), Eigen::all);
+	std::vector<Eigen::Vector4d> raceline = deepf1::EigenUtils::loadTrackFile(trackfile, 1.0/16.0);
+	int cols = raceline.size();
+	Eigen::MatrixXd racelinematrixFull = deepf1::EigenUtils::vectorToMatrix(raceline);
+	Eigen::MatrixXd racelinematrix = racelinematrixFull(Eigen::seqN(0,3), Eigen::all);
 	kdt::KDTreed kdtree(racelinematrix);
 	kdtree.build();
 	kdt::KDTreed::Matrix dists;  
@@ -296,13 +213,13 @@ void deepf1::PurePursuitController::run(const std::string& trackfile, float velK
 		}
 		else if (ratio_complement > .55)
 		{
-			vel_factor = std::pow(ratio_complement, 4);
+			vel_factor = std::pow(ratio_complement, 3);
 		}
 		else
 		{
 			vel_factor = std::pow(ratio_complement, 7);
 		}
-		vel_setpoint = std::max(velocity_setpoint_ * vel_factor, 75.0);
+		vel_setpoint = std::max(velocity_setpoint_ * vel_factor, 65.0);
 		 
 		if (accel < 0)
 		{

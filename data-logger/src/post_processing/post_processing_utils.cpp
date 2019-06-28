@@ -6,7 +6,6 @@
 #include <sstream>
 #include <Eigen/Geometry>
 #include "f1_datalogger/controllers/kdtree_eigen.h"
-#include "f1_datalogger/alglib/interpolation.h"
 namespace fs = boost::filesystem;
 namespace deepf1
 {

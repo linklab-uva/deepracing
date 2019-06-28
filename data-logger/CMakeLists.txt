@@ -112,7 +112,7 @@ set_target_properties(${PROJECT_NAME}_alglib ${PROJECT_NAME}_post_processing ${P
 if(BUILD_DATALOGGER)
     add_subdirectory( src/image_logging )
     add_subdirectory( src/udp_logging )
-	set_target_properties(${PROJECT_NAME}_udp_utils ${PROJECT_NAME}_simulated_telemetry_server ${PROJECT_NAME}_image_utils
+	set_target_properties(${PROJECT_NAME}_udp_utils ${PROJECT_NAME}_eigen_utils ${PROJECT_NAME}_simulated_telemetry_server ${PROJECT_NAME}_image_utils
 						PROPERTIES FOLDER utils)
 	set_target_properties(screen_capture_example
 						PROPERTIES FOLDER utils)
