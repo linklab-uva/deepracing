@@ -272,29 +272,29 @@ void deepf1::PurePursuitController::run(const std::string& trackfile, float velK
 			alpha *= -1.0;
 			alphaVelocity *= -1.0;
 		}
-		double physical_angle = std::atan((2 * L_*std::sin(alpha)) / lookahead_dist);
+		double physical_angle = -1.0* std::atan((2 * L_*std::sin(alpha)) / lookahead_dist);
 		double delta;
 		if (physical_angle > 0)
 		{
-			delta = physical_angle / 0.298673;
+			delta = -3.79616039*physical_angle + 0.01004506;
 		}
 		else
 		{
-			delta = physical_angle / 0.263473;
+			delta = -3.34446413*physical_angle + 0.01094534;
 		}
 		double deadband = (1.0/64.0);
 		if (delta < -1.0) delta = -1.0;
 		else if (delta > 1.0) delta = 1.0;
 		else if (std::abs(deadband) < deadband) delta = 0.0;
 		commands.steering = delta;
-		double ratio = std::abs(alphaVelocity) / 1.57;
+		double ratio = std::abs(alphaVelocity) / (boost::math::double_constants::pi/2);
 		double ratio_complement = 1.0 - ratio;
 		double vel_factor;
 		if (ratio_complement>.750)
 		{
 			vel_factor = 1.0;
 		}
-		else if (ratio_complement > .60)
+		else if (ratio_complement > .55)
 		{
 			vel_factor = std::pow(ratio_complement, 4);
 		}
@@ -302,7 +302,7 @@ void deepf1::PurePursuitController::run(const std::string& trackfile, float velK
 		{
 			vel_factor = std::pow(ratio_complement, 7);
 		}
-		vel_setpoint = std::max(velocity_setpoint_ * vel_factor, 65.0);
+		vel_setpoint = std::max(velocity_setpoint_ * vel_factor, 75.0);
 		 
 		if (accel < 0)
 		{

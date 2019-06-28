@@ -113,6 +113,7 @@ namespace post_processing
 			//std::cout << eigenvec <<std::endl;
 			//std::cout << std::endl;
 		}
+		
 		std::vector< std::pair< double, Eigen::Vector3d > > interpolated_points;
 		unsigned int max_index = rtn.size() - 3;
 		double dt = (1.0 / 16.0);

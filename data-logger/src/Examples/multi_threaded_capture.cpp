@@ -28,7 +28,7 @@ void exit_with_help(po::options_description& desc)
 int main(int argc, char** argv)
 {
   using namespace deepf1;
-  std::string search_string, image_folder, udp_folder, config_file, driver_name, track_name, protocol;
+  std::string search_string, image_folder, udp_folder, config_file, driver_name, track_name;
   unsigned int image_threads, udp_threads;
   float image_capture_frequency, initial_delay_time;
 
@@ -69,7 +69,6 @@ int main(int argc, char** argv)
   udp_folder = config_node["udp_folder"].as<std::string>();
   driver_name = config_node["driver_name"].as<std::string>();
   track_name = config_node["track_name"].as<std::string>();
-  protocol = config_node["protocol"].as<std::string>("2018");
   udp_threads = config_node["udp_threads"].as<unsigned int>();
   image_threads = config_node["image_threads"].as<unsigned int>();
   image_capture_frequency = config_node["image_capture_frequency"].as<float>();
@@ -93,36 +92,19 @@ int main(int argc, char** argv)
   std::cout<<"Enter anything to start capture" << std::endl;
   std::cin >> inp;
 
-  if(protocol.compare("2018")==0)
-  {
-    std::shared_ptr<deepf1::MultiThreadedUDPHandler2018> udp_handler(new deepf1::MultiThreadedUDPHandler2018(udp_folder,true));
-    std::cout << "Starting capture in " << initial_delay_time << " seconds." << std::endl;
-    std::this_thread::sleep_for(std::chrono::microseconds((long)std::round(initial_delay_time*1E6)));
-    dl->start(image_capture_frequency, udp_handler  , frame_handler );
+	std::shared_ptr<deepf1::MultiThreadedUDPHandler2018> udp_handler(new deepf1::MultiThreadedUDPHandler2018(udp_folder,true));
+	std::cout << "Starting capture in " << initial_delay_time << " seconds." << std::endl;
+	std::this_thread::sleep_for(std::chrono::microseconds((long)std::round(initial_delay_time*1E6)));
+	dl->start(image_capture_frequency, udp_handler  , frame_handler );
 
-    std::cout<<"Capturing data. Enter any key to end " << std::endl;
-    std::cin >> inp;
+	std::cout<<"Capturing data. Enter any key to end " << std::endl;
+	std::cin >> inp;
 
-    frame_handler->stop();
-    udp_handler->stop();
-    frame_handler->join();
-    udp_handler->join();
-  }
-  else
-  {
-    std::shared_ptr<deepf1::MultiThreadedUDPHandler> udp_handler(new deepf1::MultiThreadedUDPHandler(udp_folder, udp_threads, true));
-    std::cout << "Starting capture in " << initial_delay_time << " seconds." << std::endl;
-    std::this_thread::sleep_for(std::chrono::microseconds((long)std::round(initial_delay_time*1E6)));
-    dl->start(image_capture_frequency, udp_handler  , frame_handler );
-
-    std::cout<<"Capturing data. Enter any key to end " << std::endl;
-    std::cin >> inp;
-
-    frame_handler->stop();
-    udp_handler->stop();
-    frame_handler->join();
-    udp_handler->join();
-  }
+	frame_handler->stop();
+	udp_handler->stop();
+	frame_handler->join();
+	udp_handler->join();
+  
 
 }
 
