@@ -13,6 +13,7 @@
 #include <boost/filesystem.hpp>
 #include <google/protobuf/util/json_util.h>
 #include <thread>
+#include <exception>
 namespace fs = boost::filesystem;
 namespace deepf1
 {
@@ -20,11 +21,12 @@ namespace deepf1
 MultiThreadedFrameGrabHandler::MultiThreadedFrameGrabHandler(std::string images_folder, unsigned int thread_count, bool write_json) 
 : running_(false), counter_(1), images_folder_(images_folder), write_json_(write_json)
 {
-  fs::path imf(images_folder_);
-  if(!fs::is_directory(imf))
+  fs::path main_dir(images_folder_);
+  if(fs::is_directory(main_dir))
   {
-    fs::create_directories(imf);
+    throw std::runtime_error("Image Directory " + fs::absolute(main_dir).string() + " already exists.");
   }
+  fs::create_directories(main_dir);
   thread_count_= thread_count;
 }
 
@@ -56,7 +58,7 @@ void MultiThreadedFrameGrabHandler::handleData(const TimestampedImageData& data)
 //  std::lock_guard<std::mutex> lk(queue_mutex_);
   queue_->push(data);
 }
-void MultiThreadedFrameGrabHandler::init(const std::chrono::high_resolution_clock::time_point& begin,
+void MultiThreadedFrameGrabHandler::init(const deepf1::TimePoint& begin,
                                          const cv::Size& window_size)
 {
   begin_ = std::chrono::high_resolution_clock::time_point(begin);
@@ -77,7 +79,6 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
   {
     TimestampedImageData data;
     {
-     // std::lock_guard<std::mutex> lk(queue_mutex_);
       if(queue_->empty())
       {
         continue;
@@ -89,22 +90,17 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
     }
     unsigned long counter = counter_.fetch_and_increment();
     fs::path  images_folder(images_folder_);
-    google::protobuf::uint64 delta = (google::protobuf::uint64)(std::chrono::duration_cast<std::chrono::milliseconds>(data.timestamp - begin_).count());
 	  //std::cout << "Got some image data. Clock Delta = " << delta << std::endl;
-	  std::string image_file( "image_" + std::to_string(counter) + ".jpg" );
+    std::string file_prefix = "image_" + std::to_string(counter);
+	  std::string image_file( file_prefix + ".jpg" );
     cv::imwrite( ( images_folder / fs::path(image_file) ).string() , data.image );
     std::unique_ptr<std::ofstream> ostream( new std::ofstream );
 
 
     deepf1::protobuf::TimestampedImage tag;
     tag.set_image_file(image_file);
+    google::protobuf::uint64 delta = (google::protobuf::uint64)(std::chrono::duration_cast<timeunit>(data.timestamp - begin_).count());
     tag.set_timestamp(delta);
-    std::string pb_filename( "image_" + std::to_string(counter) + ".pb" );
-    std::string pb_output_file = ( images_folder / fs::path(pb_filename) ).string();
-    ostream->open( pb_output_file.c_str(), std::ofstream::out );
-    tag.SerializeToOstream( ostream.get() );
-    ostream->flush();
-    ostream->close();
 
     if(write_json_)
     {
@@ -113,10 +109,18 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
       opshinz.always_print_primitive_fields = true;
       opshinz.add_whitespace = true;
       google::protobuf::util::MessageToJsonString( tag , json.get() , opshinz );
-      std::string json_file = pb_filename + ".json";
-      std::string json_fn = ( images_folder / fs::path( json_file) ).string();
-      ostream->open( json_fn.c_str(), std::ofstream::out );
-      ostream->write( json->c_str(), json->length() );
+      std::string json_filename( file_prefix + ".json" );
+      std::string json_output_file(( images_folder / fs::path( json_filename) ).string());
+      ostream->open( json_output_file.c_str(), std::ofstream::out );
+      (*ostream) << (*json) << std::endl;
+      ostream->flush();
+      ostream->close();
+    }
+    else{
+      std::string pb_filename( file_prefix + ".pb" );
+      std::string pb_output_file(( images_folder / fs::path(pb_filename) ).string());
+      ostream->open( pb_output_file.c_str(), std::ofstream::out );
+      tag.SerializeToOstream( ostream.get() );
       ostream->flush();
       ostream->close();
     }

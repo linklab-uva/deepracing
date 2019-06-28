@@ -67,6 +67,7 @@ if(WITH_VJOY)
     )
     target_link_libraries(${PROJECT_NAME}_test_vjoy_calibration
         ${PROJECT_NAME}
+        ${PROJECT_NAME}_controllers
         ${PROJECT_NAME}_image_logging
         ${PROJECT_NAME}_image_logging_common
         ${PROJECT_NAME}_udp_logging
@@ -145,6 +146,7 @@ ${screen_capture_lite_LIBRARIES}
 ${screen_capture_lite_PLATFORM_LIBS}
 ${Boost_LIBRARIES}
 ${TBB_IMPORTED_TARGETS}
+Eigen3::Eigen
 )
 
 add_executable(${PROJECT_NAME}_multithreaded_capture_example

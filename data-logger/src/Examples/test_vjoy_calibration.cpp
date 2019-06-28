@@ -6,6 +6,8 @@
  */
 
 #include "f1_datalogger/f1_datalogger.h"
+#include "f1_datalogger/udp_logging/common/measurement_handler_2018.h"
+#include "f1_datalogger/controllers/vjoy_interface.h"
  //#include "image_logging/utils/screencapture_lite_utils.h"
 #include <iostream>
 #include <sstream>
@@ -23,33 +25,6 @@ void countdown(unsigned int seconds, std::string text = "")
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 }
-class VJoyCalibration_DataGrabHandler : public deepf1::IF1DatagrabHandler
-{
-public:
-	VJoyCalibration_DataGrabHandler()
-	{
-
-	}
-	bool isReady() override
-	{
-		return true;
-	}
-	void handleData(const deepf1::TimestampedUDPData& data) override
-	{
-		current_packet_ = deepf1::UDPPacket(data.data);
-	}
-	void init(const std::string& host, unsigned int port, const std::chrono::high_resolution_clock::time_point& begin) override
-	{
-		this->begin = begin;
-	}
-	deepf1::UDPPacket getCurrentPacket()
-	{
-		return current_packet_;
-	}
-private:
-	std::chrono::high_resolution_clock::time_point begin;
-	deepf1::UDPPacket current_packet_;
-};
 class VJoyCalibration_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
 {
 public:
@@ -77,7 +52,7 @@ private:
 };
 int main(int argc, char** argv)
 {
-	std::string search = "2017";
+	std::string search = "2018";
 	std::string outfile = "out.csv";
 	double sleeptime = 0.5;
 	if (argc > 1)
@@ -90,46 +65,32 @@ int main(int argc, char** argv)
 	}
 	unsigned long milliseconds = (unsigned long)std::round(sleeptime*1000.0);
 	std::shared_ptr<VJoyCalibration_FrameGrabHandler> image_handler(new VJoyCalibration_FrameGrabHandler());
-	std::shared_ptr<VJoyCalibration_DataGrabHandler> udp_handler(new VJoyCalibration_DataGrabHandler());
-	deepf1::F1DataLogger dl(search, image_handler, udp_handler);
-	dl.start();
-	std::unique_ptr<vjoy_plusplus::vJoy> vjoy(new vjoy_plusplus::vJoy(1));
-	vjoy_plusplus::JoystickPosition joystick_value;
-	joystick_value.lButtons = 0x00000000;
+	std::shared_ptr<deepf1::MeasurementHandler2018> udp_handler(new deepf1::MeasurementHandler2018());
+	deepf1::F1DataLogger dl(search);
+	dl.start(60.0, udp_handler, image_handler);
+	std::unique_ptr<deepf1::VJoyInterface> vjoyInterface(new deepf1::VJoyInterface);
 	unsigned int min = vjoy_plusplus::vJoy::minAxisvalue(), max = vjoy_plusplus::vJoy::maxAxisvalue();
 	unsigned int middle = (min + max) / 2;
-	joystick_value.wAxisX = 0;
-	joystick_value.wAxisY = 0;
-	joystick_value.wAxisXRot = 0;
-	joystick_value.wAxisYRot = 0;
-	vjoy->update(joystick_value);
+	deepf1::F1ControlCommand commands;
+	vjoyInterface->setCommands(commands);
 	countdown(3, "Testing calibration in");
 	std::ofstream ostream(outfile);
 	//Best fit line is : y = -16383.813867*x + 16383.630437
-	for(int vjoyangle = max; vjoyangle >= 0; vjoyangle -=25)
+	for(float steer = -1.0; steer <= 1.0; steer+=0.01)
 	{
-		joystick_value.wAxisX = vjoyangle;
-		vjoy->update(joystick_value);
+		commands.steering = steer;
+		vjoyInterface->setCommands(commands);
 		std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
-		deepf1::UDPPacket current_packet_ = udp_handler->getCurrentPacket();
-		printf("Input Angle: %d\n", vjoyangle);
-		printf("Current Steering: %f\n.", current_packet_.m_steer);
-		ostream << current_packet_.m_steer << "," << vjoyangle << std::endl;
-	}
-	joystick_value.wAxisX = 0;
-	joystick_value.wAxisY = 0;
-	joystick_value.wAxisXRot = 0;
-	joystick_value.wAxisYRot = 0;
-	vjoy->update(joystick_value);
-	for (int vjoyangle = 0; vjoyangle <= max; vjoyangle += 25)
-	{
-		joystick_value.wAxisY = vjoyangle;
-		vjoy->update(joystick_value);
-		std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
-		deepf1::UDPPacket current_packet_ = udp_handler->getCurrentPacket();
-		printf("Input Angle: %d\n", vjoyangle);
-		printf("Current Steering: %f\n.", current_packet_.m_steer);
-		ostream << current_packet_.m_steer << "," << vjoyangle << std::endl;
+		deepf1::twenty_eighteen::PacketCarTelemetryData current_telemetry_packet_ = udp_handler->getCurrentTelemetryData().data;
+		deepf1::twenty_eighteen::PacketMotionData current_motion_packet_ = udp_handler->getCurrentMotionData().data;
+		float vjoy_angle = commands.steering*double(max);
+		float steering_ratio = current_telemetry_packet_.m_carTelemetryData[0].m_steer;
+		float front_wheels_angle = current_motion_packet_.m_frontWheelsAngle;
+
+		printf("Vjoy Input Angle: %f\n", vjoy_angle);
+		printf("Steering Ratio: %f\n.", steering_ratio);
+		printf("Current Front Wheel Angle: %f\n.", front_wheels_angle);
+		ostream << vjoy_angle << "," << steering_ratio << "," << front_wheels_angle << std::endl;
 	}
 	ostream.close();
 	//cv::waitKey(0);

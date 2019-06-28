@@ -12,8 +12,7 @@
 namespace deepf1
 {
 
-F1DataGrabManager::F1DataGrabManager(std::shared_ptr<std::chrono::high_resolution_clock> clock,
-                                     std::shared_ptr<IF1DatagrabHandler> handler, const std::string host,
+F1DataGrabManager::F1DataGrabManager(std::shared_ptr<std::chrono::high_resolution_clock> clock,const std::string host,
                                      const unsigned int port) :
     socket_(io_service_), running_(true)
 {
@@ -30,38 +29,128 @@ F1DataGrabManager::F1DataGrabManager(std::shared_ptr<std::chrono::high_resolutio
 	  std::cout << "Binding to host " <<host<<" on port " << port << std::endl;
 	  socket_.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(host), port));
   }
-  data_handler_ = handler;
   clock_ = clock;
 }
-
 F1DataGrabManager::~F1DataGrabManager()
 {
   running_ = false;
 }
-void F1DataGrabManager::run_()
+void F1DataGrabManager::run2017(std::shared_ptr<IF1DatagrabHandler> data_handler)
 {
   //make space on the stack to receive packets.
   boost::system::error_code error;
   TimestampedUDPData data;
+  boost::asio::mutable_buffer buff;
   while (running_)
   {
     std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(&(data.data), BUFFER_SIZE), remote_endpoint_, 0, error);
-    if (bool(data_handler_) && data_handler_->isReady())
+    if (bool(data_handler) && data_handler->isReady())
     {
 	  data.timestamp = clock_->now();
-      data_handler_->handleData(data);
+      data_handler->handleData(data);
     }
-	//std::this_thread::sleep_for(std::chrono::milliseconds(sleeptime));
   }
 }
-void F1DataGrabManager::start()
+void F1DataGrabManager::run2018(std::shared_ptr<IF12018DataGrabHandler> data_handler)
 {
-  run_thread_ = std::thread(std::bind(&F1DataGrabManager::run_, this));
+  boost::system::error_code error;
+  char buffer[ BUFFER_SIZE ];
+  deepf1::TimePoint timestamp;
+  deepf1::twenty_eighteen::PacketHeader* header;
+  while (running_)
+  {
+    std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(buffer, BUFFER_SIZE), remote_endpoint_, 0, error);
+    timestamp = clock_->now();
+    if (bool(data_handler) && data_handler->isReady())
+    {
+      header = reinterpret_cast<deepf1::twenty_eighteen::PacketHeader*>(buffer);
+	  /*
+	  std::printf("Packet Id: %u. Number of bytes: %u \n", header->m_packetId, received_bytes);
+      *enum PacketID
+        {
+          MOTION=0,
+          SESSION=1,
+          LAPDATA=2,
+          EVENT=3,
+          PARTICIPANTS=4,
+          CARSETUPS=5,
+          CARTELEMETRY=6,
+          CARSTATUS=7
+        };
+      */
+      switch(header->m_packetId)
+      {
+        case deepf1::twenty_eighteen::PacketID::MOTION:
+        {
+          deepf1::twenty_eighteen::TimestampedPacketMotionData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketMotionData*>(buffer)), timestamp);
+          data_handler->handleData(data);
+          break;
+        }
+		case deepf1::twenty_eighteen::PacketID::EVENT:
+		{
+			deepf1::twenty_eighteen::TimestampedPacketEventData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketEventData*>(buffer)), timestamp);
+			data_handler->handleData(data);
+			break;
+		}
+        case deepf1::twenty_eighteen::PacketID::SESSION:
+        {
+          deepf1::twenty_eighteen::TimestampedPacketSessionData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketSessionData*>(buffer)), timestamp);
+          data_handler->handleData(data);
+          break;
+        }
+        case deepf1::twenty_eighteen::PacketID::LAPDATA:
+        {
+          deepf1::twenty_eighteen::TimestampedPacketLapData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketLapData*>(buffer)), timestamp);
+          data_handler->handleData(data);
+          break;
+        }
+        case deepf1::twenty_eighteen::PacketID::PARTICIPANTS:
+        {
+          deepf1::twenty_eighteen::TimestampedPacketParticipantsData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketParticipantsData*>(buffer)), timestamp);
+          data_handler->handleData(data);
+          break;
+        }
+        case deepf1::twenty_eighteen::PacketID::CARSETUPS:
+        {
+          deepf1::twenty_eighteen::TimestampedPacketCarSetupData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketCarSetupData*>(buffer)), timestamp);
+          data_handler->handleData(data);
+          break;
+        }
+        case deepf1::twenty_eighteen::PacketID::CARTELEMETRY:
+        {
+          deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketCarTelemetryData*>(buffer)), timestamp);
+          data_handler->handleData(data);
+          break;
+        }
+        case deepf1::twenty_eighteen::PacketID::CARSTATUS:
+        {
+          deepf1::twenty_eighteen::TimestampedPacketCarStatusData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketCarStatusData*>(buffer)), timestamp);
+          data_handler->handleData(data);
+          break;
+        }
+        default:
+        {
+          break;
+        }
+      }
+    }
+  }
 }
+
+void F1DataGrabManager::start(std::shared_ptr<IF12018DataGrabHandler> data_handler)
+{
+  run_thread_ = std::thread(std::bind(&F1DataGrabManager::run2018, this, data_handler));
+}
+
+void F1DataGrabManager::start(std::shared_ptr<IF1DatagrabHandler> data_handler)
+{
+  run_thread_ = std::thread(std::bind(&F1DataGrabManager::run2017, this, data_handler));
+}
+
 void F1DataGrabManager::stop()
 {
 	running_ = false;
-	data_handler_.reset();
 	socket_.close();
 }
+
 } /* namespace deepf1 */

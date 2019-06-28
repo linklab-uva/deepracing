@@ -17,12 +17,13 @@ namespace deepf1
 
 class MultiThreadedFrameGrabHandler : public IF1FrameGrabHandler
 {
+	using timeunit = std::chrono::milliseconds;
 public:
   MultiThreadedFrameGrabHandler(std::string images_folder = "images", unsigned int thread_count = 5, bool write_json = false);
   virtual ~MultiThreadedFrameGrabHandler();
   inline bool isReady() override;
   void handleData(const TimestampedImageData& data) override;
-  void init(const std::chrono::high_resolution_clock::time_point& begin, const cv::Size& window_size) override;
+  void init(const deepf1::TimePoint& begin, const cv::Size& window_size) override;
   const std::string getImagesFolder() const;
 
   void stop();

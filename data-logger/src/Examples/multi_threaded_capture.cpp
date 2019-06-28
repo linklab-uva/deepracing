@@ -7,6 +7,7 @@
 #include "f1_datalogger/f1_datalogger.h"
 #include "f1_datalogger/image_logging/common/multi_threaded_framegrab_handler.h"
 #include "f1_datalogger/udp_logging/common/multi_threaded_udp_handler.h"
+#include "f1_datalogger/udp_logging/common/multi_threaded_udp_handler_2018.h"
 #include <iostream>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -79,12 +80,11 @@ int main(int argc, char** argv)
 
   std::cout<<"Creating handlers" <<std::endl;
   std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler(image_folder, image_threads, true));
-  std::shared_ptr<deepf1::MultiThreadedUDPHandler> udp_handler(new deepf1::MultiThreadedUDPHandler(udp_folder, udp_threads, true));
   std::cout << "Created handlers" << std::endl;
 
 
   std::cout<<"Creating DataLogger" <<std::endl;
-  std::shared_ptr<deepf1::F1DataLogger> dl( new deepf1::F1DataLogger( search_string , frame_handler , udp_handler ) );
+  std::shared_ptr<deepf1::F1DataLogger> dl( new deepf1::F1DataLogger( search_string ) );
   std::cout<<"Created DataLogger" <<std::endl;
 
 
@@ -92,17 +92,19 @@ int main(int argc, char** argv)
   std::cout<<"Enter anything to start capture" << std::endl;
   std::cin >> inp;
 
-  std::cout << "Starting capture in " << initial_delay_time << " seconds." << std::endl;
-  std::this_thread::sleep_for(std::chrono::microseconds((long)std::round(initial_delay_time*1E6)));
-  dl->start(image_capture_frequency);
+	std::shared_ptr<deepf1::MultiThreadedUDPHandler2018> udp_handler(new deepf1::MultiThreadedUDPHandler2018(udp_folder,true));
+	std::cout << "Starting capture in " << initial_delay_time << " seconds." << std::endl;
+	std::this_thread::sleep_for(std::chrono::microseconds((long)std::round(initial_delay_time*1E6)));
+	dl->start(image_capture_frequency, udp_handler  , frame_handler );
 
-  std::cout<<"Capturing data. Enter any key to end " << std::endl;
-  std::cin >> inp;
+	std::cout<<"Capturing data. Enter any key to end " << std::endl;
+	std::cin >> inp;
 
-  frame_handler->stop();
-  udp_handler->stop();
-  frame_handler->join();
-  udp_handler->join();
+	frame_handler->stop();
+	udp_handler->stop();
+	frame_handler->join();
+	udp_handler->join();
+  
 
 }
 

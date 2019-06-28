@@ -1,0 +1,22 @@
+syntax = "proto3";
+package deepf1.twenty_eighteen.protobuf;
+message CarMotionData {
+		float         m_worldPositionX = 1;           // World space X position
+		float         m_worldPositionY = 2;           // World space Y position
+		float         m_worldPositionZ = 3;           // World space Z position
+		float         m_worldVelocityX = 4;           // Velocity in world space X
+		float         m_worldVelocityY = 5;           // Velocity in world space Y
+		float         m_worldVelocityZ = 6;           // Velocity in world space Z
+		sint32       m_worldForwardDirX = 7;         // World space forward X direction (normalised)
+		sint32       m_worldForwardDirY = 8;         // World space forward Y direction (normalised)
+		sint32       m_worldForwardDirZ = 9;         // World space forward Z direction (normalised)
+		sint32       m_worldRightDirX = 10;           // World space right X direction (normalised)
+		sint32       m_worldRightDirY = 11;           // World space right Y direction (normalised)
+		sint32       m_worldRightDirZ = 12;           // World space right Z direction (normalised)
+		float         m_gForceLateral = 13;            // Lateral G-Force component
+		float         m_gForceLongitudinal = 14;       // Longitudinal G-Force component
+		float         m_gForceVertical = 15;           // Vertical G-Force component
+		float         m_yaw = 16;                      // Yaw angle in radians
+		float         m_pitch = 17;                    // Pitch angle in radians
+		float         m_roll = 18;                     // Roll angle in radians
+}

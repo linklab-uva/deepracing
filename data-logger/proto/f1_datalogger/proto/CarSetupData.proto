@@ -1,0 +1,24 @@
+syntax = "proto3";
+package deepf1.twenty_eighteen.protobuf;
+message CarSetupData {
+		uint32     m_frontWing = 1;                // Front wing aero
+		uint32     m_rearWing = 2;                 // Rear wing aero
+		uint32     m_onThrottle = 3;               // Differential adjustment on throttle (percentage)
+		uint32     m_offThrottle = 4;              // Differential adjustment off throttle (percentage)
+		float     m_frontCamber = 5;              // Front camber angle (suspension geometry)
+		float     m_rearCamber = 6;               // Rear camber angle (suspension geometry)
+		float     m_frontToe = 7;                 // Front toe angle (suspension geometry)
+		float     m_rearToe = 8;                  // Rear toe angle (suspension geometry)
+		uint32     m_frontSuspension = 9;          // Front suspension
+		uint32     m_rearSuspension = 10;           // Rear suspension
+		uint32     m_frontAntiRollBar = 11;         // Front anti-roll bar
+		uint32     m_rearAntiRollBar = 12;          // Front anti-roll bar
+		uint32     m_frontSuspensionHeight = 13;    // Front ride height
+		uint32     m_rearSuspensionHeight = 14;     // Rear ride height
+		uint32     m_brakePressure = 15;            // Brake pressure (percentage)
+		uint32     m_brakeBias = 16;                // Brake bias (percentage)
+		float     m_frontTyrePressure = 17;        // Front tyre pressure (PSI)
+		float     m_rearTyrePressure = 18;         // Rear tyre pressure (PSI)
+		uint32     m_ballast = 19;                  // Ballast
+		float     m_fuelLoad = 20;                 // Fuel load
+}

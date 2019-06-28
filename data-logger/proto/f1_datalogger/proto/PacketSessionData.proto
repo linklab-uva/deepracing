@@ -1,0 +1,31 @@
+syntax = "proto3";
+package deepf1.twenty_eighteen.protobuf;
+import "PacketHeader.proto";
+import "MarshalZone.proto";
+message PacketSessionData {
+		PacketHeader    m_header = 1;               	// Header
+
+		uint32         m_weather = 2;              	// Weather - 0 = clear, 1 = light cloud, 2 = overcast
+													// 3 = light rain, 4 = heavy rain, 5 = storm
+		sint32			m_trackTemperature = 3;    	// Track temp. in degrees celsius
+		sint32			m_airTemperature = 4;      	// Air temp. in degrees celsius
+		uint32         m_totalLaps = 5;           	// Total number of laps in this race
+		uint32        m_trackLength = 6;           	// Track length in metres
+		uint32         m_sessionType = 7;         	// 0 = unknown, 1 = P1, 2 = P2, 3 = P3, 4 = Short P
+													// 5 = Q1, 6 = Q2, 7 = Q3, 8 = Short Q, 9 = OSQ
+													// 10 = R, 11 = R2, 12 = Time Trial
+		sint32          m_trackId = 8;         		// -1 for unknown, 0-21 for tracks, see appendix
+		uint32         m_era = 9;                  	// Era, 0 = modern, 1 = classic
+		uint32        m_sessionTimeLeft = 10;    	// Time left in session in seconds
+		uint32        m_sessionDuration = 11;     	// Session duration in seconds
+		uint32         m_pitSpeedLimit = 12;      	// Pit speed limit in kilometres per hour
+		uint32         m_gamePaused = 13;               // Whether the game is paused
+		uint32         m_isSpectating = 14;        	// Whether the player is spectating
+		uint32         m_spectatorCarIndex = 15;  	// Index of the car being spectated
+		uint32         m_sliProNativeSupport = 16;	// SLI Pro support, 0 = inactive, 1 = active
+		uint32         m_numMarshalZones = 17;         	// Number of marshal zones to follow
+		repeated MarshalZone     m_marshalZones = 18;         // List of marshal zones – max 21
+		uint32         m_safetyCarStatus = 19;          // 0 = no safety car, 1 = full safety car
+													// 2 = virtual safety car
+		uint32         m_networkGame = 20;              // 0 = offline, 1 = online
+}

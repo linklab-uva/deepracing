@@ -233,8 +233,8 @@ int main(int argc, char** argv)
 	boost::barrier bar(2);
 	std::shared_ptr<ReplayDataset_DataGrabHandler> udp_handler(new ReplayDataset_DataGrabHandler(boost::ref(bar), num_threads));
 	std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler("playback_images", 3, true));
-	std::unique_ptr<deepf1::F1DataLogger> dl(new deepf1::F1DataLogger(*search, frame_handler, udp_handler));
-	dl->start();
+	std::unique_ptr<deepf1::F1DataLogger> dl(new deepf1::F1DataLogger(*search));
+	dl->start(60.0, udp_handler, frame_handler);
 	double maxtime = laptimes.back();
 	std::chrono::high_resolution_clock::time_point begin;
 	bar.wait();

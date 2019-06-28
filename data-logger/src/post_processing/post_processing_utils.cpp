@@ -4,6 +4,9 @@
 #include <google/protobuf/util/json_util.h>
 #include "f1_datalogger/alglib/interpolation.h"
 #include <sstream>
+#include <Eigen/Geometry>
+#include "f1_datalogger/controllers/kdtree_eigen.h"
+#include "f1_datalogger/alglib/interpolation.h"
 namespace fs = boost::filesystem;
 namespace deepf1
 {
@@ -73,6 +76,88 @@ namespace post_processing
 				return closestValueHelper(sorted_data, search, left, middle);
 			}
 		}
+	}
+	Eigen::MatrixXd PostProcessingUtils::readTrackFile(const std::string& trackfile)
+	{
+		Eigen::MatrixXd rtnMat;
+		Eigen::Matrix<double,1,4> asdf = { 1.0, 2.0, 3.0, 4.0 };
+		std::vector< std::pair< double, Eigen::Vector3d> > rtn;
+		std::ifstream file;
+		file.open(trackfile);
+		std::string header;
+		std::string labels;
+		std::getline(file, header);
+		std::cout << header << std::endl;
+		std::getline(file, labels);
+		std::cout << labels << std::endl;
+		std::string line;
+
+		while (true)
+		{
+			std::getline(file, line);
+			if (file.eof())
+			{
+				break;
+			}
+			std::stringstream ss(line);
+			std::vector<double> vec;
+			while (ss.good())
+			{
+				std::string substr;
+				std::getline(ss, substr, ',');
+				vec.push_back(std::atof(substr.c_str()));
+			}
+			Eigen::Vector3d p(vec[1], vec[3], vec[2]);
+			rtn.push_back(std::make_pair(vec[0], p));
+			//std::cout <<std::endl;
+			//std::cout << eigenvec <<std::endl;
+			//std::cout << std::endl;
+		}
+		
+		std::vector< std::pair< double, Eigen::Vector3d > > interpolated_points;
+		unsigned int max_index = rtn.size() - 3;
+		double dt = (1.0 / 16.0);
+		std::vector<double> T = { 0.0, (1.0 / 3.0), (2.0 / 3.0), 1.0 };
+		alglib::real_1d_array t_alglib;
+		t_alglib.attach_to_ptr(4, &T[0]);
+		for (unsigned int i = 0; i < max_index; i += 3)
+		{
+			double x0 = rtn.at(i).first;
+			double x1 = rtn.at(i + 1).first;
+			double x2 = rtn.at(i + 2).first;
+			double x3 = rtn.at(i + 3).first;
+			std::vector<double> X = { x0, x1, x2, x3 };
+			alglib::real_1d_array x_alglib;
+			x_alglib.attach_to_ptr(4, &X[0]);
+			alglib::spline1dinterpolant x_interpolant;
+			alglib::spline1dbuildcubic(t_alglib, x_alglib, x_interpolant);
+			double deltax = x3 - x0;
+			Eigen::Vector3d P0 = rtn.at(i).second;
+			Eigen::Vector3d P1 = rtn.at(i + 1).second;
+			Eigen::Vector3d P2 = rtn.at(i + 2).second;
+			Eigen::Vector3d P3 = rtn.at(i + 3).second;
+			for (double t = dt; t < 1.0; t += dt)
+			{
+				Eigen::Vector3d Pinterp = std::pow(1 - t, 3)*P0 + 3 * t*std::pow(1 - t, 2)*P1 +
+					3 * std::pow(t, 2)*(1 - t)*P2 + std::pow(t, 3)*P3;
+				double xinterp = alglib::spline1dcalc(x_interpolant, t);
+				interpolated_points.push_back(std::make_pair(xinterp, Pinterp));
+			}
+		}
+		rtn.insert(rtn.end(), interpolated_points.begin(), interpolated_points.end());
+		std::sort(rtn.begin(), rtn.end(),
+			[](const std::pair< double, Eigen::Vector3d>& a, const std::pair< double, Eigen::Vector3d >& b)
+		{ return a.first < b.first; });
+		rtnMat.resize(4, rtn.size());
+		unsigned int idx = 0;
+
+		std::for_each(rtn.begin(), rtn.end(), [&rtnMat, &idx](const std::pair< double, Eigen::Vector3d >& pair)
+		{
+			rtnMat(0, idx) = pair.first;
+			rtnMat(Eigen::seqN(1, Eigen::last, 1), idx) = pair.second;
+			idx++;
+		});
+		return rtnMat;
 	}
 	std::pair<deepf1::protobuf::TimestampedUDPData, unsigned int> PostProcessingUtils::closestValue(const std::vector<deepf1::protobuf::TimestampedUDPData>& sorted_data, google::protobuf::uint64 search)
 	{

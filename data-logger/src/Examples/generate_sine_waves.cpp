@@ -89,7 +89,7 @@ int main(int argc, char** argv)
 
 
 	std::cout << "Creating DataLogger" << std::endl;
-	std::shared_ptr<deepf1::F1DataLogger> dl(new deepf1::F1DataLogger(search_string, frame_handler, udp_handler));
+	std::shared_ptr<deepf1::F1DataLogger> dl(new deepf1::F1DataLogger(search_string));
 	std::cout << "Created DataLogger" << std::endl;
 
 	vjoy_plusplus::vJoy vjoy(1);
@@ -115,7 +115,7 @@ int main(int argc, char** argv)
 
 	joystick_value.wAxisXRot = std::round(max_vjoythrottle*throttle_val);
 	vjoy.update(joystick_value);
-	dl->start();
+	dl->start(60.0, udp_handler, frame_handler);
 	std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::time_point(clock.now());
 	double maxt = 10.0;
 	while (t < 10.0)

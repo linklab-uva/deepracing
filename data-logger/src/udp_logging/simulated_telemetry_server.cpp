@@ -27,7 +27,7 @@ void exit_with_help(po::options_description& desc)
 int main(int argc, char** argv) {
 		using boost::asio::ip::udp;
 		using namespace deepf1;
-		unsigned int packet_size = sizeof(deepf1::UDPPacket);// BUFLEN;
+		unsigned int packet_size = sizeof(deepf1::UDPPacket2017);// BUFLEN;
         unsigned int sleep_time;
 
         std::string address, port;
@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
         socket.open(udp::v4());
 
 
-        std::shared_ptr<UDPPacket> data(new UDPPacket);
+        std::shared_ptr<UDPPacket2017> data(new UDPPacket2017);
         float fake_time = 0;
         float dt = 1E-3*( (float) sleep_time );
         float period = 5.0;

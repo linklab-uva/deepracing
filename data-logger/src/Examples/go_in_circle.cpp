@@ -55,7 +55,7 @@ int main(int argc, char** argv)
 
 	std::shared_ptr<deepf1::IF1FrameGrabHandler> frame_handler;
 	std::shared_ptr<deepf1::MultiThreadedUDPHandler> udp_handler(new deepf1::MultiThreadedUDPHandler(output_folder, 3, true));
-	std::shared_ptr<deepf1::F1DataLogger> dl(new deepf1::F1DataLogger(search_string, frame_handler, udp_handler));
+	std::shared_ptr<deepf1::F1DataLogger> dl(new deepf1::F1DataLogger(search_string));
 	std::cout << "Created DataLogger" << std::endl;
 
 
@@ -73,7 +73,7 @@ int main(int argc, char** argv)
 	vjoy.setCommands(command);
 	std::this_thread::sleep_for(std::chrono::milliseconds(delay_time));
 
-	dl->start();
+	dl->start(30.0, udp_handler, frame_handler);
 
 	std::cout << "Capturing data. Enter any key to end " << std::endl;
 	std::cin >> inp;

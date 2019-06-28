@@ -1,0 +1,9 @@
+syntax = "proto3";
+package deepf1.twenty_eighteen.protobuf;
+import "PacketHeader.proto";
+import "ParticipantData.proto";
+message PacketParticipantsData {
+		PacketHeader    m_header = 1;            // Header
+		uint32          m_numCars = 2;           // Number of cars in the data
+		repeated ParticipantData m_participants = 3;
+}

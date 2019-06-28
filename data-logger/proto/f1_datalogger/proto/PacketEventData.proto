@@ -1,0 +1,8 @@
+syntax = "proto3";
+package deepf1.twenty_eighteen.protobuf;
+import "PacketHeader.proto";
+message PacketEventData {
+		PacketHeader    m_header = 1;               // Header
+
+		string          m_eventStringCode = 2;   // Event string code, see above
+}

@@ -11,33 +11,33 @@
 #include <thread>
 #include <memory>
 #include "f1_datalogger/udp_logging/f1_datagrab_handler.h"
+#include "f1_datalogger/udp_logging/f1_2018_datagrab_handler.h"
+#include "f1_datalogger/udp_logging/f1_protocol_versions.h"
 #include <chrono>
 namespace deepf1
 {
-
 class F1DataGrabManager
 {
+  friend class F1DataLogger;
 public:
-  F1DataGrabManager(std::shared_ptr<std::chrono::high_resolution_clock> clock,
-                    std::shared_ptr<IF1DatagrabHandler> handler, const std::string host = "127.0.0.1",
-                    const unsigned int port = 20777);
+  F1DataGrabManager(std::shared_ptr<std::chrono::high_resolution_clock> clock, const std::string host = "127.0.0.1", const unsigned int port = 20777);
   virtual ~F1DataGrabManager();
-
-  void start();
-  void stop();
-  static const unsigned int BUFFER_SIZE = sizeof(deepf1::UDPPacket);	
 private:
+  void run2017(std::shared_ptr<IF1DatagrabHandler> data_handler);
+  void run2018(std::shared_ptr<IF12018DataGrabHandler> data_handler);
+  void start(std::shared_ptr<IF1DatagrabHandler> data_handler);
+  void start(std::shared_ptr<IF12018DataGrabHandler> data_handler);
+  void stop();
+
+  static const unsigned int BUFFER_SIZE = sizeof(deepf1::twenty_eighteen::PacketMotionData);
   boost::asio::io_service io_service_;
   boost::asio::ip::udp::socket socket_;
   boost::asio::ip::udp::endpoint remote_endpoint_;
   std::thread run_thread_;
-  std::shared_ptr<IF1DatagrabHandler> data_handler_;
   bool running_;
 
 
-  std::shared_ptr<std::chrono::high_resolution_clock> clock_;
-
-  void run_();
+  ClockPtr clock_;
 };
 
 } /* namespace deepf1 */
