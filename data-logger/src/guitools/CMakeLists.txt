@@ -22,6 +22,8 @@ target_link_libraries(${PROJECT_NAME}_datacapturewindow Qt5::Widgets ${YAML_CPP_
 
 if(MSVC)
     add_executable(${PROJECT_NAME}_datacapturegui WIN32 datacapture/main.cpp)
+	message(STATUS "GUI app location: $<TARGET_FILE:${PROJECT_NAME}_datacapturegui>")
+	add_custom_target(deployqt COMMAND "windeployqt $<TARGET_FILE:${PROJECT_NAME}_datacapturegui>" VERBATIM)
 else()
     add_executable(${PROJECT_NAME}_datacapturegui datacapture/main.cpp)
 endif()

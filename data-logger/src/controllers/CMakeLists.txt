@@ -12,6 +12,7 @@ add_library(${PROJECT_NAME}_controllers ${controllers_SRCS})
 target_link_libraries(${PROJECT_NAME}_controllers
 ${PROJECT_NAME}
 ${PROJECT_NAME}_alglib
+${PROJECT_NAME}_eigen_utils
 ${PROJECT_NAME}_image_logging
 ${PROJECT_NAME}_image_logging_common
 ${PROJECT_NAME}_post_processing

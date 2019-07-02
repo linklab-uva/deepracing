@@ -1,3 +1,5 @@
+#ifndef F1_DATALOGGER_UDP_STREAM_UTILS_H
+#define F1_DATALOGGER_UDP_STREAM_UTILS_H
 #include "f1_datalogger/proto/UDPData.pb.h"
 #include "f1_datalogger/car_data/car_data.h"
 #include "f1_datalogger/proto/PacketHeader.pb.h"
@@ -52,3 +54,4 @@ namespace deepf1
 		};
 	}
 }
+#endif
