@@ -126,9 +126,13 @@ public:
   }
   void handleData(const deepf1::TimestampedImageData& data) override
   {
+    ready = false;
     cv::Mat img_cv_video;
     cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
 	video_writer_->write(img_cv_video);
+	//cv::imshow(window_name, img_cv_video);
+	//cv::waitKey(500);
+	ready = true;
   }
   void pulseReady()
   {
