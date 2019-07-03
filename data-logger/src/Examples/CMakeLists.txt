@@ -138,6 +138,7 @@ cv_viewer.cpp
 )
 target_link_libraries(${PROJECT_NAME}_cv_viewer_example
 ${PROJECT_NAME}
+${PROJECT_NAME}_eigen_utils
 ${PROJECT_NAME}_image_logging
 ${PROJECT_NAME}_image_logging_common
 ${PROJECT_NAME}_udp_logging

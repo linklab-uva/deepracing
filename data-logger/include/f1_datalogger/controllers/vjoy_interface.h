@@ -4,7 +4,7 @@
 #include <f1_datalogger/controllers/f1_interface.h>
 #include <vJoy++/vjoy.h>
 namespace deepf1 {
-
+	
 	class VJoyInterface : public F1Interface
 	{
 	public:

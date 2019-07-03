@@ -65,7 +65,7 @@ set(_gotqt ${Qt5Widgets_FOUND} AND ${Qt5Core_FOUND} AND ${Qt5Gui_FOUND})
 
 
 if(MSVC)
-find_package(yaml-cpp REQUIRED HINTS "C:\\Program\ Files\\YAML_CPP")
+find_package(yaml-cpp REQUIRED)
 else()
 find_package(yaml-cpp REQUIRED)
 endif()
@@ -110,8 +110,8 @@ set_target_properties(${PROJECT_NAME}_alglib ${PROJECT_NAME}_post_processing ${P
                     PROPERTIES FOLDER utils)
 
 if(BUILD_DATALOGGER)
-    add_subdirectory( src/image_logging )
     add_subdirectory( src/udp_logging )
+    add_subdirectory( src/image_logging )
 	set_target_properties(${PROJECT_NAME}_udp_utils ${PROJECT_NAME}_eigen_utils ${PROJECT_NAME}_simulated_telemetry_server ${PROJECT_NAME}_image_utils
 						PROPERTIES FOLDER utils)
 	set_target_properties(screen_capture_example

@@ -5,8 +5,8 @@
 #include <google/protobuf/util/json_util.h>
 #include "f1_datalogger/alglib/interpolation.h"
 #include <sstream>
-#include <Eigen/Geometry>
 #include "f1_datalogger/controllers/kdtree_eigen.h"
+#include "f1_datalogger/udp_logging/utils/udp_stream_utils.h"
 namespace deepf1
 { 
 
@@ -16,6 +16,49 @@ EigenUtils::EigenUtils()
 
 EigenUtils::~EigenUtils()
 {
+}
+Eigen::Affine3d EigenUtils::interpPoses(const Eigen::Affine3d& a, const Eigen::Affine3d& b, const double& s)
+{
+	Eigen::Affine3d rtn;
+	Eigen::Vector3d translationA(a.translation().x(), a.translation().y(), a.translation().z());
+	Eigen::Quaterniond rotationA(a.rotation());
+	Eigen::Vector3d translationB(b.translation().x(), b.translation().y(), b.translation().z());
+	Eigen::Quaterniond rotationB(b.rotation());
+
+	Eigen::Vector3d translationOut = (1 - s) * translationA + s * translationB;
+	Eigen::Quaterniond rotationOut = rotationA.slerp(s, rotationB);
+
+	rtn.fromPositionOrientationScale(translationOut, rotationOut, Eigen::Vector3d::Ones());
+
+
+	return rtn;
+}
+Eigen::Affine3d EigenUtils::motionPacketToPose(const deepf1::twenty_eighteen::CarMotionData& motion_packet)
+{
+	const deepf1::twenty_eighteen::protobuf::CarMotionData& motion_packet_pb =
+		deepf1::twenty_eighteen::TwentyEighteenUDPStreamUtils::toProto(motion_packet);
+	return motionPacketToPose(motion_packet_pb);
+}
+Eigen::Affine3d EigenUtils::motionPacketToPose(const deepf1::twenty_eighteen::protobuf::CarMotionData& motion_packet)
+{
+	Eigen::Affine3d rtn;
+	Eigen::Vector3d translation(motion_packet.m_worldpositionx(), motion_packet.m_worldpositiony(), motion_packet.m_worldpositionz());
+
+	Eigen::Vector3d forward(motion_packet.m_worldforwarddirx(), motion_packet.m_worldforwarddiry(), motion_packet.m_worldforwarddirz());
+	forward.normalize();
+	Eigen::Vector3d right(motion_packet.m_worldrightdirx(), motion_packet.m_worldrightdiry(), motion_packet.m_worldrightdirz());
+	right.normalize();
+	Eigen::Vector3d up = right.cross(forward);
+	up.normalize();
+	Eigen::Matrix3d rotationMat(Eigen::Matrix3d::Identity());
+	rotationMat.col(0) = -right;
+	rotationMat.col(1) = up;
+	rotationMat.col(2) = forward;
+	Eigen::Quaterniond rotation(rotationMat);
+
+	rtn.fromPositionOrientationScale(translation, rotation, Eigen::Vector3d::Ones());
+
+	return rtn;
 }
 Eigen::MatrixXd EigenUtils::vectorToMatrix(const std::vector < Eigen::Vector4d >& vector)
 {

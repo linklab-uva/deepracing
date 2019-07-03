@@ -12,6 +12,7 @@
 #include <opencv2/imgproc.hpp>
 #include <sstream>
 #include <Eigen/Geometry>
+#include "f1_datalogger/udp_logging/utils/eigen_utils.h"
 namespace scl = SL::Screen_Capture;class OpenCV_Viewer_Example_2018DataGrabHandler : public deepf1::IF12018DataGrabHandler
 {
 public:
@@ -42,39 +43,42 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketMotionData& data) override
   {
-	/*  Eigen::Vector3d velocityGlobal(data.data.m_carMotionData[0].m_worldVelocityX, data.data.m_carMotionData[0].m_worldVelocityY, data.data.m_carMotionData[0].m_worldVelocityZ);
-	  Eigen::Vector3d localVelocity(data.data.m_localVelocityX, data.data.m_localVelocityY, data.data.m_localVelocityZ);
-	  std::cout << "Global Velocity: " << std::endl << velocityGlobal << std::endl;
+	  //Eigen::Vector3d velocityGlobal(data.data.m_carMotionData[car_index].m_worldVelocityX, data.data.m_carMotionData[car_index].m_worldVelocityY, data.data.m_carMotionData[car_index].m_worldVelocityZ);
+	  //Eigen::Vector3d velocityLocal(data.data.m_localVelocityX, data.data.m_localVelocityY, data.data.m_localVelocityZ);
 	 
-	  Eigen::Vector3d forward(data.data.m_carMotionData[0].m_worldForwardDirX, data.data.m_carMotionData[0].m_worldForwardDirY, data.data.m_carMotionData[0].m_worldForwardDirZ);
-	  forward.normalize();
-	  Eigen::Vector3d right(data.data.m_carMotionData[0].m_worldRightDirX, data.data.m_carMotionData[0].m_worldRightDirY, data.data.m_carMotionData[0].m_worldRightDirZ);
-	  right.normalize();
-	  Eigen::Vector3d up = right.cross(forward);
-	  up.normalize();
-	  Eigen::Matrix3d rotMatrix = Eigen::Matrix3d::Identity();
-	  rotMatrix.col(0) = -right;
-	  rotMatrix.col(1) = up;
-	  rotMatrix.col(2) = forward;
-	  Eigen::Quaterniond rotation(rotMatrix);
 
-	  Eigen::Vector3d translation(data.data.m_carMotionData[0].m_worldPositionX, data.data.m_carMotionData[0].m_worldPositionY, data.data.m_carMotionData[0].m_worldPositionZ);
+	  //Eigen::Vector3d forward(data.data.m_carMotionData[car_index].m_worldForwardDirX, data.data.m_carMotionData[car_index].m_worldForwardDirY, data.data.m_carMotionData[car_index].m_worldForwardDirZ);
+	  //forward.normalize();
+	  //Eigen::Vector3d right(data.data.m_carMotionData[car_index].m_worldRightDirX, data.data.m_carMotionData[car_index].m_worldRightDirY, data.data.m_carMotionData[car_index].m_worldRightDirZ);
+	  //right.normalize();
+	  //Eigen::Vector3d up = right.cross(forward);
+	  //up.normalize();
+	  //Eigen::Matrix3d rotMatrix = Eigen::Matrix3d::Identity();
+	  //rotMatrix.col(0) = -right;
+	  //rotMatrix.col(1) = up;
+	  //rotMatrix.col(2) = forward;
+
+	  //Eigen::Vector3d translation(data.data.m_carMotionData[car_index].m_worldPositionX, data.data.m_carMotionData[car_index].m_worldPositionY, data.data.m_carMotionData[car_index].m_worldPositionZ);
+	  //Eigen::Affine3d pose = deepf1::EigenUtils::motionPacketToPose(data.data.m_carMotionData[car_index]);
+	  //Eigen::Quaterniond rotation(pose.rotation());
+	  //rotation.normalize();
+	  //Eigen::Vector3d velocityLocalComputed = rotation.conjugate() * velocityGlobal;
+	  //Eigen::Vector3d velocityGlobalComputed = rotation * velocityLocal;
+
+	  //std::cout << std::endl;
+	  //std::cout << "Global Velocity Given: " << std::endl << velocityGlobal << std::endl;
+	  //std::cout << "Global Velocity Computed: " << std::endl << velocityGlobalComputed << std::endl;
+	  //std::cout << "Global Velocity Diff: " << std::endl << (velocityGlobal - velocityGlobalComputed).norm() << std::endl;	
+	  //std::cout << std::endl;
+
+
+	  //std::cout << std::endl;
+	  //std::cout << "Local Velocity Given: " << std::endl << velocityLocal << std::endl;
+	  //std::cout << "Local Velocity Computed: " << std::endl << velocityLocalComputed << std::endl;
+	  //std::cout << "Local Velocity Diff: " << std::endl << (velocityLocal - velocityLocalComputed).norm() << std::endl;
+	  //std::cout << std::endl;
+
 	  
-	  Eigen::Vector3d velocityLocalComputed = rotation.inverse() * velocityGlobal;
-	  Eigen::Vector3d velocityGlobalComputed = rotation * localVelocity;
-	  std::cout << "Global Velocity Computed: " << std::endl << velocityGlobalComputed << std::endl;
-
-	  Eigen::Vector3d eulerComputed = rotation.toRotationMatrix().eulerAngles(2, 1, 0);
-	  Eigen::Vector3d euler(data.data.m_carMotionData[0].m_roll, data.data.m_carMotionData[0].m_pitch, data.data.m_carMotionData[0].m_yaw);
-
-	  Eigen::Quaterniond rotationComputed(Eigen::AngleAxisd(eulerComputed[0], Eigen::Vector3d::UnitZ()) *
-										  Eigen::AngleAxisd(eulerComputed[1], Eigen::Vector3d::UnitY()) *
-										  Eigen::AngleAxisd(eulerComputed[2], Eigen::Vector3d::UnitX()));*/
-	  //std::cout << "Rotation Delta: " << rotation.angularDistance(rotationComputed) << std::endl;
-	  Eigen::Vector3d angularVelocityLocal(data.data.m_angularVelocityX, data.data.m_angularVelocityY, data.data.m_angularVelocityZ);
-	 
-	  std::cout << "Front Wheels Angle: " << data.data.m_frontWheelsAngle << std::endl;
-	  std::cout << "angularVelocityLocal: " << std::endl << angularVelocityLocal << std::endl;
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketParticipantsData& data) override
   {
@@ -112,38 +116,43 @@ public:
   }
   virtual ~OpenCV_Viewer_Example_FrameGrabHandler()
   {
- //   cv::destroyWindow(window_name);
+//	video_writer_->release();
+  //  cv::destroyWindow(window_name);
+	  running = false;
   }
   bool isReady() override
   {
-    return true;
+    return ready;
   }
   void handleData(const deepf1::TimestampedImageData& data) override
   {
-
-  /*  long long delta = std::chrono::duration_cast<std::chrono::milliseconds>(data.timestamp - this->begin).count();
-    std::stringstream ss;
-    ss << delta << " milliseconds from start"<<std::endl;
-	after = deepf1::TimePoint(data.timestamp);
-	std::chrono::duration<double, std::ratio<1,1000> > deltat = (after - before);
-	std::cout << "Delta t in milliseconds"
-		<< deltat.count() << std::endl;
-	before = deepf1::TimePoint(after);*/
-
- //   cv::Mat img_cv_video;
- //   cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
-	//cv::putText(img_cv_video, ss.str(), cv::Point(img_cv_video.cols/2 - ss.str().length(), img_cv_video.rows / 2), cv::FONT_HERSHEY_PLAIN, 2.0, cv::Scalar(0.0, 0.0, 0.0));
- //  // cv::imshow(window_name, data.image);
- //   video_writer_->write(img_cv_video);
+    cv::Mat img_cv_video;
+    cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
+	video_writer_->write(img_cv_video);
+  }
+  void pulseReady()
+  {
+	  unsigned int sleeptime = 500;
+	  while (running)
+	  {
+		  if (!ready)
+		  {
+			  ready = true;
+			  std::this_thread::sleep_for(std::chrono::milliseconds(sleeptime));
+			  
+		  }
+	  }
   }
   void init(const deepf1::TimePoint& begin, const cv::Size& window_size) override
   {
-   // cv::namedWindow(window_name);
-  	//std::printf("Got a window of size: (W X H) (%d X %d)\n", window_size.width, window_size.height);
+	running = true;
+	ready = true;
+	//readyThread = std::thread(std::bind(&OpenCV_Viewer_Example_FrameGrabHandler::pulseReady, this));
 	this->begin = deepf1::TimePoint(begin);
 	before = deepf1::TimePoint(begin);
 	after = deepf1::TimePoint(begin);
 	video_writer_.reset(new cv::VideoWriter("out.avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), captureFreq, window_size));
+	//cv::namedWindow(window_name, cv::WINDOW_AUTOSIZE);
   }
   static constexpr float captureFreq = 30.0;
 private:
@@ -151,6 +160,9 @@ private:
   deepf1::TimePoint begin;
   std::string window_name;
   deepf1::TimePoint before, after;
+  std::thread readyThread;
+  bool ready;
+  bool running;
 };
 int main(int argc, char** argv)
 {

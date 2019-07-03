@@ -6,7 +6,7 @@
  */
 
 #include "f1_datalogger/image_logging/utils/opencv_utils.h"
-
+#include <iostream>
 namespace deepf1
 {
 
@@ -26,7 +26,9 @@ void OpenCVUtils::toCV(const scl::Image& image_scl, const scl::Point& size, cv::
 cv::Mat OpenCVUtils::toCV(const scl::Image& image_scl, const scl::Point& size)
 {
   cv::Mat rtn;
-  rtn.create(size.y, size.x, CV_8UC4);
+  unsigned int rows = scl::Height(image_scl), cols = scl::Width(image_scl);
+  //std::cout << "Got an image of Height: " << rows << " and Width: " << cols << std::endl;
+  rtn.create(rows, cols, CV_8UC4);
   scl::Extract(image_scl, rtn.data, rtn.rows * rtn.cols * sizeof(scl::ImageBGRA));
   return rtn;
 }
