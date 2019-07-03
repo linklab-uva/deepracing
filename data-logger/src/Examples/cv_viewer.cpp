@@ -4,7 +4,6 @@
  *  Created on: Dec 5, 2018
  *      Author: ttw2xk
  */
-#include <gainput/gainput.h>
 #include "f1_datalogger/f1_datalogger.h"
 //#include "image_logging/utils/screencapture_lite_utils.h"
 #include <iostream>
@@ -170,32 +169,6 @@ private:
   bool running;
 };
 
-
-class MyUserButtonListener : public gainput::MappedInputListener
-{
-public:
-	MyUserButtonListener(int index) : index_(index) { }
-
-	bool OnUserButtonBool(gainput::UserButtonId userButton, bool oldValue, bool newValue)
-	{
-		std::cerr << "Got a button press: " << userButton << std::endl;
-		return true;
-	}
-
-	bool OnUserButtonFloat(gainput::UserButtonId userButton, float oldValue, float newValue)
-	{
-		std::cerr << "Got a button press: " << userButton << std::endl;
-		return true;
-	}
-
-	int GetPriority() const
-	{
-		return index_;
-	}
-
-private:
-	int index_;
-};
 int main(int argc, char** argv)
 {
   std::string search = "CMake";
@@ -203,19 +176,6 @@ int main(int argc, char** argv)
   {
     search = std::string(argv[1]);
   }
-  gainput::InputManager manager;
-
-  manager.CreateDevice<gainput::InputDeviceKeyboard>(gainput::InputDevice::DV_RAW);
-  const gainput::DeviceId keyboardId = manager.CreateDevice<gainput::InputDeviceKeyboard>();
-
-  gainput::InputMap map(manager, "inputmap");
-  unsigned int keyA = 0;
-  unsigned int keyB = 1;
-  map.MapBool(keyA, keyboardId, gainput::KeyA);
-  map.MapBool(keyB, keyboardId, gainput::KeyB);
-  MyUserButtonListener myUserButtonListener(1);
-  map.AddListener(&myUserButtonListener);
-
   std::shared_ptr<OpenCV_Viewer_Example_FrameGrabHandler> image_handler(new OpenCV_Viewer_Example_FrameGrabHandler());
   std::shared_ptr<OpenCV_Viewer_Example_2018DataGrabHandler> udp_handler(new OpenCV_Viewer_Example_2018DataGrabHandler());
   std::string inp;
@@ -224,11 +184,6 @@ int main(int argc, char** argv)
   std::cout<<"Ctl-c to exit."<<std::endl;
   while (true)
   {
-	  manager.Update();
-	  if (map.GetBoolWasDown(keyA))
-	  {
-		  std::cerr << "A is pressed" << std::endl;
-	  }
 	  std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
   }
