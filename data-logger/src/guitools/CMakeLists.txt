@@ -31,7 +31,6 @@ endif()
 target_link_libraries(${PROJECT_NAME}_datacapturegui ${PROJECT_NAME}_datacapturewindow)
 set_target_properties(${PROJECT_NAME}_datacapturegui ${PROJECT_NAME}_datacapturewindow
 					  PROPERTIES FOLDER guitools)
-
 set(install_targets
 #executables.
 ${PROJECT_NAME}_datacapturegui
