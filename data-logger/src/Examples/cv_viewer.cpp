@@ -12,7 +12,6 @@
 #include <sstream>
 #include <Eigen/Geometry>
 #include "f1_datalogger/udp_logging/utils/eigen_utils.h"
-
 namespace scl = SL::Screen_Capture;class OpenCV_Viewer_Example_2018DataGrabHandler : public deepf1::IF12018DataGrabHandler
 {
 public:
@@ -134,13 +133,13 @@ public:
   }
   void handleData(const deepf1::TimestampedImageData& data) override
   {
-    ready = false;
     cv::Mat img_cv_video;
     cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
 	video_writer_->write(img_cv_video);
 	//cv::imshow(window_name, img_cv_video);
 	//cv::waitKey(500);
-	ready = true;
+	std::chrono::duration<double> d = data.timestamp - begin;
+	std::cout << "Got an image with timestamp "<< d.count() << std::endl;
   }
   void pulseReady()
   {
@@ -157,6 +156,7 @@ public:
   }
   void init(const deepf1::TimePoint& begin, const cv::Size& window_size) override
   {
+    imcount = 0;
 	running = true;
 	ready = true;
 	//readyThread = std::thread(std::bind(&OpenCV_Viewer_Example_FrameGrabHandler::pulseReady, this));
@@ -175,6 +175,7 @@ private:
   std::thread readyThread;
   bool ready;
   bool running;
+  unsigned int imcount;
 };
 
 int main(int argc, char** argv)
@@ -190,10 +191,10 @@ int main(int argc, char** argv)
   deepf1::F1DataLogger dl(search);  
   dl.start((double)OpenCV_Viewer_Example_FrameGrabHandler::captureFreq, udp_handler, image_handler);
   std::cout<<"Ctl-c to exit."<<std::endl;
+  
   while (true)
   {
-	  std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
+	  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   }
 
 }

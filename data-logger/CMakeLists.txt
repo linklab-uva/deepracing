@@ -45,14 +45,28 @@ endif()
 
 if(BUILD_SHARED_LIBS)
     if(MSVC)
+	    #set(CMAKE_STATIC_LIBRARY_PREFIX "")
+	    add_definitions( -DBOOST_ALL_NO_LIB )
         set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-    endif()
-    set(Boost_USE_STATIC_LIBS OFF)
+		set(Boost_NO_SYSTEM_PATHS true)
+	endif()
+	set(Boost_USE_STATIC_LIBS OFF)
 else()
     set(Boost_USE_STATIC_LIBS ON)
 endif()
-find_package( Boost REQUIRED COMPONENTS date_time filesystem program_options regex thread)
-message(STATUS "Found Boost libraries: ${Boost_LIBRARIES} in directory: ${Boost_LIBRARY_DIRS}")
+set (Boost_USE_MULTITHREADED ON)
+find_package( Boost 1.7 REQUIRED COMPONENTS date_time filesystem program_options regex system thread)
+set(Boost_LIBRARIES 
+Boost::date_time
+Boost::filesystem
+Boost::program_options
+Boost::system
+Boost::regex
+Boost::thread
+Boost::boost
+)
+message(STATUS "Found Boost libraries: ${Boost_LIBRARIES}")
+message(STATUS "Found Boost include directory: ${Boost_INCLUDE_DIR}")
 
 
 
@@ -72,9 +86,10 @@ message(STATUS "Found yaml-cpp include dir: ${YAML_CPP_INCLUDE_DIR}")
 message(STATUS "Found yaml-cpp libraries: ${YAML_CPP_LIBRARIES}")
 message(STATUS "LIB: $ENV{LIB}")
 if(MSVC)
-    message(STATUS "Getting TBB")
-    include(get_tbb)
-    message(STATUS "Got TBB targets: ${TBB_IMPORTED_TARGETS}")
+	find_package(TBB COMPONENTS tbb)
+   # message(STATUS "Getting TBB")
+   # include(get_tbb)
+   # message(STATUS "Got TBB targets: ${TBB_IMPORTED_TARGETS}")
 else()
     option(GET_TBB "Download TBB from github rather than building it." OFF)
     if(GET_TBB)

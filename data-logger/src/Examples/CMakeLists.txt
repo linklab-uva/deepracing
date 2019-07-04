@@ -148,7 +148,6 @@ ${screen_capture_lite_PLATFORM_LIBS}
 ${Boost_LIBRARIES}
 ${TBB_IMPORTED_TARGETS}
 Eigen3::Eigen
-${GAINPUT_LIBRARIES}
 )
 
 add_executable(${PROJECT_NAME}_multithreaded_capture_example

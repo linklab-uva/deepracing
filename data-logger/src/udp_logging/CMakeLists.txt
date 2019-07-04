@@ -18,6 +18,7 @@ set(${PROJECT_NAME}_udp_logging_src
 f1_datagrab_manager.cpp
 )
 add_library(${PROJECT_NAME}_udp_logging ${${PROJECT_NAME}_udp_logging_src})
+target_link_libraries(${PROJECT_NAME}_udp_logging ${Boost_LIBRARIES} )
 
 set(${PROJECT_NAME}_udp_utils_src
 utils/udp_stream_utils.cpp
