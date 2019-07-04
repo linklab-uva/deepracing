@@ -93,6 +93,14 @@ public:
 	  {
 		  car_index = 0;
 	  }
+	  if(bool(data.data.m_gamePaused))
+	  {
+		  std::cout << "Game is paused" << std::endl;
+	  }
+	  else
+	  {
+		  std::cout << "Game is not paused" << std::endl;
+	  }
     
   }
   void init(const std::string& host, unsigned int port, const deepf1::TimePoint& begin) override
