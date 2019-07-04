@@ -25,6 +25,3 @@
 [submodule "DCNN-Pytorch/nn_models/DCNN-Pytorch/nn_models/data_loading/cpp_backends/pybind11"]
 	path = DCNN-Pytorch/nn_models/DCNN-Pytorch/nn_models/data_loading/cpp_backends/pybind11
 	url = https://github.com/pybind/pybind11.git
-[submodule "data-logger/third_party/gainput"]
-	path = data-logger/third_party/gainput
-	url = https://github.com/jkuhlmann/gainput.git
