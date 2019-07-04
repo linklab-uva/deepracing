@@ -133,13 +133,15 @@ public:
   }
   void handleData(const deepf1::TimestampedImageData& data) override
   {
-    cv::Mat img_cv_video;
-    cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
-	video_writer_->write(img_cv_video);
-	//cv::imshow(window_name, img_cv_video);
-	//cv::waitKey(500);
-	std::chrono::duration<double> d = data.timestamp - begin;
-	std::cout << "Got an image with timestamp "<< d.count() << std::endl;
+	ready = false;
+ //   cv::Mat img_cv_video;
+ //   cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
+	//video_writer_->write(img_cv_video);
+	cv::imshow(window_name, data.image);
+	cv::waitKey(50);
+	ready = true;
+//	std::chrono::duration<double> d = data.timestamp - begin;
+//	std::cout << "Got an image with timestamp "<< d.count() << std::endl;
   }
   void pulseReady()
   {
@@ -149,8 +151,7 @@ public:
 		  if (!ready)
 		  {
 			  ready = true;
-			  std::this_thread::sleep_for(std::chrono::milliseconds(sleeptime));
-			  
+			  std::this_thread::sleep_for(std::chrono::milliseconds(sleeptime));  
 		  }
 	  }
   }
@@ -164,7 +165,6 @@ public:
 	before = deepf1::TimePoint(begin);
 	after = deepf1::TimePoint(begin);
 	video_writer_.reset(new cv::VideoWriter("out.avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), captureFreq, window_size));
-	//cv::namedWindow(window_name, cv::WINDOW_AUTOSIZE);
   }
   static constexpr float captureFreq = 30.0;
 private:
@@ -194,7 +194,7 @@ int main(int argc, char** argv)
   
   while (true)
   {
-	  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+	  std::this_thread::sleep_for(std::chrono::seconds(1));
   }
 
 }
