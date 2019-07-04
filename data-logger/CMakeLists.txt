@@ -16,13 +16,13 @@ else()
     set_property(GLOBAL PROPERTY USE_FOLDERS OFF)
     option(BUILD_SHARED_LIBS "Build Shared Libraries" ON)
 endif()
-set(cxx_standard 14)
+set(cxx_standard 17)
+set(CMAKE_CXX_STANDARD ${cxx_standard})
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/install CACHE PATH "..." FORCE)
 endif()
 
-set(CMAKE_CXX_STANDARD ${cxx_standard})
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 set(THIRD_PARTY_REPOS ${CMAKE_SOURCE_DIR}/third_party)
@@ -55,18 +55,20 @@ else()
     set(Boost_USE_STATIC_LIBS ON)
 endif()
 set (Boost_USE_MULTITHREADED ON)
-find_package( Boost 1.7 REQUIRED COMPONENTS date_time filesystem program_options regex system thread)
-set(Boost_LIBRARIES 
-Boost::date_time
-Boost::filesystem
-Boost::program_options
-Boost::system
-Boost::regex
-Boost::thread
-Boost::boost
+set(BOOST_REQUIRED_COMPONENTS
+date_time
+headers
+filesystem
+program_options
+regex
+system
+thread
 )
-message(STATUS "Found Boost libraries: ${Boost_LIBRARIES}")
-message(STATUS "Found Boost include directory: ${Boost_INCLUDE_DIR}")
+find_package( Boost 1.6 REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS} )
+foreach(boost_component_ ${BOOST_REQUIRED_COMPONENTS})
+	list(APPEND Boost_LIBRARIES Boost::${boost_component_})
+endforeach()
+message(STATUS "Using Boost components: ${Boost_LIBRARIES}")
 
 
 
@@ -84,15 +86,12 @@ find_package(yaml-cpp REQUIRED)
 endif()
 message(STATUS "Found yaml-cpp include dir: ${YAML_CPP_INCLUDE_DIR}")
 message(STATUS "Found yaml-cpp libraries: ${YAML_CPP_LIBRARIES}")
-message(STATUS "LIB: $ENV{LIB}")
 if(MSVC)
-	find_package(TBB COMPONENTS tbb)
-   # message(STATUS "Getting TBB")
-   # include(get_tbb)
-   # message(STATUS "Got TBB targets: ${TBB_IMPORTED_TARGETS}")
-else()
-    option(GET_TBB "Download TBB from github rather than building it." OFF)
-    if(GET_TBB)
+	message(STATUS "LIB Environment Variable: $ENV{LIB}")
+endif()
+option(GET_TBB "Download TBB from github rather than using a pre-installed version." ON)
+if(GET_TBB)
+    if(MSVC)
         message(STATUS "Getting TBB")
         include(get_tbb)
         message(STATUS "Got TBB targets: ${TBB_IMPORTED_TARGETS}")
@@ -101,11 +100,13 @@ else()
         include(build_tbb)
         message(STATUS "Built TBB targets: ${TBB_IMPORTED_TARGETS}")
     endif()
+else()
+    find_package(TBB REQUIRED COMPONENTS tbb)
 endif()
 
 
 include_directories( include )
-include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${YAML_CPP_INCLUDE_DIR})
+include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${YAML_CPP_INCLUDE_DIR} )
 
 add_subdirectory( proto/${PROJECT_NAME}/proto )
 set_target_properties(${PROJECT_NAME}_proto
