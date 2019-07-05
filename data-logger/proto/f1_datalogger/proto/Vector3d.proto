@@ -1,0 +1,7 @@
+syntax = "proto3";
+package deepf1.protobuf.eigen;
+message Vector3d {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+}

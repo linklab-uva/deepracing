@@ -13,6 +13,7 @@ utils/eigen_utils.cpp
 add_library( ${PROJECT_NAME}_eigen_utils ${${PROJECT_NAME}_eigen_utils_src} )
 target_link_libraries( ${PROJECT_NAME}_eigen_utils Eigen3::Eigen ${Boost_LIBRARIES})
 add_dependencies(${PROJECT_NAME}_eigen_utils ${PROJECT_NAME}_proto)
+target_include_directories(${PROJECT_NAME}_eigen_utils PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
 
 set(${PROJECT_NAME}_udp_logging_src
 f1_datagrab_manager.cpp

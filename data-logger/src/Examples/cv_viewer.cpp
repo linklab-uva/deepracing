@@ -21,7 +21,7 @@ public:
   }
   bool isReady() override
   {
-    return true;
+    return ready_;
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarSetupData& data) override
   {
@@ -42,40 +42,21 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketMotionData& data) override
   {
-	  //Eigen::Vector3d velocityGlobal(data.data.m_carMotionData[car_index].m_worldVelocityX, data.data.m_carMotionData[car_index].m_worldVelocityY, data.data.m_carMotionData[car_index].m_worldVelocityZ);
-	  //Eigen::Vector3d velocityLocal(data.data.m_localVelocityX, data.data.m_localVelocityY, data.data.m_localVelocityZ);
-	 
+    ready_ = false;
+    const deepf1::twenty_eighteen::CarMotionData& motionPacket = data.data.m_carMotionData[car_index];
+    Eigen::Affine3d poseGlobal = deepf1::EigenUtils::motionPacketToPose(motionPacket);
+    Eigen::Vector3d velocityGlobal(motionPacket.m_worldVelocityX, motionPacket.m_worldVelocityY, motionPacket.m_worldVelocityZ);
+    Eigen::Vector3d velocityLocalComputed = poseGlobal.rotation().inverse() * velocityGlobal;
+    Eigen::Vector3d velocityLocal(data.data.m_localVelocityX, data.data.m_localVelocityY, data.data.m_localVelocityZ);
+    std::cout << std::endl;
+    std::cout << "Velocity Local Computed: " << std::endl << velocityLocalComputed << std::endl;
+    std::cout << "Velocity Local: " << std::endl << velocityLocal << std::endl;
+    std::cout << "Velocity Diff: " << (velocityLocalComputed - velocityLocal).norm() << std::endl;
+    std::cout  << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    ready_ = true;
 
-	  //Eigen::Vector3d forward(data.data.m_carMotionData[car_index].m_worldForwardDirX, data.data.m_carMotionData[car_index].m_worldForwardDirY, data.data.m_carMotionData[car_index].m_worldForwardDirZ);
-	  //forward.normalize();
-	  //Eigen::Vector3d right(data.data.m_carMotionData[car_index].m_worldRightDirX, data.data.m_carMotionData[car_index].m_worldRightDirY, data.data.m_carMotionData[car_index].m_worldRightDirZ);
-	  //right.normalize();
-	  //Eigen::Vector3d up = right.cross(forward);
-	  //up.normalize();
-	  //Eigen::Matrix3d rotMatrix = Eigen::Matrix3d::Identity();
-	  //rotMatrix.col(0) = -right;
-	  //rotMatrix.col(1) = up;
-	  //rotMatrix.col(2) = forward;
-
-	  //Eigen::Vector3d translation(data.data.m_carMotionData[car_index].m_worldPositionX, data.data.m_carMotionData[car_index].m_worldPositionY, data.data.m_carMotionData[car_index].m_worldPositionZ);
-	  //Eigen::Affine3d pose = deepf1::EigenUtils::motionPacketToPose(data.data.m_carMotionData[car_index]);
-	  //Eigen::Quaterniond rotation(pose.rotation());
-	  //rotation.normalize();
-	  //Eigen::Vector3d velocityLocalComputed = rotation.conjugate() * velocityGlobal;
-	  //Eigen::Vector3d velocityGlobalComputed = rotation * velocityLocal;
-
-	  //std::cout << std::endl;
-	  //std::cout << "Global Velocity Given: " << std::endl << velocityGlobal << std::endl;
-	  //std::cout << "Global Velocity Computed: " << std::endl << velocityGlobalComputed << std::endl;
-	  //std::cout << "Global Velocity Diff: " << std::endl << (velocityGlobal - velocityGlobalComputed).norm() << std::endl;	
-	  //std::cout << std::endl;
-
-
-	  //std::cout << std::endl;
-	  //std::cout << "Local Velocity Given: " << std::endl << velocityLocal << std::endl;
-	  //std::cout << "Local Velocity Computed: " << std::endl << velocityLocalComputed << std::endl;
-	  //std::cout << "Local Velocity Diff: " << std::endl << (velocityLocal - velocityLocalComputed).norm() << std::endl;
-	  //std::cout << std::endl;
+    
 
 	  
   }
@@ -92,22 +73,16 @@ public:
 	  {
 		  car_index = 0;
 	  }
-	  if(bool(data.data.m_gamePaused))
-	  {
-		  std::cout << "Game is paused" << std::endl;
-	  }
-	  else
-	  {
-		  std::cout << "Game is not paused" << std::endl;
-	  }
     
   }
   void init(const std::string& host, unsigned int port, const deepf1::TimePoint& begin) override
   {
-	car_index = 0;
+    ready_ = true;
+	  car_index = 0;
     this->begin = begin;
   }
 private:
+  bool ready_;
   std::chrono::high_resolution_clock::time_point begin;
   uint8_t car_index;
   float t1 = 0.0;
@@ -133,13 +108,13 @@ public:
   }
   void handleData(const deepf1::TimestampedImageData& data) override
   {
-	ready = false;
+	//ready = false;
  //   cv::Mat img_cv_video;
  //   cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
 	//video_writer_->write(img_cv_video);
-	cv::imshow(window_name, data.image);
-	cv::waitKey(33);
-	ready = true;
+ // cv::imshow(window_name, data.image);
+	//cv::waitKey(50);
+	//ready = true;
 //	std::chrono::duration<double> d = data.timestamp - begin;
 //	std::cout << "Got an image with timestamp "<< d.count() << std::endl;
   }
@@ -180,7 +155,7 @@ private:
 
 int main(int argc, char** argv)
 {
-  std::string search = "CMake";
+  std::string search = "F1";
   if (argc > 1)
   {
     search = std::string(argv[1]);

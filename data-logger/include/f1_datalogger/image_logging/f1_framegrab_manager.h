@@ -27,6 +27,7 @@ private:
                     std::shared_ptr<IF1FrameGrabHandler> capture_handler);
 
 
+
   ClockPtr clock_;
 
   scl::Window window_;
