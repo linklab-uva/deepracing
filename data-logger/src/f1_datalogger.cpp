@@ -18,9 +18,9 @@ F1DataLogger::F1DataLogger(const std::string& search_string, std::string host, u
   begin_ = std::chrono::high_resolution_clock::time_point(clock_->now());
   std::cout<<"Creating managers"<<std::endl;
 	
-	std::cout << "Creating Data Grab Manager" << std::endl;
+  std::cout << "Creating Data Grab Manager" << std::endl;
   data_grab_manager_.reset(new F1DataGrabManager(clock_, host, port));
-	std::cout << "Created Data Grab Manager" << std::endl;
+  std::cout << "Created Data Grab Manager" << std::endl;
   
 	
 	std::cout << "Creating Frame Grab Manager" << std::endl;

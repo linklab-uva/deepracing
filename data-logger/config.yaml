@@ -7,3 +7,4 @@ udp_threads: 3
 image_threads: 6
 image_capture_frequency: 60.0
 initial_delay_time: 3.0
+image_extension: "jpg"

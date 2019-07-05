@@ -4,7 +4,6 @@
  *  Created on: Dec 5, 2018
  *      Author: ttw2xk
  */
-
 #include "f1_datalogger/f1_datalogger.h"
 //#include "image_logging/utils/screencapture_lite_utils.h"
 #include <iostream>
@@ -93,6 +92,14 @@ public:
 	  {
 		  car_index = 0;
 	  }
+	  if(bool(data.data.m_gamePaused))
+	  {
+		  std::cout << "Game is paused" << std::endl;
+	  }
+	  else
+	  {
+		  std::cout << "Game is not paused" << std::endl;
+	  }
     
   }
   void init(const std::string& host, unsigned int port, const deepf1::TimePoint& begin) override
@@ -126,13 +133,15 @@ public:
   }
   void handleData(const deepf1::TimestampedImageData& data) override
   {
-    ready = false;
-    cv::Mat img_cv_video;
-    cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
-	video_writer_->write(img_cv_video);
-	//cv::imshow(window_name, img_cv_video);
-	//cv::waitKey(500);
+	ready = false;
+ //   cv::Mat img_cv_video;
+ //   cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
+	//video_writer_->write(img_cv_video);
+	cv::imshow(window_name, data.image);
+	cv::waitKey(33);
 	ready = true;
+//	std::chrono::duration<double> d = data.timestamp - begin;
+//	std::cout << "Got an image with timestamp "<< d.count() << std::endl;
   }
   void pulseReady()
   {
@@ -142,21 +151,20 @@ public:
 		  if (!ready)
 		  {
 			  ready = true;
-			  std::this_thread::sleep_for(std::chrono::milliseconds(sleeptime));
-			  
+			  std::this_thread::sleep_for(std::chrono::milliseconds(sleeptime));  
 		  }
 	  }
   }
   void init(const deepf1::TimePoint& begin, const cv::Size& window_size) override
   {
-	running = true;
-	ready = true;
-	//readyThread = std::thread(std::bind(&OpenCV_Viewer_Example_FrameGrabHandler::pulseReady, this));
-	this->begin = deepf1::TimePoint(begin);
-	before = deepf1::TimePoint(begin);
-	after = deepf1::TimePoint(begin);
-	video_writer_.reset(new cv::VideoWriter("out.avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), captureFreq, window_size));
-	//cv::namedWindow(window_name, cv::WINDOW_AUTOSIZE);
+    imcount = 0;
+	  running = true;
+	  ready = true;
+	  //readyThread = std::thread(std::bind(&OpenCV_Viewer_Example_FrameGrabHandler::pulseReady, this));
+	  this->begin = deepf1::TimePoint(begin);
+	  before = deepf1::TimePoint(begin);
+	  after = deepf1::TimePoint(begin);
+	  video_writer_.reset(new cv::VideoWriter("out.avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), captureFreq, window_size));
   }
   static constexpr float captureFreq = 30.0;
 private:
@@ -167,7 +175,9 @@ private:
   std::thread readyThread;
   bool ready;
   bool running;
+  unsigned int imcount;
 };
+
 int main(int argc, char** argv)
 {
   std::string search = "CMake";
@@ -180,10 +190,12 @@ int main(int argc, char** argv)
   std::string inp;
   deepf1::F1DataLogger dl(search);  
   dl.start((double)OpenCV_Viewer_Example_FrameGrabHandler::captureFreq, udp_handler, image_handler);
-  std::cout<<"Enter anything to exit."<<std::endl;
-  std::cin>>inp;
-  dl.stop();
-  std::cout << "Thanks for playing!" << std::endl;
+  std::cout<<"Ctl-c to exit."<<std::endl;
+  
+  while (true)
+  {
+	  std::this_thread::sleep_for(std::chrono::seconds(1));
+  }
 
 }
 

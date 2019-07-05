@@ -1,2 +1,4 @@
 .vscode
 install/
+CMakeSettings.json
+out
