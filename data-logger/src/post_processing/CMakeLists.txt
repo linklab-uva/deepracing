@@ -1,5 +1,6 @@
 add_library(${PROJECT_NAME}_post_processing
 post_processing_utils.cpp
+post_processing_utils2018.cpp
 )
 #add_dependencies(${PROJECT_NAME}_post_processing protocopy)
 target_include_directories(${PROJECT_NAME}_post_processing PRIVATE ${ALGLIB_DIR}/..)
