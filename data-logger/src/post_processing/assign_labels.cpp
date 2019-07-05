@@ -7,11 +7,11 @@
 #include <algorithm>
 #include <iostream>
 #include <opencv2/highgui.hpp>
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <google/protobuf/util/json_util.h>
 #include <opencv2/imgproc.hpp>
 namespace po = boost::program_options;
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 void exit_with_help(po::options_description& desc)
 {
 	std::stringstream ss;

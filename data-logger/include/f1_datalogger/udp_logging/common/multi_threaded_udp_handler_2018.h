@@ -14,6 +14,8 @@
 #include <memory>
 #include <mutex>
 #include <google/protobuf/util/json_util.h>
+#include <vector>
+#include <functional>
 namespace deepf1
 {
 
@@ -29,12 +31,19 @@ public:
   void stop();
   void hardStop();
   void join(unsigned int extra_threads = 1);
+  void addPausedFunction(const std::function<void()>& f);
+  void addUnpausedFunction(const std::function<void()>& f);
+
 private:
   std::shared_ptr< tbb::task_group > thread_pool_ ;
   bool running_;
   bool hard_stopped_;
   deepf1::TimePoint begin_;
   const std::string data_folder_;
+  std::vector < std::function<void()> > pausedHandlers_;
+  std::vector < std::function<void()> > unpausedHandlers_;
+  bool paused_;
+
 
   std::shared_ptr< tbb::concurrent_queue<deepf1::twenty_eighteen::TimestampedPacketCarSetupData> > setup_data_queue_;
   std::shared_ptr< tbb::concurrent_queue<deepf1::twenty_eighteen::TimestampedPacketCarStatusData> > status_data_queue_;

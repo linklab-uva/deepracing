@@ -1,5 +1,5 @@
 project(f1_datalogger)
-cmake_minimum_required (VERSION 3.12 FATAL_ERROR)
+cmake_minimum_required (VERSION 3.14 FATAL_ERROR)
 option(WITH_VJOY "Compile vJoy bindings. ONLY SUPPORTED ON WINDOWS" OFF)
 
 if(WITH_VJOY)
@@ -58,7 +58,6 @@ set (Boost_USE_MULTITHREADED ON)
 set(BOOST_REQUIRED_COMPONENTS
 date_time
 headers
-filesystem
 program_options
 regex
 system

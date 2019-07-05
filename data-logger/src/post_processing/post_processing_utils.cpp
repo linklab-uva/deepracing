@@ -1,12 +1,13 @@
 #include "f1_datalogger/post_processing/post_processing_utils.h"
-#include <boost/filesystem.hpp>
-#include <iostream>
+#include <filesystem>
 #include <google/protobuf/util/json_util.h>
 #include "f1_datalogger/alglib/interpolation.h"
 #include <sstream>
+#include <fstream>
+#include <iostream>
 #include <Eigen/Geometry>
 #include "f1_datalogger/controllers/kdtree_eigen.h"
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 namespace deepf1
 {
 namespace post_processing

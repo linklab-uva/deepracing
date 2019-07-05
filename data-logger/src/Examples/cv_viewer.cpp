@@ -138,7 +138,7 @@ public:
  //   cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
 	//video_writer_->write(img_cv_video);
 	cv::imshow(window_name, data.image);
-	cv::waitKey(50);
+	cv::waitKey(33);
 	ready = true;
 //	std::chrono::duration<double> d = data.timestamp - begin;
 //	std::cout << "Got an image with timestamp "<< d.count() << std::endl;
@@ -158,13 +158,13 @@ public:
   void init(const deepf1::TimePoint& begin, const cv::Size& window_size) override
   {
     imcount = 0;
-	running = true;
-	ready = true;
-	//readyThread = std::thread(std::bind(&OpenCV_Viewer_Example_FrameGrabHandler::pulseReady, this));
-	this->begin = deepf1::TimePoint(begin);
-	before = deepf1::TimePoint(begin);
-	after = deepf1::TimePoint(begin);
-	video_writer_.reset(new cv::VideoWriter("out.avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), captureFreq, window_size));
+	  running = true;
+	  ready = true;
+	  //readyThread = std::thread(std::bind(&OpenCV_Viewer_Example_FrameGrabHandler::pulseReady, this));
+	  this->begin = deepf1::TimePoint(begin);
+	  before = deepf1::TimePoint(begin);
+	  after = deepf1::TimePoint(begin);
+	  video_writer_.reset(new cv::VideoWriter("out.avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), captureFreq, window_size));
   }
   static constexpr float captureFreq = 30.0;
 private:

@@ -79,6 +79,9 @@ int main(int argc, char** argv)
 
   std::cout<<"Creating handlers" <<std::endl;
   std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler(image_extension, image_folder, image_threads, true));
+  std::shared_ptr<deepf1::MultiThreadedUDPHandler2018> udp_handler(new deepf1::MultiThreadedUDPHandler2018(udp_folder, true));
+  udp_handler->addPausedFunction(std::bind(&deepf1::MultiThreadedFrameGrabHandler::pause, frame_handler.get()));
+  udp_handler->addUnpausedFunction(std::bind(&deepf1::MultiThreadedFrameGrabHandler::resume, frame_handler.get())); 
   std::cout << "Created handlers" << std::endl;
 
 
@@ -90,8 +93,6 @@ int main(int argc, char** argv)
   std::string inp;
   std::cout<<"Enter anything to start capture" << std::endl;
   std::cin >> inp;
-
-	std::shared_ptr<deepf1::MultiThreadedUDPHandler2018> udp_handler(new deepf1::MultiThreadedUDPHandler2018(udp_folder,true));
 	std::cout << "Starting capture in " << initial_delay_time << " seconds." << std::endl;
 	std::this_thread::sleep_for(std::chrono::microseconds((long)std::round(initial_delay_time*1E6)));
 	dl->start(image_capture_frequency, udp_handler  , frame_handler );

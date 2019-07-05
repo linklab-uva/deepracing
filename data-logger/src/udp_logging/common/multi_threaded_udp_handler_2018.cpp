@@ -1,3 +1,5 @@
+#include "..\..\..\include\f1_datalogger\udp_logging\common\multi_threaded_udp_handler_2018.h"
+#include "..\..\..\include\f1_datalogger\udp_logging\common\multi_threaded_udp_handler_2018.h"
 /*
  * multi_threaded_udp_logger.cpp
  *
@@ -9,8 +11,6 @@
 #include "f1_datalogger/proto/TimestampedUDPData.pb.h"
 #include "f1_datalogger/udp_logging/utils/udp_stream_utils.h"
 #include <functional>
-#include <boost/filesystem.hpp>
-#include <iostream>
 #include <google/protobuf/util/json_util.h>
 #include <thread>
 #include "f1_datalogger/proto/TimestampedPacketCarStatusData.pb.h"
@@ -23,19 +23,36 @@
 #include "f1_datalogger/proto/TimestampedPacketSessionData.pb.h"
 #include <sstream>
 #include <exception>
-namespace fs = boost::filesystem;
+#include <filesystem>
+#include <iostream>
+#include <fstream>
+namespace fs = std::filesystem;
 namespace deepf1
 {
 MultiThreadedUDPHandler2018::MultiThreadedUDPHandler2018( std::string data_folder, bool write_json, unsigned int sleeptime )
  : running_(false), hard_stopped_(true), data_folder_(data_folder), write_json_(write_json), sleeptime_(sleeptime),
     setups_counter(1), status_counter(1), telemetry_counter(1), lapdata_counter(1),
-                              motion_counter(1), participants_counter(1), session_counter(1)
+                              motion_counter(1), participants_counter(1), session_counter(1), paused_(false)
                               
 {
   fs::path main_dir(data_folder);
   if(fs::is_directory(main_dir))
   {
-    throw std::runtime_error("UDP Packet Directory " + fs::absolute(main_dir).string() + " already exists.");
+    std::string in("asdf");
+    while (!(in.compare("y") == 0 || in.compare("n") == 0))
+    {
+      std::cout << "UDP Directory: " << main_dir.string() << " already exists. Overwrite it with new data? [y\\n]";
+      std::cin >> in;
+    }
+    if (in.compare("y") == 0)
+    {
+      fs::remove_all(main_dir);
+    }
+    else
+    {
+      std::cout << "Thanks for playing!" << std::endl;
+      exit(0);
+    }
   }
   fs::create_directories(main_dir);
     
@@ -84,6 +101,16 @@ void MultiThreadedUDPHandler2018::join(unsigned int extra_threads)
   thread_pool_->wait();
 }
 
+void MultiThreadedUDPHandler2018::addPausedFunction(const std::function<void()>& f)
+{
+  pausedHandlers_.push_back(f);
+}
+
+void MultiThreadedUDPHandler2018::addUnpausedFunction(const std::function<void()>& f)
+{
+  unpausedHandlers_.push_back(f);
+}
+
 inline bool MultiThreadedUDPHandler2018::isReady()
 {
   return ready_;
@@ -103,7 +130,7 @@ const deepf1::TimePoint& begin, const fs::path& output_dir, tbb::atomic<unsigned
   fs::path filename = output_dir / fs::path("packet_" + std::to_string(counter.fetch_and_increment()) + ".json");
   google::protobuf::util::MessageToJsonString( data_pb, &json_string, json_options );
   std::ofstream ostream;
-  ostream.open(filename.string().c_str());
+  ostream.open(filename.string());
   ostream << json_string << std::endl;
   ostream.flush();
   ostream.close();
@@ -313,7 +340,22 @@ void MultiThreadedUDPHandler2018::handleData(const deepf1::twenty_eighteen::Time
 }
 void MultiThreadedUDPHandler2018::handleData(const deepf1::twenty_eighteen::TimestampedPacketSessionData& data) 
 {
-    session_data_queue_->push(data);
+  session_data_queue_->push(data);
+  if (bool(data.data.m_gamePaused))// && !paused_)
+  {
+    for each (std::function<void()> f in pausedHandlers_)
+    {
+      f();
+    }
+  }
+  else if (!bool(data.data.m_gamePaused))// && paused_)
+  {
+    for each (std::function<void()> f in unpausedHandlers_)
+    {
+      f();
+    }
+  }
+  paused_ = bool(data.data.m_gamePaused);
 }
 void MultiThreadedUDPHandler2018::init(const std::string& host, unsigned int port, const deepf1::TimePoint& begin)
 {
