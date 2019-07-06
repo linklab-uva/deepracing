@@ -108,7 +108,7 @@ plt.plot(system_times, slope*system_times + intercept, label='fitted line')
 fig.legend()
 fig = plt.figure("Session times and remapped image system times")
 alltimes = np.sort(np.hstack((session_times, slope*image_timestamps + intercept)))
-t = np.linspace( 0, 1.0 , num=len(alltimes) )
+t = np.linspace( 0.0, 1.0 , num=len(alltimes) )
 plt.plot( t, alltimes, label='dem timez' )
 plt.show()
 

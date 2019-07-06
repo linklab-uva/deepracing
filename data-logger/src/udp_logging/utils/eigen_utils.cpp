@@ -17,7 +17,7 @@ EigenUtils::EigenUtils()
 EigenUtils::~EigenUtils()
 {
 }
-deepf1::protobuf::eigen::Pose3d EigenUtils::eigenToProto(const Eigen::Affine3d& poseEigen)
+deepf1::protobuf::eigen::Pose3d EigenUtils::eigenToProto(const Eigen::Affine3d& poseEigen, const double& session_time, deepf1::protobuf::eigen::FrameId frameid)
 {
   deepf1::protobuf::eigen::Pose3d rtn;
 
@@ -32,6 +32,9 @@ deepf1::protobuf::eigen::Pose3d EigenUtils::eigenToProto(const Eigen::Affine3d& 
   rtn.mutable_rotation()->set_y(rotation.y());
   rtn.mutable_rotation()->set_y(rotation.z());
   rtn.mutable_rotation()->set_w(rotation.w());
+
+  rtn.set_frame(frameid);
+  rtn.set_session_time(session_time);
 
   return rtn;
 }
