@@ -6,4 +6,5 @@ message Pose3d {
 		Vector3d translation = 1;
 		Quaterniond rotation = 2;
 		double session_time = 3;
+		string frame_id = 4;
 }

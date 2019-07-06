@@ -22,7 +22,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='deepf1.protobuf.eigen',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x0cPose3d.proto\x12\x15\x64\x65\x65pf1.protobuf.eigen\x1a\x11Quaterniond.proto\x1a\x0eVector3d.proto\"\x8a\x01\n\x06Pose3d\x12\x34\n\x0btranslation\x18\x01 \x01(\x0b\x32\x1f.deepf1.protobuf.eigen.Vector3d\x12\x34\n\x08rotation\x18\x02 \x01(\x0b\x32\".deepf1.protobuf.eigen.Quaterniond\x12\x14\n\x0csession_time\x18\x03 \x01(\x01\x62\x06proto3')
+  serialized_pb=_b('\n\x0cPose3d.proto\x12\x15\x64\x65\x65pf1.protobuf.eigen\x1a\x11Quaterniond.proto\x1a\x0eVector3d.proto\"\x9c\x01\n\x06Pose3d\x12\x34\n\x0btranslation\x18\x01 \x01(\x0b\x32\x1f.deepf1.protobuf.eigen.Vector3d\x12\x34\n\x08rotation\x18\x02 \x01(\x0b\x32\".deepf1.protobuf.eigen.Quaterniond\x12\x14\n\x0csession_time\x18\x03 \x01(\x01\x12\x10\n\x08\x66rame_id\x18\x04 \x01(\tb\x06proto3')
   ,
   dependencies=[Quaterniond__pb2.DESCRIPTOR,Vector3d__pb2.DESCRIPTOR,])
 
@@ -57,6 +57,13 @@ _POSE3D = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='frame_id', full_name='deepf1.protobuf.eigen.Pose3d.frame_id', index=3,
+      number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -70,7 +77,7 @@ _POSE3D = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=75,
-  serialized_end=213,
+  serialized_end=231,
 )
 
 _POSE3D.fields_by_name['translation'].message_type = Vector3d__pb2._VECTOR3D
