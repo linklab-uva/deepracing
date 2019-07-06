@@ -15,6 +15,7 @@ _sym_db = _symbol_database.Default()
 
 import Quaterniond_pb2 as Quaterniond__pb2
 import Vector3d_pb2 as Vector3d__pb2
+import FrameId_pb2 as FrameId__pb2
 
 
 DESCRIPTOR = _descriptor.FileDescriptor(
@@ -22,9 +23,9 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='deepf1.protobuf.eigen',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x0cPose3d.proto\x12\x15\x64\x65\x65pf1.protobuf.eigen\x1a\x11Quaterniond.proto\x1a\x0eVector3d.proto\"\x9c\x01\n\x06Pose3d\x12\x34\n\x0btranslation\x18\x01 \x01(\x0b\x32\x1f.deepf1.protobuf.eigen.Vector3d\x12\x34\n\x08rotation\x18\x02 \x01(\x0b\x32\".deepf1.protobuf.eigen.Quaterniond\x12\x14\n\x0csession_time\x18\x03 \x01(\x01\x12\x10\n\x08\x66rame_id\x18\x04 \x01(\tb\x06proto3')
+  serialized_pb=_b('\n\x0cPose3d.proto\x12\x15\x64\x65\x65pf1.protobuf.eigen\x1a\x11Quaterniond.proto\x1a\x0eVector3d.proto\x1a\rFrameId.proto\"\xb9\x01\n\x06Pose3d\x12\x34\n\x0btranslation\x18\x01 \x01(\x0b\x32\x1f.deepf1.protobuf.eigen.Vector3d\x12\x34\n\x08rotation\x18\x02 \x01(\x0b\x32\".deepf1.protobuf.eigen.Quaterniond\x12\x14\n\x0csession_time\x18\x03 \x01(\x01\x12-\n\x05\x66rame\x18\x04 \x01(\x0e\x32\x1e.deepf1.protobuf.eigen.FrameIdb\x06proto3')
   ,
-  dependencies=[Quaterniond__pb2.DESCRIPTOR,Vector3d__pb2.DESCRIPTOR,])
+  dependencies=[Quaterniond__pb2.DESCRIPTOR,Vector3d__pb2.DESCRIPTOR,FrameId__pb2.DESCRIPTOR,])
 
 
 
@@ -58,9 +59,9 @@ _POSE3D = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='frame_id', full_name='deepf1.protobuf.eigen.Pose3d.frame_id', index=3,
-      number=4, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b("").decode('utf-8'),
+      name='frame', full_name='deepf1.protobuf.eigen.Pose3d.frame', index=3,
+      number=4, type=14, cpp_type=8, label=1,
+      has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
@@ -76,12 +77,13 @@ _POSE3D = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=75,
-  serialized_end=231,
+  serialized_start=90,
+  serialized_end=275,
 )
 
 _POSE3D.fields_by_name['translation'].message_type = Vector3d__pb2._VECTOR3D
 _POSE3D.fields_by_name['rotation'].message_type = Quaterniond__pb2._QUATERNIOND
+_POSE3D.fields_by_name['frame'].enum_type = FrameId__pb2._FRAMEID
 DESCRIPTOR.message_types_by_name['Pose3d'] = _POSE3D
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 

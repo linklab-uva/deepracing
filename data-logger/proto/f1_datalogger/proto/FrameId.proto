@@ -1,0 +1,6 @@
+syntax = "proto3";
+package deepf1.protobuf.eigen;
+enum FrameId {
+	GLOBAL = 0;
+	LOCAL = 1;
+}

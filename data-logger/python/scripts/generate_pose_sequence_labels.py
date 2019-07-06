@@ -12,6 +12,7 @@ import google.protobuf.json_format
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import TimestampedImage_pb2
+import Pose3d_pb2
 import cv2
 def toHomogenousTransform(position, quat):
     rtn = np.eye(4)
