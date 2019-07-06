@@ -123,9 +123,9 @@ namespace post_processing
 		for (unsigned int i = 0; i < max_index; i += 3)
 		{
 			double x0 = rtn.at(i).first;
-			double x1 = rtn.at(i + 1).first;
-			double x2 = rtn.at(i + 2).first;
-			double x3 = rtn.at(i + 3).first;
+			double x1 = rtn.at((size_t)i + 1).first;
+			double x2 = rtn.at((size_t)i + 2).first;
+			double x3 = rtn.at((size_t)i + 3).first;
 			std::vector<double> X = { x0, x1, x2, x3 };
 			alglib::real_1d_array x_alglib;
 			x_alglib.attach_to_ptr(4, &X[0]);
@@ -133,9 +133,9 @@ namespace post_processing
 			alglib::spline1dbuildcubic(t_alglib, x_alglib, x_interpolant);
 			double deltax = x3 - x0;
 			Eigen::Vector3d P0 = rtn.at(i).second;
-			Eigen::Vector3d P1 = rtn.at(i + 1).second;
-			Eigen::Vector3d P2 = rtn.at(i + 2).second;
-			Eigen::Vector3d P3 = rtn.at(i + 3).second;
+			Eigen::Vector3d P1 = rtn.at((size_t)i + 1).second;
+			Eigen::Vector3d P2 = rtn.at((size_t)i + 2).second;
+			Eigen::Vector3d P3 = rtn.at((size_t)i + 3).second;
 			for (double t = dt; t < 1.0; t += dt)
 			{
 				Eigen::Vector3d Pinterp = std::pow(1 - t, 3)*P0 + 3 * t*std::pow(1 - t, 2)*P1 +

@@ -33,18 +33,29 @@ deepf1::post_processing::PostProcessingUtils2018::parseMotionPacketDirectory(con
   {
     ext = "json";
   }
-  get_all(fs::path(directory), ext, paths);
-  for each (const fs::path & path in paths)
+  get_all( fs::path(directory), ext, paths );
+  for each (const fs::path & current_path in paths)
   {
     deepf1::twenty_eighteen::protobuf::TimestampedPacketMotionData packet;
+    std::ifstream stream_in(current_path.string());
     if (json)
     {
-      
+      std::stringstream buffer;
+      buffer << stream_in.rdbuf();
+      google::protobuf::util::Status rc = google::protobuf::util::JsonStringToMessage(buffer.str(), &packet);
+      if ( !rc.ok() )
+      {
+        std::printf("Could not load JSON file: %s\n", current_path.string().c_str());
+      }
     }
     else
     {
-
+      if (!packet.ParseFromIstream(&stream_in))
+      {
+        std::printf("Could not load binary file: %s\n", current_path.string().c_str());
+      }
     }
+    rtn.push_back(packet);
   }
 
 

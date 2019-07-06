@@ -4,8 +4,8 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-import numpy.linalg as la
 import cv2
+import numpy.linalg as la
 import scipy.stats as stats
 import TimestampedPacketMotionData_pb2
 def sortkey(packet : TimestampedPacketMotionData_pb2.TimestampedPacketMotionData):
