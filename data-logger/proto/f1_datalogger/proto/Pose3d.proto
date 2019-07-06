@@ -5,4 +5,5 @@ import "Vector3d.proto";
 message Pose3d {
 		Vector3d translation = 1;
 		Quaterniond rotation = 2;
+		double session_time = 3;
 }
