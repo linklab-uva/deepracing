@@ -13,6 +13,7 @@ from google.protobuf import symbol_database as _symbol_database
 _sym_db = _symbol_database.Default()
 
 
+import Vector3dStamped_pb2 as Vector3dStamped__pb2
 import Pose3d_pb2 as Pose3d__pb2
 
 
@@ -21,9 +22,9 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='deepf1.protobuf',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x17PoseSequenceLabel.proto\x12\x0f\x64\x65\x65pf1.protobuf\x1a\x0cPose3d.proto\"\x91\x01\n\x11PoseSequenceLabel\x12\x12\n\nimage_file\x18\x01 \x01(\t\x12/\n\x08\x63\x61r_pose\x18\x02 \x01(\x0b\x32\x1d.deepf1.protobuf.eigen.Pose3d\x12\x37\n\x10subsequent_poses\x18\x03 \x03(\x0b\x32\x1d.deepf1.protobuf.eigen.Pose3db\x06proto3')
+  serialized_pb=_b('\n\x17PoseSequenceLabel.proto\x12\x0f\x64\x65\x65pf1.protobuf\x1a\x15Vector3dStamped.proto\x1a\x0cPose3d.proto\"\x96\x02\n\x11PoseSequenceLabel\x12\x12\n\nimage_file\x18\x01 \x01(\t\x12/\n\x08\x63\x61r_pose\x18\x02 \x01(\x0b\x32\x1d.deepf1.protobuf.eigen.Pose3d\x12<\n\x0c\x63\x61r_velocity\x18\x03 \x01(\x0b\x32&.deepf1.protobuf.eigen.Vector3dStamped\x12\x37\n\x10subsequent_poses\x18\x04 \x03(\x0b\x32\x1d.deepf1.protobuf.eigen.Pose3d\x12\x45\n\x15subsequent_velocities\x18\x05 \x03(\x0b\x32&.deepf1.protobuf.eigen.Vector3dStampedb\x06proto3')
   ,
-  dependencies=[Pose3d__pb2.DESCRIPTOR,])
+  dependencies=[Vector3dStamped__pb2.DESCRIPTOR,Pose3d__pb2.DESCRIPTOR,])
 
 
 
@@ -50,8 +51,22 @@ _POSESEQUENCELABEL = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='subsequent_poses', full_name='deepf1.protobuf.PoseSequenceLabel.subsequent_poses', index=2,
-      number=3, type=11, cpp_type=10, label=3,
+      name='car_velocity', full_name='deepf1.protobuf.PoseSequenceLabel.car_velocity', index=2,
+      number=3, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='subsequent_poses', full_name='deepf1.protobuf.PoseSequenceLabel.subsequent_poses', index=3,
+      number=4, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='subsequent_velocities', full_name='deepf1.protobuf.PoseSequenceLabel.subsequent_velocities', index=4,
+      number=5, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -68,12 +83,14 @@ _POSESEQUENCELABEL = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=59,
-  serialized_end=204,
+  serialized_start=82,
+  serialized_end=360,
 )
 
 _POSESEQUENCELABEL.fields_by_name['car_pose'].message_type = Pose3d__pb2._POSE3D
+_POSESEQUENCELABEL.fields_by_name['car_velocity'].message_type = Vector3dStamped__pb2._VECTOR3DSTAMPED
 _POSESEQUENCELABEL.fields_by_name['subsequent_poses'].message_type = Pose3d__pb2._POSE3D
+_POSESEQUENCELABEL.fields_by_name['subsequent_velocities'].message_type = Vector3dStamped__pb2._VECTOR3DSTAMPED
 DESCRIPTOR.message_types_by_name['PoseSequenceLabel'] = _POSESEQUENCELABEL
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
