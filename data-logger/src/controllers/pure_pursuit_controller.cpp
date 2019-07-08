@@ -103,6 +103,7 @@ void deepf1::PurePursuitController::run(const std::string& trackfile, float velK
   racelinematrixFull.transposeInPlace();
 	int cols = racelinematrixFull.cols();
 	Eigen::MatrixXd racelinematrix = racelinematrixFull(Eigen::seqN(1,3), Eigen::all);
+  Eigen::MatrixXd velocitymatrix = racelinematrixFull(Eigen::seqN(4, 3), Eigen::all);
 	kdt::KDTreed kdtree(racelinematrix);
 	kdtree.build();
 	kdt::KDTreed::Matrix dists;  
