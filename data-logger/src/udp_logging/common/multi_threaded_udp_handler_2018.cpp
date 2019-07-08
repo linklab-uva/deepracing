@@ -79,13 +79,13 @@ void MultiThreadedUDPHandler2018::hardStop()
 void MultiThreadedUDPHandler2018::stop()
 {
   std::cout<<"Cleaning up remaining udp packets"<<std::endl;
-  std::printf("Motion Data Packets Remaining: %lu\n", motion_data_queue_->unsafe_size());
-  std::printf("Car Setup Data Packets Remaining: %lu\n", setup_data_queue_->unsafe_size());
-  std::printf("Car Status Data Packets Remaining: %lu\n", status_data_queue_->unsafe_size());
-  std::printf("Car Telemetry Data Packets Remaining: %lu\n", telemetry_data_queue_->unsafe_size());
-  std::printf("Lap Data Packets Remaining: %lu\n", lap_data_queue_->unsafe_size());
-  std::printf("Participant Data Packets Remaining: %lu\n", participant_data_queue_->unsafe_size());
-  std::printf("Session Data Packets Remaining: %lu\n", session_data_queue_->unsafe_size());
+  std::printf("Motion Data Packets Remaining: %zu\n", motion_data_queue_->unsafe_size());
+  std::printf("Car Setup Data Packets Remaining: %zu\n", setup_data_queue_->unsafe_size());
+  std::printf("Car Status Data Packets Remaining: %zu\n", status_data_queue_->unsafe_size());
+  std::printf("Car Telemetry Data Packets Remaining: %zu\n", telemetry_data_queue_->unsafe_size());
+  std::printf("Lap Data Packets Remaining: %zu\n", lap_data_queue_->unsafe_size());
+  std::printf("Participant Data Packets Remaining: %zu\n", participant_data_queue_->unsafe_size());
+  std::printf("Session Data Packets Remaining: %zu\n", session_data_queue_->unsafe_size());
   running_ = false;
   ready_ = false;
 }
