@@ -12,6 +12,7 @@ namespace deepf1
 	public:
 		EigenUtils();
 		~EigenUtils();
+    static Eigen::MatrixXd loadArmaTxt(const std::string& armafile, const double& interpolation_factor = -1.0, bool debug = false);
 		static std::vector < Eigen::Vector4d > loadTrackFile(const std::string& trackfile, const double& interpolation_factor = -1.0, bool debug = false);
 		static Eigen::MatrixXd vectorToMatrix(const std::vector < Eigen::Vector4d >& vector);
 		static Eigen::Affine3d motionPacketToPose(const deepf1::twenty_eighteen::protobuf::CarMotionData& motion_packet);

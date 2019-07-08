@@ -97,10 +97,12 @@ void deepf1::PurePursuitController::run(const std::string& trackfile, float velK
 	f1_interface_->setCommands(commands);
 	std::cout << "Set initial command" << std::endl;
 	//std::vector<std::pair<double,Eigen::Vector3d> > raceline = loadTrackFile(trackfile);
-	std::vector<Eigen::Vector4d> raceline = deepf1::EigenUtils::loadTrackFile(trackfile, 1.0/16.0);
-	int cols = raceline.size();
-	Eigen::MatrixXd racelinematrixFull = deepf1::EigenUtils::vectorToMatrix(raceline);
-	Eigen::MatrixXd racelinematrix = racelinematrixFull(Eigen::seqN(0,3), Eigen::all);
+//	std::vector<Eigen::Vector4d> raceline = deepf1::EigenUtils::loadTrackFile(trackfile, 1.0/16.0);
+ // Eigen::MatrixXd racelinematrixFull = deepf1::EigenUtils::vectorToMatrix(raceline);
+  Eigen::MatrixXd racelinematrixFull = deepf1::EigenUtils::loadArmaTxt(trackfile);
+  racelinematrixFull.transposeInPlace();
+	int cols = racelinematrixFull.cols();
+	Eigen::MatrixXd racelinematrix = racelinematrixFull(Eigen::seqN(1,3), Eigen::all);
 	kdt::KDTreed kdtree(racelinematrix);
 	kdtree.build();
 	kdt::KDTreed::Matrix dists;  

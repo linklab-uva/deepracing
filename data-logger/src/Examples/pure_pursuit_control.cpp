@@ -12,10 +12,10 @@
 #include <opencv2/imgproc.hpp>
 #include <sstream>
 #include "f1_datalogger/udp_logging/common/measurement_handler.h"
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <boost/program_options.hpp>
 #include <f1_datalogger/controllers/pure_pursuit_controller.h>
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 namespace po = boost::program_options;
 void exit_with_help(po::options_description& desc)
 {
