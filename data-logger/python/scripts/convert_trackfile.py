@@ -57,7 +57,7 @@ if args.add_interpolated_values:
     print("Old X shape: ", X.shape)
     print("Old Xdot shape: ", Xdot.shape)
     print("Old Xdotdot shape: ", Xdotdot.shape)
-    rlin = np.linspace(r[0],r[-1], num = int(round(float(len(r))/3.0)))
+    rlin = np.linspace(r[0],r[-1], num = int(round(float(len(r))/2.0)))
     r = np.hstack((r,rlin))
     xfit = scipy.interpolate.splev(rlin, tckX, der=0, ext=2)
     yfit = scipy.interpolate.splev(rlin, tckY, der=0, ext=2)
