@@ -165,7 +165,7 @@ position_interpolant = scipy.interpolate.interp1d(session_times, positions , axi
 velocity_interpolant = scipy.interpolate.interp1d(session_times, velocities, axis=0, kind='linear')
 interpolated_positions = position_interpolant(image_session_timestamps)
 interpolated_velocities = velocity_interpolant(image_session_timestamps)
-interpolated_quaternions = quaternion.squad(quaternions,session_times,image_session_timestamps)
+interpolated_quaternions = quaternion.squad(quaternions, session_times, image_session_timestamps)
 interpolated_angular_velocities = quaternion.angular_velocity(interpolated_quaternions, image_session_timestamps)
 print(len(image_tags))
 print(len(image_session_timestamps))
@@ -197,7 +197,7 @@ for idx in range(len(image_tags)):
     label_tag.car_pose.frame = FrameId_pb2.GLOBAL
     label_tag.car_velocity.frame = FrameId_pb2.GLOBAL
     label_tag.car_angular_velocity.frame = FrameId_pb2.GLOBAL
-    label_tag.image_file = imagetag.image_file
+    label_tag.image_tag.CopyFrom(imagetag)
     t_interp = image_session_timestamps[idx]
     label_tag.car_pose.session_time = t_interp
     label_tag.car_velocity.session_time = t_interp
@@ -298,7 +298,7 @@ for idx in range(len(image_tags)):
     #print()
     #print()
     label_tag_JSON = google.protobuf.json_format.MessageToJson(label_tag, including_default_value_fields=True)
-    image_file_base = os.path.splitext(os.path.split(label_tag.image_file)[1])[0]
+    image_file_base = os.path.splitext(os.path.split(label_tag.image_tag.image_file)[1])[0]
     label_tag_file_path = os.path.join(image_folder,image_file_base + "_sequence_label.json")
     f = open(label_tag_file_path,'w')
     f.write(label_tag_JSON)

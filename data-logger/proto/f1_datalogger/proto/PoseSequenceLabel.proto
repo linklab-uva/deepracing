@@ -2,8 +2,9 @@ syntax = "proto3";
 package deepf1.protobuf;
 import "Vector3dStamped.proto";
 import "Pose3d.proto";
+import "TimestampedImage.proto";
 message PoseSequenceLabel {
-		string image_file = 1;
+		TimestampedImage image_tag = 1;
 		deepf1.protobuf.eigen.Pose3d car_pose = 2;
 		deepf1.protobuf.eigen.Vector3dStamped car_velocity = 3;
 		deepf1.protobuf.eigen.Vector3dStamped car_angular_velocity = 4;
