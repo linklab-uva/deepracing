@@ -244,7 +244,7 @@ for idx in range(len(image_tags)):
 
     carpose_global = toHomogenousTransform(carposition_global, carquat_global)
     #yes, I know this is an un-necessary inverse computation. Sue me.
-    carposeinverse_global = la.inv(carpose_global).copy()
+    carposeinverse_global = la.inv(carpose_global)
     #print()
     #print()
     #print(carposition_global)

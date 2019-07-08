@@ -124,6 +124,10 @@ set_target_properties(${PROJECT_NAME}_alglib ${PROJECT_NAME}_post_processing ${P
                     PROPERTIES FOLDER utils)
 
 if(BUILD_DATALOGGER)
+	option(WITH_ARMA "Use Armadillo library for matrix loading/storing" ON)
+	if(WITH_ARMA)
+		add_subdirectory( src/arma )
+	endif()
     add_subdirectory( src/udp_logging )
     add_subdirectory( src/image_logging )
 	set_target_properties(${PROJECT_NAME}_udp_utils ${PROJECT_NAME}_eigen_utils ${PROJECT_NAME}_simulated_telemetry_server ${PROJECT_NAME}_image_utils
