@@ -72,6 +72,8 @@ ax.set_ylabel('Y Label')
 ax.set_zlabel('Z Label')
 plt.show()
 
-csvout = trackfilein + ".out.csv"
-headerstring = "distance along path, x, y, z, xdot, ydot, zdot, xdotdot, ydotdot, zdotdot"
-np.savetxt(csvout, np.hstack((X,Xdot,Xdotdot)), delimiter=",",header=headerstring)
+armaout = os.path.splitext(trackfilein)[0] + ".arma.txt"
+matout = np.hstack((X,Xdot,Xdotdot))
+headerstring = "ARMA_MAT_TXT_FN008\n" + \
+                str(matout.shape[0]) + " " + str(matout.shape[1])
+np.savetxt(armaout, matout, delimiter="\t", header=headerstring, comments="")
