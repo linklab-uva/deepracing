@@ -6,6 +6,8 @@ message PoseSequenceLabel {
 		string image_file = 1;
 		deepf1.protobuf.eigen.Pose3d car_pose = 2;
 		deepf1.protobuf.eigen.Vector3dStamped car_velocity = 3;
-		repeated deepf1.protobuf.eigen.Pose3d subsequent_poses = 4;
-		repeated deepf1.protobuf.eigen.Vector3dStamped subsequent_velocities = 5;
+		deepf1.protobuf.eigen.Vector3dStamped car_angular_velocity = 4;
+		repeated deepf1.protobuf.eigen.Pose3d subsequent_poses = 5;
+		repeated deepf1.protobuf.eigen.Vector3dStamped subsequent_linear_velocities = 6;
+		repeated deepf1.protobuf.eigen.Vector3dStamped subsequent_angular_velocities = 7;
 }
