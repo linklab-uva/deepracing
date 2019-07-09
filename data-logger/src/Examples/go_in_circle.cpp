@@ -12,10 +12,10 @@
 #include <opencv2/imgproc.hpp>
 #include <sstream>
 #include "f1_datalogger/udp_logging/common/multi_threaded_udp_handler.h"
-#include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include "f1_datalogger/controllers/vjoy_interface.h"
-namespace fs = boost::filesystem;
+#include <filesystem>
+namespace fs = std::filesystem;
 namespace po = boost::program_options;
 void exit_with_help(po::options_description& desc)
 {

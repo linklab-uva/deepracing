@@ -16,11 +16,11 @@
 #include "f1_datalogger/image_logging/common/multi_threaded_framegrab_handler.h"
 #include "f1_datalogger/udp_logging/common/multi_threaded_udp_handler.h"
 #include <boost/program_options.hpp>
-#include <boost/filesystem.hpp>
 #include <yaml-cpp/yaml.h>
 #include <boost/math/special_functions.hpp>
+#include <filesystem>
+namespace fs = std::filesystem;
 namespace po = boost::program_options;
-namespace fs = boost::filesystem;
 void exit_with_help(po::options_description& desc)
 {
 	std::stringstream ss;

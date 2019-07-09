@@ -9,12 +9,13 @@
 #include "f1_datalogger/proto/TimestampedUDPData.pb.h"
 #include "f1_datalogger/udp_logging/utils/udp_stream_utils.h"
 #include <functional>
-#include <boost/filesystem.hpp>
 #include <iostream>
 #include <google/protobuf/util/json_util.h>
 #include <thread>
-
-namespace fs = boost::filesystem;
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+namespace fs = std::filesystem;
 namespace deepf1
 {
 MultiThreadedUDPHandler::MultiThreadedUDPHandler( std::string data_folder, unsigned int thread_count, bool write_json )

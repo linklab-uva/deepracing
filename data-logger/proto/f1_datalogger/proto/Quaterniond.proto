@@ -1,0 +1,8 @@
+syntax = "proto3";
+package deepf1.protobuf.eigen;
+message Quaterniond {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+  double w = 4;
+}

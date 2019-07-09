@@ -13,7 +13,6 @@
 #include <chrono>
 #include <fstream>
 #include <vJoy++/vjoy.h>
-#include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <f1_datalogger/udp_logging/utils/udp_stream_utils.h>
 #include <f1_datalogger/post_processing/post_processing_utils.h>
@@ -25,8 +24,9 @@
 #include <tbb/task_group.h>
 #include "f1_datalogger/alglib/interpolation.h"
 #include "f1_datalogger/image_logging/common/multi_threaded_framegrab_handler.h"
+#include <filesystem>
+namespace fs = std::filesystem;
 namespace po = boost::program_options;
-namespace fs = boost::filesystem;
 void exit_with_help(po::options_description& desc)
 {
 	std::stringstream ss;

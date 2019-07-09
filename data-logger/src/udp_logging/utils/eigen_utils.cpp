@@ -1,3 +1,4 @@
+#include "..\..\..\include\f1_datalogger\udp_logging\utils\eigen_utils.h"
 #include "f1_datalogger/udp_logging/utils/eigen_utils.h"
 #include <thread>
 #include <boost/filesystem.hpp>
@@ -7,6 +8,10 @@
 #include <sstream>
 #include "f1_datalogger/controllers/kdtree_eigen.h"
 #include "f1_datalogger/udp_logging/utils/udp_stream_utils.h"
+#ifdef USE_ARMADILLO
+#include <armadillo>
+#endif
+#include <exception>
 namespace deepf1
 { 
 
@@ -17,12 +22,52 @@ EigenUtils::EigenUtils()
 EigenUtils::~EigenUtils()
 {
 }
+Eigen::MatrixXd EigenUtils::loadArmaTxt(const std::string& armafile, const double& interpolation_factor, bool debug)
+{
+  #ifdef USE_ARMADILLO
+  arma::mat arma_mat;
+  arma_mat.load(armafile, arma::arma_ascii);
+  Eigen::MatrixXd rtn(Eigen::Map<Eigen::MatrixXd>(arma_mat.memptr(), arma_mat.n_rows, arma_mat.n_cols));
+  return rtn;
+  #else
+  throw std::runtime_exception("This feature only works with the armadillo library. Recompile with the WITH_ARMA option turned on");
+  #endif
+}
+deepf1::protobuf::eigen::Pose3d EigenUtils::eigenToProto(const Eigen::Affine3d& poseEigen, const double& session_time, deepf1::protobuf::eigen::FrameId frameid)
+{
+  deepf1::protobuf::eigen::Pose3d rtn;
+
+  Eigen::Vector3d translation(poseEigen.translation());
+  Eigen::Quaterniond rotation(poseEigen.rotation());
+  
+  rtn.mutable_translation()->set_x(translation.x());
+  rtn.mutable_translation()->set_y(translation.y());
+  rtn.mutable_translation()->set_y(translation.z());
+
+  rtn.mutable_rotation()->set_x(rotation.x());
+  rtn.mutable_rotation()->set_y(rotation.y());
+  rtn.mutable_rotation()->set_y(rotation.z());
+  rtn.mutable_rotation()->set_w(rotation.w());
+
+  rtn.set_frame(frameid);
+  rtn.set_session_time(session_time);
+
+  return rtn;
+}
+Eigen::Affine3d EigenUtils::protoToEigen(const deepf1::protobuf::eigen::Pose3d& poseProto)
+{
+  Eigen::Affine3d poseEigen;
+  Eigen::Vector3d translation(poseProto.translation().x(), poseProto.translation().y(), poseProto.translation().z());
+  Eigen::Quaterniond rotation(poseProto.rotation().w(), poseProto.rotation().x(), poseProto.rotation().y(), poseProto.rotation().z());
+  poseEigen.fromPositionOrientationScale(translation, rotation, Eigen::Vector3d::Ones());
+  return poseEigen;
+}
 Eigen::Affine3d EigenUtils::interpPoses(const Eigen::Affine3d& a, const Eigen::Affine3d& b, const double& s)
 {
 	Eigen::Affine3d rtn;
-	Eigen::Vector3d translationA(a.translation().x(), a.translation().y(), a.translation().z());
+	Eigen::Vector3d translationA(a.translation());
 	Eigen::Quaterniond rotationA(a.rotation());
-	Eigen::Vector3d translationB(b.translation().x(), b.translation().y(), b.translation().z());
+	Eigen::Vector3d translationB(b.translation());
 	Eigen::Quaterniond rotationB(b.rotation());
 
 	Eigen::Vector3d translationOut = (1 - s) * translationA + s * translationB;

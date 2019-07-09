@@ -85,11 +85,11 @@ std::vector<scl::Window> F1FrameGrabManager::get_windows_()
 }
 void F1FrameGrabManager::onNewFrame_(const scl::Image &img, const scl::Window &monitor, std::shared_ptr<IF1FrameGrabHandler> capture_handler)
 {
-  if(capture_handler->isReady())
+  if (capture_handler->isReady())
   {
     TimestampedImageData timestamped_image;
-	timestamped_image.timestamp = clock_->now();
-	timestamped_image.image = deepf1::OpenCVUtils::toCV(img , monitor.Size);
+    timestamped_image.timestamp = clock_->now();
+    timestamped_image.image = deepf1::OpenCVUtils::toCV(img, monitor.Size);
     capture_handler->handleData(timestamped_image);
   }
 }

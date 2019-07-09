@@ -1,0 +1,11 @@
+syntax = "proto3";
+package deepf1.protobuf.eigen;
+import "Quaterniond.proto";
+import "Vector3d.proto";
+import "FrameId.proto";
+message Pose3d {
+		Vector3d translation = 1;
+		Quaterniond rotation = 2;
+		double session_time = 3;
+		FrameId frame = 4;
+}

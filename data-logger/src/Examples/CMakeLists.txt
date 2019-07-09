@@ -148,7 +148,9 @@ ${screen_capture_lite_PLATFORM_LIBS}
 ${Boost_LIBRARIES}
 ${TBB_IMPORTED_TARGETS}
 Eigen3::Eigen
+directxtk
 )
+target_include_directories(${PROJECT_NAME}_cv_viewer_example PRIVATE ${DIRECTXT_INCLUDE_DIR})
 
 add_executable(${PROJECT_NAME}_multithreaded_capture_example
 multi_threaded_capture.cpp
@@ -165,7 +167,9 @@ ${screen_capture_lite_PLATFORM_LIBS}
 ${Boost_LIBRARIES}
 ${TBB_IMPORTED_TARGETS}
 ${YAML_CPP_LIBRARIES}
+directxtk
 )
+target_include_directories(${PROJECT_NAME}_multithreaded_capture_example PRIVATE ${DIRECTXT_INCLUDE_DIR})
 
 
 set_target_properties(${PROJECT_NAME}_cv_viewer_example ${PROJECT_NAME}_multithreaded_capture_example

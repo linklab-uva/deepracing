@@ -1,0 +1,9 @@
+syntax = "proto3";
+package deepf1.protobuf.eigen;
+import "Vector3d.proto";
+import "FrameId.proto";
+message Vector3dStamped {
+  Vector3d vector = 1;
+  FrameId frame = 2;
+  double session_time = 3;
+}

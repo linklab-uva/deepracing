@@ -16,6 +16,7 @@
 #include <fstream>
 #include <yaml-cpp/yaml.h>
 #include <chrono>
+#include <GamePad.h>
 namespace scl = SL::Screen_Capture;
 namespace po = boost::program_options;
 void exit_with_help(po::options_description& desc)
@@ -96,9 +97,35 @@ int main(int argc, char** argv)
 	std::cout << "Starting capture in " << initial_delay_time << " seconds." << std::endl;
 	std::this_thread::sleep_for(std::chrono::microseconds((long)std::round(initial_delay_time*1E6)));
 	dl->start(image_capture_frequency, udp_handler  , frame_handler );
-
-	std::cout<<"Capturing data. Enter any key to end " << std::endl;
-	std::cin >> inp;
+  unsigned int ycount = 0;
+  unsigned int bcount = 0;
+  std::cout << "Recording. Push Y to pause. B to unpause. D-Pad Down to Exit." << std::endl;
+  DirectX::GamePad gp;
+  while (true)
+  {
+    DirectX::GamePad::State gpstate = gp.GetState(0);
+    if (gpstate.IsYPressed() || gpstate.IsStartPressed())
+    {
+      printf("Y is pressed. Pausing %u\n", ++ycount);
+      frame_handler->pause();
+    }
+    if (gpstate.IsStartPressed())
+    {
+      printf("Start is pressed. Pausing %u\n", ++ycount);
+      frame_handler->pause();
+    }
+    if (gpstate.IsBPressed())
+    {
+      printf("B is pressed. Unpausing %u\n", ++bcount);
+      frame_handler->resume();
+    }
+    if (gpstate.IsDPadDownPressed())
+    {
+      printf("%s","DPad Down is pressed. Exiting\n");
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+  }
 
 	frame_handler->stop();
 	udp_handler->stop();
