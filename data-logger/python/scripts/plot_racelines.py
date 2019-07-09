@@ -3,20 +3,22 @@ import TimestampedPacketMotionData_pb2
 import google.protobuf.json_format
 import os
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy.linalg as la
 import cv2
+from scipy.spatial import KDTree as KDTree
 def sortkey(packet):
-    return packet.udp_packet.m_time
-def getAllPacketz(directree : str):
-    files = [os.path.join(directree,f) for f in os.listdir(directree) 
-        if os.path.isfile(os.path.join(directree, f)) and str.lower(os.path.join(directree, f).split(".")[-1])=="json"]
+    return packet.udp_packet.m_header.m_sessionTime
+def getAllPacketz(directree : str, subdir : str = "motion_packets"):
+    files = [os.path.join(directree,subdir,f) for f in os.listdir(os.path.join(directree,subdir)) 
+        if os.path.isfile(os.path.join(directree,subdir, f)) and str.lower(os.path.join(directree, subdir, f).split(".")[-1])=="json"]
     rtn = []
     for filename in files:
         with open(filename, 'r') as file:
             jsonstring = file.read()
-        data = TimestampedUDPData_pb2.TimestampedUDPData()
+        data = TimestampedPacketMotionData_pb2.TimestampedPacketMotionData()
         google.protobuf.json_format.Parse(jsonstring,data)
         rtn.append(data)
     return rtn
@@ -40,112 +42,48 @@ def findFirstZero(packets: list):
         #     print(packets[idx].udp_packet.m_lapTime)
     raise AttributeError("List of packets has no laptime of zero.")
 
-image_directree = 'D:\\test_data\\usa_gp_short\\capture_images'
-playback_directree = 'D:\\test_data\\usa_gp_short\\playback_udp'
-recording_directree = 'D:\\test_data\\usa_gp_short\\capture_udp'
+image_directree = 'D:\\test_data\\australia_purepursuit\\images'
+recording_directree = 'D:\\test_data\\australia_purepursuit\\udp_data'
+raceline_arma_file = 'D:\\test_data\\australia_purepursuit\\Australia_racingline.arma.txt'
 image = cv2.imread(os.path.join(image_directree,'image_500.jpg'))
 cv2.imshow("image",image)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
-playback_packets = sorted(getAllPacketz(playback_directree), key=sortkey)
-#print(playback_packets[-1])
 recording_packets = sorted(getAllPacketz(recording_directree), key=sortkey)
-#print(recording_packets[-1])
-
-
-for i in range(305):
-    print(recording_packets[i].udp_packet.m_lapTime)
-first_recording_zero = findFirstZero(recording_packets)
-print(recording_packets[first_recording_zero])
-playback_raceline, playback_times = extractDataz(playback_packets, first_zero=0)
-
-
-first_recording_zero = findFirstZero( recording_packets )
-recording_raceline, recording_times = extractDataz( recording_packets, first_zero=first_recording_zero )
-cutofftime = np.max( recording_times )
-I = playback_times<cutofftime
-playback_raceline=playback_raceline[ I ]
-playback_times=playback_times[ I ]
-print("Got %d points out of %d samples from playback" % (playback_times.shape[0],len(playback_packets)))
-print("Got %d points out of %d samples from recording" % (recording_times.shape[0],len(recording_packets)))
-
-recording_racelinex = recording_raceline[:,0]
-recording_raceliney = recording_raceline[:,1]
-recording_racelinez = recording_raceline[:,2]
-x_interpolants = np.interp( playback_times, recording_times, recording_racelinex )
-y_interpolants = np.interp( playback_times, recording_times, recording_raceliney )
-z_interpolants = np.interp( playback_times, recording_times, recording_racelinez )
-steer_interpolants = np.interp( playback_times, recording_times, recording_raceline[:,3] )
-throttle_interpolants = np.interp( playback_times, recording_times, recording_raceline[:,4] )
-brake_interpolants = np.interp( playback_times, recording_times, recording_raceline[:,5] )
-recording_interpolants = np.stack( (x_interpolants,y_interpolants,z_interpolants, steer_interpolants, throttle_interpolants, brake_interpolants), axis=1 )
-
-playback_steering = playback_raceline[:,3]
-recording_steering = recording_raceline[:,3]
-fig = plt.figure("Steering")
-plt.plot(playback_times, playback_steering, label='Playback')
-plt.plot(recording_times, recording_steering, label='Recording')
-fig.legend()
-
-playback_throttle = playback_raceline[:,4]
-recording_throttle = recording_raceline[:,4]
-fig = plt.figure("Throttle")
-plt.plot(playback_times, playback_throttle, label='Playback')
-plt.plot(recording_times, recording_throttle, label='Recording')
-fig.legend()
-
-
-
-playback_brake = playback_raceline[:,5]
-recording_brake = recording_raceline[:,5]
-fig = plt.figure("Brake")
-plt.plot(playback_times, playback_brake, label='Playback')
-plt.plot(recording_times, recording_brake, label='Recording')
-fig.legend()
-
-
-
-
-steering_diffs = playback_steering - steer_interpolants
-abs_steering_diffs = np.abs(steering_diffs)
-fig = plt.figure("Steering Diffs")
-plt.plot(playback_times, steering_diffs)
-
-throttle_diffs = playback_throttle - throttle_interpolants
-abs_throttle_diffs = np.abs(throttle_diffs)
-fig = plt.figure("Throttle Diffs")
-plt.plot(playback_times, throttle_diffs)
-
-brake_diffs = playback_brake - brake_interpolants
-abs_brake_diffs = np.abs(brake_diffs)
-fig = plt.figure("Brake Diffs")
-plt.plot(playback_times, brake_diffs)
-
-
-rmssteer = np.sqrt(np.mean(np.square(steering_diffs)))
-rmsbrake = np.sqrt(np.mean(np.square(brake_diffs)))
-rmsthrottle = np.sqrt(np.mean(np.square(throttle_diffs)))
-print( "RMS steering: %f" % (rmssteer) )
-print( "RMS brake: %f" % (rmsbrake) )
-print( "RMS throttle: %f" % (rmsthrottle) )
-
-print( "Max steering error: %f" % (np.max(np.abs(steering_diffs))) )
-print( "Max brake error: %f" % (np.max(np.abs(brake_diffs)))  )
-print( "Max throttle error: %f" % (np.max(np.abs(throttle_diffs)))  )
-
-racelinediffs = np.stack((recording_racelinex,recording_raceliney,recording_racelinez),axis=1) - np.stack((x_interpolants,y_interpolants,z_interpolants),axis=1)
-racenorms = np.linalg.norm(racelinediffs,axis=1)
-rmsraceline = np.mean(racenorms)
-print( "RMS raceline: %f" % (rmsthrottle) )
-fig = plt.figure("Raceline Diffs")
-plt.plot(playback_times, racenorms)
-
-
-fig = plt.figure("racelines")
+motion_data = [  packet.udp_packet.m_carMotionData[0] for packet in recording_packets]
+path = np.array([  [motion_data_.m_worldPositionX, motion_data_.m_worldPositionY, motion_data_.m_worldPositionZ] for motion_data_ in motion_data])
+print(path.shape)
+raceline = np.loadtxt(raceline_arma_file,dtype=np.float64,delimiter="\t",skiprows=2)
+raceline_path = raceline[:,1:4]
+raceline_s = raceline_path[:,0]
+print(raceline.shape)
+print(raceline_path.shape)
+colors = ['r', 'g']
+markers = ['o', 'o']
+kdtree = KDTree(raceline_path, leafsize=path.shape[0]+1)
+distances, indices = kdtree.query(path, k=1)
+nearest_neighbors = raceline_path[indices]
+print(nearest_neighbors.shape)
+print("Average distance from pure pursuit line to raceline: %f" %(np.mean(distances)))
+fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
-ax.scatter(recording_racelinex,recording_raceliney,recording_racelinez)
-ax.scatter(x_interpolants,y_interpolants,z_interpolants)
+ax.scatter(raceline_path[:,0], raceline_path[:,1], raceline_path[:,2], c=colors[0], marker=markers[0], s = np.ones_like(raceline_s))
+ax.scatter(path[:,0], path[:,1], path[:,2], c=colors[1], marker=markers[1], s = np.ones_like(raceline_s))
+ax.set_xlabel('X')
+ax.set_ylabel('Y')
+ax.set_zlabel('Z')
+scatter1_proxy = matplotlib.lines.Line2D([0],[0], linestyle="none", c=colors[0],marker=markers[0])
+scatter2_proxy = matplotlib.lines.Line2D([0],[0], linestyle="none", c=colors[1], marker=markers[1])
+ax.legend([scatter1_proxy, scatter2_proxy], ["Ideal Raceline", "Pure Pursuit path"], numpoints = 1)
+fig2 = plt.figure()
+distances_plot = plt.plot(distances, label='KD Tree Query Distances')
+plt.legend()
 plt.show()
+
+
+
+
+#print(recording_packets[-1])
 
 
 
