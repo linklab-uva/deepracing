@@ -15,7 +15,7 @@ namespace deepf1
 class F1DataLogger
 {
 public:
-  F1DataLogger(const std::string& search_string, std::string host="127.0.0.1", unsigned int port= 20777);
+  F1DataLogger(const std::string& search_string, std::string host="127.0.0.1", unsigned int port= 20777, bool rebroadcast = false);
   virtual ~F1DataLogger();
 
   static void countdown(unsigned int seconds, std::string txt="");

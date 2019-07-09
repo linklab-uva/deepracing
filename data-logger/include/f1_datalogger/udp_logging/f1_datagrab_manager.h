@@ -8,6 +8,7 @@
 #ifndef INCLUDE_UDP_LOGGING_F1_DATAGRAB_MANAGER_H_
 #define INCLUDE_UDP_LOGGING_F1_DATAGRAB_MANAGER_H_
 #include <boost/asio.hpp>
+#include <boost/shared_ptr.hpp>
 #include <thread>
 #include <memory>
 #include "f1_datalogger/udp_logging/f1_datagrab_handler.h"
@@ -20,7 +21,7 @@ class F1DataGrabManager
 {
   friend class F1DataLogger;
 public:
-  F1DataGrabManager(std::shared_ptr<std::chrono::high_resolution_clock> clock, const std::string host = "127.0.0.1", const unsigned int port = 20777);
+  F1DataGrabManager(std::shared_ptr<std::chrono::high_resolution_clock> clock, const std::string host = "127.0.0.1", const unsigned int port = 20777, bool rebroadcast = false);
   virtual ~F1DataGrabManager();
 private:
   void run2017(std::shared_ptr<IF1DatagrabHandler> data_handler);
@@ -28,13 +29,20 @@ private:
   void start(std::shared_ptr<IF1DatagrabHandler> data_handler);
   void start(std::shared_ptr<IF12018DataGrabHandler> data_handler);
   void stop();
+  void handle_send(boost::shared_ptr<std::string> message,
+    const boost::system::error_code& error,
+    std::size_t bytes_transferred);
 
   static const unsigned int BUFFER_SIZE = sizeof(deepf1::twenty_eighteen::PacketMotionData);
   boost::asio::io_service io_service_;
+  boost::asio::io_context rebroadcast_io_context_;
   boost::asio::ip::udp::socket socket_;
+  boost::asio::ip::udp::socket rebroadcast_socket_;
+  boost::asio::ip::udp::endpoint rebroadcast_remote_endpoint_;
   boost::asio::ip::udp::endpoint remote_endpoint_;
   std::thread run_thread_;
   bool running_;
+  bool rebroadcast_;
 
 
   ClockPtr clock_;

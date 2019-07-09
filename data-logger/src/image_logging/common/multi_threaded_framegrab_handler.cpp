@@ -59,13 +59,21 @@ void MultiThreadedFrameGrabHandler::join()
 }
 void MultiThreadedFrameGrabHandler::resume()
 {
-  std::cerr << "Resuming frame recording" << std::endl;
-	if(!ready_) ready_ = true;
+ // 
+  if (!ready_)
+  {
+    ready_ = true;
+    std::cerr << "Resumed frame recording" << std::endl;
+  }
 }
 void MultiThreadedFrameGrabHandler::pause()
 {
-  std::cerr << "Pausing frame recording" << std::endl;
-	if(ready_) ready_ = false;
+  //  std::cerr << "Pausing frame recording" << std::endl;
+  if (ready_)
+  {
+    ready_ = false;
+    std::cerr << "Paused frame recording" << std::endl;
+  }
 }
 void MultiThreadedFrameGrabHandler::stop()
 {
