@@ -8,16 +8,22 @@
 #include "f1_datalogger/udp_logging/f1_datagrab_manager.h"
 #include <iostream>
 #include <functional>
-
+#include <boost/bind.hpp>
 namespace deepf1
 {
 
 F1DataGrabManager::F1DataGrabManager(std::shared_ptr<std::chrono::high_resolution_clock> clock,const std::string host,
-                                     const unsigned int port) :
-    socket_(io_service_), running_(true)
+                                     const unsigned int port, bool rebroadcast) :
+    socket_(io_service_), rebroadcast_socket_(rebroadcast_io_context_), running_(true), rebroadcast_(rebroadcast)
 {
   //socket_.set_option(boost::asio::ip::udp::socket::reuse_address(true));
   socket_.open(boost::asio::ip::udp::v4());
+  if (rebroadcast_)
+  {
+    std::cout << "Openning rebroadcast socket " << std::endl;
+    rebroadcast_socket_.open(boost::asio::ip::udp::v4());
+    std::cout << "Openned rebroadcast socket " << std::endl;
+  }
   if (host.compare("") == 0)
   {
 	  std::cout << "Listening in broadcast mode on port " << port << std::endl;
@@ -28,6 +34,7 @@ F1DataGrabManager::F1DataGrabManager(std::shared_ptr<std::chrono::high_resolutio
   {
 	  std::cout << "Binding to host " <<host<<" on port " << port << std::endl;
 	  socket_.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(host), port));
+    std::cout << "Bound socket " << std::endl;
   }
   clock_ = clock;
 }
@@ -51,16 +58,36 @@ void F1DataGrabManager::run2017(std::shared_ptr<IF1DatagrabHandler> data_handler
     }
   }
 }
+void F1DataGrabManager::handle_send(boost::shared_ptr<std::string> message,
+  const boost::system::error_code& error,
+  std::size_t bytes_transferred)
+{
+  //std::printf("Rebroadcasted %zu bytes. Error code: %s\n", bytes_transferred, error.message().c_str());
+}
 void F1DataGrabManager::run2018(std::shared_ptr<IF12018DataGrabHandler> data_handler)
 {
-  boost::system::error_code error;
+  boost::system::error_code error, rebroadcast_error;
   char buffer[ BUFFER_SIZE ];
   deepf1::TimePoint timestamp;
   deepf1::twenty_eighteen::PacketHeader* header;
+  boost::shared_ptr< std::string > send_message(new std::string);
   while (running_)
   {
     std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(buffer, BUFFER_SIZE), remote_endpoint_, 0, error);
     timestamp = clock_->now();
+    if (rebroadcast_)
+    {
+      //socket_.remote_endpoint().port() + 1;
+      //boost::bind();
+       rebroadcast_socket_.async_send_to(boost::asio::buffer(buffer, received_bytes), boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(socket_.local_endpoint().address().to_string()), socket_.local_endpoint().port() + 1), 0
+        ,
+        boost::bind(&F1DataGrabManager::handle_send, this, send_message,
+          boost::asio::placeholders::error,
+          boost::asio::placeholders::bytes_transferred));
+      rebroadcast_io_context_.run_one();
+
+      //std::printf("Rebroadcasted %zu bytes. Error code: %s\n", sent_bytes, rebroadcast_error.message().c_str());
+    }
     if (bool(data_handler) && data_handler->isReady())
     {
       header = reinterpret_cast<deepf1::twenty_eighteen::PacketHeader*>(buffer);

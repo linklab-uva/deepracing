@@ -30,7 +30,7 @@ int main(int argc, char** argv)
 {
   using namespace deepf1;
   std::string search_string, image_folder, image_extension, udp_folder, config_file, driver_name, track_name;
-  unsigned int image_threads, udp_threads;
+  unsigned int image_threads, udp_threads, udp_port;
   float image_capture_frequency, initial_delay_time;
 
 
@@ -71,6 +71,7 @@ int main(int argc, char** argv)
   image_extension = config_node["image_extension"].as<std::string>("jpg");
   udp_threads = config_node["udp_threads"].as<unsigned int>();
   image_threads = config_node["image_threads"].as<unsigned int>();
+  udp_port = config_node["udp_port"].as<unsigned int>(20777);
   image_capture_frequency = config_node["image_capture_frequency"].as<float>();
   initial_delay_time = config_node["initial_delay_time"].as<float>();
   /**/
@@ -82,12 +83,11 @@ int main(int argc, char** argv)
   std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler(image_extension, image_folder, image_threads, true));
   std::shared_ptr<deepf1::MultiThreadedUDPHandler2018> udp_handler(new deepf1::MultiThreadedUDPHandler2018(udp_folder, true));
   udp_handler->addPausedFunction(std::bind(&deepf1::MultiThreadedFrameGrabHandler::pause, frame_handler.get()));
-  udp_handler->addUnpausedFunction(std::bind(&deepf1::MultiThreadedFrameGrabHandler::resume, frame_handler.get())); 
   std::cout << "Created handlers" << std::endl;
 
 
   std::cout<<"Creating DataLogger" <<std::endl;
-  std::shared_ptr<deepf1::F1DataLogger> dl( new deepf1::F1DataLogger( search_string ) );
+  std::shared_ptr<deepf1::F1DataLogger> dl( new deepf1::F1DataLogger( search_string, "127.0.0.1", udp_port, false) );
   std::cout<<"Created DataLogger" <<std::endl;
 
 
@@ -114,9 +114,9 @@ int main(int argc, char** argv)
       printf("Start is pressed. Pausing %u\n", ++ycount);
       frame_handler->pause();
     }
-    if (gpstate.IsBPressed())
+    if (gpstate.IsLeftStickPressed())
     {
-      printf("B is pressed. Unpausing %u\n", ++bcount);
+      printf("Left thumbstick is pressed pressed. Unpausing %u\n", ++bcount);
       frame_handler->resume();
     }
     if (gpstate.IsDPadDownPressed())

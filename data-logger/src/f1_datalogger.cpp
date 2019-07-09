@@ -11,15 +11,15 @@
 namespace deepf1
 {
 
-F1DataLogger::F1DataLogger(const std::string& search_string, std::string host, unsigned int port) :
+F1DataLogger::F1DataLogger(const std::string& search_string, std::string host, unsigned int port, bool rebroadcast) :
     clock_(new std::chrono::high_resolution_clock()), host_(host), port_(port)
 
 {
-  begin_ = std::chrono::high_resolution_clock::time_point(clock_->now());
+  begin_ = deepf1::Clock::time_point(clock_->now());
   std::cout<<"Creating managers"<<std::endl;
 	
   std::cout << "Creating Data Grab Manager" << std::endl;
-  data_grab_manager_.reset(new F1DataGrabManager(clock_, host, port));
+  data_grab_manager_.reset(new F1DataGrabManager(clock_, host, port, rebroadcast));
   std::cout << "Created Data Grab Manager" << std::endl;
   
 	
