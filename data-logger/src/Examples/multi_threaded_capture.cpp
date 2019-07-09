@@ -81,6 +81,7 @@ int main(int argc, char** argv)
 
   std::cout<<"Creating handlers" <<std::endl;
   std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler(image_extension, image_folder, image_threads, true));
+  frame_handler->pause();
   std::shared_ptr<deepf1::MultiThreadedUDPHandler2018> udp_handler(new deepf1::MultiThreadedUDPHandler2018(udp_folder, true));
   udp_handler->addPausedFunction(std::bind(&deepf1::MultiThreadedFrameGrabHandler::pause, frame_handler.get()));
   std::cout << "Created handlers" << std::endl;
@@ -104,9 +105,10 @@ int main(int argc, char** argv)
   while (true)
   {
     DirectX::GamePad::State gpstate = gp.GetState(0);
-    if (gpstate.IsYPressed() || gpstate.IsStartPressed())
+    if (gpstate.IsYPressed() || gpstate.IsStartPressed() || gpstate.IsRightTriggerPressed() || gpstate.IsLeftTriggerPressed()
+      || gpstate.IsRightShoulderPressed() || gpstate.IsLeftShoulderPressed() || gpstate.IsBPressed() || gpstate.IsXPressed())
     {
-      printf("Y is pressed. Pausing %u\n", ++ycount);
+      printf("UI button pressed. Pausing %u\n", ++ycount);
       frame_handler->pause();
     }
     if (gpstate.IsStartPressed())
