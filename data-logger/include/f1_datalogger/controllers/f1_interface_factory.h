@@ -6,10 +6,8 @@ namespace deepf1
 {
 class F1InterfaceFactory
 {
-
 public:
-  static std::shared_ptr<F1Interface> getDefaultInterface();
-  
+  static std::shared_ptr<F1Interface> getDefaultInterface(unsigned int device_id=1);
 };
 }
 

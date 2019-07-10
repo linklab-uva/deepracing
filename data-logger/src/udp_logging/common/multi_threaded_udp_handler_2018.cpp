@@ -29,10 +29,10 @@
 namespace fs = std::filesystem;
 namespace deepf1
 {
-MultiThreadedUDPHandler2018::MultiThreadedUDPHandler2018( std::string data_folder, bool write_json, unsigned int sleeptime )
+MultiThreadedUDPHandler2018::MultiThreadedUDPHandler2018( std::string data_folder, bool write_json, unsigned int sleeptime, MultiThreadedUDPHandler2018ThreadSettings settings)
  : running_(false), hard_stopped_(true), data_folder_(data_folder), write_json_(write_json), sleeptime_(sleeptime),
     setups_counter(1), status_counter(1), telemetry_counter(1), lapdata_counter(1),
-                              motion_counter(1), participants_counter(1), session_counter(1), paused_(false)
+                              motion_counter(1), participants_counter(1), session_counter(1), paused_(false), thread_settings_(settings)
                               
 {
   fs::path main_dir(data_folder);
@@ -364,18 +364,15 @@ void MultiThreadedUDPHandler2018::init(const std::string& host, unsigned int por
   ready_ = true;
   running_ = true;
   hard_stopped_ = false;
-  thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::CARSTATUS));
-  thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::CARSTATUS));
-  thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::CARTELEMETRY));
-  thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::CARTELEMETRY));
-  thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::LAPDATA));
-  thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::LAPDATA));
-  thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::MOTION));
-  thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::MOTION));
+  for ( unsigned int i = 0; i < thread_settings_.carsetupsThreads; i++ ) { thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc, this, deepf1::twenty_eighteen::PacketID::CARSETUPS)); }
+  for ( unsigned int i = 0; i < thread_settings_.carstatusThreads; i++ ) { thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc, this, deepf1::twenty_eighteen::PacketID::CARSTATUS)); }
+  for ( unsigned int i = 0; i < thread_settings_.cartelemetryThreads; i++ ) { thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc, this, deepf1::twenty_eighteen::PacketID::CARTELEMETRY)); }
+  for ( unsigned int i = 0; i < thread_settings_.eventThreads; i++ ) { thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc, this, deepf1::twenty_eighteen::PacketID::EVENT)); }
+  for ( unsigned int i = 0; i < thread_settings_.lapDataThreads; i++ ) { thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc, this, deepf1::twenty_eighteen::PacketID::LAPDATA)); }
+  for ( unsigned int i = 0; i < thread_settings_.motionThreads; i++ ) { thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc, this, deepf1::twenty_eighteen::PacketID::MOTION)); }
+  for ( unsigned int i = 0; i < thread_settings_.participantsThreads; i++ ) { thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc, this, deepf1::twenty_eighteen::PacketID::PARTICIPANTS)); }
+  for ( unsigned int i = 0; i < thread_settings_.sessionThreads; i++ ) { thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc, this, deepf1::twenty_eighteen::PacketID::SESSION)); }
   
-  thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::PARTICIPANTS));
-  thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc,this, deepf1::twenty_eighteen::PacketID::SESSION));
-  thread_pool_->run(std::bind<void>(&MultiThreadedUDPHandler2018::workerFunc, this, deepf1::twenty_eighteen::PacketID::CARSETUPS));
 }
 
 const std::string MultiThreadedUDPHandler2018::getDataFolder() const

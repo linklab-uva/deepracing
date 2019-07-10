@@ -18,6 +18,7 @@ F1DataGrabManager::F1DataGrabManager(std::shared_ptr<std::chrono::high_resolutio
 {
   //socket_.set_option(boost::asio::ip::udp::socket::reuse_address(true));
   socket_.open(boost::asio::ip::udp::v4());
+
   if (rebroadcast_)
   {
     std::cout << "Openning rebroadcast socket " << std::endl;
@@ -91,9 +92,10 @@ void F1DataGrabManager::run2018(std::shared_ptr<IF12018DataGrabHandler> data_han
     if (bool(data_handler) && data_handler->isReady())
     {
       header = reinterpret_cast<deepf1::twenty_eighteen::PacketHeader*>(buffer);
-	  /*
-	  std::printf("Packet Id: %u. Number of bytes: %u \n", header->m_packetId, received_bytes);
-      *enum PacketID
+
+      /*
+	    std::printf("Packet Type: %s. Number of bytes: %zu \n", packetIdMap.at(header->m_packetId).c_str(), received_bytes);
+       *enum PacketID
         {
           MOTION=0,
           SESSION=1,
@@ -113,12 +115,12 @@ void F1DataGrabManager::run2018(std::shared_ptr<IF12018DataGrabHandler> data_han
           data_handler->handleData(data);
           break;
         }
-		case deepf1::twenty_eighteen::PacketID::EVENT:
-		{
-			deepf1::twenty_eighteen::TimestampedPacketEventData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketEventData*>(buffer)), timestamp);
-			data_handler->handleData(data);
-			break;
-		}
+		    case deepf1::twenty_eighteen::PacketID::EVENT:
+		    {
+			    deepf1::twenty_eighteen::TimestampedPacketEventData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketEventData*>(buffer)), timestamp);
+			    data_handler->handleData(data);
+			    break;
+		    }
         case deepf1::twenty_eighteen::PacketID::SESSION:
         {
           deepf1::twenty_eighteen::TimestampedPacketSessionData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketSessionData*>(buffer)), timestamp);

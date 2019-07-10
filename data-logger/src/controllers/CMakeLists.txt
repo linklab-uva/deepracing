@@ -30,7 +30,6 @@ ${screen_capture_lite_PLATFORM_LIBS}
 Eigen3::Eigen
 ${additional_controller_libs_}
 )
-message(STATUS "Using ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR} for controller library")
 target_include_directories(${PROJECT_NAME}_controllers PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR} ${additional_controller_includes_})
 
 add_dependencies(${PROJECT_NAME}_controllers ${PROJECT_NAME}_proto)

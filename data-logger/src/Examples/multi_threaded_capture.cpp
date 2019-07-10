@@ -100,7 +100,7 @@ int main(int argc, char** argv)
 	dl->start(image_capture_frequency, udp_handler  , frame_handler );
   unsigned int ycount = 0;
   unsigned int bcount = 0;
-  std::cout << "Recording. Push Y to pause. B to unpause. D-Pad Down to Exit." << std::endl;
+  std::cout << "Recording. Push Y to pause. Push left-stick to unpause. D-Pad Down to Exit." << std::endl;
   DirectX::GamePad gp;
   while (true)
   {
@@ -128,11 +128,11 @@ int main(int argc, char** argv)
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
   }
-
+  dl->stop();
 	frame_handler->stop();
 	udp_handler->stop();
 	frame_handler->join();
-	udp_handler->join();
+	udp_handler->join(1);
   
 
 }

@@ -236,13 +236,13 @@ void deepf1::PurePursuitController::run(const std::string& trackfile, float velK
 		}
 		else if (ratio_complement > .65)
 		{
-			vel_factor = std::pow(ratio_complement, 3);
+			vel_factor = std::pow(ratio_complement, 1);
 		}
 		else
 		{
-			vel_factor = std::pow(ratio_complement, 5);
+			vel_factor = std::pow(ratio_complement, 2);
 		}
-		vel_setpoint = std::max(velocity_setpoint_ * vel_factor, 75.0);
+		vel_setpoint = std::max(velocity_setpoint_ * vel_factor, 50.0);
 		 
 		if (accel < 0)
 		{
