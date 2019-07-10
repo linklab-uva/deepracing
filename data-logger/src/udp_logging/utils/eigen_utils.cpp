@@ -1,7 +1,5 @@
-#include "..\..\..\include\f1_datalogger\udp_logging\utils\eigen_utils.h"
 #include "f1_datalogger/udp_logging/utils/eigen_utils.h"
 #include <thread>
-#include <boost/filesystem.hpp>
 #include <iostream>
 #include <google/protobuf/util/json_util.h>
 #include "f1_datalogger/alglib/interpolation.h"
@@ -22,10 +20,10 @@ EigenUtils::EigenUtils()
 EigenUtils::~EigenUtils()
 {
 }
-Eigen::MatrixXd EigenUtils::loadArmaTxt(const std::string& armafile, const double& interpolation_factor, bool debug)
+Eigen::MatrixXd EigenUtils::loadArmaTxt(const std::string& armafile)
 {
   #ifdef USE_ARMADILLO
-  arma::mat arma_mat;
+  arma::Mat<double> arma_mat;
   arma_mat.load(armafile, arma::arma_ascii);
   Eigen::MatrixXd rtn(Eigen::Map<Eigen::MatrixXd>(arma_mat.memptr(), arma_mat.n_rows, arma_mat.n_cols));
   return rtn;

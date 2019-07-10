@@ -6,6 +6,8 @@ if(MSVC)
 		windows/vjoy_interface.cpp
 		windows/f1_interface_factory.cpp
 	)
+	set(additional_controller_libs_ ${vJoy++_LIBRARIES})
+	set(additional_controller_includes_ ${vJoy++_INCLUDE_DIR})
 else()
 	set(controllers_SRCS
 		pure_pursuit_controller.cpp
@@ -25,15 +27,12 @@ ${PROJECT_NAME}_udp_logging_common
 ${Boost_LIBRARIES}
 ${screen_capture_lite_LIBRARIES}
 ${screen_capture_lite_PLATFORM_LIBS}
-${vJoy++_LIBRARIES}
 Eigen3::Eigen
+${additional_controller_libs_}
 )
 message(STATUS "Using ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR} for controller library")
-target_include_directories(${PROJECT_NAME}_controllers PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
-if(MSVC)
-target_include_directories(${PROJECT_NAME}_controllers PRIVATE ${vJoy++_INCLUDE_DIR})
-else()
-endif()
+target_include_directories(${PROJECT_NAME}_controllers PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR} ${additional_controller_includes_})
+
 add_dependencies(${PROJECT_NAME}_controllers ${PROJECT_NAME}_proto)
 set_target_properties(${PROJECT_NAME}_controllers
                       PROPERTIES FOLDER vjoy)
