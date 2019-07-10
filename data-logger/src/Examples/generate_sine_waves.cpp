@@ -12,7 +12,7 @@
 #include <thread>
 #include <chrono>
 #include <fstream>
-#include <vJoy++/vjoy.h>
+#include "f1_datalogger/controllers/f1_interface_factory.h"
 #include "f1_datalogger/image_logging/common/multi_threaded_framegrab_handler.h"
 #include "f1_datalogger/udp_logging/common/multi_threaded_udp_handler.h"
 #include <boost/program_options.hpp>
@@ -92,82 +92,39 @@ int main(int argc, char** argv)
 	std::shared_ptr<deepf1::F1DataLogger> dl(new deepf1::F1DataLogger(search_string));
 	std::cout << "Created DataLogger" << std::endl;
 
-	vjoy_plusplus::vJoy vjoy(1);
-	vjoy_plusplus::JoystickPosition joystick_value;
-	joystick_value.lButtons = 0x00000000;
-	unsigned int min = vjoy_plusplus::vJoy::minAxisvalue(), max = vjoy_plusplus::vJoy::maxAxisvalue();
-	unsigned int middle = (min + max) / 2;
-	joystick_value.wAxisX = 0;
-	joystick_value.wAxisY = 0;
-	joystick_value.wAxisXRot = 0;
-	joystick_value.wAxisYRot = 0;
-	vjoy.update(joystick_value);
+  std::shared_ptr< deepf1::F1Interface > vjoy = deepf1::F1InterfaceFactory::getDefaultInterface();
+  deepf1::F1ControlCommand command;
+  vjoy->setCommands(command);
 	deepf1::F1DataLogger::countdown(3, "Generating Sine Waves in");
 	//dl->stop();
 	double t = 0.0;
 	double currentSteering = 0.0;
 	double fake_zero = 0.0;
 	double positive_deadband = fake_zero, negative_deadband = -fake_zero;
-	double max_vjoysteer = (double)vjoy_plusplus::vJoy::maxAxisvalue(), max_vjoythrottle = (double)vjoy_plusplus::vJoy::maxAxisvalue(), max_vjoybrake = (double)vjoy_plusplus::vJoy::maxAxisvalue();
-	double middle_vjoysteer = max_vjoysteer / 2.0;
 	std::chrono::high_resolution_clock clock;
-	double twopi = 2.0*boost::math::constants::pi<double>();
+	double constexpr twopi = 2.0*boost::math::constants::pi<double>();
 
-	joystick_value.wAxisXRot = std::round(max_vjoythrottle*throttle_val);
-	vjoy.update(joystick_value);
+  command.throttle = throttle_val;
+  vjoy->setCommands(command);
 	dl->start(60.0, udp_handler, frame_handler);
 	std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::time_point(clock.now());
 	double maxt = 10.0;
 	while (t < 10.0)
 	{
 		t = 1E-6*((double)(std::chrono::duration_cast<std::chrono::microseconds>(clock.now() - begin).count()));
-		currentSteering = std::sin(t*twopi*sine_frequency);
-		if (currentSteering > positive_deadband)
-		{
-			joystick_value.wAxisX = std::round(max_vjoysteer*currentSteering);
-			joystick_value.wAxisY = 0;
-		}
-		else if (currentSteering < negative_deadband)
-		{
-			joystick_value.wAxisX = 0;
-			joystick_value.wAxisY = std::round(max_vjoysteer * std::abs(currentSteering));
-		}
-		else
-		{
-			joystick_value.wAxisX = 0;
-			joystick_value.wAxisY = 0;
-		}
-		vjoy.update(joystick_value);
+    command.steering = std::sin(t * twopi * sine_frequency);
+    vjoy->setCommands(command);
 	}
-	joystick_value.wAxisXRot = 0;
-	vjoy.update(joystick_value);
+  command.throttle = 0;
+  vjoy->setCommands(command);
 	while (t < 1.5*maxt)
 	{
 		t = 1E-6*((double)(std::chrono::duration_cast<std::chrono::microseconds>(clock.now() - begin).count()));
-
-		currentSteering = boost::math::sin_pi(2 * sine_frequency * t);
-		if (currentSteering > positive_deadband)
-		{
-			joystick_value.wAxisX = std::round(max_vjoysteer*currentSteering);
-			joystick_value.wAxisY = 0;
-		}
-		else if (currentSteering < negative_deadband)
-		{
-			joystick_value.wAxisX = 0;
-			joystick_value.wAxisY = std::round(max_vjoysteer * std::abs(currentSteering));
-		}
-		else
-		{
-			joystick_value.wAxisX = 0;
-			joystick_value.wAxisY = 0;
-		}
-		vjoy.update(joystick_value);
+    command.steering = std::sin(t * twopi * sine_frequency);
+    vjoy->setCommands(command);
 	}
-	joystick_value.wAxisX = 0;
-	joystick_value.wAxisY = 0;
-	joystick_value.wAxisXRot = 0;
-	joystick_value.wAxisYRot = 0;
-	vjoy.update(joystick_value);
+  command = deepf1::F1ControlCommand();
+  vjoy->setCommands(command);
 	std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
 	frame_handler->stop();

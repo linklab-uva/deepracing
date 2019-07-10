@@ -12,7 +12,7 @@
 #include <thread>
 #include <chrono>
 #include <fstream>
-#include <vJoy++/vjoy.h>
+#include "f1_datalogger/controllers/f1_interface_factory.h"
 #include <boost/program_options.hpp>
 #include <f1_datalogger/udp_logging/utils/udp_stream_utils.h>
 #include <f1_datalogger/post_processing/post_processing_utils.h>
@@ -169,16 +169,9 @@ int main(int argc, char** argv)
 	catch (const boost::exception& e) {
 		exit_with_help(desc);
 	}
-	vjoy_plusplus::vJoy vjoy(1);
-	vjoy_plusplus::JoystickPosition js;
-	unsigned int min = vjoy_plusplus::vJoy::minAxisvalue(), max = vjoy_plusplus::vJoy::maxAxisvalue();
-	unsigned int middle = (unsigned int)std::round(0.5*(double)(min + max));
-	js.lButtons = 0x00000000;
-	js.wAxisX = 0;
-	js.wAxisY = 0;
-	js.wAxisXRot = 0;
-	js.wAxisYRot = 0;
-	vjoy.update(js);
+  std::shared_ptr< deepf1::F1Interface > vjoy = deepf1::F1InterfaceFactory::getDefaultInterface();
+  deepf1::F1ControlCommand command;
+  vjoy->setCommands(command);
 	std::vector<deepf1::protobuf::TimestampedUDPData> data = deepf1::post_processing::PostProcessingUtils::parseUDPDirectory(*dir);
 	std::vector<deepf1::protobuf::TimestampedUDPData> sorted_data;
 	std::sort(data.begin(), data.end(), sortByTimestamp);
@@ -227,8 +220,7 @@ int main(int argc, char** argv)
 	alglib::spline1dbuildcubic(laptimes_al, throttle_al, throttle_interpolant);
 	alglib::spline1dbuildcubic(laptimes_al, brake_al, brake_interpolant);
 
-	double max_vjoysteer = (double)vjoy_plusplus::vJoy::maxAxisvalue(), max_vjoythrottle = (double)vjoy_plusplus::vJoy::maxAxisvalue(), max_vjoybrake = (double)vjoy_plusplus::vJoy::maxAxisvalue();
-	double middle_vjoysteer = max_vjoysteer / 2.0;
+
 	std::chrono::high_resolution_clock clock;
 	boost::barrier bar(2);
 	std::shared_ptr<ReplayDataset_DataGrabHandler> udp_handler(new ReplayDataset_DataGrabHandler(boost::ref(bar), num_threads));
@@ -251,36 +243,15 @@ int main(int argc, char** argv)
 	while (t < maxt)
 	{
 		t = ((double)(std::chrono::duration_cast<std::chrono::microseconds>(clock.now() - begin).count())) / (1E6);
-		currentSteering = alglib::spline1dcalc(steering_interpolant, t);
-		currentThrottle = alglib::spline1dcalc(throttle_interpolant, t);
-		currentBrake = alglib::spline1dcalc(brake_interpolant, t);
-
-
-		if (currentSteering > positive_deadband)
-		{
-			js.wAxisX = std::round(max_vjoysteer*currentSteering);
-			js.wAxisY = 0;
-		}
-		else if (currentSteering < negative_deadband)
-		{
-			js.wAxisX = 0;
-			js.wAxisY = std::round(max_vjoysteer * std::abs(currentSteering));
-		}
-		else
-		{
-			js.wAxisX = 0;
-			js.wAxisY = 0;
-		}
-		js.wAxisXRot = std::round(max_vjoythrottle*currentThrottle);
-		js.wAxisYRot = std::round(max_vjoybrake*currentBrake);
-		vjoy.update(js);
+    command.steering = alglib::spline1dcalc(steering_interpolant, t);
+    command.throttle = alglib::spline1dcalc(throttle_interpolant, t);
+    command.brake = alglib::spline1dcalc(brake_interpolant, t);
+    vjoy->setCommands(command);
 		//std::this_thread::sleep_for(sleeptime);
 	}
 	std::cout << "Thanks for Playing! Enter anything to exit." << std::endl;
-	js.wAxisX = 0;
-	js.wAxisY = 0;
-	js.wAxisXRot = 0;
-	js.wAxisYRot = 0;
+  command = deepf1::F1ControlCommand();
+  vjoy->setCommands(command);
 	std::string s;
 	std::cin >> s;
 	dl.reset();

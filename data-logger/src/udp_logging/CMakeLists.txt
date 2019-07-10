@@ -31,7 +31,7 @@ if(WITH_ARMA)
 	target_link_libraries(${PROJECT_NAME}_eigen_utils ${ARMADILLO_LIBRARIES})
 endif()
 target_link_libraries( ${PROJECT_NAME}_eigen_utils Eigen3::Eigen ${Boost_LIBRARIES} ${PROJECT_NAME}_proto ${PROJECT_NAME}_alglib ${PROJECT_NAME}_udp_utils )
-target_include_directories(${PROJECT_NAME}_eigen_utils PUBLIC ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
+target_include_directories(${PROJECT_NAME}_eigen_utils PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
 
 set(${PROJECT_NAME}_udp_logging_common_src
 common/multi_threaded_udp_handler.cpp

@@ -8,7 +8,6 @@ if(WITH_VJOY)
     if(NOT MSVC)
         message(FATAL_ERROR "vJoy bindings only work on windows.")
     endif()
-    find_package(vJoy++ REQUIRED)
 endif()
 
 if(MSVC)
@@ -114,6 +113,8 @@ include_directories( include )
 include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${YAML_CPP_INCLUDE_DIR} )
 
 add_subdirectory( proto/${PROJECT_NAME}/proto )
+include_directories(${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
+add_subdirectory(src/controllers)
 set_target_properties(${PROJECT_NAME}_proto
                     PROPERTIES FOLDER proto)
 
@@ -186,9 +187,6 @@ endif()
 # Find the QtWidgets library
 if(${_gotqt} AND GUI_TOOLS)
     add_subdirectory(src/guitools)
-endif()
-if(WITH_VJOY)
-	add_subdirectory(src/controllers)
 endif()
 
 

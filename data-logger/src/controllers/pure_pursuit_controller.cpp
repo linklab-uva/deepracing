@@ -1,12 +1,12 @@
 ﻿#include "f1_datalogger/controllers/pure_pursuit_controller.h"
 #include <thread>
-#include "f1_datalogger/controllers/vjoy_interface.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <Eigen/Dense>
 #include "f1_datalogger/controllers/kdtree_eigen.h"
 #include "f1_datalogger/alglib/interpolation.h"
+#include "f1_datalogger/controllers/f1_interface_factory.h"
 #include <boost/circular_buffer.hpp>
 #include "f1_datalogger/udp_logging/utils/eigen_utils.h"
 deepf1::PurePursuitController::PurePursuitController(std::shared_ptr<MeasurementHandler2018> measurement_handler,
@@ -17,7 +17,7 @@ deepf1::PurePursuitController::PurePursuitController(std::shared_ptr<Measurement
 	L_ = L;
 	max_angle_ = max_angle;
 	velocity_setpoint_ = velocity_setpoint;
-	f1_interface_.reset(new deepf1::VJoyInterface);
+  f1_interface_ = deepf1::F1InterfaceFactory::getDefaultInterface();
 }
 
 
@@ -242,7 +242,7 @@ void deepf1::PurePursuitController::run(const std::string& trackfile, float velK
 		{
 			vel_factor = std::pow(ratio_complement, 5);
 		}
-		vel_setpoint = std::max(velocity_setpoint_ * vel_factor, 45.0);
+		vel_setpoint = std::max(velocity_setpoint_ * vel_factor, 75.0);
 		 
 		if (accel < 0)
 		{

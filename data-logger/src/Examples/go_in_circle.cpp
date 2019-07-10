@@ -13,7 +13,7 @@
 #include <sstream>
 #include "f1_datalogger/udp_logging/common/multi_threaded_udp_handler.h"
 #include <boost/program_options.hpp>
-#include "f1_datalogger/controllers/vjoy_interface.h"
+#include "f1_datalogger/controllers/f1_interface_factory.h"
 #include <filesystem>
 namespace fs = std::filesystem;
 namespace po = boost::program_options;
@@ -60,7 +60,7 @@ int main(int argc, char** argv)
 
 
 	std::string inp;
-	deepf1::VJoyInterface vjoy(1);
+  std::shared_ptr< deepf1::F1Interface > vjoy = deepf1::F1InterfaceFactory::getDefaultInterface();
 	std::this_thread::sleep_for(std::chrono::milliseconds(1500));
 	deepf1::F1ControlCommand command;
 	//command.steering = 0.0;
@@ -70,7 +70,7 @@ int main(int argc, char** argv)
 	std::cin >> inp;
 	command.steering = steering;
 	command.throttle = throttle;
-	vjoy.setCommands(command);
+	vjoy->setCommands(command);
 	std::this_thread::sleep_for(std::chrono::milliseconds(delay_time));
 
 	dl->start(30.0, udp_handler, frame_handler);
@@ -79,7 +79,7 @@ int main(int argc, char** argv)
 	std::cin >> inp;
 	command.steering = 0.0;
 	command.throttle = 0.0;
-	vjoy.setCommands(command);
+	vjoy->setCommands(command);
 	udp_handler->stop();
 	udp_handler->join();
 }

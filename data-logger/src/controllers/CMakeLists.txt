@@ -1,12 +1,16 @@
-
+find_package(Eigen3 REQUIRED)
 if(MSVC)
-	find_package(Eigen3 REQUIRED)
+    find_package(vJoy++ REQUIRED)
 	set(controllers_SRCS
 		pure_pursuit_controller.cpp
-		vjoy_interface.cpp
+		windows/vjoy_interface.cpp
+		windows/f1_interface_factory.cpp
 	)
 else()
-	message(FATAL "Interface to control F1 2017 is only supported on Windows.")
+	set(controllers_SRCS
+		pure_pursuit_controller.cpp
+		linux/f1_interface_factory.cpp
+	)
 endif()
 add_library(${PROJECT_NAME}_controllers ${controllers_SRCS})
 target_link_libraries(${PROJECT_NAME}_controllers
@@ -24,7 +28,13 @@ ${screen_capture_lite_PLATFORM_LIBS}
 ${vJoy++_LIBRARIES}
 Eigen3::Eigen
 )
-target_include_directories(${PROJECT_NAME}_controllers PRIVATE ${vJoy++_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR} ${THIRD_PARTY_REPOS}/libIntegrate/src)
+message(STATUS "Using ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR} for controller library")
+target_include_directories(${PROJECT_NAME}_controllers PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
+if(MSVC)
+target_include_directories(${PROJECT_NAME}_controllers PRIVATE ${vJoy++_INCLUDE_DIR})
+else()
+endif()
+add_dependencies(${PROJECT_NAME}_controllers ${PROJECT_NAME}_proto)
 set_target_properties(${PROJECT_NAME}_controllers
                       PROPERTIES FOLDER vjoy)
 set(install_targets
