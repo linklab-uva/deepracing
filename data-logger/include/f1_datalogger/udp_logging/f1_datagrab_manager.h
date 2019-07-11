@@ -35,7 +35,7 @@ private:
     const boost::system::error_code& error,
     std::size_t bytes_transferred);
 
-  static const unsigned int BUFFER_SIZE = sizeof(deepf1::twenty_eighteen::PacketMotionData);
+  static constexpr unsigned int BUFFER_SIZE = sizeof(deepf1::twenty_eighteen::PacketMotionData);
   boost::asio::io_service io_service_;
   boost::asio::io_context rebroadcast_io_context_;
   boost::asio::ip::udp::socket socket_;

@@ -125,8 +125,8 @@ const deepf1::TimePoint& begin, const fs::path& output_dir, tbb::atomic<unsigned
   json_options.always_print_primitive_fields = true;
   std::string json_string;
   data_pb.mutable_udp_packet()->CopyFrom(deepf1::twenty_eighteen::TwentyEighteenUDPStreamUtils::toProto(timestamped_packet_f1.data));
-  google::protobuf::uint64 delta = (google::protobuf::uint64)(std::chrono::duration_cast<timeunit>(timestamped_packet_f1.timestamp - begin).count());
-  data_pb.set_timestamp(delta);
+  std::chrono::duration<double, timeunit> dt = timestamped_packet_f1.timestamp - begin;
+  data_pb.set_timestamp(dt.count());
   fs::path filename = output_dir / fs::path("packet_" + std::to_string(counter.fetch_and_increment()) + ".json");
   google::protobuf::util::MessageToJsonString( data_pb, &json_string, json_options );
   std::ofstream ostream;

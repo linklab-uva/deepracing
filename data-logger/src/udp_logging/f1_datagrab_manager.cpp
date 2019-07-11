@@ -67,27 +67,22 @@ void F1DataGrabManager::handle_send(boost::shared_ptr<std::string> message,
 }
 void F1DataGrabManager::run2018(std::shared_ptr<IF12018DataGrabHandler> data_handler)
 {
-  boost::system::error_code error, rebroadcast_error;
-  char buffer[ BUFFER_SIZE ];
+  boost::system::error_code error;
+  char buffer[ F1DataGrabManager::BUFFER_SIZE ];
   deepf1::TimePoint timestamp;
   deepf1::twenty_eighteen::PacketHeader* header;
-  boost::shared_ptr< std::string > send_message(new std::string);
+  boost::shared_ptr< std::string > send_message(new std::string("THIS IS A MESSAGE. YAY"));
   while (running_)
   {
     std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(buffer, BUFFER_SIZE), remote_endpoint_, 0, error);
     timestamp = clock_->now();
     if (rebroadcast_)
     {
-      //socket_.remote_endpoint().port() + 1;
-      //boost::bind();
-       rebroadcast_socket_.async_send_to(boost::asio::buffer(buffer, received_bytes), boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(socket_.local_endpoint().address().to_string()), socket_.local_endpoint().port() + 1), 0
-        ,
+       rebroadcast_socket_.async_send_to(boost::asio::buffer(buffer, received_bytes), boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(socket_.local_endpoint().address().to_string()), socket_.local_endpoint().port() + 1), 0,
         boost::bind(&F1DataGrabManager::handle_send, this, send_message,
           boost::asio::placeholders::error,
           boost::asio::placeholders::bytes_transferred));
       rebroadcast_io_context_.run_one();
-
-      //std::printf("Rebroadcasted %zu bytes. Error code: %s\n", sent_bytes, rebroadcast_error.message().c_str());
     }
     if (bool(data_handler) && data_handler->isReady())
     {
