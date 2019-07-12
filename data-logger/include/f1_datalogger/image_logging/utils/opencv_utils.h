@@ -9,6 +9,7 @@
 #define INCLUDE_OPENCV_UTILS_H_
 #include "ScreenCapture.h"
 #include "opencv2/core.hpp"
+#include "f1_datalogger/proto/Image.pb.h"
 namespace deepf1
 {
 namespace scl = SL::Screen_Capture;
@@ -19,6 +20,14 @@ public:
   virtual ~OpenCVUtils();
   static void toCV(const scl::Image& image_scl, const scl::Point& size, cv::Mat& out);
   static cv::Mat toCV(const scl::Image& image_scl, const scl::Point& size );
+
+  static deepf1::protobuf::images::Image cvimageToProto(const cv::Mat& cv_image);
+  static cv::Mat protoImageToCV(const deepf1::protobuf::images::Image& proto_image);
+
+
+  static deepf1::protobuf::images::ChannelOrder imTypeToProto(const int& cv_type);
+  static int protoTypeToCV(const deepf1::protobuf::images::ChannelOrder& proto_type);
+
 };
 
 } /* namespace deepf1 */

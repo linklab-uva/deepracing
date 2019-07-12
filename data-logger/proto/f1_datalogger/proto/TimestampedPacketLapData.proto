@@ -3,5 +3,5 @@ package deepf1.twenty_eighteen.protobuf;
 import "PacketLapData.proto";
 message TimestampedPacketLapData {
 		PacketLapData udp_packet = 1;
-        uint64 timestamp = 2;
+        double timestamp = 2;
 }

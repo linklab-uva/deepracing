@@ -29,9 +29,10 @@ void exit_with_help(po::options_description& desc)
 int main(int argc, char** argv)
 {
   using namespace deepf1;
-  std::string search_string, image_folder, image_extension, udp_folder, config_file, driver_name, track_name;
+  std::string search_string, image_folder, image_extension, udp_folder, config_file, driver_name;
   unsigned int image_threads, udp_threads, udp_port;
   float image_capture_frequency, initial_delay_time;
+  bool spectating, use_json;
 
 
   po::options_description desc("F1 Datalogger Multithreaded Capture. Command line arguments are as follows");
@@ -74,20 +75,26 @@ int main(int argc, char** argv)
   udp_port = config_node["udp_port"].as<unsigned int>(20777);
   image_capture_frequency = config_node["image_capture_frequency"].as<float>();
   initial_delay_time = config_node["initial_delay_time"].as<float>();
-  /**/
+  spectating = config_node["spectating"].as<bool>(false);
+  use_json = config_node["use_json"].as<bool>(true);
+  
 
-
+  
 
 
   std::cout<<"Creating handlers" <<std::endl;
-  std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler(image_extension, image_folder, image_threads, true));
-  std::shared_ptr<deepf1::MultiThreadedUDPHandler2018> udp_handler(new deepf1::MultiThreadedUDPHandler2018(udp_folder, true));
+  std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler(image_extension, image_folder, image_threads, use_json));
+  if (spectating)
+  {
+    frame_handler->pause();
+  }
+  std::shared_ptr<deepf1::MultiThreadedUDPHandler2018> udp_handler(new deepf1::MultiThreadedUDPHandler2018(udp_folder, use_json));
   udp_handler->addPausedFunction(std::bind(&deepf1::MultiThreadedFrameGrabHandler::pause, frame_handler.get()));
   std::cout << "Created handlers" << std::endl;
 
 
   std::cout<<"Creating DataLogger" <<std::endl;
-  std::shared_ptr<deepf1::F1DataLogger> dl( new deepf1::F1DataLogger( search_string, "127.0.0.1", udp_port, false) );
+  std::shared_ptr<deepf1::F1DataLogger> dl( new deepf1::F1DataLogger( search_string, "127.0.0.1", udp_port) );
   std::cout<<"Created DataLogger" <<std::endl;
 
 
@@ -99,14 +106,15 @@ int main(int argc, char** argv)
 	dl->start(image_capture_frequency, udp_handler  , frame_handler );
   unsigned int ycount = 0;
   unsigned int bcount = 0;
-  std::cout << "Recording. Push Y to pause. B to unpause. D-Pad Down to Exit." << std::endl;
+  std::cout << "Recording. Push Y to pause. Push dpad up to unpause. D-Pad Down to Exit." << std::endl;
   DirectX::GamePad gp;
   while (true)
   {
     DirectX::GamePad::State gpstate = gp.GetState(0);
-    if (gpstate.IsYPressed() || gpstate.IsStartPressed())
+    if (spectating && (gpstate.IsYPressed() || gpstate.IsStartPressed() || gpstate.IsRightTriggerPressed() || gpstate.IsLeftTriggerPressed()
+      || gpstate.IsRightShoulderPressed() || gpstate.IsLeftShoulderPressed() || gpstate.IsBPressed() || gpstate.IsXPressed()))
     {
-      printf("Y is pressed. Pausing %u\n", ++ycount);
+      printf("UI button pressed. Pausing %u\n", ++ycount);
       frame_handler->pause();
     }
     if (gpstate.IsStartPressed())
@@ -114,7 +122,7 @@ int main(int argc, char** argv)
       printf("Start is pressed. Pausing %u\n", ++ycount);
       frame_handler->pause();
     }
-    if (gpstate.IsLeftStickPressed())
+    if (gpstate.IsDPadUpPressed())
     {
       printf("Left thumbstick is pressed pressed. Unpausing %u\n", ++bcount);
       frame_handler->resume();
@@ -126,11 +134,11 @@ int main(int argc, char** argv)
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
   }
-
+  dl->stop();
 	frame_handler->stop();
 	udp_handler->stop();
 	frame_handler->join();
-	udp_handler->join();
+	udp_handler->join(1);
   
 
 }

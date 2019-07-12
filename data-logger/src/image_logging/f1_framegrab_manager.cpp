@@ -96,7 +96,7 @@ void F1FrameGrabManager::onNewFrame_(const scl::Image &img, const scl::Window &m
 
 void F1FrameGrabManager::stop()
 {
-//	capture_manager_.reset();
+//	capture_manager_.reset
 	capture_config_.reset();
 }
 void F1FrameGrabManager::start(double capture_frequency, 

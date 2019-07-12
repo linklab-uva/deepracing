@@ -18,12 +18,38 @@
 #include <functional>
 namespace deepf1
 {
-
+struct MultiThreadedUDPHandler2018ThreadSettings
+{
+public:
+  MultiThreadedUDPHandler2018ThreadSettings()
+  {
+    motionThreads = 3;
+    sessionThreads = 1;
+    lapDataThreads = 2;
+    eventThreads = 0;
+    participantsThreads = 1;
+    carsetupsThreads = 1;
+    cartelemetryThreads = 2;
+    carstatusThreads = 2;
+  }
+  uint32_t motionThreads;
+  uint32_t sessionThreads;
+  uint32_t lapDataThreads;
+  uint32_t eventThreads;
+  uint32_t participantsThreads;
+  uint32_t carsetupsThreads;
+  uint32_t cartelemetryThreads;
+  uint32_t carstatusThreads;
+  uint32_t totalThreads()
+  {
+    return motionThreads + sessionThreads + lapDataThreads + eventThreads + participantsThreads + carsetupsThreads + cartelemetryThreads + carstatusThreads;
+  }
+};
 class MultiThreadedUDPHandler2018 : public IF12018DataGrabHandler
 {
-  using timeunit = std::chrono::milliseconds;
+  using timeunit = std::milli;
 public:
-  MultiThreadedUDPHandler2018(std::string data_folder = "udp_data", bool write_json = false, unsigned int sleeptime = 100);
+  MultiThreadedUDPHandler2018(std::string data_folder = "udp_data", bool write_json = false, unsigned int sleeptime = 100, MultiThreadedUDPHandler2018ThreadSettings settings = MultiThreadedUDPHandler2018ThreadSettings());
   virtual ~MultiThreadedUDPHandler2018();
   inline bool isReady() override;
   void init(const std::string& host, unsigned int port, const deepf1::TimePoint& begin) override;
@@ -60,6 +86,7 @@ private:
   bool write_json_;
   unsigned int sleeptime_;
   google::protobuf::util::JsonOptions json_options_;
+  MultiThreadedUDPHandler2018ThreadSettings thread_settings_;
 
   void workerFunc(deepf1::twenty_eighteen::PacketID packetType); 
   

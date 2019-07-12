@@ -15,6 +15,7 @@
 #include "f1_datalogger/udp_logging/f1_2018_datagrab_handler.h"
 #include "f1_datalogger/udp_logging/f1_protocol_versions.h"
 #include <chrono>
+#include <map>
 namespace deepf1
 {
 class F1DataGrabManager
@@ -23,6 +24,7 @@ class F1DataGrabManager
 public:
   F1DataGrabManager(std::shared_ptr<std::chrono::high_resolution_clock> clock, const std::string host = "127.0.0.1", const unsigned int port = 20777, bool rebroadcast = false);
   virtual ~F1DataGrabManager();
+   const std::map<uint8_t, std::string> packetIdMap = { {0,"MOTION"}, {1,"SESSION"}, {2,"LAPDATA"}, {3,"EVENT"}, {4,"PARTICIPANTS"}, {5,"CARSETUPS"}, {6,"CARTELEMETRY"}, {7,"CARSTATUS"} };
 private:
   void run2017(std::shared_ptr<IF1DatagrabHandler> data_handler);
   void run2018(std::shared_ptr<IF12018DataGrabHandler> data_handler);
@@ -33,7 +35,7 @@ private:
     const boost::system::error_code& error,
     std::size_t bytes_transferred);
 
-  static const unsigned int BUFFER_SIZE = sizeof(deepf1::twenty_eighteen::PacketMotionData);
+  static constexpr unsigned int BUFFER_SIZE = sizeof(deepf1::twenty_eighteen::PacketMotionData);
   boost::asio::io_service io_service_;
   boost::asio::io_context rebroadcast_io_context_;
   boost::asio::ip::udp::socket socket_;

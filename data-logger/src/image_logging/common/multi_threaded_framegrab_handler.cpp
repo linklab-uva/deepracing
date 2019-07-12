@@ -14,6 +14,7 @@
 #include <filesystem>
 #include <iostream>
 #include <fstream>
+#include <google/protobuf/util/time_util.h>
 namespace fs = std::filesystem;
 namespace deepf1
 {
@@ -109,6 +110,9 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
   std::cout<<"Spawned a worker thread to log images" <<std::endl;
   std::unique_ptr<std::ofstream> ostream(new std::ofstream);
   fs::path images_folder(images_folder_);
+  google::protobuf::util::JsonOptions opshinz;
+  opshinz.always_print_primitive_fields = true;
+  opshinz.add_whitespace = true;
   while( running_ || !queue_->empty() )
   {
     TimestampedImageData data;
@@ -128,19 +132,13 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
     std::string image_file( file_prefix + "." + image_extension_);
     cv::imwrite( ( images_folder / fs::path(image_file) ).string() , data.image );
 
-
     deepf1::protobuf::TimestampedImage tag;
     tag.set_image_file(image_file);
-	  std::chrono::duration<double, timeunit> d = (data.timestamp - begin_);
-    google::protobuf::uint64 delta = (google::protobuf::uint64)(std::round(d.count()));
-    tag.set_timestamp(delta);
-
+	  std::chrono::duration<double, timeunit> dt = (data.timestamp - begin_);
+    tag.set_timestamp(dt.count());
     if(write_json_)
     {
       std::unique_ptr<std::string> json( new std::string );
-      google::protobuf::util::JsonOptions opshinz;
-      opshinz.always_print_primitive_fields = true;
-      opshinz.add_whitespace = true;
       google::protobuf::util::Status result = google::protobuf::util::MessageToJsonString( tag , json.get() , opshinz );
 	  if (result.ok())
 	  {
@@ -155,7 +153,7 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
     else{
       std::string pb_filename( file_prefix + ".pb" );
       std::string pb_output_file(( images_folder / fs::path(pb_filename) ).string());
-      ostream->open( pb_output_file.c_str(), std::ofstream::out );
+      ostream->open( pb_output_file.c_str(), std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
       tag.SerializeToOstream( ostream.get() );
       ostream->flush();
       ostream->close();

@@ -1,0 +1,9 @@
+syntax = "proto3";
+package deepf1.protobuf.images;
+import "ChannelOrder.proto";
+message Image {
+  ChannelOrder channel_order = 1;
+  uint64 rows = 2; 
+  uint64 cols = 3; 
+  bytes image_data = 4;
+}

@@ -1,0 +1,9 @@
+syntax = "proto3";
+package deepf1.protobuf.images;
+enum ChannelOrder {
+	GRAYSCALE = 0;
+	BGR = 1;
+	RGB = 2;
+	BGRA = 3;
+	RGBA = 4;
+}

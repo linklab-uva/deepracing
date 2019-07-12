@@ -3,5 +3,5 @@ package deepf1.protobuf;
 import "UDPData.proto";
 message TimestampedUDPData {
   UDPData udp_packet = 1;
-  uint64 timestamp = 2;
+  double timestamp = 2;
 }

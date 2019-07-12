@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='deepf1.twenty_eighteen.protobuf',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x1eTimestampedPacketLapData.proto\x12\x1f\x64\x65\x65pf1.twenty_eighteen.protobuf\x1a\x13PacketLapData.proto\"q\n\x18TimestampedPacketLapData\x12\x42\n\nudp_packet\x18\x01 \x01(\x0b\x32..deepf1.twenty_eighteen.protobuf.PacketLapData\x12\x11\n\ttimestamp\x18\x02 \x01(\x04\x62\x06proto3')
+  serialized_pb=_b('\n\x1eTimestampedPacketLapData.proto\x12\x1f\x64\x65\x65pf1.twenty_eighteen.protobuf\x1a\x13PacketLapData.proto\"q\n\x18TimestampedPacketLapData\x12\x42\n\nudp_packet\x18\x01 \x01(\x0b\x32..deepf1.twenty_eighteen.protobuf.PacketLapData\x12\x11\n\ttimestamp\x18\x02 \x01(\x01\x62\x06proto3')
   ,
   dependencies=[PacketLapData__pb2.DESCRIPTOR,])
 
@@ -44,8 +44,8 @@ _TIMESTAMPEDPACKETLAPDATA = _descriptor.Descriptor(
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='timestamp', full_name='deepf1.twenty_eighteen.protobuf.TimestampedPacketLapData.timestamp', index=1,
-      number=2, type=4, cpp_type=4, label=1,
-      has_default_value=False, default_value=0,
+      number=2, type=1, cpp_type=5, label=1,
+      has_default_value=False, default_value=float(0),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
