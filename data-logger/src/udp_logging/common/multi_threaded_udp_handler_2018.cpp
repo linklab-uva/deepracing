@@ -118,23 +118,34 @@ inline bool MultiThreadedUDPHandler2018::isReady()
 
 template<class ProtoType, class F1Type, class timeunit>
 inline void dispositionProto(ProtoType& data_pb, F1Type& timestamped_packet_f1, const unsigned int& sleeptime,
-const deepf1::TimePoint& begin, const fs::path& output_dir, tbb::atomic<unsigned long>& counter)
+const deepf1::TimePoint& begin, const fs::path& output_dir, tbb::atomic<unsigned long>& counter, bool use_json)
 {
-  google::protobuf::util::JsonOptions json_options;
-  json_options.add_whitespace = true;
-  json_options.always_print_primitive_fields = true;
-  std::string json_string;
   data_pb.mutable_udp_packet()->CopyFrom(deepf1::twenty_eighteen::TwentyEighteenUDPStreamUtils::toProto(timestamped_packet_f1.data));
   std::chrono::duration<double, timeunit> dt = timestamped_packet_f1.timestamp - begin;
   data_pb.set_timestamp(dt.count());
-  fs::path filename = output_dir / fs::path("packet_" + std::to_string(counter.fetch_and_increment()) + ".json");
-  google::protobuf::util::MessageToJsonString( data_pb, &json_string, json_options );
-  std::ofstream ostream;
-  ostream.open(filename.string());
-  ostream << json_string << std::endl;
-  ostream.flush();
-  ostream.close();
-  std::this_thread::sleep_for(std::chrono::milliseconds(sleeptime));
+  if (use_json)
+  {
+    google::protobuf::util::JsonOptions json_options;
+    json_options.add_whitespace = true;
+    json_options.always_print_primitive_fields = true;
+    std::string json_string;
+    fs::path filename = output_dir / fs::path("packet_" + std::to_string(counter.fetch_and_increment()) + ".json");
+    google::protobuf::util::Status rc = google::protobuf::util::MessageToJsonString(data_pb, &json_string, json_options);
+    std::ofstream ostream(filename.string());// | std::fstream::binary);
+    ostream << json_string << std::endl;
+    ostream.flush();
+    ostream.close();
+    std::this_thread::sleep_for(std::chrono::milliseconds(sleeptime));
+  }
+  else
+  {
+    fs::path filename = output_dir / fs::path("packet_" + std::to_string(counter.fetch_and_increment()) + ".pb");
+    std::ofstream ostream(filename.string(), std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
+    data_pb.SerializeToOstream(&ostream);
+    ostream.flush();
+    ostream.close();
+    std::this_thread::sleep_for(std::chrono::milliseconds(sleeptime));
+  }
 }
 
 void MultiThreadedUDPHandler2018::workerFunc(deepf1::twenty_eighteen::PacketID packetType)
@@ -204,7 +215,7 @@ void MultiThreadedUDPHandler2018::workerFunc(deepf1::twenty_eighteen::PacketID p
         }
         deepf1::twenty_eighteen::protobuf::TimestampedPacketMotionData data_pb;
         dispositionProto<deepf1::twenty_eighteen::protobuf::TimestampedPacketMotionData, deepf1::twenty_eighteen::TimestampedPacketMotionData, timeunit>
-        (data_pb, timestamped_packet_f1, sleeptime_, begin_, output_dir, motion_counter);
+        (data_pb, timestamped_packet_f1, sleeptime_, begin_, output_dir, motion_counter, write_json_);
       }
       break;
     }
@@ -219,7 +230,7 @@ void MultiThreadedUDPHandler2018::workerFunc(deepf1::twenty_eighteen::PacketID p
         }
         deepf1::twenty_eighteen::protobuf::TimestampedPacketSessionData data_pb;
         dispositionProto<deepf1::twenty_eighteen::protobuf::TimestampedPacketSessionData, deepf1::twenty_eighteen::TimestampedPacketSessionData, timeunit>
-        (data_pb, timestamped_packet_f1, sleeptime_, begin_, output_dir, session_counter);
+        (data_pb, timestamped_packet_f1, sleeptime_, begin_, output_dir, session_counter, write_json_);
       }
       break;
     }
@@ -234,7 +245,7 @@ void MultiThreadedUDPHandler2018::workerFunc(deepf1::twenty_eighteen::PacketID p
         }
         deepf1::twenty_eighteen::protobuf::TimestampedPacketLapData data_pb;
         dispositionProto<deepf1::twenty_eighteen::protobuf::TimestampedPacketLapData, deepf1::twenty_eighteen::TimestampedPacketLapData, timeunit>
-        (data_pb, timestamped_packet_f1, sleeptime_, begin_, output_dir, lapdata_counter);
+        (data_pb, timestamped_packet_f1, sleeptime_, begin_, output_dir, lapdata_counter, write_json_);
       }
       break;
     }
@@ -253,7 +264,7 @@ void MultiThreadedUDPHandler2018::workerFunc(deepf1::twenty_eighteen::PacketID p
         }
         deepf1::twenty_eighteen::protobuf::TimestampedPacketParticipantsData data_pb;
         dispositionProto<deepf1::twenty_eighteen::protobuf::TimestampedPacketParticipantsData, deepf1::twenty_eighteen::TimestampedPacketParticipantsData, timeunit>
-        (data_pb, timestamped_packet_f1, sleeptime_, begin_, output_dir, participants_counter);
+        (data_pb, timestamped_packet_f1, sleeptime_, begin_, output_dir, participants_counter, write_json_);
       }
       break;
     }
@@ -268,7 +279,7 @@ void MultiThreadedUDPHandler2018::workerFunc(deepf1::twenty_eighteen::PacketID p
         }
         deepf1::twenty_eighteen::protobuf::TimestampedPacketCarSetupData data_pb;
         dispositionProto<deepf1::twenty_eighteen::protobuf::TimestampedPacketCarSetupData, deepf1::twenty_eighteen::TimestampedPacketCarSetupData, timeunit>
-        (data_pb, timestamped_packet_f1, sleeptime_, begin_, output_dir, setups_counter);
+        (data_pb, timestamped_packet_f1, sleeptime_, begin_, output_dir, setups_counter, write_json_);
       }
       break;
     }
@@ -283,7 +294,7 @@ void MultiThreadedUDPHandler2018::workerFunc(deepf1::twenty_eighteen::PacketID p
         }
         deepf1::twenty_eighteen::protobuf::TimestampedPacketCarTelemetryData data_pb;
         dispositionProto<deepf1::twenty_eighteen::protobuf::TimestampedPacketCarTelemetryData, deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData, timeunit>
-        (data_pb, timestamped_packet_f1, sleeptime_, begin_, output_dir, telemetry_counter);
+        (data_pb, timestamped_packet_f1, sleeptime_, begin_, output_dir, telemetry_counter, write_json_);
       }
       break;
     }
@@ -298,7 +309,7 @@ void MultiThreadedUDPHandler2018::workerFunc(deepf1::twenty_eighteen::PacketID p
         }
         deepf1::twenty_eighteen::protobuf::TimestampedPacketCarStatusData data_pb;
         dispositionProto<deepf1::twenty_eighteen::protobuf::TimestampedPacketCarStatusData, deepf1::twenty_eighteen::TimestampedPacketCarStatusData, timeunit>
-        (data_pb, timestamped_packet_f1, sleeptime_, begin_, output_dir, status_counter);
+        (data_pb, timestamped_packet_f1, sleeptime_, begin_, output_dir, status_counter, write_json_);
       }
       break;
     }

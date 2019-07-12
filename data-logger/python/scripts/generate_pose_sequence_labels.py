@@ -72,33 +72,55 @@ angvelhelp = "Use the angular velocities given in the udp packets. THESE ARE ONL
     " DATASET WAS TAKEN ON SPECTATOR MODE, THE ANGULAR VELOCITY VALUES WILL BE GARBAGE."
 parser.add_argument("--use_given_angular_velocities", help=angvelhelp, action="store_true")
 parser.add_argument("--assume_linear_timescale", help="Assumes the slope between system time and session time is 1.0", action="store_true")
+parser.add_argument("--json", help="Assume dataset files are in JSON rather than binary .pb files.",  action="store_true")
 args = parser.parse_args()
 motion_data_folder = args.motion_data_path
-motionPacket = TimestampedPacketMotionData_pb2.TimestampedPacketMotionData()
-print(motionPacket.udp_packet.m_angularVelocityX)
-filepaths = [f for f in os.listdir(motion_data_folder) if os.path.isfile(os.path.join(motion_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".json"]
-print(filepaths)
-print(len(filepaths))
-jsonstrings = [open(os.path.join(motion_data_folder, path)).read() for path in filepaths]
-print(jsonstrings[45])
-print(len(jsonstrings))
-
-image_tags = []
 image_folder = args.image_path
-image_filepaths = [f for f in os.listdir(image_folder) if os.path.isfile(os.path.join(image_folder, f)) and str.lower(os.path.splitext(f)[1])==".json"]
-image_jsonstrings = [open(os.path.join(image_folder, path)).read() for path in image_filepaths]
-for jsonstring in image_jsonstrings:
-    image_data = TimestampedImage_pb2.TimestampedImage()
-    try:
-        google.protobuf.json_format.Parse(jsonstring, image_data)
-        image_tags.append(image_data)
-    except:
-        continue
+image_tags = []
 motion_packets = []
-for jsonstring in jsonstrings:
-    data = TimestampedPacketMotionData_pb2.TimestampedPacketMotionData()
-    google.protobuf.json_format.Parse(jsonstring, data)
-    motion_packets.append(data)
+if args.json:
+    image_filepaths = [f for f in os.listdir(image_folder) if os.path.isfile(os.path.join(image_folder, f)) and str.lower(os.path.splitext(f)[1])==".json"]
+    image_jsonstrings = [open(os.path.join(image_folder, path)).read() for path in image_filepaths]
+    for jsonstring in image_jsonstrings:
+        image_data = TimestampedImage_pb2.TimestampedImage()
+        try:
+            google.protobuf.json_format.Parse(jsonstring, image_data)
+            image_tags.append(image_data)
+        except:
+            continue
+    filepaths = [f for f in os.listdir(motion_data_folder) if os.path.isfile(os.path.join(motion_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".json"]
+    print(filepaths)
+    print(len(filepaths))
+    jsonstrings = [open(os.path.join(motion_data_folder, path)).read() for path in filepaths]
+    print(jsonstrings[45])
+    print(len(jsonstrings))
+    for jsonstring in jsonstrings:
+        data = TimestampedPacketMotionData_pb2.TimestampedPacketMotionData()
+        google.protobuf.json_format.Parse(jsonstring, data)
+        motion_packets.append(data)
+else:
+    image_filepaths = [os.path.join(image_folder, f) for f in os.listdir(image_folder) if os.path.isfile(os.path.join(image_folder, f)) and str.lower(os.path.splitext(f)[1])==".pb"]
+    for image_filepath in image_filepaths:
+        try:
+            image_data = TimestampedImage_pb2.TimestampedImage()
+            f = open(image_filepath,'rb')
+            image_data.ParseFromString(f.read())
+            f.close()
+            image_tags.append(image_data)
+        except:
+            print("Could not read image file %s." %(image_filepath))
+            continue
+    filepaths = [os.path.join(motion_data_folder, f) for f in os.listdir(motion_data_folder) if os.path.isfile(os.path.join(motion_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".pb"]
+    for filepath in filepaths:
+        try:
+            data = TimestampedPacketMotionData_pb2.TimestampedPacketMotionData()
+            f = open(filepath,'rb')
+            data.ParseFromString(f.read())
+            f.close()
+            motion_packets.append(data)
+        except:
+            print("Could not read udp file %s." %(filepath))
+            continue
 motion_packets = sorted(motion_packets, key=udpPacketKey)
 session_times = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets])
 system_times = np.array([float(packet.timestamp)/1000.0 for packet in motion_packets])

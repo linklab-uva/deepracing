@@ -1,5 +1,4 @@
 search_string: "F1"
-track_name: "Australia"
 driver_name: "Trent"
 images_folder: "images"
 udp_folder: "udp_data"
@@ -9,3 +8,4 @@ image_threads: 6
 image_capture_frequency: 60.0
 initial_delay_time: 3.0
 image_extension: "jpg"
+use_json: True
