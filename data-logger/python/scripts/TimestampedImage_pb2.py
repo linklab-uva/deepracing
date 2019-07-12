@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='deepf1.protobuf',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x16TimestampedImage.proto\x12\x0f\x64\x65\x65pf1.protobuf\"9\n\x10TimestampedImage\x12\x12\n\nimage_file\x18\x01 \x01(\t\x12\x11\n\ttimestamp\x18\x02 \x01(\x04\x62\x06proto3')
+  serialized_pb=_b('\n\x16TimestampedImage.proto\x12\x0f\x64\x65\x65pf1.protobuf\"9\n\x10TimestampedImage\x12\x12\n\nimage_file\x18\x01 \x01(\t\x12\x11\n\ttimestamp\x18\x02 \x01(\x01\x62\x06proto3')
 )
 
 
@@ -42,8 +42,8 @@ _TIMESTAMPEDIMAGE = _descriptor.Descriptor(
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='timestamp', full_name='deepf1.protobuf.TimestampedImage.timestamp', index=1,
-      number=2, type=4, cpp_type=4, label=1,
-      has_default_value=False, default_value=0,
+      number=2, type=1, cpp_type=5, label=1,
+      has_default_value=False, default_value=float(0),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),

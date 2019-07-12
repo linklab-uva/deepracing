@@ -5,6 +5,5 @@ message Image {
   ChannelOrder channel_order = 1;
   uint64 rows = 2; 
   uint64 cols = 3; 
-  int32 bytewidth = 4;
-  repeated int32 image_data = 5;
+  bytes image_data = 4;
 }

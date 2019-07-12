@@ -19,6 +19,9 @@ common/multi_threaded_framegrab_handler.cpp
 add_library(${PROJECT_NAME}_image_logging_common ${${PROJECT_NAME}_image_logging_common_src})
 target_link_libraries(${PROJECT_NAME}_image_logging_common ${PROJECT_NAME}_image_logging ${PROJECT_NAME}_image_utils ${PROJECT_NAME}_proto ${TBB_IMPORTED_TARGETS} ${Boost_LIBRARIES})
 
+add_executable(${PROJECT_NAME}_image_utils_test utils/opencv_utils_test.cpp)
+target_link_libraries(${PROJECT_NAME}_image_utils_test ${PROJECT_NAME}_image_utils ${Boost_LIBRARIES} )
+
 set(install_targets
 #libraries.
 ${PROJECT_NAME}_image_logging_common
