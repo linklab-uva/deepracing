@@ -144,7 +144,7 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
 	  {
 		  std::string json_filename(file_prefix + ".json");
 		  std::string json_output_file((images_folder / fs::path(json_filename)).string());
-		  ostream->open(json_output_file.c_str(), std::ofstream::out);
+		  ostream->open(json_output_file.c_str(), std::fstream::out | std::fstream::trunc);
 		  (*ostream) << (*json) << std::endl;
 		  ostream->flush();
 		  ostream->close();
@@ -153,7 +153,7 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
     else{
       std::string pb_filename( file_prefix + ".pb" );
       std::string pb_output_file(( images_folder / fs::path(pb_filename) ).string());
-      ostream->open( pb_output_file.c_str(), std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
+      ostream->open( pb_output_file.c_str(), std::fstream::out | std::fstream::trunc | std::fstream::binary);
       tag.SerializeToOstream( ostream.get() );
       ostream->flush();
       ostream->close();
