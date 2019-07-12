@@ -36,6 +36,7 @@ class ImageTCPHandler(socketserver.BaseRequestHandler):
 
             image_data_in = Image_pb2.Image()
             image_data_in.ParseFromString(messagedata)#.copy())
+            print("Successfully parsed image")
 
 
             #print(image_data.image_data)
@@ -47,6 +48,10 @@ class ImageTCPHandler(socketserver.BaseRequestHandler):
 
             im_reply_pb = Image_pb2.Image()
             im_out = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY).astype(np.uint8)
+            
+            #im_out = cv2.resize(im_out, None, fx=0.125, fy=0.125)#, interpolation = cv2.INTER_AREA)
+            #im_out = resize.copy()
+           # im_out = cv2.resize(im_out, np.array((1080, 1920)))#, interpolation = cv2.INTER_CUBIC)
 
             im_reply_pb.rows = im_out.shape[0]
             im_reply_pb.cols = im_out.shape[1]

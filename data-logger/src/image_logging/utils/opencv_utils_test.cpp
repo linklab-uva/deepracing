@@ -15,13 +15,14 @@ int main(int argc, char** argv)
   double imresizefactor = std::stod(std::string(argv[2]));
   std::string server(argv[3]);
   int port = std::stoi(std::string(argv[4]));
-  cv::Mat im = cv::imread(imfile, cv::IMREAD_UNCHANGED);
-  cv::resize(im, im, cv::Size((int)std::round(imresizefactor * im.cols), (int)std::round(imresizefactor * im.rows)));
+  cv::Mat im = cv::imread(imfile, cv::IMREAD_UNCHANGED), im_resized;
+  cv::resize(im, im_resized, cv::Size((int)std::round(imresizefactor * im.cols), (int)std::round(imresizefactor * im.rows)));
 
   cv::namedWindow("input", cv::WINDOW_AUTOSIZE);
-  cv::imshow("input", im);
+  cv::imshow("input", im_resized);
   cv::waitKey(0);
   cv::destroyAllWindows();
+  im = im_resized;
   deepf1::protobuf::images::Image im_proto = deepf1::OpenCVUtils::cvimageToProto(im);
   std::printf("Image has %u rows and %u columns.\n", uint32_t(im_proto.rows()), uint32_t(im_proto.cols()));
   std::unique_ptr<std::string> jsonstring(new std::string);
