@@ -153,7 +153,7 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
     else{
       std::string pb_filename( file_prefix + ".pb" );
       std::string pb_output_file(( images_folder / fs::path(pb_filename) ).string());
-      ostream->open( pb_output_file.c_str(), std::ofstream::out );
+      ostream->open( pb_output_file.c_str(), std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
       tag.SerializeToOstream( ostream.get() );
       ostream->flush();
       ostream->close();
