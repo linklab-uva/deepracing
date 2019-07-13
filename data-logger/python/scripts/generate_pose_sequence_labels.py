@@ -123,13 +123,13 @@ else:
             continue
 motion_packets = sorted(motion_packets, key=udpPacketKey)
 session_times = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets])
-system_times = np.array([float(packet.timestamp)/1000.0 for packet in motion_packets])
+system_times = np.array([packet.timestamp/1000.0 for packet in motion_packets])
 print(system_times)
 print(session_times)
 maxudptime = system_times[-1]
-image_tags = [tag for tag in image_tags if float(tag.timestamp)/1000.0<maxudptime]
+image_tags = [tag for tag in image_tags if tag.timestamp/1000.0<maxudptime]
 image_tags = sorted(image_tags, key = imageDataKey)
-image_timestamps = np.array([float(data.timestamp)/1000.0 for data in image_tags])
+image_timestamps = np.array([data.timestamp/1000.0 for data in image_tags])
 
 
 first_image_time = image_timestamps[0]
@@ -144,7 +144,7 @@ unique_session_times, unique_session_time_indices = np.unique(session_times, ret
 motion_packets = [motion_packets[i] for i in unique_session_time_indices]
 motion_packets = sorted(motion_packets, key=udpPacketKey)
 session_times = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets])
-system_times = np.array([float(packet.timestamp)/1000.0 for packet in motion_packets])
+system_times = np.array([packet.timestamp/1000.0 for packet in motion_packets])
 
 print("Range of session times: [%f,%f]" %(session_times[0], session_times[-1]))
 print("Range of udp system times: [%f,%f]" %(system_times[0], system_times[-1]))

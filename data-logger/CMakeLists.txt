@@ -109,7 +109,10 @@ if(GET_TBB)
     endif()
 else()
     find_package(TBB REQUIRED COMPONENTS tbb)
+	message(STATUS "TBB Configuration at : ${TBB_DIR}")
 	message(STATUS "Got TBB targets: ${TBB_IMPORTED_TARGETS}")
+	get_filename_component(TBB_ROOT_DIR ${TBB_DIR} DIRECTORY)
+	message(STATUS "Got TBB root: ${TBB_ROOT_DIR}")
 endif()
 
 
@@ -184,6 +187,9 @@ if(${_gotqt} AND GUI_TOOLS)
     add_subdirectory(src/guitools)
 endif()
 
+if(MSVC)
+	configure_file(scripts/windows/tbbvars2019.bat.in tbbvars2019.bat @ONLY NEWLINE_STYLE WIN32)
+endif() 
 
 install(DIRECTORY proto/
 DESTINATION share/${PROJECT_NAME}/proto

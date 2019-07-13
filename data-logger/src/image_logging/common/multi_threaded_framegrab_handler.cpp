@@ -140,15 +140,15 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
     {
       std::unique_ptr<std::string> json( new std::string );
       google::protobuf::util::Status result = google::protobuf::util::MessageToJsonString( tag , json.get() , opshinz );
-	  if (result.ok())
-	  {
-		  std::string json_filename(file_prefix + ".json");
-		  std::string json_output_file((images_folder / fs::path(json_filename)).string());
-		  ostream->open(json_output_file.c_str(), std::fstream::out | std::fstream::trunc);
-		  (*ostream) << (*json) << std::endl;
-		  ostream->flush();
-		  ostream->close();
-	  }
+	    if (result.ok())
+	    {
+		    std::string json_filename(file_prefix + ".json");
+		    std::string json_output_file((images_folder / fs::path(json_filename)).string());
+		    ostream->open(json_output_file.c_str(), std::fstream::out | std::fstream::trunc);
+		    (*ostream) << (*json) << std::endl;
+		    ostream->flush();
+		    ostream->close();
+	    }
     }
     else{
       std::string pb_filename( file_prefix + ".pb" );
