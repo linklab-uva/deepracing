@@ -109,9 +109,9 @@ int main(int argc, char** argv)
   std::cout << "Recording. Push Y to pause. Push dpad up to unpause. D-Pad Down to Exit." << std::endl;
   DirectX::GamePad gp;
   DirectX::GamePad::State gpstate;
-  std::function<bool()> isUnpausePressed = std::bind(&DirectX::GamePad::State::IsDPadUpPressed, &gpstate);
-  std::function<bool()> pause = [&gpstate, &spectating]() {return spectating && (gpstate.IsYPressed() || gpstate.IsStartPressed() || gpstate.IsRightTriggerPressed() || gpstate.IsLeftTriggerPressed()
-    || gpstate.IsRightShoulderPressed() || gpstate.IsLeftShoulderPressed() || gpstate.IsBPressed() || gpstate.IsXPressed() ); };
+  std::function<bool()> isUnpausePressed = std::bind(&DirectX::GamePad::State::IsLeftStickPressed, &gpstate);
+  std::function<bool()> pause = [&gpstate, &spectating]() {return (gpstate.IsStartPressed() || (spectating && (gpstate.IsYPressed() || gpstate.IsStartPressed() || gpstate.IsRightTriggerPressed() || gpstate.IsLeftTriggerPressed()
+    || gpstate.IsRightShoulderPressed() || gpstate.IsLeftShoulderPressed() || gpstate.IsBPressed() || gpstate.IsXPressed()) ) ); };
   while (true)
   {
     gpstate = gp.GetState(0);

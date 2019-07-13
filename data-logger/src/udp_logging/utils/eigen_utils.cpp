@@ -9,7 +9,7 @@
 #ifdef USE_ARMADILLO
 #include <armadillo>
 #endif
-#include <exception>
+#include <stdexcept>
 namespace deepf1
 { 
 
@@ -24,11 +24,14 @@ Eigen::MatrixXd EigenUtils::loadArmaTxt(const std::string& armafile)
 {
   #ifdef USE_ARMADILLO
   arma::Mat<double> arma_mat;
-  arma_mat.load(armafile, arma::arma_ascii);
+  if (!arma_mat.load(armafile, arma::arma_ascii))
+  {
+    throw std::runtime_error("Could not load arma txt file: " + armafile);
+  }
   Eigen::MatrixXd rtn(Eigen::Map<Eigen::MatrixXd>(arma_mat.memptr(), arma_mat.n_rows, arma_mat.n_cols));
   return rtn;
   #else
-  throw std::runtime_exception("This feature only works with the armadillo library. Recompile with the WITH_ARMA option turned on");
+  throw std::runtime_error("This feature only works with the armadillo library. Recompile with the WITH_ARMA option turned on");
   #endif
 }
 deepf1::protobuf::eigen::Pose3d EigenUtils::eigenToProto(const Eigen::Affine3d& poseEigen, const double& session_time, deepf1::protobuf::eigen::FrameId frameid)

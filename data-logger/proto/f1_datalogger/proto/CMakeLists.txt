@@ -8,7 +8,6 @@ ${PROTOFILES}
 )
 set(ProtobufIncludePath ${CMAKE_BINARY_DIR}/proto
     CACHE INTERNAL "Path to generated protobuf files.")
-file(MAKE_DIRECTORY ${ProtobufIncludePath}/${PROJECT_NAME}/proto/)
 protobuf_generate_python(PY_SOURCES ${PROTOFILES})
 add_custom_target(GENERATE_PROTOBUF_PYTHON ALL DEPENDS ${PY_SOURCES})
 message(STATUS "Generated Python: ${PY_SOURCES}")
@@ -41,6 +40,8 @@ install(TARGETS ${install_targets}
     ARCHIVE DESTINATION lib
 )
 install(FILES ${PY_SOURCES} DESTINATION lib/python)
+install(FILES ${PROTOFILES} DESTINATION share/${PROJECT_NAME}/proto)
+install(FILES ${${PROJECT_NAME}_PROTO_HEADER} DESTINATION include/${PROJECT_NAME}/proto)
 unset(install_targets)
 
 

@@ -31,6 +31,8 @@ if((NOT EIGEN3_FOUND))
 elseif(${EIGEN3_VERSION_STRING} VERSION_LESS "3.3.90")
   message("Found unacceptable eigen version ${EIGEN3_VERSION_STRING} at ${EIGEN3_ROOT_DIR}. Using Eigen3 packaged with this repo.")
   include(add_prepackaged_eigen)
+else()
+  message("Found acceptable eigen version ${EIGEN3_VERSION_STRING} at ${EIGEN3_ROOT_DIR}.")
 endif()
 include_directories(${EIGEN3_INCLUDE_DIRS})
 
@@ -190,8 +192,3 @@ endif()
 if(MSVC)
 	configure_file(scripts/windows/tbbvars2019.bat.in tbbvars2019.bat @ONLY NEWLINE_STYLE WIN32)
 endif() 
-
-install(DIRECTORY proto/
-DESTINATION share/${PROJECT_NAME}/proto
-FILES_MATCHING PATTERN "*.proto"
-)
