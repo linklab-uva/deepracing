@@ -1,4 +1,3 @@
-find_package(Eigen3 REQUIRED)
 if(MSVC)
     find_package(vJoy++ REQUIRED)
 	set(controllers_SRCS
@@ -8,11 +7,18 @@ if(MSVC)
 	)
 	set(additional_controller_libs_ ${vJoy++_LIBRARIES})
 	set(additional_controller_includes_ ${vJoy++_INCLUDE_DIR})
-else()
+elseif(APPLE)
+	set(controllers_SRCS
+		pure_pursuit_controller.cpp
+		ios/f1_interface_factory.cpp
+	)
+elseif(UNIX)
 	set(controllers_SRCS
 		pure_pursuit_controller.cpp
 		linux/f1_interface_factory.cpp
 	)
+else()
+	message(FATAL_ERROR "This library is not supported on your platform: ${CMAKE_SYSTEM}")
 endif()
 add_library(${PROJECT_NAME}_controllers ${controllers_SRCS})
 target_link_libraries(${PROJECT_NAME}_controllers
