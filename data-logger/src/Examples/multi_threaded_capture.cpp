@@ -108,13 +108,16 @@ int main(int argc, char** argv)
   unsigned int bcount = 0;
   std::cout << "Recording. Push Y to pause. Push dpad up to unpause. D-Pad Down to Exit." << std::endl;
   DirectX::GamePad gp;
+  DirectX::GamePad::State gpstate;
+  std::function<bool()> isUnpausePressed = std::bind(&DirectX::GamePad::State::IsLeftStickPressed, &gpstate);
+  std::function<bool()> pause = [&gpstate, &spectating]() {return (gpstate.IsStartPressed() || (spectating && (gpstate.IsYPressed() || gpstate.IsStartPressed() || gpstate.IsRightTriggerPressed() || gpstate.IsLeftTriggerPressed()
+    || gpstate.IsRightShoulderPressed() || gpstate.IsLeftShoulderPressed() || gpstate.IsBPressed() || gpstate.IsXPressed()) ) ); };
   while (true)
   {
-    DirectX::GamePad::State gpstate = gp.GetState(0);
-    if (spectating && (gpstate.IsYPressed() || gpstate.IsStartPressed() || gpstate.IsRightTriggerPressed() || gpstate.IsLeftTriggerPressed()
-      || gpstate.IsRightShoulderPressed() || gpstate.IsLeftShoulderPressed() || gpstate.IsBPressed() || gpstate.IsXPressed()))
+    gpstate = gp.GetState(0);
+    if (pause())
     {
-      printf("UI button pressed. Pausing %u\n", ++ycount);
+      printf("Pausing %u\n", ++ycount);
       frame_handler->pause();
     }
     if (gpstate.IsStartPressed())
@@ -122,9 +125,9 @@ int main(int argc, char** argv)
       printf("Start is pressed. Pausing %u\n", ++ycount);
       frame_handler->pause();
     }
-    if (gpstate.IsDPadUpPressed())
+    if (isUnpausePressed())
     {
-      printf("Left thumbstick is pressed pressed. Unpausing %u\n", ++bcount);
+      printf("Unpausing %u\n", ++bcount);
       frame_handler->resume();
     }
     if (gpstate.IsDPadDownPressed())
@@ -134,9 +137,12 @@ int main(int argc, char** argv)
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
   }
+  //stop issuing new data to the handlers.
   dl->stop();
+  //stop listening for data and just process whatever is left in the buffers.
 	frame_handler->stop();
 	udp_handler->stop();
+  //join with the main thread to keep the handlers in scope until all data has been written to file.
 	frame_handler->join();
 	udp_handler->join(1);
   

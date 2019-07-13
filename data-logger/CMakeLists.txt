@@ -31,6 +31,8 @@ if((NOT EIGEN3_FOUND))
 elseif(${EIGEN3_VERSION_STRING} VERSION_LESS "3.3.90")
   message("Found unacceptable eigen version ${EIGEN3_VERSION_STRING} at ${EIGEN3_ROOT_DIR}. Using Eigen3 packaged with this repo.")
   include(add_prepackaged_eigen)
+else()
+  message("Found acceptable eigen version ${EIGEN3_VERSION_STRING} at ${EIGEN3_ROOT_DIR}.")
 endif()
 include_directories(${EIGEN3_INCLUDE_DIRS})
 
@@ -109,7 +111,10 @@ if(GET_TBB)
     endif()
 else()
     find_package(TBB REQUIRED COMPONENTS tbb)
+	message(STATUS "TBB Configuration at : ${TBB_DIR}")
 	message(STATUS "Got TBB targets: ${TBB_IMPORTED_TARGETS}")
+	get_filename_component(TBB_ROOT_DIR ${TBB_DIR} DIRECTORY)
+	message(STATUS "Got TBB root: ${TBB_ROOT_DIR}")
 endif()
 
 
@@ -184,8 +189,6 @@ if(${_gotqt} AND GUI_TOOLS)
     add_subdirectory(src/guitools)
 endif()
 
-
-install(DIRECTORY proto/
-DESTINATION share/${PROJECT_NAME}/proto
-FILES_MATCHING PATTERN "*.proto"
-)
+if(MSVC)
+	configure_file(scripts/windows/tbbvars2019.bat.in tbbvars2019.bat @ONLY NEWLINE_STYLE WIN32)
+endif() 

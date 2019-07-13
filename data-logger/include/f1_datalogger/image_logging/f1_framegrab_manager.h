@@ -19,7 +19,7 @@ class F1FrameGrabManager
   friend class F1DataLogger;
 public:
   F1FrameGrabManager(ClockPtr clock,
-                     const std::string& search_string = "2018");
+                     const std::string& search_string = "F1");
   virtual ~F1FrameGrabManager();
 private:
   void stop();

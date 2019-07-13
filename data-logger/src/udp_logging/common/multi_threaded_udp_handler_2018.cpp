@@ -131,7 +131,7 @@ const deepf1::TimePoint& begin, const fs::path& output_dir, tbb::atomic<unsigned
     std::string json_string;
     fs::path filename = output_dir / fs::path("packet_" + std::to_string(counter.fetch_and_increment()) + ".json");
     google::protobuf::util::Status rc = google::protobuf::util::MessageToJsonString(data_pb, &json_string, json_options);
-    std::ofstream ostream(filename.string());// | std::fstream::binary);
+    std::ofstream ostream(filename.string(), std::fstream::out | std::fstream::trunc);// | std::fstream::binary);
     ostream << json_string << std::endl;
     ostream.flush();
     ostream.close();
@@ -140,7 +140,7 @@ const deepf1::TimePoint& begin, const fs::path& output_dir, tbb::atomic<unsigned
   else
   {
     fs::path filename = output_dir / fs::path("packet_" + std::to_string(counter.fetch_and_increment()) + ".pb");
-    std::ofstream ostream(filename.string(), std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
+    std::ofstream ostream(filename.string(), std::fstream::out | std::fstream::trunc | std::fstream::binary);
     data_pb.SerializeToOstream(&ostream);
     ostream.flush();
     ostream.close();
