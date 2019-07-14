@@ -43,6 +43,6 @@ def getAllImageFilePackets(image_data_folder: str, use_json: bool):
             f.close()
             image_packets.append(data)
          except:
-            print("Could not read udp file %s." %(filepath))
+            print("Could not read image data file %s." %(filepath))
             continue
    return image_packets
