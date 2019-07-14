@@ -6,18 +6,18 @@ import skimage
 import PIL
 from PIL import Image as PILImage
 import TimestampedPacketMotionData_pb2
+import PoseSequenceLabel_pb2
+import TimestampedImage_pb2
+import Vector3dStamped_pb2
 import argparse
 import os
 import google.protobuf.json_format
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-import TimestampedImage_pb2
 import Pose3d_pb2
 import cv2
-import PoseSequenceLabel_pb2
 import bisect
 import FrameId_pb2
-import Vector3dStamped_pb2
 import scipy.interpolate
 def fromHomogenousTransform(transform):
     pos = transform[0:3,3].copy()
@@ -158,6 +158,7 @@ if args.use_given_angular_velocities:
     angular_velocities = [extractAngularVelocity(packet.udp_packet) for packet in motion_packets]
 else:
     angular_velocities = quaternion.angular_velocity(quaternions, session_times)
+
 print(angular_velocities[10])
 print(len(motion_packets))
 print(len(session_times))

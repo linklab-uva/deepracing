@@ -1,46 +1,38 @@
 import numpy as np
 import numpy.linalg as la
 import quaternion
-import scipy
-import skimage
-import PIL
-from PIL import Image as PILImage
-import TimestampedPacketMotionData_pb2
-import argparse
-import os
-import google.protobuf.json_format
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import TimestampedImage_pb2
-import Pose3d_pb2
-import cv2
-import PoseSequenceLabel_pb2
-import bisect
-import FrameId_pb2
-import Vector3dStamped_pb2
-import scipy.interpolate
-
+import math
+import torch
+def quaternionDistanceTorch(q1, q2):
+    return 2.0*torch.acos(torch.abs(torch.dot(q1, q2)))
+def quaternionDistance(q1, q2):
+    return 2.0*np.arccos(np.abs(np.dot(quaternion.as_float_array(q1), quaternion.as_float_array(q2))))
 v1 = np.random.rand(3)
 v1 = v1/la.norm(v1)
+if(np.random.rand()>0.5):
+    v1 = -v1
+angle1 = 2.0*math.pi*(np.random.rand())
+q1 = quaternion.from_rotation_vector(angle1*v1)
+print(q1)
 
-vrand = np.random.rand(3)
-vrand = vrand/la.norm(vrand)
-
-v2 = np.cross(v1,vrand)
+v2 = np.random.rand(3)
 v2 = v2/la.norm(v2)
+if(np.random.rand()>0.5):
+    v2 = -v2
+angle2 = math.pi*(np.random.rand())
+q2 = quaternion.from_rotation_vector(angle2*v2)
+print(q2)
 
-v3 =  np.cross(v1,v2)
-v3 = v3/la.norm(v3)
+q1torch = torch.as_tensor(quaternion.as_float_array(q1))
+print(q1torch)
+q2torch = torch.as_tensor(quaternion.as_float_array(q2))
+print(q2torch)
 
-rotationmat = np.vstack( (v1, v2, v3) ).transpose()
-print(rotationmat)
-quat = quaternion.from_rotation_matrix(rotationmat)
-quatcopy = quaternion.quaternion()
-quatcopy.x = quat.x
-quatcopy.y = quat.y
-quatcopy.z = quat.z
-quatcopy.w = quat.w
-rotationmatout = quaternion.as_rotation_matrix(quatcopy).copy()
-print(rotationmat)
+print("Distance between q1 and q2: %f" %(quaternionDistance(q1,q2)))
+print("Distance between q1 and -q2: %f" %(quaternionDistance(q1,-q2)))
 
-print(la.norm(rotationmat - rotationmatout))
+print("Distance between q1 and q2 torch: %f" %(quaternionDistanceTorch(q1torch,q2torch)))
+print("Distance between q1 and -q2 torch: %f" %(quaternionDistanceTorch(q1torch,-q2torch)))
+
+
+
