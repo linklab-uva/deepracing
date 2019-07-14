@@ -10,6 +10,8 @@ set(ProtobufIncludePath ${CMAKE_BINARY_DIR}/proto
     CACHE INTERNAL "Path to generated protobuf files.")
 protobuf_generate_python(PY_SOURCES ${PROTOFILES})
 add_custom_target(GENERATE_PROTOBUF_PYTHON ALL DEPENDS ${PY_SOURCES})
+set(python_proto_path_ ${CMAKE_CURRENT_BINARY_DIR}
+    CACHE INTERNAL "Path to generated python files.")
 message(STATUS "Generated Python: ${PY_SOURCES}")
 message(STATUS "Generated sources: ${${PROJECT_NAME}_PROTO_SRC}")
 message(STATUS "Generated header: ${${PROJECT_NAME}_PROTO_HEADER}")

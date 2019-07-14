@@ -191,4 +191,5 @@ endif()
 
 if(MSVC)
 	configure_file(scripts/windows/tbbvars2019.bat.in tbbvars2019.bat @ONLY NEWLINE_STYLE WIN32)
+	configure_file(scripts/windows/addpythonpath.bat.in addpythonpath.bat @ONLY NEWLINE_STYLE WIN32)
 endif() 
