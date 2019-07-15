@@ -19,50 +19,13 @@ import cv2
 import bisect
 import FrameId_pb2
 import scipy.interpolate
-def fromHomogenousTransform(transform):
-    pos = transform[0:3,3].copy()
-    quat = quaternion.from_rotation_matrix(transform[0:3,0:3])
-    return pos,quat
-def toHomogenousTransform(position, quat):
-    rtn = np.eye(4)
-    rtn[0:3,3] = position.copy()
-    rtn[0:3,0:3] = quaternion.as_rotation_matrix(quat)
-    return rtn
-def interpolateVectors(p1, t1, p2, t2, t_interp):
-    tau = (t_interp - t1)/(t2 - t1)
-    rtn = (1-tau)*p1 + tau*p2
-    return rtn
+import deepracing.pose_utils
+from deepracing.pose_utils import getAllImageFilePackets, getAllMotionPackets
+
 def imageDataKey(data):
     return data.timestamp
 def udpPacketKey(packet):
     return packet.timestamp
-   # return packet.udp_packet.m_header.m_sessionTime
-def extractAngularVelocity(packet):
-    angular_velocity = np.array((packet.m_angularVelocityX, packet.m_angularVelocityY, packet.m_angularVelocityZ), np.float64)
-    return angular_velocity
-def extractVelocity(packet, car_index = 0):
-    motion_data = packet.m_carMotionData[car_index]
-    velocity = np.array((motion_data.m_worldVelocityX, motion_data.m_worldVelocityY, motion_data.m_worldVelocityZ), np.float64)
-    return velocity
-def extractPose(packet, car_index = 0):
-    motion_data = packet.m_carMotionData[car_index]
-   # print(motion_data)
-    rightvector = np.array((motion_data.m_worldRightDirX, motion_data.m_worldRightDirY, motion_data.m_worldRightDirZ), dtype=np.float64)
-   # rightvector = rightvector/32767.0
-    rightvector = rightvector/la.norm(rightvector)
-    forwardvector = np.array((motion_data.m_worldForwardDirX, motion_data.m_worldForwardDirY, motion_data.m_worldForwardDirZ), dtype=np.float64)
-  #  forwardvector = forwardvector/32767.0
-    forwardvector = forwardvector/la.norm(forwardvector)
-    upvector = np.cross(rightvector,forwardvector)
-    upvector = upvector/la.norm(upvector)
-	#rotationMat.col(0) = -right;
-	#rotationMat.col(1) = up;
-	#rotationMat.col(2) = forward;
-    rotationmat = np.vstack((-rightvector,upvector,forwardvector)).transpose()
-    #print(rotationmat)
-    position = np.array((motion_data.m_worldPositionX, motion_data.m_worldPositionY, motion_data.m_worldPositionZ), dtype=np.float64)
-    quat = quaternion.from_rotation_matrix(rotationmat)
-    return position, quat 
 
 parser = argparse.ArgumentParser()
 parser.add_argument("motion_data_path", help="Path to motion_data packet folder",  type=str)
@@ -76,51 +39,8 @@ parser.add_argument("--json", help="Assume dataset files are in JSON rather than
 args = parser.parse_args()
 motion_data_folder = args.motion_data_path
 image_folder = args.image_path
-image_tags = []
-motion_packets = []
-if args.json:
-    image_filepaths = [f for f in os.listdir(image_folder) if os.path.isfile(os.path.join(image_folder, f)) and str.lower(os.path.splitext(f)[1])==".json"]
-    image_jsonstrings = [open(os.path.join(image_folder, path)).read() for path in image_filepaths]
-    for jsonstring in image_jsonstrings:
-        image_data = TimestampedImage_pb2.TimestampedImage()
-        try:
-            google.protobuf.json_format.Parse(jsonstring, image_data)
-            image_tags.append(image_data)
-        except:
-            continue
-    filepaths = [f for f in os.listdir(motion_data_folder) if os.path.isfile(os.path.join(motion_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".json"]
-    print(filepaths)
-    print(len(filepaths))
-    jsonstrings = [open(os.path.join(motion_data_folder, path)).read() for path in filepaths]
-    print(jsonstrings[45])
-    print(len(jsonstrings))
-    for jsonstring in jsonstrings:
-        data = TimestampedPacketMotionData_pb2.TimestampedPacketMotionData()
-        google.protobuf.json_format.Parse(jsonstring, data)
-        motion_packets.append(data)
-else:
-    image_filepaths = [os.path.join(image_folder, f) for f in os.listdir(image_folder) if os.path.isfile(os.path.join(image_folder, f)) and str.lower(os.path.splitext(f)[1])==".pb"]
-    for image_filepath in image_filepaths:
-        try:
-            image_data = TimestampedImage_pb2.TimestampedImage()
-            f = open(image_filepath,'rb')
-            image_data.ParseFromString(f.read())
-            f.close()
-            image_tags.append(image_data)
-        except:
-            print("Could not read image file %s." %(image_filepath))
-            continue
-    filepaths = [os.path.join(motion_data_folder, f) for f in os.listdir(motion_data_folder) if os.path.isfile(os.path.join(motion_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".pb"]
-    for filepath in filepaths:
-        try:
-            data = TimestampedPacketMotionData_pb2.TimestampedPacketMotionData()
-            f = open(filepath,'rb')
-            data.ParseFromString(f.read())
-            f.close()
-            motion_packets.append(data)
-        except:
-            print("Could not read udp file %s." %(filepath))
-            continue
+image_tags = deepracing.pose_utils.getAllImageFilePackets(args.image_path, args.json)
+motion_packets = deepracing.pose_utils.getAllMotionPackets(args.motion_data_path, args.json)
 motion_packets = sorted(motion_packets, key=udpPacketKey)
 session_times = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets])
 system_times = np.array([packet.timestamp/1000.0 for packet in motion_packets])
@@ -150,15 +70,16 @@ print("Range of session times: [%f,%f]" %(session_times[0], session_times[-1]))
 print("Range of udp system times: [%f,%f]" %(system_times[0], system_times[-1]))
 print("Range of image system times: [%f,%f]" %(image_timestamps[0], image_timestamps[-1]))
 
-poses = [extractPose(packet.udp_packet) for packet in motion_packets]
-velocities = [extractVelocity(packet.udp_packet) for packet in motion_packets]
+poses = [deepracing.pose_utils.extractPose(packet.udp_packet) for packet in motion_packets]
+velocities = [deepracing.pose_utils.extractVelocity(packet.udp_packet) for packet in motion_packets]
 positions = np.array([pose[0] for pose in poses])
 quaternions = np.array([pose[1] for pose in poses])
 if args.use_given_angular_velocities:
-    angular_velocities = [extractAngularVelocity(packet.udp_packet) for packet in motion_packets]
+    angular_velocities = [deepracing.pose_utils.extractAngularVelocity(packet.udp_packet) for packet in motion_packets]
 else:
     angular_velocities = quaternion.angular_velocity(quaternions, session_times)
 
+print()
 print(angular_velocities[10])
 print(len(motion_packets))
 print(len(session_times))
@@ -185,16 +106,18 @@ print("Range of image session times after clipping: [%f,%f]" %(image_session_tim
 
 position_interpolant = scipy.interpolate.interp1d(session_times, positions , axis=0, kind='cubic')
 #velocity_interpolant = position_interpolant.derivative()
-velocity_interpolant = scipy.interpolate.interp1d(session_times, velocities, axis=0, kind='linear')
+velocity_interpolant = scipy.interpolate.interp1d(session_times, velocities, axis=0, kind='cubic')
 interpolated_positions = position_interpolant(image_session_timestamps)
 interpolated_velocities = velocity_interpolant(image_session_timestamps)
 interpolated_quaternions = quaternion.squad(quaternions, session_times, image_session_timestamps)
 interpolated_angular_velocities = quaternion.angular_velocity(interpolated_quaternions, image_session_timestamps)
+print()
 print(len(image_tags))
 print(len(image_session_timestamps))
 print(len(interpolated_positions))
 print(len(interpolated_quaternions))
 print(len(interpolated_angular_velocities))
+print()
 print("Linear map from system time to session time: session_time = %f*system_time + %f" %(slope,intercept))
 print("Standard error: %f" %(std_err))
 print("R^2: %f" %(r_value**2))
@@ -265,7 +188,7 @@ for idx in range(len(image_tags)):
     label_tag.car_angular_velocity.vector.y = carangvelocity_global[1]
     label_tag.car_angular_velocity.vector.z = carangvelocity_global[2]
 
-    carpose_global = toHomogenousTransform(carposition_global, carquat_global)
+    carpose_global = deepracing.pose_utils.toHomogenousTransform(carposition_global, carquat_global)
     #yes, I know this is an un-necessary inverse computation. Sue me.
     carposeinverse_global = la.inv(carpose_global)
     #print()
@@ -286,11 +209,11 @@ for idx in range(len(image_tags)):
         pos_forward_global, quat_forward_global = poses[forward_index]
         angular_velocity_global = angular_velocities[forward_index]
         velocity_global = velocities[forward_index]
-        pose_forward_global = toHomogenousTransform(pos_forward_global, quat_forward_global)
+        pose_forward_global = deepracing.pose_utils.toHomogenousTransform(pos_forward_global, quat_forward_global)
         pose_forward_local = np.matmul(carposeinverse_global, pose_forward_global)
         velocity_local = np.matmul(carposeinverse_global[0:3,0:3], velocity_global)
         angular_velocity_local = np.matmul(carposeinverse_global[0:3,0:3], angular_velocity_global)
-        position_forward_local, quat_forward_local = fromHomogenousTransform(pose_forward_local)
+        position_forward_local, quat_forward_local = deepracing.pose_utils.fromHomogenousTransform(pose_forward_local)
         #print()
         #print(pose_forward_local)
         #print(position_forward_local)
