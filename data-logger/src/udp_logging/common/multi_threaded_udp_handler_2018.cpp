@@ -29,11 +29,11 @@
 namespace fs = std::filesystem;
 namespace deepf1
 {
+
 MultiThreadedUDPHandler2018::MultiThreadedUDPHandler2018( std::string data_folder, bool write_json, unsigned int sleeptime, MultiThreadedUDPHandler2018ThreadSettings settings)
- : running_(false), hard_stopped_(true), data_folder_(data_folder), write_json_(write_json), sleeptime_(sleeptime),
-    setups_counter(1), status_counter(1), telemetry_counter(1), lapdata_counter(1),
-                              motion_counter(1), participants_counter(1), session_counter(1), paused_(false), thread_settings_(settings)
-                              
+ : running_(false), ready_(false), hard_stopped_(true), data_folder_(data_folder), 
+    write_json_(write_json), sleeptime_(sleeptime), setups_counter(1), status_counter(1), telemetry_counter(1), lapdata_counter(1),
+                              motion_counter(1), participants_counter(1), session_counter(1), paused_(false), thread_settings_(settings)                              
 {
   fs::path main_dir(data_folder);
   if(fs::is_directory(main_dir))
@@ -131,7 +131,7 @@ const deepf1::TimePoint& begin, const fs::path& output_dir, tbb::atomic<unsigned
     std::string json_string;
     fs::path filename = output_dir / fs::path("packet_" + std::to_string(counter.fetch_and_increment()) + ".json");
     google::protobuf::util::Status rc = google::protobuf::util::MessageToJsonString(data_pb, &json_string, json_options);
-    std::ofstream ostream(filename.string(), std::fstream::out | std::fstream::trunc);// | std::fstream::binary);
+    std::ofstream ostream(filename.string(), std::fstream::out | std::fstream::trunc);
     ostream << json_string << std::endl;
     ostream.flush();
     ostream.close();
