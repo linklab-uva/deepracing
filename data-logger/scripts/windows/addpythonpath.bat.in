@@ -1,1 +1,2 @@
-IF "%PYTHONPATH%"=="" (set PYTHONPATH=@python_proto_path_@) ELSE (set PYTHONPATH=%PYTHONPATH%;@python_proto_path_@)
+set extrapythonpaths=@python_proto_path_@;@CMAKE_SOURCE_DIR@/python
+IF "%PYTHONPATH%"=="" (set PYTHONPATH=%extrapythonpaths%) ELSE (set PYTHONPATH=%PYTHONPATH%;%extrapythonpaths%)
