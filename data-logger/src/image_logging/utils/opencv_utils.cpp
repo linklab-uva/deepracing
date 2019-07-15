@@ -93,16 +93,15 @@ deepf1::protobuf::images::Image OpenCVUtils::cvimageToProto(const cv::Mat& cv_im
 }
 void OpenCVUtils::toCV(const scl::Image& image_scl, const scl::Point& size, cv::Mat& out)
 {
-	out.create(size.y, size.x, CV_8UC4);
+	out.create(scl::Height(image_scl), scl::Width(image_scl), CV_8UC4);
 	scl::Extract(image_scl, out.data, (size_t)out.rows * (size_t)out.cols * sizeof(scl::ImageBGRA));
 }
 cv::Mat OpenCVUtils::toCV(const scl::Image& image_scl, const scl::Point& size)
 {
-  cv::Mat rtn;
-  uint32_t rows = scl::Height(image_scl), cols = scl::Width(image_scl);
-  //std::cout << "Got an image of Height: " << rows << " and Width: " << cols << std::endl;
-  rtn.create(rows, cols, CV_8UC4);
-  scl::Extract(image_scl, rtn.data, (size_t)cols * (size_t)rows * sizeof(scl::ImageBGRA));
-  return rtn;
+  cv::Mat out;
+  out.create(scl::Height(image_scl), scl::Width(image_scl), CV_8UC4);
+  scl::Extract(image_scl, out.data, (size_t)out.rows * (size_t)out.cols  *sizeof(scl::ImageBGRA));
+  cv::Mat nontitlebar = out.rowRange(cv::Range(out.rows/2, out.rows-1));
+  return out;
 }
 } /* namespace deepf1 */
