@@ -22,7 +22,7 @@ import FrameId_pb2
 import scipy.interpolate
 import deepracing.pose_utils
 from deepracing.pose_utils import getAllImageFilePackets, getAllMotionPackets
-
+import h5py
 def imageDataKey(data):
     return data.timestamp
 def udpPacketKey(packet):
@@ -141,12 +141,30 @@ plt.show()
 label_folder = "pose_labels"
 if(not os.path.isdir(os.path.join(image_folder,label_folder))):
     os.makedirs(os.path.join(image_folder,label_folder))
+first_image = cv2.imread(os.path.join(image_folder,image_tags[0].image_file))
+cv2.namedWindow("first_image", cv2.WINDOW_AUTOSIZE)
+cv2.imshow("first_image",first_image)
+cv2.waitKey(0)
+cv2.destroyWindow("first_image")
+dsfile = os.path.join(image_folder,'h5dataset.hdf5')
+os.remove(dsfile)
+hf5file = h5py.File(dsfile, 'w')
+dsetlen = len(image_tags)
+image_dset = hf5file.create_dataset("images", (dsetlen,first_image.shape[0],first_image.shape[1],first_image.shape[2]), dtype='uint8')
+position_dset = hf5file.create_dataset("position", (dsetlen,3), dtype='float64')
+rotation_dset = hf5file.create_dataset("rotation", (dsetlen,4), dtype='float64')
+linear_velocity_dset = hf5file.create_dataset("linear_velocity", (dsetlen,3), dtype='float64')
+angular_velocity_dset = hf5file.create_dataset("angular_velocity", (dsetlen,3), dtype='float64')
+session_time_dset = hf5file.create_dataset("session_time", (dsetlen,), dtype='float64')
 for idx in range(len(image_tags)):
     label_tag = TimestampedImageWithPose_pb2.TimestampedImageWithPose()
     label_tag.timestamped_image.CopyFrom(image_tags[idx])
     label_tag.pose.frame = FrameId_pb2.GLOBAL
     label_tag.linear_velocity.frame = FrameId_pb2.GLOBAL
     label_tag.angular_velocity.frame = FrameId_pb2.GLOBAL
+    image_dset[idx]=cv2.imread(os.path.join(image_folder,image_tags[idx].image_file))
+
+    
 
     t_interp = image_session_timestamps[idx]
     label_tag.pose.session_time = t_interp
@@ -156,11 +174,18 @@ for idx in range(len(image_tags)):
     carposition_global = interpolated_positions[idx]
     #carposition_global = interpolateVectors(pos1,session_times[i-1],pos2,session_times[i], t_interp)
     carvelocity_global = interpolated_velocities[idx]
+    
     #carvelocity_global = interpolateVectors(vel1,session_times[i-1],vel2,session_times[i], t_interp)
     carquat_global = interpolated_quaternions[idx]
+    carquat_global = carquat_global/carquat_global.norm()
     #carquat_global = quaternion.slerp(quat1,quat2,session_times[i-1],session_times[i], t_interp)
     carangvelocity_global = interpolated_angular_velocities[idx]
     #carangvelocity_global = interpolateVectors(angvel1,session_times[i-1],angvel2,session_times[i], t_interp)
+    position_dset[idx]=carposition_global
+    rotation_dset[idx]=quaternion.as_float_array(carquat_global)
+    linear_velocity_dset[idx]=carvelocity_global
+    angular_velocity_dset[idx]=carangvelocity_global
+    session_time_dset[idx]=t_interp
         
     label_tag.pose.translation.x = carposition_global[0]
     label_tag.pose.translation.y = carposition_global[1]
@@ -191,7 +216,7 @@ for idx in range(len(image_tags)):
     f.close()
     #print(carquatinverse)
    # print(carquat)
-
+hf5file.close()
 
 
 
