@@ -156,7 +156,7 @@ rotation_dset = hf5file.create_dataset("rotation", (dsetlen,4), dtype='float64')
 linear_velocity_dset = hf5file.create_dataset("linear_velocity", (dsetlen,3), dtype='float64')
 angular_velocity_dset = hf5file.create_dataset("angular_velocity", (dsetlen,3), dtype='float64')
 session_time_dset = hf5file.create_dataset("session_time", (dsetlen,), dtype='float64')
-for idx in range(len(image_tags)):
+for idx in range(dsetlen):
     label_tag = TimestampedImageWithPose_pb2.TimestampedImageWithPose()
     label_tag.timestamped_image.CopyFrom(image_tags[idx])
     label_tag.pose.frame = FrameId_pb2.GLOBAL
