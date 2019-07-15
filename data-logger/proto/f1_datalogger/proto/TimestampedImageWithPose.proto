@@ -1,0 +1,11 @@
+syntax = "proto3";
+package deepf1.protobuf;
+import "TimestampedImage.proto";
+import "Pose3d.proto";
+import "Vector3dStamped.proto";
+message TimestampedImageWithPose {
+  TimestampedImage timestamped_image = 1;
+  deepf1.protobuf.eigen.Pose3d pose = 2;
+  deepf1.protobuf.eigen.Vector3dStamped linear_velocity = 3;
+  deepf1.protobuf.eigen.Vector3dStamped angular_velocity = 4;
+}

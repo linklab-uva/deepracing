@@ -52,18 +52,38 @@ def getAllImageFilePackets(image_data_folder: str, use_json: bool):
             print("Could not read image data file %s." %(filepath))
             continue
    return image_packets
-def fromHomogenousTransformArray(transform):
-    pos = transform[:,0:3,3].copy()
-    quat = quaternion.from_rotation_matrix(transform[:,0:3,0:3])
-    return pos,quat
+
+def toLocalCoordinatesVector(coordinate_system, vectors):
+    pose_mat = toHomogenousTransform( coordinate_system[0] , coordinate_system[1] )
+    pose_mat_inv = inverseTransform( pose_mat )
+    return np.transpose(np.matmul(pose_mat_inv[0:3,0:3],np.transpose(vectors)))
+def toLocalCoordinatesPose(coordinate_system, positions, quaternions):
+    assert(positions.shape[0] == quaternions.shape[0])
+    pose_mat = toHomogenousTransform( coordinate_system[0] , coordinate_system[1] )
+    pose_mat_inv = inverseTransform( pose_mat )
+    poses_to_transform = toHomogenousTransformArray(positions, quaternions)
+    poses_transformed = np.matmul(pose_mat_inv,poses_to_transform)
+    positions, quats = fromHomogenousTransformArray(poses_transformed)
+    return positions, quats
+def inverseTransform(transform):
+    rtn = transform.copy()
+    rtn[0:3,0:3] = np.transpose(rtn[0:3,0:3])
+    rtn[0:3,3] = np.matmul(rtn[0:3,0:3], -rtn[0:3,3])
+    return rtn
+def fromHomogenousTransformArray(transforms):
+    positions = transforms[:,0:3,3].copy()
+    quats = quaternion.from_rotation_matrix(transforms[:,0:3,0:3])
+    return positions, quats
 def fromHomogenousTransform(transform):
     pos = transform[0:3,3].copy()
     quat = quaternion.from_rotation_matrix(transform[0:3,0:3])
     return pos,quat
-def toHomogenousTransformArray(position, quat):
-    rtn = np.array([np.eye(4) for i in range(position.shape[0])])
-    rtn[:,0:3,3] = position.copy()
-    rtn[:,0:3,0:3] = np.array([quaternion.as_rotation_matrix(quat[i]) for i in range(quat.shape[0])])
+def toHomogenousTransformArray(positions, quats):
+    length = positions.shape[0]
+    assert(quats.shape[0]==length)
+    rtn = np.array([np.eye(4) for i in range(length)])
+    rtn[:,0:3,3] = positions.copy()
+    rtn[:,0:3,0:3] = np.array([quaternion.as_rotation_matrix(quats[i]) for i in range(length)])
     return rtn
 def toHomogenousTransform(position, quat):
     rtn = np.eye(4)
@@ -83,20 +103,13 @@ def extractVelocity(packet, car_index = 0):
     return velocity
 def extractPose(packet, car_index = 0):
     motion_data = packet.m_carMotionData[car_index]
-   # print(motion_data)
     rightvector = np.array((motion_data.m_worldRightDirX, motion_data.m_worldRightDirY, motion_data.m_worldRightDirZ), dtype=np.float64)
-   # rightvector = rightvector/32767.0
     rightvector = rightvector/la.norm(rightvector)
     forwardvector = np.array((motion_data.m_worldForwardDirX, motion_data.m_worldForwardDirY, motion_data.m_worldForwardDirZ), dtype=np.float64)
-  #  forwardvector = forwardvector/32767.0
     forwardvector = forwardvector/la.norm(forwardvector)
     upvector = np.cross(rightvector,forwardvector)
     upvector = upvector/la.norm(upvector)
-	#rotationMat.col(0) = -right;
-	#rotationMat.col(1) = up;
-	#rotationMat.col(2) = forward;
     rotationmat = np.vstack((-rightvector,upvector,forwardvector)).transpose()
-    #print(rotationmat)
     position = np.array((motion_data.m_worldPositionX, motion_data.m_worldPositionY, motion_data.m_worldPositionZ), dtype=np.float64)
     quat = quaternion.from_rotation_matrix(rotationmat)
     return position, quat 

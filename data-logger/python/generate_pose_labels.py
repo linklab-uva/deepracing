@@ -6,6 +6,7 @@ import skimage
 import PIL
 from PIL import Image as PILImage
 import TimestampedPacketMotionData_pb2
+import TimestampedImageWithPose_pb2
 import PoseSequenceLabel_pb2
 import TimestampedImage_pb2
 import Vector3dStamped_pb2
@@ -30,7 +31,6 @@ def udpPacketKey(packet):
 parser = argparse.ArgumentParser()
 parser.add_argument("motion_data_path", help="Path to motion_data packet folder",  type=str)
 parser.add_argument("image_path", help="Path to image folder",  type=str)
-parser.add_argument("num_label_poses", help="Number of poses to attach to each image",  type=int)
 angvelhelp = "Use the angular velocities given in the udp packets. THESE ARE ONLY PROVIDED FOR A PLAYER CAR. IF THE " +\
     " DATASET WAS TAKEN ON SPECTATOR MODE, THE ANGULAR VELOCITY VALUES WILL BE GARBAGE."
 parser.add_argument("--use_given_angular_velocities", help=angvelhelp, action="store_true")
@@ -110,6 +110,8 @@ velocity_interpolant = scipy.interpolate.interp1d(session_times, velocities, axi
 interpolated_positions = position_interpolant(image_session_timestamps)
 interpolated_velocities = velocity_interpolant(image_session_timestamps)
 interpolated_quaternions = quaternion.squad(quaternions, session_times, image_session_timestamps)
+
+
 interpolated_angular_velocities = quaternion.angular_velocity(interpolated_quaternions, image_session_timestamps)
 print()
 print(len(image_tags))
@@ -135,34 +137,22 @@ print("R^2 of remap: %f" %(r_value_remap**2))
 plt.plot( t, image_session_timestamps, label='dem timez' )
 plt.plot( t, t*slope_remap + intercept_remap, label='fitted line' )
 plt.show()
-num_label_poses = args.num_label_poses
 #scipy.interpolate.interp1d
+label_folder = "pose_labels"
+if(not os.path.isdir(os.path.join(image_folder,label_folder))):
+    os.makedirs(os.path.join(image_folder,label_folder))
 for idx in range(len(image_tags)):
-    imagetag = image_tags[idx]
-    label_tag = PoseSequenceLabel_pb2.PoseSequenceLabel()
-    label_tag.car_pose.frame = FrameId_pb2.GLOBAL
-    label_tag.car_velocity.frame = FrameId_pb2.GLOBAL
-    label_tag.car_angular_velocity.frame = FrameId_pb2.GLOBAL
-    label_tag.image_tag.CopyFrom(imagetag)
+    label_tag = TimestampedImageWithPose_pb2.TimestampedImageWithPose()
+    label_tag.timestamped_image.CopyFrom(image_tags[idx])
+    label_tag.pose.frame = FrameId_pb2.GLOBAL
+    label_tag.linear_velocity.frame = FrameId_pb2.GLOBAL
+    label_tag.angular_velocity.frame = FrameId_pb2.GLOBAL
+
     t_interp = image_session_timestamps[idx]
-    label_tag.car_pose.session_time = t_interp
-    label_tag.car_velocity.session_time = t_interp
-    label_tag.car_angular_velocity.session_time = t_interp
-    i = bisect.bisect_left(session_times,t_interp)
-    tstart = session_times[i]
-    if((tstart-t_interp)<1E-3):
-        print("Found a really short iterpolation distance. starting one index forward")
-        i = i + 1
-    if( i==0 or i > (len(session_times)- num_label_poses) ):
-        continue
-    print("Image session time: %f. Bisector session time: %f. Bisector index: %d" % (t_interp, session_times[i], i))
-    pos1, quat1 = poses[i-1]
-    pos2, quat2 = poses[i]
-    vel1 = velocities[i-1]
-    vel2 = velocities[i]
-    angvel1 = angular_velocities[i-1]
-    angvel2 = angular_velocities[i]
-    
+    label_tag.pose.session_time = t_interp
+    label_tag.linear_velocity.session_time = t_interp
+    label_tag.angular_velocity.session_time = t_interp
+
     carposition_global = interpolated_positions[idx]
     #carposition_global = interpolateVectors(pos1,session_times[i-1],pos2,session_times[i], t_interp)
     carvelocity_global = interpolated_velocities[idx]
@@ -172,78 +162,32 @@ for idx in range(len(image_tags)):
     carangvelocity_global = interpolated_angular_velocities[idx]
     #carangvelocity_global = interpolateVectors(angvel1,session_times[i-1],angvel2,session_times[i], t_interp)
         
-    label_tag.car_pose.translation.x = carposition_global[0]
-    label_tag.car_pose.translation.y = carposition_global[1]
-    label_tag.car_pose.translation.z = carposition_global[2]
-    label_tag.car_pose.rotation.x = carquat_global.x
-    label_tag.car_pose.rotation.y = carquat_global.y
-    label_tag.car_pose.rotation.z = carquat_global.z
-    label_tag.car_pose.rotation.w = carquat_global.w
+    label_tag.pose.translation.x = carposition_global[0]
+    label_tag.pose.translation.y = carposition_global[1]
+    label_tag.pose.translation.z = carposition_global[2]
+    label_tag.pose.rotation.x = carquat_global.x
+    label_tag.pose.rotation.y = carquat_global.y
+    label_tag.pose.rotation.z = carquat_global.z
+    label_tag.pose.rotation.w = carquat_global.w
 
-    label_tag.car_velocity.vector.x = carvelocity_global[0]
-    label_tag.car_velocity.vector.y = carvelocity_global[1]
-    label_tag.car_velocity.vector.z = carvelocity_global[2]
+    label_tag.linear_velocity.vector.x = carvelocity_global[0]
+    label_tag.linear_velocity.vector.y = carvelocity_global[1]
+    label_tag.linear_velocity.vector.z = carvelocity_global[2]
     
-    label_tag.car_angular_velocity.vector.x = carangvelocity_global[0]
-    label_tag.car_angular_velocity.vector.y = carangvelocity_global[1]
-    label_tag.car_angular_velocity.vector.z = carangvelocity_global[2]
+    label_tag.angular_velocity.vector.x = carangvelocity_global[0]
+    label_tag.angular_velocity.vector.y = carangvelocity_global[1]
+    label_tag.angular_velocity.vector.z = carangvelocity_global[2]
 
-    carpose_global = deepracing.pose_utils.toHomogenousTransform(carposition_global, carquat_global)
-    #yes, I know this is an un-necessary inverse computation. Sue me.
-    carposeinverse_global = la.inv(carpose_global)
-
-    subsequent_positions = positions[i:i+num_label_poses]
-    subsequent_quaternions = quaternions[i:i+num_label_poses]
-    subsequent_velocities = velocities[i:i+num_label_poses]
-    subsequent_angular_velocities = angular_velocities[i:i+num_label_poses]
-    subsequent_positions_local, subsequent_quaternions_local = deepracing.pose_utils.toLocalCoordinatesPose((carposition_global, carquat_global), subsequent_positions, subsequent_quaternions)
-    subsequent_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector((carposition_global, carquat_global), subsequent_velocities)
-    subsequent_angular_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector((carposition_global, carquat_global), subsequent_angular_velocities)
-    #print()
-    #print()
-    #print(carposition_global)
-    #print(carpose_global)
-    #print()
-    for j in range(num_label_poses):
-        # label_tag.
-        packet_forward = motion_packets[i+j].udp_packet
-        #print(packet_forward)
-        pose_forward_pb = Pose3d_pb2.Pose3d()
-        velocity_forward_pb = Vector3dStamped_pb2.Vector3dStamped()
-        angular_velocity_forward_pb = Vector3dStamped_pb2.Vector3dStamped()
-        pose_forward_pb.frame = FrameId_pb2.LOCAL
-        velocity_forward_pb.frame = FrameId_pb2.LOCAL
-        angular_velocity_forward_pb.frame = FrameId_pb2.LOCAL
-
-        pose_forward_pb.translation.x = subsequent_positions_local[j,0]
-        pose_forward_pb.translation.y = subsequent_positions_local[j,1]
-        pose_forward_pb.translation.z = subsequent_positions_local[j,2]
-        pose_forward_pb.rotation.x = subsequent_quaternions_local[j].x
-        pose_forward_pb.rotation.y = subsequent_quaternions_local[j].y
-        pose_forward_pb.rotation.z = subsequent_quaternions_local[j].z
-        pose_forward_pb.rotation.w = subsequent_quaternions_local[j].w
-
-        velocity_forward_pb.vector.x = subsequent_velocities_local[j,0]
-        velocity_forward_pb.vector.y = subsequent_velocities_local[j,1]
-        velocity_forward_pb.vector.z = subsequent_velocities_local[j,2]
-        
-        angular_velocity_forward_pb.vector.x = subsequent_angular_velocities_local[j,0]
-        angular_velocity_forward_pb.vector.y = subsequent_angular_velocities_local[j,1]
-        angular_velocity_forward_pb.vector.z = subsequent_angular_velocities_local[j,2]
-
-        pose_forward_pb.session_time = packet_forward.m_header.m_sessionTime
-        velocity_forward_pb.session_time = packet_forward.m_header.m_sessionTime
-        angular_velocity_forward_pb.session_time = packet_forward.m_header.m_sessionTime
-        label_tag.subsequent_poses.append(pose_forward_pb)
-        label_tag.subsequent_linear_velocities.append(velocity_forward_pb)
-        label_tag.subsequent_angular_velocities.append(angular_velocity_forward_pb)
-    #print()
-    #print()
     label_tag_JSON = google.protobuf.json_format.MessageToJson(label_tag, including_default_value_fields=True)
-    image_file_base = os.path.splitext(os.path.split(label_tag.image_tag.image_file)[1])[0]
-    label_tag_file_path = os.path.join(image_folder,image_file_base + "_sequence_label.json")
+    image_file_base = os.path.splitext(os.path.split(label_tag.timestamped_image.image_file)[1])[0]
+    label_tag_file_path = os.path.join(image_folder,label_folder,image_file_base + "_pose_label.json")
+    print(label_tag_JSON)
     f = open(label_tag_file_path,'w')
     f.write(label_tag_JSON)
+    f.close()
+    label_tag_file_path = os.path.join(image_folder,label_folder,image_file_base + "_pose_label.pb")
+    f = open(label_tag_file_path,'wb')
+    f.write(label_tag.SerializeToString())
     f.close()
     #print(carquatinverse)
    # print(carquat)
