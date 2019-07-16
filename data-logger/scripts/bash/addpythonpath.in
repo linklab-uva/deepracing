@@ -1,0 +1,7 @@
+#!/bin/bash
+extrapythonpaths=@python_proto_path_@:@CMAKE_SOURCE_DIR@/python
+if [[ -z "${PYTHONPATH}" ]]; then
+  export PYTHONPATH=${extrapythonpaths}
+else
+  export PYTHONPATH=${PYTHONPATH}:${extrapythonpaths}
+fi
