@@ -39,7 +39,7 @@ deepf1::post_processing::PostProcessingUtils2018::parseMotionPacketDirectory(con
     ext = "json";
   }
   get_all( fs::path(directory), ext, paths );
-  for each (const fs::path & current_path in paths)
+  for(const fs::path & current_path:  paths)
   {
     deepf1::twenty_eighteen::protobuf::TimestampedPacketMotionData packet;
     std::ifstream stream_in(current_path.string());
