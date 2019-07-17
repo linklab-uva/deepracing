@@ -67,13 +67,14 @@ endif()
 set (Boost_USE_MULTITHREADED ON)
 set(BOOST_REQUIRED_COMPONENTS
 date_time
+filesystem
 headers
 program_options
 regex
 system
 thread
 )
-find_package( Boost 1.6 REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS} )
+find_package( Boost 1.7 REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS} )
 foreach(boost_component_ ${BOOST_REQUIRED_COMPONENTS})
 	list(APPEND Boost_LIBRARIES Boost::${boost_component_})
 endforeach()

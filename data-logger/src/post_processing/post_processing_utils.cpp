@@ -1,5 +1,4 @@
 #include "f1_datalogger/post_processing/post_processing_utils.h"
-#include <filesystem>
 #include <google/protobuf/util/json_util.h>
 #include "f1_datalogger/alglib/interpolation.h"
 #include <sstream>
@@ -7,7 +6,13 @@
 #include <iostream>
 #include <Eigen/Geometry>
 #include "f1_datalogger/controllers/kdtree_eigen.h"
+#if defined(__GNUC__) && (__GNUC__ < 8)
+#include <boost/filesystem.hpp>
+namespace fs = boost::filesystem;
+#else
+#include <filesystem>
 namespace fs = std::filesystem;
+#endif
 namespace deepf1
 {
 namespace post_processing

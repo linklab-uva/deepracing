@@ -1,12 +1,17 @@
 #include "f1_datalogger/post_processing/post_processing_utils2018.h"
-#include <filesystem>
 #include <google/protobuf/util/json_util.h>
 #include "f1_datalogger/alglib/interpolation.h"
 #include <sstream>
 #include <fstream>
 #include <iostream>
 #include <Eigen/Geometry>
+#if defined(__GNUC__) && (__GNUC__ < 8)
+#include <boost/filesystem.hpp>
+namespace fs = boost::filesystem;
+#else
+#include <filesystem>
 namespace fs = std::filesystem;
+#endif
 void get_all(const fs::path& root, const std::string& ext, std::vector<fs::path>& ret)
 {
   if (!fs::exists(root) || !fs::is_directory(root)) return;
