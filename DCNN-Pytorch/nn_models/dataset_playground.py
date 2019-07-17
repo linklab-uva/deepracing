@@ -10,7 +10,10 @@ parser.add_argument("--processes", type=int, default=0,  help="Number of extra p
 parser.add_argument("--map_entire_file", action="store_true")
 args = parser.parse_args()
 
-dset = h5utils.DeepRacingH5Dataset(args.dataset_file, map_entire_file = args.map_entire_file)
+#dset = h5utils.DeepRacingH5Dataset(args.dataset_file, map_entire_file = args.map_entire_file)
+dset = h5utils.DeepRacingH5SequenceDataset(args.dataset_file, 10, 10, map_entire_file = args.map_entire_file)
+
+
 
 image_torch, position_torch, rotation_torch, linear_velocity_torch, angular_velocity_torch, session_time = dset[0]
 dataloader = data_utils.DataLoader(dset, batch_size=4,
