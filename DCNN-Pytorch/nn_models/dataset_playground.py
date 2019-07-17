@@ -13,7 +13,7 @@ dset = h5utils.DeepRacingH5SequenceDataset(args.dataset_file, 10, 5, map_entire_
 
 
 
-image_torch, position_torch, rotation_torch, linear_velocity_torch, angular_velocity_torch, session_time = dset[0]
+#image_torch, position_torch, rotation_torch, linear_velocity_torch, angular_velocity_torch, session_time = dset[0]
 dataloader = data_utils.DataLoader(dset, batch_size=4,
                         shuffle=True, num_workers=args.processes)
 t = enumerate(dataloader)
