@@ -6,9 +6,15 @@ import torch
 from torch.utils.data.dataset import Dataset
 import os
 class DeepRacingH5Dataset:
-    def __init__(self, h5filepath: str):
+    def __init__(self, h5filepath: str, map_entire_file : bool = False):
         super(DeepRacingH5Dataset, self).__init__()
-        self.h5file = h5py.File(h5filepath, mode="r", swmr=True)
+        if map_entire_file:
+            driver = 'core'
+            swmr=False
+        else:
+            driver = None
+            swmr=True
+        self.h5file = h5py.File(h5filepath, mode="r", swmr=swmr, driver = driver)
         self.image_dset = self.h5file["/images"]
         self.position_dset = self.h5file["/position"]
         self.rotation_dset = self.h5file["/rotation"]
