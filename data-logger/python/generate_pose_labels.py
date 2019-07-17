@@ -156,7 +156,9 @@ try:
     plt.plot( t, t*slope_remap + intercept_remap, label='fitted line' )
     plt.show()
 except:
-    input("Enter anything to continue\n")
+    pass
+    #input("Enter anything to continue\n")
+input("Enter anything to continue\n")
 #scipy.interpolate.interp1d
 label_folder = "pose_labels"
 if(not os.path.isdir(os.path.join(image_folder,label_folder))):
