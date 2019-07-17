@@ -125,8 +125,8 @@ angular_velocity_interpolant = scipy.interpolate.interp1d(session_times, angular
 interpolated_positions = position_interpolant(image_session_timestamps)
 interpolated_velocities = velocity_interpolant(image_session_timestamps)
 interpolated_quaternions = quaternion.squad(quaternions, session_times, image_session_timestamps)
-interpolated_angular_velocities = angular_velocity_interpolant(image_session_timestamps)
-interpolated_angular_velocities2 = quaternion.angular_velocity(interpolated_quaternions, image_session_timestamps)
+interpolated_angular_velocities2 = angular_velocity_interpolant(image_session_timestamps)
+interpolated_angular_velocities = quaternion.angular_velocity(interpolated_quaternions, image_session_timestamps)
 angvel_diff = interpolated_angular_velocities2 - interpolated_angular_velocities
 diff_norms = la.norm(angvel_diff,axis=1)
 print("Mean diff between angular velocity techniques: %f" %(np.mean(diff_norms)))
