@@ -38,13 +38,12 @@ def mouseCB(event, x, y, flags, param):
 parser = argparse.ArgumentParser()
 parser.add_argument("motion_data_path", help="Path to motion_data packet folder",  type=str)
 parser.add_argument("image_path", help="Path to image folder",  type=str)
-parser.add_argument("--h5_output_file", help="Path to output h5 file",  type=str, default="")
+parser.add_argument("--h5_chunks", help="Number of images to put in each H5 chunk.",  type=int, default=250)
 angvelhelp = "Use the angular velocities given in the udp packets. THESE ARE ONLY PROVIDED FOR A PLAYER CAR. IF THE " +\
     " DATASET WAS TAKEN ON SPECTATOR MODE, THE ANGULAR VELOCITY VALUES WILL BE GARBAGE."
 parser.add_argument("--use_given_angular_velocities", help=angvelhelp, action="store_true")
 parser.add_argument("--assume_linear_timescale", help="Assumes the slope between system time and session time is 1.0", action="store_true")
 parser.add_argument("--json", help="Assume dataset files are in JSON rather than binary .pb files.",  action="store_true")
-parser.add_argument("--optical_flow", help="Add optical flow to output dataset.",  action="store_true")
 
 args = parser.parse_args()
 optflow = args.optical_flow
@@ -184,7 +183,9 @@ if(os.path.isfile(dsfile)):
     os.remove(dsfile)
 hf5file = h5py.File(dsfile, 'w')
 dsetlen = len(image_tags)
-image_chunks = (250,prev_img.shape[0],prev_img.shape[1],prev_img.shape[2])
+image_chunks = None
+if args.h5_chunks>0:
+    image_chunks = (args.h5_chunks,prev_img.shape[0],prev_img.shape[1],prev_img.shape[2])
 label_chunks = None
 label_rotation_chunks = None
 image_dset = hf5file.create_dataset("images", chunks=image_chunks, shape=(dsetlen,prev_img.shape[0],prev_img.shape[1],prev_img.shape[2]), dtype='uint8')
