@@ -20,6 +20,7 @@ import FrameId_pb2
 import scipy.interpolate
 import deepracing.pose_utils
 import h5py
+from tqdm import tqdm as tqdm
 def imageDataKey(data):
     return data.timestamp
 def udpPacketKey(packet):
@@ -186,7 +187,7 @@ linear_velocity_dset = hf5file.create_dataset("linear_velocity", chunks=True,sha
 angular_velocity_dset = hf5file.create_dataset("angular_velocity", chunks=True, shape=(dsetlen,3), dtype='float64')
 session_time_dset = hf5file.create_dataset("session_time", chunks=True, shape=(dsetlen,), dtype='float64')
 
-for idx in range(dsetlen):
+for idx in tqdm(range(dsetlen)):
     label_tag = TimestampedImageWithPose_pb2.TimestampedImageWithPose()
     label_tag.timestamped_image.CopyFrom(image_tags[idx])
     label_tag.pose.frame = FrameId_pb2.GLOBAL
@@ -244,7 +245,7 @@ for idx in range(dsetlen):
     label_tag_JSON = google.protobuf.json_format.MessageToJson(label_tag, including_default_value_fields=True)
     image_file_base = os.path.splitext(os.path.split(label_tag.timestamped_image.image_file)[1])[0]
     label_tag_file_path = os.path.join(image_folder,label_folder,image_file_base + "_pose_label.json")
-    print(label_tag_JSON)
+   # print(label_tag_JSON)
     f = open(label_tag_file_path,'w')
     f.write(label_tag_JSON)
     f.close()
