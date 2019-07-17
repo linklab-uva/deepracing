@@ -8,7 +8,7 @@ import os
 class DeepRacingH5Dataset:
     def __init__(self, h5filepath: str):
         super(DeepRacingH5Dataset, self).__init__()
-        self.h5file = h5py.File(h5filepath, mode="r")
+        self.h5file = h5py.File(h5filepath, mode="r", swmr=True)
         self.image_dset = self.h5file["/images"]
         self.position_dset = self.h5file["/position"]
         self.rotation_dset = self.h5file["/rotation"]
