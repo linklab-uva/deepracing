@@ -1,10 +1,7 @@
 import numpy as np
 import torchvision.transforms as transforms
 import torchvision
-import PIL
-from PIL import Image as PILImage
 import h5py
-import skimage
 import torch
 from torch.utils.data.dataset import Dataset
 import os
