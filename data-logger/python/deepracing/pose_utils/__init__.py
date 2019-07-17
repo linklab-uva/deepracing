@@ -1,6 +1,7 @@
 from .pose_utils import getAllMotionPackets
 from .pose_utils import getAllImageFilePackets
 from .pose_utils import getAllSequenceLabelPackets
+from .pose_utils import labelPacketToNumpy
 from .pose_utils import fromHomogenousTransform
 from .pose_utils import toHomogenousTransform
 from .pose_utils import fromHomogenousTransformArray

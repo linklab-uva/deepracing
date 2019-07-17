@@ -163,7 +163,6 @@ except Exception as e:
 label_folder = "pose_labels"
 if(not os.path.isdir(os.path.join(image_folder,label_folder))):
     os.makedirs(os.path.join(image_folder,label_folder))
-dsfile = os.path.join(image_folder,'h5dataset.hdf5')
 #prev_img = cv2.imread(os.path.join(image_folder,image_tags[0].image_file))
 prev_img = skimage.util.img_as_ubyte(skimage.io.imread(os.path.join(image_folder,image_tags[0].image_file)))
 
@@ -177,6 +176,7 @@ try:
     #cv2.destroyWindow("first_image")
 except Exception as e:
     print(str(e))
+dsfile = os.path.join(image_folder,'h5dataset.hdf5')
 
 if(os.path.isfile(dsfile)):
     os.remove(dsfile)

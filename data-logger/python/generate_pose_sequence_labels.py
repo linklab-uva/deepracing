@@ -137,6 +137,9 @@ plt.plot( t, t*slope_remap + intercept_remap, label='fitted line' )
 plt.show()
 num_label_poses = args.num_label_poses
 #scipy.interpolate.interp1d
+output_dir="pose_sequence_labels"
+if not os.path.isdir(os.path.join(image_folder, output_dir)):
+    os.makedirs(os.path.join(image_folder, output_dir))
 for idx in range(len(image_tags)):
     imagetag = image_tags[idx]
     label_tag = PoseSequenceLabel_pb2.PoseSequenceLabel()
@@ -241,7 +244,7 @@ for idx in range(len(image_tags)):
     #print()
     label_tag_JSON = google.protobuf.json_format.MessageToJson(label_tag, including_default_value_fields=True)
     image_file_base = os.path.splitext(os.path.split(label_tag.image_tag.image_file)[1])[0]
-    label_tag_file_path = os.path.join(image_folder,image_file_base + "_sequence_label.json")
+    label_tag_file_path = os.path.join(image_folder, output_dir, image_file_base + "_sequence_label.json")
     f = open(label_tag_file_path,'w')
     f.write(label_tag_JSON)
     f.close()
