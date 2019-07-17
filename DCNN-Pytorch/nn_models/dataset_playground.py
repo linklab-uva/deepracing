@@ -11,7 +11,7 @@ parser.add_argument("--map_entire_file", action="store_true")
 args = parser.parse_args()
 
 #dset = h5utils.DeepRacingH5Dataset(args.dataset_file, map_entire_file = args.map_entire_file)
-dset = h5utils.DeepRacingH5SequenceDataset(args.dataset_file, 10, 10, map_entire_file = args.map_entire_file)
+dset = h5utils.DeepRacingH5SequenceDataset(args.dataset_file, 10, 5, map_entire_file = args.map_entire_file)
 
 
 
@@ -20,4 +20,4 @@ dataloader = data_utils.DataLoader(dset, batch_size=4,
                         shuffle=True, num_workers=args.processes)
 t = tqdm(enumerate(dataloader))
 for i_batch, (image_torch, position_torch, rotation_torch, linear_velocity_torch, angular_velocity_torch, session_time) in t:
-    t.set_postfix({"index":i_batch , "image_shape": image_torch.shape,"rotation_shape" : rotation_torch.shape})
+    t.set_postfix({"positions": str(position_torch),"rotations" :str(rotation_torch)} )

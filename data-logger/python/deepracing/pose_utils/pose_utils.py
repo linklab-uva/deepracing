@@ -56,7 +56,7 @@ def getAllImageFilePackets(image_data_folder: str, use_json: bool):
 def toLocalCoordinatesVector(coordinate_system, vectors):
     pose_mat = toHomogenousTransform( coordinate_system[0] , coordinate_system[1] )
     pose_mat_inv = inverseTransform( pose_mat )
-    return np.transpose(np.matmul(pose_mat_inv[0:3,0:3],np.transpose(vectors)))
+    return np.transpose(np.matmul(pose_mat_inv[0:3,0:3],np.transpose(vectors).copy()))
 def toLocalCoordinatesPose(coordinate_system, positions, quaternions):
     assert(positions.shape[0] == quaternions.shape[0])
     pose_mat = toHomogenousTransform( coordinate_system[0] , coordinate_system[1] )
@@ -72,11 +72,11 @@ def inverseTransform(transform):
     return rtn
 def fromHomogenousTransformArray(transforms):
     positions = transforms[:,0:3,3].copy()
-    quats = quaternion.from_rotation_matrix(transforms[:,0:3,0:3])
+    quats = quaternion.from_rotation_matrix(transforms[:,0:3,0:3].copy())
     return positions, quats
 def fromHomogenousTransform(transform):
     pos = transform[0:3,3].copy()
-    quat = quaternion.from_rotation_matrix(transform[0:3,0:3])
+    quat = quaternion.from_rotation_matrix(transform[0:3,0:3].copy())
     return pos,quat
 def toHomogenousTransformArray(positions, quats):
     length = positions.shape[0]

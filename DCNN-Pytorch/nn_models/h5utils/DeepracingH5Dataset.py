@@ -5,16 +5,17 @@ import h5py
 import torch
 from torch.utils.data.dataset import Dataset
 import os
+import deepracing.pose_utils
+import quaternion
 class DeepRacingH5DatasetBase(Dataset):
     def __init__(self, h5filepath: str, map_entire_file : bool = False):
         super(DeepRacingH5DatasetBase, self).__init__()
         if map_entire_file:
             driver = 'core'
-            swmr=False
         else:
             driver = None
-            swmr=True
-        self.h5file = h5py.File(h5filepath, mode="r", swmr=swmr, driver = driver)
+        self.h5file = h5py.File(h5filepath, mode="r", driver = driver)
+    
         self.image_dset = self.h5file["/images"]
         self.position_dset = self.h5file["/position"]
         self.rotation_dset = self.h5file["/rotation"]
@@ -59,20 +60,30 @@ class DeepRacingH5SequenceDataset(DeepRacingH5DatasetBase):
         self.len = self.image_dset.shape[0] - context_length- sequence_length - 1
         self.context_length = context_length
         self.sequence_length = sequence_length
+        self.refreshAll()
                
     def __getitem__(self, index):
         images_start = index
         images_end = index + self.context_length
         images_np = self.image_dset[images_start:images_end]
         images_np = np.transpose(images_np.astype(np.float64)/255.0, axes=(0,3,1,2))
-
         label_start = images_end
         label_end = label_start + self.sequence_length
         positions_np = self.position_dset[label_start:label_end]
         rotations_np = self.rotation_dset[label_start:label_end]
+       # print(rotations_np)
         linear_velocities_np = self.linear_velocity_dset[label_start:label_end]
         angular_velocities_np = self.angular_velocity_dset[label_start:label_end]
         session_times = self.session_time_dset[images_start:label_end]
+        
+        
+        curr_pose = (self.position_dset[images_end-1], quaternion.from_float_array(self.rotation_dset[images_end-1]))
+
+        positions_np, rotations_quat_np = deepracing.pose_utils.toLocalCoordinatesPose(curr_pose, positions_np, quaternion.from_float_array(rotations_np))
+        rotations_np = quaternion.as_float_array(rotations_quat_np)
+        linear_velocities_np = deepracing.pose_utils.toLocalCoordinatesVector(curr_pose, linear_velocities_np)
+        angular_velocities_np = deepracing.pose_utils.toLocalCoordinatesVector(curr_pose, angular_velocities_np)
+        
 
         images_torch = torch.from_numpy(images_np)
         positions_torch = torch.from_numpy(positions_np)

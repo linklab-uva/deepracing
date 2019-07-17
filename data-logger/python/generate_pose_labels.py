@@ -228,6 +228,7 @@ for idx in tqdm(range(dsetlen)):
     #curr_img = cv2.imread(os.path.join(image_folder,image_tags[idx].image_file))
     image_dset[dset_index] = curr_img
     rotation_dset[dset_index] = quaternion.as_float_array(carquat_global)
+   # print(rotation_dset[dset_index])
     position_dset[dset_index] = carposition_global
     linear_velocity_dset[dset_index] = carvelocity_global
     angular_velocity_dset[dset_index] =  carangvelocity_global
