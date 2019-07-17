@@ -7,11 +7,16 @@
 #include <algorithm>
 #include <iostream>
 #include <opencv2/highgui.hpp>
-#include <filesystem>
 #include <google/protobuf/util/json_util.h>
 #include <opencv2/imgproc.hpp>
-namespace po = boost::program_options;
+#if defined(__GNUC__) && (__GNUC__ < 8)
+#include <boost/filesystem.hpp>
+namespace fs = boost::filesystem;
+#else
+#include <filesystem>
 namespace fs = std::filesystem;
+#endif
+namespace po = boost::program_options;
 void exit_with_help(po::options_description& desc)
 {
 	std::stringstream ss;
