@@ -17,20 +17,25 @@ class DeepRacingH5Dataset:
         self.session_time_dset = self.h5file["/session_time"]
         self.imtransform = transforms.ToTensor()
     def refreshAll(self):
-        self.image_dset.id.refresh()
-        self.position_dset.id.refresh()
-        self.rotation_dset.id.refresh()
-        self.linear_velocity_dset.id.refresh()
-        self.angular_velocity_dset.id.refresh()
-        self.session_time_dset.id.refresh()
+        self.image_dset.refresh()
+        self.position_dset.refresh()
+        self.rotation_dset.refresh()
+        self.linear_velocity_dset.refresh()
+        self.angular_velocity_dset.refresh()
+        self.session_time_dset.refresh()
         
     def __getitem__(self, index):
-        self.refreshAll()
+        self.image_dset.refresh()
         image_np = self.image_dset[index]
+        self.position_dset.refresh()
         position_np = self.position_dset[index]
+        self.rotation_dset.refresh()
         rotation_np = self.rotation_dset[index]
+        self.linear_velocity_dset.refresh()
         linear_velocity_np = self.linear_velocity_dset[index]
+        self.angular_velocity_dset.refresh()
         angular_velocity_np = self.angular_velocity_dset[index]
+        self.session_time_dset.refresh()
         session_time = self.session_time_dset[index]
         image_torch = self.imtransform(image_np)
         position_torch = torch.from_numpy(position_np)
