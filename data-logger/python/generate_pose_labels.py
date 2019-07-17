@@ -184,12 +184,15 @@ if(os.path.isfile(dsfile)):
     os.remove(dsfile)
 hf5file = h5py.File(dsfile, 'w')
 dsetlen = len(image_tags)
-image_dset = hf5file.create_dataset("images", chunks=True, shape=(dsetlen,prev_img.shape[0],prev_img.shape[1],prev_img.shape[2]), dtype='uint8')
-position_dset = hf5file.create_dataset("position", chunks=True, shape=(dsetlen,3), dtype='float64')
-rotation_dset = hf5file.create_dataset("rotation", chunks=True, shape=(dsetlen,4), dtype='float64')
-linear_velocity_dset = hf5file.create_dataset("linear_velocity", chunks=True,shape=(dsetlen,3), dtype='float64')
-angular_velocity_dset = hf5file.create_dataset("angular_velocity", chunks=True, shape=(dsetlen,3), dtype='float64')
-session_time_dset = hf5file.create_dataset("session_time", chunks=True, shape=(dsetlen,), dtype='float64')
+image_chunks = (250,prev_img.shape[0],prev_img.shape[1],prev_img.shape[2])
+label_chunks = None
+label_rotation_chunks = None
+image_dset = hf5file.create_dataset("images", chunks=image_chunks, shape=(dsetlen,prev_img.shape[0],prev_img.shape[1],prev_img.shape[2]), dtype='uint8')
+position_dset = hf5file.create_dataset("position", chunks=label_chunks, shape=(dsetlen,3), dtype='float64')
+rotation_dset = hf5file.create_dataset("rotation", chunks=label_rotation_chunks, shape=(dsetlen,4), dtype='float64')
+linear_velocity_dset = hf5file.create_dataset("linear_velocity", chunks=label_chunks,shape=(dsetlen,3), dtype='float64')
+angular_velocity_dset = hf5file.create_dataset("angular_velocity", chunks=label_chunks, shape=(dsetlen,3), dtype='float64')
+session_time_dset = hf5file.create_dataset("session_time", chunks=label_chunks, shape=(dsetlen,), dtype='float64')
 
 for idx in tqdm(range(dsetlen)):
     label_tag = TimestampedImageWithPose_pb2.TimestampedImageWithPose()
