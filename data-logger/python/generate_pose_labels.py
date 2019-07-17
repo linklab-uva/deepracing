@@ -46,7 +46,6 @@ parser.add_argument("--assume_linear_timescale", help="Assumes the slope between
 parser.add_argument("--json", help="Assume dataset files are in JSON rather than binary .pb files.",  action="store_true")
 
 args = parser.parse_args()
-optflow = args.optical_flow
 motion_data_folder = args.motion_data_path
 image_folder = args.image_path
 image_tags = deepracing.pose_utils.getAllImageFilePackets(args.image_path, args.json)
