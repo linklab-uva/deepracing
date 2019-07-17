@@ -78,7 +78,6 @@ class DeepRacingH5SequenceDataset(DeepRacingH5DatasetBase):
         
         
         curr_pose = (self.position_dset[images_end-1], quaternion.from_float_array(self.rotation_dset[images_end-1]))
-
         positions_np, rotations_quat_np = deepracing.pose_utils.toLocalCoordinatesPose(curr_pose, positions_np, quaternion.from_float_array(rotations_np))
         rotations_np = quaternion.as_float_array(rotations_quat_np)
         linear_velocities_np = deepracing.pose_utils.toLocalCoordinatesVector(curr_pose, linear_velocities_np)

@@ -20,4 +20,5 @@ dataloader = data_utils.DataLoader(dset, batch_size=4,
                         shuffle=True, num_workers=args.processes)
 t = tqdm(enumerate(dataloader))
 for i_batch, (image_torch, position_torch, rotation_torch, linear_velocity_torch, angular_velocity_torch, session_time) in t:
-    t.set_postfix({"positions": str(position_torch),"rotations" :str(rotation_torch)} )
+    print(position_torch)
+    print(rotation_torch)
