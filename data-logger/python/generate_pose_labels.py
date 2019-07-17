@@ -3,6 +3,7 @@ import numpy.linalg as la
 import quaternion
 import scipy
 import skimage
+import skimage.io
 import PIL
 from PIL import Image as PILImage
 import TimestampedPacketMotionData_pb2
@@ -159,7 +160,6 @@ try:
 except:
     pass
     #input("Enter anything to continue\n")
-input("Enter anything to continue\n")
 #scipy.interpolate.interp1d
 label_folder = "pose_labels"
 if(not os.path.isdir(os.path.join(image_folder,label_folder))):
@@ -169,15 +169,15 @@ if(os.path.isfile(dsfile)):
     os.remove(dsfile)
 hf5file = h5py.File(dsfile, 'w')
 dsetlen = len(image_tags)
-prev_img = cv2.imread(os.path.join(image_folder,image_tags[0].image_file))
-try:
-    cv2.namedWindow("first_image", cv2.WINDOW_AUTOSIZE)
-    cv2.setMouseCallback("first_image", mouseCB)
-    cv2.imshow("first_image",prev_img)
-    cv2.waitKey(0)
-    cv2.destroyWindow("first_image")
-except:
-    pass
+#prev_img = cv2.imread(os.path.join(image_folder,image_tags[0].image_file))
+prev_img = skimage.util.img_as_ubyte(skimage.io.imread(os.path.join(image_folder,image_tags[0].image_file)))
+#try:
+#    pass
+#except:
+#    pass
+input("Enter anything to continue\n")
+skimage.io.imshow(prev_img)
+skimage.io.show()
 print(clicked_row)
 print(clicked_col)
 image_dset = hf5file.create_dataset("images", chunks=True, shape=(dsetlen,prev_img.shape[0],prev_img.shape[1],prev_img.shape[2]), dtype='uint8')
@@ -217,7 +217,8 @@ for idx in tqdm(range(dsetlen)):
     #angular_velocity_dset[idx]=carangvelocity_global
     #session_time_dset[idx]=t_interp
     dset_index = idx
-    curr_img = cv2.imread(os.path.join(image_folder,image_tags[idx].image_file))
+    curr_img = skimage.util.img_as_ubyte(skimage.io.imread(os.path.join(image_folder,image_tags[idx].image_file)))
+    #curr_img = cv2.imread(os.path.join(image_folder,image_tags[idx].image_file))
     image_dset[dset_index] = curr_img
     rotation_dset[dset_index] = quaternion.as_float_array(carquat_global)
     position_dset[dset_index] = carposition_global
