@@ -171,13 +171,12 @@ hf5file = h5py.File(dsfile, 'w')
 dsetlen = len(image_tags)
 #prev_img = cv2.imread(os.path.join(image_folder,image_tags[0].image_file))
 prev_img = skimage.util.img_as_ubyte(skimage.io.imread(os.path.join(image_folder,image_tags[0].image_file)))
-#try:
-#    pass
-#except:
-#    pass
+try:
+    skimage.io.imshow(prev_img)
+    skimage.io.show()
+except:
+    pass
 input("Enter anything to continue\n")
-skimage.io.imshow(prev_img)
-skimage.io.show()
 print(clicked_row)
 print(clicked_col)
 image_dset = hf5file.create_dataset("images", chunks=True, shape=(dsetlen,prev_img.shape[0],prev_img.shape[1],prev_img.shape[2]), dtype='uint8')
