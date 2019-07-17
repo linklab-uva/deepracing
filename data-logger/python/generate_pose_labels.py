@@ -38,6 +38,7 @@ def mouseCB(event, x, y, flags, param):
 parser = argparse.ArgumentParser()
 parser.add_argument("motion_data_path", help="Path to motion_data packet folder",  type=str)
 parser.add_argument("image_path", help="Path to image folder",  type=str)
+parser.add_argument("--h5_output_file", help="Path to output h5 file",  type=str, default="")
 angvelhelp = "Use the angular velocities given in the udp packets. THESE ARE ONLY PROVIDED FOR A PLAYER CAR. IF THE " +\
     " DATASET WAS TAKEN ON SPECTATOR MODE, THE ANGULAR VELOCITY VALUES WILL BE GARBAGE."
 parser.add_argument("--use_given_angular_velocities", help=angvelhelp, action="store_true")
@@ -157,28 +158,32 @@ try:
     plt.plot( t, image_session_timestamps, label='dem timez' )
     plt.plot( t, t*slope_remap + intercept_remap, label='fitted line' )
     plt.show()
-except:
-    pass
+except Exception as e:
+    print(str(e))
     #input("Enter anything to continue\n")
 #scipy.interpolate.interp1d
 label_folder = "pose_labels"
 if(not os.path.isdir(os.path.join(image_folder,label_folder))):
     os.makedirs(os.path.join(image_folder,label_folder))
 dsfile = os.path.join(image_folder,'h5dataset.hdf5')
+#prev_img = cv2.imread(os.path.join(image_folder,image_tags[0].image_file))
+prev_img = skimage.util.img_as_ubyte(skimage.io.imread(os.path.join(image_folder,image_tags[0].image_file)))
+
+input("Enter anything to continue\n")
+try:
+    skimage.io.imshow(prev_img)
+    skimage.io.show()
+    #cv2.namedWindow("first_image",cv2.WINDOW_AUTOSIZE)
+    #cv2.imshow("first_image",cv2.cvtColor(prev_img, cv2.COLOR_RGB2BGR))
+    #cv2.waitKey(0)
+    #cv2.destroyWindow("first_image")
+except Exception as e:
+    print(str(e))
+
 if(os.path.isfile(dsfile)):
     os.remove(dsfile)
 hf5file = h5py.File(dsfile, 'w')
 dsetlen = len(image_tags)
-#prev_img = cv2.imread(os.path.join(image_folder,image_tags[0].image_file))
-prev_img = skimage.util.img_as_ubyte(skimage.io.imread(os.path.join(image_folder,image_tags[0].image_file)))
-try:
-    skimage.io.imshow(prev_img)
-    skimage.io.show()
-except:
-    pass
-input("Enter anything to continue\n")
-print(clicked_row)
-print(clicked_col)
 image_dset = hf5file.create_dataset("images", chunks=True, shape=(dsetlen,prev_img.shape[0],prev_img.shape[1],prev_img.shape[2]), dtype='uint8')
 position_dset = hf5file.create_dataset("position", chunks=True, shape=(dsetlen,3), dtype='float64')
 rotation_dset = hf5file.create_dataset("rotation", chunks=True, shape=(dsetlen,4), dtype='float64')
