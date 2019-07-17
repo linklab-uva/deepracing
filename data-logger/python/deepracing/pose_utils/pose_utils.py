@@ -2,10 +2,41 @@ import TimestampedPacketMotionData_pb2
 import PoseSequenceLabel_pb2
 import TimestampedImage_pb2
 import Vector3dStamped_pb2
+import PoseSequenceLabel_pb2
 import os
 import numpy as np
 import quaternion
 import numpy.linalg as la
+def labelPacketToNumpy(label_packet):
+    positions = np.array([np.array(pose.translation.x,pose.translation.y, pose.translation.z) for pose in label_packet.label_tag.subsequent_poses])
+    quats = np.array([np.array(pose.rotation.w, pose.rotation.x, pose.rotation.y, pose.rotation.z) for pose in label_packet.label_tag.subsequent_poses])
+    linear_velocities = np.array([np.array(vel.vector.x, vel.vector.y, vel.vector.z) for vel in label_packet.label_tag.subsequent_linear_velocities])
+    angular_velocities = np.array([np.array(vel.vector.x, vel.vector.y, vel.vector.z) for vel in label_packet.label_tag.subsequent_angular_velocities])
+    
+def getAllSequenceLabelPackets(label_packet_folder: str, use_json: bool = False):
+   label_packets = []
+   if use_json:
+      filepaths = [os.path.join(label_packet_folder, f) for f in os.listdir(label_packet_folder) if os.path.isfile(os.path.join(label_packet_folder, f)) and str.lower(os.path.splitext(f)[1])==".json"]
+      jsonstrings = [(open(path, 'r')).read() for path in filepaths]
+      for jsonstring in jsonstrings:
+         data = PoseSequenceLabel_pb2.PoseSequenceLabel()
+         google.protobuf.json_format.Parse(jsonstring, data)
+         label_packets.append(data)
+   else:
+      filepaths = [os.path.join(label_packet_folder, f) for f in os.listdir(label_packet_folder) if os.path.isfile(os.path.join(label_packet_folder, f)) and str.lower(os.path.splitext(f)[1])==".pb"]
+      for filepath in filepaths:
+         try:
+            data = PoseSequenceLabel_pb2.PoseSequenceLabel()
+            f = open(filepath,'rb')
+            data.ParseFromString(f.read())
+            f.close()
+            label_packets.append(data)
+         except Exception as e:
+            f.close()
+            print(str(e))
+            print("Could not read binary file %s." %(filepath))
+            continue
+   return label_packets
 def getAllMotionPackets(motion_data_folder: str, use_json: bool):
    motion_packets = []
    if use_json:
