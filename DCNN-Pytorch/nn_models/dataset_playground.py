@@ -19,7 +19,4 @@ dataloader = data_utils.DataLoader(dset, batch_size=4,
                         shuffle=True, num_workers=args.processes)
 t = tqdm(enumerate(dataloader))
 for i_batch, (image_torch, position_torch, rotation_torch, linear_velocity_torch, angular_velocity_torch, session_time) in t:
-    print()
-    print(image_torch.shape)
-    print(angular_velocity_torch.shape)
-    print(session_time.shape)
+   pass
