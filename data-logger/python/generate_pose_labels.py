@@ -13,8 +13,6 @@ import Vector3dStamped_pb2
 import argparse
 import os
 import google.protobuf.json_format
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 import Pose3d_pb2
 import cv2
 import bisect
@@ -140,20 +138,25 @@ print()
 print("Linear map from system time to session time: session_time = %f*system_time + %f" %(slope,intercept))
 print("Standard error: %f" %(std_err))
 print("R^2: %f" %(r_value**2))
-fig = plt.figure("System Time vs F1 Session Time")
-plt.plot(system_times, session_times, label='udp data times')
-plt.plot(system_times, slope*system_times + intercept, label='fitted line')
-#plt.plot(image_timestamps, label='image tag times')
-fig.legend()
-fig = plt.figure("Image Session Times on Normalized Domain")
-t = np.linspace( 0.0, 1.0 , num=len(image_session_timestamps) )
-slope_remap, intercept_remap, r_value_remap, p_value_remap, std_err_remap = scipy.stats.linregress(t, image_session_timestamps)
-print("Slope of all point session times" %(slope_remap))
-print("Standard error remap: %f" %(std_err_remap))
-print("R^2 of remap: %f" %(r_value_remap**2))
-plt.plot( t, image_session_timestamps, label='dem timez' )
-plt.plot( t, t*slope_remap + intercept_remap, label='fitted line' )
-plt.show()
+try:
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D
+    fig = plt.figure("System Time vs F1 Session Time")
+    plt.plot(system_times, session_times, label='udp data times')
+    plt.plot(system_times, slope*system_times + intercept, label='fitted line')
+    #plt.plot(image_timestamps, label='image tag times')
+    fig.legend()
+    fig = plt.figure("Image Session Times on Normalized Domain")
+    t = np.linspace( 0.0, 1.0 , num=len(image_session_timestamps) )
+    slope_remap, intercept_remap, r_value_remap, p_value_remap, std_err_remap = scipy.stats.linregress(t, image_session_timestamps)
+    print("Slope of all point session times" %(slope_remap))
+    print("Standard error remap: %f" %(std_err_remap))
+    print("R^2 of remap: %f" %(r_value_remap**2))
+    plt.plot( t, image_session_timestamps, label='dem timez' )
+    plt.plot( t, t*slope_remap + intercept_remap, label='fitted line' )
+    plt.show()
+except:
+    input("Enter anything to continue\n")
 #scipy.interpolate.interp1d
 label_folder = "pose_labels"
 if(not os.path.isdir(os.path.join(image_folder,label_folder))):
