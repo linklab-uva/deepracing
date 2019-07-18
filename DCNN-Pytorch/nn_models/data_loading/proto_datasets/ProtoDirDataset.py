@@ -45,7 +45,7 @@ class ProtoDirDataset(Dataset):
         images_end = index + self.context_length
         packetrange = range(images_start, images_end)
         image_files = [os.path.join(self.image_directory,self.label_pb_tags[i].image_tag.image_file) for i in packetrange]
-        print(image_files)
+        #print(image_files)
         image_collection = skimage.io.imread_collection(image_files)
         images = torch.from_numpy(np.array([self.totensor(image_collection[i]).numpy() for i in range(len(image_files))]))
         
