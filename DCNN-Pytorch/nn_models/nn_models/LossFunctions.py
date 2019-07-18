@@ -7,9 +7,9 @@ class QuaternionDistance(nn.Module):
     def forward(self, input, target):
         prod = torch.mul(input,target)
         dot = torch.sum(prod,dim=2) 
-        print(dot.shape)
+       # print(dot.shape)
         acos = torch.acos(dot)
-        print(acos.shape)
+       # print(acos.shape)
         batched_sum = torch.sum(acos, dim = 1)
-        print(batched_sum.shape)
+        #print(batched_sum.shape)
         return torch.sum( batched_sum )

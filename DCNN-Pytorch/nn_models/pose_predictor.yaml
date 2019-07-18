@@ -1,0 +1,19 @@
+#dataset definition
+dataset_dir: D:\test_data\toy_dataset\images\pose_sequence_labels
+image_directory: D:\test_data\toy_dataset\images_66_200
+image_size: [66, 200]
+#model definition parameters
+hidden_dimension: 100
+input_channels: 3
+sequence_length: 7
+context_length: 10
+gpu: 0
+temporal_conv_feature_factor: 1
+#training hyperparameters
+batch_size: 16
+learning_rate: 0.001
+momentum: 0.0
+loss_weights: [1.0, 1.0]
+num_epochs: 10
+num_workers: 0
+output_directory: "model_out"
