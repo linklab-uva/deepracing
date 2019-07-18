@@ -1,6 +1,6 @@
 #dataset definition
-dataset_dir: D:\test_data\toy_dataset\images\pose_sequence_labels
-image_directory: D:\test_data\toy_dataset\images_66_200
+dataset_dir: C:\Users\ttw2x\Documents\f1_data\toy_dataset\images\pose_sequence_labels
+image_db_directory: C:\Users\ttw2x\Documents\f1_data\toy_dataset\images\lmdb
 image_size: [66, 200]
 #model definition parameters
 hidden_dimension: 100
@@ -17,3 +17,5 @@ loss_weights: [1.0, 1.0]
 num_epochs: 10
 num_workers: 0
 output_directory: "model_out"
+#debugging settings
+debug: False

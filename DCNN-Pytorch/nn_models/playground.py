@@ -5,7 +5,12 @@ import numpy as np
 import torch.optim as optim
 import data_loading.backend
 import os
-db = data_loading.backend.LMDBWrapper(np.array((66,200)))
-img_folder = "D:\\test_data\\toy_dataset\\images"
-keys = [fname for fname in  os.listdir(img_folder) if os.path.isfile(fname) and os.path.splitext(fname)[1]==".jpg"]
-print(keys)
+import skimage
+import skimage.io
+db = data_loading.backend.LMDBWrapper()
+img_folder = "C:/Users/ttw2x/Documents/f1_data/toy_dataset/images"
+db.readDatabase(os.path.join(img_folder,"lmdb"))
+im = db.getImage("image_11.jpg")
+print(im.shape)
+skimage.io.imshow(im)
+skimage.io.show()

@@ -43,19 +43,19 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketMotionData& data) override
   {
-    ready_ = false;
-    const deepf1::twenty_eighteen::CarMotionData& motionPacket = data.data.m_carMotionData[car_index];
-    Eigen::Affine3d poseGlobal = deepf1::EigenUtils::motionPacketToPose(motionPacket);
-    Eigen::Vector3d velocityGlobal(motionPacket.m_worldVelocityX, motionPacket.m_worldVelocityY, motionPacket.m_worldVelocityZ);
-    Eigen::Vector3d velocityLocalComputed = poseGlobal.rotation().inverse() * velocityGlobal;
-    Eigen::Vector3d velocityLocal(data.data.m_localVelocityX, data.data.m_localVelocityY, data.data.m_localVelocityZ);
-    std::cout << std::endl;
-    std::cout << "Velocity Local Computed: " << std::endl << velocityLocalComputed << std::endl;
-    std::cout << "Velocity Local: " << std::endl << velocityLocal << std::endl;
-    std::cout << "Velocity Diff: " << (velocityLocalComputed - velocityLocal).norm() << std::endl;
-    std::cout  << std::endl;
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    ready_ = true;
+    //ready_ = false;
+    //const deepf1::twenty_eighteen::CarMotionData& motionPacket = data.data.m_carMotionData[car_index];
+    //Eigen::Affine3d poseGlobal = deepf1::EigenUtils::motionPacketToPose(motionPacket);
+    //Eigen::Vector3d velocityGlobal(motionPacket.m_worldVelocityX, motionPacket.m_worldVelocityY, motionPacket.m_worldVelocityZ);
+    //Eigen::Vector3d velocityLocalComputed = poseGlobal.rotation().inverse() * velocityGlobal;
+    //Eigen::Vector3d velocityLocal(data.data.m_localVelocityX, data.data.m_localVelocityY, data.data.m_localVelocityZ);
+    //std::cout << std::endl;
+    //std::cout << "Velocity Local Computed: " << std::endl << velocityLocalComputed << std::endl;
+    //std::cout << "Velocity Local: " << std::endl << velocityLocal << std::endl;
+    //std::cout << "Velocity Diff: " << (velocityLocalComputed - velocityLocal).norm() << std::endl;
+    //std::cout  << std::endl;
+    //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    //ready_ = true;
 
     
 
@@ -92,8 +92,8 @@ private:
 class OpenCV_Viewer_Example_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
 {
 public:
-  OpenCV_Viewer_Example_FrameGrabHandler()
-   : window_name("cv_example")
+  OpenCV_Viewer_Example_FrameGrabHandler() :
+    window_name("captured_window")
   {
 	  
   }
@@ -109,13 +109,15 @@ public:
   }
   void handleData(const deepf1::TimestampedImageData& data) override
   {
-	//ready = false;
- //   cv::Mat img_cv_video;
- //   cv::cvtColor(data.image, img_cv_video, cv::COLOR_BGRA2BGR);
-	//video_writer_->write(img_cv_video);
- // cv::imshow(window_name, data.image);
-	//cv::waitKey(50);
-	//ready = true;
+    if (!window_made)
+    {
+      cv::namedWindow(window_name, cv::WINDOW_AUTOSIZE);
+      window_made = true;
+    }
+    ready = false;
+    cv::imshow(window_name, data.image);
+    cv::waitKey(5);
+    ready = true;
 //	std::chrono::duration<double> d = data.timestamp - begin;
 //	std::cout << "Got an image with timestamp "<< d.count() << std::endl;
   }
@@ -136,6 +138,7 @@ public:
     imcount = 0;
 	  running = true;
 	  ready = true;
+    window_made = false;
 	  //readyThread = std::thread(std::bind(&OpenCV_Viewer_Example_FrameGrabHandler::pulseReady, this));
 	  this->begin = deepf1::TimePoint(begin);
 	  before = deepf1::TimePoint(begin);
@@ -143,14 +146,15 @@ public:
 	  video_writer_.reset(new cv::VideoWriter("out.avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), captureFreq, window_size));
   }
   static constexpr float captureFreq = 30.0;
+  const std::string window_name;
 private:
   std::shared_ptr<cv::VideoWriter> video_writer_;
   deepf1::TimePoint begin;
-  std::string window_name;
   deepf1::TimePoint before, after;
   std::thread readyThread;
   bool ready;
   bool running;
+  bool window_made;
   unsigned int imcount;
 };
 
