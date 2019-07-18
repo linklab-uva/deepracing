@@ -12,3 +12,4 @@ australia_valset/
 *.jpg
 *.avi
 *.modelmodel_out/
+model_out/*.yaml
