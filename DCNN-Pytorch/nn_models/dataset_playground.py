@@ -15,7 +15,8 @@ dset = data_loading.proto_datasets.ProtoDirDataset(args.dataset_dir, 10, 5)
 
 
 #image_torch, position_torch, rotation_torch, linear_velocity_torch, angular_velocity_torch, session_time = dset[0]
-dataloader = data_utils.DataLoader(dset, batch_size=4,
+batch_size=8
+dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
                         shuffle=True, num_workers=args.processes)
 t = tqdm(enumerate(dataloader))
 for i_batch, (image_torch, position_torch, rotation_torch, linear_velocity_torch, angular_velocity_torch, session_time) in t:
