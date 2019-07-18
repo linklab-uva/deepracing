@@ -11,4 +11,4 @@ australia_valset/
 *.png
 *.jpg
 *.avi
-*.model
+*.modelmodel_out/
