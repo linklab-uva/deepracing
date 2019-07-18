@@ -45,7 +45,9 @@ class ProtoDirDataset(Dataset):
         images_end = index + self.context_length
         packetrange = range(images_start, images_end)
         image_files = [os.path.join(self.image_directory,self.label_pb_tags[i].image_tag.image_file) for i in packetrange]
-        images = torch.from_numpy(np.array([self.totensor(skimage.io.imread(fname)).numpy() for fname in image_files]))
+        image_collection = skimage.io.imread_collection(image_files)
+        images = torch.from_numpy(np.array([self.totensor(image_collection[i]).numpy() for i in range(len(image_files))]))
+        
         label_packet = self.label_pb_tags[images_end-1]
         session_times = np.hstack((np.array([self.label_pb_tags[i].car_pose.session_time for i in packetrange]), \
                                    np.array([p.session_time for p in label_packet.subsequent_poses[0:self.sequence_length]])))
