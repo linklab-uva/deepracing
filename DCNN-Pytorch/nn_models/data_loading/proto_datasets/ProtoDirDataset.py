@@ -30,9 +30,13 @@ def LabelPacketSortKey(packet):
 class ProtoDirDataset(Dataset):
     def __init__(self, annotation_directory, context_length, sequence_length):
         super(ProtoDirDataset, self).__init__()
-        self.annotation_directory=annotation_directory
-        self.image_directory = os.path.dirname(annotation_directory)
-        self.label_pb_tags = sorted(deepracing.pose_utils.getAllSequenceLabelPackets(annotation_directory, use_json=True), key=LabelPacketSortKey)
+        if annotation_directory.endswith(os.path.sep):
+            self.annotation_directory=annotation_directory[0:len(annotation_directory)-1]
+        else:
+            self.annotation_directory=annotation_directory
+        
+        self.image_directory = os.path.dirname(self.annotation_directory)
+        self.label_pb_tags = sorted(deepracing.pose_utils.getAllSequenceLabelPackets(self.annotation_directory, use_json=True), key=LabelPacketSortKey)
         print([tag.image_tag.image_file for tag in self.label_pb_tags])
         self.context_length = context_length
         self.sequence_length = sequence_length
