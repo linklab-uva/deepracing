@@ -4,6 +4,10 @@ import torch.nn.functional as F
 class QuaternionDistance(nn.Module):
     def __init__(self):
         super(QuaternionDistance, self).__init__()
+    #compute quaternion distance Along a tensor of shape [N, T, 4]
+    #I am aware true quaternion distance has a factor of 2.0 out front.
+    #But this is inteded to be used for neural network optimization
+    #Where that extra linear factor is useless.
     def forward(self, input, target):
         prod = torch.mul(input,target)
         dot = torch.sum(prod,dim=2) 
