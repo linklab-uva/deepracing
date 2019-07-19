@@ -15,3 +15,4 @@ australia_valset/
 model_out/*.yaml
 model_out/*.model
 *.model
+/*.yaml
