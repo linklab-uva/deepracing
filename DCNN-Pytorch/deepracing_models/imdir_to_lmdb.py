@@ -5,6 +5,7 @@ import argparse
 import skimage
 import skimage.io
 import shutil
+import imutils
 def main():
     parser = argparse.ArgumentParser(description="Load an image directory into a database")
     parser.add_argument("image_dir", type=str, help="Directory containing the images")
@@ -17,9 +18,9 @@ def main():
     im_size = None
     imrows = args.imrows
     imcols = args.imcols
-    im = skimage.io.imread(img_files[0])
+    im = imutils.readImage(img_files[0])
     if imrows>0 and imcols>0:
-        im_size = np.array((args.imrows, args.imcols, im.shape[2]))
+        im_size = np.array((imrows, imcols, im.shape[2]))
     dbpath = os.path.join(img_folder,"lmdb")
     if(os.path.isdir(dbpath)):
         s=""

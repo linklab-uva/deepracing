@@ -1,1 +1,1 @@
-from .utils import resizeImage
+from .utils import resizeImage, readImage

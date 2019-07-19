@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import torchvision.models as visionmodels
 import torchvision.models.vgg
-
+import sys
 class ResNetAdapter(nn.Module):
     def __init__(self, output_dimension = 1, pretrained = True):
         super(ResNetAdapter, self).__init__()
@@ -470,7 +470,8 @@ class AdmiralNetPosePredictor(nn.Module):
         rotation_predictions2 = self.rotation_prediction_layer2(rotation_predictions1)
         rotation_predictions2 = self.tanh(rotation_predictions2)
         rotation_predictions = self.rotation_prediction_layer3(rotation_predictions2)
-        rotation_norms=torch.norm(rotation_predictions,dim=2)
+        rotation_norms = torch.norm(rotation_predictions,dim=2)
+        rotation_norms = torch.clamp(rotation_norms, 1E-4, 1E20)
         rotation_predictions = rotation_predictions/rotation_norms[:,:,None]
 
         return position_predictions, rotation_predictions
