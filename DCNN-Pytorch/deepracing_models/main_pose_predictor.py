@@ -56,13 +56,13 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
         position_predictions, rotation_predictions = network(image_torch)
         positions_nan = torch.sum(position_predictions!=position_predictions)!=0
         rotation_nan = torch.sum(rotation_predictions!=rotation_predictions)!=0
-        if(rotation_nan):
-            print(rotation_predictions)
-            print("Rotation prediction has a NaN!!!")
-            continue
         if(positions_nan):
             print(position_predictions)
             print("Position prediction has a NaN!!!")
+            continue
+        if(rotation_nan):
+            print(rotation_predictions)
+            print("Rotation prediction has a NaN!!!")
             continue
         #print("Output shape: ", outputs.shape)
         #print("Label shape: ", labels.shape)
@@ -144,3 +144,16 @@ for i in range(num_epochs):
     run_epoch(net, optimizer, dataloader, gpu, position_loss, rotation_loss, loss_weights=loss_weights, debug=debug)
     modelout = os.path.join(output_directory,"epoch_%d.model" %(postfix))
     torch.save(net.state_dict(), modelout)
+    i = np.random.randint(0,high=len(dset))
+    imtest = torch.rand( 1, context_length, input_channels, image_size[0], image_size[1], dtype=torch.float32 )
+    imtest[0], positions_torch, quats_torch, _, _, _ = dset[i]
+    if(gpu>=0):
+        imtest = imtest.cuda(gpu)
+    pos_pred, rot_pred = net(imtest)
+    print(pos_pred)
+    print(positions_torch)
+    print(rot_pred)
+    print(quats_torch)
+
+    
+    
