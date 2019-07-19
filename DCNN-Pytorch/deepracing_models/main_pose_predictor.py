@@ -36,6 +36,16 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
             image_torch = image_torch.cuda(gpu)
             position_torch = position_torch.cuda(gpu)
             rotation_torch = rotation_torch.cuda(gpu)
+        positions_labels_nan = torch.sum(position_torch!=position_torch)!=0
+        rotation_labels_nan = torch.sum(rotation_torch!=rotation_torch)!=0
+        if(rotation_labels_nan):
+            print(rotation_torch)
+            print("Rotation label has a NaN!!!")
+            continue
+        if(positions_labels_nan):
+            print(position_torch)
+            print("Position label has a NaN!!!")
+            continue
       #  print(image_torch.dtype)
         # Forward pass:
         position_predictions, rotation_predictions = network(image_torch)
