@@ -67,7 +67,17 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
         #print("Output shape: ", outputs.shape)
         #print("Label shape: ", labels.shape)
         rotation_loss_ = rotation_loss(rotation_predictions, rotation_torch)
+        rotation_loss_nan = torch.sum(rotation_loss_!=rotation_loss_)!=0
+        if(rotation_loss_nan):
+            print(rotation_loss_)
+            print("rotation_loss has a NaN!!!")
+            continue
         position_loss_ = position_loss(position_predictions, position_torch)
+        position_loss_nan = torch.sum(position_loss_!=position_loss_)!=0
+        if(position_loss_nan):
+            print(position_loss_)
+            print("position_loss has a NaN!!!")
+            continue
         loss = loss_weights[0]*position_loss_ + loss_weights[1]*rotation_loss_
         loss_nan = torch.sum(loss!=loss)!=0
         if(positions_nan):
