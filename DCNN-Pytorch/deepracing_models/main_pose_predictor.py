@@ -44,11 +44,11 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
         if(rotation_nan):
             print(rotation_predictions)
             print("Rotation prediction has a NaN!!!")
-            raise ValueError("Rotation prediction has a NaN!!!")
+            continue
         if(positions_nan):
             print(position_predictions)
             print("Position prediction has a NaN!!!")
-            raise ValueError("Position prediction has a NaN!!!")
+            continue
         #print("Output shape: ", outputs.shape)
         #print("Label shape: ", labels.shape)
         rotation_loss_ = rotation_loss(rotation_predictions, rotation_torch)
@@ -72,8 +72,10 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
 
 parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
 parser.add_argument("config_file", type=str,  help="Configuration file to load")
+parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
 args = parser.parse_args()
 config_file = args.config_file
+debug = args.debug
 with open(config_file) as f:
     config = yaml.load(f, Loader = yaml.SafeLoader)
 dataset_dir = config["dataset_dir"]
@@ -92,7 +94,6 @@ num_epochs = config["num_epochs"]
 output_directory = config["output_directory"]
 num_workers = config["num_workers"]
 image_db_directory = config['image_db_directory']
-debug = config['debug']
 if os.path.isdir(output_directory):
     s = ""
     while(not (s=="y" or s=="n")):
@@ -119,6 +120,7 @@ dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
 yaml.dump(config, stream=open(os.path.join(output_directory,"config.yaml"), "w"), Dumper = yaml.SafeDumper)
 for i in range(num_epochs):
     postfix = i + 1
+    print("Running Epoch Number %d" %(postfix))
     run_epoch(net, optimizer, dataloader, gpu, position_loss, rotation_loss, loss_weights=loss_weights, debug=debug)
-    modelout = os.path.join(output_directory,"epoch_" + str(postfix) + ".model")
+    modelout = os.path.join(output_directory,"epoch_%d.model" %(postfix))
     torch.save(net.state_dict(), modelout)
