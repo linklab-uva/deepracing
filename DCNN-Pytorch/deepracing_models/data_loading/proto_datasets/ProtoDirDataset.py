@@ -25,10 +25,11 @@ from torch.utils.data import Dataset
 import skimage
 import skimage.io
 import torchvision.transforms as transforms
-from skimage.transform import rescale, resize, downscale_local_mean
+from skimage.transform import resize
 import time
 import shutil
 from tqdm import tqdm as tqdm
+from imutils import resizeImage as resizeImage
 def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
 class ProtoDirDataset(Dataset):
@@ -60,7 +61,7 @@ class ProtoDirDataset(Dataset):
                                    np.array([p.session_time for p in label_packet.subsequent_poses[0:self.sequence_length]])))
         positions, quats, linear_velocities, angular_velocities = deepracing.pose_utils.labelPacketToNumpy(label_packet)
        # tick = time.clock()
-        images_torch = torch.from_numpy(np.array([self.totensor(skimage.util.img_as_ubyte(resize(self.lmdb_wrapper.getImage(self.image_files[i]), self.image_size))).numpy() for i in packetrange])).float()
+        images_torch = torch.from_numpy(np.array([self.totensor(resizeImage(self.lmdb_wrapper.getImage(self.image_files[i]), self.image_size)).numpy() for i in packetrange])).float()
         #tock = time.clock()
        # print("loaded images in %f seconds." %(tock-tick))
         positions_torch = torch.from_numpy(positions[0:self.sequence_length]).float()

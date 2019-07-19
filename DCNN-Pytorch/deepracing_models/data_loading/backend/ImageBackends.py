@@ -4,6 +4,7 @@ import skimage
 import lmdb
 import os
 from skimage.transform import resize
+import imutils
 class LMDBWrapper():
     def __init__(self):
         self.txn = None
@@ -26,7 +27,7 @@ class LMDBWrapper():
             write_txn.put("imsize".encode("ascii"), self.im_size.tobytes())
             for i, key in tqdm(enumerate(keys)):
                 if size_specified:
-                    im = skimage.util.img_as_ubyte(resize(skimage.io.imread(image_files[i]), self.im_size[0:2], order=3, anti_aliasing=True, anti_aliasing_sigma=None))
+                    im = imutils.resizeImage(skimage.util.img_as_ubyte(skimage.io.imread(image_files[i])), self.im_size[0:2])
                 else:
                     im = skimage.util.img_as_ubyte(skimage.io.imread(image_files[i]))
                 write_txn.put(key.encode("ascii"), im.flatten().tobytes())
