@@ -21,7 +21,7 @@ class LMDBWrapper():
         if size_specified:
             self.im_size = im_size.astype(np.int16)
         else:
-            self.im_size = np.array(skimage.io.imread(image_files[0]).shape).astype(np.int16)
+            self.im_size = np.array(skimage.io.imread(image_files[0]).shape).astype(np.uint16)
         with self.env.begin(write=True) as write_txn:
             print("Loading image data")
             write_txn.put("imsize".encode("ascii"), self.im_size.tobytes())
