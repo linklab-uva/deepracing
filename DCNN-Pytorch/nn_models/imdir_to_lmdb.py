@@ -14,8 +14,12 @@ def main():
     img_folder = args.image_dir
     keys = [fname for fname in  os.listdir(img_folder) if os.path.isfile(os.path.join(img_folder,fname)) and os.path.splitext(fname)[1]==".jpg"]
     img_files = [os.path.join(img_folder, key) for key in keys]
+    im_size = None
+    imrows = args.imrows
+    imcols = args.imcols
     im = skimage.io.imread(img_files[0])
-    im_size = np.array((args.imrows, args.imcols, im.shape[2]))
+    if imrows>0 and imcols>0:
+        im_size = np.array((args.imrows, args.imcols, im.shape[2]))
     dbpath = os.path.join(img_folder,"lmdb")
     if(os.path.isdir(dbpath)):
         s=""
