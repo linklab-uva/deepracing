@@ -1,5 +1,10 @@
 project(f1_datalogger)
 cmake_minimum_required (VERSION 3.10 FATAL_ERROR)
+cmake_policy(VERSION 3.10)
+if(COMMAND cmake_policy)
+	cmake_policy(SET CMP0003 NEW)
+endif(COMMAND cmake_policy)
+
 
 set(cxx_standard 17)
 set(CMAKE_CXX_STANDARD ${cxx_standard})
