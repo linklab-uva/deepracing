@@ -15,17 +15,18 @@ class LMDBWrapper():
         if os.path.isdir(db_path):
             raise IOError("Path " + db_path + " is already a directory")
         os.makedirs(db_path)
-        self.env = lmdb.open(db_path, map_size=1e9)
-        if(im_size is not None):
-            self.im_size = im_size
+        self.env = lmdb.open(db_path, map_size=1e10)
+        size_specified = im_size is not None
+        if size_specified:
+            self.im_size = im_size.astype(np.int16)
         else:
-            self.im_size = skimage.io.imread(image_files[0]).shape
+            self.im_size = np.array(skimage.io.imread(image_files[0]).shape).astype(np.int16)
         with self.env.begin(write=True) as write_txn:
             print("Loading image data")
-            write_txn.put("imsize".encode("ascii"), self.im_size.astype(np.int16).tobytes())
+            write_txn.put("imsize".encode("ascii"), self.im_size.tobytes())
             for i, key in tqdm(enumerate(keys)):
-                if(im_size is not None):
-                    im = skimage.util.img_as_ubyte(resize(skimage.io.imread(image_files[i]), self.im_size[0:2], order=3))
+                if size_specified:
+                    im = skimage.util.img_as_ubyte(resize(skimage.io.imread(image_files[i]), self.im_size[0:2], order=3, anti_aliasing=True, anti_aliasing_sigma=None))
                 else:
                     im = skimage.util.img_as_ubyte(skimage.io.imread(image_files[i]))
                 write_txn.put(key.encode("ascii"), im.flatten().tobytes())

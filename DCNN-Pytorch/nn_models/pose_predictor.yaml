@@ -18,4 +18,4 @@ num_epochs: 10
 num_workers: 0
 output_directory: "model_out"
 #debugging settings
-debug: False
+debug: True

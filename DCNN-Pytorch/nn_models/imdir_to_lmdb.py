@@ -24,7 +24,7 @@ def main():
     if(os.path.isdir(dbpath)):
         s=""
         while not (s=='n' or s=='y'):
-            input("Database folder " + dbpath+ " already exists. overwrite with new data? [y/n]\n")
+            s=input("Database folder " + dbpath+ " already exists. overwrite with new data? [y/n]\n")
         if(s=='n'):
             print("Goodbye then!")
             exit(0)
