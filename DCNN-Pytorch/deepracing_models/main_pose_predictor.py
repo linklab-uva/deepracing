@@ -18,7 +18,9 @@ import yaml
 import shutil
 import skimage
 import skimage.io
+loss = torch.zeros(1)
 def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss, loss_weights=[1.0, 1.0], imsize=(66,200), debug=False):
+    global loss
     cum_loss = 0.0
     cum_rotation_loss = 0.0
     cum_position_loss = 0.0
@@ -41,16 +43,13 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
         rotation_labels_nan = torch.sum(rotation_torch!=rotation_torch)!=0
         if(images_nan):
             print(images_nan)
-            print("Input image block has a NaN!!!")
-            continue
+            raise ValueError("Input image block has a NaN!!!")
         if(rotation_labels_nan):
             print(rotation_torch)
-            print("Rotation label has a NaN!!!")
-            continue
+            raise ValueError("Rotation label has a NaN!!!")
         if(positions_labels_nan):
             print(position_torch)
-            print("Position label has a NaN!!!")
-            continue
+            raise ValueError("Position label has a NaN!!!")
       #  print(image_torch.dtype)
         # Forward pass:
         position_predictions, rotation_predictions = network(image_torch)
@@ -58,32 +57,27 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
         rotation_nan = torch.sum(rotation_predictions!=rotation_predictions)!=0
         if(positions_nan):
             print(position_predictions)
-            print("Position prediction has a NaN!!!")
-            continue
+            raise ValueError("Position prediction has a NaN!!!")
         if(rotation_nan):
             print(rotation_predictions)
-            print("Rotation prediction has a NaN!!!")
-            continue
+            raise ValueError("Rotation prediction has a NaN!!!")
         #print("Output shape: ", outputs.shape)
         #print("Label shape: ", labels.shape)
         rotation_loss_ = rotation_loss(rotation_predictions, rotation_torch)
         rotation_loss_nan = torch.sum(rotation_loss_!=rotation_loss_)!=0
         if(rotation_loss_nan):
             print(rotation_loss_)
-            print("rotation_loss has a NaN!!!")
-            continue
+            raise ValueError("rotation_loss has a NaN!!!")
         position_loss_ = position_loss(position_predictions, position_torch)
         position_loss_nan = torch.sum(position_loss_!=position_loss_)!=0
         if(position_loss_nan):
             print(position_loss_)
-            print("position_loss has a NaN!!!")
-            continue
+            raise ValueError("position_loss has a NaN!!!")
         loss = loss_weights[0]*position_loss_ + loss_weights[1]*rotation_loss_
         loss_nan = torch.sum(loss!=loss)!=0
         if(positions_nan):
             print(loss)
-            print("loss has a NaN!!!")
-            continue
+            raise ValueError("loss has a NaN!!!")
 
 
         # Backward pass:
@@ -148,22 +142,34 @@ dset = data_loading.proto_datasets.ProtoDirDataset(dataset_dir, context_length, 
 dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
                         shuffle=True, num_workers=num_workers)
 yaml.dump(config, stream=open(os.path.join(output_directory,"config.yaml"), "w"), Dumper = yaml.SafeDumper)
-for i in range(num_epochs):
+i = 0
+while i < num_epochs:
     postfix = i + 1
     print("Running Epoch Number %d" %(postfix))
-    run_epoch(net, optimizer, dataloader, gpu, position_loss, rotation_loss, loss_weights=loss_weights, debug=debug)
-    modelout = os.path.join(output_directory,"epoch_%d.model" %(postfix))
+    try:
+        run_epoch(net, optimizer, dataloader, gpu, position_loss, rotation_loss, loss_weights=loss_weights, debug=debug)
+    except Exception as e:
+        print("Restarting epoch %d because %s"%(postfix, str(e)))
+        modelin = os.path.join(output_directory,"epoch_%d_params.pt" %(postfix-1))
+        optimizerin = os.path.join(output_directory,"epoch_%d_optimizer.pt" %(postfix-1))
+        net.load_state_dict(torch.load(modelin))
+        optimizer.load_state_dict(torch.load(optimizerin))
+        continue
+    modelout = os.path.join(output_directory,"epoch_%d_params.pt" %(postfix))
     torch.save(net.state_dict(), modelout)
-    i = np.random.randint(0,high=len(dset))
+    optimizerout = os.path.join(output_directory,"epoch_%d_optimizer.pt" %(postfix))
+    torch.save(optimizer.state_dict(), optimizerout)
+    irand = np.random.randint(0,high=len(dset))
     imtest = torch.rand( 1, context_length, input_channels, image_size[0], image_size[1], dtype=torch.float32 )
-    imtest[0], positions_torch, quats_torch, _, _, _ = dset[i]
+    imtest[0], positions_torch, quats_torch, _, _, _ = dset[irand]
     if(gpu>=0):
         imtest = imtest.cuda(gpu)
     pos_pred, rot_pred = net(imtest)
-    print(pos_pred)
     print(positions_torch)
-    print(rot_pred)
+    print(pos_pred)
     print(quats_torch)
+    print(rot_pred)
+    i = i + 1
 
     
     
