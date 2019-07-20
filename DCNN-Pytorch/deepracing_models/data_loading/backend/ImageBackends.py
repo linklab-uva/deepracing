@@ -13,26 +13,22 @@ class LMDBWrapper():
         self.size_type = np.uint16
         self.size_key = "imsize"
         self.key_encoding = "ascii"
-    def readImages(self, image_files, keys, db_path, im_size=None):
+    def readImages(self, image_files, keys, db_path, im_size, func=None):
         assert(len(image_files) > 0)
         assert(len(image_files) == len(keys))
         if os.path.isdir(db_path):
             raise IOError("Path " + db_path + " is already a directory")
         os.makedirs(db_path)
         self.env = lmdb.open(db_path, map_size=1e11)
-        size_specified = im_size is not None
-        if size_specified:
-            self.im_size = im_size.astype(self.size_type)
-        else:
-            self.im_size = np.array(imutils.readImage(image_files[0]).shape).astype(self.size_type)
+        self.im_size = im_size.astype(self.size_type)
         with self.env.begin(write=True) as write_txn:
             print("Loading image data")
             write_txn.put(self.size_key.encode(self.key_encoding), self.im_size.tobytes())
             for i, key in tqdm(enumerate(keys)):
-                if size_specified:
-                    im = imutils.resizeImage(imutils.readImage(image_files[i]), self.im_size[0:2])
-                else:
-                    im = imutils.readImage(image_files[i])
+                imgin = imutils.readImage(image_files[i])
+                if func is not None:
+                    imgin = func(imgin)
+                im = imutils.resizeImage(imgin, self.im_size[0:2])
                 write_txn.put(key.encode(self.key_encoding), im.flatten().tobytes())
         self.txn = self.env.begin(write=False)
     def readDatabase(self, db_path : str):
