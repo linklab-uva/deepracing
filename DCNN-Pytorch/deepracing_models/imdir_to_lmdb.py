@@ -28,7 +28,11 @@ def main():
     im = imutils.readImage(img_files[0])
     if roi is not None:
         assert(len(roi) == 4)
-        f = partial(extractROI,int(roi[0]),int(roi[1]),int(roi[2]),int(roi[3]))
+        x = int(roi[0])
+        y = int(roi[1])
+        w = int(roi[2])
+        h = int(roi[3])
+        f = partial(extractROI,x,y,w,h)
     else:    
         factor = args.display_resize_factor
         windowname = "Test Image"
@@ -44,7 +48,10 @@ def main():
         cv2.imshow(windowname, cv2.cvtColor(f(im), cv2.COLOR_RGB2BGR))
         cv2.waitKey(0)
         cv2.destroyWindow(windowname)
-    im_size = np.array((imrows, imcols, im.shape[2]))
+    if(imrows>0 and imcols>0):
+        im_size = np.array((imrows, imcols, im.shape[2]))
+    else:
+        im_size = np.array( ( h, w, im.shape[2] ) )
     dbpath = os.path.join(img_folder,"lmdb")
     if(os.path.isdir(dbpath)):
         s=""
