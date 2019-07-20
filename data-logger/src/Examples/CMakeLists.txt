@@ -70,6 +70,7 @@ if(MSVC)
 		${screen_capture_lite_PLATFORM_LIBS}
 	)
 	target_include_directories(${PROJECT_NAME}_test_vjoy_calibration PRIVATE ${vJoy++_INCLUDE_DIR})
+	set_target_properties(${PROJECT_NAME}_test_vjoy_calibration ${PROJECT_NAME}_generate_vjoy_calibration PROPERTIES FOLDER vjoy)
 endif()
 
 	
@@ -91,8 +92,7 @@ target_link_libraries(${PROJECT_NAME}_generate_sine_waves
 	${TBB_IMPORTED_TARGETS}
 	${YAML_CPP_LIBRARIES}
 )
-set_target_properties(${PROJECT_NAME}_go_in_circle ${PROJECT_NAME}_test_vjoy_calibration ${PROJECT_NAME}_generate_vjoy_calibration ${PROJECT_NAME}_replay_dataset ${PROJECT_NAME}_generate_sine_waves
-                    PROPERTIES FOLDER vjoy)
+set_target_properties(${PROJECT_NAME}_go_in_circle ${PROJECT_NAME}_replay_dataset ${PROJECT_NAME}_generate_sine_waves PROPERTIES FOLDER vjoy)
 
 add_executable(${PROJECT_NAME}_pure_pursuit_control
     pure_pursuit_control.cpp

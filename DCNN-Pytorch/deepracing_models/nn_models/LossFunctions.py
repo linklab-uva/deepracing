@@ -10,7 +10,7 @@ class QuaternionDistance(nn.Module):
     #Where that extra linear factor is useless.
     def forward(self, input, target):
         prod = torch.mul(input,target)
-        dot = torch.sum(prod,dim=2) 
+        dot = torch.sum(prod, dim = 2) 
         dotabs = torch.abs(dot)
         dotabsthresh = torch.clamp(dotabs, 0.0, 1.0)
         acos = torch.acos(dotabsthresh)
