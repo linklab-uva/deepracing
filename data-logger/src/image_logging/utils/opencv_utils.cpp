@@ -72,17 +72,17 @@ cv::Mat OpenCVUtils::protoImageToCV(const deepf1::protobuf::images::Image& proto
 {
   cv::Mat rtn;
   rtn.create(proto_image.rows(), proto_image.cols(), protoTypeToCV(proto_image.channel_order()));
-  memcpy(rtn.data, (uchar *)(&(proto_image.image_data()[0])), (size_t)rtn.cols * (size_t)rtn.rows * (size_t)rtn.channels());
+  memcpy(rtn.data, (uchar *)(&(proto_image.image_data()[0])), rtn.step[0] * (size_t)rtn.rows );
   return rtn;
 }
 deepf1::protobuf::images::Image OpenCVUtils::cvimageToProto(const cv::Mat& cv_image)
 {
   deepf1::protobuf::images::Image proto_image;
-  std::cerr << "Converting Channel Order: " << cv_image.type() << std::endl;
+ // std::cerr << "Converting Channel Order: " << cv_image.type() << std::endl;
   uint32_t channels = cv_image.channels();
-  std::cerr << "Image Channels: " << channels << std::endl;
+  //std::cerr << "Image Channels: " << channels << std::endl;
   deepf1::protobuf::images::ChannelOrder co = imTypeToProto(cv_image.type());
-  std::cerr << "Converted Channel Order" << std::endl;
+//  std::cerr << "Converted Channel Order" << std::endl;
   proto_image.set_channel_order(co);
   proto_image.set_cols(cv_image.cols);
   proto_image.set_rows(cv_image.rows);
