@@ -5,14 +5,17 @@ if(COMMAND cmake_policy)
 	cmake_policy(SET CMP0003 NEW)
 endif(COMMAND cmake_policy)
 
-
 set(cxx_standard 17)
 set(CMAKE_CXX_STANDARD ${cxx_standard})
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
-if(MSVC)
+if(WIN32)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
     option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
+	include(cmake/windows_stuff.cmake)
+	get_WIN32_WINNT(win32_ver)
+	message(STATUS "Win32 version: ${win32_ver}")
 else()
     set_property(GLOBAL PROPERTY USE_FOLDERS OFF)
     option(BUILD_SHARED_LIBS "Build Shared Libraries" ON)
@@ -27,7 +30,6 @@ set(CMAKE_CXX_EXTENSIONS ON)
 set(THIRD_PARTY_REPOS ${CMAKE_SOURCE_DIR}/third_party)
 include_directories(${EIGEN3_INCLUDE_DIR})
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
 find_package(Eigen3)
 if((NOT EIGEN3_FOUND))
