@@ -1,0 +1,15 @@
+syntax = "proto3";
+package deepf1.protobuf.images;
+import "Image.proto";
+service ImageService {
+  rpc GetImage (ImageRequest) returns (ImageResponse);
+}
+
+message ImageRequest {
+  string key = 1;
+}
+
+
+message ImageResponse {
+  deepf1.protobuf.images.Image image = 1;
+}
