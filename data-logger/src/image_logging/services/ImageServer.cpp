@@ -39,8 +39,8 @@ private:
     fs::path fullpath = folder_ / fs::path(request->key());
     cv::Mat im;
     try {
-      im = cv::imread(fullpath.string(), cv::IMREAD_UNCHANGED);
-      cv::resize(im, im, cv::Size(), resize_factor_, resize_factor_);
+      cv::resize(cv::imread(fullpath.string(), cv::IMREAD_UNCHANGED), im, cv::Size(), resize_factor_, resize_factor_, cv::INTER_AREA);
+      cv::cvtColor(im, im, cv::COLOR_BGR2RGB);
       if (im.empty())
       {
         Status status(grpc::StatusCode::INVALID_ARGUMENT, "Image " + request->key() + " doesn't exist.");

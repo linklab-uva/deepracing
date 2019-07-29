@@ -4,7 +4,11 @@ import grpc
 import cv2
 import numpy as np
 import argparse
-
+import skimage
+import skimage.io as io
+from skimage.viewer import ImageViewer
+import os
+print(os.environ['PYTHONPATH'])
 parser = argparse.ArgumentParser(description='Image client.')
 parser.add_argument('address', type=str)
 parser.add_argument('port', type=int)
@@ -13,8 +17,7 @@ args = parser.parse_args()
 channel = grpc.insecure_channel("%s:%d" %(args.address, args.port))
 stub = ImageRPC_pb2_grpc.ImageServiceStub(channel)
 response = stub.GetImage(ImageRPC_pb2.ImageRequest(key=args.key))
-im = np.frombuffer(response.image.image_data,dtype=np.uint8)
-im = np.reshape(im,(response.image.rows, response.image.cols, 3))
-cv2.namedWindow("received image")
-cv2.imshow("received image",im)
-cv2.waitKey(0)
+imshape = np.array((response.image.rows, response.image.cols, 3))
+im = np.reshape(np.frombuffer(response.image.image_data,dtype=np.uint8), imshape)
+viewer = ImageViewer(im)
+print(viewer.show())
