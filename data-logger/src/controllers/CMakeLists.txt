@@ -22,6 +22,7 @@ else()
 endif()
 add_library(${PROJECT_NAME}_controllers ${controllers_SRCS})
 target_link_libraries(${PROJECT_NAME}_controllers
+${PROJECT_NAME}_eigen_utils
 ${Boost_LIBRARIES}
 Eigen3::Eigen
 ${additional_controller_libs_}
