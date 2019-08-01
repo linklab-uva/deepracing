@@ -6,4 +6,5 @@ enum ChannelOrder {
 	RGB = 2;
 	BGRA = 3;
 	RGBA = 4;
+	OPTICAL_FLOW = 5;
 }
