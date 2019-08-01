@@ -28,6 +28,7 @@ class ImageLMDBServer(ImageRPC_pb2_grpc.ImageServiceServicer):
         print(self.im_size)
     #self.txn = self.lmdb_env.begin(write=False)
   def GetImage(self, request, context):
+    #print("Processing request from " + str(context))
     rtn =  ImageRPC_pb2.ImageResponse()
     rtn.image.channel_order = ChannelOrder_pb2.ChannelOrder.RGB
     rtn.image.rows = self.im_size[0]
