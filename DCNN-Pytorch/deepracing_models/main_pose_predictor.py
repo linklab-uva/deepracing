@@ -93,83 +93,86 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
         cum_rotation_loss += rotation_loss_.item()
         num_samples += batch_size
         t.set_postfix({"cum_loss" : cum_loss/num_samples, "position_loss" : cum_position_loss/num_samples, "rotation_loss" : cum_rotation_loss/num_samples})
-
-parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
-parser.add_argument("config_file", type=str,  help="Configuration file to load")
-parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
-args = parser.parse_args()
-config_file = args.config_file
-debug = args.debug
-with open(config_file) as f:
-    config = yaml.load(f, Loader = yaml.SafeLoader)
-dataset_dir = config["dataset_dir"]
-image_size = config["image_size"]
-hidden_dimension = config["hidden_dimension"]
-input_channels = config["input_channels"]
-sequence_length = config["sequence_length"]
-context_length = config["context_length"]
-gpu = config["gpu"]
-loss_weights = config["loss_weights"]
-temporal_conv_feature_factor = config["temporal_conv_feature_factor"]
-batch_size = config["batch_size"]
-learning_rate = config["learning_rate"]
-momentum = config["momentum"]
-num_epochs = config["num_epochs"]
-output_directory = config["output_directory"]
-num_workers = config["num_workers"]
-image_db_directory = config['image_db_directory']
-if os.path.isdir(output_directory):
-    s = ""
-    while(not (s=="y" or s=="n")):
-         s = input("Directory " + output_directory + " already exists. Overwrite it with new data? [y\\n]\n")
-    if s=="n":
-        print("Thanks for playing!")
-        exit(0)
-    shutil.rmtree(output_directory)
-os.makedirs(output_directory)
-net = models.AdmiralNetPosePredictor(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
-    hidden_dim=hidden_dimension, input_channels=input_channels, temporal_conv_feature_factor = temporal_conv_feature_factor)
-position_loss = torch.nn.MSELoss(reduction='sum')
-rotation_loss = loss_functions.QuaternionDistance()
-optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum)
-if gpu>=0:
-    rotation_loss = rotation_loss.cuda(gpu)
-    position_loss = position_loss.cuda(gpu)
-    net = net.cuda(gpu)
-db = data_loading.backend.LMDBWrapper()
-db.readDatabase(image_db_directory)
-dset = data_loading.proto_datasets.ProtoDirDataset(dataset_dir, context_length, sequence_length, db, image_size = np.array(image_size))
-dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
-                        shuffle=True, num_workers=num_workers)
-yaml.dump(config, stream=open(os.path.join(output_directory,"config.yaml"), "w"), Dumper = yaml.SafeDumper)
-i = 0
-while i < num_epochs:
-    postfix = i + 1
-    print("Running Epoch Number %d" %(postfix))
-    try:
-        run_epoch(net, optimizer, dataloader, gpu, position_loss, rotation_loss, loss_weights=loss_weights, debug=debug)
-    except Exception as e:
-        print("Restarting epoch %d because %s"%(postfix, str(e)))
-        modelin = os.path.join(output_directory,"epoch_%d_params.pt" %(postfix-1))
-        optimizerin = os.path.join(output_directory,"epoch_%d_optimizer.pt" %(postfix-1))
-        net.load_state_dict(torch.load(modelin))
-        optimizer.load_state_dict(torch.load(optimizerin))
-        continue
-    modelout = os.path.join(output_directory,"epoch_%d_params.pt" %(postfix))
-    torch.save(net.state_dict(), modelout)
-    optimizerout = os.path.join(output_directory,"epoch_%d_optimizer.pt" %(postfix))
-    torch.save(optimizer.state_dict(), optimizerout)
-    irand = np.random.randint(0,high=len(dset))
-    imtest = torch.rand( 1, context_length, input_channels, image_size[0], image_size[1], dtype=torch.float32 )
-    imtest[0], positions_torch, quats_torch, _, _, _ = dset[irand]
-    if(gpu>=0):
-        imtest = imtest.cuda(gpu)
-    pos_pred, rot_pred = net(imtest)
-    print(positions_torch)
-    print(pos_pred)
-    print(quats_torch)
-    print(rot_pred)
-    i = i + 1
-
-    
+def go():
+    parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
+    parser.add_argument("config_file", type=str,  help="Configuration file to load")
+    parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
+    args = parser.parse_args()
+    config_file = args.config_file
+    debug = args.debug
+    with open(config_file) as f:
+        config = yaml.load(f, Loader = yaml.SafeLoader)
+    annotation_dir = config["annotation_dir"]
+    image_server_address = config["image_server_address"]
+    image_server_port = config["image_server_port"]
+    image_size = config["image_size"]
+    hidden_dimension = config["hidden_dimension"]
+    input_channels = config["input_channels"]
+    sequence_length = config["sequence_length"]
+    context_length = config["context_length"]
+    gpu = config["gpu"]
+    loss_weights = config["loss_weights"]
+    temporal_conv_feature_factor = config["temporal_conv_feature_factor"]
+    batch_size = config["batch_size"]
+    learning_rate = config["learning_rate"]
+    momentum = config["momentum"]
+    num_epochs = config["num_epochs"]
+    output_directory = config["output_directory"]
+    num_workers = config["num_workers"]
+    debug = config["debug"]
+    if os.path.isdir(output_directory):
+        s = ""
+        while(not (s=="y" or s=="n")):
+             s = input("Directory " + output_directory + " already exists. Overwrite it with new data? [y\\n]\n")
+        if s=="n":
+            print("Thanks for playing!")
+            exit(0)
+        shutil.rmtree(output_directory)
+    os.makedirs(output_directory)
+    net = models.AdmiralNetPosePredictor(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
+        hidden_dim=hidden_dimension, input_channels=input_channels, temporal_conv_feature_factor = temporal_conv_feature_factor)
+    position_loss = torch.nn.MSELoss(reduction='sum')
+    rotation_loss = loss_functions.QuaternionDistance()
+    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum)
+    if gpu>=0:
+        rotation_loss = rotation_loss.cuda(gpu)
+        position_loss = position_loss.cuda(gpu)
+        net = net.cuda(gpu)
+    db_wrapper = data_loading.backend.GRPCWrapper(address =image_server_address, port=image_server_port)
+    dset = data_loading.proto_datasets.ProtoDirDataset(annotation_dir, db_wrapper, context_length, sequence_length, image_size = np.array(image_size))
+    dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
+                            shuffle=True, num_workers=num_workers)
+    yaml.dump(config, stream=open(os.path.join(output_directory,"config.yaml"), "w"), Dumper = yaml.SafeDumper)
+    i = 0
+    while i < num_epochs:
+        postfix = i + 1
+        print("Running Epoch Number %d" %(postfix))
+        try:
+            run_epoch(net, optimizer, dataloader, gpu, position_loss, rotation_loss, loss_weights=loss_weights, debug=debug)
+        except Exception as e:
+            print("Restarting epoch %d because %s"%(postfix, str(e)))
+            modelin = os.path.join(output_directory,"epoch_%d_params.pt" %(postfix-1))
+            optimizerin = os.path.join(output_directory,"epoch_%d_optimizer.pt" %(postfix-1))
+            net.load_state_dict(torch.load(modelin))
+            optimizer.load_state_dict(torch.load(optimizerin))
+            continue
+        modelout = os.path.join(output_directory,"epoch_%d_params.pt" %(postfix))
+        torch.save(net.state_dict(), modelout)
+        optimizerout = os.path.join(output_directory,"epoch_%d_optimizer.pt" %(postfix))
+        torch.save(optimizer.state_dict(), optimizerout)
+        irand = np.random.randint(0,high=len(dset))
+        imtest = torch.rand( 1, context_length, input_channels, image_size[0], image_size[1], dtype=torch.float32 )
+        imtest[0], positions_torch, quats_torch, _, _, _ = dset[irand]
+        if(gpu>=0):
+            imtest = imtest.cuda(gpu)
+        pos_pred, rot_pred = net(imtest)
+        print(positions_torch)
+        print(pos_pred)
+        print(quats_torch)
+        print(rot_pred)
+        i = i + 1
+import logging
+if __name__ == '__main__':
+    logging.basicConfig()
+    go()    
     
