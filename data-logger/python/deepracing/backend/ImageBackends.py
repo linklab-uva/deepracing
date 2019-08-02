@@ -4,28 +4,40 @@ import skimage
 import lmdb
 import os
 from skimage.transform import resize
-import imutils
-import ImageRPC_pb2_grpc
-import ImageRPC_pb2
+import deepracing.imutils
+import DeepF1_RPC_pb2_grpc
+import DeepF1_RPC_pb2
 import ChannelOrder_pb2
 import grpc
-class GRPCWrapper():
+import cv2
+class ImageGRPCClient():
     def __init__(self, address="127.0.0.1", port=50051):
         self.im_size = None
         self.channel = grpc.insecure_channel( "%s:%d" % ( address, port ) )
-        self.stub = ImageRPC_pb2_grpc.ImageServiceStub(self.channel)
+        self.stub = DeepF1_RPC_pb2_grpc.ImageServiceStub(self.channel)
+    def getNumImages(self, key):
+        response = self.stub.GetDbMetadata( DeepF1_RPC_pb2.ImageRequest(key=key) )
+        imshape = np.array( (response.rows, response.cols, 3) )
+        im = np.reshape( np.frombuffer( response.image_data, dtype=np.uint8 ) , imshape )
+        if(response.channel_order == ChannelOrder_pb2.ChannelOrder.BGR):
+            im = cv2.cvtColor(im,cv2.COLOR_BAYER_BGR2RGB)
+        return im
     def getImage(self, key):
-        response = self.stub.GetImage( ImageRPC_pb2.ImageRequest(key=key) )
-        imshape = np.array( (response.image.rows, response.image.cols, 3) )
-        return np.reshape( np.frombuffer( response.image.image_data, dtype=np.uint8 ) , imshape )
+        response = self.stub.GetImage( DeepF1_RPC_pb2.ImageRequest(key=key) )
+        imshape = np.array( (response.rows, response.cols, 3) )
+        im = np.reshape( np.frombuffer( response.image_data, dtype=np.uint8 ) , imshape )
+        if(response.channel_order == ChannelOrder_pb2.ChannelOrder.BGR):
+            im = cv2.cvtColor(im,cv2.COLOR_BAYER_BGR2RGB)
+        return im
         
-class LMDBWrapper():
+class ImageLMDBWrapper():
     def __init__(self):
         self.txn = None
         self.env = None
         self.im_size = None
         self.size_type = np.uint16
         self.size_key = "imsize"
+        self.num_images_key = "num_images"
         self.key_encoding = "ascii"
     def readImages(self, image_files, keys, db_path, im_size, func=None, mapsize=1e11):
         assert(len(image_files) > 0)
@@ -38,11 +50,12 @@ class LMDBWrapper():
         with self.env.begin(write=True) as write_txn:
             print("Loading image data")
             write_txn.put(self.size_key.encode(self.key_encoding), self.im_size.tobytes())
+            write_txn.put(self.num_images_key.encode(self.key_encoding), str(len(keys)).encode(self.key_encoding))
             for i, key in tqdm(enumerate(keys)):
-                imgin = imutils.readImage(image_files[i])
+                imgin = deepracing.imutils.readImage(image_files[i])
                 if func is not None:
                     imgin = func(imgin)
-                im = imutils.resizeImage(imgin, self.im_size[0:2])
+                im = deepracing.imutils.resizeImage(imgin, self.im_size[0:2])
                 write_txn.put(key.encode(self.key_encoding), im.flatten().tobytes())
         self.txn = self.env.begin(write=False)
     def readDatabase(self, db_path : str, mapsize=1e11):

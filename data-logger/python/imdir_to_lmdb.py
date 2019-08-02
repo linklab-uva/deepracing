@@ -1,12 +1,13 @@
 import numpy as np
-import data_loading.backend
 import os
 import argparse
 import skimage
 import skimage.io
 import shutil
-import imutils
+import deepracing.imutils
+import deepracing.backend
 import cv2
+import deepracing.imutils
 from functools import partial
 def extractROI(x, y, w, h, image):
     return image[y:y+h, x:x+w].copy()
@@ -26,7 +27,7 @@ def main():
     imrows = args.imrows
     imcols = args.imcols
     roi = args.ROI
-    im = imutils.readImage(img_files[0])
+    im = deepracing.imutils.readImage(img_files[0])
     if roi is not None:
         assert(len(roi) == 4)
         x = int(roi[0])
@@ -38,7 +39,7 @@ def main():
         factor = args.display_resize_factor
         windowname = "Test Image"
         cv2.namedWindow(windowname,cv2.WINDOW_AUTOSIZE)
-        x_,y_,w_,h_ = cv2.selectROI(windowname, cv2.cvtColor(imutils.resizeImageFactor(im,factor), cv2.COLOR_RGB2BGR), showCrosshair =True)
+        x_,y_,w_,h_ = cv2.selectROI(windowname, cv2.cvtColor(deepracing.imutils.resizeImageFactor(im,factor), cv2.COLOR_RGB2BGR), showCrosshair =True)
         print((x_,y_,w_,h_))
         x = int(round(x_/factor))
         y = int(round(y_/factor))
@@ -53,7 +54,7 @@ def main():
         im_size = np.array((imrows, imcols, im.shape[2]))
     else:
         im_size = np.array( ( h, w, im.shape[2] ) )
-    dbpath = os.path.join(img_folder,"lmdb")
+    dbpath = os.path.join(img_folder,"image_lmdb")
     if(os.path.isdir(dbpath)):
         s=""
         while not (s=='n' or s=='y'):
@@ -62,7 +63,7 @@ def main():
             print("Goodbye then!")
             exit(0)
         shutil.rmtree(dbpath)
-    db = data_loading.backend.LMDBWrapper()
+    db = deepracing.backend.ImageLMDBWrapper()
     db.readImages(img_files, keys, dbpath, im_size, func=f, mapsize=args.mapsize)
 if __name__ == '__main__':
   main()

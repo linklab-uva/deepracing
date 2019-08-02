@@ -34,22 +34,23 @@ from imutils import readImage as readImage
 import cv2
 def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
-class ProtoDirDataset(Dataset):
-    def __init__(self, annotation_directory, db_wrapper, context_length, sequence_length, image_size = np.array((66,200))):
-        super(ProtoDirDataset, self).__init__()
-        if annotation_directory.endswith(os.path.sep):
-            self.annotation_directory=annotation_directory[0:len(annotation_directory)-1]
-        else:
-            self.annotation_directory=annotation_directory
-        self.db_wrapper = db_wrapper
+class PoseSequenceDataset(Dataset):
+    def __init__(self, image_db_wrapper, label_db_wrapper, db_size, context_length, sequence_length, image_size = np.array((66,200))):
+        super(PoseSequenceDataset, self).__init__()
+        self.image_db_wrapper = image_db_wrapper
+        self.label_db_wrapper = label_db_wrapper
         self.image_size = image_size
-        self.label_pb_tags = sorted(deepracing.pose_utils.getAllSequenceLabelPackets(self.annotation_directory, use_json=True), key=LabelPacketSortKey)
-        print([tag.image_tag.image_file for tag in self.label_pb_tags])
         self.context_length = context_length
         self.sequence_length = sequence_length
-        self.length = len(self.label_pb_tags) - 1 - context_length# - sequence_length
+        self.length = len(self.db_keys) - 1 - context_length
         self.totensor = transforms.ToTensor()
-        self.image_files = [pb_tag.image_tag.image_file for pb_tag in self.label_pb_tags]
+        self.db_keys = []
+        self.label_pb_tags = []
+        print("Preloading database labels.")
+        for i in tqdm(range(db_size)):
+            newkey = "image_%d.jpg" %(i+1)
+            self.db_keys.append(newkey)
+            self.label_pb_tags.append(self.label_db_wrapper.getPoseSequenceLabel(newkey))
     def __len__(self):
         return self.length
     def __getitem__(self, index):
@@ -62,7 +63,7 @@ class ProtoDirDataset(Dataset):
                                    np.array([p.session_time for p in label_packet.subsequent_poses[0:self.sequence_length]])))
         positions, quats, linear_velocities, angular_velocities = deepracing.pose_utils.labelPacketToNumpy(label_packet)
        # tick = time.clock()
-        images_torch = torch.from_numpy(np.array([self.totensor(resizeImage(self.db_wrapper.getImage(self.image_files[i]), self.image_size)).numpy() for i in packetrange])).float()
+        images_torch = torch.from_numpy(np.array([self.totensor(resizeImage(self.image_db_wrapper.getImage(self.db_keys[i]), self.image_size)).numpy() for i in packetrange])).float()
         #tock = time.clock()
        # print("loaded images in %f seconds." %(tock-tick))
         positions_torch = torch.from_numpy(positions[0:self.sequence_length]).float()

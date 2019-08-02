@@ -1,5 +1,5 @@
-import ImageRPC_pb2_grpc
-import ImageRPC_pb2
+import DeepF1_RPC_pb2_grpc
+import DeepF1_RPC_pb2
 import Image_pb2
 import ChannelOrder_pb2
 import grpc
@@ -14,9 +14,9 @@ from concurrent import futures
 import logging
 import argparse
 import lmdb
+import cv2
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
-
-class ImageLMDBServer(ImageRPC_pb2_grpc.ImageServiceServicer):
+class ImageLMDBServer(DeepF1_RPC_pb2_grpc.ImageServiceServicer):
   def __init__(self, dbfolder : str):
     super(ImageLMDBServer, self).__init__()
     self.dbfolder=dbfolder
@@ -28,12 +28,17 @@ class ImageLMDBServer(ImageRPC_pb2_grpc.ImageServiceServicer):
         print(self.im_size)
     #self.txn = self.lmdb_env.begin(write=False)
   def GetImage(self, request, context):
-    rtn =  ImageRPC_pb2.ImageResponse()
-    rtn.image.channel_order = ChannelOrder_pb2.ChannelOrder.RGB
-    rtn.image.rows = self.im_size[0]
-    rtn.image.cols = self.im_size[1]
+    rtn =  Image_pb2.Image()
+    rtn.channel_order = ChannelOrder_pb2.ChannelOrder.RGB
+    rtn.rows = self.im_size[0]
+    rtn.cols = self.im_size[1]
     with self.lmdb_env.begin(write=False) as txn:
-        rtn.image.image_data = txn.get(request.key.encode(self.key_encoding))
+        rtn.image_data = txn.get(request.key.encode(self.key_encoding))
+    return rtn
+  def GetDbMetadata(self, request, context):
+    rtn =  DeepF1_RPC_pb2.DbMetadata()
+    with self.lmdb_env.begin(write=False) as txn:
+        rtn.size = int(txn.get("num_images".encode(self.key_encoding)))
     return rtn
 
 def serve():
@@ -45,7 +50,7 @@ def serve():
     args = parser.parse_args()
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.num_workers))
     lmdbserver = ImageLMDBServer(args.db_folder)
-    ImageRPC_pb2_grpc.add_ImageServiceServicer_to_server(lmdbserver, server)
+    DeepF1_RPC_pb2_grpc.add_ImageServiceServicer_to_server(lmdbserver, server)
     server.add_insecure_port('%s:%d' % (args.address,args.port) )
     print("Starting server")
     server.start()
