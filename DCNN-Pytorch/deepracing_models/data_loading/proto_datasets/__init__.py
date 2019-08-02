@@ -1,1 +1,1 @@
-from .ProtoDirDataset import ProtoDirDataset
+from .PoseSequenceDataset import PoseSequenceDataset

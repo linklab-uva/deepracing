@@ -29,28 +29,31 @@ from skimage.transform import resize
 import time
 import shutil
 from tqdm import tqdm as tqdm
-from imutils import resizeImage as resizeImage
-from imutils import readImage as readImage
+from deepracing.imutils import resizeImage as resizeImage
+from deepracing.imutils import readImage as readImage
 import cv2
 def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
 class PoseSequenceDataset(Dataset):
-    def __init__(self, image_db_wrapper, label_db_wrapper, db_size, context_length, sequence_length, image_size = np.array((66,200))):
+    def __init__(self, image_db_wrapper, label_db_wrapper, context_length, sequence_length, image_size = np.array((66,200))):
         super(PoseSequenceDataset, self).__init__()
         self.image_db_wrapper = image_db_wrapper
         self.label_db_wrapper = label_db_wrapper
         self.image_size = image_size
         self.context_length = context_length
         self.sequence_length = sequence_length
-        self.length = len(self.db_keys) - 1 - context_length
         self.totensor = transforms.ToTensor()
         self.db_keys = []
         self.label_pb_tags = []
+        num_labels = self.label_db_wrapper.getNumLabels()
         print("Preloading database labels.")
-        for i in tqdm(range(db_size)):
-            newkey = "image_%d.jpg" %(i+1)
+        for i in tqdm(range(2,num_labels+2)):
+            newkey = "image_%d" % (i)
             self.db_keys.append(newkey)
             self.label_pb_tags.append(self.label_db_wrapper.getPoseSequenceLabel(newkey))
+            if(not (self.label_pb_tags[-1].image_tag.image_file == self.db_keys[-1]+".jpg")):
+                raise AttributeError("Mismatch between database key: %s and associated image file: %s" %(self.db_keys[-1], self.label_pb_tags.image_tag.image_file))
+        self.length = len(self.db_keys) - 1 - context_length
     def __len__(self):
         return self.length
     def __getitem__(self, index):

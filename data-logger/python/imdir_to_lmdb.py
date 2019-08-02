@@ -21,8 +21,8 @@ def main():
     parser.add_argument('-R','--ROI', nargs='+', help='ROI to capture', default=None)
     args = parser.parse_args()
     img_folder = args.image_dir
-    keys = [fname for fname in  os.listdir(img_folder) if os.path.isfile(os.path.join(img_folder,fname)) and os.path.splitext(fname)[1]==".jpg"]
-    img_files = [os.path.join(img_folder, key) for key in keys]
+    keys = [os.path.splitext(fname)[0] for fname in  os.listdir(img_folder) if os.path.isfile(os.path.join(img_folder,fname)) and (os.path.splitext(fname)[1]==".jpg" or os.path.splitext(fname)[1]==".png")]
+    img_files = [os.path.join(img_folder,fname) for fname in  os.listdir(img_folder) if os.path.isfile(os.path.join(img_folder,fname)) and (os.path.splitext(fname)[1]==".jpg" or os.path.splitext(fname)[1]==".png")]
     im_size = None
     imrows = args.imrows
     imcols = args.imcols

@@ -1,7 +1,6 @@
 import torch
 import torch.utils.data as data_utils
 import data_loading.proto_datasets
-import data_loading.backend
 from tqdm import tqdm as tqdm
 import nn_models.LossFunctions as loss_functions
 import nn_models.Models as models
@@ -18,6 +17,7 @@ import yaml
 import shutil
 import skimage
 import skimage.io
+import deepracing.backend
 loss = torch.zeros(1)
 def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss, loss_weights=[1.0, 1.0], imsize=(66,200), debug=False):
     global loss
@@ -102,9 +102,9 @@ def go():
     debug = args.debug
     with open(config_file) as f:
         config = yaml.load(f, Loader = yaml.SafeLoader)
-    annotation_dir = config["annotation_dir"]
-    image_server_address = config["image_server_address"]
-    image_server_port = config["image_server_port"]
+    address = config["address"]
+    image_port = config["image_port"]
+    label_port = config["label_port"]
     image_size = config["image_size"]
     hidden_dimension = config["hidden_dimension"]
     input_channels = config["input_channels"]
@@ -138,8 +138,9 @@ def go():
         rotation_loss = rotation_loss.cuda(gpu)
         position_loss = position_loss.cuda(gpu)
         net = net.cuda(gpu)
-    db_wrapper = data_loading.backend.GRPCWrapper(address =image_server_address, port=image_server_port)
-    dset = data_loading.proto_datasets.ProtoDirDataset(annotation_dir, db_wrapper, context_length, sequence_length, image_size = np.array(image_size))
+    image_wrapper = deepracing.backend.ImageGRPCClient(address=address, port=image_port)
+    label_wrapper = deepracing.backend.PoseSequenceLabelGRPCClient(address=address, port=label_port)
+    dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, context_length, sequence_length, image_size = np.array(image_size))
     dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
                             shuffle=True, num_workers=num_workers)
     yaml.dump(config, stream=open(os.path.join(output_directory,"config.yaml"), "w"), Dumper = yaml.SafeDumper)

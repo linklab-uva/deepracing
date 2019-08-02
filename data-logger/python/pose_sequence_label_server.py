@@ -15,26 +15,23 @@ import logging
 import argparse
 import lmdb
 import cv2
+import DeepF1_RPC_pb2_grpc
+import DeepF1_RPC_pb2
+import PoseSequenceLabel_pb2
 import deepracing.backend
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
-class ImageLMDBServer(DeepF1_RPC_pb2_grpc.ImageServiceServicer):
+class PoseSequenceLabelLMDBServer(DeepF1_RPC_pb2_grpc.ImageServiceServicer):
   def __init__(self, dbfolder : str):
-    super(ImageLMDBServer, self).__init__()
+    super(PoseSequenceLabelLMDBServer, self).__init__()
     self.dbfolder=dbfolder
-    self.backend = deepracing.backend.ImageLMDBWrapper()
+    self.backend = deepracing.backend.PoseSequenceLabelLMDBWrapper()
     self.backend.readDatabase(self.dbfolder)
-    #self.txn = self.lmdb_env.begin(write=False)
-  def GetImage(self, request, context):
-    rtn =  Image_pb2.Image()
-    rtn.channel_order = ChannelOrder_pb2.ChannelOrder.RGB
-    img = self.backend.getImage(request.key)
-    rtn.rows = img.shape[0]
-    rtn.cols = img.shape[1]
-    rtn.image_data = img.flatten().tobytes()
+  def GetPoseSequenceLabel(self, request, context):
+    rtn =  self.backend.getPoseSequenceLabel(request.key)
     return rtn
   def GetDbMetadata(self, request, context):
     rtn =  DeepF1_RPC_pb2.DbMetadata()
-    rtn.size = self.backend.getNumImages()
+    rtn.size = self.backend.getNumLabels()
     return rtn
 
 def serve():
@@ -45,10 +42,10 @@ def serve():
     parser.add_argument('--num_workers', type=int, default=1)
     args = parser.parse_args()
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.num_workers))
-    lmdbserver = ImageLMDBServer(args.db_folder)
-    DeepF1_RPC_pb2_grpc.add_ImageServiceServicer_to_server(lmdbserver, server)
+    lmdbserver = PoseSequenceLabelLMDBServer(args.db_folder)
+    DeepF1_RPC_pb2_grpc.add_LabelServiceServicer_to_server(lmdbserver, server)
     server.add_insecure_port('%s:%d' % (args.address,args.port) )
-    print("Starting image server")
+    print("Starting label server")
     server.start()
     try:
         while True:
