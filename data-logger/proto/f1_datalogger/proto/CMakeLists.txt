@@ -5,7 +5,7 @@ find_package (Python3 REQUIRED COMPONENTS Interpreter)
 set(c-ares_DIR $ENV{c-ares_DIR})
 include(${CMAKE_SOURCE_DIR}/cmake/grpc_utils.cmake)
 set(GRPC_PROTOFILES
-  "ImageRPC.proto"
+  "DeepF1_RPC.proto"
 )
 file(GLOB PROTOFILES
   "*.proto"
