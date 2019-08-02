@@ -23,22 +23,18 @@ class ImageLMDBServer(DeepF1_RPC_pb2_grpc.ImageServiceServicer):
     self.dbfolder=dbfolder
     self.backend = deepracing.backend.ImageLMDBWrapper()
     self.backend.readDatabase(self.dbfolder)
-    #self.txn = self.lmdb_env.begin(write=False)
-
-    def GetImage(self, request, context): 
-        rtn =  Image_pb2.Image()
-        rtn.channel_order = ChannelOrder_pb2.ChannelOrder.RGB
-        img = self.backend.getImage(request.key)
-        rtn.rows = img.shape[0]
-        rtn.cols = img.shape[1]
-        rtn.image_data = img.flatten().tobytes()
-        return rtn
-
-    def GetDbMetadata(self, request, context):
-        rtn =  DeepF1_RPC_pb2.DbMetadata()
-        rtn.size = self.backend.getNumImages()
-        return rtn
-
+  def GetImage(self, request, context):
+    rtn =  Image_pb2.Image()
+    rtn.channel_order = ChannelOrder_pb2.ChannelOrder.RGB
+    img = self.backend.getImage(request.key)
+    rtn.rows = img.shape[0]
+    rtn.cols = img.shape[1]
+    rtn.image_data = img.flatten().tobytes()
+    return rtn
+  def GetDbMetadata(self, request, context):
+    rtn =  DeepF1_RPC_pb2.DbMetadata()
+    rtn.size = self.backend.getNumImages()
+    return rtn
 def serve():
     parser = argparse.ArgumentParser(description='Image server.')
     parser.add_argument('address', type=str)
@@ -48,8 +44,9 @@ def serve():
     args = parser.parse_args()
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.num_workers))
     lmdbserver = ImageLMDBServer(args.db_folder)
-    DeepF1_RPC_pb2_grpc.add_ImageServiceServicer_to_server(lmdbserver, server)
+    #lmdbserver.GetImage(None, None)
     server.add_insecure_port('%s:%d' % (args.address,args.port) )
+    DeepF1_RPC_pb2_grpc.add_ImageServiceServicer_to_server(lmdbserver, server)
     print("Starting image server")
     server.start()
     try:
