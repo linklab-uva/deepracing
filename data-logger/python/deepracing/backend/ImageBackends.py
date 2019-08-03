@@ -59,11 +59,11 @@ class ImageLMDBWrapper():
             raise IOError("Path " + db_path + " is not a directory")
         self.env = lmdb.open(db_path, map_size=mapsize)
         with self.env.begin(write=False) as txn:
-            self.im_size = np.fromstring(txn.get(self.size_key.encode(self.encoding)), dtype=self.size_type)
+            self.im_size = np.frombuffer(txn.get(self.size_key.encode(self.encoding)), dtype=self.size_type)
     def getImage(self, key):
         im = None
         with self.env.begin(write=False) as txn:
-            im = np.reshape(np.fromstring(txn.get(key.encode(self.encoding)), dtype=np.uint8), self.im_size)
+            im = np.reshape(np.frombuffer(txn.get(key.encode(self.encoding)), dtype=np.uint8), self.im_size)
         return im
     def getNumImages(self):
         size = 0
