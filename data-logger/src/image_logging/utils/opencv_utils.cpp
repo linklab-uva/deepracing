@@ -72,17 +72,17 @@ cv::Mat OpenCVUtils::protoImageToCV(const deepf1::protobuf::images::Image& proto
 {
   cv::Mat rtn;
   rtn.create(proto_image.rows(), proto_image.cols(), protoTypeToCV(proto_image.channel_order()));
-  memcpy(rtn.data, (uchar *)(&(proto_image.image_data()[0])), (size_t)rtn.cols * (size_t)rtn.rows * (size_t)rtn.channels());
+  memcpy(rtn.data, (uchar *)(&(proto_image.image_data()[0])), rtn.step[0] * (size_t)rtn.rows );
   return rtn;
 }
 deepf1::protobuf::images::Image OpenCVUtils::cvimageToProto(const cv::Mat& cv_image)
 {
   deepf1::protobuf::images::Image proto_image;
-  std::cerr << "Converting Channel Order: " << cv_image.type() << std::endl;
+ // std::cerr << "Converting Channel Order: " << cv_image.type() << std::endl;
   uint32_t channels = cv_image.channels();
-  std::cerr << "Image Channels: " << channels << std::endl;
+  //std::cerr << "Image Channels: " << channels << std::endl;
   deepf1::protobuf::images::ChannelOrder co = imTypeToProto(cv_image.type());
-  std::cerr << "Converted Channel Order" << std::endl;
+//  std::cerr << "Converted Channel Order" << std::endl;
   proto_image.set_channel_order(co);
   proto_image.set_cols(cv_image.cols);
   proto_image.set_rows(cv_image.rows);
@@ -93,16 +93,15 @@ deepf1::protobuf::images::Image OpenCVUtils::cvimageToProto(const cv::Mat& cv_im
 }
 void OpenCVUtils::toCV(const scl::Image& image_scl, const scl::Point& size, cv::Mat& out)
 {
-	out.create(size.y, size.x, CV_8UC4);
+	out.create(scl::Height(image_scl), scl::Width(image_scl), CV_8UC4);
 	scl::Extract(image_scl, out.data, (size_t)out.rows * (size_t)out.cols * sizeof(scl::ImageBGRA));
 }
 cv::Mat OpenCVUtils::toCV(const scl::Image& image_scl, const scl::Point& size)
 {
-  cv::Mat rtn;
-  uint32_t rows = scl::Height(image_scl), cols = scl::Width(image_scl);
-  //std::cout << "Got an image of Height: " << rows << " and Width: " << cols << std::endl;
-  rtn.create(rows, cols, CV_8UC4);
-  scl::Extract(image_scl, rtn.data, (size_t)cols * (size_t)rows * sizeof(scl::ImageBGRA));
-  return rtn;
+  cv::Mat out;
+  out.create(scl::Height(image_scl), scl::Width(image_scl), CV_8UC4);
+  scl::Extract(image_scl, out.data, (size_t)out.rows * (size_t)out.cols  *sizeof(scl::ImageBGRA));
+  cv::Mat nontitlebar = out.rowRange(cv::Range(out.rows/2, out.rows-1));
+  return out;
 }
 } /* namespace deepf1 */

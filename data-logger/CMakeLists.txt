@@ -1,13 +1,21 @@
 project(f1_datalogger)
-cmake_minimum_required (VERSION 3.14 FATAL_ERROR)
+cmake_minimum_required (VERSION 3.10 FATAL_ERROR)
+cmake_policy(VERSION 3.10)
+if(COMMAND cmake_policy)
+	cmake_policy(SET CMP0003 NEW)
+endif(COMMAND cmake_policy)
 
 set(cxx_standard 17)
 set(CMAKE_CXX_STANDARD ${cxx_standard})
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
-if(MSVC)
+if(WIN32)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
     option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
+	include(cmake/windows_stuff.cmake)
+	get_WIN32_WINNT(win32_ver)
+	message(STATUS "Win32 version: ${win32_ver}")
 else()
     set_property(GLOBAL PROPERTY USE_FOLDERS OFF)
     option(BUILD_SHARED_LIBS "Build Shared Libraries" ON)
@@ -22,7 +30,6 @@ set(CMAKE_CXX_EXTENSIONS ON)
 set(THIRD_PARTY_REPOS ${CMAKE_SOURCE_DIR}/third_party)
 include_directories(${EIGEN3_INCLUDE_DIR})
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
 find_package(Eigen3)
 if((NOT EIGEN3_FOUND))
@@ -67,13 +74,14 @@ endif()
 set (Boost_USE_MULTITHREADED ON)
 set(BOOST_REQUIRED_COMPONENTS
 date_time
+filesystem
 headers
 program_options
 regex
 system
 thread
 )
-find_package( Boost 1.6 REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS} )
+find_package( Boost 1.7 REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS} )
 foreach(boost_component_ ${BOOST_REQUIRED_COMPONENTS})
 	list(APPEND Boost_LIBRARIES Boost::${boost_component_})
 endforeach()
@@ -191,4 +199,8 @@ endif()
 
 if(MSVC)
 	configure_file(scripts/windows/tbbvars2019.bat.in tbbvars2019.bat @ONLY NEWLINE_STYLE WIN32)
+	configure_file(scripts/windows/addpythonpath.bat.in addpythonpath.bat @ONLY NEWLINE_STYLE WIN32)
+	configure_file(scripts/windows/addpythonpath.ps.in addpythonpath.ps1 @ONLY NEWLINE_STYLE WIN32)
+else()
+	configure_file(scripts/bash/addpythonpath.in addpythonpath @ONLY)
 endif() 

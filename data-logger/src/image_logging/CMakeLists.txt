@@ -22,6 +22,17 @@ target_link_libraries(${PROJECT_NAME}_image_logging_common ${PROJECT_NAME}_image
 add_executable(${PROJECT_NAME}_image_utils_test utils/opencv_utils_test.cpp)
 target_link_libraries(${PROJECT_NAME}_image_utils_test ${PROJECT_NAME}_image_utils ${Boost_LIBRARIES} )
 
+
+
+add_executable(${PROJECT_NAME}_image_server services/ImageServer.cpp)
+if(WIN32)
+target_compile_definitions(${PROJECT_NAME}_proto PRIVATE _WIN32_WINNT=${win32_ver})
+target_compile_definitions(${PROJECT_NAME}_image_server PRIVATE _WIN32_WINNT=${win32_ver})
+endif()
+target_include_directories(${PROJECT_NAME}_image_server PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
+target_link_libraries(${PROJECT_NAME}_image_server ${PROJECT_NAME}_proto ${PROJECT_NAME}_image_utils)
+
+
 set(install_targets
 #libraries.
 ${PROJECT_NAME}_image_logging_common

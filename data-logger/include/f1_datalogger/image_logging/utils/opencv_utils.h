@@ -16,6 +16,7 @@ namespace scl = SL::Screen_Capture;
 class OpenCVUtils
 {
 public:
+  typedef cv::Vec<uint8_t, 4> CVPixel;
   OpenCVUtils();
   virtual ~OpenCVUtils();
   static void toCV(const scl::Image& image_scl, const scl::Point& size, cv::Mat& out);
