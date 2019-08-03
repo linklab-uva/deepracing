@@ -33,7 +33,6 @@ class ImageLMDBWrapper():
         self.im_size = None
         self.size_type = np.uint16
         self.size_key = "imsize"
-        self.num_images_key = "num_images"
         self.encoding = "ascii"
     def readImages(self, image_files, keys, db_path, im_size, func=None, mapsize=1e11):
         assert(len(image_files) > 0)
@@ -46,7 +45,6 @@ class ImageLMDBWrapper():
         with self.env.begin(write=True) as write_txn:
             print("Loading image data")
             write_txn.put(self.size_key.encode(self.encoding), self.im_size.tobytes())
-            write_txn.put(self.num_images_key.encode(self.encoding), str(len(keys)).encode(self.encoding))
             for i, key in tqdm(enumerate(keys), total=len(keys)):
                 imgin = deepracing.imutils.readImage(image_files[i])
                 if func is not None:
@@ -57,16 +55,13 @@ class ImageLMDBWrapper():
     def readDatabase(self, db_path : str, mapsize=1e11):
         if not os.path.isdir(db_path):
             raise IOError("Path " + db_path + " is not a directory")
-        self.env = lmdb.open(db_path, map_size=mapsize)
+        self.env = lmdb.open(db_path, map_size=mapsize, readonly=True)
         with self.env.begin(write=False) as txn:
             self.im_size = np.frombuffer(txn.get(self.size_key.encode(self.encoding)), dtype=self.size_type)
     def getImage(self, key):
         im = None
-        with self.env.begin(write=False) as txn:
+        with self.env.begin(write=False, buffers=True) as txn:
             im = np.reshape(np.frombuffer(txn.get(key.encode(self.encoding)), dtype=np.uint8), self.im_size)
         return im
     def getNumImages(self):
-        size = 0
-        with self.env.begin(write=False) as txn:
-            size = int(txn.get(self.num_images_key.encode(self.encoding)))
-        return size
+        return self.env.stat()['entries']-1
