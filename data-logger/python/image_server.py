@@ -44,7 +44,6 @@ def serve():
   args = parser.parse_args()
   server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.num_workers))
   lmdbserver = ImageLMDBServer(args.db_folder)
-  #lmdbserver.GetImage(None, None)
   server.add_insecure_port('%s:%d' % (args.address,args.port) )
   DeepF1_RPC_pb2_grpc.add_ImageServiceServicer_to_server(lmdbserver, server)
   print("Starting image server")
