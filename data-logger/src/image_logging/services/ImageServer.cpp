@@ -4,7 +4,7 @@
 
 #include <grpcpp/grpcpp.h>
 
-#include "f1_datalogger/proto/ImageRPC.grpc.pb.h"
+#include "f1_datalogger/proto/DeepF1_RPC.grpc.pb.h"
 #include "f1_datalogger/image_logging/utils/opencv_utils.h"
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
@@ -15,8 +15,8 @@ using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
 using deepf1::protobuf::images::ImageRequest;
-using deepf1::protobuf::images::ImageResponse;
 using deepf1::protobuf::images::ImageService;
+using deepf1::protobuf::images::Image;
 
 class ImageServerImpl final : public ImageService::Service 
 {
@@ -32,7 +32,7 @@ public:
   }
 private:
   Status GetImage(ServerContext* context, const ImageRequest* request,
-    ImageResponse* reply) override
+    Image* reply) override
   {
 
     std::cerr << "Processing request for image key: " + request->key() << std::endl;
@@ -57,7 +57,7 @@ private:
     //imageres.set_rows(10);
    // imageres.set_cols(25);
     //imageres.set_image_data("This is not really an image.");
-    reply->mutable_image()->CopyFrom(imageres);
+    reply->CopyFrom(imageres);
     return Status::OK;
   }
   double resize_factor_;
