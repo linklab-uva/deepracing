@@ -30,6 +30,7 @@ class ImageGRPCClient():
 class ImageLMDBWrapper():
     def __init__(self):
         self.env = None
+        self.image_subdb = None
         self.im_size = None
         self.size_type = np.uint16
         self.size_key = "imsize"
@@ -51,7 +52,6 @@ class ImageLMDBWrapper():
                     imgin = func(imgin)
                 im = deepracing.imutils.resizeImage(imgin, self.im_size[0:2])
                 write_txn.put(key.encode(self.encoding), im.flatten().tobytes())
-        self.txn = self.env.begin(write=False)
     def readDatabase(self, db_path : str, mapsize=1e11):
         if not os.path.isdir(db_path):
             raise IOError("Path " + db_path + " is not a directory")
