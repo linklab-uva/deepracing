@@ -137,7 +137,7 @@ try:
   plt.plot( t, t*slope_remap + intercept_remap, label='fitted line' )
   plt.show()
 except:
-  print("Could not import matplotlib, skipping visualization")
+  text = input("Could not import matplotlib, skipping visualization. Enter anything to continue.")
 num_label_poses = args.num_label_poses
 #scipy.interpolate.interp1d
 output_dir="pose_sequence_labels"
