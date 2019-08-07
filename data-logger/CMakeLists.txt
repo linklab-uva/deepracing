@@ -1,4 +1,5 @@
 project(f1_datalogger)
+project(f1_datalogger)
 set(_required_cmake 3.12)
 cmake_minimum_required (VERSION ${_required_cmake} FATAL_ERROR)
 cmake_policy(VERSION ${_required_cmake})
@@ -132,7 +133,6 @@ include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${YAML_CPP_INC
 
 add_subdirectory( proto/${PROJECT_NAME}/proto )
 include_directories(${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
-add_subdirectory(src/controllers)
 set_target_properties(${PROJECT_NAME}_proto
                     PROPERTIES FOLDER proto)
 
@@ -156,6 +156,7 @@ if(BUILD_DATALOGGER)
 	endif()
     add_subdirectory( src/udp_logging )
     add_subdirectory( src/image_logging )
+    add_subdirectory( src/controllers )
 	set_target_properties(${PROJECT_NAME}_udp_utils ${PROJECT_NAME}_eigen_utils ${PROJECT_NAME}_simulated_telemetry_server ${PROJECT_NAME}_image_utils
 						PROPERTIES FOLDER utils)
 	set_target_properties(screen_capture_example
