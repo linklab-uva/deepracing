@@ -17,7 +17,7 @@ def main():
     parser.add_argument("imrows", type=int, help="Number of rows to resize images to")
     parser.add_argument("imcols", type=int, help="Number of cols to resize images to")
     parser.add_argument("--display_resize_factor", type=float, default=0.5, help="Resize the first image by this factor for selecting a ROI.")
-    parser.add_argument("--mapsize", type=float, default=1e11, help="Map size for the LMDB.")
+    parser.add_argument("--mapsize", type=float, default=1e10, help="Map size for the LMDB.")
     parser.add_argument('-R','--ROI', nargs='+', help='ROI to capture', default=None)
     args = parser.parse_args()
     img_folder = args.image_dir

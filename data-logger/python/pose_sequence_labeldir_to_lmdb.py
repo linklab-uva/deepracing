@@ -12,7 +12,7 @@ def main():
     parser = argparse.ArgumentParser(description="Load an pose sequence label directory into a database")
     parser.add_argument("label_dir", type=str, help="Directory containing the labels")
     parser.add_argument("db_dir", type=str, help="Directory containing the LMDB")
-    parser.add_argument("--mapsize", type=float, default=1e11, help="Map size for the LMDB.")
+    parser.add_argument("--mapsize", type=float, default=1e10, help="Map size for the LMDB.")
     args = parser.parse_args()
     label_dir = args.label_dir
     db_dir = args.db_dir
