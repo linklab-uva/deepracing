@@ -40,11 +40,12 @@ def main():
         windowname = "Test Image"
         cv2.namedWindow(windowname,cv2.WINDOW_AUTOSIZE)
         x_,y_,w_,h_ = cv2.selectROI(windowname, cv2.cvtColor(deepracing.imutils.resizeImageFactor(im,factor), cv2.COLOR_RGB2BGR), showCrosshair =True)
-        print((x_,y_,w_,h_))
+        #print((x_,y_,w_,h_))
         x = int(round(x_/factor))
         y = int(round(y_/factor))
         w = int(round(w_/factor))
         h = int(round(h_/factor))
+        print("Selected ROI:")
         print((x,y,w,h))
         f = partial(extractROI,x,y,w,h)
         cv2.imshow(windowname, cv2.cvtColor(f(im), cv2.COLOR_RGB2BGR))
