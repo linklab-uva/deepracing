@@ -43,16 +43,14 @@ class PoseSequenceDataset(Dataset):
         self.context_length = context_length
         self.sequence_length = sequence_length
         self.totensor = transforms.ToTensor()
-        self.db_keys = []
+        self.db_keys = self.label_db_wrapper.getKeys()
         self.label_pb_tags = []
         num_labels = self.label_db_wrapper.getNumLabels()
         print("Preloading database labels.")
-        for i in tqdm(range(2,num_labels+2)):
-            newkey = "image_%d" % (i)
-            self.db_keys.append(newkey)
-            self.label_pb_tags.append(self.label_db_wrapper.getPoseSequenceLabel(newkey))
-            if(not (self.label_pb_tags[-1].image_tag.image_file == self.db_keys[-1]+".jpg")):
-                raise AttributeError("Mismatch between database key: %s and associated image file: %s" %(self.db_keys[-1], self.label_pb_tags.image_tag.image_file))
+        for i,key in tqdm(enumerate(self.db_keys), total=len(self.db_keys)):
+            self.label_pb_tags.append(self.label_db_wrapper.getPoseSequenceLabel(key))
+            if(not (self.label_pb_tags[-1].image_tag.image_file == self.db_keys[i]+".jpg")):
+                raise AttributeError("Mismatch between database key: %s and associated image file: %s" %(self.db_keys[i], self.label_pb_tags.image_tag.image_file))
         self.length = len(self.db_keys) - 1 - context_length
     def __len__(self):
         return self.length

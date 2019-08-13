@@ -35,14 +35,14 @@ class PoseSequenceLabelLMDBWrapper():
             raise IOError("Path " + db_path + " is already a directory")
         os.makedirs(db_path)
         self.env = lmdb.open(db_path, map_size=mapsize)
-        with self.env.begin(write=True) as write_txn:
-            print("Loading pose sequnce label data")
-            for filepath in tqdm(label_files):
-                with open(filepath) as f:
-                    json_in = f.read()
-                    label = PoseSequenceLabel_pb2.PoseSequenceLabel()
-                    google.protobuf.json_format.Parse(json_in , label) 
-                    key = os.path.splitext(label.image_tag.image_file)[0]
+        print("Loading pose sequnce label data")
+        for filepath in tqdm(label_files):
+            with open(filepath) as f:
+                json_in = f.read()
+                label = PoseSequenceLabel_pb2.PoseSequenceLabel()
+                google.protobuf.json_format.Parse(json_in , label) 
+                key = os.path.splitext(label.image_tag.image_file)[0]
+                with self.env.begin(write=True) as write_txn:
                     write_txn.put(key.encode(self.encoding), json_in.encode(self.encoding))
     def readDatabase(self, db_path : str, mapsize=1e11):
         if not os.path.isdir(db_path):
@@ -55,3 +55,10 @@ class PoseSequenceLabelLMDBWrapper():
         return rtn
     def getNumLabels(self):
         return self.env.stat()['entries']
+    def getKeys(self):
+        keys = None
+        with self.env.begin(write=False) as txn:
+            keys = [ key for key, _ in txn.cursor() ]
+        if keys is None:
+            raise ValueError("Keyset is empty in label dataset for some reason")
+        return keys

@@ -24,7 +24,7 @@ class ImageGRPCClient():
         imshape = np.array( (response.rows, response.cols, 3) )
         im = np.reshape( np.frombuffer( response.image_data, dtype=np.uint8 ) , imshape )
         if(response.channel_order == ChannelOrder_pb2.ChannelOrder.BGR):
-            im = cv2.cvtColor(im,cv2.COLOR_BAYER_BGR2RGB)
+            im = cv2.cvtColor(im,cv2.COLOR_BGR2RGB)
         return im
         
 class ImageLMDBWrapper():
@@ -43,14 +43,15 @@ class ImageLMDBWrapper():
         os.makedirs(db_path)
         self.env = lmdb.open(db_path, map_size=mapsize)
         self.im_size = im_size.astype(self.size_type)
+        print("Loading image data")
         with self.env.begin(write=True) as write_txn:
-            print("Loading image data")
             write_txn.put(self.size_key.encode(self.encoding), self.im_size.tobytes())
-            for i, key in tqdm(enumerate(keys), total=len(keys)):
-                imgin = deepracing.imutils.readImage(image_files[i])
-                if func is not None:
-                    imgin = func(imgin)
-                im = deepracing.imutils.resizeImage(imgin, self.im_size[0:2])
+        for i, key in tqdm(enumerate(keys), total=len(keys)):
+            imgin = deepracing.imutils.readImage(image_files[i])
+            if func is not None:
+                imgin = func(imgin)
+            im = deepracing.imutils.resizeImage(imgin, self.im_size[0:2])
+            with self.env.begin(write=True) as write_txn:
                 write_txn.put(key.encode(self.encoding), im.flatten().tobytes())
     def readDatabase(self, db_path : str, mapsize=1e11):
         if not os.path.isdir(db_path):
