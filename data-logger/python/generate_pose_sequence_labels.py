@@ -240,9 +240,15 @@ for idx in range(len(image_tags)):
         pose_forward_pb.session_time = packet_forward.m_header.m_sessionTime
         velocity_forward_pb.session_time = packet_forward.m_header.m_sessionTime
         angular_velocity_forward_pb.session_time = packet_forward.m_header.m_sessionTime
-        label_tag.subsequent_poses.append(pose_forward_pb)
-        label_tag.subsequent_linear_velocities.append(velocity_forward_pb)
-        label_tag.subsequent_angular_velocities.append(angular_velocity_forward_pb)
+
+        newpose = label_tag.subsequent_poses.add()
+        newpose.CopyFrom(pose_forward_pb)
+
+        newvel = label_tag.subsequent_linear_velocities.add()
+        newvel.CopyFrom(velocity_forward_pb)
+
+        newangvel = label_tag.subsequent_angular_velocities.add()
+        newangvel.CopyFrom(angular_velocity_forward_pb)
     #print()
     #print()
     label_tag_JSON = google.protobuf.json_format.MessageToJson(label_tag, including_default_value_fields=True)
