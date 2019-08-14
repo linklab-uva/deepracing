@@ -29,12 +29,12 @@ class PoseSequenceLabelLMDBWrapper():
     def __init__(self):
         self.env = None
         self.encoding = "ascii"
-    def readLabelFiles(self, label_files, db_path, mapsize=1e11):
+    def readLabelFiles(self, label_files, db_path, mapsize=1e10):
         assert(len(label_files) > 0)
         if os.path.isdir(db_path):
             raise IOError("Path " + db_path + " is already a directory")
         os.makedirs(db_path)
-        self.env = lmdb.open(db_path, map_size=mapsize)
+        env = lmdb.open(db_path, map_size=mapsize)
         print("Loading pose sequnce label data")
         for filepath in tqdm(label_files):
             with open(filepath) as f:
@@ -42,23 +42,24 @@ class PoseSequenceLabelLMDBWrapper():
                 label = PoseSequenceLabel_pb2.PoseSequenceLabel()
                 google.protobuf.json_format.Parse(json_in , label) 
                 key = os.path.splitext(label.image_tag.image_file)[0]
-                with self.env.begin(write=True) as write_txn:
-                    write_txn.put(key.encode(self.encoding), json_in.encode(self.encoding))
-    def readDatabase(self, db_path : str, mapsize=1e11):
+                with env.begin(write=True) as write_txn:
+                    write_txn.put(key.encode(self.encoding), label.SerializeToString())
+        env.close()
+    def readDatabase(self, db_path : str, mapsize=1e10, max_spare_txns=1):
         if not os.path.isdir(db_path):
             raise IOError("Path " + db_path + " is not a directory")
         self.env = lmdb.open(db_path, map_size=mapsize)
     def getPoseSequenceLabel(self, key):
         rtn = PoseSequenceLabel_pb2.PoseSequenceLabel()
-        with self.env.begin(write=False) as txn:
-            google.protobuf.json_format.Parse(txn.get(key.encode(self.encoding)).decode(self.encoding) , rtn) 
+        with self.env.begin(write=False, buffers=True) as txn:
+            rtn.ParseFromString(txn.get(key.encode(self.encoding)))
         return rtn
     def getNumLabels(self):
         return self.env.stat()['entries']
     def getKeys(self):
         keys = None
         with self.env.begin(write=False) as txn:
-            keys = [ key for key, _ in txn.cursor() ]
-        if keys is None:
+            keys = [ str(key, encoding=self.encoding) for key, _ in txn.cursor() ]
+        if (keys is None) or len(keys)==0:
             raise ValueError("Keyset is empty in label dataset for some reason")
         return keys
