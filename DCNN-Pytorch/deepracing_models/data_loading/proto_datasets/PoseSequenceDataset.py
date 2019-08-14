@@ -51,20 +51,26 @@ class PoseSequenceDataset(Dataset):
             self.label_pb_tags.append(self.label_db_wrapper.getPoseSequenceLabel(key))
             if(not (self.label_pb_tags[-1].image_tag.image_file == self.db_keys[i]+".jpg")):
                 raise AttributeError("Mismatch between database key: %s and associated image file: %s" %(self.db_keys[i], self.label_pb_tags.image_tag.image_file))
-        self.length = len(self.db_keys) - 1 - context_length
+        self.label_pb_tags = sorted(self.label_pb_tags, key=LabelPacketSortKey)
+        self.length = len(self.label_pb_tags) - 1 - context_length
+
     def __len__(self):
         return self.length
     def __getitem__(self, index):
         images_start = index
         images_end = index + self.context_length
+
         packetrange = range(images_start, images_end)
-        
-        label_packet = self.label_pb_tags[images_end-1]
-        session_times = np.hstack((np.array([self.label_pb_tags[i].car_pose.session_time for i in packetrange]), \
+        packets = [self.label_pb_tags[i] for i in packetrange]
+        label_packet = packets[-1]
+
+        keys = [os.path.splitext(packets[i].image_tag.image_file)[0] for i in range(len(packets))]
+
+        session_times = np.hstack((np.array([packets[i].car_pose.session_time for i in range(len(packets))]), \
                                    np.array([p.session_time for p in label_packet.subsequent_poses[0:self.sequence_length]])))
         positions, quats, linear_velocities, angular_velocities = deepracing.pose_utils.labelPacketToNumpy(label_packet)
        # tick = time.clock()
-        images_torch = torch.from_numpy(np.array([self.totensor(resizeImage(self.image_db_wrapper.getImage(self.db_keys[i]), self.image_size)).numpy() for i in packetrange])).float()
+        images_torch = torch.from_numpy(np.array([self.totensor(resizeImage(self.image_db_wrapper.getImage(keys[i]), self.image_size)).numpy() for i in range(len(keys))])).float()
         #tock = time.clock()
        # print("loaded images in %f seconds." %(tock-tick))
         positions_torch = torch.from_numpy(positions[0:self.sequence_length]).float()
