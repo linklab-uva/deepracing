@@ -18,19 +18,13 @@ import cv2
 import deepracing.backend
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 class ImageLMDBServer(DeepF1_RPC_pb2_grpc.ImageServiceServicer):
-  def __init__(self, dbfolder : str):
+  def __init__(self, dbfolder : str, mapsize=int(1E10) , num_workers : int = 1):
     super(ImageLMDBServer, self).__init__()
     self.dbfolder=dbfolder
     self.backend = deepracing.backend.ImageLMDBWrapper()
-    self.backend.readDatabase(self.dbfolder)
+    self.backend.readDatabase(self.dbfolder, mapsize=mapsize, max_spare_txns=num_workers)
   def GetImage(self, request, context):
-    rtn =  Image_pb2.Image()
-    rtn.channel_order = ChannelOrder_pb2.ChannelOrder.RGB
-    img = self.backend.getImage(request.key)
-    rtn.rows = img.shape[0]
-    rtn.cols = img.shape[1]
-    rtn.image_data = img.flatten().tobytes()
-    return rtn
+    return self.backend.getImagePB(request.key)
   def GetDbMetadata(self, request, context):
     rtn =  DeepF1_RPC_pb2.DbMetadata()
     rtn.size = self.backend.getNumImages()
@@ -41,6 +35,7 @@ def serve():
   parser.add_argument('port', type=int)
   parser.add_argument('db_folder', type=str)
   parser.add_argument('--num_workers', type=int, default=1)
+  parser.add_argument('--mapsize', type=float, default=1E10)
   args = parser.parse_args()
   server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.num_workers))
   lmdbserver = ImageLMDBServer(args.db_folder)
