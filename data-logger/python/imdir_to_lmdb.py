@@ -9,6 +9,7 @@ import deepracing.backend
 import cv2
 import deepracing.imutils
 from functools import partial
+import random
 def extractROI(x, y, w, h, image):
     return image[y:y+h, x:x+w].copy()
 def main():
@@ -17,7 +18,7 @@ def main():
     parser.add_argument("imrows", type=int, help="Number of rows to resize images to")
     parser.add_argument("imcols", type=int, help="Number of cols to resize images to")
     parser.add_argument("--display_resize_factor", type=float, default=0.5, help="Resize the first image by this factor for selecting a ROI.")
-    parser.add_argument("--mapsize", type=float, default=1e10, help="Map size for the LMDB.")
+    parser.add_argument("--mapsize", type=float, default=1E10, help="Map size for the LMDB.")
     parser.add_argument('-R','--ROI', nargs='+', help='ROI to capture', default=None)
     args = parser.parse_args()
     img_folder = args.image_dir
@@ -65,6 +66,19 @@ def main():
             exit(0)
         shutil.rmtree(dbpath)
     db = deepracing.backend.ImageLMDBWrapper()
-    db.readImages(img_files, keys, dbpath, im_size, func=f, mapsize=args.mapsize)
+    db.readImages(img_files, keys, dbpath, im_size, func=f, mapsize=int(args.mapsize))
+    db.readDatabase(dbpath, mapsize=int(args.mapsize), max_spare_txns=6)
+    windowname="DB Image"
+    idx = random.randint(0,len(keys)-1)
+    im = db.getImage(keys[idx])
+    try:
+        cv2.imshow(windowname, cv2.cvtColor(im, cv2.COLOR_RGB2BGR))
+        cv2.waitKey(0)
+        cv2.destroyWindow(windowname)
+    except Exception as ex:
+        print("Could not display db image:")
+        print(im)
+        print(im.shape)
+        print(ex)
 if __name__ == '__main__':
   main()
