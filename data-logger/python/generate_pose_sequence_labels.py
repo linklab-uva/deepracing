@@ -249,16 +249,16 @@ for idx in range(len(image_tags)):
 
         newangvel = label_tag.subsequent_angular_velocities.add()
         newangvel.CopyFrom(angular_velocity_forward_pb)
-    #print()
-    #print()
+
+        
     label_tag_JSON = google.protobuf.json_format.MessageToJson(label_tag, including_default_value_fields=True)
     image_file_base = os.path.splitext(os.path.split(label_tag.image_tag.image_file)[1])[0]
     label_tag_file_path = os.path.join(image_folder, output_dir, image_file_base + "_sequence_label.json")
     f = open(label_tag_file_path,'w')
     f.write(label_tag_JSON)
     f.close()
-    #print(carquatinverse)
-   # print(carquat)
+
+    
 
 
 
