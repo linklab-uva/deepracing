@@ -129,6 +129,7 @@ def go():
     output_directory = config["output_directory"]
     num_workers = config["num_workers"]
     debug = config["debug"]
+    position_loss_reduction = config["position_loss_reduction"]
     if os.path.isdir(output_directory):
         s = ""
         while(not (s=="y" or s=="n")):
@@ -140,7 +141,7 @@ def go():
     os.makedirs(output_directory)
     net = models.AdmiralNetPosePredictor(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
         hidden_dim=hidden_dimension, input_channels=input_channels, temporal_conv_feature_factor = temporal_conv_feature_factor)
-    position_loss = torch.nn.MSELoss(reduction='sum')
+    position_loss = torch.nn.MSELoss(reduction=position_loss_reduction)
     rotation_loss = loss_functions.QuaternionDistance()
     optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum)
     if gpu>=0:
