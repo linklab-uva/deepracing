@@ -18,6 +18,9 @@ import shutil
 import skimage
 import skimage.io
 import deepracing.backend
+import imageio
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 loss = torch.zeros(1)
 def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss, loss_weights=[1.0, 1.0], imsize=(66,200), debug=False):
     global loss
@@ -25,15 +28,22 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
     cum_rotation_loss = 0.0
     cum_position_loss = 0.0
     batch_size = trainLoader.batch_size
-    num_samples=0
+    num_samples=0.0
     t = tqdm(enumerate(trainLoader))
     network.train()  # This is important to call before training!
     for (i, (image_torch, position_torch, rotation_torch, linear_velocity_torch, angular_velocity_torch, session_time)) in t:
         if debug:
-            image_np = image_torch[0][0].numpy().copy()
-            image_np = skimage.util.img_as_ubyte(image_np.transpose(1,2,0))
-            skimage.io.imshow(image_np)
-            skimage.io.show()
+            images_np = image_torch[0].numpy().copy()
+            num_images = images_np.shape[0]
+            print(num_images)
+            images_np_transpose = np.zeros((num_images, images_np.shape[2], images_np.shape[3], images_np.shape[1]), dtype=np.uint8)
+            ims = []
+            for i in range(num_images):
+                images_np_transpose[i]=skimage.util.img_as_ubyte(images_np[i].transpose(1,2,0))
+                im = plt.imshow(images_np_transpose[i], animated=True)
+                ims.append([im])
+            ani = animation.ArtistAnimation(plt.figure(), ims, interval=50, blit=True, repeat_delay=0)
+            plt.show()
         if gpu>=0:
             image_torch = image_torch.cuda(gpu)
             position_torch = position_torch.cuda(gpu)
@@ -88,10 +98,10 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
         optimizer.step()
 
         # logging information
-        cum_loss += loss.item()
-        cum_position_loss += position_loss_.item()
-        cum_rotation_loss += rotation_loss_.item()
-        num_samples += batch_size
+        cum_loss += float(loss.item())
+        cum_position_loss += float(position_loss_.item())
+        cum_rotation_loss += float(rotation_loss_.item())
+        num_samples += float(batch_size)
         t.set_postfix({"cum_loss" : cum_loss/num_samples, "position_loss" : cum_position_loss/num_samples, "rotation_loss" : cum_rotation_loss/num_samples})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
@@ -102,9 +112,8 @@ def go():
     debug = args.debug
     with open(config_file) as f:
         config = yaml.load(f, Loader = yaml.SafeLoader)
-    address = config["address"]
-    image_port = config["image_port"]
-    label_port = config["label_port"]
+    image_db = config["image_db"]
+    label_db = config["label_db"]
     image_size = config["image_size"]
     hidden_dimension = config["hidden_dimension"]
     input_channels = config["input_channels"]
@@ -138,8 +147,17 @@ def go():
         rotation_loss = rotation_loss.cuda(gpu)
         position_loss = position_loss.cuda(gpu)
         net = net.cuda(gpu)
-    image_wrapper = deepracing.backend.ImageGRPCClient(address=address, port=image_port)
-    label_wrapper = deepracing.backend.PoseSequenceLabelGRPCClient(address=address, port=label_port)
+    if num_workers == 0:
+        max_spare_txns = 1
+    else:
+        max_spare_txns = num_workers
+
+    image_wrapper = deepracing.backend.ImageLMDBWrapper()
+    image_wrapper.readDatabase(image_db, max_spare_txns=max_spare_txns )
+
+    label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
+    label_wrapper.readDatabase(label_db, max_spare_txns=max_spare_txns )
+
     dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, context_length, sequence_length, image_size = np.array(image_size))
     dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
                             shuffle=True, num_workers=num_workers)
