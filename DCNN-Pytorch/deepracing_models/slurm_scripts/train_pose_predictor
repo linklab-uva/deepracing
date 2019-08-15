@@ -1,0 +1,19 @@
+#!/bin/bash
+#SBATCH --job-name="Deepracing Train AdmiralNet Pose Predictor"
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=ttw2xk@virginia.edu
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:2
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=16
+source /etc/profile.d/modules.sh
+. ~/common_init
+. ~/cuda_init
+cd $DEEPRACINGDIR
+cd deepracing
+. ./data-logger/build/addpythonpath
+echo $PYTHONPATH
+cd DCNN-Pytorch
+cd deepracing_models
+echo "Running python3 main_pose_predictor.py /p/DeepRacing/training_configs/slurm/aggressive.yaml --override"
+python3 main_pose_predictor.py /p/DeepRacing/training_configs/slurm/aggressive.yaml --override

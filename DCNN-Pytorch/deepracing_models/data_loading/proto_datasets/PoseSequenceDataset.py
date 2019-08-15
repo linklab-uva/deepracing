@@ -48,12 +48,16 @@ class PoseSequenceDataset(Dataset):
         num_labels = self.label_db_wrapper.getNumLabels()
         print("Preloading database labels.")
         for i,key in tqdm(enumerate(self.db_keys), total=len(self.db_keys)):
+            print(key)
             self.label_pb_tags.append(self.label_db_wrapper.getPoseSequenceLabel(key))
             if(not (self.label_pb_tags[-1].image_tag.image_file == self.db_keys[i]+".jpg")):
                 raise AttributeError("Mismatch between database key: %s and associated image file: %s" %(self.db_keys[i], self.label_pb_tags.image_tag.image_file))
         self.label_pb_tags = sorted(self.label_pb_tags, key=LabelPacketSortKey)
         self.length = len(self.label_pb_tags) - 1 - context_length
-
+    def resetEnvs(self):
+        #pass
+        self.image_db_wrapper.resetEnv()
+        self.label_db_wrapper.resetEnv()
     def __len__(self):
         return self.length
     def __getitem__(self, index):
