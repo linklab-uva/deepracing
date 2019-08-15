@@ -15,5 +15,5 @@ cd deepracing
 echo $PYTHONPATH
 cd DCNN-Pytorch
 cd deepracing_models
-echo "Running python3 main_pose_predictor.py /p/DeepRacing/training_configs/slurm/aggressive.yaml --override"
-python3 main_pose_predictor.py /p/DeepRacing/training_configs/slurm/aggressive.yaml --override
+echo "Running command: python3 main_pose_predictor.py $@"
+python3 main_pose_predictor.py $@
