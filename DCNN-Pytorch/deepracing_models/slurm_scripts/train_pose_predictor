@@ -16,4 +16,4 @@ echo $PYTHONPATH
 cd DCNN-Pytorch
 cd deepracing_models
 echo "Running command: python3 main_pose_predictor.py $@"
-python3 main_pose_predictor.py $@
+python3 main_pose_predictor.py $1 --override
