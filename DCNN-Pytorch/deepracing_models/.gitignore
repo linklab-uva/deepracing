@@ -16,3 +16,5 @@ model_out/*.yaml
 model_out/*.model
 *.model
 /*.yaml
+*.out
+*.err
