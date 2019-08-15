@@ -13,6 +13,7 @@ import grpc
 import cv2
 import google.protobuf.json_format
 import google.protobuf.empty_pb2 as Empty_pb2
+import time
 class PoseSequenceLabelGRPCClient():
     def __init__(self, address="127.0.0.1", port=50052):
         self.im_size = None
@@ -29,6 +30,7 @@ class PoseSequenceLabelLMDBWrapper():
     def __init__(self):
         self.env = None
         self.encoding = "ascii"
+        self.spare_txns=1
     def readLabelFiles(self, label_files, db_path, mapsize=1e10):
         assert(len(label_files) > 0)
         if os.path.isdir(db_path):
@@ -53,13 +55,14 @@ class PoseSequenceLabelLMDBWrapper():
             mapsize = self.env.info()['map_size']
             self.env.close()
             del self.env
-            self.readDatabase(path, mapsize=mapsize)
+            time.sleep(1)
+            self.readDatabase(path, mapsize=mapsize, max_spare_txns=self.spare_txns)
     def readDatabase(self, db_path : str, mapsize=1e10, max_spare_txns=1):
         if not os.path.isdir(db_path):
             raise IOError("Path " + db_path + " is not a directory")
-        if self.env is not None:
-            self.env.close()
-        self.env = lmdb.open(db_path, map_size=mapsize, readonly=True)# max_spare_txns=max_spare_txns)
+        self.spare_txns = max_spare_txns
+        self.env = lmdb.open(db_path, map_size=mapsize, readonly=True, max_spare_txns=max_spare_txns)
+        self.env.reader_check()
     def getPoseSequenceLabel(self, key):
         rtn = PoseSequenceLabel_pb2.PoseSequenceLabel()
         with self.env.begin(write=False, buffers=True) as txn:

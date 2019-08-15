@@ -11,6 +11,7 @@ import ChannelOrder_pb2
 import Image_pb2
 import grpc
 import cv2
+import time
 import google.protobuf.empty_pb2 as Empty_pb2
 def pbImageToNpImage(im_pb : Image_pb2.Image):
     im = None
@@ -49,6 +50,7 @@ class ImageLMDBWrapper():
     def __init__(self):
         self.env = None
         self.encoding = "ascii"
+        self.spare_txns=1
     def readImages(self, image_files, keys, db_path, im_size, func=None, mapsize=int(1e10)):
         assert(len(image_files) > 0)
         assert(len(image_files) == len(keys))
@@ -66,10 +68,20 @@ class ImageLMDBWrapper():
             with env.begin(write=True) as write_txn:
                 write_txn.put(key.encode(self.encoding), entry.SerializeToString())
         env.close()
+    def resetEnv(self):
+        if self.env is not None:
+            path = self.env.path()
+            mapsize = self.env.info()['map_size']
+            self.env.close()
+            del self.env
+            time.sleep(1)
+            self.readDatabase(path, mapsize=mapsize, max_spare_txns=self.spare_txns)
     def readDatabase(self, db_path : str, mapsize=int(1e10), max_spare_txns=1):
         if not os.path.isdir(db_path):
             raise IOError("Path " + db_path + " is not a directory")
-        self.env = lmdb.open( db_path, map_size=mapsize, readonly=True, max_spare_txns=max_spare_txns )
+        self.spare_txns = max_spare_txns
+        self.env = lmdb.open(db_path, map_size=mapsize, readonly=True, max_spare_txns=max_spare_txns)
+        self.env.reader_check()
     def getImagePB(self, key : str):
         im_pb = Image_pb2.Image()
         with self.env.begin(write=False, buffers=True) as txn:

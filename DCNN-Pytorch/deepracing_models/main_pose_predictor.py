@@ -107,6 +107,7 @@ def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
     parser.add_argument("config_file", type=str,  help="Configuration file to load")
     parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
+    parser.add_argument("--override", action="store_true",  help="Delete output directory and replace with new data")
     args = parser.parse_args()
     config_file = args.config_file
     debug = args.debug
@@ -130,13 +131,15 @@ def go():
     num_workers = config["num_workers"]
     debug = config["debug"]
     position_loss_reduction = config["position_loss_reduction"]
-    if os.path.isdir(output_directory):
+    if (not args.override) and os.path.isdir(output_directory):
         s = ""
         while(not (s=="y" or s=="n")):
              s = input("Directory " + output_directory + " already exists. Overwrite it with new data? [y\\n]\n")
         if s=="n":
             print("Thanks for playing!")
             exit(0)
+        shutil.rmtree(output_directory)
+    else:
         shutil.rmtree(output_directory)
     os.makedirs(output_directory)
     net = models.AdmiralNetPosePredictor(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
@@ -160,13 +163,15 @@ def go():
     label_wrapper.readDatabase(label_db, max_spare_txns=max_spare_txns )
 
     dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, context_length, sequence_length, image_size = np.array(image_size))
-    dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
-                            shuffle=True, num_workers=num_workers)
     yaml.dump(config, stream=open(os.path.join(output_directory,"config.yaml"), "w"), Dumper = yaml.SafeDumper)
     i = 0
     while i < num_epochs:
         postfix = i + 1
         print("Running Epoch Number %d" %(postfix))
+        if not num_workers==0:
+            dset.resetEnvs()
+        dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
+                            shuffle=True, num_workers=num_workers)
         try:
             run_epoch(net, optimizer, dataloader, gpu, position_loss, rotation_loss, loss_weights=loss_weights, debug=debug)
         except Exception as e:
