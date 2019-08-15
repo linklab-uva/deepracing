@@ -21,17 +21,21 @@ import deepracing.backend
 import imageio
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import time
 loss = torch.zeros(1)
-def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss, loss_weights=[1.0, 1.0], imsize=(66,200), debug=False):
+def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss, loss_weights=[1.0, 1.0], imsize=(66,200), debug=False, use_tqdm=True):
     global loss
     cum_loss = 0.0
     cum_rotation_loss = 0.0
     cum_position_loss = 0.0
     batch_size = trainLoader.batch_size
     num_samples=0.0
-    t = tqdm(enumerate(trainLoader))
+    if use_tqdm:
+        t = tqdm(enumerate(trainLoader))
+    else:
+        t = enumerate(trainLoader)
     network.train()  # This is important to call before training!
-    for (i, (image_torch, position_torch, rotation_torch, linear_velocity_torch, angular_velocity_torch, session_time)) in t:
+    for (i, (image_torch, position_torch, rotation_torch, linear_velocity_torch, angular_velocity_torch, session_time) ) in t:
         if debug:
             images_np = image_torch[0].numpy().copy()
             num_images = images_np.shape[0]
@@ -97,17 +101,19 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
         # Weight and bias updates.
         optimizer.step()
 
-        # logging information
-        cum_loss += float(loss.item())
-        cum_position_loss += float(position_loss_.item())
-        cum_rotation_loss += float(rotation_loss_.item())
-        num_samples += float(batch_size)
-        t.set_postfix({"cum_loss" : cum_loss/num_samples, "position_loss" : cum_position_loss/num_samples, "rotation_loss" : cum_rotation_loss/num_samples})
+        if use_tqdm:
+            # logging information
+            cum_loss += float(loss.item())
+            cum_position_loss += float(position_loss_.item())
+            cum_rotation_loss += float(rotation_loss_.item())
+            num_samples += float(batch_size)
+            t.set_postfix({"cum_loss" : cum_loss/num_samples, "position_loss" : cum_position_loss/num_samples, "rotation_loss" : cum_rotation_loss/num_samples})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
     parser.add_argument("config_file", type=str,  help="Configuration file to load")
     parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
     parser.add_argument("--override", action="store_true",  help="Delete output directory and replace with new data")
+    parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
     args = parser.parse_args()
     config_file = args.config_file
     debug = args.debug
@@ -173,7 +179,10 @@ def go():
         dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
                             shuffle=True, num_workers=num_workers)
         try:
-            run_epoch(net, optimizer, dataloader, gpu, position_loss, rotation_loss, loss_weights=loss_weights, debug=debug)
+            tick = time.time()
+            run_epoch(net, optimizer, dataloader, gpu, position_loss, rotation_loss, loss_weights=loss_weights, debug=debug, use_tqdm=args.tqdm)
+            tock = time.time()
+            print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
         except Exception as e:
             print("Restarting epoch %d because %s"%(postfix, str(e)))
             modelin = os.path.join(output_directory,"epoch_%d_params.pt" %(postfix-1))
@@ -191,10 +200,10 @@ def go():
         if(gpu>=0):
             imtest = imtest.cuda(gpu)
         pos_pred, rot_pred = net(imtest)
-        print(positions_torch)
-        print(pos_pred)
-        print(quats_torch)
-        print(rot_pred)
+        # print(positions_torch)
+        # print(pos_pred)
+        # print(quats_torch)
+        # print(rot_pred)
         i = i + 1
 import logging
 if __name__ == '__main__':
