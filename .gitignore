@@ -331,3 +331,4 @@ build_debug
 install
 .mypy_cache/
 *.gif
+build/
