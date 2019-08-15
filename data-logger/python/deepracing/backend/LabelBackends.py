@@ -43,16 +43,28 @@ class PoseSequenceLabelLMDBWrapper():
                 google.protobuf.json_format.Parse(json_in , label) 
                 key = os.path.splitext(label.image_tag.image_file)[0]
                 with env.begin(write=True) as write_txn:
+                    #entry = json_in.encode(self.encoding)
+                   # print(entry)
                     write_txn.put(key.encode(self.encoding), label.SerializeToString())
         env.close()
+    def resetEnv(self):
+        if self.env is not None:
+            path = self.env.path()
+            mapsize = self.env.info()['map_size']
+            self.env.close()
+            del self.env
+            self.readDatabase(path, mapsize=mapsize)
     def readDatabase(self, db_path : str, mapsize=1e10, max_spare_txns=1):
         if not os.path.isdir(db_path):
             raise IOError("Path " + db_path + " is not a directory")
-        self.env = lmdb.open(db_path, map_size=mapsize)
+        if self.env is not None:
+            self.env.close()
+        self.env = lmdb.open(db_path, map_size=mapsize, readonly=True)# max_spare_txns=max_spare_txns)
     def getPoseSequenceLabel(self, key):
         rtn = PoseSequenceLabel_pb2.PoseSequenceLabel()
         with self.env.begin(write=False, buffers=True) as txn:
-            rtn.ParseFromString(txn.get(key.encode(self.encoding)))
+            entry_in = txn.get( key.encode( self.encoding ) ).tobytes()
+            rtn.ParseFromString(entry_in)
         return rtn
     def getNumLabels(self):
         return self.env.stat()['entries']

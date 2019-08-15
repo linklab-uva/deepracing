@@ -76,9 +76,9 @@ def main():
         cv2.waitKey(0)
         cv2.destroyWindow(windowname)
     except Exception as ex:
-        print("Could not display db image:")
         print(im)
         print(im.shape)
+        print("Could not display db image because:")
         print(ex)
 if __name__ == '__main__':
   main()

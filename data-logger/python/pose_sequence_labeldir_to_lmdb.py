@@ -20,6 +20,8 @@ def main():
     files = [os.path.join(label_dir, fname) for fname in  os.listdir(label_dir) if os.path.isfile(os.path.join(label_dir,fname)) and os.path.splitext(fname)[1].lower()==".json"]
     mapsize = int(args.mapsize)
     db = deepracing.backend.PoseSequenceLabelLMDBWrapper()
+    if(os.path.isdir(db_dir)):
+      shutil.rmtree(db_dir)
     db.readLabelFiles(files, db_dir, mapsize=mapsize )
     db.readDatabase(db_dir, mapsize=mapsize, max_spare_txns=1 )
     keys = db.getKeys()
