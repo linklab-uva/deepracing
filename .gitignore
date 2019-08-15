@@ -330,3 +330,4 @@ build_debug
 .vscode/
 install
 .mypy_cache/
+*.gif
