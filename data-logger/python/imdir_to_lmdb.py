@@ -66,13 +66,13 @@ def main():
             exit(0)
         shutil.rmtree(dbpath)
     if(args.mapsize>0):
-        mapsize = args.mapsize
+        mapsize = int(args.mapsize)
     else:
-        mapsize = ( float(np.prod(im_size)*3 + 12 )*float(len(img_files)) )*1.1
+        mapsize = int( ( float(np.prod(im_size)*3 + 12 )*float(len(img_files)) )*1.1 )
     print("Using a mapsize of " + str(mapsize))
     db = deepracing.backend.ImageLMDBWrapper()
-    db.readImages(img_files, keys, dbpath, im_size, func=f, mapsize=int(mapsize))
-    db.readDatabase(dbpath, mapsize=int(mapsize), max_spare_txns=6)
+    db.readImages(img_files, keys, dbpath, im_size, func=f, mapsize=mapsize)
+    db.readDatabase(dbpath, mapsize=mapsize, max_spare_txns=6)
     windowname="DB Image"
     idx = random.randint(0,len(keys)-1)
     im = db.getImage(keys[idx])
