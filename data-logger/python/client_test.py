@@ -34,7 +34,9 @@ print( label )
 print("There are %d images in the database." % ( image_wrapper.getNumImages() ) )
 print("There are %d labels in the database." % ( label_wrapper.getNumLabels() ) ) 
 print( "Got image in %f milliseconds." % ((tock-tick)*1000.0) )
-
-cv2.namedWindow("ImageResponse",cv2.WINDOW_AUTOSIZE)
-cv2.imshow("ImageResponse",cv2.cvtColor(im,cv2.COLOR_RGB2BGR))
-cv2.waitKey(0)
+try:
+    cv2.namedWindow("ImageResponse",cv2.WINDOW_AUTOSIZE)
+    cv2.imshow("ImageResponse",cv2.cvtColor(im,cv2.COLOR_RGB2BGR))
+    cv2.waitKey(0)
+except Exception as e:
+    print(im)
