@@ -45,7 +45,12 @@ class ImageGRPCClient():
     def getImage(self, key):
         im_pb = self.getImagePB(key)
         return pbImageToNpImage(im_pb)
-        
+class ImageFolderWrapper():
+    def __init__(self, image_folder):
+        self.image_folder = image_folder
+    def getImage( self, key : str ):
+        fp = os.path.join(self.image_folder,key+".jpg")
+        return deepracing.imutils.readImage(fp)
 class ImageLMDBWrapper():
     def __init__(self):
         self.env = None
@@ -68,6 +73,8 @@ class ImageLMDBWrapper():
             with env.begin(write=True) as write_txn:
                 write_txn.put(key.encode(self.encoding), entry.SerializeToString())
         env.close()
+    def clearStaleReaders(self):
+        self.env.reader_check()
     def resetEnv(self):
         if self.env is not None:
             path = self.env.path()
@@ -80,11 +87,10 @@ class ImageLMDBWrapper():
         if not os.path.isdir(db_path):
             raise IOError("Path " + db_path + " is not a directory")
         self.spare_txns = max_spare_txns
-        self.env = lmdb.open(db_path, map_size=mapsize, readonly=True, max_spare_txns=max_spare_txns)
-        self.env.reader_check()
+        self.env = lmdb.open(db_path, map_size=mapsize, readonly=True, max_spare_txns=max_spare_txns)#, lock=False)
     def getImagePB(self, key : str):
         im_pb = Image_pb2.Image()
-        with self.env.begin(write=False, buffers=True) as txn:
+        with self.env.begin(write=False) as txn:
             im_pb.ParseFromString( txn.get( key.encode( self.encoding ) ) )
         return im_pb
     def getImage( self, key : str ):

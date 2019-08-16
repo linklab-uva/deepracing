@@ -58,6 +58,9 @@ class PoseSequenceDataset(Dataset):
         #pass
         self.image_db_wrapper.resetEnv()
         self.label_db_wrapper.resetEnv()
+    def clearReaders(self):
+        self.image_db_wrapper.clearStaleReaders()
+        self.label_db_wrapper.clearStaleReaders()
     def __len__(self):
         return self.length
     def __getitem__(self, index):

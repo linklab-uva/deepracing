@@ -18,7 +18,7 @@ def main():
     parser.add_argument("imrows", type=int, help="Number of rows to resize images to")
     parser.add_argument("imcols", type=int, help="Number of cols to resize images to")
     parser.add_argument("--display_resize_factor", type=float, default=0.5, help="Resize the first image by this factor for selecting a ROI.")
-    parser.add_argument("--mapsize", type=float, default=1E10, help="Map size for the LMDB.")
+    parser.add_argument("--mapsize", type=float, default=-1.0, help="Map size for the LMDB.")
     parser.add_argument('-R','--ROI', nargs='+', help='ROI to capture', default=None)
     args = parser.parse_args()
     img_folder = args.image_dir
@@ -65,9 +65,14 @@ def main():
             print("Goodbye then!")
             exit(0)
         shutil.rmtree(dbpath)
+    if(args.mapsize>0):
+        mapsize = args.mapsize
+    else:
+        mapsize = ( float(np.prod(im_size)*3 + 12 )*float(len(img_files)) )*1.1
+    print("Using a mapsize of " + str(mapsize))
     db = deepracing.backend.ImageLMDBWrapper()
-    db.readImages(img_files, keys, dbpath, im_size, func=f, mapsize=int(args.mapsize))
-    db.readDatabase(dbpath, mapsize=int(args.mapsize), max_spare_txns=6)
+    db.readImages(img_files, keys, dbpath, im_size, func=f, mapsize=int(mapsize))
+    db.readDatabase(dbpath, mapsize=int(mapsize), max_spare_txns=6)
     windowname="DB Image"
     idx = random.randint(0,len(keys)-1)
     im = db.getImage(keys[idx])

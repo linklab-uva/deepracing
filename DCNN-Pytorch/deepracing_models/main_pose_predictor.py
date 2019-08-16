@@ -162,22 +162,26 @@ def go():
     else:
         max_spare_txns = num_workers
 
-    image_wrapper = deepracing.backend.ImageLMDBWrapper()
-    image_wrapper.readDatabase(image_db, max_spare_txns=max_spare_txns )
+    #image_wrapper = deepracing.backend.ImageFolderWrapper(os.path.dirname(image_db))
 
     label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
     label_wrapper.readDatabase(label_db, max_spare_txns=max_spare_txns )
 
-    dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, context_length, sequence_length, image_size = np.array(image_size))
+    image_size = np.array(image_size)
+    image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
+    image_wrapper = deepracing.backend.ImageLMDBWrapper()
+    image_wrapper.readDatabase(image_db, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
+
+    dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, context_length, sequence_length, image_size = image_size)
+    dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
+                        shuffle=True, num_workers=num_workers)
     yaml.dump(config, stream=open(os.path.join(output_directory,"config.yaml"), "w"), Dumper = yaml.SafeDumper)
     i = 0
     while i < num_epochs:
+        time.sleep(2.0)
         postfix = i + 1
         print("Running Epoch Number %d" %(postfix))
-        if not num_workers==0:
-            dset.resetEnvs()
-        dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
-                            shuffle=True, num_workers=num_workers)
+        #dset.clearReaders()
         try:
             tick = time.time()
             run_epoch(net, optimizer, dataloader, gpu, position_loss, rotation_loss, loss_weights=loss_weights, debug=debug, use_tqdm=args.tqdm)
