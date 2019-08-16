@@ -25,6 +25,9 @@ class PoseSequenceLabelGRPCClient():
     def getNumLabels(self):
         response = self.stub.GetDbMetadata(Empty_pb2.Empty())
         return response.size
+    def getKeys(self):
+        response = self.stub.GetDbMetadata(Empty_pb2.Empty())
+        return list(response.keys)
 
 class PoseSequenceLabelLMDBWrapper():
     def __init__(self):

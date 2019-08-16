@@ -19,21 +19,8 @@ import DeepF1_RPC_pb2_grpc
 import DeepF1_RPC_pb2
 import PoseSequenceLabel_pb2
 import deepracing.backend
+import deepracing.grpc
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
-class PoseSequenceLabelLMDBServer(DeepF1_RPC_pb2_grpc.ImageServiceServicer):
-  def __init__(self, dbfolder : str):
-    super(PoseSequenceLabelLMDBServer, self).__init__()
-    self.dbfolder=dbfolder
-    self.backend = deepracing.backend.PoseSequenceLabelLMDBWrapper()
-    self.backend.readDatabase(self.dbfolder)
-  def GetPoseSequenceLabel(self, request, context):
-    rtn =  self.backend.getPoseSequenceLabel(request.key)
-    return rtn
-  def GetDbMetadata(self, request, context):
-    rtn =  DeepF1_RPC_pb2.DbMetadata()
-    rtn.size = self.backend.getNumLabels()
-    return rtn
-
 def serve():
     parser = argparse.ArgumentParser(description='Image server.')
     parser.add_argument('address', type=str)
@@ -42,7 +29,7 @@ def serve():
     parser.add_argument('--num_workers', type=int, default=1)
     args = parser.parse_args()
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.num_workers))
-    lmdbserver = PoseSequenceLabelLMDBServer(args.db_folder)
+    lmdbserver = deepracing.grpc.PoseSequenceLabelLMDBServer(args.db_folder, num_workers=args.num_workers)
     DeepF1_RPC_pb2_grpc.add_LabelServiceServicer_to_server(lmdbserver, server)
     server.add_insecure_port('%s:%d' % (args.address,args.port) )
     print("Starting label server")

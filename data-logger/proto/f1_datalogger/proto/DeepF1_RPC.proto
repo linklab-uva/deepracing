@@ -23,4 +23,5 @@ message PoseSequenceLabelRequest {
 
 message DbMetadata {
   uint64 size = 1;
+  repeated string keys = 2;
 }

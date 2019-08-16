@@ -45,6 +45,9 @@ class ImageGRPCClient():
     def getImage(self, key):
         im_pb = self.getImagePB(key)
         return pbImageToNpImage(im_pb)
+    def getKeys(self):
+        response = self.stub.GetDbMetadata(Empty_pb2.Empty())
+        return list(response.keys)
 class ImageFolderWrapper():
     def __init__(self, image_folder):
         self.image_folder = image_folder
