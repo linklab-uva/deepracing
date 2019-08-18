@@ -12,7 +12,6 @@
 #include <sstream>
 #include <Eigen/Geometry>
 #include "f1_datalogger/udp_logging/utils/eigen_utils.h"
-#include <GamePad.h>
 namespace scl = SL::Screen_Capture;class OpenCV_Viewer_Example_2018DataGrabHandler : public deepf1::IF12018DataGrabHandler
 {
 public:
@@ -171,24 +170,9 @@ int main(int argc, char** argv)
   deepf1::F1DataLogger dl(search);  
   dl.start((double)OpenCV_Viewer_Example_FrameGrabHandler::captureFreq, udp_handler, image_handler);
   std::cout<<"Ctl-c to exit."<<std::endl;
-  DirectX::GamePad gp;
-  unsigned int count = 0;
   while (true)
   {
-    DirectX::GamePad::State gpstate = gp.GetState(0);
-    if ( gpstate.IsRightTriggerPressed() )
-    {
-      gp.SetVibration(0, 1.0, 1.0);
-    }
-    else
-    {
-      gp.SetVibration(0, 0.0, 0.0);
-    }
-    if (gpstate.IsYPressed())
-    {
-      printf("Y is pressed. %u\n", ++count);
-    }
-	  std::this_thread::sleep_for( std::chrono::milliseconds( 25 ) );
+	  std::this_thread::sleep_for( std::chrono::seconds( 5 ) );
   }
 
 }
