@@ -12,15 +12,7 @@ from functools import partial
 import random
 def extractROI(x, y, w, h, image):
     return image[y:y+h, x:x+w].copy()
-def main():
-    parser = argparse.ArgumentParser(description="Load an image directory into a database")
-    parser.add_argument("image_dir", type=str, help="Directory containing the images")
-    parser.add_argument("imrows", type=int, help="Number of rows to resize images to")
-    parser.add_argument("imcols", type=int, help="Number of cols to resize images to")
-    parser.add_argument("--display_resize_factor", type=float, default=0.5, help="Resize the first image by this factor for selecting a ROI.")
-    parser.add_argument("--mapsize", type=float, default=-1.0, help="Map size for the LMDB.")
-    parser.add_argument('-R','--ROI', nargs='+', help='ROI to capture', default=None)
-    args = parser.parse_args()
+def main(args):
     img_folder = args.image_dir
     keys = [os.path.splitext(fname)[0] for fname in  os.listdir(img_folder) if os.path.isfile(os.path.join(img_folder,fname)) and (os.path.splitext(fname)[1]==".jpg" or os.path.splitext(fname)[1]==".png")]
     img_files = [os.path.join(img_folder,fname) for fname in  os.listdir(img_folder) if os.path.isfile(os.path.join(img_folder,fname)) and (os.path.splitext(fname)[1]==".jpg" or os.path.splitext(fname)[1]==".png")]
@@ -68,7 +60,7 @@ def main():
     if(args.mapsize>0):
         mapsize = int(args.mapsize)
     else:
-        mapsize = int( ( float(np.prod(im_size)*3 + 12 )*float(len(img_files)) )*1.1 )
+        mapsize = int( float(np.prod(im_size)*3 + 12 )*float(len(img_files))*1.1 )
     print("Using a mapsize of " + str(mapsize))
     db = deepracing.backend.ImageLMDBWrapper()
     db.readImages(img_files, keys, dbpath, im_size, func=f, mapsize=mapsize)
@@ -86,4 +78,12 @@ def main():
         print("Could not display db image because:")
         print(ex)
 if __name__ == '__main__':
-  main()
+    parser = argparse.ArgumentParser(description="Load an image directory into a database")
+    parser.add_argument("image_dir", type=str, help="Directory containing the images")
+    parser.add_argument("imrows", type=int, help="Number of rows to resize images to")
+    parser.add_argument("imcols", type=int, help="Number of cols to resize images to")
+    parser.add_argument("--display_resize_factor", type=float, default=0.5, help="Resize the first image by this factor for selecting a ROI.")
+    parser.add_argument("--mapsize", type=float, default=-1.0, help="Map size for the LMDB.")
+    parser.add_argument('-R','--ROI', nargs='+', help='ROI to capture', default=None)
+    args = parser.parse_args()
+    main(args)
