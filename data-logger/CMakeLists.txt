@@ -18,12 +18,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
 option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
+option(STATIC_CRT "Build against static CRT libraries (Only makes sense on Windows with BUILD_SHARED_LIBS set to OFF)" ON)
 if(WIN32)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 	include(cmake/windows_stuff.cmake)
 	get_WIN32_WINNT(win32_ver)
     message(STATUS "Win32 version: ${win32_ver}")
-    if(NOT BUILD_SHARED_LIBS)
+    if(NOT BUILD_SHARED_LIBS AND STATIC_CRT)
         foreach(flag_var
             CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
             CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
