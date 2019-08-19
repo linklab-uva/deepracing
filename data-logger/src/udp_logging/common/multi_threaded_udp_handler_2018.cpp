@@ -1,5 +1,3 @@
-#include "..\..\..\include\f1_datalogger\udp_logging\common\multi_threaded_udp_handler_2018.h"
-#include "..\..\..\include\f1_datalogger\udp_logging\common\multi_threaded_udp_handler_2018.h"
 /*
  * multi_threaded_udp_logger.cpp
  *
@@ -354,14 +352,14 @@ void MultiThreadedUDPHandler2018::handleData(const deepf1::twenty_eighteen::Time
   session_data_queue_->push(data);
   if (bool(data.data.m_gamePaused))// && !paused_)
   {
-    for each (std::function<void()> f in pausedHandlers_)
+    for (const std::function<void()> f: pausedHandlers_)
     {
       f();
     }
   }
   else if (!bool(data.data.m_gamePaused))// && paused_)
   {
-    for each (std::function<void()> f in unpausedHandlers_)
+    for (const std::function<void()> f: unpausedHandlers_)
     {
       f();
     }

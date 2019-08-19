@@ -136,36 +136,40 @@ ${screen_capture_lite_PLATFORM_LIBS}
 ${Boost_LIBRARIES}
 ${TBB_IMPORTED_TARGETS}
 Eigen3::Eigen
-directxtk
 )
 target_include_directories(${PROJECT_NAME}_cv_viewer_example PRIVATE ${DIRECTXT_INCLUDE_DIR})
+set_target_properties(${PROJECT_NAME}_cv_viewer_example PROPERTIES FOLDER examples)
 
-add_executable(${PROJECT_NAME}_multithreaded_capture_example
-multi_threaded_capture.cpp
-)
-target_link_libraries(${PROJECT_NAME}_multithreaded_capture_example
-${PROJECT_NAME}
-${PROJECT_NAME}_image_logging
-${PROJECT_NAME}_image_logging_common
-${PROJECT_NAME}_udp_logging
-${PROJECT_NAME}_udp_logging_common
-${PROJECT_NAME}_proto
-${screen_capture_lite_LIBRARIES}
-${screen_capture_lite_PLATFORM_LIBS}
-${Boost_LIBRARIES}
-${TBB_IMPORTED_TARGETS}
-${YAML_CPP_LIBRARIES}
-directxtk
-)
-target_include_directories(${PROJECT_NAME}_multithreaded_capture_example PRIVATE ${DIRECTXT_INCLUDE_DIR})
+if(MSVC)
+	add_executable(${PROJECT_NAME}_multithreaded_capture_example
+	multi_threaded_capture.cpp
+	)
+	target_link_libraries(${PROJECT_NAME}_multithreaded_capture_example
+	${PROJECT_NAME}
+	${PROJECT_NAME}_image_logging
+	${PROJECT_NAME}_image_logging_common
+	${PROJECT_NAME}_udp_logging
+	${PROJECT_NAME}_udp_logging_common
+	${PROJECT_NAME}_proto
+	${screen_capture_lite_LIBRARIES}
+	${screen_capture_lite_PLATFORM_LIBS}
+	${Boost_LIBRARIES}
+	${TBB_IMPORTED_TARGETS}
+	${YAML_CPP_LIBRARIES}
+	directxtk
+	)
+	target_include_directories(${PROJECT_NAME}_multithreaded_capture_example PRIVATE ${DIRECTXT_INCLUDE_DIR})
+	set_target_properties(${PROJECT_NAME}_multithreaded_capture_example PROPERTIES FOLDER examples)
+endif()
 
-
-set_target_properties(${PROJECT_NAME}_cv_viewer_example ${PROJECT_NAME}_multithreaded_capture_example
-                    PROPERTIES FOLDER examples)
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    target_link_libraries(${PROJECT_NAME}_replay_dataset stdc++fs )
+    target_link_libraries(${PROJECT_NAME}_generate_sine_waves stdc++fs )
+    target_link_libraries(${PROJECT_NAME}_pure_pursuit_control stdc++fs )
+endif()
 
 set(install_targets
 #executables.
-${PROJECT_NAME}_multithreaded_capture_example
 ${PROJECT_NAME}_cv_viewer_example
 )
 if(WITH_VJOY)
@@ -174,6 +178,7 @@ if(WITH_VJOY)
     list(APPEND install_targets ${PROJECT_NAME}_generate_vjoy_calibration)
     list(APPEND install_targets ${PROJECT_NAME}_replay_dataset)
 	list(APPEND install_targets ${PROJECT_NAME}_generate_sine_waves)
+	list(APPEND install_targets ${PROJECT_NAME}_multithreaded_capture_example)
 	install(DIRECTORY ${CMAKE_SOURCE_DIR}/tracks/ DESTINATION bin
         FILES_MATCHING PATTERN "*.track")
 endif()

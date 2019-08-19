@@ -20,6 +20,9 @@ ${Boost_LIBRARIES}
 ${YAML_CPP_LIBRARIES}
 ${OpenCV_LIBRARIES}
 )
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    target_link_libraries(${PROJECT_NAME}_assign_labels stdc++fs )
+endif()
 
 
 set(install_targets

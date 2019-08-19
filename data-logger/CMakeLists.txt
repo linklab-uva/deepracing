@@ -13,6 +13,7 @@ endif(COMMAND cmake_policy)
 
 set(cxx_standard 17)
 set(CMAKE_CXX_STANDARD ${cxx_standard})
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
@@ -122,7 +123,7 @@ message(STATUS "Found yaml-cpp libraries: ${YAML_CPP_LIBRARIES}")
 if(MSVC)
 	message(STATUS "LIB Environment Variable: $ENV{LIB}")
 endif()
-option(GET_TBB "Download TBB from github rather than using a pre-installed version." OFF)
+option(GET_TBB "Download TBB from github rather than using a pre-installed version." ON)
 if(GET_TBB)
     if(MSVC)
         message(STATUS "Getting TBB")
