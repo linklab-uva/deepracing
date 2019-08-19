@@ -1,4 +1,8 @@
-project(f1_datalogger)
+
+if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+  set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      CACHE STRING "")
+endif()
 project(f1_datalogger)
 set(_required_cmake 3.12)
 cmake_minimum_required (VERSION ${_required_cmake} FATAL_ERROR)
@@ -12,15 +16,26 @@ set(CMAKE_CXX_STANDARD ${cxx_standard})
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
+option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
 if(WIN32)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-    option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
 	include(cmake/windows_stuff.cmake)
 	get_WIN32_WINNT(win32_ver)
-	message(STATUS "Win32 version: ${win32_ver}")
+    message(STATUS "Win32 version: ${win32_ver}")
+    if(NOT BUILD_SHARED_LIBS)
+        foreach(flag_var
+            CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
+            CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
+            CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+            CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+
+            if(${flag_var} MATCHES "/MD")
+                string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
+            endif(${flag_var} MATCHES "/MD")
+        endforeach(flag_var)
+    endif()
 else()
     set_property(GLOBAL PROPERTY USE_FOLDERS OFF)
-    option(BUILD_SHARED_LIBS "Build Shared Libraries" ON)
 endif()
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
@@ -77,7 +92,6 @@ set (Boost_USE_MULTITHREADED ON)
 set(BOOST_REQUIRED_COMPONENTS
 date_time
 filesystem
-headers
 program_options
 regex
 system
