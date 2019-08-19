@@ -2,14 +2,14 @@ syntax = "proto3";
 package deepf1.protobuf.images;
 import "Image.proto";
 import "PoseSequenceLabel.proto";
-import "google/protobuf/empty.proto";
+
 service ImageService {
   rpc GetImage (ImageRequest) returns (deepf1.protobuf.images.Image);
-  rpc GetDbMetadata (google.protobuf.Empty) returns (DbMetadata);
+  rpc GetDbMetadata (DbMetadataRequest) returns (DbMetadata);
 }
 service LabelService {
   rpc GetPoseSequenceLabel (PoseSequenceLabelRequest) returns (deepf1.protobuf.PoseSequenceLabel);
-  rpc GetDbMetadata (google.protobuf.Empty) returns (DbMetadata);
+  rpc GetDbMetadata (DbMetadataRequest) returns (DbMetadata);
 }
 
 message ImageRequest {
@@ -19,6 +19,10 @@ message ImageRequest {
 
 message PoseSequenceLabelRequest {
   string key = 1;
+}
+
+
+message DbMetadataRequest {
 }
 
 message DbMetadata {

@@ -38,7 +38,7 @@ class ImageGRPCClient():
         self.channel = grpc.insecure_channel( "%s:%d" % ( address, port ) )
         self.stub = DeepF1_RPC_pb2_grpc.ImageServiceStub(self.channel)
     def getNumImages(self):
-        response = self.stub.GetDbMetadata(Empty_pb2.Empty())
+        response = self.stub.GetDbMetadata(DeepF1_RPC_pb2.DbMetadataRequest())
         return response.size
     def getImagePB(self, key):
         return self.stub.GetImage( DeepF1_RPC_pb2.ImageRequest(key=key) )
@@ -46,7 +46,7 @@ class ImageGRPCClient():
         im_pb = self.getImagePB(key)
         return pbImageToNpImage(im_pb)
     def getKeys(self):
-        response = self.stub.GetDbMetadata(Empty_pb2.Empty())
+        response = self.stub.GetDbMetadata(DeepF1_RPC_pb2.DbMetadataRequest())
         return list(response.keys)
 class ImageFolderWrapper():
     def __init__(self, image_folder):

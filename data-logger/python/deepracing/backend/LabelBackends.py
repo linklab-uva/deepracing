@@ -23,10 +23,10 @@ class PoseSequenceLabelGRPCClient():
         response = self.stub.GetPoseSequenceLabel( DeepF1_RPC_pb2.PoseSequenceLabelRequest(key=key) )
         return response
     def getNumLabels(self):
-        response = self.stub.GetDbMetadata(Empty_pb2.Empty())
+        response = self.stub.GetDbMetadata(DeepF1_RPC_pb2.DbMetadataRequest())
         return response.size
     def getKeys(self):
-        response = self.stub.GetDbMetadata(Empty_pb2.Empty())
+        response = self.stub.GetDbMetadata(DeepF1_RPC_pb2.DbMetadataRequest())
         return list(response.keys)
 
 class PoseSequenceLabelLMDBWrapper():
