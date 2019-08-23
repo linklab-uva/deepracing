@@ -1,60 +1,81 @@
-import torch
-import os
-import PIL
-from PIL import Image as PILImage
-import torchvision.transforms as transforms
-import torchvision
 from tqdm import tqdm as tqdm
-import cv2
 import numpy as np
-import abc
-import deepf1_image_reading as imreading
-import data_loading.backend.ImageSequenceBackend as image_backends
+import skimage
 import lmdb
-class DeepF1OptFlowBackend(metaclass=abc.ABCMeta):
-    def __init__(self, context_length : int, sequence_length : int):
-        self.context_length = context_length
-        self.sequence_length = sequence_length
-
-    @abc.abstractmethod
-    def getFlowImageRange(self, index : int):
-        pass
-    
-    @abc.abstractmethod
-    def getLabelRange(self, index : int):
-        pass
-
-    @abc.abstractmethod
-    def numberOfFlowImages(self):
-        pass
-    def __indexRanges__(self, dataset_index : int):
-        image_start = dataset_index
-        image_end = image_start + self.context_length
-        label_start = image_end
-        label_end = label_start + self.sequence_length
-        return image_start, image_end, label_start, label_end
-def npimagesToFlow(images : np.ndarray):
-    images_transposed = images.transpose(0,2,3,1)
-    grayscale_images = np.empty((images.shape[0], 1, images.shape[2], images.shape[3]), dtype=np.uint8)
-    grayscale_images[0][0] = cv2.cvtColor(images_transposed[0], cv2.COLOR_RGB2GRAY)
-    flows = np.empty((images.shape[0]-1, images.shape[2], images.shape[3], 2), dtype=np.float32)
-    for idx in range(1, images.shape[0]):
-        grayscale_images[idx][0] = cv2.cvtColor(images_transposed[idx], cv2.COLOR_RGB2GRAY)
-        flows[idx-1] = cv2.calcOpticalFlowFarneback(grayscale_images[idx-1][0], grayscale_images[idx][0], None, 0.5, 3, 20, 8, 5, 1.2, 0).astype(np.float32)
-    return grayscale_images, flows.transpose(0,3,1,2)
-class DeepF1LMDBOptFlowBackend(DeepF1OptFlowBackend):
-    def __init__(self, annotation_file : str, context_length : int, sequence_length : int, imsize=(66,200)):
-        super(DeepF1LMDBOptFlowBackend, self).__init__(context_length, sequence_length)
-        self.image_backend : image_backends.DeepF1LMDBBackend = image_backends.DeepF1LMDBBackend(annotation_file, context_length+1, sequence_length, imsize=imsize)
-        
-    def getFlowImageRange(self, index : int):
-        images = self.image_backend.getImageRange(index)
-        return npimagesToFlow(images)
-    def getLabelRange(self, index : int):
-        return self.image_backend.getLabelRange(index)
-    def numberOfFlowImages(self):
-        return self.image_backend.numberOfImages() - 1
-    def readImages(self, db_path : str):
-        self.image_backend.readImages(db_path)
-    def readDatabase(self, db_path : str):
-        self.image_backend.readDatabase(db_path)
+import os
+from skimage.transform import resize
+import deepracing.imutils
+import DeepF1_RPC_pb2_grpc
+import DeepF1_RPC_pb2
+import ChannelOrder_pb2
+import Image_pb2
+import grpc
+import cv2
+import time
+import google.protobuf.empty_pb2 as Empty_pb2
+def pbImageToNpImage(im_pb : Image_pb2.Image):
+    if not im_pb.channel_order == ChannelOrder_pb2.OPTICAL_FLOW:
+        raise ValueError("Invalid channel order " + str(im_pb.channel_order) + " for optical flow dataset")
+    return np.reshape(np.frombuffer(im_pb.image_data,dtype=np.float32),np.array((im_pb.rows, im_pb.cols, 2))).copy()
+class OpticalFlowLMDBWrapper():
+    def __init__(self, encoding = "ascii"):
+        self.env = None
+        self.encoding = encoding
+        self.spare_txns=1
+    def readImages(self, keys, db_path, image_wrapper, mapsize=int(1e9)):
+        assert(len(keys) > 0)
+        if os.path.isdir(db_path):
+            raise IOError("Path " + db_path + " is already a directory")
+        os.makedirs(db_path)
+        env = lmdb.open(db_path, map_size=mapsize)
+        print("Loading optical flow data")
+        for i in tqdm(range(1,len(keys)), total=len(keys)-1):
+            keyprev = keys[i-1]
+            key = keys[i]
+            img_prev = cv2.cvtColor(image_wrapper.getImage(keyprev),cv2.COLOR_RGB2GRAY)
+            img_curr = cv2.cvtColor(image_wrapper.getImage(key),cv2.COLOR_RGB2GRAY)
+            flow = cv2.calcOpticalFlowFarneback(img_prev, img_curr, None, 0.5, 3, 15, 3, 5, 1.2, 0).astype(np.float32)
+            entry = Image_pb2.Image( rows=img_curr.shape[0] , cols=img_curr.shape[1] , channel_order=ChannelOrder_pb2.OPTICAL_FLOW , image_data=flow.flatten().tobytes() )
+            with env.begin(write=True) as write_txn:
+                write_txn.put(key.encode(self.encoding), entry.SerializeToString())
+            with env.begin(write=False) as txn:
+                im_pb = Image_pb2.Image()
+                im_pb.ParseFromString( txn.get( key.encode( self.encoding ) ) )
+                flow_from_db = pbImageToNpImage( im_pb )
+                if not np.array_equal( flow , flow_from_db ):
+                    print(flow)
+                    print(flow_from_db)
+                    raise ValueError("Database value is not the same as input value")
+        env.close()
+    def clearStaleReaders(self):
+        self.env.reader_check()
+    def resetEnv(self):
+        if self.env is not None:
+            path = self.env.path()
+            mapsize = self.env.info()['map_size']
+            self.env.close()
+            del self.env
+            time.sleep(1)
+            self.readDatabase(path, mapsize=mapsize, max_spare_txns=self.spare_txns)
+    def readDatabase(self, db_path : str, mapsize=int(1e10), max_spare_txns=1):
+        if not os.path.isdir(db_path):
+            raise IOError("Path " + db_path + " is not a directory")
+        self.spare_txns = max_spare_txns
+        self.env = lmdb.open(db_path, map_size=mapsize, readonly=True, max_spare_txns=max_spare_txns)#, lock=False)
+    def getImagePB(self, key : str):
+        im_pb = Image_pb2.Image()
+        with self.env.begin(write=False) as txn:
+            im_pb.ParseFromString( txn.get( key.encode( self.encoding ) ) )
+        return im_pb
+    def getImage( self, key : str ):
+        im_pb = self.getImagePB( key )
+        return pbImageToNpImage( im_pb )
+    def getNumImages(self):
+        return self.env.stat()['entries']
+    def getKeys(self):
+        keys = None
+        with self.env.begin(write=False) as txn:
+            keys = [ str(key, encoding=self.encoding) for key, _ in txn.cursor() ]
+        if (keys is None) or len(keys)==0:
+            raise ValueError("Keyset is empty in optical flow dataset for some reason")
+        return keys

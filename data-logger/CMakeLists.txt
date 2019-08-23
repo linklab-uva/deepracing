@@ -1,8 +1,3 @@
-
-if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-  set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-      CACHE STRING "")
-endif()
 project(f1_datalogger)
 set(_required_cmake 3.12)
 cmake_minimum_required (VERSION ${_required_cmake} FATAL_ERROR)
@@ -17,7 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
-option(BUILD_SHARED_LIBS "Build Shared Libraries" ON)
+option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
 option(STATIC_CRT "Build against static CRT libraries (Only makes sense on Windows)" OFF)
 if(WIN32)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -50,7 +45,6 @@ endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 set(THIRD_PARTY_REPOS ${CMAKE_SOURCE_DIR}/third_party)
-include_directories(${EIGEN3_INCLUDE_DIR})
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 find_package(Eigen3)
@@ -65,7 +59,7 @@ else()
 endif()
 include_directories(${EIGEN3_INCLUDE_DIRS})
 
-option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to interact with the protobuf datasets" ON)
+option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to interact with existing protobuf datasets" ON)
 option(GUI_TOOLS "Attempt to build the GUI tools" ON)
 if(BUILD_DATALOGGER)
     if(MSVC)
@@ -213,7 +207,6 @@ if(BUILD_DATALOGGER)
 endif()
 
 
-# Find the QtWidgets library
 if(${_gotqt} AND GUI_TOOLS)
     add_subdirectory(src/guitools)
 endif()
@@ -223,5 +216,5 @@ if(MSVC)
 	configure_file(scripts/windows/addpythonpath.bat.in addpythonpath.bat @ONLY NEWLINE_STYLE WIN32)
 	configure_file(scripts/windows/addpythonpath.ps.in addpythonpath.ps1 @ONLY NEWLINE_STYLE WIN32)
 else()
-	configure_file(scripts/bash/addpythonpath.in addpythonpath @ONLY)
+	configure_file(scripts/bash/addpythonpath.in addpythonpath @ONLY NEWLINE_STYLE UNIX)
 endif() 

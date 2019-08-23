@@ -27,11 +27,9 @@ def pbImageToNpImage(im_pb : Image_pb2.Image):
     elif im_pb.channel_order == ChannelOrder_pb2.BGRA:
         im = np.reshape(np.frombuffer(im_pb.image_data,dtype=np.uint8),np.array((im_pb.rows, im_pb.cols, 4)))
         im = cv2.cvtColor(im, cv2.COLOR_BGRA2RGBA)
-    elif im_pb.channel_order == ChannelOrder_pb2.OPTICAL_FLOW:
-        im = np.reshape(np.frombuffer(im_pb.image_data,dtype=np.float32),np.array((im_pb.rows, im_pb.cols, 2)))
     else:
         raise ValueError("Unknown channel order: " + im_pb.channel_order)
-    return im
+    return im.copy()
 class ImageGRPCClient():
     def __init__(self, address="127.0.0.1", port=50051):
         self.im_size = None
@@ -55,9 +53,9 @@ class ImageFolderWrapper():
         fp = os.path.join(self.image_folder,key+".jpg")
         return deepracing.imutils.readImage(fp)
 class ImageLMDBWrapper():
-    def __init__(self):
+    def __init__(self, encoding = "ascii"):
         self.env = None
-        self.encoding = "ascii"
+        self.encoding = encoding
         self.spare_txns=1
     def readImages(self, image_files, keys, db_path, im_size, func=None, mapsize=int(1e10)):
         assert(len(image_files) > 0)
