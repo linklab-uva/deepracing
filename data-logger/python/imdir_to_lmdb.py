@@ -10,12 +10,17 @@ import cv2
 import deepracing.imutils
 from functools import partial
 import random
+from deepracing.pose_utils import getAllImageFilePackets
+def packetSortKey(packet):
+    return packet.timestamp
 def extractROI(x, y, w, h, image):
     return image[y:y+h, x:x+w].copy()
 def main(args):
     img_folder = args.image_dir
-    keys = [os.path.splitext(fname)[0] for fname in  os.listdir(img_folder) if os.path.isfile(os.path.join(img_folder,fname)) and (os.path.splitext(fname)[1]==".jpg" or os.path.splitext(fname)[1]==".png")]
-    img_files = [os.path.join(img_folder,fname) for fname in  os.listdir(img_folder) if os.path.isfile(os.path.join(img_folder,fname)) and (os.path.splitext(fname)[1]==".jpg" or os.path.splitext(fname)[1]==".png")]
+    packets = sorted(getAllImageFilePackets(img_folder, args.json), key=packetSortKey)
+    img_files = [os.path.join(img_folder,packet.image_file) for packet in packets]
+    keys = [os.path.splitext(os.path.basename(img_file))[0] for img_file in img_files]
+
     im_size = None
     imrows = args.imrows
     imcols = args.imcols
@@ -60,7 +65,7 @@ def main(args):
     if(args.mapsize>0):
         mapsize = int(args.mapsize)
     else:
-        mapsize = int( float(np.prod(im_size)*3 + 12 )*float(len(img_files))*1.1 )
+        mapsize = int( float(np.prod(im_size) + 12 )*float(len(img_files))*1.1 )
     print("Using a mapsize of " + str(mapsize))
     db = deepracing.backend.ImageLMDBWrapper()
     db.readImages(img_files, keys, dbpath, im_size, func=f, mapsize=mapsize)
@@ -77,6 +82,23 @@ def main(args):
         print(im.shape)
         print("Could not display db image because:")
         print(ex)
+    if args.optical_flow:
+        optflow_dbpath = os.path.join(img_folder,"optical_flow_lmdb")
+        if(os.path.isdir(optflow_dbpath)):
+            s=""
+            while not (s=='n' or s=='y'):
+                s=input("Database folder " + optflow_dbpath+ " already exists. overwrite with new data? [y/n]\n")
+            if(s=='n'):
+                print("Goodbye then!")
+                exit(0)
+            shutil.rmtree(optflow_dbpath)
+        optflow_db = deepracing.backend.OpticalFlowLMDBWrapper()
+        if(args.mapsize>0):
+            mapsize = int(8*args.mapsize/3)
+        else:
+            mapsize = int( float(np.prod(im_size[0:2])*8 + 12 )*float(len(img_files))*1.1 )
+        print("Using an optical flow mapsize of " + str(mapsize))
+        optflow_db.readImages( keys, optflow_dbpath, db, mapsize=mapsize )
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Load an image directory into a database")
     parser.add_argument("image_dir", type=str, help="Directory containing the images")
@@ -85,5 +107,7 @@ if __name__ == '__main__':
     parser.add_argument("--display_resize_factor", type=float, default=0.5, help="Resize the first image by this factor for selecting a ROI.")
     parser.add_argument("--mapsize", type=float, default=-1.0, help="Map size for the LMDB.")
     parser.add_argument('-R','--ROI', nargs='+', help='ROI to capture', default=None)
+    parser.add_argument('--optical_flow', action="store_true", help='Compute optical flow as well', default=None)
+    parser.add_argument('--json', action="store_true", help='Use json packets', default=None)
     args = parser.parse_args()
     main(args)
