@@ -29,9 +29,9 @@ target_compile_definitions(${PROJECT_NAME}_proto PRIVATE _WIN32_WINNT=${win32_ve
 target_compile_definitions(${PROJECT_NAME}_image_server PRIVATE _WIN32_WINNT=${win32_ver})
 endif()
 target_include_directories(${PROJECT_NAME}_image_server PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
-target_link_libraries(${PROJECT_NAME}_image_server ${PROJECT_NAME}_proto ${PROJECT_NAME}_image_utils ${screen_capture_lite_LIBRARIES} )
+target_link_libraries(${PROJECT_NAME}_image_server ${PROJECT_NAME}_proto ${PROJECT_NAME}_image_utils ${screen_capture_lite_LIBRARIES} ${screen_capture_lite_PLATFORM_LIBS})
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-target_link_libraries(${PROJECT_NAME}_image_server stdc++fs ${screen_capture_lite_PLATFORM_LIBS})
+target_link_libraries(${PROJECT_NAME}_image_server stdc++fs )
 endif()
 
 set(install_targets
