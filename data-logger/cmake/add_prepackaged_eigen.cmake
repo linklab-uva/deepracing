@@ -1,10 +1,23 @@
-set(eigen3_zip_ ${CMAKE_SOURCE_DIR}/third_party/eigen_3_3_90.zip)
+message(STATUS "Building an up-to-date eigen library.")
+set(eigen3_zip_ ${CMAKE_SOURCE_DIR}/third_party/eigen3.3.9.zip)
+set(eigen3_working_dir_ ${CMAKE_BINARY_DIR}/Eigen3.3.9)
+file(MAKE_DIRECTORY ${eigen3_working_dir_})
 execute_process(
 COMMAND ${CMAKE_COMMAND} -E tar xzf ${eigen3_zip_}
-WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+WORKING_DIRECTORY ${eigen3_working_dir_}
 #DEPENDS ${eigen3_zip_}
 #COMMENT "Unpacking Eigen3 zip file."
 )
-set(eigen3_thirdparty_dir ${CMAKE_BINARY_DIR}/eigen_3_3_90)
-set(Eigen3_DIR ${eigen3_thirdparty_dir}/share/eigen3/cmake)
-find_package(Eigen3 REQUIRED)
+file(MAKE_DIRECTORY ${eigen3_working_dir_}/build)
+# The first external project will be built at *configure stage*
+execute_process(
+    COMMAND ${CMAKE_COMMAND} ../src -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${eigen3_working_dir_}/install
+    WORKING_DIRECTORY ${eigen3_working_dir_}/build
+    OUTPUT_QUIET
+)
+execute_process(
+    COMMAND ${CMAKE_COMMAND} --build . --target install
+    WORKING_DIRECTORY ${eigen3_working_dir_}/build
+    OUTPUT_QUIET
+)
+set(Eigen3_DIR ${eigen3_working_dir_}/install/share/eigen3/cmake)# CACHE PATH "Path to Eigen3 installation directory.")
