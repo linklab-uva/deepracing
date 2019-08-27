@@ -1,6 +1,5 @@
-include(FindProtobuf)
-find_package(Protobuf REQUIRED)
-find_package(gRPC CONFIG REQUIRED)
+
+
 find_package (Python3 REQUIRED COMPONENTS Interpreter)
 set(c-ares_DIR $ENV{c-ares_DIR})
 include(${CMAKE_SOURCE_DIR}/cmake/grpc_utils.cmake)

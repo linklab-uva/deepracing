@@ -101,7 +101,7 @@ regex
 system
 thread
 )
-find_package( Boost 1.7 REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS} )
+find_package( Boost 1.7 REQUIRED CONFIG COMPONENTS ${BOOST_REQUIRED_COMPONENTS} )
 foreach(boost_component_ ${BOOST_REQUIRED_COMPONENTS})
 	list(APPEND Boost_LIBRARIES Boost::${boost_component_})
 endforeach()
@@ -149,16 +149,15 @@ endif()
 include_directories( include )
 include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${YAML_CPP_INCLUDE_DIR} )
 
+#include(FindProtobuf)
+option(protobuf_MODULE_COMPATIBLE "" ON)
+FIND_PACKAGE(Protobuf CONFIG REQUIRED)
+find_package(gRPC CONFIG REQUIRED)
 add_subdirectory( proto/${PROJECT_NAME}/proto )
-include_directories(${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
+#include_directories(${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
+include_directories(${CMAKE_BINARY_DIR}/proto)
 set_target_properties(${PROJECT_NAME}_proto
                     PROPERTIES FOLDER proto)
-
-include_directories(${CMAKE_BINARY_DIR}/proto)
-include_directories(${Protobuf_INCLUDE_DIR})
-
-
-include_directories(${ProtobufIncludePath})
 
 add_subdirectory( src/alglib )
 message(STATUS "ALGLIB_DIR: ${ALGLIB_DIR}")

@@ -1,5 +1,5 @@
 if(MSVC)
-	find_package(Armadillo REQUIRED HINTS "C:/Program Files/Armadillo/share/Armadillo/CMake")
+	find_package(Armadillo CONFIG REQUIRED HINTS "C:/Program Files/Armadillo/share/Armadillo/CMake;C:/Program Files (x86)/Armadillo/share/Armadillo/CMake")
 else()	
 	find_package(Armadillo REQUIRED )
 endif()

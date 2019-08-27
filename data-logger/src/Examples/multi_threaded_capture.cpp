@@ -106,7 +106,7 @@ int main(int argc, char** argv)
 	dl->start(image_capture_frequency, udp_handler  , frame_handler );
   unsigned int ycount = 0;
   unsigned int bcount = 0;
-  std::cout << "Recording. Push Y to pause. Push dpad up to unpause. D-Pad Down to Exit." << std::endl;
+  std::cout << "Recording. Push Y to pause. Push left thumbstick to unpause. D-Pad Down to Exit." << std::endl;
   DirectX::GamePad gp;
   DirectX::GamePad::State gpstate;
   std::function<bool()> isUnpausePressed = std::bind(&DirectX::GamePad::State::IsLeftStickPressed, &gpstate);
@@ -137,8 +137,8 @@ int main(int argc, char** argv)
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
   }
-  //stop issuing new data to the handlers.
-  dl->stop();
+	  //stop issuing new data to the handlers.
+	  dl->stop();
   //stop listening for data and just process whatever is left in the buffers.
 	frame_handler->stop();
 	udp_handler->stop();

@@ -104,22 +104,7 @@ void MultiThreadedFrameGrabHandler::init(const deepf1::TimePoint& begin,
   }
   ready_ = true;
 }
-void createAlphaMat(cv::Mat& mat)
-{
-  using namespace cv;
-  CV_Assert(mat.channels() == 4);
-  for (int i = 0; i < mat.rows; ++i)
-  {
-    for (int j = 0; j < mat.cols; ++j)
-    {
-      Vec4b& bgra = mat.at<Vec4b>(i, j);
-      bgra[0] = UCHAR_MAX; // Blue
-      bgra[1] = saturate_cast<uchar>((float(mat.cols - j)) / ((float)mat.cols) * UCHAR_MAX); // Green
-      bgra[2] = saturate_cast<uchar>((float(mat.rows - i)) / ((float)mat.rows) * UCHAR_MAX); // Red
-      bgra[3] = saturate_cast<uchar>(bgra[3]); // Alpha
-    }
-  }
-}
+
 void MultiThreadedFrameGrabHandler::workerFunc_()
 {
   std::cout<<"Spawned a worker thread to log images" <<std::endl;
@@ -130,6 +115,7 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
   opshinz.add_whitespace = true;
   while( running_ || !queue_->empty() )
   {
+	 // std::cout << "In the main image handler loop" << std::endl;
     TimestampedImageData data;
     {
       if(queue_->empty())
@@ -145,17 +131,11 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
 	  //std::cout << "Got some image data. Clock Delta = " << delta << std::endl;
     std::string file_prefix = "image_" + std::to_string(counter);
     std::string image_file( file_prefix + "." + image_extension_);
-    if (image_extension_.compare("png") == 0)
-    {
-      cv::Mat pngdata = data.image.clone();
-      data.image.convertTo(pngdata, CV_16UC4);
-      std::vector<int> flags = { cv::ImwriteFlags::IMWRITE_PNG_COMPRESSION, 9 };
-      cv::imwrite((images_folder / fs::path(image_file)).string(), pngdata, flags);
-    }
-    else
-    {
-      cv::imwrite((images_folder / fs::path(image_file)).string(), data.image);
-    }
+
+
+	//std::cout << "Writing a jpg to file: "<< (images_folder / fs::path(image_file)).string() << std::endl;
+    cv::imwrite((images_folder / fs::path(image_file)).string(), data.image);
+	//std::cout << "Wrote a jpg to file: " << (images_folder / fs::path(image_file)).string() << std::endl;
 
     deepf1::protobuf::TimestampedImage tag;
     tag.set_image_file(image_file);
@@ -184,6 +164,7 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
       ostream->close();
     }
   }
+  std::cout << "Exiting the main image handler loop" << std::endl;
 }
 const std::string MultiThreadedFrameGrabHandler::getImagesFolder() const
 {
