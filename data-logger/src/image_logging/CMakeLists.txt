@@ -13,16 +13,15 @@ add_library(${PROJECT_NAME}_image_logging ${${PROJECT_NAME}_image_logging_src})
 target_link_libraries(${PROJECT_NAME}_image_logging ${PROJECT_NAME}_image_utils ${screen_capture_lite_PLATFORM_LIBS})
 
 
+
 set(${PROJECT_NAME}_image_logging_common_src
 common/multi_threaded_framegrab_handler.cpp
 )
 add_library(${PROJECT_NAME}_image_logging_common ${${PROJECT_NAME}_image_logging_common_src})
 target_link_libraries(${PROJECT_NAME}_image_logging_common ${PROJECT_NAME}_image_logging ${PROJECT_NAME}_image_utils ${PROJECT_NAME}_proto ${TBB_IMPORTED_TARGETS} ${Boost_LIBRARIES})
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-target_link_libraries(${PROJECT_NAME}_image_logging_common stdc++fs )
+    target_link_libraries(${PROJECT_NAME}_image_logging_common stdc++fs )
 endif()
-
-
 add_executable(${PROJECT_NAME}_image_server services/ImageServer.cpp)
 if(WIN32)
 target_compile_definitions(${PROJECT_NAME}_proto PRIVATE _WIN32_WINNT=${win32_ver})

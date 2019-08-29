@@ -33,12 +33,14 @@ private:
   scl::Window window_;
 
   std::shared_ptr<scl::ICaptureConfiguration<scl::WindowCaptureCallback> > capture_config_;
+  std::shared_ptr<scl::ICaptureConfiguration<scl::ScreenCaptureCallback> > capture_config_monitor_;
 
   std::shared_ptr<scl::IScreenCaptureManager> capture_manager_;
 
   std::vector<scl::Window> get_windows_();
 
   void onNewFrame_(const scl::Image &img, const scl::Window &monitor, std::shared_ptr<IF1FrameGrabHandler> capture_handler);
+  void onNewScreenFrame_(const scl::Image &img, const scl::Monitor &monitor, std::shared_ptr<IF1FrameGrabHandler> capture_handler);
 };
 
 } /* namespace deepf1 */

@@ -10,6 +10,8 @@
 //#include "image_logging/utils/screencapture_lite_utils.h"
 #include <algorithm>
 #include <iostream>
+#include <opencv2/imgcodecs.hpp>
+
 namespace scl = SL::Screen_Capture;
 namespace deepf1
 {
@@ -66,6 +68,19 @@ scl::Window findWindow(const std::string& search_string)
   }
   return selected_window;
 }
+std::vector<scl::Monitor> monitorCB_()
+{
+  std::vector<scl::Monitor> allMon = scl::GetMonitors();
+  std::vector<scl::Monitor> rtn; 
+  for(const scl::Monitor& monitor : allMon)
+  {
+    if(monitor.Index==1)
+    {
+      rtn.push_back(monitor);
+    }
+  }
+  return rtn;
+}
 F1FrameGrabManager::F1FrameGrabManager(ClockPtr clock,
                                        const std::string& search_string)
 {
@@ -73,6 +88,19 @@ F1FrameGrabManager::F1FrameGrabManager(ClockPtr clock,
   std::cout << "Looking for an application with the search string " << search_string << std::endl;
   window_ = findWindow(search_string);
   capture_config_ = scl::CreateCaptureConfiguration( (scl::WindowCallback)std::bind(&F1FrameGrabManager::get_windows_, this));
+  capture_config_monitor_ = 
+        scl::CreateCaptureConfiguration([]() {
+            std::vector<scl::Monitor> allMonitors = scl::GetMonitors();
+            std::vector<scl::Monitor> rtn; 
+            for(const scl::Monitor& monitor : allMonitors)
+            {
+              if(monitor.Index==1)
+              {
+                rtn.push_back(monitor);
+              }
+            }
+            return rtn;
+        });
 }
 F1FrameGrabManager::~F1FrameGrabManager()
 {
@@ -85,11 +113,21 @@ std::vector<scl::Window> F1FrameGrabManager::get_windows_()
 }
 void F1FrameGrabManager::onNewFrame_(const scl::Image &img, const scl::Window &monitor, std::shared_ptr<IF1FrameGrabHandler> capture_handler)
 {
+  TimestampedImageData timestamped_image;
+  timestamped_image.timestamp = clock_->now();
   if (capture_handler->isReady())
   {
-    TimestampedImageData timestamped_image;
-    timestamped_image.timestamp = clock_->now();
     timestamped_image.image = deepf1::OpenCVUtils::toCV(img, monitor.Size);
+    capture_handler->handleData(timestamped_image);
+  }
+}
+void F1FrameGrabManager::onNewScreenFrame_(const scl::Image &img, const scl::Monitor &monitor, std::shared_ptr<IF1FrameGrabHandler> capture_handler)
+{
+  TimestampedImageData timestamped_image;
+  timestamped_image.timestamp = clock_->now();
+  if (capture_handler->isReady())
+  {
+    timestamped_image.image = deepf1::OpenCVUtils::toCV(img, scl::Point());
     capture_handler->handleData(timestamped_image);
   }
 }
@@ -105,6 +143,10 @@ void F1FrameGrabManager::start(double capture_frequency,
   unsigned int ms = (unsigned int)(std::round(((double)1E3)/capture_frequency)); 
   capture_config_->onNewFrame((scl::WindowCaptureCallback)std::bind(&F1FrameGrabManager::onNewFrame_, this, std::placeholders::_1, std::placeholders::_2, capture_handler));
   capture_manager_ = capture_config_->start_capturing();
+  //capture_config_monitor_->onNewFrame((scl::ScreenCaptureCallback)std::bind(&F1FrameGrabManager::onNewScreenFrame_, this, std::placeholders::_1, std::placeholders::_2, capture_handler));
+  //capture_manager_ = capture_config_monitor_->start_capturing();
   capture_manager_->setFrameChangeInterval(std::chrono::milliseconds(ms));
+  
+  
 }
 } /* namespace deepf1 */
