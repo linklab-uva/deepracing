@@ -31,6 +31,8 @@ public:
     carsetupsThreads = 1;
     cartelemetryThreads = 2;
     carstatusThreads = 2;
+    write_json=false;
+    sleeptime=100;
   }
   uint32_t motionThreads;
   uint32_t sessionThreads;
@@ -44,12 +46,14 @@ public:
   {
     return motionThreads + sessionThreads + lapDataThreads + eventThreads + participantsThreads + carsetupsThreads + cartelemetryThreads + carstatusThreads;
   }
+  bool write_json;
+  unsigned int sleeptime;
 };
 class MultiThreadedUDPHandler2018 : public IF12018DataGrabHandler
 {
   using timeunit = std::milli;
 public:
-  MultiThreadedUDPHandler2018(std::string data_folder = "udp_data", bool write_json = false, unsigned int sleeptime = 100, MultiThreadedUDPHandler2018ThreadSettings settings = MultiThreadedUDPHandler2018ThreadSettings());
+  MultiThreadedUDPHandler2018(std::string data_folder = "udp_data", MultiThreadedUDPHandler2018ThreadSettings settings = MultiThreadedUDPHandler2018ThreadSettings());
   virtual ~MultiThreadedUDPHandler2018();
   inline bool isReady() override;
   void init(const std::string& host, unsigned int port, const deepf1::TimePoint& begin) override;

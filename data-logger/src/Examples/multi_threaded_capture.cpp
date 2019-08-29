@@ -32,7 +32,7 @@ int main(int argc, char** argv)
   std::string search_string, image_folder, image_extension, udp_folder, config_file, driver_name;
   unsigned int image_threads, udp_threads, udp_port;
   float image_capture_frequency, initial_delay_time;
-  bool spectating, use_json;
+  bool spectating, use_json, init_paused;
 
 
   po::options_description desc("F1 Datalogger Multithreaded Capture. Command line arguments are as follows");
@@ -76,6 +76,7 @@ int main(int argc, char** argv)
   image_capture_frequency = config_node["image_capture_frequency"].as<float>();
   initial_delay_time = config_node["initial_delay_time"].as<float>();
   spectating = config_node["spectating"].as<bool>(false);
+  init_paused = config_node["init_paused"].as<bool>(false);
   use_json = config_node["use_json"].as<bool>(true);
   
 
@@ -84,11 +85,14 @@ int main(int argc, char** argv)
 
   std::cout<<"Creating handlers" <<std::endl;
   std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler(image_extension, image_folder, image_threads, use_json));
-  if (spectating)
+  if (init_paused)
   {
+    std::cout<<"Initially pausing the frame-grab loop"<<std::endl;
     frame_handler->pause();
   }
-  std::shared_ptr<deepf1::MultiThreadedUDPHandler2018> udp_handler(new deepf1::MultiThreadedUDPHandler2018(udp_folder, use_json));
+  deepf1::MultiThreadedUDPHandler2018ThreadSettings udp_settings;
+  udp_settings.write_json=use_json;
+  std::shared_ptr<deepf1::MultiThreadedUDPHandler2018> udp_handler(new deepf1::MultiThreadedUDPHandler2018(udp_folder, udp_settings));
   udp_handler->addPausedFunction(std::bind(&deepf1::MultiThreadedFrameGrabHandler::pause, frame_handler.get()));
   std::cout << "Created handlers" << std::endl;
 
