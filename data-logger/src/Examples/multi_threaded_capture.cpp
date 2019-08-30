@@ -26,13 +26,15 @@ void exit_with_help(po::options_description& desc)
         std::printf("%s", ss.str().c_str());
         exit(0); // @suppress("Invalid arguments")
 }
+
 int main(int argc, char** argv)
 {
   using namespace deepf1;
   std::string search_string, image_folder, image_extension, udp_folder, config_file, driver_name;
-  unsigned int image_threads, udp_threads, udp_port;
+  unsigned int image_threads, udp_port;
   float image_capture_frequency, initial_delay_time;
   bool spectating, use_json, init_paused;
+  double capture_region_ratio;
 
 
   po::options_description desc("F1 Datalogger Multithreaded Capture. Command line arguments are as follows");
@@ -64,13 +66,11 @@ int main(int argc, char** argv)
   */
   std::cout << "Loading config file" << std::endl;
   YAML::Node config_node = YAML::LoadFile(config_file);
-  std::cout << "Using the following config information:" << std::endl << config_node << std::endl;
 
   search_string = config_node["search_string"].as<std::string>();
   image_folder = config_node["images_folder"].as<std::string>();
   udp_folder = config_node["udp_folder"].as<std::string>();
   image_extension = config_node["image_extension"].as<std::string>("jpg");
-  udp_threads = config_node["udp_threads"].as<unsigned int>();
   image_threads = config_node["image_threads"].as<unsigned int>();
   udp_port = config_node["udp_port"].as<unsigned int>(20777);
   image_capture_frequency = config_node["image_capture_frequency"].as<float>();
@@ -78,13 +78,32 @@ int main(int argc, char** argv)
   spectating = config_node["spectating"].as<bool>(false);
   init_paused = config_node["init_paused"].as<bool>(false);
   use_json = config_node["use_json"].as<bool>(true);
+  capture_region_ratio = config_node["capture_region_ratio"].as<double>(1.0);
   
-
+  config_node["search_string"] = search_string;
+  config_node["images_folder"] = image_folder;
+  config_node["udp_folder"] = udp_folder;
+  config_node["image_extension"] = image_extension;
+  config_node["image_threads"] = image_threads;
+  config_node["udp_port"] = udp_port;
+  config_node["image_capture_frequency"] = image_capture_frequency;
+  config_node["initial_delay_time"] = initial_delay_time;
+  config_node["spectating"] = spectating;
+  config_node["init_paused"] = init_paused;
+  config_node["use_json"] = use_json;
+  config_node["capture_region_ratio"] = capture_region_ratio;
+  std::cout << "Using the following config information:" << std::endl << config_node << std::endl;
   
 
 
   std::cout<<"Creating handlers" <<std::endl;
-  std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler(image_extension, image_folder, image_threads, use_json));
+  deepf1::MultiThreadedFrameGrabHandlerSettings settings;
+  settings.image_extension=image_extension;
+  settings.images_folder=image_folder;
+  settings.thread_count=image_threads;
+  settings.write_json=use_json;
+  settings.capture_region_ratio=capture_region_ratio;
+  std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler(settings));
   if (init_paused)
   {
     std::cout<<"Initially pausing the frame-grab loop"<<std::endl;

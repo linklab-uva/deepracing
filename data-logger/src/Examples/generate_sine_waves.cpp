@@ -74,7 +74,10 @@ int main(int argc, char** argv)
 
 
 	std::string actual_image_folder = image_folder + "_throttle" + std::to_string(throttle_val) + "_frequency" + std::to_string(sine_frequency);
-	std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler("jpg", actual_image_folder, image_threads, true));
+	deepf1::MultiThreadedFrameGrabHandlerSettings settings;
+  	settings.images_folder=actual_image_folder;
+  	settings.thread_count=image_threads;
+  	std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler(settings));
 
 
 	std::string actual_udp_folder = udp_folder + "_throttle" + std::to_string(throttle_val) + "_frequency" + std::to_string(sine_frequency);

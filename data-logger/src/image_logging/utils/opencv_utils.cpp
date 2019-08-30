@@ -86,22 +86,27 @@ deepf1::protobuf::images::Image OpenCVUtils::cvimageToProto(const cv::Mat& cv_im
   proto_image.set_channel_order(co);
   proto_image.set_cols(cv_image.cols);
   proto_image.set_rows(cv_image.rows);
-  uint32_t totalsize = cv_image.step[0] * cv_image.rows;
+  size_t totalsize = cv_image.step[0] * cv_image.rows;
   proto_image.mutable_image_data()->resize(totalsize);
   memcpy(proto_image.mutable_image_data()->data(), cv_image.data, totalsize);
   return proto_image;
 }
 void OpenCVUtils::toCV(const scl::Image& image_scl, const scl::Point& size, cv::Mat& out)
 {
-	out.create(scl::Height(image_scl), scl::Width(image_scl), CV_8UC4);
-	scl::Extract(image_scl, out.data, (size_t)out.rows * (size_t)out.cols * sizeof(scl::ImageBGRA));
+  if(size.x>0 && size.y>0)
+  {
+    out.create( size.y,  size.x , CV_8UC4);
+  }
+  else
+  {
+    out.create( scl::Height(image_scl),  scl::Width(image_scl) , CV_8UC4);
+  }
+  scl::Extract(image_scl, out.data, out.step[0] * out.rows  * sizeof(scl::ImageBGRA));
 }
 cv::Mat OpenCVUtils::toCV(const scl::Image& image_scl, const scl::Point& size)
 {
   cv::Mat out;
-  out.create(scl::Height(image_scl), scl::Width(image_scl), CV_8UC4);
-  scl::Extract(image_scl, out.data, (size_t)out.rows * (size_t)out.cols  *sizeof(scl::ImageBGRA));
-  cv::Mat nontitlebar = out.rowRange(cv::Range(out.rows/2, out.rows-1));
+  OpenCVUtils::toCV(image_scl, size, out);
   return out;
 }
 } /* namespace deepf1 */

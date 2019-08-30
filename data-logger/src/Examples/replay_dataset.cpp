@@ -224,7 +224,11 @@ int main(int argc, char** argv)
 	std::chrono::high_resolution_clock clock;
 	boost::barrier bar(2);
 	std::shared_ptr<ReplayDataset_DataGrabHandler> udp_handler(new ReplayDataset_DataGrabHandler(boost::ref(bar), num_threads));
-	std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler("jpg","playback_images", 3, true));
+	deepf1::MultiThreadedFrameGrabHandlerSettings settings;
+  	settings.images_folder="playback_images";
+  	settings.thread_count=3;
+  	settings.write_json=true;
+  	std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler(settings));
 	std::unique_ptr<deepf1::F1DataLogger> dl(new deepf1::F1DataLogger(*search));
 	dl->start(60.0, udp_handler, frame_handler);
 	double maxtime = laptimes.back();

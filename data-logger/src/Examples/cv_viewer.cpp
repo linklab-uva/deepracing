@@ -114,7 +114,11 @@ public:
       window_made = true;
     }
     ready = false;
-    cv::imshow(window_name, data.image);
+    cv::Mat imcrop,imresize;
+    //imcrop = data.image;
+    imcrop = data.image(cv::Range(0,data.image.rows/3),cv::Range(0,data.image.cols/3));
+    cv::resize(imcrop,imresize,cv::Size(),0.75,0.75);
+    cv::imshow(window_name, imresize);
     cv::waitKey(5);
     ready = true;
 //	std::chrono::duration<double> d = data.timestamp - begin;

@@ -11,38 +11,38 @@
 #include <google/protobuf/util/json_util.h>
 #include <thread>
 #include <exception>
-#include <filesystem>
 #include <iostream>
 #include <fstream>
 #include <google/protobuf/util/time_util.h>
+#include <filesystem>
 namespace fs = std::filesystem;
 namespace deepf1
 {
-
-MultiThreadedFrameGrabHandler::MultiThreadedFrameGrabHandler(std::string image_extension, std::string images_folder, unsigned int thread_count, bool write_json)
-: running_(false), counter_(1), images_folder_(images_folder), write_json_(write_json), image_extension_(image_extension)
+MultiThreadedFrameGrabHandler::MultiThreadedFrameGrabHandler(deepf1::MultiThreadedFrameGrabHandlerSettings settings)
+: running_(false), counter_(1), images_folder_(settings.images_folder), write_json_(settings.write_json),
+image_extension_(settings.image_extension), capture_region_ratio(settings.capture_region_ratio)
 {
   fs::path main_dir(images_folder_);
-  if(fs::is_directory(main_dir))
-  {
-    std::string in("asdf");
-    while (!(in.compare("y") == 0 || in.compare("n") == 0))
+    if(fs::is_directory(main_dir))
     {
-      std::cout << "Image Directory: " << main_dir.string() << " already exists. Overwrite it with new data? [y\\n]";
-      std::cin >> in;
+      std::string in("asdf");
+      while (!(in.compare("y") == 0 || in.compare("n") == 0))
+      {
+        std::cout << "Image Directory: " << main_dir.string() << " already exists. Overwrite it with new data? [y\\n]";
+        std::cin >> in;
+      }
+      if ( in.compare("y") == 0 ) 
+      {
+        fs::remove_all(main_dir);
+      }
+      else
+      {
+        std::cout << "Thanks for playing!" << std::endl;
+        exit(0);
+      }
     }
-    if ( in.compare("y") == 0 ) 
-    {
-      fs::remove_all(main_dir);
-    }
-    else
-    {
-      std::cout << "Thanks for playing!" << std::endl;
-      exit(0);
-    }
-  }
-  fs::create_directories(main_dir);
-  thread_count_= thread_count;
+    fs::create_directories(main_dir);
+    thread_count_= settings.thread_count;
 }
 
 MultiThreadedFrameGrabHandler::~MultiThreadedFrameGrabHandler()
@@ -131,11 +131,17 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
 	  //std::cout << "Got some image data. Clock Delta = " << delta << std::endl;
     std::string file_prefix = "image_" + std::to_string(counter);
     std::string image_file( file_prefix + "." + image_extension_);
-
-
-	//std::cout << "Writing a jpg to file: "<< (images_folder / fs::path(image_file)).string() << std::endl;
-    cv::imwrite((images_folder / fs::path(image_file)).string(), data.image);
-	//std::cout << "Wrote a jpg to file: " << (images_folder / fs::path(image_file)).string() << std::endl;
+    if(capture_region_ratio>=1.0)
+    {
+      cv::imwrite((images_folder / fs::path(image_file)).string(), data.image);
+    }
+    else
+    {
+      unsigned int rowmax = (unsigned int)std::round(capture_region_ratio*(double)data.image.rows);
+      unsigned int colmax = (unsigned int)std::round(capture_region_ratio*(double)data.image.cols);
+      cv::imwrite((images_folder / fs::path(image_file)).string(), data.image(cv::Range(0,rowmax),cv::Range(0,colmax)));
+    }
+    
 
     deepf1::protobuf::TimestampedImage tag;
     tag.set_image_file(image_file);
