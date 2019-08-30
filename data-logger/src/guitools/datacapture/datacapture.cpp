@@ -2,6 +2,8 @@
 #include "ui_datacapture.h"
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QPixmap>
+#include <opencv2/imgcodecs.hpp>
 datacapture::datacapture(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::datacapture),
@@ -9,7 +11,7 @@ datacapture::datacapture(QWidget *parent) :
 		 "udp_threads" , "image_threads" , "image_capture_frequency" , "initial_delay_time" })
 {
     ui->setupUi(this);
-	ui->configTable->setRowCount(configKeys.size());
+	//ui->configTable->setRowCount(configKeys.size());
 	for (unsigned int i = 0; i < configKeys.size(); i++)
 	{
 		ui->configTable->setItem(i, 0, new QTableWidgetItem(QString(configKeys.at(i).c_str())));
@@ -76,29 +78,43 @@ void datacapture::on_loadConfigButton_clicked()
 		msgBox.exec();
 		return;
 	}
-	for (unsigned int i = 0; i < configKeys.size(); i++)
+	int s = 0;
+	for (YAML::const_iterator it=config_node.begin();it != config_node.end();++it)
 	{
-		ui->configTable->setItem(i, 0, new QTableWidgetItem(QString(configKeys.at(i).c_str())));
+		s+=1;
+	}
+	ui->configTable->clear();
+	ui->configTable->setRowCount(s);
+	unsigned int i = 0;
+	for (YAML::const_iterator it=config_node.begin();it != config_node.end();++it)
+	{
 		try
 		{
-			ui->configTable->setItem(i, 1, new QTableWidgetItem(QString(config_node[configKeys.at(i)].as<std::string>().c_str())));
+			ui->configTable->setItem(i, 0, new QTableWidgetItem(QString(it->first.as<std::string>().c_str())));
+			ui->configTable->setItem(i, 1, new QTableWidgetItem(QString(config_node[it->first.as<std::string>()].as<std::string>().c_str())));
 		}
 		catch (std::exception& e)
 		{
-			ui->configTable->setItem(i, 1, new QTableWidgetItem(QString("")));
-
+			QMessageBox msgBox;
+			std::stringstream ss;
+			ss << "Could not parse provided file. Inner exception: " << std::endl;
+			ss << e.what() << std::endl;
+			msgBox.setText(QString(ss.str().c_str()));
+			msgBox.exec();
+			return;
 		}
+		i++;
 	}
 }
 
 void datacapture::on_configTable_itemChanged(QTableWidgetItem *item)
 {
-	unsigned int row = item->row();
-	unsigned int col = item->column();
-	if (col == 0)
-	{
-		item->setText(QString(configKeys.at(row).c_str()));
-	}
+//	unsigned int row = item->row();
+//	unsigned int col = item->column();
+//	if (col == 0)
+//	{
+//		item->setText(QString(configKeys.at(row).c_str()));
+//	}
 
 	//QMessageBox msgBox;
 	//std::stringstream ss;
@@ -107,3 +123,25 @@ void datacapture::on_configTable_itemChanged(QTableWidgetItem *item)
 	//msgBox.exec();
 }
 
+
+void datacapture::on_imageLabel_linkActivated(const QString &link)
+{
+
+}
+
+void datacapture::on_loadImageButton_clicked()
+{
+
+
+    QString fileName = QFileDialog::getOpenFileName(this,  "Open Config File" ,  "",   "JPG Files (*.jpg *.jpeg)"  );
+    QPixmap pixmap(fileName);
+	QImage image = pixmap.toImage();
+	QImage image_resized = image.scaled(ui->imageLabel->width(), ui->imageLabel->height());
+	QPixmap pixmap_resized = QPixmap::fromImage(image_resized);
+	ui->imageLabel->setPixmap(pixmap_resized);
+}
+
+void datacapture::on_appList_indexesMoved(const QModelIndexList &indexes)
+{
+
+}

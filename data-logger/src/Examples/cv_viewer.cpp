@@ -116,8 +116,8 @@ public:
     ready = false;
     cv::Mat imcrop,imresize;
     //imcrop = data.image;
-    imcrop = data.image(cv::Range(0,data.image.rows/3),cv::Range(0,data.image.cols/3));
-    cv::resize(imcrop,imresize,cv::Size(),0.75,0.75);
+    imcrop = data.image(cv::Range(0,(unsigned int)std::round((double)data.image.rows/scale_factor)),cv::Range(0,(unsigned int)std::round((double)data.image.cols/scale_factor)));
+    cv::resize(imcrop,imresize,cv::Size(),1.0,1.0);
     cv::imshow(window_name, imresize);
     cv::waitKey(5);
     ready = true;
@@ -150,6 +150,7 @@ public:
   }
   static constexpr float captureFreq = 30.0;
   const std::string window_name;
+  double scale_factor;
 private:
   std::shared_ptr<cv::VideoWriter> video_writer_;
   deepf1::TimePoint begin;
@@ -164,14 +165,20 @@ private:
 int main(int argc, char** argv)
 {
   std::string search = "F1";
+  double scale_factor=1.0;
   if (argc > 1)
   {
     search = std::string(argv[1]);
+  }
+  if (argc > 2)
+  {
+    scale_factor = std::stod(std::string(argv[2]));
   }
   std::shared_ptr<OpenCV_Viewer_Example_FrameGrabHandler> image_handler(new OpenCV_Viewer_Example_FrameGrabHandler());
   std::shared_ptr<OpenCV_Viewer_Example_2018DataGrabHandler> udp_handler(new OpenCV_Viewer_Example_2018DataGrabHandler());
   std::string inp;
   deepf1::F1DataLogger dl(search);  
+  image_handler->scale_factor=scale_factor;
   dl.start((double)OpenCV_Viewer_Example_FrameGrabHandler::captureFreq, udp_handler, image_handler);
   std::cout<<"Ctl-c to exit."<<std::endl;
   while (true)

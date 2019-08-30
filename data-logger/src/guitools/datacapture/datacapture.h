@@ -29,6 +29,12 @@ private slots:
 
     void on_configTable_itemChanged(QTableWidgetItem *item);
 
+    void on_imageLabel_linkActivated(const QString &link);
+
+    void on_loadImageButton_clicked();
+
+    void on_appList_indexesMoved(const QModelIndexList &indexes);
+
 private:
      Ui::datacapture* ui;
 	 YAML::Node config_node;

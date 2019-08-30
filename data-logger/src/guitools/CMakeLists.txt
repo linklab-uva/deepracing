@@ -19,7 +19,7 @@ set(datacapture_SRCS
 #set(QT_USE_QTMAIN FALSE)
 # Tell CMake to create the vjoycalibrationgui executable
 add_library(${PROJECT_NAME}_datacapturewindow ${datacapture_SRCS})
-target_link_libraries(${PROJECT_NAME}_datacapturewindow Qt5::Widgets ${YAML_CPP_LIBRARIES})
+target_link_libraries(${PROJECT_NAME}_datacapturewindow Qt5::Widgets ${YAML_CPP_LIBRARIES}  ${OpenCV_LIBRARIES})
 
 if(MSVC)
     add_executable(${PROJECT_NAME}_datacapturegui WIN32 datacapture/main.cpp)

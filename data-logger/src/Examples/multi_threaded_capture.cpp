@@ -93,6 +93,10 @@ int main(int argc, char** argv)
   config_node["use_json"] = use_json;
   config_node["capture_region_ratio"] = capture_region_ratio;
   std::cout << "Using the following config information:" << std::endl << config_node << std::endl;
+  std::fstream yamlout;
+  yamlout.open("dataset_config.yaml", std::fstream::out | std::fstream::trunc);
+  yamlout<<config_node;
+  yamlout.close();
   
 
 
@@ -129,7 +133,7 @@ int main(int argc, char** argv)
 	dl->start(image_capture_frequency, udp_handler  , frame_handler );
   unsigned int ycount = 0;
   unsigned int bcount = 0;
-  std::cout << "Recording. Push Y to pause. Push left thumbstick to unpause. D-Pad Down to Exit." << std::endl;
+  std::cout << "Recording. Push Y to pause. Push left thumbstick to unpause. Push right thumbstick to unpause to Exit." << std::endl;
   DirectX::GamePad gp;
   DirectX::GamePad::State gpstate;
   std::function<bool()> isUnpausePressed = std::bind(&DirectX::GamePad::State::IsLeftStickPressed, &gpstate);
@@ -153,9 +157,9 @@ int main(int argc, char** argv)
       printf("Unpausing %u\n", ++bcount);
       frame_handler->resume();
     }
-    if (gpstate.IsDPadDownPressed())
+    if (gpstate.IsRightStickPressed())
     {
-      printf("%s","DPad Down is pressed. Exiting\n");
+      printf("%s","Right stick is pressed. Exiting\n");
       break;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
