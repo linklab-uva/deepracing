@@ -14,12 +14,26 @@
 #include <memory>
 namespace deepf1
 {
+struct MultiThreadedFrameGrabHandlerSettings
+{
+  public:
+    MultiThreadedFrameGrabHandlerSettings()
+    : image_extension("jpg"), images_folder("images"), thread_count(5), write_json(false), capture_region_ratio(1.0)
+    {
 
+    }
+    std::string image_extension;
+    std::string images_folder;
+    unsigned int thread_count;
+    bool write_json;
+    double capture_region_ratio;
+
+};
 class MultiThreadedFrameGrabHandler : public IF1FrameGrabHandler
 {
 	using timeunit = std::milli;
 public:
-  MultiThreadedFrameGrabHandler(std::string image_extension = "jpg", std::string images_folder = "images", unsigned int thread_count = 5, bool write_json = false);
+  MultiThreadedFrameGrabHandler(MultiThreadedFrameGrabHandlerSettings settings = MultiThreadedFrameGrabHandlerSettings());
   virtual ~MultiThreadedFrameGrabHandler();
   inline bool isReady() override;
   void handleData(const TimestampedImageData& data) override;
@@ -44,6 +58,7 @@ private:
   bool write_json_;
 
   const std::string image_extension_;
+  double capture_region_ratio;
 };
 
 } /* namespace deepf1 */

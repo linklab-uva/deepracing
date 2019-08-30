@@ -19,8 +19,9 @@ public:
   typedef cv::Vec<uint8_t, 4> CVPixel;
   OpenCVUtils();
   virtual ~OpenCVUtils();
+
   static void toCV(const scl::Image& image_scl, const scl::Point& size, cv::Mat& out);
-  static cv::Mat toCV(const scl::Image& image_scl, const scl::Point& size );
+  static cv::Mat toCV(const scl::Image& image_scl, const scl::Point& size = scl::Point({0,0}));
 
   static deepf1::protobuf::images::Image cvimageToProto(const cv::Mat& cv_image);
   static cv::Mat protoImageToCV(const deepf1::protobuf::images::Image& proto_image);
