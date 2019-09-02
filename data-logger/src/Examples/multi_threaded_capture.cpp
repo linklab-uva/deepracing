@@ -96,8 +96,13 @@ int main(int argc, char** argv)
   config_node["use_json"] = use_json;
   config_node["capture_region_ratio"] = capture_region_ratio;
   std::cout << "Using the following config information:" << std::endl << config_node << std::endl;
+  fs::path root_dir(root_directory);
+  if(!fs::is_directory(root_dir))
+  {
+    fs::create_directories(root_dir);
+  }
   std::fstream yamlout;
-  yamlout.open((fs::path(root_directory)/fs::path("dataset_config.yaml")).string().c_str(), std::fstream::out | std::fstream::trunc);
+  yamlout.open((root_dir/fs::path("dataset_config.yaml")).string(), std::fstream::out | std::fstream::trunc);
   yamlout<<config_node;
   yamlout.close();
   
@@ -106,7 +111,7 @@ int main(int argc, char** argv)
   std::cout<<"Creating handlers" <<std::endl;
   deepf1::MultiThreadedFrameGrabHandlerSettings settings;
   settings.image_extension=image_extension;
-  settings.images_folder=(fs::path(root_directory)/fs::path(image_folder)).string();
+  settings.images_folder=(root_dir/fs::path(image_folder)).string();
   settings.thread_count=image_threads;
   settings.write_json=use_json;
   settings.capture_region_ratio=capture_region_ratio;
@@ -118,7 +123,7 @@ int main(int argc, char** argv)
   }
   deepf1::MultiThreadedUDPHandler2018Settings udp_settings;
   udp_settings.write_json=use_json;
-  udp_settings.udp_directory=(fs::path(root_directory)/fs::path(udp_folder)).string();
+  udp_settings.udp_directory=(root_dir/fs::path(udp_folder)).string();
   std::shared_ptr<deepf1::MultiThreadedUDPHandler2018> udp_handler(new deepf1::MultiThreadedUDPHandler2018(udp_settings));
   udp_handler->addPausedFunction(std::bind(&deepf1::MultiThreadedFrameGrabHandler::pause, frame_handler.get()));
   std::cout << "Created handlers" << std::endl;
