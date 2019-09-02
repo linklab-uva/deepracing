@@ -17,6 +17,8 @@
 #include <yaml-cpp/yaml.h>
 #include <chrono>
 #include <GamePad.h>
+#include <filesystem>
+namespace fs = std::filesystem;
 namespace scl = SL::Screen_Capture;
 namespace po = boost::program_options;
 void exit_with_help(po::options_description& desc)
@@ -30,7 +32,7 @@ void exit_with_help(po::options_description& desc)
 int main(int argc, char** argv)
 {
   using namespace deepf1;
-  std::string search_string, image_folder, image_extension, udp_folder, config_file, driver_name;
+  std::string search_string, image_folder, image_extension, udp_folder, config_file, root_directory, driver_name;
   unsigned int image_threads, udp_port;
   float image_capture_frequency, initial_delay_time;
   bool spectating, use_json, init_paused;
@@ -42,6 +44,7 @@ int main(int argc, char** argv)
     desc.add_options()
       ("help,h", "Displays options and exits")
       ("config_file,f", po::value<std::string>(&config_file)->required(), "Configuration file to load")
+      ("root_directory,r", po::value<std::string>(&root_directory)->required(), "Root directory to put dataset")
       ;
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -94,7 +97,7 @@ int main(int argc, char** argv)
   config_node["capture_region_ratio"] = capture_region_ratio;
   std::cout << "Using the following config information:" << std::endl << config_node << std::endl;
   std::fstream yamlout;
-  yamlout.open("dataset_config.yaml", std::fstream::out | std::fstream::trunc);
+  yamlout.open((fs::path(root_directory)/fs::path("dataset_config.yaml")).string().c_str(), std::fstream::out | std::fstream::trunc);
   yamlout<<config_node;
   yamlout.close();
   
@@ -103,7 +106,7 @@ int main(int argc, char** argv)
   std::cout<<"Creating handlers" <<std::endl;
   deepf1::MultiThreadedFrameGrabHandlerSettings settings;
   settings.image_extension=image_extension;
-  settings.images_folder=image_folder;
+  settings.images_folder=(fs::path(root_directory)/fs::path(image_folder)).string();
   settings.thread_count=image_threads;
   settings.write_json=use_json;
   settings.capture_region_ratio=capture_region_ratio;
@@ -113,9 +116,10 @@ int main(int argc, char** argv)
     std::cout<<"Initially pausing the frame-grab loop"<<std::endl;
     frame_handler->pause();
   }
-  deepf1::MultiThreadedUDPHandler2018ThreadSettings udp_settings;
+  deepf1::MultiThreadedUDPHandler2018Settings udp_settings;
   udp_settings.write_json=use_json;
-  std::shared_ptr<deepf1::MultiThreadedUDPHandler2018> udp_handler(new deepf1::MultiThreadedUDPHandler2018(udp_folder, udp_settings));
+  udp_settings.udp_directory=(fs::path(root_directory)/fs::path(udp_folder)).string();
+  std::shared_ptr<deepf1::MultiThreadedUDPHandler2018> udp_handler(new deepf1::MultiThreadedUDPHandler2018(udp_settings));
   udp_handler->addPausedFunction(std::bind(&deepf1::MultiThreadedFrameGrabHandler::pause, frame_handler.get()));
   std::cout << "Created handlers" << std::endl;
 

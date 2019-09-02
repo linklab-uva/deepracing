@@ -65,7 +65,7 @@ endif()
 include_directories(${EIGEN3_INCLUDE_DIRS})
 
 option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to interact with existing protobuf datasets" ON)
-option(GUI_TOOLS "Attempt to build the GUI tools" ON)
+option(GUI_TOOLS "Attempt to build the GUI tools" OFF)
 if(BUILD_DATALOGGER)
     if(MSVC)
 		set(DIRECTXK_DIR ${THIRD_PARTY_REPOS}/DirectXTK)
@@ -101,7 +101,7 @@ regex
 system
 thread
 )
-find_package( Boost 1.7 REQUIRED CONFIG COMPONENTS ${BOOST_REQUIRED_COMPONENTS} )
+find_package( Boost 1.7 REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS} )
 foreach(boost_component_ ${BOOST_REQUIRED_COMPONENTS})
 	list(APPEND Boost_LIBRARIES Boost::${boost_component_})
 endforeach()
@@ -110,7 +110,7 @@ message(STATUS "Using Boost components: ${Boost_LIBRARIES}")
 
 
 find_package( OpenCV REQUIRED )
-find_package(Qt5 CONFIG COMPONENTS Widgets Core Gui)
+find_package(Qt5 COMPONENTS Widgets Core Gui)
 set(_gotqt ${Qt5Widgets_FOUND} AND ${Qt5Core_FOUND} AND ${Qt5Gui_FOUND})
 
 

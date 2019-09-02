@@ -114,11 +114,6 @@ target_link_libraries(${PROJECT_NAME}_pure_pursuit_control
 )
 set_target_properties(${PROJECT_NAME}_pure_pursuit_control PROPERTIES FOLDER vjoy)
 get_target_property(PP_OUTPUT_DIR ${PROJECT_NAME}_pure_pursuit_control RUNTIME_OUTPUT_DIRECTORY)
-file(GLOB TRACKFILES
-	"${CMAKE_SOURCE_DIR}/tracks/*.track"
-)
-message(STATUS "Output trackfile dir: ${PP_OUTPUT_DIR}")
-file(COPY ${TRACKFILES} DESTINATION ${PP_OUTPUT_DIR})
 
 
 add_executable(${PROJECT_NAME}_cv_viewer_example
@@ -141,10 +136,10 @@ target_include_directories(${PROJECT_NAME}_cv_viewer_example PRIVATE ${DIRECTXT_
 set_target_properties(${PROJECT_NAME}_cv_viewer_example PROPERTIES FOLDER examples)
 
 if(MSVC)
-	add_executable(${PROJECT_NAME}_multithreaded_capture_example
+	add_executable(${PROJECT_NAME}_multithreaded_capture
 	multi_threaded_capture.cpp
 	)
-	target_link_libraries(${PROJECT_NAME}_multithreaded_capture_example
+	target_link_libraries(${PROJECT_NAME}_multithreaded_capture
 	${PROJECT_NAME}
 	${PROJECT_NAME}_image_logging
 	${PROJECT_NAME}_image_logging_common
@@ -158,8 +153,8 @@ if(MSVC)
 	${YAML_CPP_LIBRARIES}
 	directxtk
 	)
-	target_include_directories(${PROJECT_NAME}_multithreaded_capture_example PRIVATE ${DIRECTXT_INCLUDE_DIR})
-	set_target_properties(${PROJECT_NAME}_multithreaded_capture_example PROPERTIES FOLDER examples)
+	target_include_directories(${PROJECT_NAME}_multithreaded_capture PRIVATE ${DIRECTXT_INCLUDE_DIR})
+	set_target_properties(${PROJECT_NAME}_multithreaded_capture PROPERTIES FOLDER examples)
 endif()
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -171,7 +166,7 @@ endif()
 set(install_targets
 #executables.
 ${PROJECT_NAME}_cv_viewer_example
-${PROJECT_NAME}_multithreaded_capture_example
+${PROJECT_NAME}_multithreaded_capture
 )
 if(WITH_VJOY)
     list(APPEND install_targets ${PROJECT_NAME}_pure_pursuit_control)

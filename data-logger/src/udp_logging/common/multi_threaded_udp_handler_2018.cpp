@@ -28,12 +28,12 @@ namespace fs = std::filesystem;
 namespace deepf1
 {
 
-MultiThreadedUDPHandler2018::MultiThreadedUDPHandler2018( std::string data_folder, MultiThreadedUDPHandler2018ThreadSettings settings)
- : running_(false), ready_(false), hard_stopped_(true), data_folder_(data_folder), 
+MultiThreadedUDPHandler2018::MultiThreadedUDPHandler2018(MultiThreadedUDPHandler2018Settings settings)
+ : running_(false), ready_(false), hard_stopped_(true), data_folder_(settings.udp_directory), 
     thread_settings_(settings), write_json_(settings.write_json), sleeptime_(settings.sleeptime), 
     setups_counter(1), status_counter(1), telemetry_counter(1), lapdata_counter(1),  motion_counter(1), participants_counter(1), session_counter(1), paused_(false)                             
 {
-  fs::path main_dir(data_folder);
+  fs::path main_dir(data_folder_);
   if(fs::is_directory(main_dir))
   {
     std::string in("asdf");
