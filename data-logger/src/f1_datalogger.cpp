@@ -78,7 +78,7 @@ std::shared_ptr<IF1FrameGrabHandler> image_handler)
 	}
 	if (bool(udp_handler))
 	{
-			udp_handler->init(host_, port_, begin_);
+		udp_handler->init(host_, port_, begin_);
 	  	data_grab_manager_->start(udp_handler);
 	}
 }

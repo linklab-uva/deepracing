@@ -5,8 +5,16 @@ if(MSVC)
 		windows/vjoy_interface.cpp
 		windows/f1_interface_factory.cpp
 	)
-	set(additional_controller_libs_ ${vJoy++_LIBRARIES})
-	set(additional_controller_includes_ ${vJoy++_INCLUDE_DIR})
+	set(additional_controller_libs_ vjoy::vJoy++)
+	get_target_property(vjoy_library_type_ vjoy::vJoy++ TYPE)
+	if("${vjoy_library_type_}" STREQUAL "SHARED_LIBRARY")
+		string(TOUPPER ${CMAKE_BUILD_TYPE} dll_postfix_)
+		get_target_property(vjoyppdll_ vjoy::vJoy++ IMPORTED_LOCATION_${dll_postfix_})
+		add_custom_target(copy_vjoy_dll ALL
+		COMMAND ${CMAKE_COMMAND} -E copy ${vjoyppdll_} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+		DEPENDS ${PROJECT_NAME}_controllers
+		)
+	endif()
 elseif(APPLE)
 	set(controllers_SRCS
 		pure_pursuit_controller.cpp
@@ -27,7 +35,8 @@ ${Boost_LIBRARIES}
 Eigen3::Eigen
 ${additional_controller_libs_}
 )
-target_include_directories(${PROJECT_NAME}_controllers PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR} ${additional_controller_includes_})
+target_include_directories(${PROJECT_NAME}_controllers PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR} )
+
 
 add_dependencies(${PROJECT_NAME}_controllers ${PROJECT_NAME}_proto)
 set_target_properties(${PROJECT_NAME}_controllers

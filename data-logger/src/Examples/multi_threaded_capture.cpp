@@ -83,6 +83,7 @@ int main(int argc, char** argv)
   use_json = config_node["use_json"].as<bool>(true);
   capture_region_ratio = config_node["capture_region_ratio"].as<double>(1.0);
   
+  
   config_node["search_string"] = search_string;
   config_node["images_folder"] = image_folder;
   config_node["udp_folder"] = udp_folder;
@@ -102,7 +103,7 @@ int main(int argc, char** argv)
     fs::create_directories(root_dir);
   }
   std::fstream yamlout;
-  yamlout.open((root_dir/fs::path("dataset_config.yaml")).string(), std::fstream::out | std::fstream::trunc);
+  yamlout.open((root_dir/fs::path("f1_dataset_config.yaml")).string(), std::fstream::out | std::fstream::trunc);
   yamlout<<config_node;
   yamlout.close();
   
