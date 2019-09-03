@@ -411,7 +411,6 @@ namespace twenty_eighteen
 		rtn.set_m_era(fromStream.m_era);
 		rtn.set_m_gamepaused(fromStream.m_gamePaused);
 		rtn.set_m_isspectating(fromStream.m_isSpectating);
-		rtn.set_m_spectatorcarindex(fromStream.m_spectatorCarIndex);
 		rtn.set_m_networkgame(fromStream.m_networkGame);
 		rtn.set_m_nummarshalzones(fromStream.m_numMarshalZones);
 		rtn.set_m_pitspeedlimit(fromStream.m_pitSpeedLimit);
@@ -419,7 +418,8 @@ namespace twenty_eighteen
 		rtn.set_m_sessionduration(fromStream.m_sessionDuration);
 		rtn.set_m_sessiontimeleft(fromStream.m_sessionTimeLeft);
 		rtn.set_m_sessiontype(fromStream.m_sessionType);
-		rtn.set_m_slipronativesupport(fromStream.m_spectatorCarIndex);
+		rtn.set_m_spectatorcarindex(fromStream.m_spectatorCarIndex);
+		rtn.set_m_slipronativesupport(fromStream.m_sliProNativeSupport);
 		rtn.set_m_totallaps(fromStream.m_totalLaps);
 		rtn.set_m_trackid(fromStream.m_trackId);
 		rtn.set_m_tracklength(fromStream.m_trackLength);
