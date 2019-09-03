@@ -411,6 +411,7 @@ namespace twenty_eighteen
 		rtn.set_m_era(fromStream.m_era);
 		rtn.set_m_gamepaused(fromStream.m_gamePaused);
 		rtn.set_m_isspectating(fromStream.m_isSpectating);
+		rtn.set_m_spectatorcarindex(fromStream.m_spectatorCarIndex);
 		rtn.set_m_networkgame(fromStream.m_networkGame);
 		rtn.set_m_nummarshalzones(fromStream.m_numMarshalZones);
 		rtn.set_m_pitspeedlimit(fromStream.m_pitSpeedLimit);
