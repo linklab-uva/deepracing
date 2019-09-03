@@ -19,6 +19,7 @@ import FrameId_pb2
 import scipy.interpolate
 import deepracing.pose_utils
 from deepracing.pose_utils import getAllImageFilePackets, getAllMotionPackets
+from deepracing.protobuf_utils import getAllSessionPackets
 
 def imageDataKey(data):
     return data.timestamp
@@ -26,8 +27,7 @@ def udpPacketKey(packet):
     return packet.timestamp
 
 parser = argparse.ArgumentParser()
-parser.add_argument("motion_data_path", help="Path to motion_data packet folder",  type=str)
-parser.add_argument("image_path", help="Path to image folder",  type=str)
+parser.add_argument("db_path", help="Path to root directory of DB",  type=str)
 parser.add_argument("num_label_poses", help="Number of poses to attach to each image",  type=int)
 angvelhelp = "Use the angular velocities given in the udp packets. THESE ARE ONLY PROVIDED FOR A PLAYER CAR. IF THE " +\
     " DATASET WAS TAKEN ON SPECTATOR MODE, THE ANGULAR VELOCITY VALUES WILL BE GARBAGE."
@@ -35,10 +35,29 @@ parser.add_argument("--use_given_angular_velocities", help=angvelhelp, action="s
 parser.add_argument("--assume_linear_timescale", help="Assumes the slope between system time and session time is 1.0", action="store_true")
 parser.add_argument("--json", help="Assume dataset files are in JSON rather than binary .pb files.",  action="store_true")
 args = parser.parse_args()
-motion_data_folder = args.motion_data_path
-image_folder = args.image_path
-image_tags = deepracing.pose_utils.getAllImageFilePackets(args.image_path, args.json)
-motion_packets = deepracing.pose_utils.getAllMotionPackets(args.motion_data_path, args.json)
+motion_data_folder = os.path.join(args.db_path,"udp_data","motion_packets")
+image_folder = os.path.join(args.db_path,"images")
+session_folder = os.path.join(args.db_path,"udp_data","session_packets")
+session_packets = getAllSessionPackets(session_folder,args.json)
+
+spectating_flags = [bool(packet.udp_packet.m_isSpectating) for packet in session_packets]
+spectating = False
+for flag in spectating_flags:
+    spectating = spectating or flag
+car_indices = [int(packet.udp_packet.m_spectatorCarIndex) for packet in session_packets]
+print(spectating_flags)
+print(car_indices)
+print(spectating)
+car_indices_set = set(car_indices)
+car_index = 0
+if spectating:
+    if len(car_indices_set)>1:
+        raise ValueError("Spectated datasets are only supported if you only spectate 1 car the entire time.")
+    else:
+        car_index = car_indices[0]
+
+image_tags = deepracing.pose_utils.getAllImageFilePackets(image_folder, args.json)
+motion_packets = deepracing.pose_utils.getAllMotionPackets(motion_data_folder, args.json)
 motion_packets = sorted(motion_packets, key=udpPacketKey)
 session_times = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets])
 system_times = np.array([packet.timestamp/1000.0 for packet in motion_packets])
@@ -68,12 +87,12 @@ print("Range of session times: [%f,%f]" %(session_times[0], session_times[-1]))
 print("Range of udp system times: [%f,%f]" %(system_times[0], system_times[-1]))
 print("Range of image system times: [%f,%f]" %(image_timestamps[0], image_timestamps[-1]))
 
-poses = [deepracing.pose_utils.extractPose(packet.udp_packet) for packet in motion_packets]
-velocities = np.array([deepracing.pose_utils.extractVelocity(packet.udp_packet) for packet in motion_packets])
+poses = [deepracing.pose_utils.extractPose(packet.udp_packet, car_index=car_index) for packet in motion_packets]
+velocities = np.array([deepracing.pose_utils.extractVelocity(packet.udp_packet, car_index=car_index) for packet in motion_packets])
 positions = np.array([pose[0] for pose in poses])
 quaternions = np.array([pose[1] for pose in poses])
 if args.use_given_angular_velocities:
-    angular_velocities = np.array([deepracing.pose_utils.extractAngularVelocity(packet.udp_packet) for packet in motion_packets])
+    angular_velocities = np.array([deepracing.pose_utils.extractAngularVelocity(packet.udp_packet, car_index=0) for packet in motion_packets])
 else:
     angular_velocities = quaternion.angular_velocity(quaternions, session_times)
 
@@ -136,6 +155,8 @@ try:
   plt.plot( t, image_session_timestamps, label='dem timez' )
   plt.plot( t, t*slope_remap + intercept_remap, label='fitted line' )
   plt.show()
+except KeyboardInterrupt:
+    exit(0)
 except:
   text = input("Could not import matplotlib, skipping visualization. Enter anything to continue.")
 num_label_poses = args.num_label_poses

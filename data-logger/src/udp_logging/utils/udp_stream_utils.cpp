@@ -418,8 +418,8 @@ namespace twenty_eighteen
 		rtn.set_m_sessionduration(fromStream.m_sessionDuration);
 		rtn.set_m_sessiontimeleft(fromStream.m_sessionTimeLeft);
 		rtn.set_m_sessiontype(fromStream.m_sessionType);
-		rtn.set_m_slipronativesupport(fromStream.m_sliProNativeSupport);
 		rtn.set_m_spectatorcarindex(fromStream.m_spectatorCarIndex);
+		rtn.set_m_slipronativesupport(fromStream.m_sliProNativeSupport);
 		rtn.set_m_totallaps(fromStream.m_totalLaps);
 		rtn.set_m_trackid(fromStream.m_trackId);
 		rtn.set_m_tracklength(fromStream.m_trackLength);
