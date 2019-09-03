@@ -111,7 +111,7 @@ message(STATUS "Using Boost components: ${Boost_LIBRARIES}")
 
 find_package( OpenCV REQUIRED )
 find_package(Qt5 COMPONENTS Widgets Core Gui)
-set(_gotqt ${Qt5Widgets_FOUND} AND ${Qt5Core_FOUND} AND ${Qt5Gui_FOUND})
+set(_gotqt (DEFINED  Qt5Widgets_FOUND) AND (DEFINED  Qt5Widgets_FOUND) AND (DEFINED  Qt5Widgets_FOUND))
 
 
 if(MSVC)
