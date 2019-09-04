@@ -17,6 +17,7 @@ def extractROI(x, y, w, h, image):
     return image[y:y+h, x:x+w].copy()
 def main(args):
     img_folder = args.image_dir
+    print("Getting image files from disk")
     packets = sorted(getAllImageFilePackets(img_folder, args.json), key=packetSortKey)
     img_files = [os.path.join(img_folder,packet.image_file) for packet in packets]
     keys = [os.path.splitext(os.path.basename(img_file))[0] for img_file in img_files]
@@ -69,10 +70,13 @@ def main(args):
     print("Using a mapsize of " + str(mapsize))
     db = deepracing.backend.ImageLMDBWrapper()
     db.readImages(img_files, keys, dbpath, im_size, func=f, mapsize=mapsize)
+    print("Done creating LMDB")
     db.readDatabase(dbpath, mapsize=mapsize, max_spare_txns=6)
     windowname="DB Image"
     idx = random.randint(0,len(keys)-1)
-    im = db.getImage(keys[idx])
+    randomkey = keys[idx]
+    print("Grabbing image with key: %s" %(randomkey))
+    im = db.getImage(randomkey)
     try:
         cv2.imshow(windowname, cv2.cvtColor(im, cv2.COLOR_RGB2BGR))
         cv2.waitKey(0)

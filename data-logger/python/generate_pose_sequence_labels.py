@@ -278,6 +278,10 @@ for idx in range(len(image_tags)):
     f = open(label_tag_file_path,'w')
     f.write(label_tag_JSON)
     f.close()
+    label_tag_file_path_binary = os.path.join(image_folder, output_dir, image_file_base + "_sequence_label.pb")
+    f = open(label_tag_file_path_binary,'wb')
+    f.write(label_tag.SerializeToString())
+    f.close()
 
     
 

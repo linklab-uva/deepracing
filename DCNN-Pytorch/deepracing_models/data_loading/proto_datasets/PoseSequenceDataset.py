@@ -35,7 +35,7 @@ import cv2
 def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
 class PoseSequenceDataset(Dataset):
-    def __init__(self, image_db_wrapper, label_db_wrapper, context_length, sequence_length, image_size = np.array((66,200))):
+    def __init__(self, image_db_wrapper, label_db_wrapper, keyfile, context_length, sequence_length, image_size = np.array((66,200))):
         super(PoseSequenceDataset, self).__init__()
         self.image_db_wrapper = image_db_wrapper
         self.label_db_wrapper = label_db_wrapper
@@ -43,17 +43,18 @@ class PoseSequenceDataset(Dataset):
         self.context_length = context_length
         self.sequence_length = sequence_length
         self.totensor = transforms.ToTensor()
-        self.db_keys = self.label_db_wrapper.getKeys()
-        self.label_pb_tags = []
+        with open(keyfile,'r') as filehandle:
+            keystrings = filehandle.readlines()
+            self.db_keys = [keystring.replace('\n','') for keystring in keystrings]
         num_labels = self.label_db_wrapper.getNumLabels()
-        print("Preloading database labels.")
-        for i,key in tqdm(enumerate(self.db_keys), total=len(self.db_keys)):
-            print(key)
-            self.label_pb_tags.append(self.label_db_wrapper.getPoseSequenceLabel(key))
-            if(not (self.label_pb_tags[-1].image_tag.image_file == self.db_keys[i]+".jpg")):
-                raise AttributeError("Mismatch between database key: %s and associated image file: %s" %(self.db_keys[i], self.label_pb_tags.image_tag.image_file))
-        self.label_pb_tags = sorted(self.label_pb_tags, key=LabelPacketSortKey)
-        self.length = len(self.label_pb_tags) - 1 - context_length
+        # print("Preloading database labels.")
+        # for i,key in tqdm(enumerate(self.db_keys), total=len(self.db_keys)):
+        #     #print(key)
+        #     self.label_pb_tags.append(self.label_db_wrapper.getPoseSequenceLabel(key))
+        #     if(not (self.label_pb_tags[-1].image_tag.image_file == self.db_keys[i]+".jpg")):
+        #         raise AttributeError("Mismatch between database key: %s and associated image file: %s" %(self.db_keys[i], self.label_pb_tags.image_tag.image_file))
+        # self.label_pb_tags = sorted(self.label_pb_tags, key=LabelPacketSortKey)
+        self.length = len(self.db_keys) - 5 - context_length
     def resetEnvs(self):
         #pass
         self.image_db_wrapper.resetEnv()
@@ -66,12 +67,11 @@ class PoseSequenceDataset(Dataset):
     def __getitem__(self, index):
         images_start = index
         images_end = index + self.context_length
-
         packetrange = range(images_start, images_end)
-        packets = [self.label_pb_tags[i] for i in packetrange]
+        keys = [self.db_keys[i] for i in packetrange]
+        packets = [self.label_db_wrapper.getPoseSequenceLabel(keys[i]) for i in range(len(keys))]
         label_packet = packets[-1]
 
-        keys = [os.path.splitext(packets[i].image_tag.image_file)[0] for i in range(len(packets))]
 
         session_times = np.hstack((np.array([packets[i].car_pose.session_time for i in range(len(packets))]), \
                                    np.array([p.session_time for p in label_packet.subsequent_poses[0:self.sequence_length]])))

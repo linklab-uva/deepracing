@@ -48,6 +48,8 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
                 ims.append([im])
             ani = animation.ArtistAnimation(plt.figure(), ims, interval=50, blit=True, repeat_delay=0)
             plt.show()
+            print(position_torch)
+            print(rotation_torch)
         if gpu>=0:
             image_torch = image_torch.cuda(gpu)
             position_torch = position_torch.cuda(gpu)
@@ -121,6 +123,7 @@ def go():
         config = yaml.load(f, Loader = yaml.SafeLoader)
     image_db = config["image_db"]
     label_db = config["label_db"]
+    key_file = config["key_file"]
     image_size = config["image_size"]
     hidden_dimension = config["hidden_dimension"]
     input_channels = config["input_channels"]
@@ -145,7 +148,7 @@ def go():
             print("Thanks for playing!")
             exit(0)
         shutil.rmtree(output_directory)
-    else:
+    elif os.path.isdir(output_directory):
         shutil.rmtree(output_directory)
     os.makedirs(output_directory)
     net = models.AdmiralNetPosePredictor(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
@@ -172,7 +175,7 @@ def go():
     image_wrapper = deepracing.backend.ImageLMDBWrapper()
     image_wrapper.readDatabase(image_db, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
 
-    dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, context_length, sequence_length, image_size = image_size)
+    dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length, image_size = image_size)
     dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
                         shuffle=True, num_workers=num_workers)
     yaml.dump(config, stream=open(os.path.join(output_directory,"config.yaml"), "w"), Dumper = yaml.SafeDumper)

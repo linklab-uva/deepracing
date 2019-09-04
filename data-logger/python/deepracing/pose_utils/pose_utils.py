@@ -8,6 +8,24 @@ import numpy as np
 import quaternion
 import numpy.linalg as la
 import google.protobuf.json_format
+from tqdm import tqdm as tqdm
+def randomQuaternion():
+   z = 2.0
+   while z>1:
+      x = 2.0*(np.random.rand()-0.5)
+      y = 2.0*(np.random.rand()-0.5)
+      z = x*x + y*y
+   w = 2.0
+   while w>1:
+      u = 2.0*(np.random.rand()-0.5)
+      v = 2.0*(np.random.rand()-0.5)
+      w = u*u + v*v
+   s = np.sqrt((1-z)/w)
+   q = quaternion.quaternion(s*v, x, y, s*u)
+   q = q/q.norm()
+   return q
+
+
 def labelPacketToNumpy(label_tag):
     #print(label_tag.subsequent_poses)
     positions = np.array([np.array((pose.translation.x,pose.translation.y, pose.translation.z)) for pose in label_tag.subsequent_poses])
@@ -67,13 +85,13 @@ def getAllImageFilePackets(image_data_folder: str, use_json: bool):
    if use_json:
       filepaths = [os.path.join(image_data_folder, f) for f in os.listdir(image_data_folder) if os.path.isfile(os.path.join(image_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".json"]
       jsonstrings = [(open(path, 'r')).read() for path in filepaths]
-      for jsonstring in jsonstrings:
+      for jsonstring in tqdm(jsonstrings):
          data = TimestampedImage_pb2.TimestampedImage()
          google.protobuf.json_format.Parse(jsonstring, data)
          image_packets.append(data)
    else:
       filepaths = [os.path.join(image_data_folder, f) for f in os.listdir(image_data_folder) if os.path.isfile(os.path.join(image_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".pb"]
-      for filepath in filepaths:
+      for filepath in tqdm(filepaths):
          try:
             data = TimestampedImage_pb2.TimestampedImage()
             f = open(filepath,'rb')
