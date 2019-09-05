@@ -165,6 +165,8 @@ def go():
     elif os.path.isdir(output_directory):
         shutil.rmtree(output_directory)
     os.makedirs(output_directory)
+    net = models.AdmiralNetPosePredictor(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
+        hidden_dim=hidden_dimension, input_channels=input_channels, temporal_conv_feature_factor = temporal_conv_feature_factor)
     
     position_loss = torch.nn.MSELoss(reduction=position_loss_reduction)
     rotation_loss = loss_functions.QuaternionDistance()
