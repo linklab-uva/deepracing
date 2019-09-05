@@ -47,9 +47,9 @@ label_pb_tags = sorted(label_pb_tags, key=LabelPacketSortKey)
 sorted_keys = []
 for packet in tqdm(label_pb_tags):
     #print(key)
-    key = os.path.splitext(label_pb_tags[-1].image_tag.image_file)[0]
+    key = os.path.splitext(packet.image_tag.image_file)[0]
     try:
-        label_wrapper.getPoseSequenceLabel(key)
+        lbl = label_wrapper.getPoseSequenceLabel(key)
         sorted_keys.append(key)
     except:
         print("Skipping bad key: %s" %(key))
