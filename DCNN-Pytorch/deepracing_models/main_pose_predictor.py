@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
 loss = torch.zeros(1)
-def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss, loss_weights=[1.0, 1.0], imsize=(66,200), debug=False, use_tqdm=True, use_float=True):
+def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss, loss_weights=[1.0, 1.0], imsize=(66,200), debug=False, use_tqdm=True, use_float=True, use_optflow=True):
     global loss
     cum_loss = 0.0
     cum_rotation_loss = 0.0
@@ -50,8 +50,8 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
             plt.show()
             print(position_torch)
             print(rotation_torch)
-        if(opt_flow_torch is not None):
-            image_torch =torch.cat((image_torch,opt_flow_torch),axis=1)
+        if use_optflow:
+            image_torch = torch.cat((image_torch,opt_flow_torch),axis=1)
         if use_float:
             image_torch = image_torch.float()
             position_torch = position_torch.float()
@@ -136,7 +136,6 @@ def go():
     with open(config_file) as f:
         config = yaml.load(f, Loader = yaml.SafeLoader)
     image_db = config["image_db"]
-    opt_flow_db = config["opt_flow_db"]
     label_db = config["label_db"]
     key_file = config["key_file"]
     image_size = config["image_size"]
@@ -166,8 +165,6 @@ def go():
     elif os.path.isdir(output_directory):
         shutil.rmtree(output_directory)
     os.makedirs(output_directory)
-    net = models.AdmiralNetPosePredictor(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
-        hidden_dim=hidden_dimension, input_channels=input_channels, temporal_conv_feature_factor = temporal_conv_feature_factor)
     
     position_loss = torch.nn.MSELoss(reduction=position_loss_reduction)
     rotation_loss = loss_functions.QuaternionDistance()
@@ -198,8 +195,16 @@ def go():
     image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
     image_wrapper = deepracing.backend.ImageLMDBWrapper()
     image_wrapper.readDatabase(image_db, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
-    optical_flow_db_wrapper = deepracing.backend.OpticalFlowLMDBWrapper()
-    optical_flow_db_wrapper.readDatabase(opt_flow_db, max_spare_txns=max_spare_txns, mapsize=int(round( float(image_mapsize)*8/3) ) )
+    
+    opt_flow_db = config.get('opt_flow_db', '')
+    optical_flow_db_wrapper = None
+    if opt_flow_db=='':
+        use_optflow=False
+    else:
+        print("Using optical flow database at %s" %(opt_flow_db))
+        use_optflow=True
+        optical_flow_db_wrapper = deepracing.backend.OpticalFlowLMDBWrapper()
+        optical_flow_db_wrapper.readDatabase(opt_flow_db, max_spare_txns=max_spare_txns, mapsize=int(round( float(image_mapsize)*8/3) ) )
 
     dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length, image_size = image_size, optical_flow_db_wrapper=optical_flow_db_wrapper)
     dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
@@ -214,7 +219,7 @@ def go():
         #dset.clearReaders()
         try:
             tick = time.time()
-            run_epoch(net, optimizer, dataloader, gpu, position_loss, rotation_loss, loss_weights=loss_weights, debug=debug, use_tqdm=args.tqdm, use_float = use_float)
+            run_epoch(net, optimizer, dataloader, gpu, position_loss, rotation_loss, loss_weights=loss_weights, debug=debug, use_tqdm=args.tqdm, use_float = use_float,  use_optflow = use_optflow)
             tock = time.time()
             print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
         except Exception as e:
