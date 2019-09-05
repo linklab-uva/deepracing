@@ -198,10 +198,10 @@ def go():
     image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
     image_wrapper = deepracing.backend.ImageLMDBWrapper()
     image_wrapper.readDatabase(image_db, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
-    opt_flow_wrapper = deepracing.backend.ImageLMDBWrapper()
-    opt_flow_wrapper.readDatabase(opt_flow_db, max_spare_txns=max_spare_txns, mapsize=int(round( float(image_mapsize)*8/3) ) )
+    optical_flow_db_wrapper = deepracing.backend.ImageLMDBWrapper()
+    optical_flow_db_wrapper.readDatabase(opt_flow_db, max_spare_txns=max_spare_txns, mapsize=int(round( float(image_mapsize)*8/3) ) )
 
-    dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length, image_size = image_size, opt_flow_wrapper=opt_flow_wrapper)
+    dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length, image_size = image_size, optical_flow_db_wrapper=optical_flow_db_wrapper)
     dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
                         shuffle=True, num_workers=num_workers)
     print("Dataloader of of length %d" %(len(dataloader)))
