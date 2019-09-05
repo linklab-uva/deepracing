@@ -20,4 +20,5 @@ execute_process(
     WORKING_DIRECTORY ${eigen3_working_dir_}/build
     OUTPUT_QUIET
 )
-set(Eigen3_DIR ${eigen3_working_dir_}/install/share/eigen3/cmake)# CACHE PATH "Path to Eigen3 installation directory.")
+set(Eigen3_DIR ${eigen3_working_dir_}/install/share/eigen3/cmake PARENT_SCOPE)# "Path to Eigen3 installation directory.")
+message("Built an up-to-date eigen version 3.3.90 at ${eigen3_working_dir_}/install.")

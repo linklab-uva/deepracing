@@ -8,7 +8,7 @@ import deepracing.imutils
 import deepracing.backend
 import cv2
 import deepracing.imutils
-from functools import partial
+from functools import partials
 import random
 from deepracing.pose_utils import getAllImageFilePackets
 def packetSortKey(packet):
@@ -56,13 +56,16 @@ def main(args):
         im_size = np.array( ( h, w, im.shape[2] ) )
     dbpath = os.path.join(img_folder,"image_lmdb")
     if(os.path.isdir(dbpath)):
-        s=""
-        while not (s=='n' or s=='y'):
-            s=input("Database folder " + dbpath+ " already exists. overwrite with new data? [y/n]\n")
-        if(s=='n'):
-            print("Goodbye then!")
-            exit(0)
-        shutil.rmtree(dbpath)
+        if args.override:
+            shutil.rmtree(dbpath)
+        else:
+            s=""
+            while not (s=='n' or s=='y'):
+                s=input("Database folder " + dbpath+ " already exists. overwrite with new data? [y/n]\n")
+            if(s=='n'):
+                print("Goodbye then!")
+                exit(0)
+            shutil.rmtree(dbpath)
     if(args.mapsize>0):
         mapsize = int(args.mapsize)
     else:
@@ -113,5 +116,6 @@ if __name__ == '__main__':
     parser.add_argument('-R','--ROI', nargs='+', help='ROI to capture', default=None)
     parser.add_argument('--optical_flow', action="store_true", help='Compute optical flow as well', default=None)
     parser.add_argument('--json', action="store_true", help='Use json packets', default=None)
+    parser.add_argument('--override', action="store_true", help='Delete existing DB if it already exists', default=None)
     args = parser.parse_args()
     main(args)

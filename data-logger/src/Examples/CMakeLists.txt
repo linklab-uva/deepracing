@@ -166,7 +166,6 @@ endif()
 set(install_targets
 #executables.
 ${PROJECT_NAME}_cv_viewer_example
-${PROJECT_NAME}_multithreaded_capture
 )
 if(WITH_VJOY)
     list(APPEND install_targets ${PROJECT_NAME}_pure_pursuit_control)
@@ -174,6 +173,7 @@ if(WITH_VJOY)
     list(APPEND install_targets ${PROJECT_NAME}_generate_vjoy_calibration)
     list(APPEND install_targets ${PROJECT_NAME}_replay_dataset)
 	list(APPEND install_targets ${PROJECT_NAME}_generate_sine_waves)
+	list(APPEND install_targets ${PROJECT_NAME}_multithreaded_capture)
 	install(DIRECTORY ${CMAKE_SOURCE_DIR}/tracks/ DESTINATION bin
         FILES_MATCHING PATTERN "*.track")
 endif()
