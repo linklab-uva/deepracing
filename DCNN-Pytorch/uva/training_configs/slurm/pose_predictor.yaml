@@ -20,7 +20,6 @@ momentum: 0.0
 loss_weights: [0.5, 1.5]
 num_epochs: 100
 num_workers: 0
-output_directory: /p/DeepRacing/modelfiles/slurm/pose_predictor
 position_loss_reduction: "sum"
 
 #debugging settings
