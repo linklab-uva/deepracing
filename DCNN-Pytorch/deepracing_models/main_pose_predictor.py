@@ -31,7 +31,7 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
     batch_size = trainLoader.batch_size
     num_samples=0.0
     if use_tqdm:
-        t = tqdm(enumerate(trainLoader))
+        t = tqdm(enumerate(trainLoader), total=len(trainLoader))
     else:
         t = enumerate(trainLoader)
     network.train()  # This is important to call before training!
@@ -122,11 +122,14 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
     parser.add_argument("config_file", type=str,  help="Configuration file to load")
+    parser.add_argument("output_directory", type=str,  help="Where to put the resulting model files")
+
     parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
     parser.add_argument("--override", action="store_true",  help="Delete output directory and replace with new data")
     parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
     args = parser.parse_args()
     config_file = args.config_file
+    output_directory = args.output_directory
     debug = args.debug
     with open(config_file) as f:
         config = yaml.load(f, Loader = yaml.SafeLoader)
@@ -145,7 +148,6 @@ def go():
     learning_rate = config["learning_rate"]
     momentum = config["momentum"]
     num_epochs = config["num_epochs"]
-    output_directory = config["output_directory"]
     num_workers = config["num_workers"]
     debug = config["debug"]
     position_loss_reduction = config["position_loss_reduction"]
@@ -197,6 +199,7 @@ def go():
     dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length, image_size = image_size)
     dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
                         shuffle=True, num_workers=num_workers)
+    print("Dataloader of of length %d" %(len(dataloader)))
     yaml.dump(config, stream=open(os.path.join(output_directory,"config.yaml"), "w"), Dumper = yaml.SafeDumper)
     i = 0
     while i < num_epochs:
