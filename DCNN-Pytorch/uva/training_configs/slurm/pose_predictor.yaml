@@ -2,7 +2,7 @@
 label_db: /p/DeepRacing/datasets/multiplayer_captures/abu_dhabi_multiplayer/images/pose_sequence_label_lmdb
 image_db: /p/DeepRacing/datasets/multiplayer_captures/abu_dhabi_multiplayer/images/image_lmdb
 opt_flow_db: /p/DeepRacing/datasets/multiplayer_captures/abu_dhabi_multiplayer/images/optical_flow_lmdb
-key_file: /p/DeepRacing/datasets/multiplayer_captures/abu_dhabi_multiplayer/dbkeys.txt
+key_file: /p/DeepRacing/datasets/multiplayer_captures/abu_dhabi_multiplayer/goodkeys.txt
 image_size: [66, 200]
 
 #model definition parameters
