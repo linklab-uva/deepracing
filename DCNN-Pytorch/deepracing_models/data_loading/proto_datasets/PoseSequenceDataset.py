@@ -35,10 +35,11 @@ import cv2
 def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
 class PoseSequenceDataset(Dataset):
-    def __init__(self, image_db_wrapper, label_db_wrapper, keyfile, context_length, sequence_length, image_size = np.array((66,200))):
+    def __init__(self, image_db_wrapper, label_db_wrapper, keyfile, context_length, sequence_length, image_size = np.array((66,200)), optical_flow_db_wrapper=None):
         super(PoseSequenceDataset, self).__init__()
         self.image_db_wrapper = image_db_wrapper
         self.label_db_wrapper = label_db_wrapper
+        self.optical_flow_db_wrapper=optical_flow_db_wrapper
         self.image_size = image_size
         self.context_length = context_length
         self.sequence_length = sequence_length
@@ -78,6 +79,10 @@ class PoseSequenceDataset(Dataset):
         positions, quats, linear_velocities, angular_velocities = deepracing.pose_utils.labelPacketToNumpy(label_packet)
        # tick = time.clock()
         images_torch = torch.from_numpy(np.array([self.totensor(resizeImage(self.image_db_wrapper.getImage(keys[i]), self.image_size)).numpy() for i in range(len(keys))]))#.float()
+        if self.optical_flow_db_wrapper is not None:
+            opt_flow_torch = torch.from_numpy( np.array([self.optical_flow_db_wrapper.getImage(keys[i]).transpose(2,0,1) for i in range(len(keys))]) ).type_as(images_torch)
+        else:
+            opt_flow_torch = None
         #tock = time.clock()
        # print("loaded images in %f seconds." %(tock-tick))
         positions_torch = torch.from_numpy(positions[0:self.sequence_length])#.float()
@@ -86,4 +91,4 @@ class PoseSequenceDataset(Dataset):
         angular_velocities_torch = torch.from_numpy(angular_velocities[0:self.sequence_length])#.float()
         session_times_torch = torch.from_numpy(session_times)#.float()
         
-        return images_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch
+        return images_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch

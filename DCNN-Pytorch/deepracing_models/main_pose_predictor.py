@@ -35,7 +35,7 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
     else:
         t = enumerate(trainLoader)
     network.train()  # This is important to call before training!
-    for (i, (image_torch, position_torch, rotation_torch, linear_velocity_torch, angular_velocity_torch, session_time) ) in t:
+    for (i, (image_torch, opt_flow_torch, position_torch, rotation_torch, linear_velocity_torch, angular_velocity_torch, session_time) ) in t:
         if debug:
             images_np = image_torch[0].numpy().copy()
             num_images = images_np.shape[0]
@@ -50,6 +50,8 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
             plt.show()
             print(position_torch)
             print(rotation_torch)
+        if(opt_flow_torch is not None):
+            image_torch =torch.cat((image_torch,opt_flow_torch),axis=0)
         if use_float:
             image_torch = image_torch.float()
             position_torch = position_torch.float()
