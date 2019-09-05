@@ -72,6 +72,8 @@ class PoseSequenceLabelLMDBWrapper():
         rtn = PoseSequenceLabel_pb2.PoseSequenceLabel()
         with self.env.begin(write=False) as txn:
             entry_in = txn.get( key.encode( self.encoding ) )#.tobytes()
+            if (entry_in is None):
+                raise ValueError("Invalid key on label database: %s" %(key))
             rtn.ParseFromString(entry_in)
         return rtn
     def getNumLabels(self):
