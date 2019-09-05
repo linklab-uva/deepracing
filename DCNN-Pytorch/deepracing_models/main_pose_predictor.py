@@ -51,7 +51,7 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
             print(position_torch)
             print(rotation_torch)
         if(opt_flow_torch is not None):
-            image_torch =torch.cat((image_torch,opt_flow_torch),axis=0)
+            image_torch =torch.cat((image_torch,opt_flow_torch),axis=1)
         if use_float:
             image_torch = image_torch.float()
             position_torch = position_torch.float()
