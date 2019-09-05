@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
 loss = torch.zeros(1)
-def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss, loss_weights=[1.0, 1.0], imsize=(66,200), debug=False, use_tqdm=True):
+def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss, loss_weights=[1.0, 1.0], imsize=(66,200), debug=False, use_tqdm=True, use_float=True):
     global loss
     cum_loss = 0.0
     cum_rotation_loss = 0.0
@@ -50,6 +50,15 @@ def run_epoch(network, optimizer, trainLoader, gpu, position_loss, rotation_loss
             plt.show()
             print(position_torch)
             print(rotation_torch)
+        if use_float:
+            image_torch = image_torch.float()
+            position_torch = position_torch.float()
+            rotation_torch = rotation_torch.float()
+        else:
+            image_torch = image_torch.double()
+            position_torch = position_torch.double()
+            rotation_torch = rotation_torch.double()
+
         if gpu>=0:
             image_torch = image_torch.cuda(gpu)
             position_torch = position_torch.cuda(gpu)
@@ -140,6 +149,7 @@ def go():
     num_workers = config["num_workers"]
     debug = config["debug"]
     position_loss_reduction = config["position_loss_reduction"]
+    use_float = config["use_float"]
     if (not args.override) and os.path.isdir(output_directory):
         s = ""
         while(not (s=="y" or s=="n")):
@@ -153,9 +163,18 @@ def go():
     os.makedirs(output_directory)
     net = models.AdmiralNetPosePredictor(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
         hidden_dim=hidden_dimension, input_channels=input_channels, temporal_conv_feature_factor = temporal_conv_feature_factor)
+    
     position_loss = torch.nn.MSELoss(reduction=position_loss_reduction)
     rotation_loss = loss_functions.QuaternionDistance()
     optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum)
+    if use_float:
+        net = net.float()
+        position_loss = position_loss.float()
+        rotation_loss = rotation_loss.float()
+    else:
+        net = net.double()
+        position_loss = position_loss.double()
+        rotation_loss = rotation_loss.double()
     if gpu>=0:
         rotation_loss = rotation_loss.cuda(gpu)
         position_loss = position_loss.cuda(gpu)
@@ -187,7 +206,7 @@ def go():
         #dset.clearReaders()
         try:
             tick = time.time()
-            run_epoch(net, optimizer, dataloader, gpu, position_loss, rotation_loss, loss_weights=loss_weights, debug=debug, use_tqdm=args.tqdm)
+            run_epoch(net, optimizer, dataloader, gpu, position_loss, rotation_loss, loss_weights=loss_weights, debug=debug, use_tqdm=args.tqdm, use_float = use_float)
             tock = time.time()
             print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
         except Exception as e:
@@ -204,13 +223,17 @@ def go():
         irand = np.random.randint(0,high=len(dset))
         imtest = torch.rand( 1, context_length, input_channels, image_size[0], image_size[1], dtype=torch.float32 )
         imtest[0], positions_torch, quats_torch, _, _, _ = dset[irand]
+        if use_float:
+            imtest = imtest.float()
+        else:
+            imtest = imtest.double()
         if(gpu>=0):
             imtest = imtest.cuda(gpu)
         pos_pred, rot_pred = net(imtest)
-        # print(positions_torch)
-        # print(pos_pred)
-        # print(quats_torch)
-        # print(rot_pred)
+        print(positions_torch)
+        print(pos_pred)
+        print(quats_torch)
+        print(rot_pred)
         i = i + 1
 import logging
 if __name__ == '__main__':

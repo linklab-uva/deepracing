@@ -29,7 +29,7 @@ def pbImageToNpImage(im_pb : Image_pb2.Image):
         im = cv2.cvtColor(im, cv2.COLOR_BGRA2RGBA)
     else:
         raise ValueError("Unknown channel order: " + im_pb.channel_order)
-    return im.copy()
+    return im#.copy()
 class ImageGRPCClient():
     def __init__(self, address="127.0.0.1", port=50051):
         self.im_size = None

@@ -80,10 +80,10 @@ class PoseSequenceDataset(Dataset):
         images_torch = torch.from_numpy(np.array([self.totensor(resizeImage(self.image_db_wrapper.getImage(keys[i]), self.image_size)).numpy() for i in range(len(keys))])).float()
         #tock = time.clock()
        # print("loaded images in %f seconds." %(tock-tick))
-        positions_torch = torch.from_numpy(positions[0:self.sequence_length]).float()
-        quats_torch = torch.from_numpy(quats[0:self.sequence_length]).float()
-        linear_velocities_torch = torch.from_numpy(linear_velocities[0:self.sequence_length]).float()
-        angular_velocities_torch = torch.from_numpy(angular_velocities[0:self.sequence_length]).float()
-        session_times_torch = torch.from_numpy(session_times).float()
+        positions_torch = torch.from_numpy(positions[0:self.sequence_length])#.float()
+        quats_torch = torch.from_numpy(quats[0:self.sequence_length])#.float()
+        linear_velocities_torch = torch.from_numpy(linear_velocities[0:self.sequence_length])#.float()
+        angular_velocities_torch = torch.from_numpy(angular_velocities[0:self.sequence_length])#.float()
+        session_times_torch = torch.from_numpy(session_times)#.float()
         
         return images_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch
