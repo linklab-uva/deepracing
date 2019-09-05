@@ -136,6 +136,7 @@ def go():
     with open(config_file) as f:
         config = yaml.load(f, Loader = yaml.SafeLoader)
     image_db = config["image_db"]
+    opt_flow_db = config["opt_flow_db"]
     label_db = config["label_db"]
     key_file = config["key_file"]
     image_size = config["image_size"]
@@ -197,8 +198,10 @@ def go():
     image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
     image_wrapper = deepracing.backend.ImageLMDBWrapper()
     image_wrapper.readDatabase(image_db, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
+    opt_flow_wrapper = deepracing.backend.ImageLMDBWrapper()
+    opt_flow_wrapper.readDatabase(opt_flow_db, max_spare_txns=max_spare_txns, mapsize=int(round( float(image_mapsize)*8/3) ) )
 
-    dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length, image_size = image_size)
+    dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length, image_size = image_size, opt_flow_wrapper=opt_flow_wrapper)
     dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
                         shuffle=True, num_workers=num_workers)
     print("Dataloader of of length %d" %(len(dataloader)))
