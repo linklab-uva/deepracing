@@ -8,7 +8,6 @@ import deepracing.imutils
 import deepracing.backend
 import cv2
 import deepracing.imutils
-from functools import partials
 import random
 from deepracing.pose_utils import getAllImageFilePackets
 def packetSortKey(packet):
@@ -46,8 +45,7 @@ def main(args):
         h = int(round(h_/factor))
         print("Selected ROI:")
         print((x,y,w,h))
-        f = partial(extractROI,x,y,w,h)
-        cv2.imshow(windowname, cv2.cvtColor(f(im), cv2.COLOR_RGB2BGR))
+        cv2.imshow(windowname, cv2.cvtColor(im[y:y+h, x:x+w], cv2.COLOR_RGB2BGR))
         cv2.waitKey(0)
         cv2.destroyWindow(windowname)
     if(imrows>0 and imcols>0):
@@ -72,7 +70,7 @@ def main(args):
         mapsize = int( float(np.prod(im_size) + 12 )*float(len(img_files))*1.1 )
     print("Using a mapsize of " + str(mapsize))
     db = deepracing.backend.ImageLMDBWrapper()
-    db.readImages(img_files, keys, dbpath, im_size, func=f, mapsize=mapsize)
+    db.readImages(img_files, keys, dbpath, im_size, ROI=(x,y,w,h), mapsize=mapsize)
     print("Done creating LMDB")
     db.readDatabase(dbpath, mapsize=mapsize, max_spare_txns=16)
     windowname="DB Image"

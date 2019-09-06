@@ -57,7 +57,7 @@ class ImageLMDBWrapper():
         self.env = None
         self.encoding = encoding
         self.spare_txns=1
-    def readImages(self, image_files, keys, db_path, im_size, func=None, mapsize=int(1e10)):
+    def readImages(self, image_files, keys, db_path, im_size, ROI=None, mapsize=int(1e10)):
         assert(len(image_files) > 0)
         assert(len(image_files) == len(keys))
         if os.path.isdir(db_path):
@@ -67,8 +67,12 @@ class ImageLMDBWrapper():
         print("Loading image data")
         for i, key in tqdm(enumerate(keys), total=len(keys)):
             imgin = deepracing.imutils.readImage(image_files[i])
-            if func is not None:
-                imgin = func(imgin)
+            if ROI is not None:
+                x = ROI[0]
+                y = ROI[1]
+                w = ROI[2]
+                h = ROI[3]
+                imgin = imgin[y:y+h, x:x+w]
             im = deepracing.imutils.resizeImage( imgin , im_size[0:2] )
             entry = Image_pb2.Image( rows=im.shape[0] , cols=im.shape[1] , channel_order=ChannelOrder_pb2.RGB , image_data=im.flatten().tobytes() )
             with env.begin(write=True) as write_txn:

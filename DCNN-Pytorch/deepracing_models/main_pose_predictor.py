@@ -210,6 +210,7 @@ def go():
             optical_flow_db_wrapper.readDatabase(opt_flow_db, max_spare_txns=max_spare_txns, mapsize=int(round( float(image_mapsize)*8/3) ) )
         curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length, image_size = image_size, optical_flow_db_wrapper=optical_flow_db_wrapper)
         dsets.append(curent_dset)
+        print("\n")
     if len(dsets)==1:
         dset = dsets[0]
     else:

@@ -45,6 +45,7 @@ for i,key in tqdm(enumerate(db_keys), total=len(db_keys)):
         raise AttributeError("Mismatch between database key: %s and associated image file: %s" %(db_keys[i], label_pb_tags.image_tag.image_file))
 label_pb_tags = sorted(label_pb_tags, key=LabelPacketSortKey)
 sorted_keys = []
+print("Checking for invalid keys.")
 for packet in tqdm(label_pb_tags):
     #print(key)
     key = os.path.splitext(packet.image_tag.image_file)[0]
