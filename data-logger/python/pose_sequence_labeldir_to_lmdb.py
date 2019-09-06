@@ -23,7 +23,7 @@ def main():
     if(os.path.isdir(db_dir)):
       shutil.rmtree(db_dir)
     db.readLabelFiles(files, db_dir, mapsize=mapsize )
-    db.readDatabase(db_dir, mapsize=mapsize, max_spare_txns=1 )
+    db.readDatabase(db_dir, mapsize=mapsize, max_spare_txns=16 )
     keys = db.getKeys()
     idx = random.randint(0,len(keys)-1)
     print(db.getPoseSequenceLabel(keys[idx]))

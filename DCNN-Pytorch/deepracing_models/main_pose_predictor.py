@@ -236,15 +236,19 @@ def go():
         optimizerout = os.path.join(output_directory,"epoch_%d_optimizer.pt" %(postfix))
         torch.save(optimizer.state_dict(), optimizerout)
         irand = np.random.randint(0,high=len(dset))
-        imtest = torch.rand( 1, context_length, input_channels, image_size[0], image_size[1], dtype=torch.float32 )
-        imtest[0], positions_torch, quats_torch, _, _, _ = dset[irand]
-        if use_float:
-            imtest = imtest.float()
+        input_test = torch.rand( 1, context_length, input_channels, image_size[0], image_size[1], dtype=torch.float32 )
+        image_test, opt_flow_test, positions_torch, quats_torch, _, _, _ = dset[irand]
+        if use_optflow:
+            input_test[0] = torch.cat((image_test,opt_flow_test),axis=1)
         else:
-            imtest = imtest.double()
+            input_test[0]=image_test
+        if use_float:
+            input_test = input_test.float()
+        else:
+            input_test = input_test.double()
         if(gpu>=0):
-            imtest = imtest.cuda(gpu)
-        pos_pred, rot_pred = net(imtest)
+            input_test = input_test.cuda(gpu)
+        pos_pred, rot_pred = net(input_test)
         print(positions_torch)
         print(pos_pred)
         print(quats_torch)

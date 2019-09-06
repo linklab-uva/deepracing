@@ -74,7 +74,7 @@ def main(args):
     db = deepracing.backend.ImageLMDBWrapper()
     db.readImages(img_files, keys, dbpath, im_size, func=f, mapsize=mapsize)
     print("Done creating LMDB")
-    db.readDatabase(dbpath, mapsize=mapsize, max_spare_txns=6)
+    db.readDatabase(dbpath, mapsize=mapsize, max_spare_txns=16)
     windowname="DB Image"
     idx = random.randint(0,len(keys)-1)
     randomkey = keys[idx]
