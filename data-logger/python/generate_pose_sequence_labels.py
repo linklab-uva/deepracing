@@ -21,6 +21,7 @@ import deepracing.pose_utils
 from deepracing.pose_utils import getAllImageFilePackets, getAllMotionPackets
 from deepracing.protobuf_utils import getAllSessionPackets
 from tqdm import tqdm as tqdm
+import yaml
 def imageDataKey(data):
     return data.timestamp
 def udpPacketKey(packet):
@@ -32,9 +33,10 @@ parser.add_argument("num_label_poses", help="Number of poses to attach to each i
 parser.add_argument("lookahead_time", help="Time (in seconds) to look foward. Each label will have <num_label_poses> spanning <lookahead_time> seconds into the future",  type=float)
 angvelhelp = "Use the angular velocities given in the udp packets. THESE ARE ONLY PROVIDED FOR A PLAYER CAR. IF THE " +\
     " DATASET WAS TAKEN ON SPECTATOR MODE, THE ANGULAR VELOCITY VALUES WILL BE GARBAGE."
-parser.add_argument("--use_given_angular_velocities", help=angvelhelp, action="store_true")
-parser.add_argument("--assume_linear_timescale", help="Assumes the slope between system time and session time is 1.0", action="store_true")
-parser.add_argument("--json", help="Assume dataset files are in JSON rather than binary .pb files.",  action="store_true")
+parser.add_argument("--use_given_angular_velocities", help=angvelhelp, action="store_true", required=False)
+parser.add_argument("--assume_linear_timescale", help="Assumes the slope between system time and session time is 1.0", action="store_true", required=False)
+parser.add_argument("--json", help="Assume dataset files are in JSON rather than binary .pb files.",  action="store_true", required=False)
+parser.add_argument("--output_dir", help="Output directory for the labels. relative to the database images folder",  default="pose_sequence_labels", required=False)
 args = parser.parse_args()
 num_label_poses = args.num_label_poses
 lookahead_time = args.lookahead_time
@@ -165,10 +167,13 @@ except KeyboardInterrupt:
 except:
   text = input("Could not import matplotlib, skipping visualization. Enter anything to continue.")
 #scipy.interpolate.interp1d
-output_dir="pose_sequence_labels"
-if not os.path.isdir(os.path.join(image_folder, output_dir)):
-    os.makedirs(os.path.join(image_folder, output_dir))
+output_dir=os.path.join(image_folder, args.output_dir)
+if not os.path.isdir(output_dir):
+    os.makedirs(output_dir)
 print("Generating interpolated labels")
+config_dict = {"num_poses": num_label_poses, "lookahead_time":lookahead_time}
+with open(os.path.join(output_dir,'config.yaml'), 'w') as yaml_file:
+    yaml.dump(config_dict, yaml_file, Dumper=yaml.SafeDumper)
 for idx in tqdm(range(len(image_tags))):
     imagetag = image_tags[idx]
     label_tag = PoseSequenceLabel_pb2.PoseSequenceLabel()
@@ -291,11 +296,11 @@ for idx in tqdm(range(len(image_tags))):
         
     label_tag_JSON = google.protobuf.json_format.MessageToJson(label_tag, including_default_value_fields=True)
     image_file_base = os.path.splitext(os.path.split(label_tag.image_tag.image_file)[1])[0]
-    label_tag_file_path = os.path.join(image_folder, output_dir, image_file_base + "_sequence_label.json")
+    label_tag_file_path = os.path.join(output_dir, image_file_base + "_sequence_label.json")
     f = open(label_tag_file_path,'w')
     f.write(label_tag_JSON)
     f.close()
-    label_tag_file_path_binary = os.path.join(image_folder, output_dir, image_file_base + "_sequence_label.pb")
+    label_tag_file_path_binary = os.path.join(output_dir, image_file_base + "_sequence_label.pb")
     f = open(label_tag_file_path_binary,'wb')
     f.write(label_tag.SerializeToString())
     f.close()
