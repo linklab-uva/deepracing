@@ -20,7 +20,7 @@ import scipy.interpolate
 import deepracing.pose_utils
 from deepracing.pose_utils import getAllImageFilePackets, getAllMotionPackets
 from deepracing.protobuf_utils import getAllSessionPackets
-
+from tqdm import tqdm as tqdm
 def imageDataKey(data):
     return data.timestamp
 def udpPacketKey(packet):
@@ -29,12 +29,15 @@ def udpPacketKey(packet):
 parser = argparse.ArgumentParser()
 parser.add_argument("db_path", help="Path to root directory of DB",  type=str)
 parser.add_argument("num_label_poses", help="Number of poses to attach to each image",  type=int)
+parser.add_argument("lookahead_time", help="Time (in seconds) to look foward. Each label will have <num_label_poses> spanning <lookahead_time> seconds into the future",  type=float)
 angvelhelp = "Use the angular velocities given in the udp packets. THESE ARE ONLY PROVIDED FOR A PLAYER CAR. IF THE " +\
     " DATASET WAS TAKEN ON SPECTATOR MODE, THE ANGULAR VELOCITY VALUES WILL BE GARBAGE."
 parser.add_argument("--use_given_angular_velocities", help=angvelhelp, action="store_true")
 parser.add_argument("--assume_linear_timescale", help="Assumes the slope between system time and session time is 1.0", action="store_true")
 parser.add_argument("--json", help="Assume dataset files are in JSON rather than binary .pb files.",  action="store_true")
 args = parser.parse_args()
+num_label_poses = args.num_label_poses
+lookahead_time = args.lookahead_time
 motion_data_folder = os.path.join(args.db_path,"udp_data","motion_packets")
 image_folder = os.path.join(args.db_path,"images")
 session_folder = os.path.join(args.db_path,"udp_data","session_packets")
@@ -95,7 +98,9 @@ if args.use_given_angular_velocities:
     angular_velocities = np.array([deepracing.pose_utils.extractAngularVelocity(packet.udp_packet, car_index=0) for packet in motion_packets])
 else:
     angular_velocities = quaternion.angular_velocity(quaternions, session_times)
-
+for i in range(len(quaternions)):
+    if quaternions[i].w<0:
+        quaternions[i]=-quaternions[i]
 print()
 print(angular_velocities[10])
 print(len(motion_packets))
@@ -159,12 +164,12 @@ except KeyboardInterrupt:
     exit(0)
 except:
   text = input("Could not import matplotlib, skipping visualization. Enter anything to continue.")
-num_label_poses = args.num_label_poses
 #scipy.interpolate.interp1d
 output_dir="pose_sequence_labels"
 if not os.path.isdir(os.path.join(image_folder, output_dir)):
     os.makedirs(os.path.join(image_folder, output_dir))
-for idx in range(len(image_tags)):
+print("Generating interpolated labels")
+for idx in tqdm(range(len(image_tags))):
     imagetag = image_tags[idx]
     label_tag = PoseSequenceLabel_pb2.PoseSequenceLabel()
     label_tag.car_pose.frame = FrameId_pb2.GLOBAL
@@ -175,20 +180,29 @@ for idx in range(len(image_tags)):
     label_tag.car_pose.session_time = t_interp
     label_tag.car_velocity.session_time = t_interp
     label_tag.car_angular_velocity.session_time = t_interp
-    i = bisect.bisect_left(session_times,t_interp)
-    tstart = session_times[i]
-    if((tstart-t_interp)<1E-3):
-        print("Found a really short iterpolation distance. starting one index forward")
-        i = i + 1
-    if( i==0 or i > (len(session_times)- num_label_poses) ):
+    interpolants_start = bisect.bisect_left(session_times,t_interp)
+    if(interpolants_start<10):
         continue
-    print("Image session time: %f. Bisector session time: %f. Bisector index: %d" % (t_interp, session_times[i], i))
-    pos1, quat1 = poses[i-1]
-    pos2, quat2 = poses[i]
-    vel1 = velocities[i-1]
-    vel2 = velocities[i]
-    angvel1 = angular_velocities[i-1]
-    angvel2 = angular_velocities[i]
+    interpolants_start = interpolants_start-2
+    t_interp_end = t_interp+lookahead_time
+    interpolants_end = bisect.bisect_left(session_times,t_interp_end)
+    if(interpolants_end>=len(session_times)-10):
+        continue
+    interpolants_end = interpolants_end+2
+   
+    position_interpolant_points = positions[interpolants_start:interpolants_end]
+    rotation_interpolants_points = quaternions[interpolants_start:interpolants_end]
+    velocity_interpolants_points = velocities[interpolants_start:interpolants_end]
+    angular_velocity_interpolants_points = angular_velocities[interpolants_start:interpolants_end]
+    interpolant_times = session_times[interpolants_start:interpolants_end]
+    
+    local_position_interpolant = scipy.interpolate.interp1d(interpolant_times, position_interpolant_points , axis=0, kind='cubic')
+    local_velocity_interpolant = scipy.interpolate.interp1d(interpolant_times, velocity_interpolants_points, axis=0, kind='cubic')
+    local_angular_velocity_interpolant = scipy.interpolate.interp1d(interpolant_times, angular_velocity_interpolants_points, axis=0, kind='cubic')
+
+    t_eval = np.linspace(t_interp, t_interp_end, num_label_poses)
+
+    
     
     carposition_global = interpolated_positions[idx]
     #carposition_global = interpolateVectors(pos1,session_times[i-1],pos2,session_times[i], t_interp)
@@ -219,10 +233,14 @@ for idx in range(len(image_tags)):
     #yes, I know this is an un-necessary inverse computation. Sue me.
     carposeinverse_global = la.inv(carpose_global)
 
-    subsequent_positions = positions[i:i+num_label_poses]
-    subsequent_quaternions = quaternions[i:i+num_label_poses]
-    subsequent_velocities = velocities[i:i+num_label_poses]
-    subsequent_angular_velocities = angular_velocities[i:i+num_label_poses]
+    subsequent_positions = local_position_interpolant(t_eval)
+    subsequent_quaternions = quaternion.squad(rotation_interpolants_points, interpolant_times, t_eval)
+    subsequent_velocities = local_velocity_interpolant(t_eval)
+    subsequent_angular_velocities = local_angular_velocity_interpolant(t_eval)
+
+
+
+
     subsequent_positions_local, subsequent_quaternions_local = deepracing.pose_utils.toLocalCoordinatesPose((carposition_global, carquat_global), subsequent_positions, subsequent_quaternions)
     subsequent_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector((carposition_global, carquat_global), subsequent_velocities)
     subsequent_angular_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector((carposition_global, carquat_global), subsequent_angular_velocities)
@@ -233,7 +251,6 @@ for idx in range(len(image_tags)):
     #print()
     for j in range(num_label_poses):
         # label_tag.
-        packet_forward = motion_packets[i+j].udp_packet
         #print(packet_forward)
         pose_forward_pb = Pose3d_pb2.Pose3d()
         velocity_forward_pb = Vector3dStamped_pb2.Vector3dStamped()
@@ -258,9 +275,9 @@ for idx in range(len(image_tags)):
         angular_velocity_forward_pb.vector.y = subsequent_angular_velocities_local[j,1]
         angular_velocity_forward_pb.vector.z = subsequent_angular_velocities_local[j,2]
 
-        pose_forward_pb.session_time = packet_forward.m_header.m_sessionTime
-        velocity_forward_pb.session_time = packet_forward.m_header.m_sessionTime
-        angular_velocity_forward_pb.session_time = packet_forward.m_header.m_sessionTime
+        pose_forward_pb.session_time = t_eval[j]
+        velocity_forward_pb.session_time = t_eval[j]
+        angular_velocity_forward_pb.session_time = t_eval[j]
 
         newpose = label_tag.subsequent_poses.add()
         newpose.CopyFrom(pose_forward_pb)
