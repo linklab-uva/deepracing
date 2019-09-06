@@ -8,7 +8,7 @@ import deepracing.imutils
 import deepracing.backend
 import cv2
 import random
-
+import yaml
 def main():
     parser = argparse.ArgumentParser(description="Load an pose sequence label directory into a database")
     parser.add_argument("label_dir", type=str, help="Directory containing the labels")
@@ -17,8 +17,10 @@ def main():
     args = parser.parse_args()
     label_dir = args.label_dir
     db_dir = args.db_dir
+    cfg = yaml.load(open(os.path.join(label_dir,"config.yaml"),"r"), Loader=yaml.SafeLoader)
     files = [os.path.join(label_dir, fname) for fname in  os.listdir(label_dir) if os.path.isfile(os.path.join(label_dir,fname)) and os.path.splitext(fname)[1].lower()==".json"]
     mapsize = int(args.mapsize)
+    cfg["mapsize"]=mapsize
     db = deepracing.backend.PoseSequenceLabelLMDBWrapper()
     if(os.path.isdir(db_dir)):
       shutil.rmtree(db_dir)
@@ -27,5 +29,6 @@ def main():
     keys = db.getKeys()
     idx = random.randint(0,len(keys)-1)
     print(db.getPoseSequenceLabel(keys[idx]))
+    yaml.dump(cfg, stream=open(os.path.join(db_dir,"config.yaml"), "w"), Dumper = yaml.SafeDumper)
 if __name__ == '__main__':
   main()

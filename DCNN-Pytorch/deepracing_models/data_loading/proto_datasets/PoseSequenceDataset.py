@@ -82,7 +82,8 @@ class PoseSequenceDataset(Dataset):
         if self.optical_flow_db_wrapper is not None:
             opt_flow_torch = torch.from_numpy( np.array([self.optical_flow_db_wrapper.getImage(keys[i]).transpose(2,0,1) for i in range(len(keys))]) ).type_as(images_torch)
         else:
-            opt_flow_torch = None
+            opt_flow_torch = torch.zeros_like(images_torch)
+            opt_flow_torch.fill_(np.nan)
         #tock = time.clock()
        # print("loaded images in %f seconds." %(tock-tick))
         positions_torch = torch.from_numpy(positions[0:self.sequence_length])#.float()

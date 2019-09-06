@@ -1,8 +1,10 @@
-#dataset definition
-label_db: D:\f1_training_data\abu_dhabi_multiplayer\images\pose_sequence_label_lmdb
-image_db: D:\f1_training_data\abu_dhabi_multiplayer\images\image_lmdb
-opt_flow_db: D:\f1_training_data\abu_dhabi_multiplayer\images\optical_flow_lmdb
-key_file: D:\f1_training_data\abu_dhabi_multiplayer\dbkeys.txt
+#datasets definition
+datasets:
+  -
+    image_db: D:\f1_training_data\abu_dhabi_multiplayer\images\image_lmdb
+    opt_flow_db: D:\f1_training_data\abu_dhabi_multiplayer\images\optical_flow_lmdb
+    label_db: D:\f1_training_data\abu_dhabi_multiplayer\images\pose_sequence_label_lmdb
+    key_file: D:\f1_training_data\abu_dhabi_multiplayer\dbkeys.txt
 image_size: [66, 200]
 
 #model definition parameters

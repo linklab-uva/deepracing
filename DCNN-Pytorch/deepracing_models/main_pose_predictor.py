@@ -135,9 +135,7 @@ def go():
     debug = args.debug
     with open(config_file) as f:
         config = yaml.load(f, Loader = yaml.SafeLoader)
-    image_db = config["image_db"]
-    label_db = config["label_db"]
-    key_file = config["key_file"]
+
     image_size = config["image_size"]
     hidden_dimension = config["hidden_dimension"]
     input_channels = config["input_channels"]
@@ -184,31 +182,39 @@ def go():
         position_loss = position_loss.cuda(gpu)
         net = net.cuda(gpu)
     if num_workers == 0:
-        max_spare_txns = 1
+        max_spare_txns = 16
     else:
         max_spare_txns = num_workers
 
     #image_wrapper = deepracing.backend.ImageFolderWrapper(os.path.dirname(image_db))
-
-    label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
-    label_wrapper.readDatabase(label_db, max_spare_txns=max_spare_txns )
-
-    image_size = np.array(image_size)
-    image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
-    image_wrapper = deepracing.backend.ImageLMDBWrapper()
-    image_wrapper.readDatabase(image_db, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
-    
-    opt_flow_db = config.get('opt_flow_db', '')
-    optical_flow_db_wrapper = None
-    if opt_flow_db=='':
+    datasets = config["datasets"]
+    dsets=[]
+    for dataset in datasets:
+        print("Parsing database config: %s" %(str(dataset)))
+        image_db = dataset["image_db"]
+        opt_flow_db = dataset.get("opt_flow_db", "")
+        label_db = dataset["label_db"]
+        key_file = dataset["key_file"]
+        label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
+        label_wrapper.readDatabase(label_db, max_spare_txns=max_spare_txns )
+        image_size = np.array(image_size)
+        image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
+        image_wrapper = deepracing.backend.ImageLMDBWrapper()
+        image_wrapper.readDatabase(image_db, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
         use_optflow=False
+        optical_flow_db_wrapper = None
+        if not opt_flow_db=='':
+            print("Using optical flow database at %s" %(opt_flow_db))
+            use_optflow=True
+            optical_flow_db_wrapper = deepracing.backend.OpticalFlowLMDBWrapper()
+            optical_flow_db_wrapper.readDatabase(opt_flow_db, max_spare_txns=max_spare_txns, mapsize=int(round( float(image_mapsize)*8/3) ) )
+        curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length, image_size = image_size, optical_flow_db_wrapper=optical_flow_db_wrapper)
+        dsets.append(curent_dset)
+    if len(dsets)==1:
+        dset = dsets[0]
     else:
-        print("Using optical flow database at %s" %(opt_flow_db))
-        use_optflow=True
-        optical_flow_db_wrapper = deepracing.backend.OpticalFlowLMDBWrapper()
-        optical_flow_db_wrapper.readDatabase(opt_flow_db, max_spare_txns=max_spare_txns, mapsize=int(round( float(image_mapsize)*8/3) ) )
-
-    dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length, image_size = image_size, optical_flow_db_wrapper=optical_flow_db_wrapper)
+        dset = torch.utils.data.ConcatDataset(dsets)
+    
     dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
                         shuffle=True, num_workers=num_workers)
     print("Dataloader of of length %d" %(len(dataloader)))
