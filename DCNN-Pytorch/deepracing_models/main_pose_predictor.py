@@ -199,7 +199,7 @@ def go():
         label_wrapper.readDatabase(label_db, max_spare_txns=max_spare_txns )
         image_size = np.array(image_size)
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
-        image_wrapper = deepracing.backend.ImageLMDBWrapper()
+        image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
         image_wrapper.readDatabase(image_db, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
         use_optflow=False
         optical_flow_db_wrapper = None
@@ -208,7 +208,8 @@ def go():
             use_optflow=True
             optical_flow_db_wrapper = deepracing.backend.OpticalFlowLMDBWrapper()
             optical_flow_db_wrapper.readDatabase(opt_flow_db, max_spare_txns=max_spare_txns, mapsize=int(round( float(image_mapsize)*8/3) ) )
-        curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length, image_size = image_size, optical_flow_db_wrapper=optical_flow_db_wrapper)
+        curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length,\
+                     image_size = image_size, optical_flow_db_wrapper=optical_flow_db_wrapper)
         dsets.append(curent_dset)
         print("\n")
     if len(dsets)==1:
