@@ -238,6 +238,8 @@ def go():
         irand = np.random.randint(0,high=len(dset))
         imtest = torch.rand( 1, context_length, input_channels, image_size[0], image_size[1], dtype=torch.float32 )
         imtest[0], opt_flow_test, positions_torch, quats_torch, _, _, _ = dset[irand]
+        if use_optflow:
+            imtest[0] = torch.cat((imtest[0],opt_flow_test),axis=1)
         if use_float:
             imtest = imtest.float()
         else:
