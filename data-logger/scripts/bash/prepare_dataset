@@ -1,0 +1,6 @@
+#!/bin/bash
+dsroot=$1
+python3 imdir_to_lmdb.py $dsroot/images --ROI $2 $3 $4 $5 --optical_flow --json --override
+python3 generate_pose_sequence_labels.py $dsroot 30.0 4.0 --json
+python3 pose_sequence_labeldir_to_lmdb.py $dsroot/images/pose_sequence_labels $dsroot/images/pose_sequence_label_lmdb --mapsize 3e9
+python3 generate_pose_sequence_key_file.py $dsroot/images/pose_sequence_label_lmdb $dsroot/goodkeys.txt
