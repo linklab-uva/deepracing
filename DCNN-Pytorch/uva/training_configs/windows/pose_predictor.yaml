@@ -1,10 +1,15 @@
 #datasets definition
 datasets:
   -
-    image_db: D:\f1_training_data\abu_dhabi_multiplayer\images\image_lmdb
-    opt_flow_db: D:\f1_training_data\abu_dhabi_multiplayer\images\optical_flow_lmdb
-    label_db: D:\f1_training_data\abu_dhabi_multiplayer\images\pose_sequence_label_lmdb
-    key_file: D:\f1_training_data\abu_dhabi_multiplayer\goodkeys.txt
+    image_db: D:\f1_training_data\australia_multiplayer_also_good\images\image_lmdb
+    opt_flow_db: D:\f1_training_data\australia_multiplayer_also_good\images\optical_flow_lmdb
+    label_db: D:\f1_training_data\australia_multiplayer_also_good\images\pose_sequence_label_lmdb
+    key_file: D:\f1_training_data\australia_multiplayer_also_good\goodkeys.txt
+  -
+    image_db: D:\f1_training_data\australia_multiplayer_good\images\image_lmdb
+    opt_flow_db: D:\f1_training_data\australia_multiplayer_good\images\optical_flow_lmdb
+    label_db: D:\f1_training_data\australia_multiplayer_good\images\pose_sequence_label_lmdb
+    key_file: D:\f1_training_data\australia_multiplayer_good\goodkeys.txt
 image_size: [66, 200]
 
 #model definition parameters
