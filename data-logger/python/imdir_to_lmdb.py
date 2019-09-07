@@ -32,7 +32,6 @@ def main(args):
         y = int(roi[1])
         w = int(roi[2])
         h = int(roi[3])
-        f = partial(extractROI,x,y,w,h)
     else:    
         factor = args.display_resize_factor
         windowname = "Test Image"
