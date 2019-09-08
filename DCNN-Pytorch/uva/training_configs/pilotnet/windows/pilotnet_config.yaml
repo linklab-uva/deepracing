@@ -1,0 +1,23 @@
+#datasets definition
+datasets:
+  -
+    image_db: C:\Users\ttw2x\Documents\f1_data\monaco_multiplayer\images\image_lmdb
+    label_db: C:\Users\ttw2x\Documents\f1_data\monaco_multiplayer\images\steering_labels_lmdb
+    key_file: C:\Users\ttw2x\Documents\f1_data\monaco_multiplayer\controloutputkeys.txt
+image_size: [66, 200]
+
+#model definition parameters
+use_float: False
+input_channels: 3
+
+#training hyperparameters
+gpu: 0
+batch_size: 64
+learning_rate: 1.0E-3
+momentum: 1.0E-4
+num_epochs: 100
+num_workers: 0
+control_loss_reduction: "mean"
+
+#debugging settings
+debug: False

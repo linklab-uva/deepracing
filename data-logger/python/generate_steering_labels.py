@@ -168,10 +168,14 @@ for idx in tqdm(range(len(image_tags))):
     key = image_file_base
     lmdb_backend.writeControlLabel(key,label_tag)
 lmdb_backend.readDatabase(lmdb_dir, mapsize=3e9, readonly=True)
-irand = np.random.randint(0,high=len(image_tags))
-keyrand = os.path.splitext(os.path.split(image_tags[irand].image_file)[1])[0]
+keys = [os.path.splitext(os.path.split(image_tag.image_file)[1])[0] for image_tag in image_tags]
+irand = np.random.randint(0,high=len(keys))
+keyrand = keys[irand]
 print("Entry at key %s" % (keyrand))
 print(lmdb_backend.getControlLabel(keyrand))
+key_file = os.path.join(args.db_path,"controloutputkeys.txt")
+with open(key_file, 'w') as filehandle:
+    filehandle.writelines("%s\n" % key for key in keys)
     
 
 
