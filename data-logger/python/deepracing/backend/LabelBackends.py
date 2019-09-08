@@ -14,6 +14,8 @@ import cv2
 import google.protobuf.json_format
 import google.protobuf.empty_pb2 as Empty_pb2
 import time
+import LabeledImage_pb2
+import ImageLabel_pb2
 class PoseSequenceLabelGRPCClient():
     def __init__(self, address="127.0.0.1", port=50052):
         self.im_size = None
@@ -28,6 +30,38 @@ class PoseSequenceLabelGRPCClient():
     def getKeys(self):
         response = self.stub.GetDbMetadata(DeepF1_RPC_pb2.DbMetadataRequest())
         return list(response.keys)
+class ControlLabelLMDBWrapper():
+    def __init__(self):
+        self.env = None
+        self.encoding = "ascii"
+    def writeControlLabel(self, key : str, label : LabeledImage_pb2.LabeledImage):
+        with self.env.begin(write=True) as write_txn:
+            write_txn.put(key.encode(self.encoding), label.SerializeToString())
+    def readDatabase(self, db_path : str, mapsize=1e10, max_spare_txns=1, readonly=True):
+        if not os.path.isdir(db_path):
+            raise IOError("Path " + db_path + " is not a directory")
+        if self.env is not None:
+            self.env.close()
+        self.env = lmdb.open(db_path, map_size=int(round(mapsize)), readonly=readonly, max_spare_txns=max_spare_txns)
+        self.env.reader_check()
+    def getControlLabel(self, key):
+        rtn = LabeledImage_pb2.LabeledImage()
+        with self.env.begin(write=False) as txn:
+            entry_in = txn.get( key.encode( self.encoding ) )
+            if (entry_in is None):
+                raise ValueError("Invalid key on control label database: %s" %(key))
+            rtn.ParseFromString(entry_in)
+        return rtn
+    def getNumLabels(self):
+        return self.env.stat()['entries']
+    def getKeys(self):
+        keys = None
+        with self.env.begin(write=False) as txn:
+            keys = [ str(key, encoding=self.encoding) for key, _ in txn.cursor() ]
+        if (keys is None) or len(keys)==0:
+            raise ValueError("Keyset is empty in control label dataset for some reason")
+        return keys
+
 
 class PoseSequenceLabelLMDBWrapper():
     def __init__(self):

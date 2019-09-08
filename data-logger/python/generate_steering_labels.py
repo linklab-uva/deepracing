@@ -18,6 +18,7 @@ import bisect
 import FrameId_pb2
 import scipy.interpolate
 import deepracing.pose_utils
+import deepracing.backend
 from deepracing.pose_utils import getAllImageFilePackets, getAllMotionPackets
 from deepracing.protobuf_utils import getAllSessionPackets, getAllTelemetryPackets
 from tqdm import tqdm as tqdm
@@ -139,8 +140,13 @@ except:
   text = input("Could not import matplotlib, skipping visualization. Enter anything to continue.")
 #scipy.interpolate.interp1d
 output_dir=os.path.join(image_folder, args.output_dir)
+lmdb_dir=os.path.join(image_folder, args.output_dir+"_lmdb")
 if not os.path.isdir(output_dir):
     os.makedirs(output_dir)
+if not os.path.isdir(lmdb_dir):
+    os.makedirs(lmdb_dir)
+lmdb_backend = deepracing.backend.ControlLabelLMDBWrapper()
+lmdb_backend.readDatabase(lmdb_dir, mapsize=3e9, readonly=False)
 print("Generating interpolated labels")
 for idx in tqdm(range(len(image_tags))):
     image_tag = image_tags[idx]
@@ -159,7 +165,13 @@ for idx in tqdm(range(len(image_tags))):
     f = open(label_tag_file_path_binary,'wb')
     f.write(label_tag.SerializeToString())
     f.close()
-
+    key = image_file_base
+    lmdb_backend.writeControlLabel(key,label_tag)
+lmdb_backend.readDatabase(lmdb_dir, mapsize=3e9, readonly=True)
+irand = np.random.randint(0,high=len(image_tags))
+keyrand = os.path.splitext(os.path.split(image_tags[irand].image_file)[1])[0]
+print("Entry at key %s" % (keyrand))
+print(lmdb_backend.getControlLabel(keyrand))
     
 
 
