@@ -38,6 +38,7 @@ def run_epoch(network, optimizer, trainLoader, gpu, loss_function, imsize=(66,20
         if debug:
             image_np = image_torch[0].numpy().copy().transpose(1,2,0)
             image_ubyte = skimage.util.img_as_ubyte(image_np)
+            print(control_output[0])
             cv2.namedWindow("Image",cv2.WINDOW_AUTOSIZE)
             cv2.imshow("Image", cv2.cvtColor(image_ubyte,cv2.COLOR_RGB2BGR))
             cv2.waitKey(0)
