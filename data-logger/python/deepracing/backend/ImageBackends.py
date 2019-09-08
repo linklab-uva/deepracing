@@ -98,7 +98,10 @@ class ImageLMDBWrapper():
     def getImagePB(self, key : str):
         im_pb = Image_pb2.Image()
         with self.env.begin(write=False) as txn:
-            im_pb.ParseFromString( txn.get( key.encode( self.encoding ) ) )
+            entry = txn.get( key.encode( self.encoding ) )
+            if (entry is None):
+                raise ValueError("Invalid key: %s on image database: %s" %(key, str(self.env.path())))
+            im_pb.ParseFromString( entry )
         return im_pb
     def getImage( self, key : str ):
         if self.direct_caching:

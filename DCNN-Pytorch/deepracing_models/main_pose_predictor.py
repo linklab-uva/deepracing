@@ -189,6 +189,7 @@ def go():
     #image_wrapper = deepracing.backend.ImageFolderWrapper(os.path.dirname(image_db))
     datasets = config["datasets"]
     dsets=[]
+    use_optflow=True
     for dataset in datasets:
         print("Parsing database config: %s" %(str(dataset)))
         image_db = dataset["image_db"]
@@ -201,14 +202,14 @@ def go():
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
         image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
         image_wrapper.readDatabase(image_db, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
-        use_optflow=False
         optical_flow_db_wrapper = None
         if not opt_flow_db=='':
             print("Using optical flow database at %s" %(opt_flow_db))
-            use_optflow=True
             optical_flow_db_wrapper = deepracing.backend.OpticalFlowLMDBWrapper()
             optical_flow_db_wrapper.readDatabase(opt_flow_db, max_spare_txns=max_spare_txns, mapsize=int(round( float(image_mapsize)*8/3) ) )
-            curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length,\
+        else:
+            use_optflow=False
+        curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length,\
                      image_size = image_size, optical_flow_db_wrapper=optical_flow_db_wrapper)
         dsets.append(curent_dset)
         print("\n")
