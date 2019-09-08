@@ -2,34 +2,29 @@
 datasets:
   -
     image_db: /p/DeepRacing/datasets/multiplayer_captures/australia_multiplayer_good/images/image_lmdb
-    opt_flow_db: /p/DeepRacing/datasets/multiplayer_captures/australia_multiplayer_good/images/optical_flow_lmdb
     label_db: /p/DeepRacing/datasets/multiplayer_captures/australia_multiplayer_good/images/pose_sequence_label_lmdb
     key_file: /p/DeepRacing/datasets/multiplayer_captures/australia_multiplayer_good/goodkeys.txt
   -
     image_db: /p/DeepRacing/datasets/multiplayer_captures/australia_multiplayer_also_good/images/image_lmdb
-    opt_flow_db: /p/DeepRacing/datasets/multiplayer_captures/australia_multiplayer_also_good/images/optical_flow_lmdb
     label_db: /p/DeepRacing/datasets/multiplayer_captures/australia_multiplayer_also_good/images/pose_sequence_label_lmdb
     key_file: /p/DeepRacing/datasets/multiplayer_captures/australia_multiplayer_also_good/goodkeys.txt
   -
     image_db: /p/DeepRacing/datasets/multiplayer_captures/australia_more_more_yet_again/images/image_lmdb
-    opt_flow_db: /p/DeepRacing/datasets/multiplayer_captures/australia_more_more_yet_again/images/optical_flow_lmdb
     label_db: /p/DeepRacing/datasets/multiplayer_captures/australia_more_more_yet_again/images/pose_sequence_label_lmdb
     key_file: /p/DeepRacing/datasets/multiplayer_captures/australia_more_more_yet_again/goodkeys.txt
   -
     image_db: /p/DeepRacing/datasets/multiplayer_captures/australia_more_yet_again/images/image_lmdb
-    opt_flow_db: /p/DeepRacing/datasets/multiplayer_captures/australia_more_yet_again/images/optical_flow_lmdb
     label_db: /p/DeepRacing/datasets/multiplayer_captures/australia_more_yet_again/images/pose_sequence_label_lmdb
     key_file: /p/DeepRacing/datasets/multiplayer_captures/australia_more_yet_again/goodkeys.txt
   -
     image_db: /p/DeepRacing/datasets/multiplayer_captures/trent_lazy_lap/images/image_lmdb
-    opt_flow_db: /p/DeepRacing/datasets/multiplayer_captures/trent_lazy_lap/images/optical_flow_lmdb
     label_db: /p/DeepRacing/datasets/multiplayer_captures/trent_lazy_lap/images/pose_sequence_label_lmdb
     key_file: /p/DeepRacing/datasets/multiplayer_captures/trent_lazy_lap/goodkeys.txt
 image_size: [66, 200]
 
 #model definition parameters
 hidden_dimension: 100
-input_channels: 5
+input_channels: 3
 sequence_length: 20
 context_length: 5
 temporal_conv_feature_factor: 1

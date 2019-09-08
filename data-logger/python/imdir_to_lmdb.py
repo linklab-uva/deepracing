@@ -9,6 +9,7 @@ import deepracing.backend
 import cv2
 import deepracing.imutils
 import random
+import yaml
 from deepracing.pose_utils import getAllImageFilePackets
 def packetSortKey(packet):
     return packet.timestamp

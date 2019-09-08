@@ -13,6 +13,7 @@ import grpc
 import cv2
 import time
 import google.protobuf.empty_pb2 as Empty_pb2
+import yaml
 def pbImageToNpImage(im_pb : Image_pb2.Image):
     im = None
     if im_pb.channel_order == ChannelOrder_pb2.BGR:
@@ -65,6 +66,9 @@ class ImageLMDBWrapper():
         if os.path.isdir(db_path):
             raise IOError("Path " + db_path + " is already a directory")
         os.makedirs(db_path)
+        if ROI is not None:
+            cfgout = {"ROI":list(ROI)}
+            yaml.dump(cfgout,open(os.path.join(db_path,"config.yaml"),"w"),Dumper=yaml.SafeDumper)
         env = lmdb.open(db_path, map_size=mapsize)
         print("Loading image data")
         for i, key in tqdm(enumerate(keys), total=len(keys)):
