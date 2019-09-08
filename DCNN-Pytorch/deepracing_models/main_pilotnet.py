@@ -22,6 +22,7 @@ import imageio
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
+import cv2
 loss = torch.zeros(1)
 def run_epoch(network, optimizer, trainLoader, gpu, loss_function, imsize=(66,200), debug=False, use_tqdm=True, use_float=True):
     global loss
@@ -34,20 +35,12 @@ def run_epoch(network, optimizer, trainLoader, gpu, loss_function, imsize=(66,20
         t = enumerate(trainLoader)
     network.train()  # This is important to call before training!
     for (i, (image_torch, control_output) ) in t:
-        # if debug:
-        #     images_np = image_torch[0].numpy().copy()
-        #     num_images = images_np.shape[0]
-        #     print(num_images)
-        #     images_np_transpose = np.zeros((num_images, images_np.shape[2], images_np.shape[3], images_np.shape[1]), dtype=np.uint8)
-        #     ims = []
-        #     for i in range(num_images):
-        #         images_np_transpose[i]=skimage.util.img_as_ubyte(images_np[i].transpose(1,2,0))
-        #         im = plt.imshow(images_np_transpose[i], animated=True)
-        #         ims.append([im])
-        #     ani = animation.ArtistAnimation(plt.figure(), ims, interval=50, blit=True, repeat_delay=0)
-        #     plt.show()
-        #     print(position_torch)
-        #     print(rotation_torch)
+        if debug:
+            image_np = image_torch[0].numpy().copy().transpose(1,2,0)
+            image_ubyte = skimage.util.img_as_ubyte(image_np)
+            cv2.namedWindow("Image",cv2.WINDOW_AUTOSIZE)
+            cv2.imshow("Image", cv2.cvtColor(image_ubyte,cv2.COLOR_RGB2BGR))
+            cv2.waitKey(0)
         if use_float:
             image_torch = image_torch.float()
             control_output = control_output.float()
