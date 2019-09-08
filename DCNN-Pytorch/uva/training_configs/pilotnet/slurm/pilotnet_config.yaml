@@ -1,0 +1,39 @@
+#datasets definition
+datasets:
+  -
+    image_db:  /p/DeepRacing/datasets/multiplayer_captures/australia_multiplayer_good/images/image_lmdb
+    label_db:  /p/DeepRacing/datasets/multiplayer_captures/australia_multiplayer_good/images/steering_labels_lmdb
+    key_file: /p/DeepRacing/datasets/multiplayer_captures/australia_multiplayer_good/images/controloutputkeys.txt
+  -
+    image_db: /p/DeepRacing/datasets/multiplayer_captures/australia_multiplayer_also_good/images/image_lmdb
+    label_db: /p/DeepRacing/datasets/multiplayer_captures/australia_multiplayer_also_good/images/steering_labels_lmdb
+    key_file: /p/DeepRacing/datasets/multiplayer_captures/australia_multiplayer_also_good/images/controloutputkeys.txt
+  -
+    image_db: /p/DeepRacing/datasets/multiplayer_captures/australia_more_more_yet_again/images/image_lmdb
+    label_db: /p/DeepRacing/datasets/multiplayer_captures/australia_more_more_yet_again/images/steering_labels_lmdb
+    key_file: /p/DeepRacing/datasets/multiplayer_captures/australia_more_more_yet_again/images/controloutputkeys.txt
+  -
+    image_db: /p/DeepRacing/datasets/multiplayer_captures/australia_more_yet_again/images/image_lmdb
+    label_db: /p/DeepRacing/datasets/multiplayer_captures/australia_more_yet_again/images/steering_labels_lmdb
+    key_file: /p/DeepRacing/datasets/multiplayer_captures/australia_more_yet_again/images/controloutputkeys.txt
+  -
+    image_db: /p/DeepRacing/datasets/multiplayer_captures/trent_lazy_lap/images/image_lmdb
+    label_db: /p/DeepRacing/datasets/multiplayer_captures/trent_lazy_lap/images/steering_labels_lmdb
+    key_file: /p/DeepRacing/datasets/multiplayer_captures/trent_lazy_lap/images/controloutputkeys.txt
+image_size: [66, 200]
+
+#model definition parameters
+use_float: False
+input_channels: 3
+
+#training hyperparameters
+gpu: 0
+batch_size: 64
+learning_rate: 1.0E-3
+momentum: 1.0E-4
+num_epochs: 100
+num_workers: 0
+control_loss_reduction: "mean"
+
+#debugging settings
+debug: False
