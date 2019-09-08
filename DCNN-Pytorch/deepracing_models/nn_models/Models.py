@@ -134,9 +134,8 @@ class CommandantNet(nn.Module):
         predictions = self.prediction_layer(x)
         return predictions
 class CNNLSTM(nn.Module):
-    def __init__(self, cell='lstm', input_channels=2, output_dimension = 1, sequence_length=25, context_length = 25, hidden_dim = 100, gpu = -1):
+    def __init__(self, input_channels=3, output_dimension = 3, sequence_length=20, context_length = 5, hidden_dim = 100, gpu = -1):
         super(CNNLSTM, self).__init__()
-        self.gpu=gpu
         #self.input_channels = 5
         self.input_channels = input_channels
         # Convolutional layers.
@@ -161,16 +160,13 @@ class CNNLSTM(nn.Module):
         self.sequence_length = sequence_length
         self.context_length = context_length
         self.cell = cell
-
-        if(self.cell=='lstm'):
-            self.rnn = nn.LSTM(self.feature_length, hidden_dim, batch_first = True)
-
-        elif(self.cell=='gru'):
-            self.rnn = nn.GRU(self.feature_length, hidden_dim, batch_first = True)
-
-        else:
-            self.rnn = nn.RNN(self.feature_length, hidden_dim, batch_first = True) 
-
+        
+        self.rnn_init_hidden = torch.nn.Parameter(torch.Tensor(1,self.hidden_dim), requires_grad=False)
+        self.rnn_init_hidden.normal_(mean=0, std=1)
+        self.rnn_init_cell = torch.nn.Parameter(torch.Tensor(1,self.hidden_dim), requires_grad=False)
+        self.rnn_init_cell.normal_(mean=0, std=1)
+        self.rnn = nn.LSTM(self.feature_length, hidden_dim, batch_first = True)
+ 
         # Linear layers.
         self.prediction_layer = nn.Linear(hidden_dim, self.output_size)
 
@@ -181,28 +177,7 @@ class CNNLSTM(nn.Module):
         self.projector_input.normal_(std=0.05)
         if(self.gpu>=0):
             self.projector_input = self.projector_input.cuda(self.gpu)
-       # self.projector_input.requires_grad_(True)
-
-    #     self.projector_input = torch.FloatTensor( torch.Size( ( self.sequence_length, self.feature_length ) ) )
-    #     self.projector_input.normal_(std=0.1)
-    #     self.projector_input.requires_grad_()
-    #     self.projector_input.zero_()
-    #     if(self.gpu>=0):
-    #         self.projector_input = self.projector_input.cuda(self.gpu)
-
-        # self.init_cell = torch.FloatTensor( torch.Size( ( 1, self.hidden_dim ) ) )
-        # self.init_cell.normal_(std=0.05)
-        # self.init_cell.requires_grad_()
-        # if(self.gpu>=0):
-        #     self.init_cell = self.init_cell.cuda(self.gpu)
-
-
-        # self.init_hidden = torch.FloatTensor( torch.Size( ( 1, self.hidden_dim ) ) )
-        # self.init_hidden.normal_(std=0.05)
-        # self.init_hidden.requires_grad_()
-        # if(self.gpu>=0):
-        #     self.init_hidden = self.init_hidden.cuda(self.gpu)
-        
+               
     def forward(self, x):
         #resize for convolutional layers
         batch_size = x.shape[0]
