@@ -157,8 +157,23 @@ def go():
     learnable_initial_state = config.get("learnable_initial_state",False)
     net = models.AdmiralNetPosePredictor(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
         hidden_dim=hidden_dimension, input_channels=input_channels, temporal_conv_feature_factor = temporal_conv_feature_factor, \
-            learnable_initial_state =learnable_initial_state)
+            learnable_initial_state =learnable_initial_state) 
+    position_loss = torch.nn.MSELoss(reduction=position_loss_reduction)
+    rotation_loss = loss_functions.QuaternionDistance()
+    if use_float:
+        net = net.float()
+        position_loss = position_loss.float()
+        rotation_loss = rotation_loss.float()
+    else:
+        net = net.double()
+        position_loss = position_loss.double()
+        rotation_loss = rotation_loss.double()
+    if gpu>=0:
+        rotation_loss = rotation_loss.cuda(gpu)
+        position_loss = position_loss.cuda(gpu)
+        net = net.cuda(gpu)
     optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum)
+
     if epochstart>1:
         net.load_state_dict(torch.load(os.path.join(output_directory,"epoch_%d_params.pt" %(epochstart)), map_location=torch.device("cpu")))
         optimizer.load_state_dict(torch.load(os.path.join(output_directory,"epoch_%d_optimizer.pt" %(epochstart)), map_location=torch.device("cpu")))
@@ -175,20 +190,6 @@ def go():
             shutil.rmtree(output_directory)
         os.makedirs(output_directory, exist_ok=True)
     
-    position_loss = torch.nn.MSELoss(reduction=position_loss_reduction)
-    rotation_loss = loss_functions.QuaternionDistance()
-    if use_float:
-        net = net.float()
-        position_loss = position_loss.float()
-        rotation_loss = rotation_loss.float()
-    else:
-        net = net.double()
-        position_loss = position_loss.double()
-        rotation_loss = rotation_loss.double()
-    if gpu>=0:
-        rotation_loss = rotation_loss.cuda(gpu)
-        position_loss = position_loss.cuda(gpu)
-        net = net.cuda(gpu)
     if num_workers == 0:
         max_spare_txns = 50
     else:
