@@ -126,6 +126,7 @@ def go():
     parser.add_argument("config_file", type=str,  help="Configuration file to load")
     parser.add_argument("output_directory", type=str,  help="Where to put the resulting model files")
 
+    parser.add_argument("--epochstart", type=int, default=1,  help="Restart training from the given epoch number")
     parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
     parser.add_argument("--override", action="store_true",  help="Delete output directory and replace with new data")
     parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
@@ -133,6 +134,7 @@ def go():
     config_file = args.config_file
     output_directory = args.output_directory
     debug = args.debug
+    epochstart = args.epochstart
     with open(config_file) as f:
         config = yaml.load(f, Loader = yaml.SafeLoader)
 
@@ -153,24 +155,28 @@ def go():
     position_loss_reduction = config["position_loss_reduction"]
     use_float = config["use_float"]
     learnable_initial_state = config.get("learnable_initial_state",False)
-    if (not args.override) and os.path.isdir(output_directory):
-        s = ""
-        while(not (s=="y" or s=="n")):
-             s = input("Directory " + output_directory + " already exists. Overwrite it with new data? [y\\n]\n")
-        if s=="n":
-            print("Thanks for playing!")
-            exit(0)
-        shutil.rmtree(output_directory)
-    elif os.path.isdir(output_directory):
-        shutil.rmtree(output_directory)
-    os.makedirs(output_directory)
     net = models.AdmiralNetPosePredictor(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
         hidden_dim=hidden_dimension, input_channels=input_channels, temporal_conv_feature_factor = temporal_conv_feature_factor, \
             learnable_initial_state =learnable_initial_state)
+    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum)
+    if epochstart>1:
+        net.load_state_dict(torch.load(os.path.join(output_directory,"epoch_%d_params.pt" %(epochstart)), map_location=torch.device("cpu")))
+        optimizer.load_state_dict(torch.load(os.path.join(output_directory,"epoch_%d_optimizer.pt" %(epochstart)), map_location=torch.device("cpu")))
+    else:
+        if (not args.override) and os.path.isdir(output_directory) :
+            s = ""
+            while(not (s=="y" or s=="n")):
+                s = input("Directory " + output_directory + " already exists. Overwrite it with new data? [y\\n]\n")
+            if s=="n":
+                print("Thanks for playing!")
+                exit(0)
+            shutil.rmtree(output_directory)
+        elif os.path.isdir(output_directory):
+            shutil.rmtree(output_directory)
+        os.makedirs(output_directory, exist_ok=True)
     
     position_loss = torch.nn.MSELoss(reduction=position_loss_reduction)
     rotation_loss = loss_functions.QuaternionDistance()
-    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum)
     if use_float:
         net = net.float()
         position_loss = position_loss.float()
@@ -184,7 +190,7 @@ def go():
         position_loss = position_loss.cuda(gpu)
         net = net.cuda(gpu)
     if num_workers == 0:
-        max_spare_txns = 16
+        max_spare_txns = 50
     else:
         max_spare_txns = num_workers
 
@@ -224,7 +230,10 @@ def go():
                         shuffle=True, num_workers=num_workers)
     print("Dataloader of of length %d" %(len(dataloader)))
     yaml.dump(config, stream=open(os.path.join(output_directory,"config.yaml"), "w"), Dumper = yaml.SafeDumper)
-    i = 0
+    if(epochstart==1):
+        i = 0
+    else:
+        i = epochstart
     while i < num_epochs:
         time.sleep(2.0)
         postfix = i + 1
