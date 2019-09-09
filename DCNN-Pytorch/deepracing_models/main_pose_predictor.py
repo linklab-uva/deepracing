@@ -175,8 +175,8 @@ def go():
     optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum)
 
     if epochstart>1:
-        net.load_state_dict(torch.load(os.path.join(output_directory,"epoch_%d_params.pt" %(epochstart)), map_location=torch.device("cpu")))
-        optimizer.load_state_dict(torch.load(os.path.join(output_directory,"epoch_%d_optimizer.pt" %(epochstart)), map_location=torch.device("cpu")))
+        net.load_state_dict(torch.load(os.path.join(output_directory,"epoch_%d_params.pt" %(epochstart)), map_location=next(model.parameters()).device))
+        optimizer.load_state_dict(torch.load(os.path.join(output_directory,"epoch_%d_optimizer.pt" %(epochstart)), map_location=next(model.parameters()).device))
     else:
         if (not args.override) and os.path.isdir(output_directory) :
             s = ""
