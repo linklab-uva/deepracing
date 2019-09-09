@@ -1,2 +1,3 @@
 from .PoseSequenceDataset import PoseSequenceDataset
 from .ControlOutputDataset import ControlOutputDataset
+from .ControlOutputSequenceDataset import ControlOutputSequenceDataset

@@ -1,5 +1,6 @@
 #datasets definition
 datasets:
+  -
     image_db: D:\f1_training_data\australia_multiplayer_also_good\images\image_lmdb
     label_db: D:\f1_training_data\australia_multiplayer_also_good\images\steering_labels_lmdb
     key_file: D:\f1_training_data\australia_multiplayer_also_good\controloutputkeys.txt
