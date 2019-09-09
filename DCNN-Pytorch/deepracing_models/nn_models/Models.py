@@ -309,7 +309,8 @@ class AdmiralNet_V2(nn.Module):
         return predictions
 class AdmiralNetPosePredictor(nn.Module):
     def __init__(self, cell='lstm', input_channels=3, sequence_length=10, context_length = 15, \
-                 hidden_dim = 100, gpu = -1, num_recurrent_layers = 1, temporal_conv_feature_factor = 1):
+                 hidden_dim = 100, gpu = -1, num_recurrent_layers = 1, temporal_conv_feature_factor = 1, \
+                     learnable_initial_state=False):
         super(AdmiralNetPosePredictor, self).__init__()
         self.imsize = (66,200)
         self.gpu=gpu
@@ -357,9 +358,9 @@ class AdmiralNetPosePredictor(nn.Module):
             self.position_rnn = nn.LSTM(self.feature_length, hidden_dim, batch_first = True, num_layers = num_recurrent_layers)
             self.rotation_rnn = nn.LSTM(self.feature_length, hidden_dim, batch_first = True, num_layers = num_recurrent_layers)
 
-            self.rnn_init_hidden = torch.nn.Parameter(torch.Tensor(1,self.hidden_dim), requires_grad=False)
+            self.rnn_init_hidden = torch.nn.Parameter(torch.Tensor(1,self.hidden_dim), requires_grad=learnable_initial_state)
             self.rnn_init_hidden.normal_(mean=0, std=1)
-            self.rnn_init_cell = torch.nn.Parameter(torch.Tensor(1,self.hidden_dim), requires_grad=False)
+            self.rnn_init_cell = torch.nn.Parameter(torch.Tensor(1,self.hidden_dim), requires_grad=learnable_initial_state)
             self.rnn_init_cell.normal_(mean=0, std=1)
 
 

@@ -152,6 +152,7 @@ def go():
     debug = config["debug"]
     position_loss_reduction = config["position_loss_reduction"]
     use_float = config["use_float"]
+    learnable_initial_state = config.get("learnable_initial_state",False)
     if (not args.override) and os.path.isdir(output_directory):
         s = ""
         while(not (s=="y" or s=="n")):
@@ -164,7 +165,8 @@ def go():
         shutil.rmtree(output_directory)
     os.makedirs(output_directory)
     net = models.AdmiralNetPosePredictor(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
-        hidden_dim=hidden_dimension, input_channels=input_channels, temporal_conv_feature_factor = temporal_conv_feature_factor)
+        hidden_dim=hidden_dimension, input_channels=input_channels, temporal_conv_feature_factor = temporal_conv_feature_factor, \
+            learnable_initial_state =learnable_initial_state)
     
     position_loss = torch.nn.MSELoss(reduction=position_loss_reduction)
     rotation_loss = loss_functions.QuaternionDistance()
