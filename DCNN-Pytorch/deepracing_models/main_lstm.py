@@ -109,8 +109,8 @@ def go():
     elif os.path.isdir(output_directory):
         shutil.rmtree(output_directory)
     os.makedirs(output_directory)
-    net = models.CNNLSTM(input_channels=input_channels, output_dimension = 3, \
-         context_length=context_length, sequence_length=sequence_length, hidden_dim = hidden_dim)
+    net = models.CNNLSTM(input_channels=3, output_dimension = 3, \
+         context_length=context_length, sequence_length=1, hidden_dim = hidden_dim)
     
     mse_loss = torch.nn.MSELoss(reduction=control_loss_reduction)
     optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum)
@@ -135,8 +135,9 @@ def go():
     for dataset in datasets:
         print("Parsing database config: %s" %(str(dataset)))
         image_db = dataset["image_db"]
-        label_db = dataset["label_db"]
         key_file = dataset["key_file"]
+        #\images\steering_labels_lmdb
+        label_db =os.path.join(os.path.dirname(key_file),"images","steering_labels_lmdb")
         label_wrapper = deepracing.backend.ControlLabelLMDBWrapper()
         label_wrapper.readDatabase(label_db, mapsize=3e9, max_spare_txns=max_spare_txns )
         image_size = np.array(image_size)
@@ -179,8 +180,9 @@ def go():
         optimizerout = os.path.join(output_directory,"cnnlstm_epoch_%d_optimizer.pt" %(postfix))
         torch.save(optimizer.state_dict(), optimizerout)
         irand = np.random.randint(0,high=len(dset))
-        input_test = torch.rand( 1, input_channels, image_size[0], image_size[1], dtype=torch.float32 )
-        input_test[0], control_label = dset[irand]
+        input_test, control_label = dset[irand]
+        input_test = input_test.unsqueeze(0)
+        control_label = control_label.unsqueeze(0)
         if use_float:
             input_test = input_test.float()
         else:

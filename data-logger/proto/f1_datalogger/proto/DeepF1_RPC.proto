@@ -12,6 +12,17 @@ service LabelService {
   rpc GetDbMetadata (DbMetadataRequest) returns (DbMetadata);
 }
 
+service SendImage {
+  rpc SendImage (SendImageRequest) returns (SendImageResponse);
+}
+message SendImageRequest {
+  Image impb = 1;
+}
+message SendImageResponse {
+  string err = 1;
+}
+
+
 message ImageRequest {
   string key = 1;
 }

@@ -78,8 +78,6 @@ cv::Mat OpenCVUtils::protoImageToCV(const deepf1::protobuf::images::Image& proto
 deepf1::protobuf::images::Image OpenCVUtils::cvimageToProto(const cv::Mat& cv_image)
 {
   deepf1::protobuf::images::Image proto_image;
- // std::cerr << "Converting Channel Order: " << cv_image.type() << std::endl;
-  uint32_t channels = cv_image.channels();
   //std::cerr << "Image Channels: " << channels << std::endl;
   deepf1::protobuf::images::ChannelOrder co = imTypeToProto(cv_image.type());
 //  std::cerr << "Converted Channel Order" << std::endl;
