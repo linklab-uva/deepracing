@@ -179,7 +179,6 @@ def go():
     rotation_loss = loss_functions.QuaternionDistance()
     if use_float:
         net = net.float()
-        optimizer = optimizer.float()
         position_loss = position_loss.float()
         rotation_loss = rotation_loss.float()
     else:
