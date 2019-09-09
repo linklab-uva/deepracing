@@ -184,11 +184,9 @@ def go():
         rotation_loss = rotation_loss.float()
     else:
         net = net.double()
-        optimizer = optimizer.double()
         position_loss = position_loss.double()
         rotation_loss = rotation_loss.double()
     if gpu>=0:
-        optimizer = optimizer.cuda(gpu)
         rotation_loss = rotation_loss.cuda(gpu)
         position_loss = position_loss.cuda(gpu)
         net = net.cuda(gpu)
