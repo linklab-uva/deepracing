@@ -177,7 +177,9 @@ class CNNLSTM(nn.Module):
     def forward(self, x):
         #resize for convolutional layers
         batch_size = x.shape[0]
+      #  print(x.shape)
         x1 = x.view(-1, self.input_channels, 66, 200) 
+        #print(x1.shape)
         x2 = self.conv1(x1)
         x3 = self.Norm_1(x2)
         x4 = self.relu(x3)
@@ -194,6 +196,7 @@ class CNNLSTM(nn.Module):
         x15 = self.relu(x14)
         #maps=[x1,x2,x3,x4,x5]
         # Unpack for the RNN.
+       # print(x15.shape)
         x16 = x15.view(batch_size, self.context_length, self.img_features)
 
         rnn_init_hidden = self.rnn_init_hidden.repeat(1,batch_size,1)
