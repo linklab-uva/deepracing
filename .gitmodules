@@ -10,3 +10,6 @@
 [submodule "data-logger/third_party/DirectXTK"]
 	path = data-logger/third_party/DirectXTK
 	url = https://github.com/microsoft/DirectXTK.git
+[submodule "data-logger/src/controllers/python_cpp_bindings/pybind11"]
+	path = data-logger/src/controllers/python_cpp_bindings/pybind11
+	url = https://github.com/pybind/pybind11.git

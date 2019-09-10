@@ -40,7 +40,10 @@ target_include_directories(${PROJECT_NAME}_controllers PRIVATE ${ProtobufInclude
 
 add_dependencies(${PROJECT_NAME}_controllers ${PROJECT_NAME}_proto)
 set_target_properties(${PROJECT_NAME}_controllers
-                      PROPERTIES FOLDER vjoy)
+					  PROPERTIES FOLDER vjoy)
+					  
+add_subdirectory(python_cpp_bindings)
+
 set(install_targets
 #executables.
 
