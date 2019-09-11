@@ -16,3 +16,17 @@ class QuaternionDistance(nn.Module):
         acos = torch.acos(dotabsthresh)
         batched_sum = torch.sum(acos, dim = 1)
         return torch.sum( batched_sum )
+
+class TaylorSeriesLinear(nn.Module):
+    def __init__(self, reduction="mean"):
+        super(TaylorSeriesLinear, self).__init__()
+        self.reduction=reduction
+    def forward(self, position, velocity, time, acceleration=None):
+        position_diff = position[:,1:,:]-position[:,:-1,:]
+        dt=time[:,1:]-time[:,:-1]
+        vel_est = position_diff/dt[:,:,None]
+        norms = torch.norm((velocity[:,:-1,:] - vel_est),dim=2, p=2)
+        if self.reduction=="mean":
+            return torch.mean(norms)
+        else:
+            return torch.sum(norms)

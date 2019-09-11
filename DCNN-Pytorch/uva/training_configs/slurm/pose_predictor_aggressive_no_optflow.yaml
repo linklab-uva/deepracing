@@ -29,6 +29,7 @@ sequence_length: 15
 context_length: 10
 temporal_conv_feature_factor: 1
 use_float: False
+learnable_initial_state: True
 
 #training hyperparameters
 gpu: 1

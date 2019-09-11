@@ -219,7 +219,6 @@ class AdmiralNetVelocityPredictor(nn.Module):
                      learnable_initial_state=False):
         super(AdmiralNetVelocityPredictor, self).__init__()
         self.imsize = (66,200)
-        self.gpu=gpu
         #self.input_channels = 5
         self.input_channels = input_channels
         # Convolutional layers.
@@ -242,7 +241,6 @@ class AdmiralNetVelocityPredictor(nn.Module):
         self.hidden_dim = hidden_dim
         self.sequence_length = sequence_length
         self.context_length = context_length
-        self.cell = cell
 
         #projection encoder
         self.conv3d1 = nn.Conv3d(input_channels, 10, kernel_size=(5,3,3), stride = (1,2,2), padding=(2,0,0) )
@@ -339,28 +337,27 @@ class AdmiralNetVelocityPredictor(nn.Module):
         x_linear, (final_hidden_position, final_cell_position) = self.linear_rnn(  y , (linear_new_hidden, linear_new_cell) )
         x_angular, (final_hidden_rotation, final_cell_rotation) = self.angular_rnn(  y , (angular_new_hidden, angular_new_cell) )
        # print(x_position.shape)
-        position_predictions1 = self.position_prediction_layer1(x_linear)
+        position_predictions1 = self.linear_prediction_layer1(x_linear)
         position_predictions1 = self.tanh(position_predictions1)
-        position_predictions2 = self.position_prediction_layer2(position_predictions1)
+        position_predictions2 = self.linear_prediction_layer2(position_predictions1)
         position_predictions2 = self.tanh(position_predictions2)
-        position_predictions = self.position_prediction_layer3(position_predictions2)
+        position_predictions = self.linear_prediction_layer3(position_predictions2)
 
 
-        rotation_predictions1 = self.rotation_prediction_layer1(x_angular)
+        rotation_predictions1 = self.angular_prediction_layer1(x_angular)
         rotation_predictions1 = self.tanh(rotation_predictions1)
-        rotation_predictions2 = self.rotation_prediction_layer2(rotation_predictions1)
+        rotation_predictions2 = self.angular_prediction_layer2(rotation_predictions1)
         rotation_predictions2 = self.tanh(rotation_predictions2)
-        rotation_predictions = self.rotation_prediction_layer3(rotation_predictions2)
+        rotation_predictions = self.angular_prediction_layer3(rotation_predictions2)
 
         return position_predictions, rotation_predictions
 
 class AdmiralNetPosePredictor(nn.Module):
     def __init__(self, cell='lstm', input_channels=3, sequence_length=10, context_length = 15, \
-                 hidden_dim = 100, gpu = -1, num_recurrent_layers = 1, temporal_conv_feature_factor = 1, \
+                 hidden_dim = 100, num_recurrent_layers = 1, temporal_conv_feature_factor = 1, \
                      learnable_initial_state=False):
         super(AdmiralNetPosePredictor, self).__init__()
         self.imsize = (66,200)
-        self.gpu=gpu
         #self.input_channels = 5
         self.input_channels = input_channels
         # Convolutional layers.
@@ -383,7 +380,6 @@ class AdmiralNetPosePredictor(nn.Module):
         self.hidden_dim = hidden_dim
         self.sequence_length = sequence_length
         self.context_length = context_length
-        self.cell = cell
 
         #projection encoder
         self.conv3d1 = nn.Conv3d(input_channels, 10, kernel_size=(5,3,3), stride = (1,2,2), padding=(2,0,0) )

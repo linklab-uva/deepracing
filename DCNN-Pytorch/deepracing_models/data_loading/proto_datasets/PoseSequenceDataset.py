@@ -74,8 +74,7 @@ class PoseSequenceDataset(Dataset):
         label_packet = packets[-1]
 
 
-        session_times = np.hstack((np.array([packets[i].car_pose.session_time for i in range(len(packets))]), \
-                                   np.array([p.session_time for p in label_packet.subsequent_poses[0:self.sequence_length]])))
+        session_times = np.array([p.session_time for p in label_packet.subsequent_poses[0:self.sequence_length] ])
         positions, quats, linear_velocities, angular_velocities = deepracing.pose_utils.labelPacketToNumpy(label_packet)
        # tick = time.clock()
         images_torch = torch.from_numpy(np.array([self.totensor(resizeImage(self.image_db_wrapper.getImage(keys[i]), self.image_size)).numpy() for i in range(len(keys))]))#.float()
