@@ -5,7 +5,7 @@ udp_folder: "udp_data"
 udp_threads: 3
 udp_port: 20777
 image_threads: 3
-image_capture_frequency: 60.0
+image_capture_frequency: 45.0
 initial_delay_time: 3.0
 image_extension: "jpg"
 use_json: True
