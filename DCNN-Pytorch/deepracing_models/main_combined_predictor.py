@@ -150,7 +150,7 @@ def run_epoch(network, velocity_network, optimizer, trainLoader, gpu, position_l
             num_samples += float(batch_size)
             t.set_postfix({"cum_loss" : cum_loss/num_samples, "position_loss" : cum_position_loss/num_samples, "rotation_loss" : cum_rotation_loss/num_samples, \
                             "linear_vel_loss" : cum_linear_loss/num_samples, "angvel_loss" : cum_angular_loss/num_samples, \
-                                "taylor_loss_1" : cum_taylor_loss_1/num_samples, "taylor_loss_2" : cum_taylor_loss_2/num_samples})
+                            "taylor_loss_1" : cum_taylor_loss_1/num_samples, "taylor_loss_2" : cum_taylor_loss_2/num_samples})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
     parser.add_argument("config_file", type=str,  help="Configuration file to load")
