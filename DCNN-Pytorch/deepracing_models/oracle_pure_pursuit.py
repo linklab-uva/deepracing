@@ -75,7 +75,7 @@ def listenForMotionPackets(address, port):
                         socket.SOCK_DGRAM) # UDP
     sock.bind((UDP_IP, UDP_PORT))
     while running:
-        data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
+        data, addr = sock.recvfrom(944) # buffer size is 944 bytes
         print("received message:", data)
 def serve():
     global velsetpoint 
