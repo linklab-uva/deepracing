@@ -154,7 +154,7 @@ def go():
     debug = config["debug"]
     position_loss_reduction = config["position_loss_reduction"]
     use_float = config["use_float"]
-    learnable_initial_state = config.get("learnable_initial_state",False)
+    learnable_initial_state = config.get("learnable_initial_state",True)
     net = models.AdmiralNetPosePredictor(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
         hidden_dim=hidden_dimension, input_channels=input_channels, temporal_conv_feature_factor = temporal_conv_feature_factor, \
             learnable_initial_state =learnable_initial_state) 
