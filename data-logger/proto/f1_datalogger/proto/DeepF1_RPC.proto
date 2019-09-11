@@ -2,6 +2,7 @@ syntax = "proto3";
 package deepf1.protobuf.images;
 import "Image.proto";
 import "PoseSequenceLabel.proto";
+import "PacketMotionData.proto";
 
 service ImageService {
   rpc GetImage (ImageRequest) returns (deepf1.protobuf.images.Image);
@@ -15,6 +16,19 @@ service LabelService {
 service SendImage {
   rpc SendImage (SendImageRequest) returns (SendImageResponse);
 }
+
+service SendMotionData {
+  rpc SendMotionData (SendMotionDataRequest) returns (SendMotionDataResponse);
+}
+
+
+message SendMotionDataRequest {
+  deepf1.twenty_eighteen.protobuf.PacketMotionData motion_data = 1;
+}
+message SendMotionDataResponse {
+  string err = 1;
+}
+
 message SendImageRequest {
   Image impb = 1;
 }

@@ -13,6 +13,10 @@ namespace deepf1 {
 			throttle = 0.0;
 			brake = 0.0;
 		}
+		F1ControlCommand(double steering_,double throttle_,double brake_) :
+			steering(steering_), throttle(throttle_), brake(brake_)
+		{
+		}
 	};
 	class F1Interface
 	{

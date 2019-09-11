@@ -1,7 +1,6 @@
 import numpy as np
 import numpy.linalg as la
 import quaternion
-import scipy
 import skimage
 import PIL
 from PIL import Image as PILImage
@@ -16,6 +15,7 @@ import Pose3d_pb2
 import cv2
 import bisect
 import FrameId_pb2
+import scipy
 import scipy.interpolate
 import deepracing.pose_utils
 import deepracing.backend

@@ -23,9 +23,9 @@ datasets:
 image_size: [66, 200]
 
 #model definition parameters
-hidden_dimension: 100
+hidden_dimension: 200
 input_channels: 3
-sequence_length: 20
+sequence_length: 15
 context_length: 5
 temporal_conv_feature_factor: 1
 use_float: False
@@ -33,9 +33,9 @@ use_float: False
 #training hyperparameters
 gpu: 1
 batch_size: 64
-learning_rate: 1.0E-3
-momentum: 1.0E-5
-loss_weights: [1.0, 0.0]
+learning_rate: 1.0E-4
+momentum: 1.0E-3
+loss_weights: [1.0, 0.25]
 num_epochs: 100
 num_workers: 0
 position_loss_reduction: "mean"

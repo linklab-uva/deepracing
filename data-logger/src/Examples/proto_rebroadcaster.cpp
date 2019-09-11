@@ -15,6 +15,7 @@
 #include "f1_datalogger/image_logging/utils/opencv_utils.h"
 #include <google/protobuf/util/json_util.h>
 #include <fstream>
+#include "f1_datalogger/udp_logging/utils/udp_stream_utils.h"
 
 #include <grpcpp/grpcpp.h>
 
@@ -27,10 +28,18 @@ using grpc::Status;
 using deepf1::protobuf::images::SendImageRequest;
 using deepf1::protobuf::images::SendImageResponse;
 using deepf1::protobuf::images::SendImage;
+using deepf1::protobuf::images::SendMotionDataResponse;
+using deepf1::protobuf::images::SendMotionDataRequest;
+using deepf1::protobuf::images::SendMotionData;
+
+
+
+
 class ProtoRebroadcaster_2018DataGrabHandler : public deepf1::IF12018DataGrabHandler
 {
 public:
-  ProtoRebroadcaster_2018DataGrabHandler()
+  ProtoRebroadcaster_2018DataGrabHandler(std::string host, unsigned int port)
+  : host_(host), port_(port)
   {
   }
   bool isReady() override
@@ -54,6 +63,13 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketMotionData& data) override
   {
+    deepf1::twenty_eighteen::protobuf::PacketMotionData datapb =  deepf1::twenty_eighteen::TwentyEighteenUDPStreamUtils::toProto(data.data);
+    SendMotionDataRequest request;
+    SendMotionDataResponse response;
+    request.mutable_motion_data()->CopyFrom(datapb);
+    ClientContext context;
+    Status status = motion_stub_->SendMotionData(&context, request, &response);
+    
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketParticipantsData& data) override
   {
@@ -64,12 +80,19 @@ public:
   }
   void init(const std::string& host, unsigned int port, const deepf1::TimePoint& begin) override
   {
+    motion_channel = grpc::CreateChannel(
+      host_+":"+std::to_string(port_), grpc::InsecureChannelCredentials());
+    motion_stub_ = SendMotionData::NewStub(motion_channel);
     ready_ = true;
     this->begin = begin;
   }
 private:
   bool ready_;
   std::chrono::high_resolution_clock::time_point begin;
+  std::shared_ptr<Channel> motion_channel;
+  std::unique_ptr<SendMotionData::Stub> motion_stub_;
+  std::string host_;
+  unsigned int port_;
 
 };
 class ProtoRebroadcaster_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
@@ -144,7 +167,7 @@ int main(int argc, char** argv)
   h = std::stoi(std::string(argv[5]));
   
   std::shared_ptr<ProtoRebroadcaster_FrameGrabHandler> image_handler(new ProtoRebroadcaster_FrameGrabHandler("127.0.0.1", 50051, std::vector<uint32_t>{x,y,w,h}));
-  std::shared_ptr<ProtoRebroadcaster_2018DataGrabHandler> udp_handler(new ProtoRebroadcaster_2018DataGrabHandler());
+  std::shared_ptr<ProtoRebroadcaster_2018DataGrabHandler> udp_handler(new ProtoRebroadcaster_2018DataGrabHandler("127.0.0.1", 50052));
   std::string inp;
   deepf1::F1DataLogger dl(search);  
   dl.start(60.0, udp_handler, image_handler);

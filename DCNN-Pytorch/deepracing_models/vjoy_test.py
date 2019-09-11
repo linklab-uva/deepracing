@@ -1,18 +1,14 @@
-import py_vjoy
+import py_f1_interface
 import argparse
 
 def main():
     parser = argparse.ArgumentParser(description="Test AdmiralNet")
-    parser.add_argument("--value", type=int, required=True)
+    parser.add_argument("steer", type=float)
+    parser.add_argument("throttle", type=float)
+    parser.add_argument("brake", type=float)
     args = parser.parse_args()
-    vjoy_angle = args.value
-    vj = py_vjoy.vJoy()
-    vj.capture(1) #1 is the device ID
-    vj.reset()
-    js = py_vjoy.Joystick()
-    js.setAxisXRot(int(round(vjoy_angle))) 
-    js.setAxisYRot(int(round(vjoy_angle))) 
-    vj.update(js)
+    controller = py_f1_interface.F1Interface(1)
+    controller.setControl(args.steer,args.throttle,args.brake)
     
 if __name__ == '__main__':
     main()

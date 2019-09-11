@@ -29,7 +29,7 @@ py_f1_interface
 )
 install(TARGETS ${install_targets}
     RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib
+    LIBRARY DESTINATION lib/python
     ARCHIVE DESTINATION lib
 )
 unset(install_targets)

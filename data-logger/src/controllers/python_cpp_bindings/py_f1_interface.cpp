@@ -8,11 +8,7 @@ class PyF1Interface {
     }
     void setControl(float steering, float throttle, float brake)
     {
-        deepf1::F1ControlCommand command;
-        command.brake=brake;
-        command.throttle=throttle;
-        command.steering=steering;
-        interface->setCommands(command);
+        interface->setCommands(deepf1::F1ControlCommand(steering, throttle, brake));
     }
     private:
         std::shared_ptr<deepf1::F1Interface> interface;
