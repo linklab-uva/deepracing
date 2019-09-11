@@ -145,13 +145,16 @@ def interpolateVectors(p1, t1, p2, t2, t_interp):
     tau = (t_interp - t1)/(t2 - t1)
     rtn = (1-tau)*p1 + tau*p2
     return rtn
+
 def extractAngularVelocity(packet):
     angular_velocity = np.array((packet.m_angularVelocityX, packet.m_angularVelocityY, packet.m_angularVelocityZ), np.float64)
     return angular_velocity
+    
 def extractVelocity(packet, car_index = 0):
     motion_data = packet.m_carMotionData[car_index]
     velocity = np.array((motion_data.m_worldVelocityX, motion_data.m_worldVelocityY, motion_data.m_worldVelocityZ), np.float64)
     return velocity
+    
 def extractPose(packet, car_index = 0):
     motion_data = packet.m_carMotionData[car_index]
     rightvector = np.array((motion_data.m_worldRightDirX, motion_data.m_worldRightDirY, motion_data.m_worldRightDirZ), dtype=np.float64)

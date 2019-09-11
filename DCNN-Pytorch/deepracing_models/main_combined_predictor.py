@@ -1,4 +1,5 @@
 import torch
+import torch.nn as NN
 import torch.utils.data as data_utils
 import data_loading.proto_datasets
 from tqdm import tqdm as tqdm
@@ -22,9 +23,7 @@ import imageio
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
-loss = torch.zeros(1)
-def run_epoch(network, velocity_network, optimizer, trainLoader, gpu, position_loss, rotation_loss, taylor_loss, loss_weights=[1.0, 1.0], imsize=(66,200), debug=False, use_tqdm=True, use_float=True, use_optflow=True):
-    global loss
+def run_epoch(network, velocity_network, optimizer, trainLoader, gpu, position_loss, rotation_loss, taylor_loss, loss_weights=[1.0, 1.0], imsize=(66,200), debug=False, use_tqdm=True, use_float=True):
     cum_loss = 0.0
     cum_position_loss = 0.0
     cum_rotation_loss = 0.0
@@ -34,6 +33,7 @@ def run_epoch(network, velocity_network, optimizer, trainLoader, gpu, position_l
     cum_taylor_loss_2 = 0.0
     batch_size = trainLoader.batch_size
     num_samples=0.0
+    loss = torch.zeros(1)
     if use_tqdm:
         t = tqdm(enumerate(trainLoader), total=len(trainLoader))
     else:
@@ -54,7 +54,7 @@ def run_epoch(network, velocity_network, optimizer, trainLoader, gpu, position_l
             plt.show()
             print(position_torch)
             print(rotation_torch)
-        if use_optflow:
+        if network.input_channels==5:
             image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
         if use_float:
             image_torch = image_torch.float()
@@ -90,35 +90,14 @@ def run_epoch(network, velocity_network, optimizer, trainLoader, gpu, position_l
         if(positions_labels_nan):
             print(position_torch)
             raise ValueError("Position label has a NaN!!!")
-      #  print(image_torch.dtype)
-        # Forward pass:
+        
         position_predictions, rotation_predictions = network(image_torch)
         linear_velocity_predictions, angular_velocity_predictions = velocity_network(image_torch)
 
+        rotation_loss_ = rotation_loss(rotation_predictions, rotation_torch)
+        position_loss_ = position_loss(position_predictions, position_torch)
         linear_loss = position_loss(linear_velocity_predictions, linear_velocity_torch)
         angular_loss = position_loss(angular_velocity_predictions, angular_velocity_torch)
-
-        positions_nan = torch.sum(position_predictions!=position_predictions)!=0
-        rotation_nan = torch.sum(rotation_predictions!=rotation_predictions)!=0
-        if(positions_nan):
-            print(position_predictions)
-            raise ValueError("Position prediction has a NaN!!!")
-        if(rotation_nan):
-            print(rotation_predictions)
-            raise ValueError("Rotation prediction has a NaN!!!")
-        #print("Output shape: ", outputs.shape)
-        #print("Label shape: ", labels.shape)
-        rotation_loss_ = rotation_loss(rotation_predictions, rotation_torch)
-        rotation_loss_nan = torch.sum(rotation_loss_!=rotation_loss_)!=0
-        if(rotation_loss_nan):
-            print(rotation_loss_)
-            raise ValueError("rotation_loss has a NaN!!!")
-        position_loss_ = position_loss(position_predictions, position_torch)
-        position_loss_nan = torch.sum(position_loss_!=position_loss_)!=0
-        if(position_loss_nan):
-            print(position_loss_)
-            raise ValueError("position_loss has a NaN!!!")
-        
         taylor_loss_1 = taylor_loss(position_predictions, linear_velocity_torch, session_time_torch)
         taylor_loss_2 = taylor_loss(position_torch, linear_velocity_predictions, session_time_torch)
 
@@ -126,18 +105,14 @@ def run_epoch(network, velocity_network, optimizer, trainLoader, gpu, position_l
             loss_weights[2]*linear_loss + loss_weights[3]*angular_loss + \
             loss_weights[4]*taylor_loss_1 + loss_weights[5]*taylor_loss_2
         loss_nan = torch.sum(loss!=loss)!=0
-        if(positions_nan):
+        if(loss_nan):
             print(loss)
             raise ValueError("loss has a NaN!!!")
-
-
         # Backward pass:
         optimizer.zero_grad()
         loss.backward() 
-
         # Weight and bias updates.
         optimizer.step()
-
         if use_tqdm:
             # logging information
             cum_loss += float(loss.item())
@@ -191,29 +166,22 @@ def go():
 
     net = models.AdmiralNetPosePredictor(context_length = context_length, sequence_length = sequence_length,\
         hidden_dim=hidden_dimension, input_channels=input_channels, temporal_conv_feature_factor = temporal_conv_feature_factor, \
-            learnable_initial_state =learnable_initial_state) 
+            learnable_initial_state =learnable_initial_state)
+    models = NN.ModuleList([net,velocity_network])
     position_loss = torch.nn.MSELoss(reduction=position_loss_reduction)
     rotation_loss = loss_functions.QuaternionDistance()
     taylor_loss = loss_functions.TaylorSeriesLinear(reduction=position_loss_reduction)
+    losses = NN.ModuleList([position_loss,rotation_loss,taylor_loss])
     if use_float:
-        net = net.float()
-        position_loss = position_loss.float()
-        rotation_loss = rotation_loss.float()
-        taylor_loss = taylor_loss.float()
-        velocity_network = velocity_network.float()
+        models = models.float()
+        losses = losses.float()
     else:
-        net = net.double()
-        position_loss = position_loss.double()
-        rotation_loss = rotation_loss.double()
-        taylor_loss = taylor_loss.double()
-        velocity_network = velocity_network.double()
+        models = models.double()
+        losses = losses.double()
     if gpu>=0:
-        rotation_loss = rotation_loss.cuda(gpu)
-        position_loss = position_loss.cuda(gpu)
-        taylor_loss = taylor_loss.cuda(gpu)
-        net = net.cuda(gpu)
-        velocity_network = velocity_network.cuda(gpu)
-    optimizer = optim.SGD(list(net.parameters()) + list(velocity_network.parameters()), lr = learning_rate, momentum=momentum)
+        models = models.cuda(gpu)
+        losses = losses.cuda(gpu)
+    optimizer = optim.SGD(models.parameters(), lr = learning_rate, momentum = momentum, dampening=0.001, nesterov=True)
     netpostfix = "epoch_%d_params.pt"
     velocitynetpostfix = "epoch_%d_velocity_params.pt"
     optimizerpostfix = "epoch_%d_optimizer.pt"

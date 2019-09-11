@@ -32,7 +32,7 @@ public:
     cartelemetryThreads = 2;
     carstatusThreads = 2;
     write_json=false;
-    sleeptime=100;
+    sleeptime=200;
     udp_directory="udp_data";
   }
   uint32_t motionThreads;

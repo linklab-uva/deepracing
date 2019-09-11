@@ -96,12 +96,15 @@ class PoseSequenceLabelLMDBWrapper():
             del self.env
             time.sleep(1)
             self.readDatabase(path, mapsize=mapsize, max_spare_txns=self.spare_txns)
-    def readDatabase(self, db_path : str, mapsize=1e10, max_spare_txns=1):
+    def readDatabase(self, db_path : str, mapsize=1e10, max_spare_txns=16, readonly=True):
         if not os.path.isdir(db_path):
             raise IOError("Path " + db_path + " is not a directory")
         self.spare_txns = max_spare_txns
-        self.env = lmdb.open(db_path, map_size=mapsize, readonly=True, max_spare_txns=max_spare_txns)#, lock=False)
+        self.env = lmdb.open(db_path, map_size=int(round(mapsize)), readonly=readonly, max_spare_txns=max_spare_txns)
         self.env.reader_check()
+    def writePoseSequenceLabel(self, key, entry):
+        with self.env.begin(write=True) as txn:
+            txn.put(key.encode( self.encoding ),entry.SerializeToString())
     def getPoseSequenceLabel(self, key):
         rtn = PoseSequenceLabel_pb2.PoseSequenceLabel()
         with self.env.begin(write=False) as txn:

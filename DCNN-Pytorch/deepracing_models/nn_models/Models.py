@@ -11,11 +11,13 @@ class ResNetAdapter(nn.Module):
     def __init__(self, output_dimension = 1, pretrained = True):
         super(ResNetAdapter, self).__init__()
         resnet_model = visionmodels.resnet152(pretrained = pretrained)
+        self.activation = nn.Tanh()
         self.features = nn.Sequential(*list(resnet_model.children())[:-2])
         self.classifier = nn.Sequential(*[nn.Linear(43008, 2048),\
+                        self.activation,\
                         nn.Linear(2048, 1024),\
-                        nn.Linear(1024, 128),\
-                        nn.Linear(128, output_dimension)])
+                        self.activation,\
+                        nn.Linear(1024, output_dimension)])
     def forward(self, x):
         x = self.features(x)
         x = x.view(x.size(0), -1)
@@ -54,85 +56,7 @@ class PilotNet(nn.Module):
         #out = out.unsqueeze(2)
         #print(out.size())
         return out
-class CommandantNet(nn.Module):
-    def __init__(self, sequence_length=25, context_length = 25, hidden_dim = 100, use_float32 = False, gpu = -1, optical_flow = False):
-        super(CommandantNet, self).__init__()
-        self.gpu=gpu
-        self.use_float32=use_float32
-        # Convolutional layers.
-        self.output_size = 1
-        if optical_flow:
-            self.input_channels = 2
-        else:
-            self.input_channels = 3
-        self.conv1 = nn.Conv2d(self.input_channels, 12, kernel_size=5, stride=2)
-        self.conv2 = nn.Conv2d(12, 24, kernel_size=3, stride=2)
-        self.conv3 = nn.Conv2d(24, 36, kernel_size=3)
-        self.pool1 = nn.MaxPool2d(3,3)
-        self.conv4 = nn.Conv2d(36, 36, kernel_size=3)
-        self.conv5 = nn.Conv2d(36, 24, kernel_size=3)
-        self.conv6 = nn.Conv2d(24, 12, kernel_size=3)
-        self.pool2 = nn.MaxPool2d(2,2)
-        #batch norm layers
-        self.Norm_1 = nn.BatchNorm2d(12)
-        self.Norm_2 = nn.BatchNorm2d(24)
-        self.Norm_3 = nn.BatchNorm2d(36) 
-        self.Norm_4 = nn.BatchNorm2d(36)
-        self.Norm_5 = nn.BatchNorm2d(24)
-        
-        #recurrent layers
-        self.hidden_dim = hidden_dim
-        self.sequence_length=sequence_length
-        self.context_length = context_length
-        self.feature_length = 157
-        
-        self.lstm = nn.LSTM(self.feature_length, hidden_dim, batch_first = True)
 
-        # Linear layers.
-        self.prediction_layer = nn.Linear(hidden_dim, self.output_size)
-    
-        #activations
-        self.relu = nn.ReLU()
-
-    def forward(self, x, previous_control):
-        #resize for convolutional layers
-        batch_size = x.shape[0]
-        x = x.view(-1, self.input_channels, 125,400) 
-        x = self.conv1(x)
-        x = self.Norm_1(x)
-        x = self.relu(x)
-        x = self.conv2(x)
-        x = self.Norm_2(x)
-        x = self.relu(x)
-        x = self.conv3(x)
-        x = self.Norm_3(x)
-        x = self.relu(x)
-        x = self.pool1(x)
-
-        x = self.conv4(x)
-        x = self.Norm_4(x)
-        x = self.relu(x)
-        x = self.conv5(x)
-        x = self.Norm_5(x)
-        x = self.relu(x)
-        x = self.conv6(x)
-        x = self.relu(x)
-        x = self.pool2(x)
-
-        # Unpack for the LSTM.
-        x = x.view(batch_size, self.context_length, self.feature_length-1) 
-        x = torch.cat((x,previous_control),2)
-        x, init_hidden = self.lstm(x) 
-        if(self.use_float32):
-            zeros = torch.zeros([batch_size, self.sequence_length, self.feature_length], dtype=torch.float32)
-                
-        else:
-            zeros = torch.zeros([batch_size, self.sequence_length, self.feature_length], dtype=torch.float64)
-        if(self.gpu>=0):
-            zeros = zeros.cuda(self.gpu)
-        x, final_hidden = self.lstm(zeros, init_hidden)
-        predictions = self.prediction_layer(x)
-        return predictions
 class CNNLSTM(nn.Module):
     def __init__(self, input_channels=3, output_dimension = 3, context_length=5, sequence_length=1, hidden_dim = 100):
         super(CNNLSTM, self).__init__()
@@ -222,7 +146,6 @@ class AdmiralNetVelocityPredictor(nn.Module):
         #self.input_channels = 5
         self.input_channels = input_channels
         # Convolutional layers.
-
         self.conv1 = nn.Conv2d(self.input_channels, 24, kernel_size=5, stride=2)
         self.conv2 = nn.Conv2d(24, 36, kernel_size=5, stride=2)
         self.conv3 = nn.Conv2d(36, 48, kernel_size=5, stride=2)
@@ -353,9 +276,8 @@ class AdmiralNetVelocityPredictor(nn.Module):
         return position_predictions, rotation_predictions
 
 class AdmiralNetPosePredictor(nn.Module):
-    def __init__(self, cell='lstm', input_channels=3, sequence_length=10, context_length = 15, \
-                 hidden_dim = 100, num_recurrent_layers = 1, temporal_conv_feature_factor = 1, \
-                     learnable_initial_state=False):
+    def __init__(self,input_channels=3, sequence_length=10, context_length = 15, hidden_dim = 100, \
+                 num_recurrent_layers = 1, learnable_initial_state=False, ResNet=False):
         super(AdmiralNetPosePredictor, self).__init__()
         self.imsize = (66,200)
         #self.input_channels = 5
@@ -380,11 +302,13 @@ class AdmiralNetPosePredictor(nn.Module):
         self.hidden_dim = hidden_dim
         self.sequence_length = sequence_length
         self.context_length = context_length
+        self.num_recurrent_layers = num_recurrent_layers
 
         #projection encoder
         self.conv3d1 = nn.Conv3d(input_channels, 10, kernel_size=(5,3,3), stride = (1,2,2), padding=(2,0,0) )
         self.conv3d2 = nn.Conv3d(10, 20, kernel_size=(5,3,3), stride = (1,2,2), padding=(2,0,0))
         self.conv3d3 = nn.Conv3d(20, 40, kernel_size=(3,3,3), stride = (1,2,2), padding=(1,0,0))
+        temporal_conv_feature_factor = np.ceil(80/self.sequence_length)
         final_3d_conv_channels = temporal_conv_feature_factor*self.sequence_length
         self.conv3d4 = nn.Conv3d(40, final_3d_conv_channels, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,0,0))
         self.projection_features = temporal_conv_feature_factor * self.context_length * 5 * 22
@@ -400,11 +324,11 @@ class AdmiralNetPosePredictor(nn.Module):
         self.position_rnn = nn.LSTM(self.feature_length, hidden_dim, batch_first = True, num_layers = num_recurrent_layers)
         self.rotation_rnn = nn.LSTM(self.feature_length, hidden_dim, batch_first = True, num_layers = num_recurrent_layers)
 
-        self.position_rnn_init_hidden = torch.nn.Parameter(torch.normal(0, 1, size=(1,self.hidden_dim)), requires_grad=learnable_initial_state)
-        self.position_rnn_init_cell = torch.nn.Parameter(torch.normal(0, 1, size=(1,self.hidden_dim)), requires_grad=learnable_initial_state)
+        self.position_rnn_init_hidden = torch.nn.Parameter(torch.normal(0, 1, size=(self.num_recurrent_layers,self.hidden_dim)), requires_grad=learnable_initial_state)
+        self.position_rnn_init_cell = torch.nn.Parameter(torch.normal(0, 1, size=(self.num_recurrent_layers,self.hidden_dim)), requires_grad=learnable_initial_state)
 
-        self.rotation_rnn_init_hidden = torch.nn.Parameter(torch.normal(0, 1, size=(1,self.hidden_dim)), requires_grad=learnable_initial_state)
-        self.rotation_rnn_init_cell = torch.nn.Parameter(torch.normal(0, 1, size=(1,self.hidden_dim)), requires_grad=learnable_initial_state)
+        self.rotation_rnn_init_hidden = torch.nn.Parameter(torch.normal(0, 1, size=(self.num_recurrent_layers,self.hidden_dim)), requires_grad=learnable_initial_state)
+        self.rotation_rnn_init_cell = torch.nn.Parameter(torch.normal(0, 1, size=(self.num_recurrent_layers,self.hidden_dim)), requires_grad=learnable_initial_state)
     
         # Linear layers.
         self.position_prediction_layer1 = nn.Linear(hidden_dim, int(round(hidden_dim/2)))
