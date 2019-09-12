@@ -16,6 +16,7 @@
 #include <google/protobuf/util/json_util.h>
 #include <fstream>
 #include "f1_datalogger/udp_logging/utils/udp_stream_utils.h"
+#include "f1_datalogger/proto/TimestampedPacketMotionData.pb.h"
 #include <boost/asio.hpp>
 
 namespace scl = SL::Screen_Capture;
@@ -54,10 +55,13 @@ public:
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketMotionData& data) override
   {
     ready_ = false;
-    deepf1::twenty_eighteen::protobuf::PacketMotionData data_pb = deepf1::twenty_eighteen::TwentyEighteenUDPStreamUtils::toProto(data.data);
-    size_t num_bytes = data_pb.ByteSize();
+    deepf1::twenty_eighteen::protobuf::TimestampedPacketMotionData timestamped_packet_pb;
+    timestamped_packet_pb.mutable_udp_packet()->CopyFrom(deepf1::twenty_eighteen::TwentyEighteenUDPStreamUtils::toProto(data.data));
+    std::chrono::duration<double, std::milli> dt = data.timestamp - begin;
+    timestamped_packet_pb.set_timestamp(dt.count());
+    size_t num_bytes = timestamped_packet_pb.ByteSize();
     std::unique_ptr<char[]> buffer(new char[num_bytes]);
-    data_pb.SerializeToArray(buffer.get(),num_bytes);
+    timestamped_packet_pb.SerializeToArray(buffer.get(),num_bytes);
     boost::system::error_code error;
     size_t len = socket.send_to(boost::asio::buffer(buffer.get(),num_bytes), receiver_endpoint);
     //std::cout << "Sent motion packet of " << len << " bytes." << std::endl;

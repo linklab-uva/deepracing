@@ -3,6 +3,7 @@ import DeepF1_RPC_pb2
 import Image_pb2
 import ChannelOrder_pb2
 import PacketMotionData_pb2
+import TimestampedPacketMotionData_pb2
 import grpc
 import cv2
 import numpy as np
@@ -38,6 +39,8 @@ import scipy.spatial
 import bisect
 import traceback
 import sys
+import queue
+import google.protobuf.json_format
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 current_motion_data = None
 N_error = 100
@@ -48,7 +51,7 @@ speed = 0.0
 running = True
 velsetpoint = 0.0
 sock = None
-def velocityControl(pgain, igain):
+def velocityControl(pgain, igain, setpoint_queue : list, actual_queue : list):
     global velsetpoint, error_ring_buffer, throttle_out, dt, speed, running
     ierr_max = 50.0
     while running:
@@ -56,6 +59,9 @@ def velocityControl(pgain, igain):
             continue
         vel = deepracing.pose_utils.extractVelocity(current_motion_data,0)
         speed = la.norm(vel)
+        if (setpoint_queue is not None) and (actual_queue is not None):
+            setpoint_queue.append(velsetpoint)
+            actual_queue.append(speed)
         perr = velsetpoint - speed
         #print("Current vel error: %f" %(perr))
         error_ring_buffer.append(perr)
@@ -77,19 +83,39 @@ def velocityControl(pgain, igain):
             throttle_out = out
         time.sleep(dt)
     #return 'Done'
-def listenForMotionPackets(address, port):
+
+def writeMotionPackets(packet_queue : queue.Queue, logdir : str):
+    global running
+    counter = 1
+    while running or (not packet_queue.empty()):
+        if(packet_queue.empty()):
+            continue
+        packet = packet_queue.get(block=False)
+        with open(os.path.join(logdir,"packet_"+str(counter)+".json"), "w") as f:
+            json_string = google.protobuf.json_format.MessageToJson(packet, including_default_value_fields=True, indent=0)
+            #f.write(packet.SerializeToString())
+            f.write(json_string)
+            counter = counter + 1
+def listenForMotionPackets(address, port, packet_queue : queue.Queue):
     global running, sock, current_motion_data
+    current_packet = TimestampedPacketMotionData_pb2.TimestampedPacketMotionData()
+    prev_packet = TimestampedPacketMotionData_pb2.TimestampedPacketMotionData()
     current_motion_data = PacketMotionData_pb2.PacketMotionData()
     try:
         UDP_IP = address
         UDP_PORT = port
-        sock = socket.socket(socket.AF_INET, # Internet
-                            socket.SOCK_DGRAM) # UDP
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind((UDP_IP, UDP_PORT))
         while running:
            # print("waiting for data:")
             data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
-            current_motion_data.ParseFromString(data)
+            current_packet.ParseFromString(data)
+            if (prev_packet is not None) and (current_packet.udp_packet.m_header.m_sessionTime==prev_packet.udp_packet.m_header.m_sessionTime):
+                continue
+            current_motion_data = current_packet.udp_packet
+            if packet_queue is not None:
+                packet_queue.put(current_packet)
+            prev_packet.CopyFrom(current_packet)
             #print("received message:", current_motion_data)
     except:
         return
@@ -99,21 +125,32 @@ def serve():
     parser.add_argument('address', type=str)
     parser.add_argument('port', type=int)
     parser.add_argument('trackfile', type=str)
-    parser.add_argument('--max_velocity', type=float, default=175.0, required=False)
-    parser.add_argument('--lookahead_time', type=float, default=3.0, required=False)
+    parser.add_argument('--lookahead_time', type=float, default=2.5, required=False)
     parser.add_argument('--lookahead_gain', type=float, default=0.3, required=False)
     parser.add_argument('--velocity_lookahead_gain', type=float, default=1.5, required=False)
     parser.add_argument('--pgain', type=float, default=0.5, required=False)
     parser.add_argument('--igain', type=float, default=0.5, required=False)
     parser.add_argument('--vmax', type=float, default=175.0, required=False)
+    parser.add_argument('--logdir', type=str, default=None, required=False)
+    parser.add_argument('--usesplines', action="store_true")
     args = parser.parse_args()
     address = args.address
     port = args.port
     trackfile = args.trackfile
     lookahead_time = args.lookahead_time
-    data_thread = threading.Thread(target=listenForMotionPackets, args=(address, port))
+    logdir = args.logdir
+    packet_queue = None
+    if (logdir is not None):
+        packet_queue = queue.Queue()
+        os.makedirs(logdir,exist_ok=True)
+        logging_thread = threading.Thread(target=writeMotionPackets, args=(packet_queue, logdir))
+        logging_thread.start()
+    
+    data_thread = threading.Thread(target=listenForMotionPackets, args=(address, port, packet_queue))
     data_thread.start()
-    vel_control_thread = threading.Thread(target=velocityControl, args=(args.pgain, args.igain))
+    setpoint_queue = []
+    actual_queue  = []
+    vel_control_thread = threading.Thread(target=velocityControl, args=(args.pgain, args.igain, setpoint_queue , actual_queue))
     vel_control_thread.start()
     # inp = input("Enter anything to continue\n")
     # time.sleep(2.0)
@@ -130,13 +167,14 @@ def serve():
     vmax = args.vmax/2.237
     velsetpoint = vmax
     t, x, xdot = deepracing.loadArmaFile(trackfile)
-    kdtree = scipy.spatial.KDTree(x)
     print(t.shape)
     print(x.shape)
     print(xdot.shape)
     print(x)
     #t_centered = (t-t[0]).copy()
     xaugmented = np.concatenate((x.copy(),np.ones((x.shape[0],1))), axis=1).transpose()
+    deltazmat = np.eye(4)
+    deltazmat[2,3] = -L_/2
     try:
         smin = .075
         while running:
@@ -144,39 +182,46 @@ def serve():
                 continue
             motion_data = current_motion_data.m_carMotionData[0]
             current_pos, current_quat = deepracing.pose_utils.extractPose(current_motion_data)
-            current_transform = deepracing.pose_utils.toHomogenousTransform(current_pos, current_quat)
-            current_transform_inv = la.inv( current_transform )
+            current_transform = np.matmul(deepracing.pose_utils.toHomogenousTransform(current_pos, current_quat), deltazmat)
+            current_transform_inv = deepracing.pose_utils.inverseTransform(current_transform)
             x_local_augmented = np.matmul(current_transform_inv,xaugmented).transpose()
             x_local = x_local_augmented[:,0:3]
-            #pquery = current_pos
-            #pquery = pquery-(L_/2)*forward
-            #nearest_distances, nearest_indices = kdtree.query([pquery])
-            #deltas = x-pquery
+            v_local = np.matmul(current_transform_inv[0:3,0:3],xdot.transpose()).transpose()
+           
             distances = la.norm(x_local, axis=1)
             closest_index = np.argmin(distances)
             closest_point = x_local[closest_index]
+            closest_velocity = v_local[closest_index]
+            velsetpoint = la.norm(closest_velocity)
             closest_t = t[closest_index]
             x_local_forward = x_local[closest_index:]
-            # i_splinestart = closest_index
-            # i_splineend = bisect.bisect_left(t,closest_t+lookahead_time)
-            # tfit = t[i_splinestart:i_splineend]
-            # if len(tfit)==0:
-            #     continue
-            # sfit = (tfit-tfit[0])/(tfit[-1]-tfit[0])
-            # xfit = x[i_splinestart:i_splineend]
-            # s = max(smin, lookahead_gain*(speed/vmax))
-            # if(s>1.0):
-            #     s=1.0
-            #print(sfit)
-           # print(s)
-           # xspline = scipy.interpolate.interp1d(sfit,xfit, axis=0, kind='linear')
-            lookahead_distance = lookahead_gain*speed
-            distances_forward = la.norm(x_local_forward, axis=1)
-            lookahead_index = np.argmin(np.abs(distances_forward-lookahead_distance))
-            lookaheadVector = x_local_forward[lookahead_index]
-            
+            t_forward = t[closest_index:]
+            if args.usesplines:
+                imax = bisect.bisect_left(t_forward,t_forward[0]+lookahead_time)
+                tfit = t_forward[:imax]
+                #print(tfit)
+                if len(tfit)==0:
+                    continue
+                deltaT = (tfit[-1]-tfit[0])
+                if deltaT<0.125:
+                    continue
+                sfit = (tfit-tfit[0])/deltaT
+                xfit = x_local_forward[:imax]
+                # print(sfit)
+                # print(s)
+                xspline = scipy.interpolate.interp1d(sfit,xfit, axis=0, kind='cubic')
+                s = max(smin, lookahead_gain*(speed/vmax))
+                if(s>1.0):
+                    s=1.0
+                lookaheadVector = xspline(s)
+            else:
+                lookahead_distance = lookahead_gain*speed
+                distances_forward = la.norm(x_local_forward, axis=1)
+                lookahead_index = np.argmin(np.abs(distances_forward-lookahead_distance))
+                lookaheadVector = x_local_forward[lookahead_index]
+
+
             lookaheadVector[1]=0.0
-            lookaheadVector[2]+=L_/2
             D = la.norm(lookaheadVector)
             lookaheadVector = lookaheadVector/D
             # print()
@@ -202,26 +247,15 @@ def serve():
                 controller.setControl(delta,throttle_out,0.0)
             else:
                 controller.setControl(delta,0.0,-throttle_out)
-            x_vel = np.ones(3)
             
-            lookahead_distance_vel = lookahead_gain_vel*speed
-            lookahead_index_vel = np.argmin(np.abs(distances_forward-lookahead_distance_vel))
-            lookaheadVectorVel = x_local_forward[lookahead_index_vel]
-            lookaheadVectorVel = lookaheadVector
-            alphavel = np.abs(np.arccos(np.dot(lookaheadVectorVel,np.array((0.0,0.0,1.0)))))
             
-            velsetpoint = max(vmax*((1.0-(alphavel/1.57))**7), 25)
-            if lookaheadVector[0]<0.0:
-                alpha *= -1.0
             time.sleep(0.015)
             
     except KeyboardInterrupt as e:
-     #   global running, sock
         controller.setControl(0.0,0.0,0.0)
         running = False
         sock.close()
         time.sleep(0.25)
-        exit(0)        
     except Exception as e:
     #    global running, sock
         print(e)
@@ -231,8 +265,15 @@ def serve():
         sock.close()
         time.sleep(0.25)
         exit(0)
-        
-  
+    
+    if (packet_queue is not None):
+        print("Flushing %d more packets to disk." %(packet_queue.qsize()))
+        while( not packet_queue.empty()):
+            time.sleep(1)
+    if (setpoint_queue is not None) and (actual_queue is not None):
+        with open("setpoint_vels.txt","w") as f:
+            strings = [str(setpoint_queue[i])+","+str(actual_queue[i])+"\n" for i in range(len(setpoint_queue))]
+            f.writelines(strings)
 if __name__ == '__main__':
     logging.basicConfig()
     serve()

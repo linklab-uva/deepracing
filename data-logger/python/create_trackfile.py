@@ -33,13 +33,17 @@ motion_data_dir = args.motion_data_dir
 use_json = args.json 
 trackfileout = args.trackfileout
 motion_packets = sorted(pose_utils.getAllMotionPackets(motion_data_dir, args.json), key=sortKey)
-t =  np.array([sortKey(p) for p in motion_packets])
+#print(motion_packets)
 
 car_index = 0
 poses = [ pose_utils.extractPose(p.udp_packet, car_index = car_index) for p in motion_packets]
+t =  np.array([sortKey(p) for p in motion_packets])
 X = np.array([ pose[0] for pose in poses])
 Xdot = np.array([pose_utils.extractVelocity(p.udp_packet, car_index = car_index) for p in motion_packets])
-
+_,unique_indices = np.unique(t,return_index=True)
+t = t[unique_indices]
+X = X[unique_indices]
+Xdot = Xdot[unique_indices]
 
 Xdotnorm = Xdot.copy()
 for i in range(Xdotnorm.shape[0]):
@@ -55,12 +59,5 @@ ax.set_ylabel('Y Label')
 ax.set_zlabel('Z Label')
 plt.show()
 
-matout = np.hstack((np.array([t]).transpose(),X,Xdot))
-with open(trackfileout,"w") as f:
-    headerstring = "ARMA_MAT_TXT_FN008\n" + \
-                    str(t.shape[0]) + " " + str(matout.shape[1])
-    f.write(headerstring)
-dirname = os.path.dirname(trackfileout)
-if (dirname is not "") and ( not os.path.isdir(dirname) ):
-    os.makedirs(dirname)
-np.savetxt(open(trackfileout,"a"), matout, delimiter="\t", comments="")
+
+deepracing.writeArmaFile(trackfileout,t,X,Xdot)
