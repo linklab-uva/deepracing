@@ -106,8 +106,8 @@ kernel='gaussian'
 kdevel = KernelDensity(kernel=kernel, bandwidth=0.25).fit(speed_diffs.reshape(-1, 1))
 log_densvel = kdevel.score_samples(kdevelxplot)
 pdfvel = np.exp(log_densvel)
-axkdevel.plot(kdevelxplot[:,0], pdf, '-', label="kernel = '{0}'".format(kernel))
-axkdevel.set_xlabel("Minimum distance to reference raceline")
+axkdevel.plot(kdevelxplot[:,0], pdfvel, '-', label="kernel = '{0}'".format(kernel))
+axkdevel.set_xlabel("Difference in speed at closest point in reference raceline")
 axkdevel.set_ylabel("Probability Density")
 
 
