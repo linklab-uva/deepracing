@@ -60,7 +60,7 @@ public:
     data_pb.SerializeToArray(buffer.get(),num_bytes);
     boost::system::error_code error;
     size_t len = socket.send_to(boost::asio::buffer(buffer.get(),num_bytes), receiver_endpoint);
-    std::cout << "Sent motion packet of " << len << " bytes." << std::endl;
+    //std::cout << "Sent motion packet of " << len << " bytes." << std::endl;
     ready_ = true;
     
   }
@@ -121,7 +121,7 @@ public:
       boost::system::error_code error;
      // std::cout << "Sending image" << std::endl;
       size_t len = socket.send_to(boost::asio::buffer(buffer.get(),num_bytes), receiver_endpoint);
-      std::cout << "Sent image of " << len << " bytes." << std::endl;
+      //std::cout << "Sent image of " << len << " bytes." << std::endl;
       ready = true;
      // ready = false;
     }

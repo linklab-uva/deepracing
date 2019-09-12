@@ -42,6 +42,7 @@ t = dt*np.linspace(0,9,10)
 speed = 0.0
 running = True
 velsetpoint = 0.0
+sock = None
 def velocityControl(pgain, igain):
     global error_ring_buffer, throttle_out, dt, t, speed, running
     while running:
@@ -69,14 +70,21 @@ def velocityControl(pgain, igain):
         time.sleep(1.5*dt)
     #return 'Done'
 def listenForMotionPackets(address, port):
-    UDP_IP = address
-    UDP_PORT = port
-    sock = socket.socket(socket.AF_INET, # Internet
-                        socket.SOCK_DGRAM) # UDP
-    sock.bind((UDP_IP, UDP_PORT))
-    while running:
-        data, addr = sock.recvfrom(944) # buffer size is 944 bytes
-        print("received message:", data)
+    global running, sock, current_motion_data
+    current_motion_data = PacketMotionData_pb2.PacketMotionData()
+    try:
+        UDP_IP = address
+        UDP_PORT = port
+        sock = socket.socket(socket.AF_INET, # Internet
+                            socket.SOCK_DGRAM) # UDP
+        sock.bind((UDP_IP, UDP_PORT))
+        while running:
+            print("waiting for data:")
+            data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
+            current_motion_data.ParseFromString(data)
+            print("received message:", current_motion_data)
+    except:
+        return
 def serve():
     global velsetpoint 
     parser = argparse.ArgumentParser(description='Image server.')
@@ -90,33 +98,26 @@ def serve():
     address = args.address
     port = args.port
     trackfile = args.trackfile
-    vmax = 175.0/2.237
-    velsetpoint = vmax
-    inp = input("Enter anything to continue\n")
-    time.sleep(2.0)
+    data_thread = threading.Thread(target=listenForMotionPackets, args=(address, port))
+    data_thread.start()
+    # inp = input("Enter anything to continue\n")
+    # time.sleep(2.0)
+    # vel_control_thread = threading.Thread(target=velocityControl, args=(1.0, 1E-5))
+    # vel_control_thread.start()
     # vel_control_thread = threading.Thread(target=velocityControl, args=(1.0, 1E-5))
     # vel_control_thread.start()
     
-    lookahead_indices = sequence_length
     controller = py_f1_interface.F1Interface(1)
     controller.setControl(0.0,0.0,0.0)
     L_ = 3.629
     lookahead_gain = 0.3
     lookahead_gain_vel = 1.25
+    vmax = 175.0/2.237
+    velsetpoint = vmax
     try:
-        cv2.namedWindow("imrecv", cv2.WINDOW_AUTOSIZE)
-        net = net.eval()
-        mask = 0.05*torch.ones(sequence_length,3).double()
-        input_torch = torch.zeros(1,context_length,net.input_channels,image_size[0],image_size[1]).double()
-        input_torch.requires_grad=False
-        t_interp = np.linspace(0,1.0,lookahead_indices)
-        if gpu>=0:
-            input_torch = input_torch.cuda(gpu)
-            mask = mask.cuda(gpu)
         smin = .15
         while True:
             global throttle_out
-            pass
             # D = la.norm(looakhead_point)
             # Dvel = la.norm(looakhead_point_vel)
             # lookaheadVector = looakhead_point/D
@@ -126,11 +127,14 @@ def serve():
             # velsetpoint = max(vmax*((1.0-(alphavel/1.57))**1), 25)
             # if lookaheadVector[0]<0.0:
             #     alpha *= -1.0
+            time.sleep(0.01)
             
-    except Exception as e:
-        global running
+    except KeyboardInterrupt as e:
+        global running, sock
         controller.setControl(0.0,0.0,0.0)
         running = False
+        sock.close()
+        #time.sleep(1)
         exit(0)
   
 if __name__ == '__main__':
