@@ -35,8 +35,8 @@ if(MSVC AND BUILD_SHARED_LIBS)
             PROPERTIES
             COMPILE_DEFINITIONS PROTOBUF_USE_DLLS=1)
 endif()
-target_include_directories(${PROJECT_NAME}_proto PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(${PROJECT_NAME}_proto ${Protobuf_LIBRARIES} gRPC::grpc++ gRPC::grpc gRPC::gpr gRPC::grpc++_unsecure gRPC::grpc++_reflection)
+target_include_directories(${PROJECT_NAME}_proto PRIVATE ${ProtobufIncludePath} ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(${PROJECT_NAME}_proto protobuf::libprotoc protobuf::libprotobuf gRPC::grpc++ gRPC::grpc gRPC::gpr gRPC::grpc++_unsecure gRPC::grpc++_reflection)
 grpc_generate_py(GRPC_PY_SRCS ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR} ${PROJECT_NAME}_proto ${GRPC_PROTOFILES})
 message(STATUS "Generated python gRPC files: ${GRPC_PY_SRCS}")
 
