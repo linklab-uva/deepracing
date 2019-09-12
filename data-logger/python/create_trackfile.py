@@ -56,9 +56,11 @@ ax.set_zlabel('Z Label')
 plt.show()
 
 matout = np.hstack((np.array([t]).transpose(),X,Xdot))
-headerstring = "ARMA_MAT_TXT_FN008\n" + \
-                str(matout.shape[0]) + " " + str(matout.shape[1])
+with open(trackfileout,"w") as f:
+    headerstring = "ARMA_MAT_TXT_FN008\n" + \
+                    str(t.shape[0]) + " " + str(matout.shape[1])
+    f.write(headerstring)
 dirname = os.path.dirname(trackfileout)
-if not os.path.isdir(dirname):
+if (dirname is not "") and ( not os.path.isdir(dirname) ):
     os.makedirs(dirname)
-np.savetxt(open(trackfileout,"w"), matout, delimiter="\t", header=headerstring, comments="")
+np.savetxt(open(trackfileout,"a"), matout, delimiter="\t", comments="")
