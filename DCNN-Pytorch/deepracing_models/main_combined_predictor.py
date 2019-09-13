@@ -23,10 +23,9 @@ import imageio
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
-def run_epoch(network, velocity_network, optimizer, trainLoader, gpu, position_loss, taylor_loss, loss_weights=[1.0, 1.0, 1.0, 1.0], imsize=(66,200), debug=False, use_tqdm=True, use_float=True):
+def run_epoch(network, velocity_network, optimizer, trainLoader, gpu, kinematic_loss, taylor_loss, loss_weights=[1.0, 1.0, 1.0, 1.0], imsize=(66,200), debug=False, use_tqdm=True, use_float=True):
     cum_loss = 0.0
     cum_position_loss = 0.0
-    cum_rotation_loss = 0.0
     cum_linear_loss = 0.0
     cum_angular_loss = 0.0
     cum_taylor_loss_1 = 0.0
@@ -83,12 +82,12 @@ def run_epoch(network, velocity_network, optimizer, trainLoader, gpu, position_l
         position_predictions = network(image_torch)
         linear_velocity_predictions = velocity_network(image_torch)
 
-        position_loss_ = position_loss(position_predictions, position_torch)
-        linear_loss = position_loss(linear_velocity_predictions, linear_velocity_torch)
+        position_loss = kinematic_loss(position_predictions, position_torch)
+        linear_loss = kinematic_loss(linear_velocity_predictions, linear_velocity_torch)
         taylor_loss_1 = taylor_loss(position_predictions, linear_velocity_torch, session_time_torch)
         taylor_loss_2 = taylor_loss(position_torch, linear_velocity_predictions, session_time_torch)
 
-        loss = loss_weights[0]*position_loss_ + loss_weights[1]*rotation_loss_ + \
+        loss = loss_weights[0]*position_loss + loss_weights[1]*linear_loss + \
             loss_weights[2]*taylor_loss_1 + loss_weights[3]*taylor_loss_2
         loss_nan = torch.sum(loss!=loss)!=0
         if(loss_nan):
