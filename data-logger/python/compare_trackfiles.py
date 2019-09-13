@@ -96,7 +96,7 @@ kde = KernelDensity(kernel=kernel, bandwidth=0.25).fit(distances.reshape(-1, 1))
 log_dens = kde.score_samples(kdexplot)
 pdf = np.exp(log_dens)
 axkde.plot(kdexplot[:,0], pdf, '-', label="kernel = '{0}'".format(kernel))
-axkde.set_xlabel("Minimum distance to reference raceline")
+axkde.set_xlabel("Minimum distance (m) to reference raceline")
 axkde.set_ylabel("Probability Density")
 
 
@@ -107,7 +107,7 @@ kdevel = KernelDensity(kernel=kernel, bandwidth=0.25).fit(speed_diffs.reshape(-1
 log_densvel = kdevel.score_samples(kdevelxplot)
 pdfvel = np.exp(log_densvel)
 axkdevel.plot(kdevelxplot[:,0], pdfvel, '-', label="kernel = '{0}'".format(kernel))
-axkdevel.set_xlabel("Difference in speed from closest point in reference raceline")
+axkdevel.set_xlabel("Difference in speed (m/s) from closest point in reference raceline")
 axkdevel.set_ylabel("Probability Density")
 
 
