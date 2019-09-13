@@ -107,24 +107,17 @@ kdevel = KernelDensity(kernel=kernel, bandwidth=0.25).fit(speed_diffs.reshape(-1
 log_densvel = kdevel.score_samples(kdevelxplot)
 pdfvel = np.exp(log_densvel)
 axkdevel.plot(kdevelxplot[:,0], pdfvel, '-', label="kernel = '{0}'".format(kernel))
-axkdevel.set_xlabel("Difference in speed at closest point in reference raceline")
+axkdevel.set_xlabel("Difference in speed from closest point in reference raceline")
 axkdevel.set_ylabel("Probability Density")
 
 
 
-figcdf, axcdf = plt.subplots()
-cdf = []
-for i in range(3,len(kdexplot)):
-    cdf.append(scipy.integrate.simps(pdf[0:i], x=kdexplot[0:i,0]))
-cdf = np.array(cdf)
-axcdf.plot(kdexplot[3:,0], cdf, '-', label="kernel = '{0}'".format(kernel))
-axcdf.set_xlabel("Minimum distance to reference raceline")
-axcdf.set_ylabel("Cumulutative Density (CDF)")
 figveltrace, axveltrace = plt.subplots()
 veltrace = np.loadtxt(velocity_trace,delimiter=",")
 tveltrace = np.linspace(0,veltrace.shape[0]-1,veltrace.shape[0])/60.0
 axveltrace.plot(tveltrace,veltrace[:,0], '-', label="setpoint", color="r")
 axveltrace.plot(tveltrace, veltrace[:,1], '-', label="actual", color="g")
+axveltrace.legend()
 axveltrace.set_xlabel("Time")
 axveltrace.set_ylabel("Speed (m/s)")
 
