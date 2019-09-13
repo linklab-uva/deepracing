@@ -101,7 +101,7 @@ def run_epoch(network, velocity_network, optimizer, trainLoader, gpu, kinematic_
         if use_tqdm:
             # logging information
             cum_loss += float(loss.item())
-            cum_position_loss += float(position_loss_.item())
+            cum_position_loss += float(position_loss.item())
             cum_linear_loss += float(linear_loss.item())
             cum_taylor_loss_1 += float(taylor_loss_1.item())
             cum_taylor_loss_2 += float(taylor_loss_2.item())
