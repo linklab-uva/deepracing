@@ -27,12 +27,14 @@ import shutil
 def imageDataKey(data):
     return data.timestamp
 def udpPacketKey(packet):
-    return packet.timestamp
+    return packet.udp_packet.m_header.m_sessionTime
+
+def poseSequenceLabelKey(label):
+    return label.car_pose.session_time
 
 parser = argparse.ArgumentParser()
 parser.add_argument("db_path", help="Path to root directory of DB",  type=str)
-parser.add_argument("num_label_poses", help="Number of poses to attach to each image",  type=int)
-parser.add_argument("lookahead_time", help="Time (in seconds) to look foward. Each label will have <num_label_poses> spanning <lookahead_time> seconds into the future",  type=float)
+parser.add_argument("lookahead_indices", help="Time (in seconds) to look foward. Each label will have <num_label_poses> spanning <lookahead_time> seconds into the future",  type=int)
 angvelhelp = "Use the angular velocities given in the udp packets. THESE ARE ONLY PROVIDED FOR A PLAYER CAR. IF THE " +\
     " DATASET WAS TAKEN ON SPECTATOR MODE, THE ANGULAR VELOCITY VALUES WILL BE GARBAGE."
 parser.add_argument("--use_given_angular_velocities", help=angvelhelp, action="store_true", required=False)
@@ -42,8 +44,7 @@ parser.add_argument("--output_dir", help="Output directory for the labels. relat
 parser.add_argument("--lmdb_dir", help="Output directory for the output lmdb. relative to the database images folder",  default="pose_sequence_label_lmdb", required=False)
 
 args = parser.parse_args()
-num_label_poses = args.num_label_poses
-lookahead_time = args.lookahead_time
+lookahead_indices = args.lookahead_indices
 motion_data_folder = os.path.join(args.db_path,"udp_data","motion_packets")
 image_folder = os.path.join(args.db_path,"images")
 session_folder = os.path.join(args.db_path,"udp_data","session_packets")
@@ -108,7 +109,6 @@ for i in range(len(quaternions)):
     if quaternions[i].w<0:
         quaternions[i]=-quaternions[i]
 print()
-print(angular_velocities[10])
 print(len(motion_packets))
 print(len(session_times))
 print(len(system_times))
@@ -132,9 +132,9 @@ image_session_timestamps = image_session_timestamps[Iclip]
 print("Range of image session times after clipping: [%f,%f]" %(image_session_timestamps[0], image_session_timestamps[-1]))
 
 
-position_interpolant = scipy.interpolate.interp1d(session_times, positions , axis=0, kind='cubic')
+position_interpolant = scipy.interpolate.make_interp_spline(session_times, positions)
 #velocity_interpolant = position_interpolant.derivative()
-velocity_interpolant = scipy.interpolate.interp1d(session_times, velocities, axis=0, kind='cubic')
+velocity_interpolant = scipy.interpolate.make_interp_spline(session_times, velocities)
 interpolated_positions = position_interpolant(image_session_timestamps)
 interpolated_velocities = velocity_interpolant(image_session_timestamps)
 interpolated_quaternions = quaternion.squad(quaternions, session_times, image_session_timestamps)
@@ -180,7 +180,7 @@ if os.path.isdir(lmdb_dir):
     shutil.rmtree(lmdb_dir)
 os.makedirs(lmdb_dir)
 print("Generating interpolated labels")
-config_dict = {"num_poses": num_label_poses, "lookahead_time":lookahead_time}
+config_dict = {"lookahead_indices": lookahead_indices}
 with open(os.path.join(output_dir,'config.yaml'), 'w') as yaml_file:
     yaml.dump(config_dict, yaml_file, Dumper=yaml.SafeDumper)
 db = deepracing.backend.PoseSequenceLabelLMDBWrapper()
@@ -196,15 +196,13 @@ for idx in tqdm(range(len(image_tags))):
     label_tag.car_pose.session_time = t_interp
     label_tag.car_velocity.session_time = t_interp
     label_tag.car_angular_velocity.session_time = t_interp
-    interpolants_start = bisect.bisect_left(session_times,t_interp)
+    interpolants_start = bisect.bisect_left(session_times,t_interp)+1
     if(interpolants_start<10):
         continue
-    interpolants_start = interpolants_start-2
-    t_interp_end = t_interp+lookahead_time
-    interpolants_end = bisect.bisect_left(session_times,t_interp_end)
-    if(interpolants_end>=len(session_times)-10):
+    
+    interpolants_end = interpolants_start+lookahead_indices
+    if(interpolants_end>=len(session_times)-2*lookahead_indices):
         continue
-    interpolants_end = interpolants_end+2
    
     position_interpolant_points = positions[interpolants_start:interpolants_end]
     rotation_interpolants_points = quaternions[interpolants_start:interpolants_end]
@@ -212,22 +210,21 @@ for idx in tqdm(range(len(image_tags))):
     angular_velocity_interpolants_points = angular_velocities[interpolants_start:interpolants_end]
     interpolant_times = session_times[interpolants_start:interpolants_end]
     
-    local_position_interpolant = scipy.interpolate.interp1d(interpolant_times, position_interpolant_points , axis=0, kind='cubic')
-    local_velocity_interpolant = scipy.interpolate.interp1d(interpolant_times, velocity_interpolants_points, axis=0, kind='cubic')
-    local_angular_velocity_interpolant = scipy.interpolate.interp1d(interpolant_times, angular_velocity_interpolants_points, axis=0, kind='cubic')
-
-    t_eval = np.linspace(t_interp, t_interp_end, num_label_poses)
+    subsequent_positions = position_interpolant_points#[::downsamplefactor]
+    subsequent_quaternions = rotation_interpolants_points#[::downsamplefactor]
+    subsequent_velocities = velocity_interpolants_points#[::downsamplefactor]
+    subsequent_angular_velocities = angular_velocity_interpolants_points#[::downsamplefactor]
 
     
     
     carposition_global = interpolated_positions[idx]
-    #carposition_global = interpolateVectors(pos1,session_times[i-1],pos2,session_times[i], t_interp)
+
     carvelocity_global = interpolated_velocities[idx]
-    #carvelocity_global = interpolateVectors(vel1,session_times[i-1],vel2,session_times[i], t_interp)
+
     carquat_global = interpolated_quaternions[idx]
-    #carquat_global = quaternion.slerp(quat1,quat2,session_times[i-1],session_times[i], t_interp)
+
     carangvelocity_global = interpolated_angular_velocities[idx]
-    #carangvelocity_global = interpolateVectors(angvel1,session_times[i-1],angvel2,session_times[i], t_interp)
+
         
     label_tag.car_pose.translation.x = carposition_global[0]
     label_tag.car_pose.translation.y = carposition_global[1]
@@ -249,11 +246,6 @@ for idx in tqdm(range(len(image_tags))):
     #yes, I know this is an un-necessary inverse computation. Sue me.
     carposeinverse_global = la.inv(carpose_global)
 
-    subsequent_positions = local_position_interpolant(t_eval)
-    subsequent_quaternions = quaternion.squad(rotation_interpolants_points, interpolant_times, t_eval)
-    subsequent_velocities = local_velocity_interpolant(t_eval)
-    subsequent_angular_velocities = local_angular_velocity_interpolant(t_eval)
-
 
 
 
@@ -265,7 +257,7 @@ for idx in tqdm(range(len(image_tags))):
     #print(carposition_global)
     #print(carpose_global)
     #print()
-    for j in range(num_label_poses):
+    for j in range(len(subsequent_positions_local)):
         # label_tag.
         #print(packet_forward)
         pose_forward_pb = Pose3d_pb2.Pose3d()
@@ -291,9 +283,10 @@ for idx in tqdm(range(len(image_tags))):
         angular_velocity_forward_pb.vector.y = subsequent_angular_velocities_local[j,1]
         angular_velocity_forward_pb.vector.z = subsequent_angular_velocities_local[j,2]
 
-        pose_forward_pb.session_time = t_eval[j]
-        velocity_forward_pb.session_time = t_eval[j]
-        angular_velocity_forward_pb.session_time = t_eval[j]
+        labeltime = interpolant_times[j]
+        pose_forward_pb.session_time = labeltime
+        velocity_forward_pb.session_time = labeltime
+        angular_velocity_forward_pb.session_time = labeltime
 
         newpose = label_tag.subsequent_poses.add()
         newpose.CopyFrom(pose_forward_pb)
@@ -317,7 +310,31 @@ for idx in tqdm(range(len(image_tags))):
     f.close()
     key = image_file_base
     db.writePoseSequenceLabel( key , label_tag )
-    
+print("Loading database labels.")
+db_keys = db.getKeys()
+label_pb_tags = []
+for i,key in tqdm(enumerate(db_keys), total=len(db_keys)):
+    #print(key)
+    label_pb_tags.append(db.getPoseSequenceLabel(key))
+    if(not (label_pb_tags[-1].image_tag.image_file == db_keys[i]+".jpg")):
+        raise AttributeError("Mismatch between database key: %s and associated image file: %s" %(db_keys[i], label_pb_tags.image_tag.image_file))
+sorted_indices = np.argsort( np.array([lbl.car_pose.session_time for lbl in label_pb_tags]) )
+#tagscopy = label_pb_tags.copy()
+label_pb_tags_sorted = [label_pb_tags[sorted_indices[i]] for i in range(len(sorted_indices))]
+sorted_keys = []
+print("Checking for invalid keys.")
+for packet in tqdm(label_pb_tags_sorted):
+    #print(key)
+    key = os.path.splitext(packet.image_tag.image_file)[0]
+    try:
+        lbl = db.getPoseSequenceLabel(key)
+        sorted_keys.append(key)
+    except:
+        print("Skipping bad key: %s" %(key))
+        continue
+key_file = os.path.join(args.db_path,"goodkeys.txt")
+with open(key_file, 'w') as filehandle:
+    filehandle.writelines("%s\n" % key for key in sorted_keys)    
 
 
 

@@ -14,3 +14,5 @@ from .pose_utils import toLocalCoordinatesPose
 from .pose_utils import toLocalCoordinatesVector
 from .pose_utils import inverseTransform
 from .pose_utils import randomQuaternion
+from .pose_utils import downsampleVectorsSpline
+from .pose_utils import downsampleQuaternionsSquad

@@ -181,9 +181,9 @@ class AdmiralNetKinematicPredictor(nn.Module):
         self.Pool3d_1 = torch.nn.MaxPool3d(3, stride=(1,1,1), padding=(1,0,0) )
         self.conv3d4 = nn.Conv3d(40, 120, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
         self.Norm3d_4 = nn.BatchNorm3d(120) 
-        self.conv3d5 = nn.Conv3d(120, 240, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
-        self.Norm3d_5 = nn.BatchNorm3d(240) 
-        self.conv3d6 = nn.Conv3d(240, 240, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
+        self.conv3d5 = nn.Conv3d(120, 120, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
+        self.Norm3d_5 = nn.BatchNorm3d(120) 
+        self.conv3d6 = nn.Conv3d(120, 240, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
         self.Norm3d_6 = nn.BatchNorm3d(240) 
         self.Pool3d_2 = torch.nn.AvgPool3d(3, stride=(1,1,1), padding=(1,0,0))
 
@@ -205,8 +205,8 @@ class AdmiralNetKinematicPredictor(nn.Module):
             self.tanh,
             self.conv3d6,
             self.Norm3d_6,
-            self.Pool3d_2,
             self.tanh,
+            self.Pool3d_2,
         ])
 
 
@@ -218,7 +218,8 @@ class AdmiralNetKinematicPredictor(nn.Module):
 
 
         self.projection_features = 240*self.context_length * 3 * 20
-        self.projection_layer = nn.Linear(self.projection_features, self.sequence_length*self.img_features)
+        self.intermediate_projection_size = int(self.projection_features/self.sequence_length)
+        self.projection_layer = nn.Linear(self.intermediate_projection_size, self.img_features)
 
         
     
@@ -240,8 +241,9 @@ class AdmiralNetKinematicPredictor(nn.Module):
         
       
         conv3d_out = self.projection_encoder( x.view(batch_size, self.input_channels, self.context_length, self.imsize[0], self.imsize[1]) )
-        projection_in = conv3d_out.view(batch_size, self.projection_features)
-        projection_features = self.projection_layer(projection_in).view(-1,self.sequence_length,self.img_features)
+        #print(conv3d_out.shape)
+        projection_in = conv3d_out.view(batch_size, self.sequence_length, self.intermediate_projection_size)
+        projection_features = self.projection_layer(projection_in)
 
         x_linear, (final_hidden_position, final_cell_position) = self.linear_rnn(  projection_features , (linear_new_hidden, linear_new_cell) )
 

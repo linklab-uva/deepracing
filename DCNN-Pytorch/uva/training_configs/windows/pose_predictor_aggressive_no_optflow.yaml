@@ -4,10 +4,10 @@ datasets:
     image_db: D:\f1_training_data\australia_multiplayer_also_good\images\image_lmdb
     label_db: D:\f1_training_data\australia_multiplayer_also_good\images\pose_sequence_label_lmdb
     key_file: D:\f1_training_data\australia_multiplayer_also_good\goodkeys.txt
-  -
-    image_db: D:\f1_training_data\australia_multiplayer_good\images\image_lmdb
-    label_db: D:\f1_training_data\australia_multiplayer_good\images\pose_sequence_label_lmdb
-    key_file: D:\f1_training_data\australia_multiplayer_good\goodkeys.txt
+  # -
+  #   image_db: D:\f1_training_data\australia_multiplayer_good\images\image_lmdb
+  #   label_db: D:\f1_training_data\australia_multiplayer_good\images\pose_sequence_label_lmdb
+  #   key_file: D:\f1_training_data\australia_multiplayer_good\goodkeys.txt
   -
     image_db: D:\f1_training_data\australia_more_more_yet_again\images\image_lmdb
     label_db: D:\f1_training_data\australia_more_more_yet_again\images\pose_sequence_label_lmdb
@@ -20,25 +20,34 @@ datasets:
     image_db: D:\f1_training_data\trent_lazy_lap\images\image_lmdb
     label_db: D:\f1_training_data\trent_lazy_lap\images\pose_sequence_label_lmdb
     key_file: D:\f1_training_data\trent_lazy_lap\goodkeys.txt
+  -
+    image_db: D:\f1_training_data\multiplayer_australia_throttled\images\image_lmdb
+    label_db: D:\f1_training_data\multiplayer_australia_throttled\images\pose_sequence_label_lmdb
+    key_file: D:\f1_training_data\multiplayer_australia_throttled\goodkeys.txt
+  -
+    image_db: D:\f1_training_data\multiplayer_australia_throttled_2\images\image_lmdb
+    label_db: D:\f1_training_data\multiplayer_australia_throttled_2\images\pose_sequence_label_lmdb
+    key_file: D:\f1_training_data\multiplayer_australia_throttled_2\goodkeys.txt
 image_size: [66, 200]
 
 #model definition parameters
 hidden_dimension: 200
 input_channels: 3
-sequence_length: 12
+sequence_length: 10
 context_length: 5
 temporal_conv_feature_factor: 1
 use_float: False
 
 #training hyperparameters
-gpu: 0
+gpu: 1
 batch_size: 64
 learning_rate: 5.0E-4
 momentum: 1.0E-3
-loss_weights: [1.0, 0.25, 1.0, 0.25, 0.0, 0.0]
+loss_weights: [1.0, 0.5]
 num_epochs: 100
 num_workers: 0
 position_loss_reduction: "mean"
+downsample_method: "skip"
 
 #debugging settings
 debug: False

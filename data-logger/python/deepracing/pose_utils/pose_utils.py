@@ -9,6 +9,19 @@ import quaternion
 import numpy.linalg as la
 import google.protobuf.json_format
 from tqdm import tqdm as tqdm
+from scipy import interpolate
+
+def downsampleVectorsSpline( times : np.ndarray, vectors: np.ndarray , num_output_vectors : int, k : int = 3 ):
+   teval = np.linspace( times[0] , times[-1] , num=num_output_vectors )
+   spl = interpolate.make_interp_spline( times , vectors, k=k )
+   vout = spl(teval)
+   return teval, vout
+
+def downsampleQuaternionsSquad( times : np.ndarray, quats : np.ndarray, num_output_quaternions : int ):
+   teval = np.linspace( times[0] , times[-1] , num=num_output_quaternions )
+   qout = quaternion.squad(quats,times,teval)
+   return teval, qout
+
 def randomQuaternion():
    z = 2.0
    while z>1:
@@ -24,7 +37,6 @@ def randomQuaternion():
    q = quaternion.quaternion(s*v, x, y, s*u)
    q = q/q.norm()
    return q
-
 
 def labelPacketToNumpy(label_tag):
     #print(label_tag.subsequent_poses)

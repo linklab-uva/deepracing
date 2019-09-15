@@ -4,7 +4,7 @@ import torch.utils.data as data_utils
 import data_loading.proto_datasets
 from tqdm import tqdm as tqdm
 import nn_models.LossFunctions as loss_functions
-import nn_models.Models as models
+import nn_models.Models
 import numpy as np
 import torch.optim as optim
 from tqdm import tqdm as tqdm
@@ -23,7 +23,7 @@ import imageio
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
-def run_epoch(network, velocity_network, optimizer, trainLoader, gpu, kinematic_loss, taylor_loss, loss_weights=[1.0, 1.0, 1.0, 1.0], imsize=(66,200), debug=False, use_tqdm=True, use_float=True):
+def run_epoch(network, optimizer, trainLoader, gpu, kinematic_loss, taylor_loss, loss_weights=[1.0, 1.0, 1.0, 1.0], imsize=(66,200), debug=False, use_tqdm=True, use_float=True):
     cum_loss = 0.0
     cum_position_loss = 0.0
     cum_linear_loss = 0.0
@@ -72,23 +72,18 @@ def run_epoch(network, velocity_network, optimizer, trainLoader, gpu, kinematic_
             session_time_torch = session_time_torch.cuda(gpu)
         images_nan = torch.sum(image_torch!=image_torch)!=0
         positions_labels_nan = torch.sum(position_torch!=position_torch)!=0
-        if(images_nan):
-            print(images_nan)
-            raise ValueError("Input image block has a NaN!!!")
-        if(positions_labels_nan):
-            print(position_torch)
-            raise ValueError("Position label has a NaN!!!")
-        
-        position_predictions = network(image_torch)
-        linear_velocity_predictions = velocity_network(image_torch)
-
+ 
+        predictions = network(image_torch)
+        speeds = torch.norm(linear_velocity_torch,dim=2)
+        position_predictions = predictions[:,:,0:3]
+        velocity_predictions = predictions[:,:,3].squeeze()
         position_loss = kinematic_loss(position_predictions, position_torch)
-        linear_loss = kinematic_loss(linear_velocity_predictions, linear_velocity_torch)
-        taylor_loss_1 = taylor_loss(position_predictions, linear_velocity_torch, session_time_torch)
-        taylor_loss_2 = taylor_loss(position_torch, linear_velocity_predictions, session_time_torch)
+        velocity_loss = kinematic_loss(velocity_predictions, speeds)
+       # taylor_loss_1 = taylor_loss(position_predictions, linear_velocity_torch, session_time_torch)
+        #taylor_loss_2 = taylor_loss(position_torch, velocity_predictions, session_time_torch)
 
-        loss = loss_weights[0]*position_loss + loss_weights[1]*linear_loss + \
-            loss_weights[2]*taylor_loss_1 + loss_weights[3]*taylor_loss_2
+        loss = loss_weights[0]*position_loss + loss_weights[1]*velocity_loss# + \
+           # loss_weights[2]*taylor_loss_1 + loss_weights[3]*taylor_loss_2
         loss_nan = torch.sum(loss!=loss)!=0
         if(loss_nan):
             print(loss)
@@ -102,12 +97,12 @@ def run_epoch(network, velocity_network, optimizer, trainLoader, gpu, kinematic_
             # logging information
             cum_loss += float(loss.item())
             cum_position_loss += float(position_loss.item())
-            cum_linear_loss += float(linear_loss.item())
-            cum_taylor_loss_1 += float(taylor_loss_1.item())
-            cum_taylor_loss_2 += float(taylor_loss_2.item())
+            cum_linear_loss += float(velocity_loss.item())
+          #  cum_taylor_loss_1 += float(taylor_loss_1.item())
+            #cum_taylor_loss_2 += float(taylor_loss_2.item())
             num_samples += float(batch_size)
-            t.set_postfix({"cum_loss" : cum_loss/num_samples, "position_loss" : cum_position_loss/num_samples, \
-                            "taylor_loss_1" : cum_taylor_loss_1/num_samples, "taylor_loss_2" : cum_taylor_loss_2/num_samples})
+            t.set_postfix({"cum_loss" : cum_loss/num_samples, "position_loss" : cum_position_loss/num_samples, "velocity_loss" : cum_linear_loss/num_samples})#, \
+                         #   "taylor_loss_1" : cum_taylor_loss_1/num_samples, "taylor_loss_2" : cum_taylor_loss_2/num_samples})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
     parser.add_argument("config_file", type=str,  help="Configuration file to load")
@@ -117,6 +112,7 @@ def go():
     parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
     parser.add_argument("--override", action="store_true",  help="Delete output directory and replace with new data")
     parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
+    parser.add_argument("--gpu", type=int, default=None,  help="Override the GPU index specified in the config file")
     args = parser.parse_args()
     config_file = args.config_file
     output_directory = args.output_directory
@@ -130,7 +126,7 @@ def go():
     input_channels = config["input_channels"]
     sequence_length = config["sequence_length"]
     context_length = config["context_length"]
-    gpu = config["gpu"]
+    gpu = config["gpu"] 
     loss_weights = config["loss_weights"]
     temporal_conv_feature_factor = config["temporal_conv_feature_factor"]
     batch_size = config["batch_size"]
@@ -142,33 +138,30 @@ def go():
     position_loss_reduction = config["position_loss_reduction"]
     use_float = config["use_float"]
     learnable_initial_state = config.get("learnable_initial_state",True)
-    net = models.AdmiralNetKinematicPredictor(context_length = context_length, sequence_length = sequence_length,\
-        hidden_dim=hidden_dimension, output_dimension=3, input_channels=input_channels, temporal_conv_feature_factor = temporal_conv_feature_factor, \
-            learnable_initial_state =learnable_initial_state) 
+    downsample_method=config["downsample_method"]
+    print("Using config:\n%s" % (str(config)))
+    net = nn_models.Models.AdmiralNetKinematicPredictor(context_length = context_length, sequence_length = sequence_length,\
+        hidden_dim=hidden_dimension, output_dimension=4, input_channels=input_channels, learnable_initial_state = learnable_initial_state) 
+    print("net:\n%s" % (str(net)))
 
-    velocity_network = models.AdmiralNetKinematicPredictor(context_length = context_length, sequence_length = sequence_length,\
-        hidden_dim=hidden_dimension, output_dimension=3, input_channels=input_channels, temporal_conv_feature_factor = temporal_conv_feature_factor, \
-            learnable_initial_state =learnable_initial_state)
-    models = NN.ModuleList([net,velocity_network])
     kinematics_loss = torch.nn.MSELoss(reduction=position_loss_reduction)
     taylor_loss = loss_functions.TaylorSeriesLinear(reduction=position_loss_reduction)
     losses = NN.ModuleList([kinematics_loss,taylor_loss])
     if use_float:
-        models = models.float()
+        net = net.float()
         losses = losses.float()
     else:
-        models = models.double()
+        net = net.double()
         losses = losses.double()
     if gpu>=0:
-        models = models.cuda(gpu)
+        net = net.cuda(gpu)
         losses = losses.cuda(gpu)
-    optimizer = optim.SGD(models.parameters(), lr = learning_rate, momentum = momentum, dampening=0.001, nesterov=True)
+    print("losses:\n%s" % (str(losses)))
+    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=0.000, nesterov=True)
     netpostfix = "epoch_%d_params.pt"
-    velocitynetpostfix = "epoch_%d_velocity_params.pt"
     optimizerpostfix = "epoch_%d_optimizer.pt"
     if epochstart>1:
         net.load_state_dict(torch.load(os.path.join(output_directory,netpostfix %(epochstart)), map_location=next(net.parameters()).device))
-        velocity_network.load_state_dict(torch.load(os.path.join(output_directory,velocitynetpostfix %(epochstart)), map_location=next(velocity_network.parameters()).device))
         optimizer.load_state_dict(torch.load(os.path.join(output_directory,optimizerpostfix %(epochstart)), map_location=next(net.parameters()).device))
     else:
         if (not args.override) and os.path.isdir(output_directory) :
@@ -212,7 +205,7 @@ def go():
         else:
             use_optflow=False
         curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length,\
-                     image_size = image_size, optical_flow_db_wrapper=optical_flow_db_wrapper)
+                     image_size = image_size, optical_flow_db_wrapper=optical_flow_db_wrapper, downsample=downsample_method)
         dsets.append(curent_dset)
         print("\n")
     if len(dsets)==1:
@@ -235,42 +228,22 @@ def go():
         #dset.clearReaders()
         try:
             tick = time.time()
-            run_epoch(net, velocity_network, optimizer, dataloader, gpu, kinematics_loss, taylor_loss, loss_weights=loss_weights, debug=debug, use_tqdm=args.tqdm, use_float = use_float,  use_optflow = use_optflow)
+            run_epoch(net, optimizer, dataloader, gpu, kinematics_loss, taylor_loss, loss_weights=loss_weights, debug=debug, use_tqdm=args.tqdm, use_float = use_float)
             tock = time.time()
             print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
         except Exception as e:
             print("Restarting epoch %d because %s"%(postfix, str(e)))
             modelin = os.path.join(output_directory, netpostfix %(postfix-1))
-            velocitymodelin = os.path.join(output_directory,velocitynetpostfix %(postfix-1))
             optimizerin = os.path.join(output_directory,optimizerpostfix %(postfix-1))
             net.load_state_dict(torch.load(modelin))
-            velocity_network.load_state_dict(torch.load(velocitymodelin))
             optimizer.load_state_dict(torch.load(optimizerin))
             continue
         modelout = os.path.join(output_directory,netpostfix %(postfix))
-        velocitymodelout = os.path.join(output_directory,velocitynetpostfix %(postfix))
         torch.save(net.state_dict(), modelout)
-        torch.save(velocity_network.state_dict(), velocitymodelout)
         
         optimizerout = os.path.join(output_directory,optimizerpostfix %(postfix))
         torch.save(optimizer.state_dict(), optimizerout)
-
-        irand = np.random.randint(0,high=len(dset))
-        input_test = torch.rand( 1, context_length, input_channels, image_size[0], image_size[1], dtype=torch.float32 )
-        image_test, opt_flow_test, positions_torch, _, _, _, _ = dset[irand]
-        if use_optflow:
-            input_test[0] = torch.cat((image_test,opt_flow_test),axis=1)
-        else:
-            input_test[0]=image_test
-        if use_float:
-            input_test = input_test.float()
-        else:
-            input_test = input_test.double()
-        if(gpu>=0):
-            input_test = input_test.cuda(gpu)
-        pos_pred = net(input_test)
-        print(positions_torch)
-        print(pos_pred)
+        
         i = i + 1
 import logging
 if __name__ == '__main__':
