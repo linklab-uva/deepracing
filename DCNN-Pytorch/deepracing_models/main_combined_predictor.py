@@ -148,12 +148,15 @@ def go():
     taylor_loss = loss_functions.TaylorSeriesLinear(reduction=position_loss_reduction)
     losses = NN.ModuleList([kinematics_loss,taylor_loss])
     if use_float:
+        print("casting stuff to float")
         net = net.float()
         losses = losses.float()
     else:
+        print("casting stuff to double")
         net = net.double()
         losses = losses.double()
     if gpu>=0:
+        print("moving stuff to GPU")
         net = net.cuda(gpu)
         losses = losses.cuda(gpu)
     print("losses:\n%s" % (str(losses)))

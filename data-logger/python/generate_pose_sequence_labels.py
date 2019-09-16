@@ -37,13 +37,14 @@ parser.add_argument("db_path", help="Path to root directory of DB",  type=str)
 parser.add_argument("lookahead_indices", help="Time (in seconds) to look foward. Each label will have <num_label_poses> spanning <lookahead_time> seconds into the future",  type=int)
 angvelhelp = "Use the angular velocities given in the udp packets. THESE ARE ONLY PROVIDED FOR A PLAYER CAR. IF THE " +\
     " DATASET WAS TAKEN ON SPECTATOR MODE, THE ANGULAR VELOCITY VALUES WILL BE GARBAGE."
+parser.add_argument("--downsample_factor", help="how many points to skip on each pose sequence label",  type=int, default=1)
 parser.add_argument("--use_given_angular_velocities", help=angvelhelp, action="store_true", required=False)
 parser.add_argument("--assume_linear_timescale", help="Assumes the slope between system time and session time is 1.0", action="store_true", required=False)
 parser.add_argument("--json", help="Assume dataset files are in JSON rather than binary .pb files.",  action="store_true", required=False)
 parser.add_argument("--output_dir", help="Output directory for the labels. relative to the database images folder",  default="pose_sequence_labels", required=False)
-parser.add_argument("--lmdb_dir", help="Output directory for the output lmdb. relative to the database images folder",  default="pose_sequence_label_lmdb", required=False)
 
 args = parser.parse_args()
+downsample_factor=args.downsample_factor
 lookahead_indices = args.lookahead_indices
 motion_data_folder = os.path.join(args.db_path,"udp_data","motion_packets")
 image_folder = os.path.join(args.db_path,"images")
@@ -172,7 +173,7 @@ except:
   text = input("Could not import matplotlib, skipping visualization. Enter anything to continue.")
 #scipy.interpolate.interp1d
 output_dir = os.path.join(image_folder, args.output_dir)
-lmdb_dir = os.path.join(image_folder, args.lmdb_dir)
+lmdb_dir = os.path.join(image_folder, args.output_dir+"_lmdb")
 if os.path.isdir(output_dir):
     shutil.rmtree(output_dir)
 os.makedirs(output_dir)
@@ -210,10 +211,11 @@ for idx in tqdm(range(len(image_tags))):
     angular_velocity_interpolants_points = angular_velocities[interpolants_start:interpolants_end]
     interpolant_times = session_times[interpolants_start:interpolants_end]
     
-    subsequent_positions = position_interpolant_points#[::downsamplefactor]
-    subsequent_quaternions = rotation_interpolants_points#[::downsamplefactor]
-    subsequent_velocities = velocity_interpolants_points#[::downsamplefactor]
-    subsequent_angular_velocities = angular_velocity_interpolants_points#[::downsamplefactor]
+    subsequent_positions = position_interpolant_points[::downsample_factor]
+    subsequent_quaternions = rotation_interpolants_points[::downsample_factor]
+    subsequent_velocities = velocity_interpolants_points[::downsample_factor]
+    subsequent_angular_velocities = angular_velocity_interpolants_points[::downsample_factor]
+    subsequent_times = interpolant_times[::downsample_factor]
 
     
     
@@ -283,7 +285,7 @@ for idx in tqdm(range(len(image_tags))):
         angular_velocity_forward_pb.vector.y = subsequent_angular_velocities_local[j,1]
         angular_velocity_forward_pb.vector.z = subsequent_angular_velocities_local[j,2]
 
-        labeltime = interpolant_times[j]
+        labeltime = subsequent_times[j]
         pose_forward_pb.session_time = labeltime
         velocity_forward_pb.session_time = labeltime
         angular_velocity_forward_pb.session_time = labeltime

@@ -77,24 +77,15 @@ class PoseSequenceDataset(Dataset):
 
         session_times = np.array([p.session_time for p in label_packet.subsequent_poses ])
         positions, quats, linear_velocities, angular_velocities = deepracing.pose_utils.labelPacketToNumpy(label_packet)
-        num_poses = len(session_times)
-        if self.downsample=="skip":
-            if not (0==(num_poses%self.sequence_length)):
-                raise ValueError("This dataset contains %d labels for each pose, which is not divisible by sequence length %d"%(num_poses,self.sequence_length))
-            factor = int(num_poses/self.sequence_length)
-            positions_np = positions[::factor]
-            linear_velocities_np = linear_velocities[::factor]
-            angular_velocities_np = angular_velocities[::factor]
-            quats_np = quats[::factor]
-            session_times_np = session_times[::factor]
-        elif self.downsample=="spline":
-            _,quats_np = deepracing.pose_utils.downsampleQuaternionsSquad(session_times,quats,self.sequence_length)
-            _,linear_velocities_np = deepracing.pose_utils.downsampleVectorsSpline(session_times,linear_velocities,self.sequence_length)
-            _,angular_velocities_np = deepracing.pose_utils.downsampleVectorsSpline(session_times,angular_velocities,self.sequence_length)
-            session_times_np,positions_np = deepracing.pose_utils.downsampleVectorsSpline(session_times,positions,self.sequence_length)
+        
+        
+        positions_np = positions
+        linear_velocities_np = linear_velocities
+        angular_velocities_np = angular_velocities
+        quats_np = quats
+        session_times_np = session_times
             
-        else:
-            raise ValueError("Unknown downsample method: %s"%(self.downsample))
+      
        # tick = time.clock()
         images_torch = torch.from_numpy(np.array([self.totensor(resizeImage(self.image_db_wrapper.getImage(keys[i]), self.image_size)).numpy() for i in range(len(keys))]))#.float()
         if self.optical_flow_db_wrapper is not None:
