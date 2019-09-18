@@ -126,7 +126,10 @@ def go():
     input_channels = config["input_channels"]
     sequence_length = config["sequence_length"]
     context_length = config["context_length"]
-    gpu = config["gpu"] 
+    if args.gpu is not None:
+        gpu = args.gpu
+    else:
+        gpu = config["gpu"] 
     loss_weights = config["loss_weights"]
     temporal_conv_feature_factor = config["temporal_conv_feature_factor"]
     batch_size = config["batch_size"]
