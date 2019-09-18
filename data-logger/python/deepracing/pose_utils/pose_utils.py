@@ -23,20 +23,9 @@ def downsampleQuaternionsSquad( times : np.ndarray, quats : np.ndarray, num_outp
    return teval, qout
 
 def randomQuaternion():
-   z = 2.0
-   while z>1:
-      x = 2.0*(np.random.rand()-0.5)
-      y = 2.0*(np.random.rand()-0.5)
-      z = x*x + y*y
-   w = 2.0
-   while w>1:
-      u = 2.0*(np.random.rand()-0.5)
-      v = 2.0*(np.random.rand()-0.5)
-      w = u*u + v*v
-   s = np.sqrt((1-z)/w)
-   q = quaternion.quaternion(s*v, x, y, s*u)
-   q = q/q.norm()
-   return q
+   samples = np.random.standard_normal(size=4)
+   samples = samples/la.norm(samples)
+   return quaternion.from_float_array(samples)
 
 def labelPacketToNumpy(label_tag):
     #print(label_tag.subsequent_poses)
