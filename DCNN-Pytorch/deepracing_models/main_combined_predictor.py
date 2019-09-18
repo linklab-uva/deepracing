@@ -113,6 +113,7 @@ def go():
     parser.add_argument("--override", action="store_true",  help="Delete output directory and replace with new data")
     parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
     parser.add_argument("--gpu", type=int, default=None,  help="Override the GPU index specified in the config file")
+    parser.add_argument("--learning_rate", type=float, default=None,  help="Override the learning rate specified in the config file")
     args = parser.parse_args()
     config_file = args.config_file
     output_directory = args.output_directory
@@ -133,7 +134,10 @@ def go():
     loss_weights = config["loss_weights"]
     temporal_conv_feature_factor = config["temporal_conv_feature_factor"]
     batch_size = config["batch_size"]
-    learning_rate = config["learning_rate"]
+    if args.learning_rate is not None:
+        learning_rate = args.learning_rate
+    else:
+        learning_rate = config["learning_rate"]
     momentum = config["momentum"]
     num_epochs = config["num_epochs"]
     num_workers = config["num_workers"]
