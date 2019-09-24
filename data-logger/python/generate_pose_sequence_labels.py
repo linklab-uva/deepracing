@@ -128,6 +128,8 @@ print(len(positions))
 print(len(velocities))
 print(len(quaternions))
 print()
+slope_session_time_fit, intercept_session_time_fit, _, _, _ = scipy.stats.linregress(np.linspace(1,session_times.shape[0],session_times.shape[0]), session_times)
+print("Slope and intercept of raw session times: [%f,%f]" %(slope_session_time_fit, intercept_session_time_fit))
 
 slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(system_times, session_times)
 
@@ -207,7 +209,7 @@ for idx in tqdm(range(len(image_tags))):
     label_tag.car_velocity.session_time = t_interp
     label_tag.car_angular_velocity.session_time = t_interp
     lowerbound = bisect.bisect_left(session_times,t_interp)
-    upperbound = lowerbound+lookahead_indices
+    upperbound = lowerbound+lookahead_indices+1
     interpolants_start = lowerbound
     if(interpolants_start<10):
         continue
@@ -235,22 +237,25 @@ for idx in tqdm(range(len(image_tags))):
     subsequent_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector((carposition_global, carquat_global), subsequent_velocities)
     subsequent_angular_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector((carposition_global, carquat_global), subsequent_angular_velocities)
 
-   # tspline = ((subsequent_times[::6]-subsequent_times[0])/(subsequent_times[-1]-subsequent_times[0])).copy()
     position_spline_ordinates = subsequent_positions_local[::6,[0,2]].copy()
-    tspline = np.linspace(0,1.0,position_spline_ordinates.shape[0])
+    tspline = subsequent_times[::6].copy()
+    tspline = (tspline-tspline[0])/(tspline[-1]-tspline[0])
+    #tspline = np.linspace(0.0,1.0,position_spline_ordinates.shape[0])
+    numpoints = position_spline_ordinates.shape[0]
+    #knots = np.hstack((np.zeros(splK+1),np.linspace((splK-1)/(numpoints-1),(numpoints-splK)/(numpoints-1),numpoints-splK-1),np.ones(splK+1)))
+    knots = None
     position_spline_ordinates[:,0] = (position_spline_ordinates[:,0] - splxmin)/(splxmax - splxmin)
     position_spline_ordinates[:,1] = (position_spline_ordinates[:,1] - splzmin)/(splzmax - splzmin)
-    position_spline = scipy.interpolate.make_interp_spline(tspline,position_spline_ordinates,k=splK)
-    position_spline_pb = Spline2DParams_pb2.Spline2DParams(XParams = position_spline.c[:,0], ZParams = position_spline.c[:,1], knots=position_spline.t,\
-                                                           tmin=tspline[0],tmax=tspline[-1],degree=position_spline.k,Xmin=splxmin,Xmax=splxmax,Zmin=splzmin,Zmax=splzmax)
+    position_spline = scipy.interpolate.make_interp_spline(tspline,position_spline_ordinates,k=splK,t=knots)
+    position_spline_pb = deepracing.protobuf_utils.splineSciPyToPB(position_spline,tspline[0],tspline[-1],splxmin,splxmax,splzmin,splzmax)
     label_tag.position_spline.CopyFrom(position_spline_pb)
+
 
     velocity_spline_ordinates = subsequent_velocities_local[::6,[0,2]].copy()
     velocity_spline_ordinates[:,0] = (velocity_spline_ordinates[:,0] - splxmin)/(splxmax - splxmin)
     velocity_spline_ordinates[:,1] = (velocity_spline_ordinates[:,1] - splzmin)/(splzmax - splzmin)
-    velocity_spline = scipy.interpolate.make_interp_spline(tspline,velocity_spline_ordinates,k=splK)
-    velocity_spline_pb = Spline2DParams_pb2.Spline2DParams(XParams = velocity_spline.c[:,0], ZParams = velocity_spline.c[:,1], knots=velocity_spline.t,\
-                                                           tmin=tspline[0],tmax=tspline[-1],degree=velocity_spline.k,Xmin=splxmin,Xmax=splxmax,Zmin=splzmin,Zmax=splzmax)
+    velocity_spline = scipy.interpolate.make_interp_spline(tspline,velocity_spline_ordinates,k=splK,t=knots)
+    velocity_spline_pb = deepracing.protobuf_utils.splineSciPyToPB(velocity_spline,tspline[0],tspline[-1],splxmin,splxmax,splzmin,splzmax)
     label_tag.velocity_spline.CopyFrom(velocity_spline_pb)
 
 
@@ -277,13 +282,14 @@ for idx in tqdm(range(len(image_tags))):
 
 
     if args.debug and (idx%30)==0:
-        print(label_tag.position_spline)
+        print(google.protobuf.json_format.MessageToJson(label_tag.position_spline,including_default_value_fields=True))
+        print(subsequent_times.shape)
+        print("Mean diff of time vector: %f" %(np.mean(np.diff(subsequent_times))))
         fig = plt.figure()
         ax = fig.add_subplot()
-        tsamp = np.linspace(label_tag.position_spline.tmin,label_tag.position_spline.tmax,10)
-        params_rebuilt = np.array([label_tag.position_spline.XParams, label_tag.position_spline.ZParams]).transpose()
-        spline_rebuilt = scipy.interpolate.BSpline(label_tag.position_spline.knots, params_rebuilt, label_tag.position_spline.degree)
-        position_resamp = spline_rebuilt(tsamp)
+        tsamp = np.linspace(0.0,1.0,16)
+        position_spline_rebuilt = deepracing.protobuf_utils.splinePBToSciPy(label_tag.position_spline)
+        position_resamp = position_spline_rebuilt(tsamp)
         ax.plot(subsequent_positions_local[:,0],subsequent_positions_local[:,2], 'bo')
         ax.plot(label_tag.position_spline.Xmin + position_resamp[:,0]*(label_tag.position_spline.Xmax - label_tag.position_spline.Xmin),\
                 label_tag.position_spline.Zmin + position_resamp[:,1]*(label_tag.position_spline.Zmax - label_tag.position_spline.Zmin),\
