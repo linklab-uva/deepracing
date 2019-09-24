@@ -1,9 +1,10 @@
 import torch
+import torch.nn as NN
 import torch.utils.data as data_utils
 import data_loading.proto_datasets
 from tqdm import tqdm as tqdm
 import nn_models.LossFunctions as loss_functions
-import nn_models.Models as models
+import nn_models.Models
 import numpy as np
 import torch.optim as optim
 from tqdm import tqdm as tqdm
@@ -22,70 +23,44 @@ import imageio
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
-loss = torch.zeros(1)
-def run_epoch(network, trainLoader, gpu, position_loss, rotation_loss, loss_weights=[1.0, 1.0], imsize=(66,200), debug=False, use_tqdm=True, use_float=True, use_optflow=True):
-    global loss
-    cum_loss = 0.0
-    cum_rotation_loss = 0.0
-    cum_position_loss = 0.0
+def run_epoch(network, trainLoader, gpu, kinematic_loss, taylor_loss, loss_weights=[1.0, 1.0, 1.0, 1.0], imsize=(66,200), debug=False,  use_float=True):
+    poslossfloat = 0.0
     batch_size = trainLoader.batch_size
     num_samples=0.0
-    if use_tqdm:
-        t = tqdm(enumerate(trainLoader), total=len(trainLoader))
-    else:
-        t = enumerate(trainLoader)
-    network.eval() 
-    for (i, (image_torch, opt_flow_torch, position_torch, rotation_torch, linear_velocity_torch, angular_velocity_torch, session_time) ) in t:
-        if use_optflow:
+    loss = torch.zeros(1)
+    t : tqdm = tqdm(enumerate(trainLoader), total=len(trainLoader))
+    network.eval()  # This is important to call before training!
+    for (i, (image_torch, opt_flow_torch, position_torch, _, linear_velocity_torch, _, session_time_torch) ) in t:
+        if network.input_channels==5:
             image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
         if use_float:
             image_torch = image_torch.float()
             position_torch = position_torch.float()
-            rotation_torch = rotation_torch.float()
+            linear_velocity_torch = linear_velocity_torch.float()
+            session_time_torch = session_time_torch.float()
         else:
             image_torch = image_torch.double()
             position_torch = position_torch.double()
-            rotation_torch = rotation_torch.double()
+            linear_velocity_torch = linear_velocity_torch.double()
+            session_time_torch = session_time_torch.double()
 
         if gpu>=0:
             image_torch = image_torch.cuda(gpu)
             position_torch = position_torch.cuda(gpu)
-            rotation_torch = rotation_torch.cuda(gpu)
+            linear_velocity_torch = linear_velocity_torch.cuda(gpu)
+            session_time_torch = session_time_torch.cuda(gpu)
         images_nan = torch.sum(image_torch!=image_torch)!=0
         positions_labels_nan = torch.sum(position_torch!=position_torch)!=0
-        rotation_labels_nan = torch.sum(rotation_torch!=rotation_torch)!=0
-        if(images_nan):
-            print(images_nan)
-            raise ValueError("Input image block has a NaN!!!")
-        if(rotation_labels_nan):
-            print(rotation_torch)
-            raise ValueError("Rotation label has a NaN!!!")
-        if(positions_labels_nan):
-            print(position_torch)
-            raise ValueError("Position label has a NaN!!!")
-      #  print(image_torch.dtype)
-        # Forward pass:
-        position_predictions, rotation_predictions = network(image_torch)
-        positions_nan = torch.sum(position_predictions!=position_predictions)!=0
-        rotation_nan = torch.sum(rotation_predictions!=rotation_predictions)!=0
-        if(positions_nan):
-            print(position_predictions)
-            raise ValueError("Position prediction has a NaN!!!")
-        if(rotation_nan):
-            print(rotation_predictions)
-            raise ValueError("Rotation prediction has a NaN!!!")
-        #print("Output shape: ", outputs.shape)
-        #print("Label shape: ", labels.shape)
-        rotation_loss_ = rotation_loss(rotation_predictions, rotation_torch)
-        rotation_loss_nan = torch.sum(rotation_loss_!=rotation_loss_)!=0
-        if(rotation_loss_nan):
-            print(rotation_loss_)
-            raise ValueError("rotation_loss has a NaN!!!")
-        position_loss_ = position_loss(position_predictions, position_torch)
-        position_loss_nan = torch.sum(position_loss_!=position_loss_)!=0
-        if(position_loss_nan):
-            print(position_loss_)
-            raise ValueError("position_loss has a NaN!!!")
+ 
+        predictions = network(image_torch)
+        speeds = torch.norm(linear_velocity_torch,dim=2)
+        position_predictions = predictions[:,:,0:3]
+        velocity_predictions = predictions[:,:,3].squeeze()
+        position_loss = kinematic_loss(position_predictions, position_torch)
+        # velocity_loss = kinematic_loss(velocity_predictions, speeds)
+        poslossfloat += position_loss.item()
+        num_samples += 1.0
+        #loss = loss_weights[0]*position_loss + loss_weights[1]*velocity_loss
         if debug:
             images_np = image_torch[0].cpu().numpy().copy()
             num_images = images_np.shape[0]
@@ -97,33 +72,21 @@ def run_epoch(network, trainLoader, gpu, position_loss, rotation_loss, loss_weig
                 im = plt.imshow(images_np_transpose[i], animated=True)
                 ims.append([im])
             ani = animation.ArtistAnimation(plt.figure(), ims, interval=50, blit=True, repeat_delay=0)
-            #plt.figure()
-            print(position_torch)
-            print(rotation_torch)
-            preds_np = position_predictions[0].detach().cpu().numpy()[:,[0,2]]
-            gt_np = position_torch[0].detach().cpu().numpy()[:,[0,2]]
-            plt.plot(-gt_np[:,0], gt_np[:,1], label='Ground Truth')
-            plt.plot(-preds_np[:,0], preds_np[:,1], label='Prediction')
-            plt.ylabel('gt and prediction')
-            plt.legend()
+            gt_positions = position_torch[0].detach().cpu().numpy()
+            times = np.linspace(0,1,len(gt_positions))
+            pred_positions = position_predictions[0].detach().cpu().numpy()
+            fig = plt.figure()
+            position_ax = fig.add_subplot()
+            position_ax.plot(gt_positions[:,0], gt_positions[:,2], 'ro')
+            position_ax.plot(pred_positions[:,0], pred_positions[:,2], 'bo')
             plt.show()
-        loss = loss_weights[0]*position_loss_ + loss_weights[1]*rotation_loss_
-        loss_nan = torch.sum(loss!=loss)!=0
-        if(positions_nan):
-            print(loss)
-            raise ValueError("loss has a NaN!!!")
-        if use_tqdm:
-            # logging information
-            cum_loss += float(loss.item())
-            cum_position_loss += float(position_loss_.item())
-            cum_rotation_loss += float(rotation_loss_.item())
-            num_samples += float(batch_size)
-            t.set_postfix({"cum_loss" : cum_loss/num_samples, "position_loss" : cum_position_loss/num_samples, "rotation_loss" : cum_rotation_loss/num_samples})
-    return cum_loss
+        t.set_postfix({"posloss":poslossfloat/num_samples})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
     parser.add_argument("config_file", type=str,  help="Configuration file to load")
-    parser.add_argument("model_file", type=str,  help="Model parameter file to load")
+    parser.add_argument("model_file", type=str,  help="Weight file to load")
+
+    parser.add_argument("--gpu", type=int, default=-1,  help="GPU to use")
     parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
     args = parser.parse_args()
     config_file = args.config_file
@@ -137,28 +100,37 @@ def go():
     input_channels = config["input_channels"]
     sequence_length = config["sequence_length"]
     context_length = config["context_length"]
+    gpu = args.gpu
     loss_weights = config["loss_weights"]
-    gpu = config["gpu"]
     temporal_conv_feature_factor = config["temporal_conv_feature_factor"]
+    debug = args.debug
     use_float = config["use_float"]
-    position_loss = torch.nn.MSELoss(reduction="mean")
-    rotation_loss = loss_functions.QuaternionDistance()
-    
-    
-    net = models.AdmiralNetPosePredictor(gpu=gpu,context_length = context_length, sequence_length = sequence_length,\
-        hidden_dim=hidden_dimension, input_channels=input_channels, temporal_conv_feature_factor = temporal_conv_feature_factor)
-    print(net.rnn_init_hidden)
-    net.load_state_dict(torch.load(model_file, map_location=torch.device("cpu")))
-    print(net.rnn_init_hidden)
-    if use_float:
-        net = net.float()
-    else:
-        net = net.double()
-    if gpu>=0:
-        net = net.cuda(gpu)
-    #print(net)
-    # max_spare_txns = 1
+    learnable_initial_state = config.get("learnable_initial_state",True)
+    print("Using config:\n%s" % (str(config)))
+    net = nn_models.Models.AdmiralNetKinematicPredictor(context_length = context_length, sequence_length = sequence_length,\
+        hidden_dim=hidden_dimension, output_dimension=4, input_channels=input_channels, learnable_initial_state = learnable_initial_state) 
+    net.load_state_dict(torch.load(model_file,map_location=torch.device("cpu")))
+    print("net:\n%s" % (str(net)))
 
+    kinematics_loss = torch.nn.MSELoss(reduction="mean")
+    taylor_loss = loss_functions.TaylorSeriesLinear(reduction="mean")
+    if use_float:
+        print("casting stuff to float")
+        net = net.float()
+        kinematics_loss = kinematics_loss.float()
+    else:
+        print("casting stuff to double")
+        net = net.double()
+        kinematics_loss = kinematics_loss.double()
+    if gpu>=0:
+        print("moving stuff to GPU")
+        net = net.cuda(gpu)
+        kinematics_loss = kinematics_loss.cuda(gpu)
+    
+    
+    num_workers = 0
+    max_spare_txns = 50
+    #image_wrapper = deepracing.backend.ImageFolderWrapper(os.path.dirname(image_db))
     datasets = config["datasets"]
     dsets=[]
     use_optflow=True
@@ -169,16 +141,16 @@ def go():
         label_db = dataset["label_db"]
         key_file = dataset["key_file"]
         label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
-        label_wrapper.readDatabase(label_db, max_spare_txns=25 )
+        label_wrapper.readDatabase(label_db, max_spare_txns=max_spare_txns )
         image_size = np.array(image_size)
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
         image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
-        image_wrapper.readDatabase(image_db, max_spare_txns=25, mapsize=image_mapsize )
+        image_wrapper.readDatabase(image_db, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
         optical_flow_db_wrapper = None
         if not opt_flow_db=='':
             print("Using optical flow database at %s" %(opt_flow_db))
             optical_flow_db_wrapper = deepracing.backend.OpticalFlowLMDBWrapper()
-            optical_flow_db_wrapper.readDatabase(opt_flow_db, max_spare_txns=25, mapsize=int(round( float(image_mapsize)*8/3) ) )
+            optical_flow_db_wrapper.readDatabase(opt_flow_db, max_spare_txns=max_spare_txns, mapsize=int(round( float(image_mapsize)*8/3) ) )
         else:
             use_optflow=False
         curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length,\
@@ -191,11 +163,9 @@ def go():
         dset = torch.utils.data.ConcatDataset(dsets)
     
     dataloader = data_utils.DataLoader(dset, batch_size=1,
-                        shuffle=True, num_workers=0)
+                        shuffle=True, num_workers=num_workers)
     print("Dataloader of of length %d" %(len(dataloader)))
-    cum_loss = run_epoch(net, dataloader, gpu, position_loss, rotation_loss, loss_weights=loss_weights, debug=debug, use_tqdm=True, use_float = use_float,  use_optflow = use_optflow)
-    print("RMSE Error %d" %(cum_loss/len(dset)))
-     
+    run_epoch(net, dataloader, gpu, kinematics_loss, taylor_loss, loss_weights=loss_weights, debug=debug, use_float = use_float)
 import logging
 if __name__ == '__main__':
     logging.basicConfig()

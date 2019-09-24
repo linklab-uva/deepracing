@@ -24,6 +24,7 @@ from deepracing.protobuf_utils import getAllSessionPackets
 from tqdm import tqdm as tqdm
 import yaml
 import shutil
+import Spline2DParams_pb2
 def imageDataKey(data):
     return data.timestamp
 def udpPacketKey(packet):
@@ -37,14 +38,22 @@ parser.add_argument("db_path", help="Path to root directory of DB",  type=str)
 parser.add_argument("lookahead_indices", help="Time (in seconds) to look foward. Each label will have <num_label_poses> spanning <lookahead_time> seconds into the future",  type=int)
 angvelhelp = "Use the angular velocities given in the udp packets. THESE ARE ONLY PROVIDED FOR A PLAYER CAR. IF THE " +\
     " DATASET WAS TAKEN ON SPECTATOR MODE, THE ANGULAR VELOCITY VALUES WILL BE GARBAGE."
-parser.add_argument("--downsample_factor", help="how many points to skip on each pose sequence label",  type=int, default=1)
+parser.add_argument("--splineXmin", help="Min Scale factor for computing the X-component of spline fit",  type=float, default=0.0)
+parser.add_argument("--splineXmax", help="Max Scale factor for computing the X-component of spline fit",  type=float, default=1.0)
+parser.add_argument("--splineZmin", help="Min Scale factor for computing the Z-component of spline fit",  type=float, default=0.0)
+parser.add_argument("--splineZmax", help="Max Scale factor for computing the Z-component of spline fit",  type=float, default=1.0)
+parser.add_argument("--splineK", help="Spline degree to fit",  type=int, default=3)
 parser.add_argument("--use_given_angular_velocities", help=angvelhelp, action="store_true", required=False)
-parser.add_argument("--assume_linear_timescale", help="Assumes the slope between system time and session time is 1.0", action="store_true", required=False)
+parser.add_argument("--debug", help="Display debug plots", action="store_true", required=False)
 parser.add_argument("--json", help="Assume dataset files are in JSON rather than binary .pb files.",  action="store_true", required=False)
 parser.add_argument("--output_dir", help="Output directory for the labels. relative to the database images folder",  default="pose_sequence_labels", required=False)
 
 args = parser.parse_args()
-downsample_factor=args.downsample_factor
+splxmin = args.splineXmin
+splxmax = args.splineXmax
+splzmin = args.splineZmin
+splzmax = args.splineZmax
+splK = args.splineK
 lookahead_indices = args.lookahead_indices
 motion_data_folder = os.path.join(args.db_path,"udp_data","motion_packets")
 image_folder = os.path.join(args.db_path,"images")
@@ -121,8 +130,7 @@ print(len(quaternions))
 print()
 
 slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(system_times, session_times)
-if args.assume_linear_timescale:
-    slope=1.0
+
 image_session_timestamps = slope*image_timestamps + intercept
 print("Range of image session times before clipping: [%f,%f]" %(image_session_timestamps[0], image_session_timestamps[-1]))
 
@@ -173,7 +181,7 @@ except:
   text = input("Could not import matplotlib, skipping visualization. Enter anything to continue.")
 #scipy.interpolate.interp1d
 output_dir = os.path.join(image_folder, args.output_dir)
-lmdb_dir = os.path.join(image_folder, args.output_dir+"_lmdb")
+lmdb_dir = os.path.join(output_dir,"lmdb")
 if os.path.isdir(output_dir):
     shutil.rmtree(output_dir)
 os.makedirs(output_dir)
@@ -186,6 +194,7 @@ with open(os.path.join(output_dir,'config.yaml'), 'w') as yaml_file:
     yaml.dump(config_dict, yaml_file, Dumper=yaml.SafeDumper)
 db = deepracing.backend.PoseSequenceLabelLMDBWrapper()
 db.readDatabase(lmdb_dir, mapsize=3e9, max_spare_txns=16, readonly=False )
+
 for idx in tqdm(range(len(image_tags))):
     imagetag = image_tags[idx]
     label_tag = PoseSequenceLabel_pb2.PoseSequenceLabel()
@@ -197,25 +206,20 @@ for idx in tqdm(range(len(image_tags))):
     label_tag.car_pose.session_time = t_interp
     label_tag.car_velocity.session_time = t_interp
     label_tag.car_angular_velocity.session_time = t_interp
-    interpolants_start = bisect.bisect_left(session_times,t_interp)+1
+    lowerbound = bisect.bisect_left(session_times,t_interp)
+    upperbound = lowerbound+lookahead_indices
+    interpolants_start = lowerbound
     if(interpolants_start<10):
         continue
-    
-    interpolants_end = interpolants_start+lookahead_indices
-    if(interpolants_end>=len(session_times)-2*lookahead_indices):
+    interpolants_end = upperbound
+    if interpolants_end>=(len(session_times)-round(1.5*lookahead_indices)):
         continue
-   
-    position_interpolant_points = positions[interpolants_start:interpolants_end]
-    rotation_interpolants_points = quaternions[interpolants_start:interpolants_end]
-    velocity_interpolants_points = velocities[interpolants_start:interpolants_end]
-    angular_velocity_interpolants_points = angular_velocities[interpolants_start:interpolants_end]
-    interpolant_times = session_times[interpolants_start:interpolants_end]
-    
-    subsequent_positions = position_interpolant_points[::downsample_factor]
-    subsequent_quaternions = rotation_interpolants_points[::downsample_factor]
-    subsequent_velocities = velocity_interpolants_points[::downsample_factor]
-    subsequent_angular_velocities = angular_velocity_interpolants_points[::downsample_factor]
-    subsequent_times = interpolant_times[::downsample_factor]
+
+    subsequent_positions = positions[lowerbound:upperbound]
+    subsequent_quaternions = quaternions[lowerbound:upperbound]
+    subsequent_velocities = velocities[lowerbound:upperbound]
+    subsequent_angular_velocities = angular_velocities[lowerbound:upperbound]
+    subsequent_times = session_times[lowerbound:upperbound]
 
     
     
@@ -226,6 +230,32 @@ for idx in tqdm(range(len(image_tags))):
     carquat_global = interpolated_quaternions[idx]
 
     carangvelocity_global = interpolated_angular_velocities[idx]
+
+    subsequent_positions_local, subsequent_quaternions_local = deepracing.pose_utils.toLocalCoordinatesPose((carposition_global, carquat_global), subsequent_positions, subsequent_quaternions)
+    subsequent_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector((carposition_global, carquat_global), subsequent_velocities)
+    subsequent_angular_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector((carposition_global, carquat_global), subsequent_angular_velocities)
+
+   # tspline = ((subsequent_times[::6]-subsequent_times[0])/(subsequent_times[-1]-subsequent_times[0])).copy()
+    position_spline_ordinates = subsequent_positions_local[::6,[0,2]].copy()
+    tspline = np.linspace(0,1.0,position_spline_ordinates.shape[0])
+    position_spline_ordinates[:,0] = (position_spline_ordinates[:,0] - splxmin)/(splxmax - splxmin)
+    position_spline_ordinates[:,1] = (position_spline_ordinates[:,1] - splzmin)/(splzmax - splzmin)
+    position_spline = scipy.interpolate.make_interp_spline(tspline,position_spline_ordinates,k=splK)
+    position_spline_pb = Spline2DParams_pb2.Spline2DParams(XParams = position_spline.c[:,0], ZParams = position_spline.c[:,1], knots=position_spline.t,\
+                                                           tmin=tspline[0],tmax=tspline[-1],degree=position_spline.k,Xmin=splxmin,Xmax=splxmax,Zmin=splzmin,Zmax=splzmax)
+    label_tag.position_spline.CopyFrom(position_spline_pb)
+
+    velocity_spline_ordinates = subsequent_velocities_local[::6,[0,2]].copy()
+    velocity_spline_ordinates[:,0] = (velocity_spline_ordinates[:,0] - splxmin)/(splxmax - splxmin)
+    velocity_spline_ordinates[:,1] = (velocity_spline_ordinates[:,1] - splzmin)/(splzmax - splzmin)
+    velocity_spline = scipy.interpolate.make_interp_spline(tspline,velocity_spline_ordinates,k=splK)
+    velocity_spline_pb = Spline2DParams_pb2.Spline2DParams(XParams = velocity_spline.c[:,0], ZParams = velocity_spline.c[:,1], knots=velocity_spline.t,\
+                                                           tmin=tspline[0],tmax=tspline[-1],degree=velocity_spline.k,Xmin=splxmin,Xmax=splxmax,Zmin=splzmin,Zmax=splzmax)
+    label_tag.velocity_spline.CopyFrom(velocity_spline_pb)
+
+
+    
+    
 
         
     label_tag.car_pose.translation.x = carposition_global[0]
@@ -244,16 +274,21 @@ for idx in tqdm(range(len(image_tags))):
     label_tag.car_angular_velocity.vector.y = carangvelocity_global[1]
     label_tag.car_angular_velocity.vector.z = carangvelocity_global[2]
 
-    carpose_global = deepracing.pose_utils.toHomogenousTransform(carposition_global, carquat_global)
-    #yes, I know this is an un-necessary inverse computation. Sue me.
-    carposeinverse_global = la.inv(carpose_global)
 
 
-
-
-    subsequent_positions_local, subsequent_quaternions_local = deepracing.pose_utils.toLocalCoordinatesPose((carposition_global, carquat_global), subsequent_positions, subsequent_quaternions)
-    subsequent_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector((carposition_global, carquat_global), subsequent_velocities)
-    subsequent_angular_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector((carposition_global, carquat_global), subsequent_angular_velocities)
+    if args.debug and (idx%30)==0:
+        print(label_tag.position_spline)
+        fig = plt.figure()
+        ax = fig.add_subplot()
+        tsamp = np.linspace(label_tag.position_spline.tmin,label_tag.position_spline.tmax,10)
+        params_rebuilt = np.array([label_tag.position_spline.XParams, label_tag.position_spline.ZParams]).transpose()
+        spline_rebuilt = scipy.interpolate.BSpline(label_tag.position_spline.knots, params_rebuilt, label_tag.position_spline.degree)
+        position_resamp = spline_rebuilt(tsamp)
+        ax.plot(subsequent_positions_local[:,0],subsequent_positions_local[:,2], 'bo')
+        ax.plot(label_tag.position_spline.Xmin + position_resamp[:,0]*(label_tag.position_spline.Xmax - label_tag.position_spline.Xmin),\
+                label_tag.position_spline.Zmin + position_resamp[:,1]*(label_tag.position_spline.Zmax - label_tag.position_spline.Zmin),\
+                'ro')
+        plt.show()
     #print()
     #print()
     #print(carposition_global)

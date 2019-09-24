@@ -2,12 +2,12 @@ search_string: "F1"
 driver_name: "Trent"
 images_folder: "images"
 udp_folder: "udp_data"
-udp_threads: 3
+udp_thread_sleeptime: 75
 udp_port: 20777
-image_threads: 3
+image_threads: 2
 image_capture_frequency: 35.0
 initial_delay_time: 3.0
 image_extension: "jpg"
-use_json: True
+use_json: False
 spectating: False
-init_paused: True
+init_paused: False

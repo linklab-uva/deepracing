@@ -20,7 +20,6 @@ import cv2
 import deepracing.backend
 import deepracing.grpc
 from numpy_ringbuffer import RingBuffer
-from nn_models.Models import AdmiralNetPosePredictor 
 import yaml
 import torch
 import torchvision

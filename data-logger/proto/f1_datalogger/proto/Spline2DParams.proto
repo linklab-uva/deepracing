@@ -1,0 +1,14 @@
+syntax = "proto3";
+package deepf1.protobuf;
+message Spline2DParams {
+		repeated double XParams = 1;
+		repeated double ZParams = 2;
+		double Xmin = 3;
+		double Xmax = 4;
+		double Zmin = 5;
+        double Zmax = 6;
+        double tmin = 7;
+        double tmax = 8;
+        repeated double knots = 9;
+        int32 degree = 10;
+}

@@ -102,9 +102,9 @@ telemetry_data = [packet.udp_packet for packet in telemetry_packets]
 steering = [float(data.m_carTelemetryData[car_index].m_steer)/100.0 for data in telemetry_data]
 throttle = [float(data.m_carTelemetryData[car_index].m_throttle)/100.0 for data in telemetry_data]
 brake = [float(data.m_carTelemetryData[car_index].m_brake)/100.0 for data in telemetry_data]
-steering_interpolant = scipy.interpolate.interp1d(session_times, steering , axis=0, kind='cubic')
-throttle_interpolant = scipy.interpolate.interp1d(session_times, throttle , axis=0, kind='cubic')
-brake_interpolant = scipy.interpolate.interp1d(session_times, brake , axis=0, kind='cubic')
+steering_interpolant = scipy.interpolate.make_interp_spline(session_times, steering)
+throttle_interpolant = scipy.interpolate.make_interp_spline(session_times, throttle )
+brake_interpolant = scipy.interpolate.make_interp_spline(session_times, brake )
 
 interpolated_steerings = steering_interpolant(image_session_timestamps)
 interpolated_throttles = throttle_interpolant(image_session_timestamps)

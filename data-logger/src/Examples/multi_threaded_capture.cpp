@@ -33,7 +33,7 @@ int main(int argc, char** argv)
 {
   using namespace deepf1;
   std::string search_string, image_folder, image_extension, udp_folder, config_file, root_directory, driver_name;
-  unsigned int image_threads, udp_port;
+  unsigned int image_threads, udp_port, udp_thread_sleeptime;
   float image_capture_frequency, initial_delay_time;
   bool spectating, use_json, init_paused;
   double capture_region_ratio;
@@ -76,6 +76,7 @@ int main(int argc, char** argv)
   image_extension = config_node["image_extension"].as<std::string>("jpg");
   image_threads = config_node["image_threads"].as<unsigned int>();
   udp_port = config_node["udp_port"].as<unsigned int>(20777);
+  udp_thread_sleeptime = config_node["udp_thread_sleeptime"].as<unsigned int>(75);  
   image_capture_frequency = config_node["image_capture_frequency"].as<float>();
   initial_delay_time = config_node["initial_delay_time"].as<float>();
   spectating = config_node["spectating"].as<bool>(false);
@@ -89,6 +90,7 @@ int main(int argc, char** argv)
   config_node["udp_folder"] = udp_folder;
   config_node["image_extension"] = image_extension;
   config_node["image_threads"] = image_threads;
+  config_node["udp_thread_sleeptime"] = udp_thread_sleeptime;
   config_node["udp_port"] = udp_port;
   config_node["image_capture_frequency"] = image_capture_frequency;
   config_node["initial_delay_time"] = initial_delay_time;
@@ -125,6 +127,7 @@ int main(int argc, char** argv)
   deepf1::MultiThreadedUDPHandler2018Settings udp_settings;
   udp_settings.write_json=use_json;
   udp_settings.udp_directory=(root_dir/fs::path(udp_folder)).string();
+  udp_settings.sleeptime=udp_thread_sleeptime;
   std::shared_ptr<deepf1::MultiThreadedUDPHandler2018> udp_handler(new deepf1::MultiThreadedUDPHandler2018(udp_settings));
   udp_handler->addPausedFunction(std::bind(&deepf1::MultiThreadedFrameGrabHandler::pause, frame_handler.get()));
   std::cout << "Created handlers" << std::endl;
