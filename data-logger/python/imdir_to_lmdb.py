@@ -71,6 +71,7 @@ def main(args):
     print("Using a mapsize of " + str(mapsize))
     db = deepracing.backend.ImageLMDBWrapper()
     db.readImages(img_files, keys, dbpath, im_size, ROI=(x,y,w,h), mapsize=mapsize)
+    yaml.dump({"ROI":[x,y,w,h]},open(os.path.join(dbpath,"config.yaml"),"w"),Dumper=yaml.SafeDumper)
     print("Done creating LMDB")
     db.readDatabase(dbpath, mapsize=mapsize, max_spare_txns=16)
     windowname="DB Image"
