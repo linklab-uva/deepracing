@@ -95,10 +95,11 @@ class PoseSequenceDataset(Dataset):
             opt_flow_torch.fill_(np.nan)
         #tock = time.clock()
        # print("loaded images in %f seconds." %(tock-tick))
-        positions_torch = torch.from_numpy(positions_np)#.float()
-        quats_torch = torch.from_numpy(quats_np)#.float()
-        linear_velocities_torch = torch.from_numpy(linear_velocities_np)#.float()
-        angular_velocities_torch = torch.from_numpy(angular_velocities_np)#.float()
-        session_times_torch = torch.from_numpy(session_times_np)#.float()
-        
-        return images_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch
+        positions_torch = torch.from_numpy(positions_np)
+        quats_torch = torch.from_numpy(quats_np)
+        linear_velocities_torch = torch.from_numpy(linear_velocities_np)
+        angular_velocities_torch = torch.from_numpy(angular_velocities_np)
+        session_times_torch = torch.from_numpy(session_times_np)
+        pos_spline_params = torch.from_numpy(np.vstack((np.array(label_packet.position_spline.XParams),np.array(label_packet.position_spline.ZParams))))
+        vel_spline_params = torch.from_numpy(np.vstack((np.array(label_packet.velocity_spline.XParams),np.array(label_packet.velocity_spline.ZParams))))
+        return images_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch, pos_spline_params, vel_spline_params

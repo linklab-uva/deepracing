@@ -251,7 +251,7 @@ class AdmiralNetKinematicPredictor(nn.Module):
 
         return position_predictions
 class AdmiralNetSplinePredictor(nn.Module):
-    def __init__(self, input_channels=3, output_dimension=2, params_per_dimension=11, \
+    def __init__(self, input_channels=3, params_per_dimension=11, \
                  context_length = 5, hidden_dim = 200, num_recurrent_layers = 1,  \
                     additional_rnn_calls=25, learnable_initial_state=True):
         super(AdmiralNetSplinePredictor, self).__init__()
@@ -259,7 +259,7 @@ class AdmiralNetSplinePredictor(nn.Module):
         self.input_channels = input_channels
         self.params_per_dimension = params_per_dimension
         self.context_length = context_length
-        self.output_dimension = output_dimension
+        self.num_recurrent_layers = num_recurrent_layers
         #activations
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
@@ -331,8 +331,8 @@ class AdmiralNetSplinePredictor(nn.Module):
         #recurrent layers
         self.hidden_dim = hidden_dim
         self.linear_rnn = nn.LSTM(self.img_features, self.hidden_dim, batch_first = True, num_layers = num_recurrent_layers)
-        self.linear_rnn_init_hidden = torch.nn.Parameter(torch.normal(0, 1, size=(1,self.hidden_dim)), requires_grad=learnable_initial_state)
-        self.linear_rnn_init_cell = torch.nn.Parameter(torch.normal(0, 1, size=(1,self.hidden_dim)), requires_grad=learnable_initial_state)
+        self.linear_rnn_init_hidden = torch.nn.Parameter(torch.normal(0, 1, size=(self.num_recurrent_layers,self.hidden_dim)), requires_grad=learnable_initial_state)
+        self.linear_rnn_init_cell = torch.nn.Parameter(torch.normal(0, 1, size=(self.num_recurrent_layers,self.hidden_dim)), requires_grad=learnable_initial_state)
 
 
         self.projection_features = 240*self.context_length * 3 * 20
@@ -343,26 +343,26 @@ class AdmiralNetSplinePredictor(nn.Module):
         
     
         # Sub-convolutional layers.
-        self.subConv1 = nn.Conv2d(1, 16, kernel_size=5, stride=(1,2), padding=(2,2))
+        self.subConv1 = nn.Conv2d(1, 16, kernel_size=5, stride=(2,2), padding=(2,2))
         self.subConvNorm_1 = nn.BatchNorm2d(self.subConv1.out_channels)
-        self.subConv2 = nn.Conv2d(16, 48, kernel_size=5, stride=(1,2), padding=(2,2))
+        self.subConv2 = nn.Conv2d(16, 32, kernel_size=5, stride=(1,2), padding=(2,2))
         self.subConvNorm_2 = nn.BatchNorm2d(self.subConv2.out_channels)
-        self.subConv3 = nn.Conv2d(48, 96, kernel_size=5, stride=1)
+        self.subConv3 = nn.Conv2d(32, 64, kernel_size=5, stride=1)
         self.subConvNorm_3 = nn.BatchNorm2d(self.subConv3.out_channels)
         self.subConvPool_1 = torch.nn.MaxPool2d(3, stride=(1,1))
-        self.subConv4 = nn.Conv2d(96, 96, kernel_size=3, stride=1)
+        self.subConv4 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
         self.subConvNorm_4 = nn.BatchNorm2d(self.subConv4.out_channels)
-        self.subConv5= nn.Conv2d(96, 164, kernel_size=3, stride=1)
+        self.subConv5= nn.Conv2d(64, 128, kernel_size=3, stride=1)
         self.subConvNorm_5 = nn.BatchNorm2d(self.subConv5.out_channels)
-        self.subConv6= nn.Conv2d(164, 164, kernel_size=3, stride=1)
-        self.subConvNorm_6 = nn.BatchNorm2d(self.subConv6.out_channels)
         self.subConvPool_2 = torch.nn.MaxPool2d(3, stride=(1,1))
-        self.subConv7= nn.Conv2d(164, 164, kernel_size=3, stride=1)
-        self.subConvNorm_7 = nn.BatchNorm2d(self.subConv7.out_channels)
-        self.subConv8= nn.Conv2d(164, 164, kernel_size=3, stride=1)
-        self.subConvNorm_8 = nn.BatchNorm2d(self.subConv8.out_channels)
-        self.subConv9= nn.Conv2d(164, 164, kernel_size=3, stride=1)
-        self.subConvNorm_9 = nn.BatchNorm2d(self.subConv9.out_channels)
+        # self.subConv6= nn.Conv2d(164, 164, kernel_size=3, stride=1)
+        # self.subConvNorm_6 = nn.BatchNorm2d(self.subConv6.out_channels)
+        # self.subConv7= nn.Conv2d(164, 164, kernel_size=3, stride=1)
+        # self.subConvNorm_7 = nn.BatchNorm2d(self.subConv7.out_channels)
+        # self.subConv8= nn.Conv2d(164, 164, kernel_size=3, stride=1)
+        # self.subConvNorm_8 = nn.BatchNorm2d(self.subConv8.out_channels)
+        # self.subConv9= nn.Conv2d(164, 164, kernel_size=3, stride=1)
+        # self.subConvNorm_9 = nn.BatchNorm2d(self.subConv9.out_channels)
 
         self.hidden_decoder = torch.nn.Sequential(*[
         self.subConv1,
@@ -371,33 +371,36 @@ class AdmiralNetSplinePredictor(nn.Module):
         self.subConv2,
         self.subConvNorm_2,
         self.subConv3,
+        self.relu,
         self.subConvNorm_3,
         self.relu,
         self.subConvPool_1,
         self.subConv4,
         self.subConvNorm_4,
+        self.relu,
         self.subConv5,
         self.subConvNorm_5,
-        self.subConv6,
-        self.subConvNorm_6,
+        self.relu,
         self.subConvPool_2,
-        self.subConv7,
-        self.subConvNorm_7,
-        self.subConv8,
-        self.subConvNorm_8,
-        self.subConv9,
-        self.subConvNorm_9,
+        # self.subConv6,
+        # self.subConvNorm_6,
+        # self.subConvPool_2,
+        # self.subConv7,
+        # self.subConvNorm_7,
+        # self.subConv8,
+        # self.subConvNorm_8,
+        # self.subConv9,
+        # self.subConvNorm_9,
 
         ])
-
+        self.hidden_decoder_features = 2432
         self.classifier = nn.Sequential(*[
-            nn.Linear(12300, 2000),
+            nn.Linear(self.hidden_decoder_features, 1200),
             self.relu,
-            nn.Linear(2000, 1000),
-            self.relu,
-            nn.Linear(1000, 500),
-            self.relu,
+            nn.Linear(1200, 500),
+            self.tanh,
             nn.Linear(500, self.params_per_dimension)
+            #nn.Linear(2432, self.params_per_dimension)
             ]
         )
         
@@ -423,7 +426,7 @@ class AdmiralNetSplinePredictor(nn.Module):
         x_linear, (final_hidden_position, final_cell_position) = self.linear_rnn(  projection_features , (linear_new_hidden, linear_new_cell) )
         x_linear_unsqueeze = x_linear.unsqueeze(1)
         hidden_convout = self.hidden_decoder(x_linear_unsqueeze)
-        x_features = hidden_convout.view(batch_size,2,12300)
+        x_features = hidden_convout.view(batch_size,2,self.hidden_decoder_features)
 
         spline_param_predictions = self.classifier(x_features)
 
