@@ -8,8 +8,10 @@ import numpy as np
 def splineSciPyToPB(splineSciPy : scipy.interpolate.BSpline, tmin,tmax,Xmin,Xmax,Zmin,Zmax):
    return Spline2DParams_pb2.Spline2DParams(XParams = splineSciPy.c[:,0], ZParams = splineSciPy.c[:,1],degree=splineSciPy.k, knots=splineSciPy.t,\
                                                            tmin=tmin,tmax=tmax,Xmin=Xmin,Xmax=Xmax,Zmin=Zmin,Zmax=Zmax)
+
 def splinePBToSciPy(splinePB: Spline2DParams_pb2.Spline2DParams):
    return scipy.interpolate.BSpline(splinePB.knots, np.array([splinePB.XParams, splinePB.ZParams]).transpose(), splinePB.degree)
+   
 def getAllTelemetryPackets(telemetry_folder: str, use_json: bool):
    telemetry_packets = []
    if use_json:

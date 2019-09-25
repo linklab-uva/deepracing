@@ -242,8 +242,8 @@ for idx in tqdm(range(len(image_tags))):
     tspline = (tspline-tspline[0])/(tspline[-1]-tspline[0])
     #tspline = np.linspace(0.0,1.0,position_spline_ordinates.shape[0])
     numpoints = position_spline_ordinates.shape[0]
-    #knots = np.hstack((np.zeros(splK+1),np.linspace((splK-1)/(numpoints-1),(numpoints-splK)/(numpoints-1),numpoints-splK-1),np.ones(splK+1)))
-    knots = None
+    knots = np.hstack((np.zeros(splK+1),np.linspace((splK-1)/(numpoints-splK+1),(numpoints-splK-1)/(numpoints-splK+1),numpoints-splK-1),np.ones(splK+1)))
+    #knots = None
     position_spline_ordinates[:,0] = (position_spline_ordinates[:,0] - splxmin)/(splxmax - splxmin)
     position_spline_ordinates[:,1] = (position_spline_ordinates[:,1] - splzmin)/(splzmax - splzmin)
     position_spline = scipy.interpolate.make_interp_spline(tspline,position_spline_ordinates,k=splK,t=knots)
@@ -282,6 +282,8 @@ for idx in tqdm(range(len(image_tags))):
 
 
     if args.debug and (idx%30)==0:
+        print("Final point in undecimated list: " + str(position_spline_ordinates[-1]))
+        print("Final point in decimated list: " + str(subsequent_positions_local[-1,[0,2]]))
         print(google.protobuf.json_format.MessageToJson(label_tag.position_spline,including_default_value_fields=True))
         print(subsequent_times.shape)
         print("Mean diff of time vector: %f" %(np.mean(np.diff(subsequent_times))))
@@ -300,7 +302,7 @@ for idx in tqdm(range(len(image_tags))):
     #print(carposition_global)
     #print(carpose_global)
     #print()
-    for j in range(len(subsequent_positions_local)):
+    for j in range(len(subsequent_positions_local)-1):
         # label_tag.
         #print(packet_forward)
         pose_forward_pb = Pose3d_pb2.Pose3d()
