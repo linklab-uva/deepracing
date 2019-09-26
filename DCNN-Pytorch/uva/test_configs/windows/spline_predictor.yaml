@@ -1,0 +1,30 @@
+#datasets definition
+datasets:
+  -
+    image_db: D:\f1_training_data\trent_solo_test\images\image_lmdb
+    opt_flow_db: D:\f1_training_data\trent_solo_test\images\optical_flow_lmdb
+    label_db: D:\f1_training_data\trent_solo_test\images\pose_sequence_labels\lmdb
+    key_file: D:\f1_training_data\trent_solo_test\goodkeys.txt
+image_size: [66, 200]
+
+#model definition parameters
+num_recurrent_layers: 1
+hidden_dimension: 200
+input_channels: 5
+sequence_length: 10
+context_length: 5
+temporal_conv_feature_factor: 1
+use_float: False
+
+#training hyperparameters
+gpu: 0
+batch_size: 96
+learning_rate: 5.0E-4
+momentum: 1.0E-3
+loss_weights: [1.0, 1.0]
+num_epochs: 100
+num_workers: 0
+position_loss_reduction: "mean"
+
+#debugging settings
+debug: False

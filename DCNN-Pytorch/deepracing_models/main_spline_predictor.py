@@ -71,7 +71,7 @@ def run_epoch(network, optimizer, trainLoader, gpu, loss_func, imsize=(66,200), 
         if use_tqdm:
             # logging information
             cum_loss += float(loss.item())
-            num_samples += float(batch_size)
+            num_samples += 1.0
             t.set_postfix({"cum_loss" : cum_loss/num_samples})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
@@ -95,6 +95,7 @@ def go():
     image_size = config["image_size"]
     input_channels = config["input_channels"]
     context_length = config["context_length"]
+    num_recurrent_layers = config["num_recurrent_layers"]
     if args.gpu is not None:
         gpu = args.gpu
     else:
@@ -111,7 +112,7 @@ def go():
     position_loss_reduction = config["position_loss_reduction"]
     use_float = config["use_float"]
     print("Using config:\n%s" % (str(config)))
-    net = nn_models.Models.AdmiralNetSplinePredictor(input_channels=input_channels) 
+    net = nn_models.Models.AdmiralNetSplinePredictor(input_channels=input_channels, num_recurrent_layers=num_recurrent_layers) 
     print("net:\n%s" % (str(net)))
     sequence_length = net.additional_rnn_calls
     loss_func = torch.nn.MSELoss(reduction=position_loss_reduction)

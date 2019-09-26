@@ -252,7 +252,7 @@ class AdmiralNetKinematicPredictor(nn.Module):
         return position_predictions
 class AdmiralNetSplinePredictor(nn.Module):
     def __init__(self, input_channels=3, params_per_dimension=11, \
-                 context_length = 5, hidden_dim = 200, num_recurrent_layers = 1,  \
+                 context_length = 5, hidden_dim = 200, num_recurrent_layers = 1, rnn_bidirectional=False,  \
                     additional_rnn_calls=25, learnable_initial_state=True):
         super(AdmiralNetSplinePredictor, self).__init__()
         self.imsize = (66,200)
@@ -330,9 +330,9 @@ class AdmiralNetSplinePredictor(nn.Module):
 
         #recurrent layers
         self.hidden_dim = hidden_dim
-        self.linear_rnn = nn.LSTM(self.img_features, self.hidden_dim, batch_first = True, num_layers = num_recurrent_layers)
-        self.linear_rnn_init_hidden = torch.nn.Parameter(torch.normal(0, 1, size=(self.num_recurrent_layers,self.hidden_dim)), requires_grad=learnable_initial_state)
-        self.linear_rnn_init_cell = torch.nn.Parameter(torch.normal(0, 1, size=(self.num_recurrent_layers,self.hidden_dim)), requires_grad=learnable_initial_state)
+        self.linear_rnn = nn.LSTM(self.img_features, self.hidden_dim, batch_first = True, num_layers = num_recurrent_layers, bidirectional=rnn_bidirectional)
+        self.linear_rnn_init_hidden = torch.nn.Parameter(torch.normal(0, 1, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),self.hidden_dim)), requires_grad=learnable_initial_state)
+        self.linear_rnn_init_cell = torch.nn.Parameter(torch.normal(0, 1, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),self.hidden_dim)), requires_grad=learnable_initial_state)
 
 
         self.projection_features = 240*self.context_length * 3 * 20

@@ -102,4 +102,5 @@ class PoseSequenceDataset(Dataset):
         session_times_torch = torch.from_numpy(session_times_np)
         pos_spline_params = torch.from_numpy(np.vstack((np.array(label_packet.position_spline.XParams),np.array(label_packet.position_spline.ZParams))))
         vel_spline_params = torch.from_numpy(np.vstack((np.array(label_packet.velocity_spline.XParams),np.array(label_packet.velocity_spline.ZParams))))
-        return images_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch, pos_spline_params, vel_spline_params
+        knots = torch.from_numpy(np.array(label_packet.position_spline.knots))
+        return images_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch, pos_spline_params, vel_spline_params, knots

@@ -287,15 +287,25 @@ for idx in tqdm(range(len(image_tags))):
         print(google.protobuf.json_format.MessageToJson(label_tag.position_spline,including_default_value_fields=True))
         print(subsequent_times.shape)
         print("Mean diff of time vector: %f" %(np.mean(np.diff(subsequent_times))))
-        fig = plt.figure()
-        ax = fig.add_subplot()
         tsamp = np.linspace(0.0,1.0,16)
         position_spline_rebuilt = deepracing.protobuf_utils.splinePBToSciPy(label_tag.position_spline)
         position_resamp = position_spline_rebuilt(tsamp)
+        spline_derivative = position_spline_rebuilt.derivative()
+        velocity_resamp = spline_derivative(tsamp)
+        fig = plt.figure()
+        ax = fig.add_subplot()
         ax.plot(subsequent_positions_local[:,0],subsequent_positions_local[:,2], 'bo')
         ax.plot(label_tag.position_spline.Xmin + position_resamp[:,0]*(label_tag.position_spline.Xmax - label_tag.position_spline.Xmin),\
                 label_tag.position_spline.Zmin + position_resamp[:,1]*(label_tag.position_spline.Zmax - label_tag.position_spline.Zmin),\
                 'ro')
+        ax.quiver(subsequent_positions_local[:,0],subsequent_positions_local[:,2],subsequent_velocities_local[:,0],subsequent_velocities_local[:,2])
+        #ax.quiver(position_resamp[:,0],position_resamp[:,1],velocity_resamp[:,0],velocity_resamp[:,1])
+        # figvel = plt.figure()
+        # axvel = figvel.add_subplot()
+        # axvel.plot(subsequent_velocities_local[:,0],subsequent_velocities_local[:,2], 'bo')
+        # axvel.plot(label_tag.position_spline.Xmin + velocity_resamp[:,0]*(label_tag.position_spline.Xmax - label_tag.position_spline.Xmin),\
+        #         label_tag.position_spline.Zmin + velocity_resamp[:,1]*(label_tag.position_spline.Zmax - label_tag.position_spline.Zmin),\
+        #         'ro')
         plt.show()
     #print()
     #print()

@@ -27,6 +27,7 @@ datasets:
 image_size: [66, 200]
 
 #model definition parameters
+num_recurrent_layers: 1
 hidden_dimension: 200
 input_channels: 3
 sequence_length: 10
