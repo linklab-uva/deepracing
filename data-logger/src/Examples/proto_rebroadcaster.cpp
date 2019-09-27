@@ -158,11 +158,10 @@ int main(int argc, char** argv)
   std::string search = "F1";
   float scale_factor=1.0;
   uint32_t x,y,w,h;
-  search = std::string(argv[1]);
-  x = std::stoi(std::string(argv[2]));
-  y = std::stoi(std::string(argv[3]));
-  w = std::stoi(std::string(argv[4]));
-  h = std::stoi(std::string(argv[5]));
+  x = std::stoi(std::string(argv[1]));
+  y = std::stoi(std::string(argv[2]));
+  w = std::stoi(std::string(argv[3]));
+  h = std::stoi(std::string(argv[4]));
   
   std::shared_ptr<ProtoRebroadcaster_FrameGrabHandler> image_handler(new ProtoRebroadcaster_FrameGrabHandler("127.0.0.1", 50051, std::vector<uint32_t>{x,y,w,h}));
   std::shared_ptr<ProtoRebroadcaster_2018DataGrabHandler> udp_handler(new ProtoRebroadcaster_2018DataGrabHandler("127.0.0.1", 50052));
