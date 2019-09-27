@@ -332,3 +332,4 @@ install
 .mypy_cache/
 *.gif
 build/
+*.pt
