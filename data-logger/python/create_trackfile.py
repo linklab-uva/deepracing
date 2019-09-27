@@ -59,5 +59,6 @@ ax.set_ylabel('Y Label')
 ax.set_zlabel('Z Label')
 plt.show()
 
-
+if not os.path.isdir(os.path.dirname(trackfileout)):
+    os.makedirs(os.path.dirname(trackfileout))
 deepracing.writeArmaFile(trackfileout,t,X,Xdot)
