@@ -40,6 +40,7 @@ import traceback
 import sys
 import queue
 import google.protobuf.json_format
+import matplotlib.pyplot as plt
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 current_motion_data = None
 N_error = 100
@@ -124,7 +125,7 @@ def serve():
     parser.add_argument('address', type=str)
     parser.add_argument('port', type=int)
     parser.add_argument('trackfile', type=str)
-    parser.add_argument('--lookahead_time', type=float, default=2.5, required=False)
+    parser.add_argument('--lookahead_time', type=float, default=1.0, required=False)
     parser.add_argument('--lookahead_gain', type=float, default=0.3, required=False)
     parser.add_argument('--velocity_lookahead_gain', type=float, default=1.5, required=False)
     parser.add_argument('--pgain', type=float, default=0.5, required=False)
@@ -175,7 +176,13 @@ def serve():
     deltazmat = np.eye(4)
     deltazmat[2,3] = -L_/2
     try:
-        smin = .075
+        smin = .2
+        plt.show()
+        ax = plt.gca()
+        hlfit, = ax.plot([], [],'r-')
+        hlspline, = ax.plot([], [],'b+')
+        plt.xlim(-25,25)
+        plt.ylim(0,100)
         while running:
             if (current_motion_data is None) or (len(current_motion_data.m_carMotionData)==0):
                 continue
@@ -189,38 +196,58 @@ def serve():
            
             distances = la.norm(x_local, axis=1)
             closest_index = np.argmin(distances)
-            closest_point = x_local[closest_index]
-            closest_velocity = v_local[closest_index]
-            velsetpoint = la.norm(closest_velocity)
+            forward_idx = (np.linspace(closest_index,closest_index+200,201).astype(np.int32))%(len(distances))
+            closest_point = x_local[forward_idx[0]]
+            v_local_forward = v_local[forward_idx]
+            closest_velocity = v_local_forward[0]
             closest_t = t[closest_index]
-            x_local_forward = x_local[closest_index:]
-            t_forward = t[closest_index:]
+            x_local_forward = x_local[forward_idx]
+            t_forward = t[forward_idx]
+            lookahead_distance = lookahead_gain*speed
+            distances_forward = la.norm(x_local_forward, axis=1)
+            lookahead_index = np.argmin(np.abs(distances_forward-lookahead_distance))
+
             if args.usesplines:
-                imax = bisect.bisect_left(t_forward,t_forward[0]+lookahead_time)
-                tfit = t_forward[:imax]
+                #imax = bisect.bisect_left(t_forward,t_forward[0]+lookahead_time)
+                tfit = t_forward[:60]
                 #print(tfit)
                 if len(tfit)==0:
                     continue
                 deltaT = (tfit[-1]-tfit[0])
-                if deltaT<0.125:
+                if deltaT<0.05:
                     continue
                 sfit = (tfit-tfit[0])/deltaT
-                xfit = x_local_forward[:imax]
+                xfit = x_local_forward[:60,[0,2]]
+                vfit = v_local_forward[:60,[0,2]]
                 # print(sfit)
                 # print(s)
-                xspline = scipy.interpolate.interp1d(sfit,xfit, axis=0, kind='cubic')
-                s = max(smin, lookahead_gain*(speed/vmax))
+                xspline = scipy.interpolate.make_interp_spline(sfit,xfit) 
+                tsamp = np.linspace(0,1,64)
+                xsamp =xspline(tsamp)
+                # hlfit, = ax.plot(xfit[:,0], xfit[:,1],'r-')
+                # hlspline, = ax.plot(xsamp[:,0], xsamp[:,1],'b-')
+                hlfit.set_xdata(xfit[:,0])
+                hlfit.set_ydata(xfit[:,1])
+                hlspline.set_xdata(xsamp[:,0])
+                hlspline.set_ydata(xsamp[:,1])
+                velspline = scipy.interpolate.make_interp_spline(sfit,vfit)
+                speedfactor = lookahead_gain*(speed/vmax)
+                s = min(max(smin, lookahead_distance/(speed*deltaT)),1.0)
+                #print(speed)
+                #print(deltaT)
                 if(s>1.0):
                     s=1.0
                 lookaheadVector = xspline(s)
+                lookaheadVel = xspline(0.1,nu=1)
+                #lookaheadVel = velspline(0.1)*deltaT
+                lookaheadAccel = xspline(0.1,nu=2)
+                velsetpoint = 0.90*la.norm(lookaheadVel)/deltaT
+                #velsetpoint = 0.8*la.norm(v_local_forward[lookahead_index])
             else:
-                lookahead_distance = lookahead_gain*speed
-                distances_forward = la.norm(x_local_forward, axis=1)
-                lookahead_index = np.argmin(np.abs(distances_forward-lookahead_distance))
-                lookaheadVector = x_local_forward[lookahead_index]
-
-
-            lookaheadVector[1]=0.0
+                lookaheadVector = x_local_forward[lookahead_index,[0,2]]
+                velsetpoint = la.norm(closest_velocity)
+            
+            #print(velsetpoint)
             D = la.norm(lookaheadVector)
             lookaheadVector = lookaheadVector/D
             # print()
@@ -229,11 +256,13 @@ def serve():
             # print()
             # Dvel = la.norm(looakhead_point_vel)
             # lookaheadVectorVel = looakhead_point_vel/Dvel
-            alpha = np.abs(np.arccos(np.dot(lookaheadVector,np.array((0,0,1)))))
-            if (lookaheadVector[0] < 0):
-                alpha *= -1.0
+            #alpha = np.abs(np.arccos(np.dot(lookaheadVector,np.array((0,0,1)))))
+            alpha = np.arctan2(lookaheadVector[0],lookaheadVector[1])
+            # if (lookaheadVector[0] < 0):
+            #     alpha *= -1.0
                 #alphaVelocity *= -1.0
             physical_angle = np.arctan((2 * L_*np.sin(alpha)) / D)
+            #physical_angle = np.arctan2(lookaheadVector[0],lookaheadVector[1])
            # print("Alpha: %f" %(alpha))
             #print("Physical wheel angle desired: %f" %(physical_angle))
             delta = 0.0
@@ -248,7 +277,9 @@ def serve():
                 controller.setControl(delta,0.0,-throttle_out)
             
             
-            time.sleep(0.015)
+            plt.draw()
+            plt.pause(1e-17)
+            time.sleep(0.025)
             
     except KeyboardInterrupt as e:
         controller.setControl(0.0,0.0,0.0)
