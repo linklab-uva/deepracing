@@ -170,8 +170,9 @@ class OraclePurePursuitController(PurePursuitController):
         x_spline = scipy.interpolate.make_interp_spline(s, x_local_forward)
         s_samp = np.linspace(0.0,1.0,96)
         x_samp = x_spline(s_samp)
+        v_samp = x_spline(s_samp,nu=1)
         t_samp = s_samp*deltaT + t_forward[0]
         distances_samp = la.norm(x_samp, axis=1)
-        return x_samp, v_local_forward, distances_samp
+        return x_samp, (1/deltaT)*v_samp, distances_samp
         
            
