@@ -46,7 +46,6 @@ def run_epoch(network, optimizer, trainLoader, gpu, loss_func, imsize=(66,200), 
                 ims.append([im])
             ani = animation.ArtistAnimation(plt.figure(), ims, interval=50, blit=True, repeat_delay=0)
             plt.show()
-            print(position_torch)
         if network.input_channels==5:
             image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
         if use_float:
