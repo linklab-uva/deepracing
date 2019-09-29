@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from scipy.special import comb as nChoosek
-Mtk = lambda i, n, t: (t**(i))*((1-t)**(n-i))*nChoosek(n,i)
+Mtk = lambda k, n, t: (t**(k))*((1-t)**(n-k))*nChoosek(n,k)
 def pinv(A):
     """
     Return the pseudoinverse of A,
@@ -20,7 +20,7 @@ def bezierM(t,n):
     # for j in range(M.shape[0]):
     #     M[j]=torch.stack([Mtk(i,n,t[j]) for i in range(n+1)],dim=1)
     # return M
-    return torch.stack([Mtk(i,n,t) for i in range(n+1)],dim=2)
+    return torch.stack([Mtk(k,n,t) for k in range(n+1)],dim=2)
 def evalBezier(M,control_points):
     return torch.matmul(M,control_points)
 def bezierDerivative(control_points,n,t):

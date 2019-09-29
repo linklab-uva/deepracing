@@ -32,6 +32,7 @@ input_channels: 3
 sequence_length: 10
 context_length: 5
 temporal_conv_feature_factor: 1
+bezier_order: 7
 use_float: False
 
 #training hyperparameters
@@ -39,7 +40,7 @@ gpu: 1
 batch_size: 96
 learning_rate: 5.0E-4
 momentum: 1.0E-3
-loss_weights: [1.0, 1.0, 0.25]
+loss_weights: [1.0, 1.0, 0.0]
 num_epochs: 100
 num_workers: 0
 position_loss_reduction: "mean"

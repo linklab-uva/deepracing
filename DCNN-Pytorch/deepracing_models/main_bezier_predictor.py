@@ -23,8 +23,9 @@ import imageio
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
+import math_utils.bezier
 #torch.backends.cudnn.enabled = False
-def run_epoch(network, optimizer, trainLoader, gpu, loss_func, imsize=(66,200), debug=False, use_tqdm=True, use_float=True):
+def run_epoch(network, optimizer, trainLoader, gpu, loss_func, loss_weights, imsize=(66,200), debug=False, use_tqdm=True, use_float=True):
     cum_loss = 0.0
     num_samples=0.0
     batch_size = trainLoader.batch_size
@@ -51,18 +52,50 @@ def run_epoch(network, optimizer, trainLoader, gpu, loss_func, imsize=(66,200), 
         if use_float:
             image_torch = image_torch.float()
             pos_spline_params = pos_spline_params.float()
+            positions_torch = positions_torch.float()
+            linear_velocities_torch = linear_velocities_torch.float()
+            session_times_torch = session_times_torch.float()
         else:
             image_torch = image_torch.double()
             pos_spline_params = pos_spline_params.double()
+            positions_torch = positions_torch.double()
+            session_times_torch = session_times_torch.double()
+            linear_velocities_torch = linear_velocities_torch.double()
         if gpu>=0:
             image_torch = image_torch.cuda(gpu)
             pos_spline_params = pos_spline_params.cuda(gpu)
+            positions_torch = positions_torch.cuda(gpu)
+            session_times_torch = session_times_torch.cuda(gpu)
+            linear_velocities_torch = linear_velocities_torch.cuda(gpu)
  
         predictions = network(image_torch)
-        dt = session_times_torch[-1]-session_times_torch[0]
-        s_torch = (session_times_torch -session_times_torch[0])/dt
+        dt = session_times_torch[:,-1]-session_times_torch[:,0]
+        s_torch = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
+        fitpoints = positions_torch[:,:,[0,2]]
+        fitvels = linear_velocities_torch[:,:,[0,2]]
+        bezier_order = network.params_per_dimension-1
+        Mfit, controlpoints_fit = math_utils.bezier.bezierLsqfit(fitpoints,s_torch,bezier_order)
+        predictions_reshape = predictions.transpose(1,2)
+        pred_points = torch.matmul(Mfit, predictions_reshape)
+        pred_vels = math_utils.bezier.bezierDerivative(predictions_reshape,bezier_order,s_torch)
 
-        loss = loss_func(predictions,pos_spline_params)
+        if False:
+            fig = plt.figure()
+            ax = fig.add_subplot()
+            ax.plot(positions_torch[0,:,0].cpu().numpy(),positions_torch[0,:,2].cpu().numpy(),'r-')
+            evalpoints = torch.matmul(Mfit, controlpoints_fit)
+            ax.plot(evalpoints[0,:,0].cpu().numpy(),evalpoints[0,:,1].cpu().numpy(),'bo')
+            skipn = 20
+            #ax.quiver(Pbeziertorch[::skipn,0].numpy(),Pbeziertorch[::skipn,1].numpy(),Pbeziertorchderiv[::skipn,0].numpy(),Pbeziertorchderiv[::skipn,1].numpy())
+            #ax.plot(bezier_control_points[i,:,0].numpy(),bezier_control_points[i,:,1].numpy(),'go')
+            plt.show()
+
+      #  print(controlpoints_fit.shape)
+       # print(predictions.shape)
+        if loss_weights[2]>0:
+            loss = loss_weights[0]*loss_func(predictions_reshape,controlpoints_fit) + loss_weights[1]*loss_func(pred_points,fitpoints) + loss_weights[2]*loss_func(pred_vels/dt[:,None,None],fitvels)
+        else:
+            loss = loss_weights[0]*loss_func(predictions_reshape,controlpoints_fit) + loss_weights[1]*loss_func(pred_points,fitpoints)
         
         # Backward pass:
         optimizer.zero_grad()
@@ -96,7 +129,8 @@ def go():
     image_size = config["image_size"]
     input_channels = config["input_channels"]
     context_length = config["context_length"]
-    num_recurrent_layers = config["num_recurrent_layers"]
+    bezier_order = config["bezier_order"]
+    #num_recurrent_layers = config["num_recurrent_layers"]
     if args.gpu is not None:
         gpu = args.gpu
     else:
@@ -112,8 +146,9 @@ def go():
     debug = config["debug"]
     position_loss_reduction = config["position_loss_reduction"]
     use_float = config["use_float"]
+    loss_weights = config["loss_weights"]
     print("Using config:\n%s" % (str(config)))
-    net = nn_models.Models.AdmiralNetCurvePredictor(input_channels=input_channels, num_recurrent_layers=num_recurrent_layers) 
+    net = nn_models.Models.AdmiralNetCurvePredictor(input_channels=input_channels, num_recurrent_layers=1, params_per_dimension=bezier_order+1) 
     print("net:\n%s" % (str(net)))
     sequence_length = net.additional_rnn_calls
     loss_func = torch.nn.MSELoss(reduction=position_loss_reduction)
@@ -200,7 +235,7 @@ def go():
         #dset.clearReaders()
         try:
             tick = time.time()
-            run_epoch(net, optimizer, dataloader, gpu, loss_func, debug=debug, use_tqdm=args.tqdm, use_float = use_float)
+            run_epoch(net, optimizer, dataloader, gpu, loss_func, loss_weights, debug=debug, use_tqdm=args.tqdm, use_float = use_float)
             tock = time.time()
             print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
         except Exception as e:

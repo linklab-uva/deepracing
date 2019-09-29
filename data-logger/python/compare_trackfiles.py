@@ -83,7 +83,7 @@ print("Mean KDtree distance: %f"%(meandist))
 print("Standard deviation of KDtree distances: %f"%(stddist))
 print("Velocity error mean: %f"%(mean_speederr))
 print("Velocity error standard deviation: %f"%(std_speederr))
-dmax = meandist+6*stddist
+dmax = meandist+2*stddist
 dsmax = mean_speederr+3*std_speederr
 N = 1000
 kdexplot = np.linspace(0,dmax,N).reshape(-1, 1)
@@ -95,7 +95,7 @@ kernel='gaussian'
 kde = KernelDensity(kernel=kernel, bandwidth=0.25).fit(distances.reshape(-1, 1))
 log_dens = kde.score_samples(kdexplot)
 pdf = np.exp(log_dens)
-axkde.plot(kdexplot[:,0], pdf, '-', label="kernel = '{0}'".format(kernel))
+axkde.plot(np.hstack((np.array([0]),kdexplot[:,0])), np.hstack((np.array([0]),pdf)), '-', label="kernel = '{0}'".format(kernel))
 axkde.set_xlabel("Minimum distance (m) to reference raceline")
 axkde.set_ylabel("Probability Density")
 
