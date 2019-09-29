@@ -33,7 +33,7 @@ def run_epoch(network, optimizer, trainLoader, gpu, loss_func, imsize=(66,200), 
     else:
         t = enumerate(trainLoader)
     network.train()  # This is important to call before training!
-    for (i, (image_torch, opt_flow_torch, _, _, _, _, _, pos_spline_params, vel_spline_params, knots_torch) ) in t:
+    for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch, pos_spline_params, vel_spline_params, knots) ) in t:
         if debug:
             images_np = image_torch[0].numpy().copy()
             num_images = images_np.shape[0]
@@ -59,6 +59,8 @@ def run_epoch(network, optimizer, trainLoader, gpu, loss_func, imsize=(66,200), 
             pos_spline_params = pos_spline_params.cuda(gpu)
  
         predictions = network(image_torch)
+        dt = session_times_torch[-1]-session_times_torch[0]
+        s_torch = (session_times_torch -session_times_torch[0])/dt
 
         loss = loss_func(predictions,pos_spline_params)
         

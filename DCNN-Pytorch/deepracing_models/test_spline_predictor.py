@@ -125,7 +125,7 @@ def go():
     use_float = config["use_float"]
     learnable_initial_state = config.get("learnable_initial_state",True)
     print("Using config:\n%s" % (str(config)))
-    net = nn_models.Models.AdmiralNetSplinePredictor(input_channels=input_channels) 
+    net = nn_models.Models.AdmiralNetCurvePredictor(input_channels=input_channels) 
     net.load_state_dict(torch.load(model_file,map_location=torch.device("cpu")))
     print("net:\n%s" % (str(net)))
 

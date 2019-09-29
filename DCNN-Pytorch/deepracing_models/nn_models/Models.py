@@ -250,11 +250,11 @@ class AdmiralNetKinematicPredictor(nn.Module):
         position_predictions = self.classifier(x_linear)
 
         return position_predictions
-class AdmiralNetSplinePredictor(nn.Module):
+class AdmiralNetCurvePredictor(nn.Module):
     def __init__(self, input_channels=3, params_per_dimension=11, \
                  context_length = 5, hidden_dim = 200, num_recurrent_layers = 1, rnn_bidirectional=False,  \
                     additional_rnn_calls=25, learnable_initial_state=True):
-        super(AdmiralNetSplinePredictor, self).__init__()
+        super(AdmiralNetCurvePredictor, self).__init__()
         self.imsize = (66,200)
         self.input_channels = input_channels
         self.params_per_dimension = params_per_dimension
