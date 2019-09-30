@@ -2,7 +2,7 @@
 datasets:
   -
     image_db: D:\f1_training_data\trent_solo_test\images\image_lmdb
-    label_db: D:\f1_training_data\trent_solo_test\images\pose_sequence_labels\lmdb
+    label_db: D:\f1_training_data\trent_solo_test\images\pose_sequence_labels_dense\lmdb
     key_file: D:\f1_training_data\trent_solo_test\goodkeys.txt
 image_size: [66, 200]
 
