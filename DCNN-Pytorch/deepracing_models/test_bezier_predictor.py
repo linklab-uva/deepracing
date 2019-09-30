@@ -26,6 +26,8 @@ import time
 import scipy.interpolate
 import numpy.linalg as la
 import math_utils.bezier
+from scipy.stats import norm
+from sklearn.neighbors import KernelDensity
 def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,  use_float=True):
     lossfloat = 0.0
     batch_size = testLoader.batch_size
@@ -185,10 +187,23 @@ def go():
                         shuffle=True, num_workers=num_workers)
     print("Dataloader of of length %d" %(len(dataloader)))
     losses = run_epoch(net, dataloader, gpu, loss_func, debug=debug, use_float = use_float)
-    print(losses)
-    print("RMS error: %f" %(np.mean(losses)))
-    plt.plot(np.linspace(0,losses.shape[0]-1,losses.shape[0]),losses)
-   # plt.hist(losses)
+    distances = np.sqrt(losses)
+    print(distances)
+    print("RMS error: %f" % ( np.sqrt( np.mean(losses) ) ) )
+    plt.plot(np.linspace(0,distances.shape[0]-1,distances.shape[0]),distances)
+    
+    figkde, axkde = plt.subplots()
+    figkde.subplots_adjust(hspace=0.05, wspace=0.05)
+    kernel='gaussian'
+    kde = KernelDensity(kernel=kernel, bandwidth=0.25).fit(distances.reshape(-1, 1))
+
+    kdexplot = np.linspace(0,np.max(distances),distances.shape[0]).reshape(-1, 1)
+    log_dens = kde.score_samples(kdexplot)
+    pdf = np.exp(log_dens)
+    axkde.plot(np.hstack((np.array([0]),kdexplot[:,0])), np.hstack((np.array([0]),pdf)), '-', label="kernel = '{0}'".format(kernel))
+    axkde.set_xlabel("Distance from prediction to ground truth")
+    axkde.set_ylabel("Probability Density")
+    # plt.hist(losses)
     plt.show()
 import logging
 if __name__ == '__main__':
