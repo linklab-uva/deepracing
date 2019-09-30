@@ -23,10 +23,12 @@ def bezierM(t,n):
     return torch.stack([Mtk(k,n,t) for k in range(n+1)],dim=2)
 def evalBezier(M,control_points):
     return torch.matmul(M,control_points)
-def bezierDerivative(control_points,n,t):
-    Mderiv = bezierM(t,n-1)
+def bezierDerivative(control_points,n,t, order=1):
+    Mderiv = bezierM(t,n-order)
     pdiff =  control_points[:,1:] - control_points[:,:-1]
-    return n*torch.matmul(Mderiv, pdiff)
+    #print(Mderiv.shape)
+    #print(pdiff.shape)
+    return n*torch.matmul(Mderiv, pdiff[:,:(n-order+1)])
 def bezierLsqfit(points,t, n):
     M = bezierM(t,n)
     return M, torch.matmul(pinv(M), points)
