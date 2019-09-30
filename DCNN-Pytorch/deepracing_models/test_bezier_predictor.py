@@ -34,6 +34,7 @@ def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,
     numpoints = 11
     t : tqdm = tqdm(enumerate(testLoader), total=len(testLoader))
     network.eval()  # This is important to call before testing!
+    losses=np.zeros(len(testLoader))
     for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
         if network.input_channels==5:
             image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
@@ -66,7 +67,9 @@ def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,
         pred_vels = math_utils.bezier.bezierDerivative(predictions_reshape,bezier_order,s_torch)
         loss = loss_func(pred_eval_points,fitpoints)
 
-        lossfloat+=loss.item()
+        currloss = float(loss.item())
+        lossfloat+=currloss
+        losses[i]=currloss
         num_samples += 1.0
         if debug:
             gtevalpoints = torch.matmul(Mfit, controlpoints_fit)
@@ -81,7 +84,7 @@ def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,
             ax = fig.add_subplot()
             ax.plot(positions_torch[0,:,0].cpu().numpy(),positions_torch[0,:,2].cpu().numpy(),'g-')
             #ax.plot(gtevalpoints[0,:,0].cpu().numpy(),gtevalpoints[0,:,1].cpu().numpy(),'r-')
-            ax.plot(gt_control_points_np[:,0],gt_control_points_np[:,1],'ro')
+            ax.plot(gt_control_points_np[:,0],gt_control_points_np[:,1],'go')
 
             ax.plot(xprednp,zprednp,'b-')
             ax.plot(pred_control_points_np[:,0],pred_control_points_np[:,1],'bo')
@@ -98,6 +101,7 @@ def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,
             #ax.plot(bezier_control_points[i,:,0].numpy(),bezier_control_points[i,:,1].numpy(),'go')
             plt.show()
         t.set_postfix({"posloss":lossfloat/num_samples})
+    return losses
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
     parser.add_argument("config_file", type=str,  help="Configuration file to load")
@@ -180,7 +184,12 @@ def go():
     dataloader = data_utils.DataLoader(dset, batch_size=1,
                         shuffle=True, num_workers=num_workers)
     print("Dataloader of of length %d" %(len(dataloader)))
-    run_epoch(net, dataloader, gpu, loss_func, debug=debug, use_float = use_float)
+    losses = run_epoch(net, dataloader, gpu, loss_func, debug=debug, use_float = use_float)
+    print(losses)
+    print("RMS error: %f" %(np.mean(losses)))
+    plt.plot(np.linspace(0,losses.shape[0]-1,losses.shape[0]),losses)
+   # plt.hist(losses)
+    plt.show()
 import logging
 if __name__ == '__main__':
     logging.basicConfig()
