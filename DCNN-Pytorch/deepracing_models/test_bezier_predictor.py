@@ -34,24 +34,21 @@ def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,
     numpoints = 11
     t : tqdm = tqdm(enumerate(testLoader), total=len(testLoader))
     network.eval()  # This is important to call before testing!
-    for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch, pos_spline_params, vel_spline_params, knots_torch) ) in t:
+    for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
         if network.input_channels==5:
             image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
         if use_float:
             image_torch = image_torch.float()
-            pos_spline_params = pos_spline_params.float()
             positions_torch = positions_torch.float()
             linear_velocities_torch = linear_velocities_torch.float()
             session_times_torch = session_times_torch.float()
         else:
             image_torch = image_torch.double()
-            pos_spline_params = pos_spline_params.double()
             positions_torch = positions_torch.double()
             session_times_torch = session_times_torch.double()
             linear_velocities_torch = linear_velocities_torch.double()
         if gpu>=0:
             image_torch = image_torch.cuda(gpu)
-            pos_spline_params = pos_spline_params.cuda(gpu)
             positions_torch = positions_torch.cuda(gpu)
             session_times_torch = session_times_torch.cuda(gpu)
             linear_velocities_torch = linear_velocities_torch.cuda(gpu)
@@ -67,7 +64,7 @@ def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,
         gt_fit_vels = math_utils.bezier.bezierDerivative(controlpoints_fit,bezier_order,s_torch)
         pred_eval_points = torch.matmul(Mfit, predictions_reshape)
         pred_vels = math_utils.bezier.bezierDerivative(predictions_reshape,bezier_order,s_torch)
-        loss = loss_func(predictions_reshape,controlpoints_fit) + loss_func(pred_eval_points,fitpoints)
+        loss = loss_func(pred_eval_points,fitpoints)
 
         lossfloat+=loss.item()
         num_samples += 1.0
@@ -118,7 +115,6 @@ def go():
     image_size = config["image_size"]
     hidden_dimension = config["hidden_dimension"]
     input_channels = config["input_channels"]
-    sequence_length = config["sequence_length"]
     context_length = config["context_length"]
     bezier_order = config["bezier_order"]
     gpu = args.gpu
@@ -172,7 +168,7 @@ def go():
             optical_flow_db_wrapper.readDatabase(opt_flow_db, max_spare_txns=max_spare_txns, mapsize=int(round( float(image_mapsize)*8/3) ) )
         else:
             use_optflow=False
-        curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length,\
+        curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length,\
                      image_size = image_size, optical_flow_db_wrapper=optical_flow_db_wrapper)
         dsets.append(curent_dset)
         print("\n")

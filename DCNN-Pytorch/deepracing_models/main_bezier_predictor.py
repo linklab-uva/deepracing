@@ -34,7 +34,7 @@ def run_epoch(network, optimizer, trainLoader, gpu, loss_func, loss_weights, ims
     else:
         t = enumerate(trainLoader)
     network.train()  # This is important to call before training!
-    for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch, pos_spline_params, vel_spline_params, knots) ) in t:
+    for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
         if debug:
             images_np = image_torch[0].numpy().copy()
             num_images = images_np.shape[0]
@@ -51,23 +51,20 @@ def run_epoch(network, optimizer, trainLoader, gpu, loss_func, loss_weights, ims
             image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
         if use_float:
             image_torch = image_torch.float()
-            pos_spline_params = pos_spline_params.float()
             positions_torch = positions_torch.float()
             linear_velocities_torch = linear_velocities_torch.float()
             session_times_torch = session_times_torch.float()
         else:
             image_torch = image_torch.double()
-            pos_spline_params = pos_spline_params.double()
             positions_torch = positions_torch.double()
             session_times_torch = session_times_torch.double()
             linear_velocities_torch = linear_velocities_torch.double()
         if gpu>=0:
             image_torch = image_torch.cuda(gpu)
-            pos_spline_params = pos_spline_params.cuda(gpu)
             positions_torch = positions_torch.cuda(gpu)
             session_times_torch = session_times_torch.cuda(gpu)
             linear_velocities_torch = linear_velocities_torch.cuda(gpu)
- 
+        #print(image_torch.shape)
         predictions = network(image_torch)
         dt = session_times_torch[:,-1]-session_times_torch[:,0]
         s_torch = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
@@ -150,7 +147,6 @@ def go():
     print("Using config:\n%s" % (str(config)))
     net = nn_models.Models.AdmiralNetCurvePredictor(input_channels=input_channels, num_recurrent_layers=1, params_per_dimension=bezier_order+1) 
     print("net:\n%s" % (str(net)))
-    sequence_length = net.additional_rnn_calls
     loss_func = torch.nn.MSELoss(reduction=position_loss_reduction)
     if use_float:
         print("casting stuff to float")
@@ -211,7 +207,7 @@ def go():
             optical_flow_db_wrapper.readDatabase(opt_flow_db, max_spare_txns=max_spare_txns, mapsize=int(round( float(image_mapsize)*8/3) ) )
         else:
             use_optflow=False
-        curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length,\
+        curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length,\
                      image_size = image_size, optical_flow_db_wrapper=optical_flow_db_wrapper)
         dsets.append(curent_dset)
         print("\n")

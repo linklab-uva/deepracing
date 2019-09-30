@@ -89,6 +89,12 @@ N = 1000
 kdexplot = np.linspace(0,dmax,N).reshape(-1, 1)
 kdevelxplot = np.linspace(0,dsmax,N).reshape(-1, 1)
 
+font = {#'family' : 'normal',
+        #'weight' : 'bold',
+        'size'   : 15}
+
+plt.rc('font', **font)
+
 figkde, axkde = plt.subplots()
 figkde.subplots_adjust(hspace=0.05, wspace=0.05)
 kernel='gaussian'

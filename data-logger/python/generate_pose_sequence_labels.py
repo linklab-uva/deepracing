@@ -46,9 +46,11 @@ parser.add_argument("--splineK", help="Spline degree to fit",  type=int, default
 parser.add_argument("--use_given_angular_velocities", help=angvelhelp, action="store_true", required=False)
 parser.add_argument("--debug", help="Display debug plots", action="store_true", required=False)
 parser.add_argument("--json", help="Assume dataset files are in JSON rather than binary .pb files.",  action="store_true", required=False)
+parser.add_argument("--downsample_factor", help="What factor to downsample the measured trajectories by", type=int,  default=1)
 parser.add_argument("--output_dir", help="Output directory for the labels. relative to the database images folder",  default="pose_sequence_labels", required=False)
 
 args = parser.parse_args()
+downsample_factor = args.downsample_factor
 splxmin = args.splineXmin
 splxmax = args.splineXmax
 splzmin = args.splineZmin
@@ -191,168 +193,171 @@ if os.path.isdir(lmdb_dir):
     shutil.rmtree(lmdb_dir)
 os.makedirs(lmdb_dir)
 print("Generating interpolated labels")
-config_dict = {"lookahead_indices": lookahead_indices}
+config_dict = {"lookahead_indices": lookahead_indices, "downsample_factor": downsample_factor}
 with open(os.path.join(output_dir,'config.yaml'), 'w') as yaml_file:
     yaml.dump(config_dict, yaml_file, Dumper=yaml.SafeDumper)
 db = deepracing.backend.PoseSequenceLabelLMDBWrapper()
 db.readDatabase(lmdb_dir, mapsize=3e9, max_spare_txns=16, readonly=False )
 
 for idx in tqdm(range(len(image_tags))):
-    imagetag = image_tags[idx]
-    label_tag = PoseSequenceLabel_pb2.PoseSequenceLabel()
-    label_tag.car_pose.frame = FrameId_pb2.GLOBAL
-    label_tag.car_velocity.frame = FrameId_pb2.GLOBAL
-    label_tag.car_angular_velocity.frame = FrameId_pb2.GLOBAL
-    label_tag.image_tag.CopyFrom(imagetag)
-    t_interp = image_session_timestamps[idx]
-    label_tag.car_pose.session_time = t_interp
-    label_tag.car_velocity.session_time = t_interp
-    label_tag.car_angular_velocity.session_time = t_interp
-    lowerbound = bisect.bisect_left(session_times,t_interp)
-    upperbound = lowerbound+lookahead_indices+1
-    interpolants_start = lowerbound
-    if(interpolants_start<10):
-        continue
-    interpolants_end = upperbound
-    if interpolants_end>=(len(session_times)-round(1.5*lookahead_indices)):
-        continue
+    try:
+        imagetag = image_tags[idx]
+        label_tag = PoseSequenceLabel_pb2.PoseSequenceLabel()
+        label_tag.car_pose.frame = FrameId_pb2.GLOBAL
+        label_tag.car_velocity.frame = FrameId_pb2.GLOBAL
+        label_tag.car_angular_velocity.frame = FrameId_pb2.GLOBAL
+        label_tag.image_tag.CopyFrom(imagetag)
+        t_interp = image_session_timestamps[idx]
+        label_tag.car_pose.session_time = t_interp
+        label_tag.car_velocity.session_time = t_interp
+        label_tag.car_angular_velocity.session_time = t_interp
+        lowerbound = bisect.bisect_left(session_times,t_interp)
+        upperbound = lowerbound+lookahead_indices
+        interpolants_start = lowerbound
+        if(interpolants_start<10):
+            continue
+        interpolants_end = upperbound
+        if interpolants_end>=(len(session_times)-round(1.5*lookahead_indices)):
+            continue
 
-    subsequent_positions = positions[lowerbound:upperbound]
-    subsequent_quaternions = quaternions[lowerbound:upperbound]
-    subsequent_velocities = velocities[lowerbound:upperbound]
-    subsequent_angular_velocities = angular_velocities[lowerbound:upperbound]
-    subsequent_times = session_times[lowerbound:upperbound]
-
-    
-    
-    carposition_global = interpolated_positions[idx]
-
-    carvelocity_global = interpolated_velocities[idx]
-
-    carquat_global = interpolated_quaternions[idx]
-
-    carangvelocity_global = interpolated_angular_velocities[idx]
-
-    subsequent_positions_local, subsequent_quaternions_local = deepracing.pose_utils.toLocalCoordinatesPose((carposition_global, carquat_global), subsequent_positions, subsequent_quaternions)
-    subsequent_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector((carposition_global, carquat_global), subsequent_velocities)
-    subsequent_angular_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector((carposition_global, carquat_global), subsequent_angular_velocities)
-
-    position_spline_ordinates = subsequent_positions_local[::6,[0,2]].copy()
-    tspline = subsequent_times[::6].copy()
-    tspline = (tspline-tspline[0])/(tspline[-1]-tspline[0])
-    #tspline = np.linspace(0.0,1.0,position_spline_ordinates.shape[0])
-    numpoints = position_spline_ordinates.shape[0]
-    knots = np.hstack((np.zeros(splK+1),np.linspace((splK-1)/(numpoints-splK+1),(numpoints-splK-1)/(numpoints-splK+1),numpoints-splK-1),np.ones(splK+1)))
-    #knots = None
-    position_spline_ordinates[:,0] = (position_spline_ordinates[:,0] - splxmin)/(splxmax - splxmin)
-    position_spline_ordinates[:,1] = (position_spline_ordinates[:,1] - splzmin)/(splzmax - splzmin)
-    position_spline = scipy.interpolate.make_interp_spline(tspline,position_spline_ordinates,k=splK,t=knots)
-    position_spline_pb = deepracing.protobuf_utils.splineSciPyToPB(position_spline,tspline[0],tspline[-1],splxmin,splxmax,splzmin,splzmax)
-    label_tag.position_spline.CopyFrom(position_spline_pb)
-
-
-    velocity_spline_ordinates = subsequent_velocities_local[::6,[0,2]].copy()
-    velocity_spline_ordinates[:,0] = (velocity_spline_ordinates[:,0] - splxmin)/(splxmax - splxmin)
-    velocity_spline_ordinates[:,1] = (velocity_spline_ordinates[:,1] - splzmin)/(splzmax - splzmin)
-    velocity_spline = scipy.interpolate.make_interp_spline(tspline,velocity_spline_ordinates,k=splK,t=knots)
-    velocity_spline_pb = deepracing.protobuf_utils.splineSciPyToPB(velocity_spline,tspline[0],tspline[-1],splxmin,splxmax,splzmin,splzmax)
-    label_tag.velocity_spline.CopyFrom(velocity_spline_pb)
-
-
-    
-    
+        subsequent_positions = positions[lowerbound:upperbound]
+        subsequent_quaternions = quaternions[lowerbound:upperbound]
+        subsequent_velocities = velocities[lowerbound:upperbound]
+        subsequent_angular_velocities = angular_velocities[lowerbound:upperbound]
+        subsequent_times = session_times[lowerbound:upperbound]
 
         
-    label_tag.car_pose.translation.x = carposition_global[0]
-    label_tag.car_pose.translation.y = carposition_global[1]
-    label_tag.car_pose.translation.z = carposition_global[2]
-    label_tag.car_pose.rotation.x = carquat_global.x
-    label_tag.car_pose.rotation.y = carquat_global.y
-    label_tag.car_pose.rotation.z = carquat_global.z
-    label_tag.car_pose.rotation.w = carquat_global.w
-
-    label_tag.car_velocity.vector.x = carvelocity_global[0]
-    label_tag.car_velocity.vector.y = carvelocity_global[1]
-    label_tag.car_velocity.vector.z = carvelocity_global[2]
-    
-    label_tag.car_angular_velocity.vector.x = carangvelocity_global[0]
-    label_tag.car_angular_velocity.vector.y = carangvelocity_global[1]
-    label_tag.car_angular_velocity.vector.z = carangvelocity_global[2]
-
-
-
-    if args.debug and (idx%30)==0:
-        print("Final point in undecimated list: " + str(position_spline_ordinates[-1]))
-        print("Final point in decimated list: " + str(subsequent_positions_local[-1,[0,2]]))
-        print(google.protobuf.json_format.MessageToJson(label_tag.position_spline,including_default_value_fields=True))
-        print(subsequent_times.shape)
-        print("Mean diff of time vector: %f" %(np.mean(np.diff(subsequent_times))))
-        tsamp = np.linspace(0.0,1.0,16)
-        position_spline_rebuilt = deepracing.protobuf_utils.splinePBToSciPy(label_tag.position_spline)
-        position_resamp = position_spline_rebuilt(tsamp)
-        spline_derivative = position_spline_rebuilt.derivative()
-        velocity_resamp = spline_derivative(tsamp)
-        fig = plt.figure()
-        ax = fig.add_subplot()
-        ax.plot(subsequent_positions_local[:,0],subsequent_positions_local[:,2], 'bo')
-        ax.plot(label_tag.position_spline.Xmin + position_resamp[:,0]*(label_tag.position_spline.Xmax - label_tag.position_spline.Xmin),\
-                label_tag.position_spline.Zmin + position_resamp[:,1]*(label_tag.position_spline.Zmax - label_tag.position_spline.Zmin),\
-                'ro')
-        ax.quiver(subsequent_positions_local[:,0],subsequent_positions_local[:,2],subsequent_velocities_local[:,0],subsequent_velocities_local[:,2])
-        #ax.quiver(position_resamp[:,0],position_resamp[:,1],velocity_resamp[:,0],velocity_resamp[:,1])
-        # figvel = plt.figure()
-        # axvel = figvel.add_subplot()
-        # axvel.plot(subsequent_velocities_local[:,0],subsequent_velocities_local[:,2], 'bo')
-        # axvel.plot(label_tag.position_spline.Xmin + velocity_resamp[:,0]*(label_tag.position_spline.Xmax - label_tag.position_spline.Xmin),\
-        #         label_tag.position_spline.Zmin + velocity_resamp[:,1]*(label_tag.position_spline.Zmax - label_tag.position_spline.Zmin),\
-        #         'ro')
-        plt.show()
-    #print()
-    #print()
-    #print(carposition_global)
-    #print(carpose_global)
-    #print()
-    for j in range(len(subsequent_positions_local)-1):
-        # label_tag.
-        #print(packet_forward)
-        pose_forward_pb = Pose3d_pb2.Pose3d()
-        velocity_forward_pb = Vector3dStamped_pb2.Vector3dStamped()
-        angular_velocity_forward_pb = Vector3dStamped_pb2.Vector3dStamped()
-        pose_forward_pb.frame = FrameId_pb2.LOCAL
-        velocity_forward_pb.frame = FrameId_pb2.LOCAL
-        angular_velocity_forward_pb.frame = FrameId_pb2.LOCAL
-
-        pose_forward_pb.translation.x = subsequent_positions_local[j,0]
-        pose_forward_pb.translation.y = subsequent_positions_local[j,1]
-        pose_forward_pb.translation.z = subsequent_positions_local[j,2]
-        pose_forward_pb.rotation.x = subsequent_quaternions_local[j].x
-        pose_forward_pb.rotation.y = subsequent_quaternions_local[j].y
-        pose_forward_pb.rotation.z = subsequent_quaternions_local[j].z
-        pose_forward_pb.rotation.w = subsequent_quaternions_local[j].w
-
-        velocity_forward_pb.vector.x = subsequent_velocities_local[j,0]
-        velocity_forward_pb.vector.y = subsequent_velocities_local[j,1]
-        velocity_forward_pb.vector.z = subsequent_velocities_local[j,2]
         
-        angular_velocity_forward_pb.vector.x = subsequent_angular_velocities_local[j,0]
-        angular_velocity_forward_pb.vector.y = subsequent_angular_velocities_local[j,1]
-        angular_velocity_forward_pb.vector.z = subsequent_angular_velocities_local[j,2]
+        carposition_global = interpolated_positions[idx]
 
-        labeltime = subsequent_times[j]
-        pose_forward_pb.session_time = labeltime
-        velocity_forward_pb.session_time = labeltime
-        angular_velocity_forward_pb.session_time = labeltime
+        carvelocity_global = interpolated_velocities[idx]
 
-        newpose = label_tag.subsequent_poses.add()
-        newpose.CopyFrom(pose_forward_pb)
+        carquat_global = interpolated_quaternions[idx]
 
-        newvel = label_tag.subsequent_linear_velocities.add()
-        newvel.CopyFrom(velocity_forward_pb)
+        carangvelocity_global = interpolated_angular_velocities[idx]
 
-        newangvel = label_tag.subsequent_angular_velocities.add()
-        newangvel.CopyFrom(angular_velocity_forward_pb)
+        subsequent_positions_local, subsequent_quaternions_local = deepracing.pose_utils.toLocalCoordinatesPose((carposition_global, carquat_global), subsequent_positions, subsequent_quaternions)
+        subsequent_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector((carposition_global, carquat_global), subsequent_velocities)
+        subsequent_angular_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector((carposition_global, carquat_global), subsequent_angular_velocities)
+
+        position_spline_ordinates = subsequent_positions_local[::downsample_factor,[0,2]].copy()
+        tspline = subsequent_times[::downsample_factor].copy()
+        tspline = (tspline-tspline[0])/(tspline[-1]-tspline[0])
+        #tspline = np.linspace(0.0,1.0,position_spline_ordinates.shape[0])
+        numpoints = position_spline_ordinates.shape[0]
+        knots = np.hstack((np.zeros(splK+1),np.linspace((splK-1)/(numpoints-splK+1),(numpoints-splK-1)/(numpoints-splK+1),numpoints-splK-1),np.ones(splK+1)))
+        #knots = None
+        position_spline_ordinates[:,0] = (position_spline_ordinates[:,0] - splxmin)/(splxmax - splxmin)
+        position_spline_ordinates[:,1] = (position_spline_ordinates[:,1] - splzmin)/(splzmax - splzmin)
+        position_spline = scipy.interpolate.make_interp_spline(tspline,position_spline_ordinates,k=splK,t=knots)
+        position_spline_pb = deepracing.protobuf_utils.splineSciPyToPB(position_spline,tspline[0],tspline[-1],splxmin,splxmax,splzmin,splzmax)
+        label_tag.position_spline.CopyFrom(position_spline_pb)
+
+
+        velocity_spline_ordinates = subsequent_velocities_local[::downsample_factor,[0,2]].copy()
+        velocity_spline_ordinates[:,0] = (velocity_spline_ordinates[:,0] - splxmin)/(splxmax - splxmin)
+        velocity_spline_ordinates[:,1] = (velocity_spline_ordinates[:,1] - splzmin)/(splzmax - splzmin)
+        velocity_spline = scipy.interpolate.make_interp_spline(tspline,velocity_spline_ordinates,k=splK,t=knots)
+        velocity_spline_pb = deepracing.protobuf_utils.splineSciPyToPB(velocity_spline,tspline[0],tspline[-1],splxmin,splxmax,splzmin,splzmax)
+        label_tag.velocity_spline.CopyFrom(velocity_spline_pb)
+
 
         
+        
+
+            
+        label_tag.car_pose.translation.x = carposition_global[0]
+        label_tag.car_pose.translation.y = carposition_global[1]
+        label_tag.car_pose.translation.z = carposition_global[2]
+        label_tag.car_pose.rotation.x = carquat_global.x
+        label_tag.car_pose.rotation.y = carquat_global.y
+        label_tag.car_pose.rotation.z = carquat_global.z
+        label_tag.car_pose.rotation.w = carquat_global.w
+
+        label_tag.car_velocity.vector.x = carvelocity_global[0]
+        label_tag.car_velocity.vector.y = carvelocity_global[1]
+        label_tag.car_velocity.vector.z = carvelocity_global[2]
+        
+        label_tag.car_angular_velocity.vector.x = carangvelocity_global[0]
+        label_tag.car_angular_velocity.vector.y = carangvelocity_global[1]
+        label_tag.car_angular_velocity.vector.z = carangvelocity_global[2]
+
+
+
+        if args.debug and (idx%30)==0:
+            print("Final point in undecimated list: " + str(position_spline_ordinates[-1]))
+            print("Final point in decimated list: " + str(subsequent_positions_local[-1,[0,2]]))
+            print(google.protobuf.json_format.MessageToJson(label_tag.position_spline,including_default_value_fields=True))
+            print(subsequent_times.shape)
+            print("Mean diff of time vector: %f" %(np.mean(np.diff(subsequent_times))))
+            tsamp = np.linspace(0.0,1.0,16)
+            position_spline_rebuilt = deepracing.protobuf_utils.splinePBToSciPy(label_tag.position_spline)
+            position_resamp = position_spline_rebuilt(tsamp)
+            spline_derivative = position_spline_rebuilt.derivative()
+            velocity_resamp = spline_derivative(tsamp)
+            fig = plt.figure()
+            ax = fig.add_subplot()
+            ax.plot(subsequent_positions_local[:,0],subsequent_positions_local[:,2], 'bo')
+            ax.plot(label_tag.position_spline.Xmin + position_resamp[:,0]*(label_tag.position_spline.Xmax - label_tag.position_spline.Xmin),\
+                    label_tag.position_spline.Zmin + position_resamp[:,1]*(label_tag.position_spline.Zmax - label_tag.position_spline.Zmin),\
+                    'ro')
+            ax.quiver(subsequent_positions_local[:,0],subsequent_positions_local[:,2],subsequent_velocities_local[:,0],subsequent_velocities_local[:,2])
+            #ax.quiver(position_resamp[:,0],position_resamp[:,1],velocity_resamp[:,0],velocity_resamp[:,1])
+            # figvel = plt.figure()
+            # axvel = figvel.add_subplot()
+            # axvel.plot(subsequent_velocities_local[:,0],subsequent_velocities_local[:,2], 'bo')
+            # axvel.plot(label_tag.position_spline.Xmin + velocity_resamp[:,0]*(label_tag.position_spline.Xmax - label_tag.position_spline.Xmin),\
+            #         label_tag.position_spline.Zmin + velocity_resamp[:,1]*(label_tag.position_spline.Zmax - label_tag.position_spline.Zmin),\
+            #         'ro')
+            plt.show()
+        #print()
+        #print()
+        #print(carposition_global)
+        #print(carpose_global)
+        #print()
+        for j in range(len(subsequent_positions_local)-1):
+            # label_tag.
+            #print(packet_forward)
+            pose_forward_pb = Pose3d_pb2.Pose3d()
+            velocity_forward_pb = Vector3dStamped_pb2.Vector3dStamped()
+            angular_velocity_forward_pb = Vector3dStamped_pb2.Vector3dStamped()
+            pose_forward_pb.frame = FrameId_pb2.LOCAL
+            velocity_forward_pb.frame = FrameId_pb2.LOCAL
+            angular_velocity_forward_pb.frame = FrameId_pb2.LOCAL
+
+            pose_forward_pb.translation.x = subsequent_positions_local[j,0]
+            pose_forward_pb.translation.y = subsequent_positions_local[j,1]
+            pose_forward_pb.translation.z = subsequent_positions_local[j,2]
+            pose_forward_pb.rotation.x = subsequent_quaternions_local[j].x
+            pose_forward_pb.rotation.y = subsequent_quaternions_local[j].y
+            pose_forward_pb.rotation.z = subsequent_quaternions_local[j].z
+            pose_forward_pb.rotation.w = subsequent_quaternions_local[j].w
+
+            velocity_forward_pb.vector.x = subsequent_velocities_local[j,0]
+            velocity_forward_pb.vector.y = subsequent_velocities_local[j,1]
+            velocity_forward_pb.vector.z = subsequent_velocities_local[j,2]
+            
+            angular_velocity_forward_pb.vector.x = subsequent_angular_velocities_local[j,0]
+            angular_velocity_forward_pb.vector.y = subsequent_angular_velocities_local[j,1]
+            angular_velocity_forward_pb.vector.z = subsequent_angular_velocities_local[j,2]
+
+            labeltime = subsequent_times[j]
+            pose_forward_pb.session_time = labeltime
+            velocity_forward_pb.session_time = labeltime
+            angular_velocity_forward_pb.session_time = labeltime
+
+            newpose = label_tag.subsequent_poses.add()
+            newpose.CopyFrom(pose_forward_pb)
+
+            newvel = label_tag.subsequent_linear_velocities.add()
+            newvel.CopyFrom(velocity_forward_pb)
+
+            newangvel = label_tag.subsequent_angular_velocities.add()
+            newangvel.CopyFrom(angular_velocity_forward_pb)
+    except Exception as e:
+        print("Could not generate label for %s" %(label_tag.image_tag.image_file))
+        print("Exception message: %s"%(str(e)))
+        continue          
     label_tag_JSON = google.protobuf.json_format.MessageToJson(label_tag, including_default_value_fields=True)
     image_file_base = os.path.splitext(os.path.split(label_tag.image_tag.image_file)[1])[0]
     label_tag_file_path = os.path.join(output_dir, image_file_base + "_sequence_label.json")
