@@ -31,9 +31,11 @@ class LpDistanceLoss(nn.Module):
         self.time_reduction=time_reduction
         self.p=p
         self.dim=dim
+        #self.pairwise_dist = nn.PairwiseDistance(p=self.p)
     def forward(self, predictions, targets):
         diff = predictions - targets
         norms = torch.norm(diff,p=self.p,dim=self.dim)
+        #norms = self.pairwise_dist(predictions.transpose(1,2),targets.transpose(1,2))
         if self.time_reduction=="mean":
             means = torch.mean(norms,dim=self.dim-1)
         elif self.time_reduction=="sum":
