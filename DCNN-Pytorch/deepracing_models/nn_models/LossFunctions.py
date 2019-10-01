@@ -16,7 +16,28 @@ class QuaternionDistance(nn.Module):
         acos = torch.acos(dotabsthresh)
         batched_sum = torch.sum(acos, dim = 1)
         return torch.sum( batched_sum )
-
+class L2DistanceLoss(nn.Module):
+    def __init__(self, time_reduction="mean", batch_reduction="mean", p = 2, dim = 2):
+        super(L2DistanceLoss, self).__init__()
+        self.batch_reduction=batch_reduction
+        self.time_reduction=time_reduction
+        self.p=p
+        self.dim=dim
+    def forward(self, predictions, targets):
+        diff = predictions - targets
+        norms = torch.norm(diff,p=self.p,dim=self.dim)
+        if self.time_reduction=="mean":
+            means = torch.mean(norms,keepdim=True,dim=self.dim-1).squeeze()
+        elif self.time_reduction=="sum":
+            means = torch.sum(norms,keepdim=True,dim=self.dim-1).squeeze()
+        else:
+            means = norms
+        if self.batch_reduction=="mean":
+            return torch.mean(means)
+        elif self.batch_reduction=="sum":
+            return torch.sum(means)
+        else:
+            return means
 class TaylorSeriesLinear(nn.Module):
     def __init__(self, reduction="mean"):
         super(TaylorSeriesLinear, self).__init__()

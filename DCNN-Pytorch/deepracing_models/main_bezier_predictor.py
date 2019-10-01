@@ -3,7 +3,7 @@ import torch.nn as NN
 import torch.utils.data as data_utils
 import data_loading.proto_datasets
 from tqdm import tqdm as tqdm
-import nn_models.LossFunctions as loss_functions
+import nn_models.LossFunctions as params_losstions
 import nn_models.Models
 import numpy as np
 import torch.optim as optim
@@ -25,7 +25,7 @@ import matplotlib.animation as animation
 import time
 import math_utils.bezier
 #torch.backends.cudnn.enabled = False
-def run_epoch(network, optimizer, trainLoader, gpu, loss_func, loss_weights, imsize=(66,200), debug=False, use_tqdm=True, use_float=True):
+def run_epoch(network, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, imsize=(66,200), debug=False, use_tqdm=True, use_float=True):
     cum_loss = 0.0
     num_samples=0.0
     batch_size = trainLoader.batch_size
@@ -90,9 +90,9 @@ def run_epoch(network, optimizer, trainLoader, gpu, loss_func, loss_weights, ims
       #  print(controlpoints_fit.shape)
        # print(predictions.shape)
         if loss_weights[2]>0:
-            loss = loss_weights[0]*loss_func(predictions_reshape,controlpoints_fit) + loss_weights[1]*loss_func(pred_points,fitpoints) + loss_weights[2]*loss_func(pred_vels/dt[:,None,None],fitvels)
+            loss = loss_weights[0]*params_loss(predictions_reshape,controlpoints_fit) + loss_weights[1]*kinematic_loss(pred_points,fitpoints) + loss_weights[2]*kinematic_loss(pred_vels/dt[:,None,None],fitvels)
         else:
-            loss = loss_weights[0]*loss_func(predictions_reshape,controlpoints_fit) + loss_weights[1]*loss_func(pred_points,fitpoints)
+            loss = loss_weights[0]*params_loss(predictions_reshape,controlpoints_fit) + loss_weights[1]*kinematic_loss(pred_points,fitpoints)
         
         # Backward pass:
         optimizer.zero_grad()
@@ -141,25 +141,28 @@ def go():
     num_epochs = config["num_epochs"]
     num_workers = config["num_workers"]
     debug = config["debug"]
-    position_loss_reduction = config["position_loss_reduction"]
     use_float = config["use_float"]
     loss_weights = config["loss_weights"]
     print("Using config:\n%s" % (str(config)))
     net = nn_models.Models.AdmiralNetCurvePredictor(input_channels=input_channels, num_recurrent_layers=1, params_per_dimension=bezier_order+1) 
     print("net:\n%s" % (str(net)))
-    loss_func = torch.nn.MSELoss(reduction=position_loss_reduction)
+    params_loss = torch.nn.MSELoss()
+    kinematic_loss = nn_models.LossFunctions.L2DistanceLoss()
     if use_float:
         print("casting stuff to float")
         net = net.float()
-        loss_func = loss_func.float()
+        params_loss = params_loss.float()
+        kinematic_loss = kinematic_loss.float()
     else:
         print("casting stuff to double")
         net = net.double()
-        loss_func = loss_func.double()
+        params_loss = params_loss.double()
+        kinematic_loss = kinematic_loss.double()
     if gpu>=0:
         print("moving stuff to GPU")
         net = net.cuda(gpu)
-        loss_func = loss_func.cuda(gpu)
+        params_loss = params_loss.cuda(gpu)
+        kinematic_loss = kinematic_loss.cuda(gpu)
     optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=0.000, nesterov=True)
     netpostfix = "epoch_%d_params.pt"
     optimizerpostfix = "epoch_%d_optimizer.pt"
@@ -231,7 +234,7 @@ def go():
         #dset.clearReaders()
         try:
             tick = time.time()
-            run_epoch(net, optimizer, dataloader, gpu, loss_func, loss_weights, debug=debug, use_tqdm=args.tqdm, use_float = use_float)
+            run_epoch(net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, debug=debug, use_tqdm=args.tqdm, use_float = use_float)
             tock = time.time()
             print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
         except Exception as e:
