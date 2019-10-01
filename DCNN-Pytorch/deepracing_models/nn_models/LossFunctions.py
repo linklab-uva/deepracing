@@ -26,7 +26,7 @@ class LpDistanceLoss(nn.Module):
       batch_reduction: How to reduce along the batch axis (assumed to be dimension 0) ('mean' or 'sum')
     '''
     def __init__(self, time_reduction="mean", batch_reduction="mean", p = 2, dim = 2):
-        super(L2DistanceLoss, self).__init__()
+        super(LpDistanceLoss, self).__init__()
         self.batch_reduction=batch_reduction
         self.time_reduction=time_reduction
         self.p=p
