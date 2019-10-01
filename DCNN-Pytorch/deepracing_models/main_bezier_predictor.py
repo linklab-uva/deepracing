@@ -113,8 +113,8 @@ def go():
     parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
     parser.add_argument("--override", action="store_true",  help="Delete output directory and replace with new data")
     parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
-    parser.add_argument("--bezier_order", type=int, default=None,  help="Override the order of the bezier curve specified in the config file")
-    parser.add_argument("--batch_size", type=int, default=None,  help="Override the batchsize specified in the config file")
+    parser.add_argument("--batch_size", type=int, default=None,  help="Override the order of the batch size specified in the config file")
+    parser.add_argument("--gpu", type=int, default=None,  help="Override the GPU index specified in the config file")
     parser.add_argument("--learning_rate", type=float, default=None,  help="Override the learning rate specified in the config file")
     parser.add_argument("--bezier_order", type=int, default=None,  help="Override the order of the bezier curve specified in the config file")
     args = parser.parse_args()
@@ -141,7 +141,7 @@ def go():
         gpu = config["gpu"] 
     if args.batch_size is not None:
         batch_size = args.batch_size
-        config["batch_size"] = batch_size
+        config["batch_size"]  = batch_size
     else:
         batch_size = config["batch_size"]
     if args.learning_rate is not None:
