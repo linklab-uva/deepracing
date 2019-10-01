@@ -27,6 +27,9 @@ import math_utils.bezier
 #torch.backends.cudnn.enabled = False
 def run_epoch(network, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, imsize=(66,200), debug=False, use_tqdm=True, use_float=True):
     cum_loss = 0.0
+    cum_param_loss = 0.0
+    cum_position_loss = 0.0
+    cum_velocity_loss = 0.0
     num_samples=0.0
     batch_size = trainLoader.batch_size
     if use_tqdm:
@@ -89,9 +92,13 @@ def run_epoch(network, optimizer, trainLoader, gpu, params_loss, kinematic_loss,
 
       #  print(controlpoints_fit.shape)
        # print(predictions.shape)
+        current_param_loss = params_loss(predictions_reshape,controlpoints_fit)
+        current_position_loss = kinematic_loss(pred_points,fitpoints)
         if loss_weights[2]>0:
-            loss = loss_weights[0]*params_loss(predictions_reshape,controlpoints_fit) + loss_weights[1]*kinematic_loss(pred_points,fitpoints) + loss_weights[2]*kinematic_loss(pred_vels/dt[:,None,None],fitvels)
+            current_velocity_loss = kinematic_loss(pred_vels/dt[:,None,None],fitvels)
+            loss = loss_weights[0]*current_param_loss + loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
         else:
+            current_velocity_loss = torch.tensor(0)
             loss = loss_weights[0]*params_loss(predictions_reshape,controlpoints_fit) + loss_weights[1]*kinematic_loss(pred_points,fitpoints)
         
         # Backward pass:
@@ -102,8 +109,11 @@ def run_epoch(network, optimizer, trainLoader, gpu, params_loss, kinematic_loss,
         if use_tqdm:
             # logging information
             cum_loss += float(loss.item())
+            cum_param_loss += float(current_param_loss.item())
+            cum_position_loss += float(current_position_loss.item())
+            cum_velocity_loss += float(current_velocity_loss.item())
             num_samples += 1.0
-            t.set_postfix({"cum_loss" : cum_loss/num_samples})
+            t.set_postfix({"cum_loss" : cum_loss/num_samples,"cum_param_loss" : cum_param_loss/num_samples,"cum_position_loss" : cum_position_loss/num_samples,"cum_velocity_loss" : cum_velocity_loss/num_samples})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
     parser.add_argument("config_file", type=str,  help="Configuration file to load")

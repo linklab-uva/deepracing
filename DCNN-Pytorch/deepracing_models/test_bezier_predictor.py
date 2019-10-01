@@ -106,14 +106,15 @@ def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,
     return losses
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
-    parser.add_argument("config_file", type=str,  help="Configuration file to load")
     parser.add_argument("model_file", type=str,  help="Weight file to load")
+    parser.add_argument("dataset_config_file", type=str,  help="Dataset config file to load")
 
     parser.add_argument("--gpu", type=int, default=-1,  help="GPU to use")
     parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
     args = parser.parse_args()
-    config_file = args.config_file
+    dataset_config_file = args.dataset_config_file
     model_file = args.model_file
+    config_file = os.path.join(os.path.dirname(model_file),"config.yaml")
     debug = args.debug
     with open(config_file) as f:
         config = yaml.load(f, Loader = yaml.SafeLoader)
@@ -152,10 +153,10 @@ def go():
     num_workers = 0
     max_spare_txns = 50
     #image_wrapper = deepracing.backend.ImageFolderWrapper(os.path.dirname(image_db))
-    datasets = config["datasets"]
+    datasets_config = yaml.load(open(dataset_config_file,'r'),Loader=yaml.SafeLoader)
     dsets=[]
     use_optflow=True
-    for dataset in datasets:
+    for dataset in datasets_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
         image_db = dataset["image_db"]
         opt_flow_db = dataset.get("opt_flow_db", "")
@@ -163,7 +164,7 @@ def go():
         key_file = dataset["key_file"]
         label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
         label_wrapper.readDatabase(label_db, max_spare_txns=max_spare_txns )
-        image_size = np.array(image_size)
+        image_size = np.array(datasets_config["image_size"])
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
         image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
         image_wrapper.readDatabase(image_db, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
@@ -178,10 +179,7 @@ def go():
                      image_size = image_size, optical_flow_db_wrapper=optical_flow_db_wrapper)
         dsets.append(curent_dset)
         print("\n")
-    if len(dsets)==1:
-        dset = dsets[0]
-    else:
-        dset = torch.utils.data.ConcatDataset(dsets)
+    dset = torch.utils.data.ConcatDataset(dsets)
     
     dataloader = data_utils.DataLoader(dset, batch_size=1,
                         shuffle=True, num_workers=num_workers)

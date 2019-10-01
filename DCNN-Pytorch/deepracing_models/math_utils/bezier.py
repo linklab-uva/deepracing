@@ -2,19 +2,26 @@ import numpy as np
 import torch
 from scipy.special import comb as nChoosek
 Mtk = lambda k, n, t: (t**(k))*((1-t)**(n-k))*nChoosek(n,k)
+def matrix_diag(diagonal):
+    N = diagonal.shape[-1]
+    shape = diagonal.shape[:-1] + (N, N)
+    device, dtype = diagonal.device, diagonal.dtype
+    result = torch.zeros(shape, dtype=dtype, device=device)
+    indices = torch.arange(result.numel(), device=device).reshape(shape)
+    indices = indices.diagonal(dim1=-2, dim2=-1)
+    result.view(-1)[indices] = diagonal
+    return result
 def pinv(A):
     """
-    Return the pseudoinverse of A,
-    without invoking the SVD in torch.pinverse().
+    Return the batchwise pseudoinverse of A
+
+    PyTorch's SVD function now supports batchwise solving, so this is pretty easy.
     """
     batch, rows, cols = A.size()
-    if rows >= cols:
-        Q,R = torch.qr(A)
-        return torch.matmul(R.inverse(),Q.transpose(1,2))
-    else:
-        Q,R = torch.qr(A.transpose(1,2))
-        return torch.matmul(R.inverse(),Q.transpose(1,2)).transpose(1,2)
-       # return R.inverse().mm(Q.transpose(1,2)).transpose(1,2)
+    U,S,V = torch.svd(A)
+    sinv = 1/S
+    sinv[sinv == float("Inf")] = 0
+    return torch.matmul(torch.matmul(V,torch.diag_embed(sinv).transpose(1,2)),U.transpose(1,2))
 def bezierM(t,n):
     # M = torch.zeros(t.shape[0],t.shape[1],n+1).type_as(t)
     # for j in range(M.shape[0]):
