@@ -115,6 +115,7 @@ def go():
     parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
     parser.add_argument("--gpu", type=int, default=None,  help="Override the GPU index specified in the config file")
     parser.add_argument("--learning_rate", type=float, default=None,  help="Override the learning rate specified in the config file")
+    parser.add_argument("--bezier_order", type=int, default=None,  help="Override the order of the bezier curve specified in the config file")
     args = parser.parse_args()
     config_file = args.config_file
     output_directory = args.output_directory
@@ -126,7 +127,11 @@ def go():
     image_size = config["image_size"]
     input_channels = config["input_channels"]
     context_length = config["context_length"]
-    bezier_order = config["bezier_order"]
+    if args.bezier_order is not None:
+        bezier_order = args.bezier_order
+        config["bezier_order"]  = bezier_order
+    else:
+        bezier_order = config["bezier_order"]
     #num_recurrent_layers = config["num_recurrent_layers"]
     if args.gpu is not None:
         gpu = args.gpu
