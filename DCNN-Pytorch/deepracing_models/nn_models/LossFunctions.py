@@ -16,7 +16,15 @@ class QuaternionDistance(nn.Module):
         acos = torch.acos(dotabsthresh)
         batched_sum = torch.sum(acos, dim = 1)
         return torch.sum( batched_sum )
-class L2DistanceLoss(nn.Module):
+class LpDistanceLoss(nn.Module):
+    '''
+    Computes the Lp distance between predictions and target.
+    Args:
+      p: Which norm to compute (default is 2-norm)
+      dim: Dimension along which to compute the norm
+      time_reduction: How to reduce along the time axis (assumed to be dimension dim-1 in the original tensors) ('mean' or 'sum')
+      batch_reduction: How to reduce along the batch axis (assumed to be dimension 0) ('mean' or 'sum')
+    '''
     def __init__(self, time_reduction="mean", batch_reduction="mean", p = 2, dim = 2):
         super(L2DistanceLoss, self).__init__()
         self.batch_reduction=batch_reduction
@@ -27,9 +35,9 @@ class L2DistanceLoss(nn.Module):
         diff = predictions - targets
         norms = torch.norm(diff,p=self.p,dim=self.dim)
         if self.time_reduction=="mean":
-            means = torch.mean(norms,keepdim=True,dim=self.dim-1).squeeze()
+            means = torch.mean(norms,dim=self.dim-1)
         elif self.time_reduction=="sum":
-            means = torch.sum(norms,keepdim=True,dim=self.dim-1).squeeze()
+            means = torch.sum(norms,dim=self.dim-1)
         else:
             means = norms
         if self.batch_reduction=="mean":

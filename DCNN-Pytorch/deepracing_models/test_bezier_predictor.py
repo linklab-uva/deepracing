@@ -188,6 +188,8 @@ def go():
     print("Dataloader of of length %d" %(len(dataloader)))
     losses = run_epoch(net, dataloader, gpu, loss_func, debug=debug, use_float = use_float)
     distances = np.sqrt(losses)
+    meandist = np.mean(distances)
+    stddist = np.std(distances)
     print(distances)
     print("RMS error: %f" % ( np.sqrt( np.mean(losses) ) ) )
     plt.plot(np.linspace(0,distances.shape[0]-1,distances.shape[0]),distances)
@@ -197,7 +199,7 @@ def go():
     kernel='gaussian'
     kde = KernelDensity(kernel=kernel, bandwidth=0.25).fit(distances.reshape(-1, 1))
 
-    kdexplot = np.linspace(0,np.max(distances),distances.shape[0]).reshape(-1, 1)
+    kdexplot = np.linspace(0,np.max(distances) + 1.5*stddist,distances.shape[0]).reshape(-1, 1)
     log_dens = kde.score_samples(kdexplot)
     pdf = np.exp(log_dens)
     axkde.plot(np.hstack((np.array([0]),kdexplot[:,0])), np.hstack((np.array([0]),pdf)), '-', label="kernel = '{0}'".format(kernel))

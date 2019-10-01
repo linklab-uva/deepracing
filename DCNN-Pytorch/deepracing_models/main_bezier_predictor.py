@@ -79,7 +79,7 @@ def run_epoch(network, optimizer, trainLoader, gpu, params_loss, kinematic_loss,
         if False:
             fig = plt.figure()
             ax = fig.add_subplot()
-            ax.plot(positions_torch[0,:,0].cpu().numpy(),positions_torch[0,:,2].cpu().numpy(),'r-')
+            ax.plot(fitpoints[0,:,0].cpu().numpy(),fitpoints[0,:,1].cpu().numpy(),'r-')
             evalpoints = torch.matmul(Mfit, controlpoints_fit)
             ax.plot(evalpoints[0,:,0].cpu().numpy(),evalpoints[0,:,1].cpu().numpy(),'bo')
             skipn = 20
@@ -130,11 +130,13 @@ def go():
     #num_recurrent_layers = config["num_recurrent_layers"]
     if args.gpu is not None:
         gpu = args.gpu
+        config["gpu"]  = gpu
     else:
         gpu = config["gpu"] 
     batch_size = config["batch_size"]
     if args.learning_rate is not None:
         learning_rate = args.learning_rate
+        config["learning_rate"] = learning_rate
     else:
         learning_rate = config["learning_rate"]
     momentum = config["momentum"]
@@ -147,7 +149,7 @@ def go():
     net = nn_models.Models.AdmiralNetCurvePredictor(input_channels=input_channels, num_recurrent_layers=1, params_per_dimension=bezier_order+1) 
     print("net:\n%s" % (str(net)))
     params_loss = torch.nn.MSELoss()
-    kinematic_loss = nn_models.LossFunctions.L2DistanceLoss()
+    kinematic_loss = nn_models.LossFunctions.LpDistanceLoss()
     if use_float:
         print("casting stuff to float")
         net = net.float()
