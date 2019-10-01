@@ -2,15 +2,6 @@ import numpy as np
 import torch
 from scipy.special import comb as nChoosek
 Mtk = lambda k, n, t: (t**(k))*((1-t)**(n-k))*nChoosek(n,k)
-def matrix_diag(diagonal):
-    N = diagonal.shape[-1]
-    shape = diagonal.shape[:-1] + (N, N)
-    device, dtype = diagonal.device, diagonal.dtype
-    result = torch.zeros(shape, dtype=dtype, device=device)
-    indices = torch.arange(result.numel(), device=device).reshape(shape)
-    indices = indices.diagonal(dim1=-2, dim2=-1)
-    result.view(-1)[indices] = diagonal
-    return result
 def pinv(A):
     """
     Return the batchwise pseudoinverse of A
