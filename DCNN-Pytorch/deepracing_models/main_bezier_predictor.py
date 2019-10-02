@@ -25,7 +25,7 @@ import matplotlib.animation as animation
 import time
 import math_utils.bezier
 #torch.backends.cudnn.enabled = False
-def run_epoch(network, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, imsize=(66,200), debug=False, use_tqdm=True, use_float=True):
+def run_epoch(network, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True, use_float=True):
     cum_loss = 0.0
     cum_param_loss = 0.0
     cum_position_loss = 0.0
@@ -89,7 +89,7 @@ def run_epoch(network, optimizer, trainLoader, gpu, params_loss, kinematic_loss,
             #ax.quiver(Pbeziertorch[::skipn,0].numpy(),Pbeziertorch[::skipn,1].numpy(),Pbeziertorchderiv[::skipn,0].numpy(),Pbeziertorchderiv[::skipn,1].numpy())
             #ax.plot(bezier_control_points[i,:,0].numpy(),bezier_control_points[i,:,1].numpy(),'go')
             plt.show()
-
+        #print(predictions_reshape.shape)
       #  print(controlpoints_fit.shape)
        # print(predictions.shape)
         current_param_loss = params_loss(predictions_reshape,controlpoints_fit)
@@ -168,7 +168,10 @@ def go():
     print("Using config:\n%s" % (str(config)))
     net = nn_models.Models.AdmiralNetCurvePredictor(input_channels=input_channels, num_recurrent_layers=1, params_per_dimension=bezier_order+1) 
     print("net:\n%s" % (str(net)))
-    params_loss = torch.nn.MSELoss()
+    ppd = net.params_per_dimension
+    numones = int(ppd/2)
+    timewise_weights = torch.from_numpy( np.hstack( ( np.ones(numones), np.linspace(1,3, ppd - numones ) ) ) )
+    params_loss = nn_models.LossFunctions.LpDistanceLoss(timewise_weights=timewise_weights)
     kinematic_loss = nn_models.LossFunctions.LpDistanceLoss()
     if use_float:
         print("casting stuff to float")
@@ -179,7 +182,7 @@ def go():
         print("casting stuff to double")
         net = net.double()
         params_loss = params_loss.double()
-        kinematic_loss = kinematic_loss.double()
+        kinematic_loss = kinematic_loss.float()
     if gpu>=0:
         print("moving stuff to GPU")
         net = net.cuda(gpu)

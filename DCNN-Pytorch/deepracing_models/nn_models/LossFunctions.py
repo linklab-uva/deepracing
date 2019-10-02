@@ -18,24 +18,29 @@ class QuaternionDistance(nn.Module):
         return torch.sum( batched_sum )
 class LpDistanceLoss(nn.Module):
     '''
-    Computes the Lp distance between predictions and target.
+    Computes the Lp distance between predictions and target along a time axis .
     Args:
       p: Which norm to compute (default is 2-norm)
       dim: Dimension along which to compute the norm
       time_reduction: How to reduce along the time axis (assumed to be dimension dim-1 in the original tensors) ('mean' or 'sum')
       batch_reduction: How to reduce along the batch axis (assumed to be dimension 0) ('mean' or 'sum')
     '''
-    def __init__(self, time_reduction="mean", batch_reduction="mean", p = 2, dim = 2):
+    def __init__(self, time_reduction="mean", batch_reduction="mean", p = 2, dim = 2, timewise_weights = None):
         super(LpDistanceLoss, self).__init__()
         self.batch_reduction=batch_reduction
         self.time_reduction=time_reduction
         self.p=p
         self.dim=dim
+        if not (timewise_weights is None):
+            self.timewise_weights=nn.Parameter(timewise_weights, requires_grad=False)
+        else:
+            self.timewise_weights=None
         #self.pairwise_dist = nn.PairwiseDistance(p=self.p)
     def forward(self, predictions, targets):
         diff = predictions - targets
         norms = torch.norm(diff,p=self.p,dim=self.dim)
-        #norms = self.pairwise_dist(predictions.transpose(1,2),targets.transpose(1,2))
+        if not (self.timewise_weights is None):
+            norms = self.timewise_weights[None,:]*norms
         if self.time_reduction=="mean":
             means = torch.mean(norms,dim=self.dim-1)
         elif self.time_reduction=="sum":
