@@ -13,6 +13,7 @@ from datetime import datetime
 import os
 import string
 import argparse
+import scipy.integrate
 import torchvision.transforms as transforms
 import yaml
 import shutil
@@ -36,7 +37,7 @@ def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,
     numpoints = 11
     t : tqdm = tqdm(enumerate(testLoader), total=len(testLoader))
     network.eval()  # This is important to call before testing!
-    losses=np.zeros(len(testLoader))
+    losses=np.zeros(len(testLoader.dataset))
     for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
         if network.input_channels==5:
             image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
@@ -67,12 +68,13 @@ def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,
         gt_fit_vels = math_utils.bezier.bezierDerivative(controlpoints_fit,bezier_order,s_torch)
         pred_eval_points = torch.matmul(Mfit, predictions_reshape)
         pred_vels = math_utils.bezier.bezierDerivative(predictions_reshape,bezier_order,s_torch)
-        loss = loss_func(pred_eval_points,fitpoints)
+        loss = torch.mean( torch.sqrt(loss_func(pred_eval_points,fitpoints)),dim=1)
+       # print(loss.shape)
 
-        currloss = float(loss.item())
+        currloss = float(torch.sum(loss).item())
         lossfloat+=currloss
-        losses[i]=currloss
-        num_samples += 1.0
+        losses[i*testLoader.batch_size:i*testLoader.batch_size+testLoader.batch_size]=loss.detach().cpu().numpy()
+        num_samples += testLoader.batch_size
         if debug:
             gtevalpoints = torch.matmul(Mfit, controlpoints_fit)
             predevalpoints = torch.matmul(Mfit, predictions_reshape)
@@ -135,7 +137,7 @@ def go():
     net.load_state_dict(torch.load(model_file,map_location=torch.device("cpu")))
     print("net:\n%s" % (str(net)))
 
-    loss_func = torch.nn.MSELoss(reduction="mean")
+    loss_func = nn_models.LossFunctions.SquaredLpNormLoss(time_reduction="oogabooga",batch_reduction="oogabooga")
     if use_float:
         print("casting stuff to float")
         net = net.float()
@@ -181,28 +183,39 @@ def go():
         print("\n")
     dset = torch.utils.data.ConcatDataset(dsets)
     
-    dataloader = data_utils.DataLoader(dset, batch_size=1,
+    dataloader = data_utils.DataLoader(dset, batch_size=32,
                         shuffle=True, num_workers=num_workers)
     print("Dataloader of of length %d" %(len(dataloader)))
     losses = run_epoch(net, dataloader, gpu, loss_func, debug=debug, use_float = use_float)
-    distances = np.sqrt(losses)
+    #distances = np.sqrt(losses)
+    distances = np.sort(losses)
+    distance_indices = np.linspace(0,distances.shape[0]-1,distances.shape[0]).astype(np.float32)
     meandist = np.mean(distances)
     stddist = np.std(distances)
     print(distances)
     print("RMS error: %f" % ( np.sqrt( np.mean(losses) ) ) )
-    plt.plot(np.linspace(0,distances.shape[0]-1,distances.shape[0]),distances)
+    plt.plot(distance_indices,distances)
     
     figkde, axkde = plt.subplots()
     figkde.subplots_adjust(hspace=0.05, wspace=0.05)
-    kernel='gaussian'
-    kde = KernelDensity(kernel=kernel, bandwidth=0.25).fit(distances.reshape(-1, 1))
+    kde = KernelDensity(bandwidth=0.1).fit(distances.reshape(-1, 1))
 
-    kdexplot = np.linspace(0,np.max(distances) + 1.5*stddist,distances.shape[0]).reshape(-1, 1)
+    distancesplot = np.linspace(0,np.max(distances),2*distances.shape[0])# + 1.5*stddist)
+    kdexplot = distancesplot.reshape(-1, 1)
     log_dens = kde.score_samples(kdexplot)
     pdf = np.exp(log_dens)
-    axkde.plot(np.hstack((np.array([0]),kdexplot[:,0])), np.hstack((np.array([0]),pdf)), '-', label="kernel = '{0}'".format(kernel))
+    axkde.plot(np.hstack((np.array([0]),distancesplot)), np.hstack((np.array([0]),pdf)), '-')
     axkde.set_xlabel("Distance from prediction to ground truth")
-    axkde.set_ylabel("Probability Density")
+    axkde.set_ylabel("Probability Density (pdf)")
+
+    
+    figcdf, axcdf = plt.subplots()
+
+    cdf = distance_indices/distance_indices.shape[0]
+    axcdf.plot(distances, cdf, '-')
+    axcdf.set_xlabel("Distance from prediction to ground truth")
+    axcdf.set_ylabel("Cumulative Probability Density (cdf)")
+
     # plt.hist(losses)
     plt.show()
 import logging

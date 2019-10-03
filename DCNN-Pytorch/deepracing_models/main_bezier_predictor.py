@@ -177,8 +177,8 @@ def go():
         timewise_weights = torch.from_numpy( np.hstack( ( np.ones(numones), np.linspace(1,3, ppd - numones ) ) ) )
     else:
         timewise_weights = None
-    params_loss = nn_models.LossFunctions.LpDistanceLoss(timewise_weights=timewise_weights)
-    kinematic_loss = nn_models.LossFunctions.LpDistanceLoss()
+    params_loss = nn_models.LossFunctions.SquaredLpNormLoss(timewise_weights=timewise_weights)
+    kinematic_loss = nn_models.LossFunctions.SquaredLpNormLoss()
     if use_float:
         print("casting stuff to float")
         net = net.float()
