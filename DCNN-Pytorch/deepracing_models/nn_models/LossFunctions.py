@@ -16,17 +16,17 @@ class QuaternionDistance(nn.Module):
         acos = torch.acos(dotabsthresh)
         batched_sum = torch.sum(acos, dim = 1)
         return torch.sum( batched_sum )
-class LpDistanceLoss(nn.Module):
+class SquaredLpNormLoss(nn.Module):
     '''
-    Computes the Lp distance between predictions and target along a time axis .
+    Computes the squared Lp norm between predictions and target along a time axis .
     Args:
       p: Which norm to compute (default is 2-norm)
-      dim: Dimension along which to compute the norm
+      dim: Dimension along which to compute the squared norm
       time_reduction: How to reduce along the time axis (assumed to be dimension dim-1 in the original tensors) ('mean' or 'sum')
       batch_reduction: How to reduce along the batch axis (assumed to be dimension 0) ('mean' or 'sum')
     '''
     def __init__(self, time_reduction="mean", batch_reduction="mean", p = 2, dim = 2, timewise_weights = None):
-        super(LpDistanceLoss, self).__init__()
+        super(SquaredLpNormLoss, self).__init__()
         self.batch_reduction=batch_reduction
         self.time_reduction=time_reduction
         self.p=p
@@ -38,7 +38,12 @@ class LpDistanceLoss(nn.Module):
         #self.pairwise_dist = nn.PairwiseDistance(p=self.p)
     def forward(self, predictions, targets):
         diff = predictions - targets
-        squarednorms = torch.sum(torch.abs(torch.pow(diff,self.p)),dim=self.dim)
+        if self.p%2 == 0:
+            squarednorms  = torch.sum(torch.pow(diff,self.p),dim=self.dim)
+        else:
+            squarednorms  = torch.sum(torch.abs(torch.pow(diff,self.p)),dim=self.dim)
+
+
         if not (self.timewise_weights is None):
             squarednorms = self.timewise_weights[None,:]*squarednorms
         if self.time_reduction=="mean":
