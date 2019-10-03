@@ -38,15 +38,15 @@ class LpDistanceLoss(nn.Module):
         #self.pairwise_dist = nn.PairwiseDistance(p=self.p)
     def forward(self, predictions, targets):
         diff = predictions - targets
-        norms = torch.norm(diff,p=self.p,dim=self.dim)
+        squarednorms = torch.sum(torch.abs(torch.pow(diff,self.p)),dim=self.dim)
         if not (self.timewise_weights is None):
-            norms = self.timewise_weights[None,:]*norms
+            squarednorms = self.timewise_weights[None,:]*squarednorms
         if self.time_reduction=="mean":
-            means = torch.mean(norms,dim=self.dim-1)
+            means = torch.mean(squarednorms,dim=self.dim-1)
         elif self.time_reduction=="sum":
-            means = torch.sum(norms,dim=self.dim-1)
+            means = torch.sum(squarednorms,dim=self.dim-1)
         else:
-            means = norms
+            means = squarednorms
         if self.batch_reduction=="mean":
             return torch.mean(means)
         elif self.batch_reduction=="sum":
@@ -61,8 +61,8 @@ class TaylorSeriesLinear(nn.Module):
         position_diff = position[:,1:,:]-position[:,:-1,:]
         dt=time[:,1:]-time[:,:-1]
         vel_est = position_diff/dt[:,:,None]
-        norms = torch.norm((velocity[:,:-1,:] - vel_est),dim=2, p=2)
+        squarednorms = torch.norm((velocity[:,:-1,:] - vel_est),dim=2, p=2)
         if self.reduction=="mean":
-            return torch.mean(norms)
+            return torch.mean(squarednorms)
         else:
-            return torch.sum(norms)
+            return torch.sum(squarednorms)
