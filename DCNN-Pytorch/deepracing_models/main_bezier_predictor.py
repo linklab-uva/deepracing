@@ -127,11 +127,14 @@ def go():
     parser.add_argument("--gpu", type=int, default=None,  help="Override the GPU index specified in the config file")
     parser.add_argument("--learning_rate", type=float, default=None,  help="Override the learning rate specified in the config file")
     parser.add_argument("--bezier_order", type=int, default=None,  help="Override the order of the bezier curve specified in the config file")
+    parser.add_argument("--weighted_loss", action="store_true",  help="Use timewise weights on param loss")
+
     args = parser.parse_args()
     config_file = args.config_file
     output_directory = args.output_directory
     debug = args.debug
     epochstart = args.epochstart
+    weighted_loss = args.weighted_loss
     with open(config_file) as f:
         config = yaml.load(f, Loader = yaml.SafeLoader)
 
@@ -170,7 +173,10 @@ def go():
     print("net:\n%s" % (str(net)))
     ppd = net.params_per_dimension
     numones = int(ppd/2)
-    timewise_weights = torch.from_numpy( np.hstack( ( np.ones(numones), np.linspace(1,3, ppd - numones ) ) ) )
+    if weighted_loss:
+        timewise_weights = torch.from_numpy( np.hstack( ( np.ones(numones), np.linspace(1,3, ppd - numones ) ) ) )
+    else:
+        timewise_weights = None
     params_loss = nn_models.LossFunctions.LpDistanceLoss(timewise_weights=timewise_weights)
     kinematic_loss = nn_models.LossFunctions.LpDistanceLoss()
     if use_float:
