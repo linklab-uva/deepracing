@@ -236,8 +236,8 @@ for idx in tqdm(range(len(image_tags))):
         subsequent_positions = position_spline(teval)
         subsequent_quaternions = quaternions_spline(teval).as_quat()
         subsequent_velocities = velocities_spline(teval)
-        #subsequent_angular_velocities = quaternions_spline(teval,order=1)
-        subsequent_angular_velocities = np.zeros((lookahead_indices,3))
+        subsequent_angular_velocities = quaternions_spline(teval,order=1)
+        #subsequent_angular_velocities = np.zeros((lookahead_indices,3))
         subsequent_times = teval
         #print(subsequent_positions.shape)
         
