@@ -45,7 +45,7 @@ for i in range(numcurves):
     fig = plt.figure()
     ax = fig.add_subplot()
     ax.plot(P[i,:,0],P[i,:,1],'r-')
-    ax.plot(Pbeziertorch[i,:,0].numpy(),Pbeziertorch[i,:,1].numpy(),'bo')
+    ax.scatter(Pbeziertorch[i,:,0].numpy(),Pbeziertorch[i,:,1].numpy(), facecolors='none', edgecolors='b')
     skipn = 20
     #ax.quiver(Pbeziertorch[::skipn,0].numpy(),Pbeziertorch[::skipn,1].numpy(),Pbeziertorchderiv[::skipn,0].numpy(),Pbeziertorchderiv[::skipn,1].numpy())
     ax.plot(bezier_control_points[i,:,0].numpy(),bezier_control_points[i,:,1].numpy(),'go')

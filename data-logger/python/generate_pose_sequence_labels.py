@@ -1,6 +1,5 @@
 import numpy as np
 import numpy.linalg as la
-import quaternion
 import scipy
 import skimage
 import PIL
@@ -25,6 +24,9 @@ from tqdm import tqdm as tqdm
 import yaml
 import shutil
 import Spline2DParams_pb2
+from scipy.spatial.transform import Rotation as Rot
+from scipy.spatial.transform import RotationSpline as RotSpline
+from scipy.spatial.transform import Slerp
 def imageDataKey(data):
     return data.timestamp
 def udpPacketKey(packet):
@@ -35,7 +37,7 @@ def poseSequenceLabelKey(label):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("db_path", help="Path to root directory of DB",  type=str)
-parser.add_argument("lookahead_indices", help="Time (in seconds) to look foward. Each label will have <num_label_poses> spanning <lookahead_time> seconds into the future",  type=int)
+parser.add_argument("lookahead_indices", help="Number of indices to look foward. Each label will have <lookahead_indices> values",  type=int)
 angvelhelp = "Use the angular velocities given in the udp packets. THESE ARE ONLY PROVIDED FOR A PLAYER CAR. IF THE " +\
     " DATASET WAS TAKEN ON SPECTATOR MODE, THE ANGULAR VELOCITY VALUES WILL BE GARBAGE."
 parser.add_argument("--splineXmin", help="Min Scale factor for computing the X-component of spline fit",  type=float, default=0.0)
@@ -46,20 +48,19 @@ parser.add_argument("--splineK", help="Spline degree to fit",  type=int, default
 parser.add_argument("--use_given_angular_velocities", help=angvelhelp, action="store_true", required=False)
 parser.add_argument("--debug", help="Display debug plots", action="store_true", required=False)
 parser.add_argument("--json", help="Assume dataset files are in JSON rather than binary .pb files.",  action="store_true", required=False)
-parser.add_argument("--downsample_factor", help="What factor to downsample the measured trajectories by", type=int,  default=1)
 parser.add_argument("--output_dir", help="Output directory for the labels. relative to the database images folder",  default="pose_sequence_labels", required=False)
 
 args = parser.parse_args()
-downsample_factor = args.downsample_factor
 splxmin = args.splineXmin
 splxmax = args.splineXmax
 splzmin = args.splineZmin
 splzmax = args.splineZmax
 splK = args.splineK
 lookahead_indices = args.lookahead_indices
-motion_data_folder = os.path.join(args.db_path,"udp_data","motion_packets")
-image_folder = os.path.join(args.db_path,"images")
-session_folder = os.path.join(args.db_path,"udp_data","session_packets")
+root_dir = args.db_path
+motion_data_folder = os.path.join(root_dir,"udp_data","motion_packets")
+image_folder = os.path.join(root_dir,"images")
+session_folder = os.path.join(root_dir,"udp_data","session_packets")
 session_packets = getAllSessionPackets(session_folder,args.json)
 
 spectating_flags = [bool(packet.udp_packet.m_isSpectating) for packet in session_packets]
@@ -113,18 +114,10 @@ poses = [deepracing.pose_utils.extractPose(packet.udp_packet, car_index=car_inde
 velocities = np.array([deepracing.pose_utils.extractVelocity(packet.udp_packet, car_index=car_index) for packet in motion_packets])
 positions = np.array([pose[0] for pose in poses])
 quaternions = np.array([pose[1] for pose in poses])
-if args.use_given_angular_velocities:
-    angular_velocities = np.array([deepracing.pose_utils.extractAngularVelocity(packet.udp_packet, car_index=0) for packet in motion_packets])
-else:
-    angular_velocities = quaternion.angular_velocity(quaternions, session_times)
-for i in range(len(quaternions)):
-    if quaternions[i].w<0:
-        quaternions[i]=-quaternions[i]
 print()
 print(len(motion_packets))
 print(len(session_times))
 print(len(system_times))
-print(len(angular_velocities))
 print(len(poses))
 print(len(positions))
 print(len(velocities))
@@ -146,12 +139,19 @@ print("Range of image session times after clipping: [%f,%f]" %(image_session_tim
 
 
 position_interpolant = scipy.interpolate.make_interp_spline(session_times, positions)
-#velocity_interpolant = position_interpolant.derivative()
+rotation_interpolant = RotSpline(session_times,Rot.from_quat(quaternions))
+#rotation_interpolant = Slerp(session_times,Rot.from_quat(quaternions))
 velocity_interpolant = scipy.interpolate.make_interp_spline(session_times, velocities)
 interpolated_positions = position_interpolant(image_session_timestamps)
 interpolated_velocities = velocity_interpolant(image_session_timestamps)
-interpolated_quaternions = quaternion.squad(quaternions, session_times, image_session_timestamps)
-interpolated_angular_velocities = quaternion.angular_velocity(interpolated_quaternions, image_session_timestamps)
+interpolated_quaternions = rotation_interpolant(image_session_timestamps).as_quat()
+if args.use_given_angular_velocities:
+    angular_velocities = np.array([deepracing.pose_utils.extractAngularVelocity(packet.udp_packet) for packet in motion_packets])
+    angular_velocity_interpolant = scipy.interpolate.make_interp_spline(session_times, angular_velocities)
+    interpolated_angular_velocities = angular_velocity_interpolant(image_session_timestamps)
+else:
+    angular_velocities = rotation_interpolant(session_times,order=1)
+    interpolated_angular_velocities = rotation_interpolant(image_session_timestamps,order=1)
 print()
 print(len(image_tags))
 print(len(image_session_timestamps))
@@ -178,13 +178,16 @@ try:
   print("R^2 of remap: %f" %(r_value_remap**2))
   plt.plot( t, image_session_timestamps, label='dem timez' )
   plt.plot( t, t*slope_remap + intercept_remap, label='fitted line' )
+  racelinefig,racelineax = plt.subplots()
+  racelineax.plot( positions[:,0], positions[:,2],"g-")
+  racelineax.scatter( interpolated_positions[:,0], interpolated_positions[:,2], facecolors='none', edgecolors='b')
   plt.show()
 except KeyboardInterrupt:
     exit(0)
 except:
   text = input("Could not import matplotlib, skipping visualization. Enter anything to continue.")
 #scipy.interpolate.interp1d
-output_dir = os.path.join(image_folder, args.output_dir)
+output_dir = os.path.join(root_dir, args.output_dir)
 lmdb_dir = os.path.join(output_dir,"lmdb")
 if os.path.isdir(output_dir):
     shutil.rmtree(output_dir)
@@ -193,11 +196,11 @@ if os.path.isdir(lmdb_dir):
     shutil.rmtree(lmdb_dir)
 os.makedirs(lmdb_dir)
 print("Generating interpolated labels")
-config_dict = {"lookahead_indices": lookahead_indices, "downsample_factor": downsample_factor}
+config_dict = {"lookahead_indices": lookahead_indices}
 with open(os.path.join(output_dir,'config.yaml'), 'w') as yaml_file:
     yaml.dump(config_dict, yaml_file, Dumper=yaml.SafeDumper)
 db = deepracing.backend.PoseSequenceLabelLMDBWrapper()
-db.readDatabase(lmdb_dir, mapsize=3e9, max_spare_txns=16, readonly=False )
+db.readDatabase( lmdb_dir, mapsize=3e9, max_spare_txns=16, readonly=False )
 
 for idx in tqdm(range(len(image_tags))):
     try:
@@ -213,19 +216,30 @@ for idx in tqdm(range(len(image_tags))):
         label_tag.car_angular_velocity.session_time = t_interp
         lowerbound = bisect.bisect_left(session_times,t_interp)
         upperbound = lowerbound+lookahead_indices
-        interpolants_start = lowerbound
-        if(interpolants_start<10):
+        interpolants_start = lowerbound-3
+        if(interpolants_start<5):
             continue
-        interpolants_end = upperbound
-        if interpolants_end>=(len(session_times)-round(1.5*lookahead_indices)):
+        interpolants_end = upperbound+3
+        if interpolants_end>=(len(session_times)-round(1.25*lookahead_indices)):
             continue
+        position_interp_points = positions[interpolants_start:interpolants_end]
+        quaternion_interp_points = quaternions[interpolants_start:interpolants_end]
+        velocity_interp_points = velocities[interpolants_start:interpolants_end]
+        session_times_interp = session_times[interpolants_start:interpolants_end].copy()
+        position_spline = scipy.interpolate.make_interp_spline(session_times_interp, position_interp_points)
+        quaternions_spline = RotSpline(session_times_interp, Rot.from_quat(quaternion_interp_points))
+        #quaternions_spline = Slerp(session_times_interp,Rot.from_quat(quaternion_interp_points))
+        velocities_spline = scipy.interpolate.make_interp_spline(session_times_interp, velocity_interp_points)
+        dT = session_times[upperbound]-session_times[lowerbound]
+        teval = np.linspace(t_interp,t_interp+dT,lookahead_indices)
 
-        subsequent_positions = positions[lowerbound:upperbound]
-        subsequent_quaternions = quaternions[lowerbound:upperbound]
-        subsequent_velocities = velocities[lowerbound:upperbound]
-        subsequent_angular_velocities = angular_velocities[lowerbound:upperbound]
-        subsequent_times = session_times[lowerbound:upperbound]
-
+        subsequent_positions = position_spline(teval)
+        subsequent_quaternions = quaternions_spline(teval).as_quat()
+        subsequent_velocities = velocities_spline(teval)
+        #subsequent_angular_velocities = quaternions_spline(teval,order=1)
+        subsequent_angular_velocities = np.zeros((lookahead_indices,3))
+        subsequent_times = teval
+        #print(subsequent_positions.shape)
         
         
         carposition_global = interpolated_positions[idx]
@@ -240,39 +254,34 @@ for idx in tqdm(range(len(image_tags))):
         subsequent_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector((carposition_global, carquat_global), subsequent_velocities)
         subsequent_angular_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector((carposition_global, carquat_global), subsequent_angular_velocities)
 
-        position_spline_ordinates = subsequent_positions_local[::downsample_factor,[0,2]].copy()
-        tspline = subsequent_times[::downsample_factor].copy()
-        tspline = (tspline-tspline[0])/(tspline[-1]-tspline[0])
-        #tspline = np.linspace(0.0,1.0,position_spline_ordinates.shape[0])
-        numpoints = position_spline_ordinates.shape[0]
-        knots = np.hstack((np.zeros(splK+1),np.linspace((splK-1)/(numpoints-splK+1),(numpoints-splK-1)/(numpoints-splK+1),numpoints-splK-1),np.ones(splK+1)))
-        #knots = None
-        position_spline_ordinates[:,0] = (position_spline_ordinates[:,0] - splxmin)/(splxmax - splxmin)
-        position_spline_ordinates[:,1] = (position_spline_ordinates[:,1] - splzmin)/(splzmax - splzmin)
-        position_spline = scipy.interpolate.make_interp_spline(tspline,position_spline_ordinates,k=splK,t=knots)
-        position_spline_pb = deepracing.protobuf_utils.splineSciPyToPB(position_spline,tspline[0],tspline[-1],splxmin,splxmax,splzmin,splzmax)
-        label_tag.position_spline.CopyFrom(position_spline_pb)
+        # position_spline_ordinates = subsequent_positions_local[:,[0,2]].copy()
+        # #print(position_spline_ordinates.shape)
+        # tspline = subsequent_times.copy()
+        # tspline = (tspline-tspline[0])/(tspline[-1]-tspline[0])
+        # #tspline = np.linspace(0.0,1.0,position_spline_ordinates.shape[0])
+        # numpoints = position_spline_ordinates.shape[0]
+        # knots = np.hstack((np.zeros(splK+1),np.linspace((splK-1)/(numpoints-splK+1),(numpoints-splK-1)/(numpoints-splK+1),numpoints-splK-1),np.ones(splK+1)))
+        # #knots = None
+        # position_spline_ordinates[:,0] = (position_spline_ordinates[:,0] - splxmin)/(splxmax - splxmin)
+        # position_spline_ordinates[:,1] = (position_spline_ordinates[:,1] - splzmin)/(splzmax - splzmin)
+        # position_spline = scipy.interpolate.make_interp_spline(tspline,position_spline_ordinates,k=splK,t=knots)
+        # position_spline_pb = deepracing.protobuf_utils.splineSciPyToPB(position_spline,tspline[0],tspline[-1],splxmin,splxmax,splzmin,splzmax)
+        # label_tag.position_spline.CopyFrom(position_spline_pb)
 
 
-        velocity_spline_ordinates = subsequent_velocities_local[::downsample_factor,[0,2]].copy()
-        velocity_spline_ordinates[:,0] = (velocity_spline_ordinates[:,0] - splxmin)/(splxmax - splxmin)
-        velocity_spline_ordinates[:,1] = (velocity_spline_ordinates[:,1] - splzmin)/(splzmax - splzmin)
-        velocity_spline = scipy.interpolate.make_interp_spline(tspline,velocity_spline_ordinates,k=splK,t=knots)
-        velocity_spline_pb = deepracing.protobuf_utils.splineSciPyToPB(velocity_spline,tspline[0],tspline[-1],splxmin,splxmax,splzmin,splzmax)
-        label_tag.velocity_spline.CopyFrom(velocity_spline_pb)
-
-
-        
-        
-
-            
+        # velocity_spline_ordinates = subsequent_velocities_local[:,[0,2]].copy()
+        # velocity_spline_ordinates[:,0] = (velocity_spline_ordinates[:,0] - splxmin)/(splxmax - splxmin)
+        # velocity_spline_ordinates[:,1] = (velocity_spline_ordinates[:,1] - splzmin)/(splzmax - splzmin)
+        # velocity_spline = scipy.interpolate.make_interp_spline(tspline,velocity_spline_ordinates,k=splK,t=knots)
+        # velocity_spline_pb = deepracing.protobuf_utils.splineSciPyToPB(velocity_spline,tspline[0],tspline[-1],splxmin,splxmax,splzmin,splzmax)
+        # label_tag.velocity_spline.CopyFrom(velocity_spline_pb)
         label_tag.car_pose.translation.x = carposition_global[0]
         label_tag.car_pose.translation.y = carposition_global[1]
         label_tag.car_pose.translation.z = carposition_global[2]
-        label_tag.car_pose.rotation.x = carquat_global.x
-        label_tag.car_pose.rotation.y = carquat_global.y
-        label_tag.car_pose.rotation.z = carquat_global.z
-        label_tag.car_pose.rotation.w = carquat_global.w
+        label_tag.car_pose.rotation.x = carquat_global[0]
+        label_tag.car_pose.rotation.y = carquat_global[1]
+        label_tag.car_pose.rotation.z = carquat_global[2]
+        label_tag.car_pose.rotation.w = carquat_global[3]
 
         label_tag.car_velocity.vector.x = carvelocity_global[0]
         label_tag.car_velocity.vector.y = carvelocity_global[1]
@@ -285,37 +294,18 @@ for idx in tqdm(range(len(image_tags))):
 
 
         if args.debug and (idx%30)==0:
-            print("Final point in undecimated list: " + str(position_spline_ordinates[-1]))
-            print("Final point in decimated list: " + str(subsequent_positions_local[-1,[0,2]]))
-            print(google.protobuf.json_format.MessageToJson(label_tag.position_spline,including_default_value_fields=True))
-            print(subsequent_times.shape)
-            print("Mean diff of time vector: %f" %(np.mean(np.diff(subsequent_times))))
-            tsamp = np.linspace(0.0,1.0,16)
-            position_spline_rebuilt = deepracing.protobuf_utils.splinePBToSciPy(label_tag.position_spline)
-            position_resamp = position_spline_rebuilt(tsamp)
-            spline_derivative = position_spline_rebuilt.derivative()
-            velocity_resamp = spline_derivative(tsamp)
+            interpolants_local, _ = deepracing.pose_utils.toLocalCoordinatesPose((carposition_global, carquat_global), position_interp_points, quaternion_interp_points)
             fig = plt.figure()
             ax = fig.add_subplot()
-            ax.plot(subsequent_positions_local[:,0],subsequent_positions_local[:,2], 'bo')
-            ax.plot(label_tag.position_spline.Xmin + position_resamp[:,0]*(label_tag.position_spline.Xmax - label_tag.position_spline.Xmin),\
-                    label_tag.position_spline.Zmin + position_resamp[:,1]*(label_tag.position_spline.Zmax - label_tag.position_spline.Zmin),\
-                    'ro')
-            ax.quiver(subsequent_positions_local[:,0],subsequent_positions_local[:,2],subsequent_velocities_local[:,0],subsequent_velocities_local[:,2])
-            #ax.quiver(position_resamp[:,0],position_resamp[:,1],velocity_resamp[:,0],velocity_resamp[:,1])
-            # figvel = plt.figure()
-            # axvel = figvel.add_subplot()
-            # axvel.plot(subsequent_velocities_local[:,0],subsequent_velocities_local[:,2], 'bo')
-            # axvel.plot(label_tag.position_spline.Xmin + velocity_resamp[:,0]*(label_tag.position_spline.Xmax - label_tag.position_spline.Xmin),\
-            #         label_tag.position_spline.Zmin + velocity_resamp[:,1]*(label_tag.position_spline.Zmax - label_tag.position_spline.Zmin),\
-            #         'ro')
+            ax.plot(interpolants_local[:,0],interpolants_local[:,2], 'go') 
+            ax.plot(subsequent_positions_local[:,0],subsequent_positions_local[:,2], 'bo') 
             plt.show()
         #print()
         #print()
         #print(carposition_global)
         #print(carpose_global)
         #print()
-        for j in range(len(subsequent_positions_local)-1):
+        for j in range(len(subsequent_positions_local)):
             # label_tag.
             #print(packet_forward)
             pose_forward_pb = Pose3d_pb2.Pose3d()
@@ -328,10 +318,10 @@ for idx in tqdm(range(len(image_tags))):
             pose_forward_pb.translation.x = subsequent_positions_local[j,0]
             pose_forward_pb.translation.y = subsequent_positions_local[j,1]
             pose_forward_pb.translation.z = subsequent_positions_local[j,2]
-            pose_forward_pb.rotation.x = subsequent_quaternions_local[j].x
-            pose_forward_pb.rotation.y = subsequent_quaternions_local[j].y
-            pose_forward_pb.rotation.z = subsequent_quaternions_local[j].z
-            pose_forward_pb.rotation.w = subsequent_quaternions_local[j].w
+            pose_forward_pb.rotation.x = subsequent_quaternions_local[j,0]
+            pose_forward_pb.rotation.y = subsequent_quaternions_local[j,1]
+            pose_forward_pb.rotation.z = subsequent_quaternions_local[j,2]
+            pose_forward_pb.rotation.w = subsequent_quaternions_local[j,3]
 
             velocity_forward_pb.vector.x = subsequent_velocities_local[j,0]
             velocity_forward_pb.vector.y = subsequent_velocities_local[j,1]
@@ -357,7 +347,8 @@ for idx in tqdm(range(len(image_tags))):
     except Exception as e:
         print("Could not generate label for %s" %(label_tag.image_tag.image_file))
         print("Exception message: %s"%(str(e)))
-        continue          
+        #continue    
+        raise e      
     label_tag_JSON = google.protobuf.json_format.MessageToJson(label_tag, including_default_value_fields=True)
     image_file_base = os.path.splitext(os.path.split(label_tag.image_tag.image_file)[1])[0]
     label_tag_file_path = os.path.join(output_dir, image_file_base + "_sequence_label.json")
@@ -392,7 +383,7 @@ for packet in tqdm(label_pb_tags_sorted):
     except:
         print("Skipping bad key: %s" %(key))
         continue
-key_file = os.path.join(args.db_path,"goodkeys.txt")
+key_file = os.path.join(root_dir,"goodkeys.txt")
 with open(key_file, 'w') as filehandle:
     filehandle.writelines("%s\n" % key for key in sorted_keys)    
 
