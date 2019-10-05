@@ -119,6 +119,7 @@ def go():
     parser.add_argument("config_file", type=str,  help="Configuration file to load")
     parser.add_argument("output_directory", type=str,  help="Where to put the resulting model files")
 
+    parser.add_argument("--context_length",  type=int, default=None,  help="Override the context length specified in the config file")
     parser.add_argument("--epochstart", type=int, default=1,  help="Restart training from the given epoch number")
     parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
     parser.add_argument("--override", action="store_true",  help="Delete output directory and replace with new data")
@@ -140,7 +141,13 @@ def go():
 
     image_size = config["image_size"]
     input_channels = config["input_channels"]
-    context_length = config["context_length"]
+    
+    if args.context_length is not None:
+        context_length = args.context_length
+        config["context_length"]  = context_length
+    else:
+        context_length = config["context_length"]
+        
     if args.bezier_order is not None:
         bezier_order = args.bezier_order
         config["bezier_order"]  = bezier_order
@@ -169,7 +176,7 @@ def go():
     use_float = config["use_float"]
     loss_weights = config["loss_weights"]
     print("Using config:\n%s" % (str(config)))
-    net = nn_models.Models.AdmiralNetCurvePredictor(input_channels=input_channels, num_recurrent_layers=1, params_per_dimension=bezier_order+1) 
+    net = nn_models.Models.AdmiralNetCurvePredictor(context_length= context_length,input_channels=input_channels, num_recurrent_layers=1, params_per_dimension=bezier_order+1) 
     print("net:\n%s" % (str(net)))
     ppd = net.params_per_dimension
     numones = int(ppd/2)
