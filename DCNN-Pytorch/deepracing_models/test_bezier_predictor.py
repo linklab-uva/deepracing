@@ -88,6 +88,7 @@ def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,
             gtvelerrors[istart:iend]=torch.mean(torch.norm(fitvels-gt_fit_vels/dt[:,None,None],p=2,dim=2),dim=1).detach().cpu().numpy()
         num_samples += testLoader.batch_size
         if debug:
+            print("Current loss: %s" %(str(loss)))
             predevalpoints = torch.matmul(Mfit, predictions_reshape)
             xprednp = predevalpoints[0,:,0].cpu().detach().numpy()
             zprednp = predevalpoints[0,:,1].cpu().detach().numpy()
@@ -165,7 +166,7 @@ def go():
     use_float = config["use_float"]
     learnable_initial_state = config.get("learnable_initial_state",True)
     print("Using config:\n%s" % (str(config)))
-    net = nn_models.Models.AdmiralNetCurvePredictor(input_channels=input_channels, params_per_dimension=bezier_order+1) 
+    net = nn_models.Models.AdmiralNetCurvePredictor(context_length= context_length, input_channels=input_channels, params_per_dimension=bezier_order+1) 
     net.load_state_dict(torch.load(model_file,map_location=torch.device("cpu")))
     print("net:\n%s" % (str(net)))
 

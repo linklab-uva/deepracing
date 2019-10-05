@@ -140,10 +140,13 @@ print("Range of image session times after clipping: [%f,%f]" %(image_session_tim
 
 position_interpolant = scipy.interpolate.make_interp_spline(session_times, positions)
 rotation_interpolant = RotSpline(session_times,Rot.from_quat(quaternions))
-#rotation_interpolant = Slerp(session_times,Rot.from_quat(quaternions))
 velocity_interpolant = scipy.interpolate.make_interp_spline(session_times, velocities)
+accelerations = 0.25*position_interpolant(session_times,nu=2) + 0.75*velocity_interpolant(session_times,n=1)
+
+
 interpolated_positions = position_interpolant(image_session_timestamps)
 interpolated_velocities = velocity_interpolant(image_session_timestamps)
+interpolated_accelerations = 0.25*position_interpolant(image_session_timestamps,nu=2) + 0.75*velocity_interpolant(image_session_timestamps,n=1)
 interpolated_quaternions = rotation_interpolant(image_session_timestamps).as_quat()
 if args.use_given_angular_velocities:
     angular_velocities = np.array([deepracing.pose_utils.extractAngularVelocity(packet.udp_packet) for packet in motion_packets])
