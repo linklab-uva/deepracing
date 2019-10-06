@@ -29,6 +29,9 @@ else()
 	message(FATAL_ERROR "This library is not supported on your platform: ${CMAKE_SYSTEM}")
 endif()
 add_library(${PROJECT_NAME}_controllers ${controllers_SRCS})
+if(UNIX)
+	set_property(TARGET ${PROJECT_NAME}_controllers PROPERTY POSITION_INDEPENDENT_CODE ON)
+endif(UNIX)
 target_link_libraries(${PROJECT_NAME}_controllers
 ${PROJECT_NAME}_eigen_utils
 ${Boost_LIBRARIES}

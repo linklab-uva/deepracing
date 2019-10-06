@@ -14,6 +14,9 @@ pybind11::module
 pybind11::pybind11
 ${PROJECT_NAME}_controllers
 )
+if(UNIX)
+	set_property(TARGET py_f1_interface PROPERTY POSITION_INDEPENDENT_CODE ON)
+endif(UNIX)
 target_include_directories(py_f1_interface
 PRIVATE
 ${PYBIND11_INCLUDE_DIR}
