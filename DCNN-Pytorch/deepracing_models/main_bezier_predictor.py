@@ -132,7 +132,7 @@ def go():
 
     args = parser.parse_args()
     config_file = args.config_file
-    output_directory = args.output_directory
+    output_directory = os.path.join(args.output_directory,os.path.splitext(os.path.basename(config_file))[0])
     debug = args.debug
     epochstart = args.epochstart
     weighted_loss = args.weighted_loss
