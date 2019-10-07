@@ -2,38 +2,38 @@
 image_size: [66, 200]
 datasets:
   -
-    image_db: /p/DeepRacing/datasets/simulatorcaptures/MadhurAustraliaFullscreen3/images
-    label_db: /p/DeepRacing/datasets/simulatorcaptures/MadhurAustraliaFullscreen3/pose_sequence_labels
+    image_folder: /p/DeepRacing/datasets/simulatorcaptures/MadhurAustraliaFullscreen3/images
+    label_folder: /p/DeepRacing/datasets/simulatorcaptures/MadhurAustraliaFullscreen3/pose_sequence_labels
     key_file: /p/DeepRacing/datasets/simulatorcaptures/MadhurAustraliaFullscreen3/goodkeys.txt
   -
-    image_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo/images
-    label_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo/pose_sequence_labels
+    image_folder: /p/DeepRacing/datasets/simulatorcaptures/trent_solo/images
+    label_folder: /p/DeepRacing/datasets/simulatorcaptures/trent_solo/pose_sequence_labels
     key_file: /p/DeepRacing/datasets/simulatorcaptures/trent_solo/goodkeys.txt
   -
-    image_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_2/images
-    label_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_2/pose_sequence_labels
+    image_folder: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_2/images
+    label_folder: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_2/pose_sequence_labels
     key_file: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_2/goodkeys.txt
   -
-    image_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_3/images
-    label_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_3/pose_sequence_labels
+    image_folder: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_3/images
+    label_folder: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_3/pose_sequence_labels
     key_file: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_3/goodkeys.txt
   -
-    image_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_4/images
-    label_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_4/pose_sequence_labels
+    image_folder: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_4/images
+    label_folder: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_4/pose_sequence_labels
     key_file: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_4/goodkeys.txt
   -
-    image_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_5/images
-    label_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_5/pose_sequence_labels
+    image_folder: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_5/images
+    label_folder: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_5/pose_sequence_labels
     key_file: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_5/goodkeys.txt
   -
-    image_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_6/images
-    label_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_6/pose_sequence_labels
+    image_folder: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_6/images
+    label_folder: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_6/pose_sequence_labels
     key_file: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_6/goodkeys.txt
   -
-    image_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_8/images
-    label_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_8/pose_sequence_labels
+    image_folder: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_8/images
+    label_folder: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_8/pose_sequence_labels
     key_file: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_8/goodkeys.txt
   -
-    image_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_9/images
-    label_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_9/pose_sequence_labels
+    image_folder: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_9/images
+    label_folder: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_9/pose_sequence_labels
     key_file: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_9/goodkeys.txt
