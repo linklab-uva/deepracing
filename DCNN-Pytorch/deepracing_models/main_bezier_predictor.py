@@ -45,18 +45,6 @@ def run_epoch(network, optimizer, trainLoader, gpu, params_loss, kinematic_loss,
     # if gpu>=0:
     #     loss_weights_torch = loss_weights_torch.cuda(gpu)
     for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
-        if debug:
-            images_np = image_torch[0].numpy().copy()
-            num_images = images_np.shape[0]
-            print(num_images)
-            images_np_transpose = np.zeros((num_images, images_np.shape[2], images_np.shape[3], images_np.shape[1]), dtype=np.uint8)
-            ims = []
-            for i in range(num_images):
-                images_np_transpose[i]=skimage.util.img_as_ubyte(images_np[i].transpose(1,2,0))
-                im = plt.imshow(images_np_transpose[i], animated=True)
-                ims.append([im])
-            ani = animation.ArtistAnimation(plt.figure(), ims, interval=50, blit=True, repeat_delay=0)
-            plt.show()
         if network.input_channels==5:
             image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
         if use_float:
@@ -85,17 +73,30 @@ def run_epoch(network, optimizer, trainLoader, gpu, params_loss, kinematic_loss,
         predictions_reshape = predictions.transpose(1,2)
         pred_points = torch.matmul(Mfit, predictions_reshape)
         pred_vels = math_utils.bezier.bezierDerivative(predictions_reshape,bezier_order,s_torch)
-
-        if False:
+        if debug:
+            images_np = image_torch[0].detach().cpu().numpy().copy()
+            num_images = images_np.shape[0]
+            print(num_images)
+            images_np_transpose = np.zeros((num_images, images_np.shape[2], images_np.shape[3], images_np.shape[1]), dtype=np.uint8)
+            ims = []
+            for i in range(num_images):
+                images_np_transpose[i]=skimage.util.img_as_ubyte(images_np[i].transpose(1,2,0))
+                im = plt.imshow(images_np_transpose[i], animated=True)
+                ims.append([im])
+            ani = animation.ArtistAnimation(plt.figure(), ims, interval=250, blit=True, repeat_delay=2000)
             fig = plt.figure()
             ax = fig.add_subplot()
-            ax.plot(fitpoints[0,:,0].cpu().numpy(),fitpoints[0,:,1].cpu().numpy(),'r-')
+            fitpointsnp = fitpoints[0,:].detach().cpu().numpy().copy()
+            ax.plot(fitpointsnp[:,0],fitpointsnp[:,1],'r-')
+            
             evalpoints = torch.matmul(Mfit, controlpoints_fit)
-            ax.plot(evalpoints[0,:,0].cpu().numpy(),evalpoints[0,:,1].cpu().numpy(),'bo')
-            skipn = 20
+            evalpointsnp = evalpoints[0,:].detach().cpu().numpy().copy()
+            ax.plot(evalpointsnp[:,0],evalpointsnp[:,1],'bo')
+            #skipn = 20
             #ax.quiver(Pbeziertorch[::skipn,0].numpy(),Pbeziertorch[::skipn,1].numpy(),Pbeziertorchderiv[::skipn,0].numpy(),Pbeziertorchderiv[::skipn,1].numpy())
             #ax.plot(bezier_control_points[i,:,0].numpy(),bezier_control_points[i,:,1].numpy(),'go')
             plt.show()
+
         #print(predictions_reshape.shape)
       #  print(controlpoints_fit.shape)
        # print(predictions.shape)
@@ -119,7 +120,8 @@ def run_epoch(network, optimizer, trainLoader, gpu, params_loss, kinematic_loss,
             t.set_postfix({"cum_loss" : cum_loss/num_samples,"cum_param_loss" : cum_param_loss/num_samples,"cum_position_loss" : cum_position_loss/num_samples,"cum_velocity_loss" : cum_velocity_loss/num_samples})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
-    parser.add_argument("config_file", type=str,  help="Configuration file to load")
+    parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuration file to load")
+    parser.add_argument("model_config_file", type=str,  help="Model Configuration file to load")
     parser.add_argument("output_directory", type=str,  help="Where to put the resulting model files")
 
     parser.add_argument("--context_length",  type=int, default=None,  help="Override the context length specified in the config file")
@@ -134,7 +136,8 @@ def go():
     parser.add_argument("--weighted_loss", action="store_true",  help="Use timewise weights on param loss")
 
     args = parser.parse_args()
-    config_file = args.config_file
+    dataset_config_file = args.dataset_config_file
+    config_file = args.model_config_file
     output_directory = os.path.join(args.output_directory,os.path.splitext(os.path.basename(config_file))[0])
     debug = args.debug
     epochstart = args.epochstart
@@ -142,7 +145,9 @@ def go():
     with open(config_file) as f:
         config = yaml.load(f, Loader = yaml.SafeLoader)
 
-    image_size = config["image_size"]
+    with open(dataset_config_file) as f:
+        dataset_config = yaml.load(f, Loader = yaml.SafeLoader)
+    image_size = dataset_config["image_size"]
     input_channels = config["input_channels"]
     
     if args.context_length is not None:
@@ -175,7 +180,6 @@ def go():
     momentum = config["momentum"]
     num_epochs = config["num_epochs"]
     num_workers = config["num_workers"]
-    debug = config["debug"]
     use_float = config["use_float"]
     loss_weights = config["loss_weights"]
     print("Using config:\n%s" % (str(config)))
@@ -229,24 +233,24 @@ def go():
         max_spare_txns = num_workers
 
     #image_wrapper = deepracing.backend.ImageFolderWrapper(os.path.dirname(image_db))
-    datasets = config["datasets"]
+    
     dsets=[]
-    use_optflow=True
-    for dataset in datasets:
+    use_optflow = net.input_channels==5
+    for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
-        image_db = dataset["image_db"]
-        opt_flow = dataset.get("use_optflow", False)
-        use_optflow = use_optflow and opt_flow
-        label_db = dataset["label_db"]
+        label_folder = dataset["label_folder"]
         key_file = dataset["key_file"]
+        image_folder = dataset["image_folder"]
         label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
-        label_wrapper.readDatabase(label_db, max_spare_txns=max_spare_txns )
-        image_size = np.array(image_size)
+        label_wrapper.readDatabase(os.path.join(label_folder,"lmdb"), max_spare_txns=max_spare_txns )
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
+
         image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
-        image_wrapper.readDatabase(image_db, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
+        image_wrapper.readDatabase(os.path.join(image_folder,"image_lmdb"), max_spare_txns=max_spare_txns, mapsize=image_mapsize )
+
+
         curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length,\
-                     image_size = image_size, return_optflow=opt_flow)
+                     image_size = image_size, return_optflow=use_optflow)
         dsets.append(curent_dset)
         print("\n")
     if len(dsets)==1:

@@ -51,7 +51,7 @@ class PoseSequenceDataset(Dataset):
         else:
             self.erasing = IdentifyTransform()
         if apply_color_jitter:
-            self.colorjitter = transforms.ColorJitter(brightness=(0.75,1.5), contrast=0.2)
+            self.colorjitter = transforms.ColorJitter(brightness=(0.75,1.25), contrast=0.2)
         else:
             self.colorjitter = IdentifyTransform()
         with open(keyfile,'r') as filehandle:

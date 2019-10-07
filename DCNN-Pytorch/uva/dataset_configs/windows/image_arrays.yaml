@@ -1,0 +1,48 @@
+#datasets definition
+image_size: [66,200]
+datasets:
+  -
+    image_folder: D:\f1_training_data\MadhurAustraliaFullscreen3\images
+    label_folder: D:\f1_training_data\MadhurAustraliaFullscreen3\pose_sequence_labels
+    key_file: D:\f1_training_data\MadhurAustraliaFullscreen3\goodkeys.txt
+    ROI: [0,0,1920,602]
+  -
+    image_folder: D:\f1_training_data\trent_solo\images
+    label_folder: D:\f1_training_data\trent_solo\pose_sequence_labels
+    key_file: D:\f1_training_data\trent_solo\goodkeys.txt
+    ROI: [0,32,1758,362]
+  -
+    image_folder: D:\f1_training_data\trent_solo_2\images
+    label_folder: D:\f1_training_data\trent_solo_2\pose_sequence_labels
+    key_file: D:\f1_training_data\trent_solo_2\goodkeys.txt
+    ROI: [0,32,1758,362]
+  -
+    image_folder: D:\f1_training_data\trent_solo_3\images
+    label_folder: D:\f1_training_data\trent_solo_3\pose_sequence_labels
+    key_file: D:\f1_training_data\trent_solo_3\goodkeys.txt
+    ROI: [0,32,1758,362]
+  -
+    image_folder: D:\f1_training_data\trent_solo_4\images
+    label_folder: D:\f1_training_data\trent_solo_4\pose_sequence_labels
+    key_file: D:\f1_training_data\trent_solo_4\goodkeys.txt
+    ROI: [0,32,1758,362]
+  -
+    image_folder: D:\f1_training_data\trent_solo_5\images
+    label_folder: D:\f1_training_data\trent_solo_5\pose_sequence_labels
+    key_file: D:\f1_training_data\trent_solo_5\goodkeys.txt
+    ROI: [0,32,1758,362]
+  -
+    image_folder: D:\f1_training_data\trent_solo_6\images
+    label_folder: D:\f1_training_data\trent_solo_6\pose_sequence_labels
+    key_file: D:\f1_training_data\trent_solo_6\goodkeys.txt
+    ROI: [0,32,1758,362]
+  -
+    image_folder: D:\f1_training_data\trent_solo_8\images
+    label_folder: D:\f1_training_data\trent_solo_8\pose_sequence_labels
+    key_file: D:\f1_training_data\trent_solo_8\goodkeys.txt
+    ROI: [0,32,1758,362]
+  -
+    image_folder: D:\f1_training_data\trent_solo_9\images
+    label_folder: D:\f1_training_data\trent_solo_9\pose_sequence_labels
+    key_file: D:\f1_training_data\trent_solo_9\goodkeys.txt
+    ROI: [0,32,1758,362]
