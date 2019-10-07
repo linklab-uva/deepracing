@@ -47,6 +47,32 @@ class ImageGRPCClient():
     def getKeys(self):
         response = self.stub.GetDbMetadata(DeepF1_RPC_pb2.DbMetadataRequest())
         return list(response.keys)
+class ImageArrayBackend():
+    def __init__(self, keyfile ):
+        with open(keyfile,"r") as keyfile_:
+            self.keys = keyfile_.readlines()
+        for i in range(len(self.keys)):
+            self.keys[i] = self.keys[i].replace("\n","")
+            
+        self.keymap = {self.keys[i]:i for i in range(len(self.keys))}
+        self.images = None
+    def loadImages(self, image_folder, ROI = None, imsize = (66,200) ):
+        print("Loading images in %s" %(image_folder))
+        self.images = np.zeros((len(self.keys),imsize[0],imsize[1],3), dtype=np.uint8)
+        if ROI is not None:
+            x = ROI[0]
+            y = ROI[1]
+            w = ROI[2]
+            h = ROI[3]
+        for i, key in tqdm(enumerate(self.keys), total=len(self.keys)):
+            fp = os.path.join(image_folder,key+".jpg")
+           # print(fp)
+            imin = deepracing.imutils.readImage(fp)
+            if ROI is not None:
+                imin = imin[y:y+h,x:x+w,:]
+            self.images[i] = deepracing.imutils.resizeImage(imin, imsize)
+    def getImage( self, key : str ):
+        return self.images[self.keymap[key]]
 class ImageFolderWrapper():
     def __init__(self, image_folder):
         self.image_folder = image_folder
