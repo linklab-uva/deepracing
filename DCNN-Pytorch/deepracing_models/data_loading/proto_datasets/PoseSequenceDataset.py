@@ -37,11 +37,11 @@ from .image_transforms import IdentifyTransform
 def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
 class PoseSequenceDataset(Dataset):
-    def __init__(self, image_db_wrapper, label_db_wrapper, keyfile, context_length, image_size = np.array((66,200)), optical_flow_db_wrapper=None, erasing_probability=0.0, apply_color_jitter = False):
+    def __init__(self, image_db_wrapper, label_db_wrapper, keyfile, context_length, image_size = np.array((66,200)), return_optflow=False, erasing_probability=0.0, apply_color_jitter = False):
         super(PoseSequenceDataset, self).__init__()
         self.image_db_wrapper = image_db_wrapper
         self.label_db_wrapper = label_db_wrapper
-        self.optical_flow_db_wrapper=optical_flow_db_wrapper
+        self.return_optflow=return_optflow
         self.image_size = image_size
         self.context_length = context_length
         self.totensor = transforms.ToTensor()
@@ -80,6 +80,10 @@ class PoseSequenceDataset(Dataset):
         images_end = images_start + self.context_length
         packetrange = range(images_start, images_end)
         keys = [self.db_keys[i] for i in packetrange]
+
+        packetrange_optflow = range(images_start-1, images_end)
+        keys_optflow = [self.db_keys[i] for i in packetrange_optflow]
+
         packets = [self.label_db_wrapper.getPoseSequenceLabel(keys[i]) for i in range(len(keys))]
         label_packet = packets[-1]
 
@@ -106,7 +110,7 @@ class PoseSequenceDataset(Dataset):
         #pos_spline_params = torch.from_numpy(np.vstack((np.array(label_packet.position_spline.XParams),np.array(label_packet.position_spline.ZParams))))
        # vel_spline_params = torch.from_numpy(np.vstack((np.array(label_packet.velocity_spline.XParams),np.array(label_packet.velocity_spline.ZParams))))
        # knots = torch.from_numpy(np.array(label_packet.position_spline.knots))
-        imagesnp = [resizeImage(self.image_db_wrapper.getImage(keys[i]), self.image_size) for i in range(len(keys))]
+        imagesnp = [ resizeImage(self.image_db_wrapper.getImage(keys_optflow[i]), self.image_size) for i in range(len(keys_optflow)) ]
         if random.choice([True,False]):
             pilimages = [transforms.functional.hflip(self.topil(img)) for img in imagesnp]
             positions_torch[:,0]*=-1.0
@@ -117,10 +121,11 @@ class PoseSequenceDataset(Dataset):
         if (not isinstance(self.colorjitter,IdentifyTransform)) and random.choice([True,False]):
             pilimages = [self.colorjitter(img) for img in pilimages]
        # pilimages = [self.erasing(img) for img in pilimages]    
-        images_torch = torch.stack([self.erasing(self.totensor(img)) for img in pilimages])
-        if self.optical_flow_db_wrapper is not None:
-            opt_flow_torch = torch.from_numpy( np.array([self.optical_flow_db_wrapper.getImage(keys[i]).transpose(2,0,1) for i in range(len(keys))]) ).type_as(images_torch)
+        images_torch = torch.stack( [ self.erasing(self.totensor(img)) for img in pilimages[1:] ])
+        if self.return_optflow:
+            imagesnp_grey = [ cv2.cvtColor(np.array(impil.copy()),cv2.COLOR_RGB2GRAY) for impil in pilimages ]
+            opt_flow_np = np.array([cv2.calcOpticalFlowFarneback(imagesnp_grey[i-1], imagesnp_grey[i], None, 0.5, 3, 15, 3, 5, 1.2, 0).transpose(2,0,1) for i in range(1,len(imagesnp_grey))])
+            opt_flow_torch = torch.from_numpy( opt_flow_np ).type_as(images_torch)
         else:
-            opt_flow_torch = torch.zeros_like(images_torch)
-            opt_flow_torch.fill_(np.nan)
+            opt_flow_torch = torch.tensor(np.nan)
         return images_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch#, pos_spline_params, vel_spline_params, knots

@@ -37,6 +37,13 @@ def run_epoch(network, optimizer, trainLoader, gpu, params_loss, kinematic_loss,
     else:
         t = enumerate(trainLoader)
     network.train()  # This is important to call before training!
+    # loss_weights_torch = torch.tensor(loss_weights)
+    # if use_float:
+    #     loss_weights_torch = session_times_torch.loss_weights_torch()
+    # else:
+    #     loss_weights_torch = loss_weights_torch.double()
+    # if gpu>=0:
+    #     loss_weights_torch = loss_weights_torch.cuda(gpu)
     for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
         if debug:
             images_np = image_torch[0].numpy().copy()
@@ -92,14 +99,10 @@ def run_epoch(network, optimizer, trainLoader, gpu, params_loss, kinematic_loss,
         #print(predictions_reshape.shape)
       #  print(controlpoints_fit.shape)
        # print(predictions.shape)
-        current_param_loss = params_loss(predictions_reshape,controlpoints_fit)
-        current_position_loss = kinematic_loss(pred_points,fitpoints)
-        if loss_weights[2]>0:
-            current_velocity_loss = kinematic_loss(pred_vels/dt[:,None,None],fitvels)
-            loss = loss_weights[0]*current_param_loss + loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
-        else:
-            current_velocity_loss = torch.tensor(0)
-            loss = loss_weights[0]*params_loss(predictions_reshape,controlpoints_fit) + loss_weights[1]*kinematic_loss(pred_points,fitpoints)
+        current_param_loss = loss_weights[0]*params_loss(predictions_reshape,controlpoints_fit)
+        current_position_loss = loss_weights[1]*kinematic_loss(pred_points,fitpoints)
+        current_velocity_loss = loss_weights[2]*kinematic_loss(pred_vels/dt[:,None,None],fitvels)
+        loss = current_param_loss + current_position_loss + current_velocity_loss
         
         # Backward pass:
         optimizer.zero_grad()
@@ -232,7 +235,8 @@ def go():
     for dataset in datasets:
         print("Parsing database config: %s" %(str(dataset)))
         image_db = dataset["image_db"]
-        opt_flow_db = dataset.get("opt_flow_db", "")
+        opt_flow = dataset.get("use_optflow", False)
+        use_optflow = use_optflow and opt_flow
         label_db = dataset["label_db"]
         key_file = dataset["key_file"]
         label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
@@ -241,15 +245,8 @@ def go():
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
         image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
         image_wrapper.readDatabase(image_db, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
-        optical_flow_db_wrapper = None
-        if not opt_flow_db=='':
-            print("Using optical flow database at %s" %(opt_flow_db))
-            optical_flow_db_wrapper = deepracing.backend.OpticalFlowLMDBWrapper()
-            optical_flow_db_wrapper.readDatabase(opt_flow_db, max_spare_txns=max_spare_txns, mapsize=int(round( float(image_mapsize)*8/3) ) )
-        else:
-            use_optflow=False
         curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length,\
-                     image_size = image_size, optical_flow_db_wrapper=optical_flow_db_wrapper)
+                     image_size = image_size, return_optflow=opt_flow)
         dsets.append(curent_dset)
         print("\n")
     if len(dsets)==1:
