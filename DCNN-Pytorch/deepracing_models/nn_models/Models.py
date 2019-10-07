@@ -133,7 +133,7 @@ class CNNLSTM(nn.Module):
 
 
 class AdmiralNetKinematicPredictor(nn.Module):
-    def __init__(self, input_channels=3, output_dimension=3, sequence_length=10, \
+    def __init__(self, input_channels=3, output_dimension=2, sequence_length=10, \
                  context_length = 15, hidden_dim = 100, num_recurrent_layers = 1,  \
                      learnable_initial_state=True):
         super(AdmiralNetKinematicPredictor, self).__init__()
