@@ -153,12 +153,14 @@ def go():
     if args.context_length is not None:
         context_length = args.context_length
         config["context_length"]  = context_length
+        output_directory+="_context%d"%(context_length)
     else:
         context_length = config["context_length"]
         
     if args.bezier_order is not None:
         bezier_order = args.bezier_order
         config["bezier_order"]  = bezier_order
+        output_directory+="bezier_order%d"%(bezier_order)
     else:
         bezier_order = config["bezier_order"]
     #num_recurrent_layers = config["num_recurrent_layers"]
