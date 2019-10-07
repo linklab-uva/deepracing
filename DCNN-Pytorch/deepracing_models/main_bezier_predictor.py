@@ -243,6 +243,8 @@ def go():
         label_folder = dataset["label_folder"]
         key_file = dataset["key_file"]
         image_folder = dataset["image_folder"]
+        apply_color_jitter = dataset.get("apply_color_jitter",False)
+        erasing_probability = dataset.get("erasing_probability",0.0)
         label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
         label_wrapper.readDatabase(os.path.join(label_folder,"lmdb"), max_spare_txns=max_spare_txns )
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
@@ -252,7 +254,7 @@ def go():
 
 
         curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length,\
-                     image_size = image_size, return_optflow=use_optflow)
+                     image_size = image_size, return_optflow=use_optflow, apply_color_jitter=apply_color_jitter, erasing_probability=erasing_probability)
         dsets.append(curent_dset)
         print("\n")
     if len(dsets)==1:
