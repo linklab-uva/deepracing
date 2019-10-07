@@ -1,39 +1,3 @@
-#datasets definition
-datasets:
-  -
-    image_db: /p/DeepRacing/datasets/simulatorcaptures/MadhurAustraliaFullscreen3/images/image_lmdb
-    label_db: /p/DeepRacing/datasets/simulatorcaptures/MadhurAustraliaFullscreen3/pose_sequence_labels/lmdb
-    key_file: /p/DeepRacing/datasets/simulatorcaptures/MadhurAustraliaFullscreen3/goodkeys.txt
-  -
-    image_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo/images/image_lmdb
-    label_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo/pose_sequence_labels/lmdb
-    key_file: /p/DeepRacing/datasets/simulatorcaptures/trent_solo/goodkeys.txt
-  -
-    image_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_2/images/image_lmdb
-    label_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_2/pose_sequence_labels/lmdb
-    key_file: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_2/goodkeys.txt
-  -
-    image_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_3/images/image_lmdb
-    label_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_3/pose_sequence_labels/lmdb
-    key_file: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_3/goodkeys.txt
-  -
-    image_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_4/images/image_lmdb
-    label_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_4/pose_sequence_labels/lmdb
-    key_file: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_4/goodkeys.txt
-  -
-    image_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_5/images/image_lmdb
-    label_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_5/pose_sequence_labels/lmdb
-    key_file: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_5/goodkeys.txt
-  -
-    image_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_6/images/image_lmdb
-    label_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_6/pose_sequence_labels/lmdb
-    key_file: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_6/goodkeys.txt
-  -
-    image_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_7/images/image_lmdb
-    label_db: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_7/pose_sequence_labels/lmdb
-    key_file: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_7/goodkeys.txt
-image_size: [66, 200]
-
 #model definition parameters
 hidden_dimension: 200
 input_channels: 3
