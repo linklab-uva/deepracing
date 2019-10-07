@@ -219,7 +219,7 @@ config_dict = {"lookahead_indices": lookahead_indices}
 with open(os.path.join(output_dir,'config.yaml'), 'w') as yaml_file:
     yaml.dump(config_dict, yaml_file, Dumper=yaml.SafeDumper)
 db = deepracing.backend.PoseSequenceLabelLMDBWrapper()
-db.readDatabase( lmdb_dir, mapsize=3e9, max_spare_txns=16, readonly=False )
+db.readDatabase( lmdb_dir, mapsize=int(round(9996*len(image_tags)*1.25)), max_spare_txns=16, readonly=False )
 
 for idx in tqdm(range(len(image_tags))):
     try:
@@ -241,7 +241,9 @@ for idx in tqdm(range(len(image_tags))):
         interpolants_end = upperbound+3
         if interpolants_end>=(len(session_times)-round(1.25*lookahead_indices)):
             continue
-        if(np.max(position_diff_norms[interpolants_start:interpolants_end])>=3.0):
+        discontinuity_min = max(0,interpolants_start-10)
+        discontinuity_max = min(position_diff_norms.shape[0],interpolants_end+10)
+        if(np.max(position_diff_norms[discontinuity_min:discontinuity_max])>=3.0):
             print("Discontinuity in labels, ignoring image: %s" % (label_tag.image_tag.image_file))
             continue
         position_interp_points = positions[interpolants_start:interpolants_end]
