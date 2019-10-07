@@ -121,6 +121,7 @@ quaternions = np.array([pose[1] for pose in poses])
 # for i in range(quaternions.shape[0]):
 #     if quaternions[i,3]<0:
 #         quaternions[i] = - quaternions[i]
+rotations = Rot.from_quat(quaternions)
 print()
 print(len(motion_packets))
 print(len(session_times))
@@ -147,7 +148,7 @@ print("Range of image session times after clipping: [%f,%f]" %(image_session_tim
 
 position_interpolant = scipy.interpolate.make_interp_spline(session_times, positions)
 #rotation_interpolant = Slerp(session_times,Rot.from_quat(quaternions))
-rotation_interpolant = RotSpline(session_times,Rot.from_quat(quaternions))
+rotation_interpolant = RotSpline(session_times,rotations)
 velocity_interpolant = scipy.interpolate.make_interp_spline(session_times, velocities)
 #accelerations = 0.25*position_interpolant(session_times,nu=2) + 0.75*velocity_interpolant(session_times,nu=1)
 
@@ -155,7 +156,7 @@ velocity_interpolant = scipy.interpolate.make_interp_spline(session_times, veloc
 interpolated_positions = position_interpolant(image_session_timestamps)
 interpolated_velocities = velocity_interpolant(image_session_timestamps)
 #interpolated_accelerations = 0.25*position_interpolant(image_session_timestamps,nu=2) + 0.75*velocity_interpolant(image_session_timestamps,nu=1)
-interpolated_quaternions = rotation_interpolant(image_session_timestamps).as_quat()
+interpolated_quaternions = rotation_interpolant(image_session_timestamps)
 if args.use_given_angular_velocities:
     angular_velocities = np.array([deepracing.pose_utils.extractAngularVelocity(packet.udp_packet) for packet in motion_packets])
     angular_velocity_interpolant = scipy.interpolate.make_interp_spline(session_times, angular_velocities)
@@ -243,41 +244,34 @@ for idx in tqdm(range(len(image_tags))):
             continue
         discontinuity_min = max(0,interpolants_start-10)
         discontinuity_max = min(position_diff_norms.shape[0],interpolants_end+10)
-        if(np.max(position_diff_norms[discontinuity_min:discontinuity_max])>=3.0):
+        if(np.max(position_diff_norms[discontinuity_min:discontinuity_max])>=4.0):
             print("Discontinuity in labels, ignoring image: %s" % (label_tag.image_tag.image_file))
             continue
         position_interp_points = positions[interpolants_start:interpolants_end]
         quaternion_interp_points = quaternions[interpolants_start:interpolants_end]
-        velocity_interp_points = velocities[interpolants_start:interpolants_end]
-        session_times_interp = session_times[interpolants_start:interpolants_end].copy()
-        position_spline = scipy.interpolate.make_interp_spline(session_times_interp, position_interp_points)
-        quaternions_spline = RotSpline(session_times_interp, Rot.from_quat(quaternion_interp_points))
-        velocities_spline = scipy.interpolate.make_interp_spline(session_times_interp, velocity_interp_points)
+        # velocity_interp_points = velocities[interpolants_start:interpolants_end]
+        # session_times_interp = session_times[interpolants_start:interpolants_end].copy()
+        # position_spline = scipy.interpolate.make_interp_spline(session_times_interp, position_interp_points)
+        # quaternions_spline = RotSpline(session_times_interp, Rot.from_quat(quaternion_interp_points))
+        # velocities_spline = scipy.interpolate.make_interp_spline(session_times_interp, velocity_interp_points)
         dT = session_times[upperbound]-session_times[lowerbound]
         teval = np.linspace(t_interp,t_interp+dT,lookahead_indices)
 
-        subsequent_positions = position_spline(teval)
-        subsequent_quaternions = quaternions_spline(teval).as_quat()
-        subsequent_velocities = velocities_spline(teval)
-        subsequent_angular_velocities = quaternions_spline(teval,order=1)
+        subsequent_positions = position_interpolant(teval)
+        subsequent_quaternions = rotation_interpolant(teval).as_quat()
+        subsequent_velocities = velocity_interpolant(teval)
+        subsequent_angular_velocities = rotation_interpolant(teval,order=1)
         subsequent_times = teval
 
-        #subsequent_positions = position_interpolant(teval)
-        #subsequent_quaternions = rotation_interpolant(teval).as_quat()
-        #subsequent_velocities = velocity_interpolant(teval)
+        carposition_global = subsequent_positions[0].copy()
+        carquat_global = subsequent_quaternions[0].copy()
+        carvelocity_global = subsequent_velocities[0].copy()
+        carangvelocity_global = subsequent_angular_velocities[0].copy()
         
-        carposition_global = position_spline(t_interp)
-        carvelocity_global = velocities_spline(t_interp)
-        carquat_global = quaternions_spline(t_interp).as_quat()
-        carangvelocity_global = quaternions_spline(t_interp,order=1)
-        # carposition_global = interpolated_positions[idx]
-        # carvelocity_global = interpolated_velocities[idx]
-        # carquat_global = interpolated_quaternions[idx]
-        # carangvelocity_global = interpolated_angular_velocities[idx]
-
-        subsequent_positions_local, subsequent_quaternions_local = deepracing.pose_utils.toLocalCoordinatesPose((carposition_global, carquat_global), subsequent_positions, subsequent_quaternions)
-        subsequent_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector((carposition_global, carquat_global), subsequent_velocities)
-        subsequent_angular_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector((carposition_global, carquat_global), subsequent_angular_velocities)
+        pose_global = (carposition_global, carquat_global)
+        subsequent_positions_local, subsequent_quaternions_local = deepracing.pose_utils.toLocalCoordinatesPose( pose_global , subsequent_positions, subsequent_quaternions )
+        subsequent_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector( pose_global , subsequent_velocities )
+        subsequent_angular_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector( pose_global , subsequent_angular_velocities )
 
         # position_spline_ordinates = subsequent_positions_local[:,[0,2]].copy()
         # #print(position_spline_ordinates.shape)
@@ -319,19 +313,24 @@ for idx in tqdm(range(len(image_tags))):
 
 
         if args.debug and (idx%30)==0:
+            
             print("Car position:")
             print(carposition_global)
             print("Car RotationMatrix:")
             print(Rot.from_quat(carquat_global).as_dcm())
             interpolants_local, _ = deepracing.pose_utils.toLocalCoordinatesPose((carposition_global, carquat_global), position_interp_points, quaternion_interp_points)
+            figimg = plt.figure()
+            aximg = figimg.add_subplot()
+            aximg.imshow(cv2.cvtColor(cv2.imread(os.path.join(image_folder,label_tag.image_tag.image_file)), cv2.COLOR_BGR2RGB))
             fig = plt.figure()
             ax = fig.add_subplot()
             ax.plot(subsequent_positions_local[:,0],subsequent_positions_local[:,2], 'bo') 
             ax.plot(interpolants_local[:,0],interpolants_local[:,2], 'go') 
 
-            fig_global = plt.figure()
-            ax_global = fig_global.add_subplot()
-            ax_global.plot(position_interp_points[:,0],position_interp_points[:,2], 'ro') 
+            # fig_global = plt.figure()
+            # ax_global = fig_global.add_subplot()
+            # ax_global.plot(position_interp_points[:,0],position_interp_points[:,2], 'ro') 
+
             plt.show()
         #print()
         #print()
