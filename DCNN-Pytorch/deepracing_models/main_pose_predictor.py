@@ -33,36 +33,26 @@ def run_epoch(network, optimizer, trainLoader, gpu, kinematic_loss, loss_weights
         t = tqdm(enumerate(trainLoader), total=len(trainLoader))
     else:
         t = enumerate(trainLoader)
-    network.train()  # This is important to call before training!
-    # loss_weights_torch = torch.tensor(loss_weights)
-    # if use_float:
-    #     loss_weights_torch = session_times_torch.loss_weights_torch()
-    # else:
-    #     loss_weights_torch = loss_weights_torch.double()
-    # if gpu>=0:
-    #     loss_weights_torch = loss_weights_torch.cuda(gpu)
+    network.train()
+    
     for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
         if network.input_channels==5:
             image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
         if use_float:
             image_torch = image_torch.float()
             positions_torch = positions_torch.float()
-            linear_velocities_torch = linear_velocities_torch.float()
             session_times_torch = session_times_torch.float()
         else:
             image_torch = image_torch.double()
             positions_torch = positions_torch.double()
             session_times_torch = session_times_torch.double()
-            linear_velocities_torch = linear_velocities_torch.double()
         if gpu>=0:
             image_torch = image_torch.cuda(gpu)
             positions_torch = positions_torch.cuda(gpu)
             session_times_torch = session_times_torch.cuda(gpu)
-            linear_velocities_torch = linear_velocities_torch.cuda(gpu)
         #print(image_torch.shape)
         predictions = network(image_torch)
         fitpoints = positions_torch[:,:,[0,2]]
-        fitvels = linear_velocities_torch[:,:,[0,2]]
         if debug:
             images_np = image_torch[0].detach().cpu().numpy().copy()
             num_images = images_np.shape[0]
