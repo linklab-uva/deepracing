@@ -1,3 +1,4 @@
+import comet_ml
 import torch
 import torch.nn as NN
 import torch.utils.data as data_utils
@@ -24,8 +25,10 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
 import math_utils.bezier
+import socket
+
 #torch.backends.cudnn.enabled = False
-def run_epoch(network, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True, use_float=True):
+def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True, use_float=True):
     cum_loss = 0.0
     cum_param_loss = 0.0
     cum_position_loss = 0.0
@@ -44,80 +47,83 @@ def run_epoch(network, optimizer, trainLoader, gpu, params_loss, kinematic_loss,
     #     loss_weights_torch = loss_weights_torch.double()
     # if gpu>=0:
     #     loss_weights_torch = loss_weights_torch.cuda(gpu)
-    for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
-        if network.input_channels==5:
-            image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
-        if use_float:
-            image_torch = image_torch.float()
-            positions_torch = positions_torch.float()
-            linear_velocities_torch = linear_velocities_torch.float()
-            session_times_torch = session_times_torch.float()
-        else:
-            image_torch = image_torch.double()
-            positions_torch = positions_torch.double()
-            session_times_torch = session_times_torch.double()
-            linear_velocities_torch = linear_velocities_torch.double()
-        if gpu>=0:
-            image_torch = image_torch.cuda(gpu)
-            positions_torch = positions_torch.cuda(gpu)
-            session_times_torch = session_times_torch.cuda(gpu)
-            linear_velocities_torch = linear_velocities_torch.cuda(gpu)
-        #print(image_torch.shape)
-        predictions = network(image_torch)
-        dt = session_times_torch[:,-1]-session_times_torch[:,0]
-        s_torch = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
-        fitpoints = positions_torch[:,:,[0,2]]
-        fitvels = linear_velocities_torch[:,:,[0,2]]
-        bezier_order = network.params_per_dimension-1
-        Mfit, controlpoints_fit = math_utils.bezier.bezierLsqfit(fitpoints,s_torch,bezier_order)
-        predictions_reshape = predictions.transpose(1,2)
-        pred_points = torch.matmul(Mfit, predictions_reshape)
-        pred_vels = math_utils.bezier.bezierDerivative(predictions_reshape,bezier_order,s_torch)
-        if debug:
-            images_np = image_torch[0].detach().cpu().numpy().copy()
-            num_images = images_np.shape[0]
-            print(num_images)
-            images_np_transpose = np.zeros((num_images, images_np.shape[2], images_np.shape[3], images_np.shape[1]), dtype=np.uint8)
-            ims = []
-            for i in range(num_images):
-                images_np_transpose[i]=skimage.util.img_as_ubyte(images_np[i].transpose(1,2,0))
-                im = plt.imshow(images_np_transpose[i], animated=True)
-                ims.append([im])
-            ani = animation.ArtistAnimation(plt.figure(), ims, interval=250, blit=True, repeat_delay=2000)
-            fig = plt.figure()
-            ax = fig.add_subplot()
-            fitpointsnp = fitpoints[0,:].detach().cpu().numpy().copy()
-            ax.plot(fitpointsnp[:,0],fitpointsnp[:,1],'r-')
-            
-            evalpoints = torch.matmul(Mfit, controlpoints_fit)
-            evalpointsnp = evalpoints[0,:].detach().cpu().numpy().copy()
-            ax.plot(evalpointsnp[:,0],evalpointsnp[:,1],'bo')
-            #skipn = 20
-            #ax.quiver(Pbeziertorch[::skipn,0].numpy(),Pbeziertorch[::skipn,1].numpy(),Pbeziertorchderiv[::skipn,0].numpy(),Pbeziertorchderiv[::skipn,1].numpy())
-            #ax.plot(bezier_control_points[i,:,0].numpy(),bezier_control_points[i,:,1].numpy(),'go')
-            plt.show()
+    with experiment.train():
+        for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
+            if network.input_channels==5:
+                image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
+            if use_float:
+                image_torch = image_torch.float()
+                positions_torch = positions_torch.float()
+                linear_velocities_torch = linear_velocities_torch.float()
+                session_times_torch = session_times_torch.float()
+            else:
+                image_torch = image_torch.double()
+                positions_torch = positions_torch.double()
+                session_times_torch = session_times_torch.double()
+                linear_velocities_torch = linear_velocities_torch.double()
+            if gpu>=0:
+                image_torch = image_torch.cuda(gpu)
+                positions_torch = positions_torch.cuda(gpu)
+                session_times_torch = session_times_torch.cuda(gpu)
+                linear_velocities_torch = linear_velocities_torch.cuda(gpu)
+            #print(image_torch.shape)
+            predictions = network(image_torch)
+            dt = session_times_torch[:,-1]-session_times_torch[:,0]
+            s_torch = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
+            fitpoints = positions_torch[:,:,[0,2]]
+            fitvels = linear_velocities_torch[:,:,[0,2]]
+            bezier_order = network.params_per_dimension-1
+            Mfit, controlpoints_fit = math_utils.bezier.bezierLsqfit(fitpoints,s_torch,bezier_order)
+            predictions_reshape = predictions.transpose(1,2)
+            pred_points = torch.matmul(Mfit, predictions_reshape)
+            pred_vels = math_utils.bezier.bezierDerivative(predictions_reshape,bezier_order,s_torch)
+            if debug:
+                images_np = image_torch[0].detach().cpu().numpy().copy()
+                num_images = images_np.shape[0]
+                print(num_images)
+                images_np_transpose = np.zeros((num_images, images_np.shape[2], images_np.shape[3], images_np.shape[1]), dtype=np.uint8)
+                ims = []
+                for i in range(num_images):
+                    images_np_transpose[i]=skimage.util.img_as_ubyte(images_np[i].transpose(1,2,0))
+                    im = plt.imshow(images_np_transpose[i], animated=True)
+                    ims.append([im])
+                ani = animation.ArtistAnimation(plt.figure(), ims, interval=250, blit=True, repeat_delay=2000)
+                fig = plt.figure()
+                ax = fig.add_subplot()
+                fitpointsnp = fitpoints[0,:].detach().cpu().numpy().copy()
+                ax.plot(fitpointsnp[:,0],fitpointsnp[:,1],'r-')
+                
+                evalpoints = torch.matmul(Mfit, controlpoints_fit)
+                evalpointsnp = evalpoints[0,:].detach().cpu().numpy().copy()
+                ax.plot(evalpointsnp[:,0],evalpointsnp[:,1],'bo')
+                #skipn = 20
+                #ax.quiver(Pbeziertorch[::skipn,0].numpy(),Pbeziertorch[::skipn,1].numpy(),Pbeziertorchderiv[::skipn,0].numpy(),Pbeziertorchderiv[::skipn,1].numpy())
+                #ax.plot(bezier_control_points[i,:,0].numpy(),bezier_control_points[i,:,1].numpy(),'go')
+                plt.show()
 
-        #print(predictions_reshape.shape)
-      #  print(controlpoints_fit.shape)
-       # print(predictions.shape)
-        current_param_loss = loss_weights[0]*params_loss(predictions_reshape,controlpoints_fit)
-        current_position_loss = loss_weights[1]*kinematic_loss(pred_points,fitpoints)
-        current_velocity_loss = loss_weights[2]*kinematic_loss(pred_vels/dt[:,None,None],fitvels)
-        loss = current_param_loss + current_position_loss + current_velocity_loss
-        
-        # Backward pass:
-        optimizer.zero_grad()
-        loss.backward() 
-        # Weight and bias updates.
-        optimizer.step()
-        if use_tqdm:
+            #print(predictions_reshape.shape)
+        #  print(controlpoints_fit.shape)
+        # print(predictions.shape)
+            current_param_loss = params_loss(predictions_reshape,controlpoints_fit)
+            current_position_loss = kinematic_loss(pred_points,fitpoints)
+            current_velocity_loss = kinematic_loss(pred_vels/dt[:,None,None],fitvels)
+            loss = loss_weights[0]*current_param_loss + loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
+            
+            # Backward pass:
+            optimizer.zero_grad()
+            loss.backward() 
+            # Weight and bias updates.
+            optimizer.step()
             # logging information
             cum_loss += float(loss.item())
             cum_param_loss += float(current_param_loss.item())
             cum_position_loss += float(current_position_loss.item())
             cum_velocity_loss += float(current_velocity_loss.item())
             num_samples += 1.0
-            t.set_postfix({"cum_loss" : cum_loss/num_samples,"cum_param_loss" : cum_param_loss/num_samples,"cum_position_loss" : cum_position_loss/num_samples,"cum_velocity_loss" : cum_velocity_loss/num_samples})
+            experiment.log_metric("cumulative_position_error", cum_position_loss/num_samples, step=i)
+            experiment.log_metric("cumulative_velocity_error", cum_velocity_loss/num_samples, step=i)
+            if use_tqdm:
+                t.set_postfix({"cum_loss" : cum_loss/num_samples,"cum_param_loss" : cum_param_loss/num_samples,"cum_position_loss" : cum_position_loss/num_samples,"cum_velocity_loss" : cum_velocity_loss/num_samples})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
     parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuration file to load")
@@ -147,6 +153,7 @@ def go():
 
     with open(dataset_config_file) as f:
         dataset_config = yaml.load(f, Loader = yaml.SafeLoader)
+
     image_size = dataset_config["image_size"]
     input_channels = config["input_channels"]
     
@@ -184,8 +191,15 @@ def go():
     num_workers = config["num_workers"]
     use_float = config["use_float"]
     loss_weights = config["loss_weights"]
+    hidden_dim = config["hidden_dimension"]
+    config["hostname"] = socket.gethostname()
+    experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingbezierpredictor")
+    experiment.log_parameters(config)
+    experiment.log_parameters(dataset_config)
+    
+    
     print("Using config:\n%s" % (str(config)))
-    net = nn_models.Models.AdmiralNetCurvePredictor(context_length= context_length,input_channels=input_channels, num_recurrent_layers=1, params_per_dimension=bezier_order+1) 
+    net = nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dim, num_recurrent_layers=1, params_per_dimension=bezier_order+1 ) 
     print("net:\n%s" % (str(net)))
     ppd = net.params_per_dimension
     numones = int(ppd/2)
@@ -278,9 +292,10 @@ def go():
         #dset.clearReaders()
         try:
             tick = time.time()
-            run_epoch(net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, debug=debug, use_tqdm=args.tqdm, use_float = use_float)
+            run_epoch(experiment, net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, debug=debug, use_tqdm=args.tqdm, use_float = use_float)
             tock = time.time()
             print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
+            experiment.log_epoch_end(postfix)
         except Exception as e:
             print("Restarting epoch %d because %s"%(postfix, str(e)))
             modelin = os.path.join(output_directory, netpostfix %(postfix-1))
@@ -290,9 +305,12 @@ def go():
             continue
         modelout = os.path.join(output_directory,netpostfix %(postfix))
         torch.save(net.state_dict(), modelout)
-        
+        with open(modelout,'rb') as modelfile:
+            experiment.log_asset(modelfile,file_name=netpostfix %(postfix))
         optimizerout = os.path.join(output_directory,optimizerpostfix %(postfix))
         torch.save(optimizer.state_dict(), optimizerout)
+        with open(optimizerout,'rb') as optimizerfile:
+            experiment.log_asset(optimizerfile,file_name=optimizerpostfix %(postfix))
         
         i = i + 1
 import logging

@@ -151,10 +151,12 @@ def go():
     model_file = args.model_file
     config_file = os.path.join(os.path.dirname(model_file),"config.yaml")
     debug = args.debug
-    with open(config_file) as f:
+    with open(config_file,'r') as f:
         config = yaml.load(f, Loader = yaml.SafeLoader)
+    with open(dataset_config_file,'r') as f:
+        datasets_config = yaml.load(f, Loader = yaml.SafeLoader)
 
-    image_size = config["image_size"]
+    image_size = datasets_config["image_size"]
     hidden_dimension = config["hidden_dimension"]
     input_channels = config["input_channels"]
     context_length = config["context_length"]
@@ -188,33 +190,32 @@ def go():
     num_workers = 0
     max_spare_txns = 50
     #image_wrapper = deepracing.backend.ImageFolderWrapper(os.path.dirname(image_db))
-    datasets_config = yaml.load(open(dataset_config_file,'r'),Loader=yaml.SafeLoader)
     dsets=[]
-    use_optflow=True
+    use_optflow = net.input_channels==5
     for dataset in datasets_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
-        image_db = dataset["image_db"]
-        opt_flow_db = dataset.get("opt_flow_db", "")
-        label_db = dataset["label_db"]
+        label_folder = dataset["label_folder"]
         key_file = dataset["key_file"]
+        image_folder = dataset["image_folder"]
+        apply_color_jitter = dataset.get("apply_color_jitter",False)
+        erasing_probability = dataset.get("erasing_probability",0.0)
         label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
-        label_wrapper.readDatabase(label_db, max_spare_txns=max_spare_txns )
-        image_size = np.array(datasets_config["image_size"])
+        label_wrapper.readDatabase(os.path.join(label_folder,"lmdb"), max_spare_txns=max_spare_txns )
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
+
         image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
-        image_wrapper.readDatabase(image_db, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
-        optical_flow_db_wrapper = None
-        if not opt_flow_db=='':
-            print("Using optical flow database at %s" %(opt_flow_db))
-            optical_flow_db_wrapper = deepracing.backend.OpticalFlowLMDBWrapper()
-            optical_flow_db_wrapper.readDatabase(opt_flow_db, max_spare_txns=max_spare_txns, mapsize=int(round( float(image_mapsize)*8/3) ) )
-        else:
-            use_optflow=False
+        image_wrapper.readDatabase(os.path.join(image_folder,"image_lmdb"), max_spare_txns=max_spare_txns, mapsize=image_mapsize )
+
+
         curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length,\
-                     image_size = image_size, optical_flow_db_wrapper=optical_flow_db_wrapper)
+                     image_size = image_size, return_optflow=use_optflow, apply_color_jitter=apply_color_jitter, erasing_probability=erasing_probability,\
+                        geometric_variants = False)
         dsets.append(curent_dset)
         print("\n")
-    dset = torch.utils.data.ConcatDataset(dsets)
+    if len(dsets)==1:
+        dset = dsets[0]
+    else:
+        dset = torch.utils.data.ConcatDataset(dsets)
     
     dataloader = data_utils.DataLoader(dset, batch_size=args.batch_size,
                         shuffle=True, num_workers=num_workers)
