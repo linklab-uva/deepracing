@@ -37,7 +37,7 @@ from .image_transforms import IdentifyTransform
 def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
 class PoseSequenceDataset(Dataset):
-    def __init__(self, image_db_wrapper, label_db_wrapper, keyfile, context_length, image_size = np.array((66,200)), return_optflow=False, erasing_probability=0.0, apply_color_jitter = False):
+    def __init__(self, image_db_wrapper, label_db_wrapper, keyfile, context_length, image_size = np.array((66,200)), return_optflow=False, erasing_probability=0.0, apply_color_jitter = False, geometric_variants = True):
         super(PoseSequenceDataset, self).__init__()
         self.image_db_wrapper = image_db_wrapper
         self.label_db_wrapper = label_db_wrapper
@@ -46,6 +46,7 @@ class PoseSequenceDataset(Dataset):
         self.context_length = context_length
         self.totensor = transforms.ToTensor()
         self.topil = transforms.ToPILImage()
+        self.geometric_variants = geometric_variants
         if erasing_probability>0.0:
             self.erasing = transforms.RandomErasing(p=erasing_probability)
         else:
@@ -111,7 +112,7 @@ class PoseSequenceDataset(Dataset):
        # vel_spline_params = torch.from_numpy(np.vstack((np.array(label_packet.velocity_spline.XParams),np.array(label_packet.velocity_spline.ZParams))))
        # knots = torch.from_numpy(np.array(label_packet.position_spline.knots))
         imagesnp = [ resizeImage(self.image_db_wrapper.getImage(keys_optflow[i]), self.image_size) for i in range(len(keys_optflow)) ]
-        if random.choice([True,False]):
+        if self.geometric_variants and random.choice([True,False]):
             pilimages = [transforms.functional.hflip(self.topil(img)) for img in imagesnp]
             positions_torch[:,0]*=-1.0
             linear_velocities_torch[:,0]*=-1.0
