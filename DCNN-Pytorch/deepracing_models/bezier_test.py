@@ -15,31 +15,37 @@ def lsqfit(points,M):
     return M_ * points
 pi = np.pi
 num_points = 1000
-tmax = 1.0
-kbezier = 7
-d = 5
+tmax = 10.0
+kbezier = 5
+d = 11
 numcurves = 8
 Mtk = lambda i, n, t: t**(i)*(1-t)**(n-i)*nOk(n,i)
 bezierFactors = lambda ts, n: matrix([[Mtk(k_,n,t) for k_ in range(n+1)] for t in ts])
 P = np.zeros((numcurves,num_points,2))
+Pprime = np.zeros((numcurves,num_points,2))
 tnp = np.zeros((numcurves,num_points))
 for i in range(numcurves):
    #P[i] = np.zeros((num_points,2))
-    t = np.linspace(-np.random.rand(), tmax + np.random.rand()*2.0 , num_points )
-    tnp[i] = ((t-t[0])/(t[-1]-t[0])).copy()
+    t = np.linspace(0, tmax*np.random.rand(), num_points )
+    tnp[i] = t.copy()
     p = 5.0*(np.random.rand(d)-np.random.rand(d))
     tfunc = t-t[int(len(t)/2)]
     P[i,:,0] = tnp[i]#*np.sin(tnp[i])# - tnp[i]**2
-    P[i,:,1] = np.polyval(p,tfunc)# + 10.0*t*np.cos(t)
+    P[i,:,1] = np.polyval(p,t)# + 10.0*(t**2)*np.cos(t)
     P[i,:,1] = P[i,:,1] - P[i,0,1] 
+    Pprime[i,:,0] = np.ones(tfunc.shape[0])
+    Pprime[i,:,1] = np.polyval(np.polyder(p),t)# + 10.0*((t**2)*(-np.sin(t)) + 2*t*np.cos(t))
 
 Ptorch = torch.from_numpy(P.copy()).double()#.unsqueeze(0)
+Pprimetorch = torch.from_numpy(Pprime.copy()).double()#.unsqueeze(0)
 ttorch = torch.from_numpy(tnp.copy()).double()#.unsqueeze(0)
+dt = ttorch[:,-1]-ttorch[:,0]
+storch = (ttorch - ttorch[:,0,None])/dt[:,None]
 #ttorch = ttorch.repeat(numcurves,1)
-M , bezier_control_points = math_utils.bezierLsqfit(Ptorch,ttorch,kbezier)
+M , bezier_control_points = math_utils.bezierLsqfit(Ptorch,storch,kbezier)
 print(bezier_control_points.shape)
 Pbeziertorch = torch.matmul(M,bezier_control_points)
-Pbeziertorchderiv = math_utils.bezierDerivative(bezier_control_points,kbezier,ttorch)
+Pbeziertorchderiv = math_utils.bezierDerivative(bezier_control_points,kbezier,storch)/dt[:,None,None]
 
 for i in range(numcurves):
     fig = plt.figure()
@@ -50,4 +56,5 @@ for i in range(numcurves):
     #ax.quiver(Pbeziertorch[::skipn,0].numpy(),Pbeziertorch[::skipn,1].numpy(),Pbeziertorchderiv[::skipn,0].numpy(),Pbeziertorchderiv[::skipn,1].numpy())
     ax.plot(bezier_control_points[i,:,0].numpy(),bezier_control_points[i,:,1].numpy(),'go')
     print("Mean distance: %f" %(torch.mean(torch.norm(Pbeziertorch[i]-Ptorch[i],dim=1,p=2)).item()))
+    print("Mean velocity diff: %f" %(torch.mean(torch.norm(Pbeziertorchderiv[i]-Pprimetorch[i],dim=1,p=2)).item()))
     plt.show()
