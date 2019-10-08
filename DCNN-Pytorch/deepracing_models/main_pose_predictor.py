@@ -162,8 +162,7 @@ def go():
     use_float = config["use_float"]
     loss_weights = config["loss_weights"]
     print("Using config:\n%s" % (str(config)))
-    net = nn_models.Models.AdmiralNetKinematicPredictor(context_length= context_length, sequence_length=sequence_length, input_channels=input_channels,\
-        hidden_dim = hidden_dimension, output_dimension=2) 
+    net = nn_models.Models.AdmiralNetKinematicPredictor(context_length= context_length, sequence_length=sequence_length, input_channels=input_channels, hidden_dim = hidden_dimension, output_dimension=2) 
     print("net:\n%s" % (str(net)))
 
     kinematic_loss = nn_models.LossFunctions.SquaredLpNormLoss()
