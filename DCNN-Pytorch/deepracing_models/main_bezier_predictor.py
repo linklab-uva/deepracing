@@ -192,11 +192,12 @@ def go():
     use_float = config["use_float"]
     loss_weights = config["loss_weights"]
     hidden_dim = config["hidden_dimension"]
+    num_recurrent_layers = config.get("num_recurrent_layers",1)
     config["hostname"] = socket.gethostname()
     
     
     print("Using config:\n%s" % (str(config)))
-    net = nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dim, num_recurrent_layers=1, params_per_dimension=bezier_order+1 ) 
+    net = nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dim, num_recurrent_layers=num_recurrent_layers, params_per_dimension=bezier_order+1 ) 
     print("net:\n%s" % (str(net)))
     ppd = net.params_per_dimension
     numones = int(ppd/2)
