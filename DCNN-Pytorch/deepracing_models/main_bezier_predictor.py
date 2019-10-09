@@ -248,6 +248,7 @@ def go():
         yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
         experiment.log_parameters(config)
         experiment.log_parameters(dataset_config)
+        experiment.add_tag("bezierpredictor")
     if num_workers == 0:
         max_spare_txns = 50
     else:
