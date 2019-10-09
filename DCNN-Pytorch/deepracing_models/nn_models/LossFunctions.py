@@ -45,7 +45,7 @@ class SquaredLpNormLoss(nn.Module):
 
 
         if not (self.timewise_weights is None):
-            squarednorms = self.timewise_weights[None,:]*squarednorms
+            squarednorms = self.timewise_weights[:,None]*squarednorms
         if self.time_reduction=="mean":
             means = torch.mean(squarednorms,dim=self.dim-1)
         elif self.time_reduction=="sum":
