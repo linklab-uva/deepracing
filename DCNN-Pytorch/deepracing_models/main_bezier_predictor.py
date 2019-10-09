@@ -193,9 +193,6 @@ def go():
     loss_weights = config["loss_weights"]
     hidden_dim = config["hidden_dimension"]
     config["hostname"] = socket.gethostname()
-    experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingbezierpredictor")
-    experiment.log_parameters(config)
-    experiment.log_parameters(dataset_config)
     
     
     print("Using config:\n%s" % (str(config)))
@@ -227,10 +224,15 @@ def go():
     optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=0.000, nesterov=True)
     netpostfix = "epoch_%d_params.pt"
     optimizerpostfix = "epoch_%d_optimizer.pt"
+    
+    
     if epochstart>1:
         net.load_state_dict(torch.load(os.path.join(output_directory,netpostfix %(epochstart)), map_location=next(net.parameters()).device))
         optimizer.load_state_dict(torch.load(os.path.join(output_directory,optimizerpostfix %(epochstart)), map_location=next(net.parameters()).device))
+        experiment_config = yaml.load(open(os.path.join(output_directory,"experiment_config.yaml"),"r"), Loader=yaml.SafeLoader)
+        experiment = comet_ml.ExistingExperiment(workspace="electric-turtle", project_name="deepracingbezierpredictor", previous_experiment=experiment_config["experiment_key"])
     else:
+        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingbezierpredictor")
         if (not args.override) and os.path.isdir(output_directory) :
             s = ""
             while(not (s=="y" or s=="n")):
@@ -242,7 +244,10 @@ def go():
         elif os.path.isdir(output_directory):
             shutil.rmtree(output_directory)
         os.makedirs(output_directory, exist_ok=True)
-    
+        experiment_config = {"experiment_key": experiment.get_key()}
+        yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
+        experiment.log_parameters(config)
+        experiment.log_parameters(dataset_config)
     if num_workers == 0:
         max_spare_txns = 50
     else:
