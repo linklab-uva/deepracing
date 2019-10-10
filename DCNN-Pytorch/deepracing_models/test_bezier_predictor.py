@@ -1,3 +1,4 @@
+import comet_ml
 import torch
 import torch.nn as NN
 import torch.utils.data as data_utils
@@ -144,17 +145,19 @@ def go():
     parser.add_argument("dataset_config_file", type=str,  help="Dataset config file to load")
 
     parser.add_argument("--gpu", type=int, default=-1,  help="GPU to use")
-    parser.add_argument("--batch_size", type=int, default=1,  help="Batch Size")
     parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
     args = parser.parse_args()
     dataset_config_file = args.dataset_config_file
     model_file = args.model_file
     config_file = os.path.join(os.path.dirname(model_file),"config.yaml")
+    comet_config_file = os.path.join(os.path.dirname(model_file),"experiment_config.yaml")
     debug = args.debug
     with open(config_file,'r') as f:
         config = yaml.load(f, Loader = yaml.SafeLoader)
     with open(dataset_config_file,'r') as f:
         datasets_config = yaml.load(f, Loader = yaml.SafeLoader)
+    with open(comet_config_file,'r') as f:
+        comet_config = yaml.load(f, Loader = yaml.SafeLoader)
 
     image_size = datasets_config["image_size"]
     hidden_dimension = config["hidden_dimension"]
@@ -207,9 +210,8 @@ def go():
         image_wrapper.readDatabase(os.path.join(image_folder,"image_lmdb"), max_spare_txns=max_spare_txns, mapsize=image_mapsize )
 
 
-        curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length,\
-                     image_size = image_size, return_optflow=use_optflow, apply_color_jitter=apply_color_jitter, erasing_probability=erasing_probability,\
-                        geometric_variants = False)
+        curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, image_size = image_size, return_optflow=use_optflow,\
+            apply_color_jitter=False, erasing_probability=0.0, geometric_variants = False)
         dsets.append(curent_dset)
         print("\n")
     if len(dsets)==1:
@@ -217,13 +219,16 @@ def go():
     else:
         dset = torch.utils.data.ConcatDataset(dsets)
     
-    dataloader = data_utils.DataLoader(dset, batch_size=args.batch_size,
-                        shuffle=True, num_workers=num_workers)
+    dataloader = data_utils.DataLoader(dset)
     print("Dataloader of of length %d" %(len(dataloader)))
     losses, gterrors, gtvelerrors = run_epoch(net, dataloader, gpu, loss_func, debug=debug, use_float = use_float)
     #distances = np.sqrt(losses)
-    distances = np.sort(losses)
+    distance_sort = np.argsort(losses)
+    distances = losses.copy()[distance_sort]
     distance_indices = np.linspace(0,distances.shape[0]-1,distances.shape[0]).astype(np.float32)
+
+    distance_sort_descending = np.flip(distance_sort.copy())
+    distances_sorted_descending = losses.copy()[distance_sort_descending]
     meandist = np.mean(distances)
     stddist = np.std(distances)
     print(gterrors)
@@ -253,9 +258,49 @@ def go():
     axcdf.plot(distances, cdf, '-')
     axcdf.set_xlabel("Distance from prediction to ground truth")
     axcdf.set_ylabel("Cumulative Probability Density (cdf)")
+    try:
+        plt.show()
+    except:
+        pass
+    bezier_order = net.params_per_dimension-1
+    try:
+        experiment =  comet_ml.ExistingExperiment(workspace="electric-turtle", project_name="deepracingbezierpredictor", previous_experiment=comet_config["experiment_key"])
+        with experiment.test():
+            for i, idx in enumerate(distance_sort_descending[0:100]):
+                print("Running image %d"%(idx))
+                image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch = dset[idx]
+                image_numpy = np.round(255.0*(image_torch.numpy().copy().transpose(0,2,3,1))).astype(np.uint8)
+                predictions_reshape = net(image_torch.double().cuda(gpu).unsqueeze(0)).transpose(1,2)
+                last_image = image_numpy[-1]
+                fig = plt.figure()
+                ax_im = fig.add_subplot(121)
+                ax_im.imshow(last_image)
+                ax_pos = fig.add_subplot(122)
+                ax_pos.set_xlim(-15, 15)
+                ax_pos.set_title("Predicted and Ground-Truth Paths")
+                ax_pos.set_xlabel("X Position In Local Coordinates (meters)")
+                ax_pos.set_ylabel("Z Position In Local Coordinates (meters)")
+                dt = session_times_torch[-1]-session_times_torch[0]
+                s_torch = ((session_times_torch - session_times_torch[0])/dt).double().cuda(gpu)
+                fitpoints = positions_torch[:,[0,2]].double().cuda(gpu)
+                M = math_utils.bezierM(s_torch.unsqueeze(0),bezier_order)
+                pred_eval_points = torch.matmul(M, predictions_reshape)[0].cpu().detach().numpy().copy()
+                positions_numpy = fitpoints.cpu().detach().numpy().copy()
 
-    # plt.hist(losses)
-    plt.show()
+                ax_pos.plot(-pred_eval_points[:,0],pred_eval_points[:,1], label='Predictions', color='r')
+                ax_pos.scatter(-pred_eval_points[:,0],pred_eval_points[:,1], facecolors='none', edgecolors='r')
+
+                ax_pos.plot(-positions_numpy[:,0],positions_numpy[:,1], label='Ground Truth', color='g')
+                ax_pos.scatter(-positions_numpy[:,0],positions_numpy[:,1], facecolors='none', edgecolors='g')
+                ax_pos.set_aspect("equal")
+                ax_pos.legend()
+
+               # plt.show()
+                experiment.log_figure(figure_name="image_%d"%(i), figure=fig , overwrite=True )
+    except KeyboardInterrupt as key:
+        pass
+
+
 import logging
 if __name__ == '__main__':
     logging.basicConfig()
