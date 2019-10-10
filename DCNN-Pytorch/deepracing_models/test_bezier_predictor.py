@@ -69,9 +69,9 @@ def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,
         bezier_order = network.params_per_dimension-1
         Mfit, controlpoints_fit = math_utils.bezier.bezierLsqfit(fitpoints,s_torch,bezier_order)
         gtevalpoints = torch.matmul(Mfit, controlpoints_fit)
-        gt_fit_vels = math_utils.bezier.bezierDerivative(controlpoints_fit,bezier_order,s_torch)
+        _, gt_fit_vels = math_utils.bezier.bezierDerivative(controlpoints_fit,s_torch)
         pred_eval_points = torch.matmul(Mfit, predictions_reshape)
-        pred_vels = math_utils.bezier.bezierDerivative(predictions_reshape,bezier_order,s_torch)
+        _, pred_vels = math_utils.bezier.bezierDerivative(predictions_reshape,s_torch)
         loss = torch.mean( torch.sqrt(loss_func(pred_eval_points,fitpoints)),dim=1)
        # print(loss.shape)
 
@@ -295,7 +295,6 @@ def go():
                 ax_pos.set_aspect("equal")
                 ax_pos.legend()
 
-               # plt.show()
                 experiment.log_figure(figure_name="image_%d"%(i), figure=fig , overwrite=True )
     except KeyboardInterrupt as key:
         pass

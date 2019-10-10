@@ -1,3 +1,4 @@
+import comet_ml
 import torch
 import torch.nn as NN
 import torch.utils.data as data_utils
@@ -23,24 +24,55 @@ import imageio
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
-def run_epoch(network, optimizer, trainLoader, gpu, kinematic_loss, taylor_loss, loss_weights=[1.0, 1.0, 1.0, 1.0], imsize=(66,200), debug=False, use_tqdm=True, use_float=True):
+import math_utils.bezier
+import socket
+
+#torch.backends.cudnn.enabled = False
+def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True):
     cum_loss = 0.0
+    cum_param_loss = 0.0
     cum_position_loss = 0.0
-    cum_linear_loss = 0.0
-    cum_angular_loss = 0.0
-    cum_taylor_loss_1 = 0.0
-    cum_taylor_loss_2 = 0.0
-    batch_size = trainLoader.batch_size
+    cum_velocity_loss = 0.0
     num_samples=0.0
-    loss = torch.zeros(1)
+    batch_size = trainLoader.batch_size
     if use_tqdm:
         t = tqdm(enumerate(trainLoader), total=len(trainLoader))
     else:
         t = enumerate(trainLoader)
     network.train()  # This is important to call before training!
-    for (i, (image_torch, opt_flow_torch, position_torch, _, linear_velocity_torch, _, session_time_torch) ) in t:
+    # loss_weights_torch = torch.tensor(loss_weights)
+    # if use_float:
+    #     loss_weights_torch = session_times_torch.loss_weights_torch()
+    # else:
+    #     loss_weights_torch = loss_weights_torch.double()
+    # if gpu>=0:
+    #     loss_weights_torch = loss_weights_torch.cuda(gpu)
+    bezier_order = network.pos_predictor.params_per_dimension-1
+    for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
+        if gpu>=0:
+            image_torch = image_torch.cuda()
+            opt_flow_torch = opt_flow_torch.cuda()
+            positions_torch = positions_torch.cuda()
+            linear_velocities_torch = linear_velocities_torch.cuda()
+            session_times_torch = session_times_torch.cuda()
+
+        predictions, pred_vel_curve = network(image_torch, opt_flow_torch)
+        dt = session_times_torch[:,-1]-session_times_torch[:,0]
+        s_torch = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
+        fitpoints = positions_torch[:,:,[0,2]]
+        fitvels = linear_velocities_torch[:,:,[0,2]]
+        Mfit, controlpoints_fit = math_utils.bezier.bezierLsqfit(fitpoints,s_torch,bezier_order)
+        Mfitvel, controlpoints_vel_fit = math_utils.bezier.bezierLsqfit(fitvels,s_torch,bezier_order)
+        predictions_reshape = predictions.transpose(1,2)
+        pred_vel_curve_reshape = pred_vel_curve.transpose(1,2)
+        pred_points = torch.matmul(Mfit, predictions_reshape)
+        _, pred_pos_deriv = math_utils.bezier.bezierDerivative(predictions_reshape,s_torch)
+        pred_vels = torch.matmul(Mfitvel, pred_vel_curve_reshape)
+        initial = torch.zeros(pred_vels.shape[0],pred_vels.shape[2],device = pred_vels.device, dtype = pred_vels.dtype)
+        p0 = fitpoints[:,0,:]
+        pred_vel_integral = p0[:,None,:] + math_utils.cumtrapz(pred_vels, s_torch, initial=initial)
         if debug:
-            images_np = image_torch[0].numpy().copy()
+            images_np = image_torch[0].detach().cpu().numpy().copy()
             num_images = images_np.shape[0]
             print(num_images)
             images_np_transpose = np.zeros((num_images, images_np.shape[2], images_np.shape[3], images_np.shape[1]), dtype=np.uint8)
@@ -49,130 +81,147 @@ def run_epoch(network, optimizer, trainLoader, gpu, kinematic_loss, taylor_loss,
                 images_np_transpose[i]=skimage.util.img_as_ubyte(images_np[i].transpose(1,2,0))
                 im = plt.imshow(images_np_transpose[i], animated=True)
                 ims.append([im])
-            ani = animation.ArtistAnimation(plt.figure(), ims, interval=50, blit=True, repeat_delay=0)
+            ani = animation.ArtistAnimation(plt.figure(), ims, interval=250, blit=True, repeat_delay=2000)
+            fig = plt.figure()
+            ax = fig.add_subplot()
+            fitpointsnp = fitpoints[0,:].detach().cpu().numpy().copy()
+            ax.plot(fitpointsnp[:,0],fitpointsnp[:,1],'r-')
+            
+            evalpoints = torch.matmul(Mfit, controlpoints_fit)
+            evalpointsnp = evalpoints[0,:].detach().cpu().numpy().copy()
+            ax.plot(evalpointsnp[:,0],evalpointsnp[:,1],'bo')
             plt.show()
-            print(position_torch)
-        if network.input_channels==5:
-            image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
-        if use_float:
-            image_torch = image_torch.float()
-            position_torch = position_torch.float()
-            linear_velocity_torch = linear_velocity_torch.float()
-            session_time_torch = session_time_torch.float()
-        else:
-            image_torch = image_torch.double()
-            position_torch = position_torch.double()
-            linear_velocity_torch = linear_velocity_torch.double()
-            session_time_torch = session_time_torch.double()
 
-        if gpu>=0:
-            image_torch = image_torch.cuda(gpu)
-            position_torch = position_torch.cuda(gpu)
-            linear_velocity_torch = linear_velocity_torch.cuda(gpu)
-            session_time_torch = session_time_torch.cuda(gpu)
-        images_nan = torch.sum(image_torch!=image_torch)!=0
-        positions_labels_nan = torch.sum(position_torch!=position_torch)!=0
- 
-        predictions = network(image_torch)
-        speeds = torch.norm(linear_velocity_torch,dim=2)
-        position_predictions = predictions[:,:,0:3]
-        velocity_predictions = predictions[:,:,3].squeeze()
-        position_loss = kinematic_loss(position_predictions, position_torch)
-        velocity_loss = kinematic_loss(velocity_predictions, speeds)
-       # taylor_loss_1 = taylor_loss(position_predictions, linear_velocity_torch, session_time_torch)
-        #taylor_loss_2 = taylor_loss(position_torch, velocity_predictions, session_time_torch)
-
-        loss = loss_weights[0]*position_loss + loss_weights[1]*velocity_loss# + \
-           # loss_weights[2]*taylor_loss_1 + loss_weights[3]*taylor_loss_2
-        loss_nan = torch.sum(loss!=loss)!=0
-        if(loss_nan):
-            print(loss)
-            raise ValueError("loss has a NaN!!!")
+        current_param_loss = params_loss(predictions_reshape,controlpoints_fit)
+        current_vel_param_loss = params_loss(pred_vel_curve_reshape,controlpoints_vel_fit)
+        current_position_loss = kinematic_loss(pred_points,fitpoints) + kinematic_loss(pred_vel_integral,fitpoints)
+        current_velocity_loss = kinematic_loss(pred_vels,fitvels) + kinematic_loss(pred_pos_deriv/dt[:,None,None],fitvels)
+        loss = loss_weights[0]*(current_param_loss+current_vel_param_loss) + loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
+        
         # Backward pass:
         optimizer.zero_grad()
         loss.backward() 
         # Weight and bias updates.
         optimizer.step()
+        # logging information
+        cum_loss += float(loss.item())
+        cum_param_loss += float(current_param_loss.item())
+        cum_position_loss += float(current_position_loss.item())
+        cum_velocity_loss += float(current_velocity_loss.item())
+        num_samples += 1.0
+        experiment.log_metric("cumulative_position_error", cum_position_loss/num_samples, step=i)
+        experiment.log_metric("cumulative_velocity_error", cum_velocity_loss/num_samples, step=i)
         if use_tqdm:
-            # logging information
-            cum_loss += float(loss.item())
-            cum_position_loss += float(position_loss.item())
-            cum_linear_loss += float(velocity_loss.item())
-          #  cum_taylor_loss_1 += float(taylor_loss_1.item())
-            #cum_taylor_loss_2 += float(taylor_loss_2.item())
-            num_samples += float(batch_size)
-            t.set_postfix({"cum_loss" : cum_loss/num_samples, "position_loss" : cum_position_loss/num_samples, "velocity_loss" : cum_linear_loss/num_samples})#, \
-                         #   "taylor_loss_1" : cum_taylor_loss_1/num_samples, "taylor_loss_2" : cum_taylor_loss_2/num_samples})
+            t.set_postfix({"cum_loss" : cum_loss/num_samples,"cum_param_loss" : cum_param_loss/num_samples,"cum_position_loss" : cum_position_loss/num_samples,"cum_velocity_loss" : cum_velocity_loss/num_samples})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
-    parser.add_argument("config_file", type=str,  help="Configuration file to load")
+    parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuration file to load")
+    parser.add_argument("model_config_file", type=str,  help="Model Configuration file to load")
     parser.add_argument("output_directory", type=str,  help="Where to put the resulting model files")
 
+    parser.add_argument("--context_length",  type=int, default=None,  help="Override the context length specified in the config file")
     parser.add_argument("--epochstart", type=int, default=1,  help="Restart training from the given epoch number")
     parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
     parser.add_argument("--override", action="store_true",  help="Delete output directory and replace with new data")
     parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
+    parser.add_argument("--batch_size", type=int, default=None,  help="Override the order of the batch size specified in the config file")
     parser.add_argument("--gpu", type=int, default=None,  help="Override the GPU index specified in the config file")
     parser.add_argument("--learning_rate", type=float, default=None,  help="Override the learning rate specified in the config file")
+    parser.add_argument("--bezier_order", type=int, default=None,  help="Override the order of the bezier curve specified in the config file")
+    parser.add_argument("--weighted_loss", action="store_true",  help="Use timewise weights on param loss")
+
     args = parser.parse_args()
-    config_file = args.config_file
-    output_directory = args.output_directory
+    dataset_config_file = args.dataset_config_file
+    config_file = args.model_config_file
+    output_directory = os.path.join(args.output_directory,os.path.splitext(os.path.basename(config_file))[0])
     debug = args.debug
     epochstart = args.epochstart
+    weighted_loss = args.weighted_loss
     with open(config_file) as f:
         config = yaml.load(f, Loader = yaml.SafeLoader)
 
-    image_size = config["image_size"]
-    hidden_dimension = config["hidden_dimension"]
+    with open(dataset_config_file) as f:
+        dataset_config = yaml.load(f, Loader = yaml.SafeLoader)
+
+    image_size = dataset_config["image_size"]
     input_channels = config["input_channels"]
-    sequence_length = config["sequence_length"]
-    context_length = config["context_length"]
+    
+    if args.context_length is not None:
+        context_length = args.context_length
+        config["context_length"]  = context_length
+        output_directory+="_context%d"%(context_length)
+    else:
+        context_length = config["context_length"]
+        
+    if args.bezier_order is not None:
+        bezier_order = args.bezier_order
+        config["bezier_order"]  = bezier_order
+        output_directory+="_bezier_order%d"%(bezier_order)
+    else:
+        bezier_order = config["bezier_order"]
+    #num_recurrent_layers = config["num_recurrent_layers"]
     if args.gpu is not None:
         gpu = args.gpu
+        config["gpu"]  = gpu
     else:
         gpu = config["gpu"] 
-    loss_weights = config["loss_weights"]
-    temporal_conv_feature_factor = config["temporal_conv_feature_factor"]
-    batch_size = config["batch_size"]
+    torch.cuda.set_device(gpu)
+    if args.batch_size is not None:
+        batch_size = args.batch_size
+        config["batch_size"]  = batch_size
+    else:
+        batch_size = config["batch_size"]
     if args.learning_rate is not None:
         learning_rate = args.learning_rate
+        config["learning_rate"] = learning_rate
     else:
         learning_rate = config["learning_rate"]
     momentum = config["momentum"]
     num_epochs = config["num_epochs"]
     num_workers = config["num_workers"]
-    debug = config["debug"]
-    position_loss_reduction = config["position_loss_reduction"]
     use_float = config["use_float"]
-    learnable_initial_state = config.get("learnable_initial_state",True)
-    downsample_method=config["downsample_method"]
+    loss_weights = config["loss_weights"]
+    hidden_dim = config["hidden_dimension"]
+    num_recurrent_layers = config.get("num_recurrent_layers",1)
+    config["hostname"] = socket.gethostname()
+    
+    
     print("Using config:\n%s" % (str(config)))
-    net = nn_models.Models.AdmiralNetKinematicPredictor(context_length = context_length, sequence_length = sequence_length,\
-        hidden_dim=hidden_dimension, output_dimension=4, input_channels=input_channels, learnable_initial_state = learnable_initial_state) 
+    net = nn_models.Models.AdmiralNetCombinedBezierPredictor( context_length = context_length , hidden_dim = hidden_dim, num_recurrent_layers=num_recurrent_layers, params_per_dimension=bezier_order+1 ) 
     print("net:\n%s" % (str(net)))
-
-    kinematics_loss = torch.nn.MSELoss(reduction=position_loss_reduction)
-    taylor_loss = loss_functions.TaylorSeriesLinear(reduction=position_loss_reduction)
-    losses = NN.ModuleList([kinematics_loss,taylor_loss])
+    ppd = net.pos_predictor.params_per_dimension
+    numones = int(ppd/2)
+    if weighted_loss:
+        timewise_weights = torch.from_numpy( np.hstack( ( np.ones(numones), np.linspace(1,3, ppd - numones ) ) ) )
+    else:
+        timewise_weights = None
+    params_loss = loss_functions.SquaredLpNormLoss(timewise_weights=timewise_weights)
+    kinematic_loss = loss_functions.SquaredLpNormLoss()
     if use_float:
         print("casting stuff to float")
         net = net.float()
-        losses = losses.float()
+        params_loss = params_loss.float()
+        kinematic_loss = kinematic_loss.float()
     else:
         print("casting stuff to double")
         net = net.double()
-        losses = losses.double()
+        params_loss = params_loss.double()
+        kinematic_loss = kinematic_loss.float()
     if gpu>=0:
         print("moving stuff to GPU")
-        net = net.cuda(gpu)
-        losses = losses.cuda(gpu)
-    print("losses:\n%s" % (str(losses)))
+        net = net.cuda()
+        params_loss = params_loss.cuda()
+        kinematic_loss = kinematic_loss.cuda()
     optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=0.000, nesterov=True)
     netpostfix = "epoch_%d_params.pt"
     optimizerpostfix = "epoch_%d_optimizer.pt"
+    
+    
     if epochstart>1:
         net.load_state_dict(torch.load(os.path.join(output_directory,netpostfix %(epochstart)), map_location=next(net.parameters()).device))
         optimizer.load_state_dict(torch.load(os.path.join(output_directory,optimizerpostfix %(epochstart)), map_location=next(net.parameters()).device))
+        experiment_config = yaml.load(open(os.path.join(output_directory,"experiment_config.yaml"),"r"), Loader=yaml.SafeLoader)
+        experiment = comet_ml.ExistingExperiment(workspace="electric-turtle", project_name="deepracingbezierpredictor", previous_experiment=experiment_config["experiment_key"])
     else:
         if (not args.override) and os.path.isdir(output_directory) :
             s = ""
@@ -185,37 +234,38 @@ def go():
         elif os.path.isdir(output_directory):
             shutil.rmtree(output_directory)
         os.makedirs(output_directory, exist_ok=True)
-    
+        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingbezierpredictor")
+        experiment.log_parameters(config)
+        experiment.log_parameters(dataset_config)
+        experiment.add_tag("bezierpredictor")
+        experiment_config = {"experiment_key": experiment.get_key()}
+        yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
     if num_workers == 0:
         max_spare_txns = 50
     else:
         max_spare_txns = num_workers
 
     #image_wrapper = deepracing.backend.ImageFolderWrapper(os.path.dirname(image_db))
-    datasets = config["datasets"]
+    
     dsets=[]
-    use_optflow=True
-    for dataset in datasets:
+    use_optflow = True
+    for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
-        image_db = dataset["image_db"]
-        opt_flow_db = dataset.get("opt_flow_db", "")
-        label_db = dataset["label_db"]
+        label_folder = dataset["label_folder"]
         key_file = dataset["key_file"]
+        image_folder = dataset["image_folder"]
+        apply_color_jitter = dataset.get("apply_color_jitter",False)
+        erasing_probability = dataset.get("erasing_probability",0.0)
         label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
-        label_wrapper.readDatabase(label_db, max_spare_txns=max_spare_txns )
-        image_size = np.array(image_size)
+        label_wrapper.readDatabase(os.path.join(label_folder,"lmdb"), max_spare_txns=max_spare_txns )
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
+
         image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
-        image_wrapper.readDatabase(image_db, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
-        optical_flow_db_wrapper = None
-        if not opt_flow_db=='':
-            print("Using optical flow database at %s" %(opt_flow_db))
-            optical_flow_db_wrapper = deepracing.backend.OpticalFlowLMDBWrapper()
-            optical_flow_db_wrapper.readDatabase(opt_flow_db, max_spare_txns=max_spare_txns, mapsize=int(round( float(image_mapsize)*8/3) ) )
-        else:
-            use_optflow=False
-        curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, sequence_length,\
-                     image_size = image_size, optical_flow_db_wrapper=optical_flow_db_wrapper, downsample=downsample_method)
+        image_wrapper.readDatabase(os.path.join(image_folder,"image_lmdb"), max_spare_txns=max_spare_txns, mapsize=image_mapsize )
+
+
+        curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length,\
+                     image_size = image_size, return_optflow=use_optflow, apply_color_jitter=apply_color_jitter, erasing_probability=erasing_probability)
         dsets.append(curent_dset)
         print("\n")
     if len(dsets)==1:
@@ -224,37 +274,43 @@ def go():
         dset = torch.utils.data.ConcatDataset(dsets)
     
     dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
-                        shuffle=True, num_workers=num_workers)
+                        shuffle=True, num_workers=num_workers, pin_memory=gpu>=0)
     print("Dataloader of of length %d" %(len(dataloader)))
+    yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
     yaml.dump(config, stream=open(os.path.join(output_directory,"config.yaml"), "w"), Dumper = yaml.SafeDumper)
     if(epochstart==1):
         i = 0
     else:
         i = epochstart
-    while i < num_epochs:
-        time.sleep(2.0)
-        postfix = i + 1
-        print("Running Epoch Number %d" %(postfix))
-        #dset.clearReaders()
-        try:
-            tick = time.time()
-            run_epoch(net, optimizer, dataloader, gpu, kinematics_loss, taylor_loss, loss_weights=loss_weights, debug=debug, use_tqdm=args.tqdm, use_float = use_float)
-            tock = time.time()
-            print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
-        except Exception as e:
-            print("Restarting epoch %d because %s"%(postfix, str(e)))
-            modelin = os.path.join(output_directory, netpostfix %(postfix-1))
-            optimizerin = os.path.join(output_directory,optimizerpostfix %(postfix-1))
-            net.load_state_dict(torch.load(modelin))
-            optimizer.load_state_dict(torch.load(optimizerin))
-            continue
-        modelout = os.path.join(output_directory,netpostfix %(postfix))
-        torch.save(net.state_dict(), modelout)
-        
-        optimizerout = os.path.join(output_directory,optimizerpostfix %(postfix))
-        torch.save(optimizer.state_dict(), optimizerout)
-        
-        i = i + 1
+    with experiment.train():
+        while i < num_epochs:
+            time.sleep(2.0)
+            postfix = i + 1
+            print("Running Epoch Number %d" %(postfix))
+            #dset.clearReaders()
+            try:
+                tick = time.time()
+                run_epoch(experiment, net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, debug=debug, use_tqdm=args.tqdm)
+                tock = time.time()
+                print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
+                experiment.log_epoch_end(postfix)
+            except Exception as e:
+                print("Restarting epoch %d because %s"%(postfix, str(e)))
+                modelin = os.path.join(output_directory, netpostfix %(postfix-1))
+                optimizerin = os.path.join(output_directory,optimizerpostfix %(postfix-1))
+                net.load_state_dict(torch.load(modelin))
+                optimizer.load_state_dict(torch.load(optimizerin))
+                continue
+            modelout = os.path.join(output_directory,netpostfix %(postfix))
+            torch.save(net.state_dict(), modelout)
+            with open(modelout,'rb') as modelfile:
+                experiment.log_asset(modelfile,file_name=netpostfix %(postfix))
+            optimizerout = os.path.join(output_directory,optimizerpostfix %(postfix))
+            torch.save(optimizer.state_dict(), optimizerout)
+            with open(optimizerout,'rb') as optimizerfile:
+                experiment.log_asset(optimizerfile,file_name=optimizerpostfix %(postfix))
+            
+            i = i + 1
 import logging
 if __name__ == '__main__':
     logging.basicConfig()

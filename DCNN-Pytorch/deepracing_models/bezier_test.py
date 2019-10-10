@@ -5,7 +5,6 @@ from scipy.interpolate import make_interp_spline as mkspl
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
-import bezier.curve
 from numpy import array, linalg, matrix
 from scipy.special import comb as nOk
 import math_utils
@@ -17,7 +16,7 @@ pi = np.pi
 num_points = 1000
 tmax = 10.0
 kbezier = 5
-d = 11
+d = 5
 numcurves = 8
 Mtk = lambda i, n, t: t**(i)*(1-t)**(n-i)*nOk(n,i)
 bezierFactors = lambda ts, n: matrix([[Mtk(k_,n,t) for k_ in range(n+1)] for t in ts])
@@ -45,7 +44,8 @@ storch = (ttorch - ttorch[:,0,None])/dt[:,None]
 M , bezier_control_points = math_utils.bezierLsqfit(Ptorch,storch,kbezier)
 print(bezier_control_points.shape)
 Pbeziertorch = torch.matmul(M,bezier_control_points)
-Pbeziertorchderiv = math_utils.bezierDerivative(bezier_control_points,kbezier,storch)/dt[:,None,None]
+Mderiv, Pbeziertorchderiv = math_utils.bezierDerivative(bezier_control_points,storch)
+Pbeziertorchderiv= Pbeziertorchderiv/dt[:,None,None]
 
 for i in range(numcurves):
     fig = plt.figure()

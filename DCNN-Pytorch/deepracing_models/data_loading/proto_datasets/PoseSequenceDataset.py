@@ -37,7 +37,9 @@ from .image_transforms import IdentifyTransform
 def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
 class PoseSequenceDataset(Dataset):
-    def __init__(self, image_db_wrapper, label_db_wrapper, keyfile, context_length, image_size = np.array((66,200)), return_optflow=False, erasing_probability=0.0, apply_color_jitter = False, geometric_variants = True):
+    def __init__(self, image_db_wrapper, label_db_wrapper, keyfile, context_length, \
+        image_size = np.array((66,200)), return_optflow=False, use_float32=False,\
+            erasing_probability=0.0, apply_color_jitter = False, geometric_variants = True):
         super(PoseSequenceDataset, self).__init__()
         self.image_db_wrapper = image_db_wrapper
         self.label_db_wrapper = label_db_wrapper
@@ -47,6 +49,7 @@ class PoseSequenceDataset(Dataset):
         self.totensor = transforms.ToTensor()
         self.topil = transforms.ToPILImage()
         self.geometric_variants = geometric_variants
+        self.use_float32 = use_float32
         if erasing_probability>0.0:
             self.erasing = transforms.RandomErasing(p=erasing_probability)
         else:
@@ -129,4 +132,21 @@ class PoseSequenceDataset(Dataset):
             opt_flow_torch = torch.from_numpy( opt_flow_np ).type_as(images_torch)
         else:
             opt_flow_torch = torch.tensor(np.nan)
+        if self.use_float32:
+            images_torch = images_torch.float()
+            opt_flow_torch = opt_flow_torch.float()
+            positions_torch = positions_torch.float()
+            quats_torch = quats_torch.float()
+            linear_velocities_torch = linear_velocities_torch.float()
+            angular_velocities_torch = angular_velocities_torch.float()
+            session_times_torch = session_times_torch.float()
+        else:
+            images_torch = images_torch.double()
+            opt_flow_torch = opt_flow_torch.double()
+            positions_torch = positions_torch.double()
+            quats_torch = quats_torch.double()
+            linear_velocities_torch = linear_velocities_torch.double()
+            angular_velocities_torch = angular_velocities_torch.double()
+            session_times_torch = session_times_torch.double()
+
         return images_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch#, pos_spline_params, vel_spline_params, knots

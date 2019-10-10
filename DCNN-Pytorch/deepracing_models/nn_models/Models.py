@@ -253,13 +253,14 @@ class AdmiralNetKinematicPredictor(nn.Module):
 class AdmiralNetCurvePredictor(nn.Module):
     def __init__(self, input_channels=3, params_per_dimension=11, \
                  context_length = 5, hidden_dim = 200, num_recurrent_layers = 1, rnn_bidirectional=False,  \
-                    additional_rnn_calls=25, learnable_initial_state=True):
+                    additional_rnn_calls=25, learnable_initial_state=True, output_dimension = 2):
         super(AdmiralNetCurvePredictor, self).__init__()
         self.imsize = (66,200)
         self.input_channels = input_channels
         self.params_per_dimension = params_per_dimension
         self.context_length = context_length
         self.num_recurrent_layers = num_recurrent_layers
+        self.output_dimension=output_dimension
         #activations
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
@@ -426,8 +427,21 @@ class AdmiralNetCurvePredictor(nn.Module):
         x_linear, (final_hidden_position, final_cell_position) = self.linear_rnn(  projection_features , (linear_new_hidden, linear_new_cell) )
         x_linear_unsqueeze = x_linear.unsqueeze(1)
         hidden_convout = self.hidden_decoder(x_linear_unsqueeze)
-        x_features = hidden_convout.view(batch_size,2,self.hidden_decoder_features)
+        x_features = hidden_convout.view(batch_size,self.output_dimension,self.hidden_decoder_features)
 
-        spline_param_predictions = self.classifier(x_features)
+        return self.classifier(x_features)
+class AdmiralNetCombinedBezierPredictor(nn.Module):
+    def __init__(self, params_per_dimension=8, context_length = 5, hidden_dim = 200, \
+                num_recurrent_layers = 1, rnn_bidirectional=False, additional_rnn_calls=25, learnable_initial_state=True, output_dimension = 2):
+        super(AdmiralNetCombinedBezierPredictor, self).__init__()
+        self.pos_predictor = AdmiralNetCurvePredictor(input_channels = 3, params_per_dimension=params_per_dimension, context_length = context_length, hidden_dim = hidden_dim, \
+                num_recurrent_layers = num_recurrent_layers, rnn_bidirectional=rnn_bidirectional, \
+                     additional_rnn_calls=additional_rnn_calls, learnable_initial_state=learnable_initial_state, output_dimension = output_dimension)
+        self.vel_predictor = AdmiralNetCurvePredictor(input_channels = 2, params_per_dimension=params_per_dimension, context_length = context_length, hidden_dim = hidden_dim, \
+                num_recurrent_layers = num_recurrent_layers, rnn_bidirectional=rnn_bidirectional, \
+                     additional_rnn_calls=additional_rnn_calls, learnable_initial_state=learnable_initial_state, output_dimension = output_dimension)
+    def forward(self, images, opt_flow):
+        pos_predictions = self.pos_predictor(images)
+        vel_predictions = self.vel_predictor(opt_flow)
+        return pos_predictions, vel_predictions
 
-        return spline_param_predictions

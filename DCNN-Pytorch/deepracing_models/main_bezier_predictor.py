@@ -4,7 +4,7 @@ import torch.nn as NN
 import torch.utils.data as data_utils
 import data_loading.proto_datasets
 from tqdm import tqdm as tqdm
-import nn_models.LossFunctions as params_losstions
+import nn_models.LossFunctions as loss_functions
 import nn_models.Models
 import numpy as np
 import torch.optim as optim
@@ -28,7 +28,7 @@ import math_utils.bezier
 import socket
 
 #torch.backends.cudnn.enabled = False
-def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True, use_float=True):
+def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True):
     cum_loss = 0.0
     cum_param_loss = 0.0
     cum_position_loss = 0.0
@@ -50,16 +50,6 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
     for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
         if network.input_channels==5:
             image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
-        if use_float:
-            image_torch = image_torch.float()
-            positions_torch = positions_torch.float()
-            linear_velocities_torch = linear_velocities_torch.float()
-            session_times_torch = session_times_torch.float()
-        else:
-            image_torch = image_torch.double()
-            positions_torch = positions_torch.double()
-            session_times_torch = session_times_torch.double()
-            linear_velocities_torch = linear_velocities_torch.double()
         if gpu>=0:
             image_torch = image_torch.cuda(gpu)
             positions_torch = positions_torch.cuda(gpu)
@@ -74,7 +64,7 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
         Mfit, controlpoints_fit = math_utils.bezier.bezierLsqfit(fitpoints,s_torch,bezier_order)
         predictions_reshape = predictions.transpose(1,2)
         pred_points = torch.matmul(Mfit, predictions_reshape)
-        pred_vels = math_utils.bezier.bezierDerivative(predictions_reshape,bezier_order,s_torch)
+        _, pred_vels = math_utils.bezier.bezierDerivative(predictions_reshape,s_torch)
         if debug:
             images_np = image_torch[0].detach().cpu().numpy().copy()
             num_images = images_np.shape[0]
@@ -168,6 +158,7 @@ def go():
         config["gpu"]  = gpu
     else:
         gpu = config["gpu"] 
+    torch.cuda.set_device(gpu)
     if args.batch_size is not None:
         batch_size = args.batch_size
         config["batch_size"]  = batch_size
@@ -276,7 +267,7 @@ def go():
         dset = torch.utils.data.ConcatDataset(dsets)
     
     dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
-                        shuffle=True, num_workers=num_workers)
+                        shuffle=True, num_workers=num_workers, pin_memory=gpu>=0)
     print("Dataloader of of length %d" %(len(dataloader)))
     yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
     yaml.dump(config, stream=open(os.path.join(output_directory,"config.yaml"), "w"), Dumper = yaml.SafeDumper)
@@ -292,7 +283,7 @@ def go():
             #dset.clearReaders()
             try:
                 tick = time.time()
-                run_epoch(experiment, net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, debug=debug, use_tqdm=args.tqdm, use_float = use_float)
+                run_epoch(experiment, net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, debug=debug, use_tqdm=args.tqdm )
                 tock = time.time()
                 print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
                 experiment.log_epoch_end(postfix)
