@@ -10,8 +10,9 @@ def pinv(A):
     """
     batch, rows, cols = A.size()
     U,S,V = torch.svd(A)
-    sinv = 1/S
-    sinv[sinv == float("Inf")] = 0
+    sinv =  torch.where(S > 0, 1/S, torch.zeros_like(S))
+    #sinv = 1/S
+    #sinv[sinv == float("Inf")] = 0
     return torch.matmul(torch.matmul(V,torch.diag_embed(sinv).transpose(1,2)),U.transpose(1,2))
 def bezierM(t,n):
     # M = torch.zeros(t.shape[0],t.shape[1],n+1).type_as(t)
