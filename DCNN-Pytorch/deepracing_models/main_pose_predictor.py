@@ -1,9 +1,10 @@
+import comet_ml
 import torch
 import torch.nn as NN
 import torch.utils.data as data_utils
 import data_loading.proto_datasets
 from tqdm import tqdm as tqdm
-import nn_models.LossFunctions as params_losstions
+import nn_models.LossFunctions as loss_functions
 import nn_models.Models
 import numpy as np
 import torch.optim as optim
@@ -25,7 +26,7 @@ import matplotlib.animation as animation
 import time
 import math_utils.bezier
 #torch.backends.cudnn.enabled = False
-def run_epoch(network, optimizer, trainLoader, gpu, kinematic_loss, loss_weights, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True, use_float=True):
+def run_epoch(experiment, network, optimizer, trainLoader, gpu, kinematic_loss, loss_weights, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True, use_float=True):
     cum_loss = 0.0
     num_samples=0.0
     batch_size = trainLoader.batch_size
@@ -89,11 +90,13 @@ def run_epoch(network, optimizer, trainLoader, gpu, kinematic_loss, loss_weights
         loss.backward() 
         # Weight and bias updates.
         optimizer.step()
+        # logging information
+        cum_loss += float(loss.item())
+        num_samples += 1.0
+        cumulative_average_loss = cum_loss/num_samples
+        experiment.log_metric("cumulative_average_loss", cumulative_average_loss, step=i)
         if use_tqdm:
-            # logging information
-            cum_loss += float(loss.item())
-            num_samples += 1.0
-            t.set_postfix({"cum_loss" : cum_loss/num_samples})
+            t.set_postfix({"cumulative_average_loss" : cumulative_average_loss})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
     parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuration file to load")
@@ -165,7 +168,7 @@ def go():
     net = nn_models.Models.AdmiralNetKinematicPredictor(context_length= context_length, sequence_length=sequence_length, input_channels=input_channels, hidden_dim = hidden_dimension, output_dimension=2) 
     print("net:\n%s" % (str(net)))
 
-    kinematic_loss = nn_models.LossFunctions.SquaredLpNormLoss()
+    kinematic_loss = loss_functions.SquaredLpNormLoss()
     if use_float:
         print("casting stuff to float")
         net = net.float()
@@ -184,6 +187,8 @@ def go():
     if epochstart>1:
         net.load_state_dict(torch.load(os.path.join(output_directory,netpostfix %(epochstart)), map_location=next(net.parameters()).device))
         optimizer.load_state_dict(torch.load(os.path.join(output_directory,optimizerpostfix %(epochstart)), map_location=next(net.parameters()).device))
+        experiment_config = yaml.load(open(os.path.join(output_directory,"experiment_config.yaml"),"r"), Loader=yaml.SafeLoader)
+        experiment = comet_ml.ExistingExperiment(workspace="electric-turtle", project_name="deepracingposepredictor", previous_experiment=experiment_config["experiment_key"])
     else:
         if (not args.override) and os.path.isdir(output_directory) :
             s = ""
@@ -196,6 +201,12 @@ def go():
         elif os.path.isdir(output_directory):
             shutil.rmtree(output_directory)
         os.makedirs(output_directory, exist_ok=True)
+        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingposepredictor")
+        experiment.log_parameters(config)
+        experiment.log_parameters(dataset_config)
+        experiment.add_tag("posepredictor")
+        experiment_config = {"experiment_key": experiment.get_key()}
+        yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
     
     if num_workers == 0:
         max_spare_txns = 50
@@ -239,30 +250,34 @@ def go():
         i = 0
     else:
         i = epochstart
-    while i < num_epochs:
-        time.sleep(2.0)
-        postfix = i + 1
-        print("Running Epoch Number %d" %(postfix))
-        #dset.clearReaders()
-        try:
-            tick = time.time()
-            run_epoch(net, optimizer, dataloader, gpu, kinematic_loss, loss_weights, debug=debug, use_tqdm=args.tqdm, use_float = use_float)
-            tock = time.time()
-            print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
-        except Exception as e:
-            print("Restarting epoch %d because %s"%(postfix, str(e)))
-            modelin = os.path.join(output_directory, netpostfix %(postfix-1))
-            optimizerin = os.path.join(output_directory,optimizerpostfix %(postfix-1))
-            net.load_state_dict(torch.load(modelin))
-            optimizer.load_state_dict(torch.load(optimizerin))
-            continue
-        modelout = os.path.join(output_directory,netpostfix %(postfix))
-        torch.save(net.state_dict(), modelout)
-        
-        optimizerout = os.path.join(output_directory,optimizerpostfix %(postfix))
-        torch.save(optimizer.state_dict(), optimizerout)
-        
-        i = i + 1
+    with experiment.train():
+        while i < num_epochs:
+            time.sleep(2.0)
+            postfix = i + 1
+            print("Running Epoch Number %d" %(postfix))
+            #dset.clearReaders()
+            try:
+                tick = time.time()
+                run_epoch(experiment, net, optimizer, dataloader, gpu, kinematic_loss, loss_weights, debug=debug, use_tqdm=args.tqdm, use_float = use_float)
+                tock = time.time()
+                print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
+            except Exception as e:
+                print("Restarting epoch %d because %s"%(postfix, str(e)))
+                modelin = os.path.join(output_directory, netpostfix %(postfix-1))
+                optimizerin = os.path.join(output_directory,optimizerpostfix %(postfix-1))
+                net.load_state_dict(torch.load(modelin))
+                optimizer.load_state_dict(torch.load(optimizerin))
+                continue
+            modelout = os.path.join(output_directory,netpostfix %(postfix))
+            torch.save(net.state_dict(), modelout)
+            with open(modelout,'rb') as modelfile:
+                experiment.log_asset(modelfile,file_name=netpostfix %(postfix))
+            optimizerout = os.path.join(output_directory,optimizerpostfix %(postfix))
+            torch.save(optimizer.state_dict(), optimizerout)
+            with open(optimizerout,'rb') as optimizerfile:
+                experiment.log_asset(optimizerfile,file_name=optimizerpostfix %(postfix))
+            
+            i = i + 1
 import logging
 if __name__ == '__main__':
     logging.basicConfig()
