@@ -39,14 +39,14 @@ import bisect
 import traceback
 import sys
 import queue
-
 class PurePursuitController:
     def __init__(self, address="127.0.0.1", port=50052, lookahead_gain = 0.35, L = 3.617,\
-        pgain=0.5, igain=0.0125, dgain=0.0125):
+        pgain=0.5, igain=0.0125, dgain=0.0125, tau = 0.025):
         self.packet_queue = queue.Queue()
         self.running = True
         self.current_motion_data = None
         self.sock = None
+        self.tau = tau
         self.velsetpoint = 0.0
         self.lookahead_gain = lookahead_gain
         self.current_speed = 0.0
@@ -101,10 +101,14 @@ class PurePursuitController:
             print(e)
     def lateralControl(self):
         while self.running:
-            lookahead_positions, v_local_forward, distances_forward = self.getTrajectory()
+            lookahead_positions, v_local_forward, distances_forward_ = self.getTrajectory()
             if lookahead_positions is None:
                 continue
-            self.velsetpoint = 0.8*la.norm(v_local_forward[int(round(self.forward_indices/6))])
+            if distances_forward_ is None:
+                distances_forward = la.norm(lookahead_positions, axis=1)
+            else:
+                distances_forward = distances_forward_
+            self.velsetpoint = la.norm(v_local_forward[int(round(self.forward_indices/6))])
             lookahead_distance = self.lookahead_gain*self.current_speed
             lookahead_index = np.argmin(np.abs(distances_forward-lookahead_distance))
             lookaheadVector = lookahead_positions[lookahead_index]
@@ -122,7 +126,7 @@ class PurePursuitController:
                 self.controller.setControl(delta,self.throttle_out,0.0)
             else:
                 self.controller.setControl(delta,0.0,-self.throttle_out)
-            time.sleep(0.025)
+            time.sleep(self.tau)
 
 
     def start(self):

@@ -42,9 +42,11 @@ import queue
 import google.protobuf.json_format
 import matplotlib.pyplot as plt
 import deepracing.controls
+import endtoend_controls.EndToEndPurePursuit
 def serve():
     global velsetpoint, current_motion_data, throttle_out, running, speed
-    parser = argparse.ArgumentParser(description='Image server.')
+    parser = argparse.ArgumentParser(description='Pure Pursuit.')
+    parser.add_argument('model_file', type=str)
     parser.add_argument('address', type=str)
     parser.add_argument('port', type=int)
     parser.add_argument('trackfile', type=str)
@@ -56,10 +58,11 @@ def serve():
     parser.add_argument('--logdir', type=str, default=None, required=False)
     parser.add_argument('--usesplines', action="store_true")
     args = parser.parse_args()
+    model_file = args.model_file
     address = args.address
     port = args.port
     trackfile = args.trackfile
-    control = deepracing.controls.OraclePurePursuitController(trackfile, address=address, port=port, pgain=args.pgain, igain=args.igain, dgain=args.dgain, lookahead_gain=args.lookahead_gain)
+    control = endtoend_controls.EndToEndPurePursuit.AdmiralNetPurePursuitController(model_file, trackfile, address=address, port=port, pgain=args.pgain, igain=args.igain, dgain=args.dgain, lookahead_gain=args.lookahead_gain)
     control.start()
     print("Cntrl-C to exit")
     try:
