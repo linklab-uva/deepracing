@@ -41,6 +41,7 @@ def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,
     losses=np.zeros(len(testLoader.dataset))
     gterrors=np.zeros(len(testLoader.dataset))
     gtvelerrors=np.zeros(len(testLoader.dataset))
+    dtarr=np.zeros(len(testLoader.dataset))
     for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
         if network.input_channels==5:
             image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
@@ -81,6 +82,7 @@ def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,
             losses[i]=currloss
             gterrors[i]=torch.mean(torch.norm(fitpoints-gtevalpoints,p=2,dim=2)).item()
             gtvelerrors[i]=torch.mean(torch.norm(fitvels-gt_fit_vels/dt[:,None,None],p=2,dim=2)).item()
+            dtarr[i] = dt.item()
         else:
             istart = i*testLoader.batch_size
             iend = istart+s_torch.shape[0]
@@ -88,22 +90,34 @@ def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,
             gterrors[istart:iend]=torch.mean(torch.norm(fitpoints-gtevalpoints,p=2,dim=2),dim=1).detach().cpu().numpy()
             gtvelerrors[istart:iend]=torch.mean(torch.norm(fitvels-gt_fit_vels/dt[:,None,None],p=2,dim=2),dim=1).detach().cpu().numpy()
         num_samples += testLoader.batch_size
-        if debug:
+        if debug and i%30==0:
             print("Current loss: %s" %(str(loss)))
             predevalpoints = torch.matmul(Mfit, predictions_reshape)
+            xgtnp = fitpoints[0,:,0].cpu().detach().numpy()
+            ygtnp = fitpoints[0,:,1].cpu().detach().numpy()
+            xgtevalnp = gtevalpoints[0,:,0].cpu().detach().numpy()
+            ygtevalnp = gtevalpoints[0,:,1].cpu().detach().numpy()
             xprednp = predevalpoints[0,:,0].cpu().detach().numpy()
             zprednp = predevalpoints[0,:,1].cpu().detach().numpy()
             xvelprednp = pred_vels[0,:,0].cpu().detach().numpy()
             zvelprednp = pred_vels[0,:,1].cpu().detach().numpy()
             pred_control_points_np = predictions_reshape[0].cpu().detach().numpy()
-            gt_control_points_np = controlpoints_fit[0].cpu().numpy()
+            gt_control_points_np = controlpoints_fit[0].cpu().detach().numpy()
+            print(i)
+            print(gt_control_points_np.shape)
             fig = plt.figure()
             ax = fig.add_subplot()
-            ax.plot(fitpoints[0,:,0].cpu().numpy(),fitpoints[0,:,1].cpu().numpy(),'r-')
-           # ax.plot(gt_control_points_np[:,0],gt_control_points_np[:,1],'go')
-            ax.scatter(gtevalpoints[0,:,0].cpu().numpy(),gtevalpoints[0,:,1].cpu().numpy(), facecolors='none', edgecolors='g')
+            #ax.plot(-fitpoints[0,:,0].cpu().numpy(),fitpoints[0,:,1].cpu().numpy(),'b-',label="Ground Truth Trajectory")
+            ax.plot([],[],'g',label="BSpline Samples")
+            ax.scatter(-xgtnp,ygtnp, facecolors='none', edgecolors='g')
+            ax.plot(-xgtevalnp,ygtevalnp,'b-',label="Fitted Bezier Curve")
+            ax.plot([],[],'r',label="Bezier Curve Control Points")
+            ax.scatter(-gt_control_points_np[:,0],gt_control_points_np[:,1], facecolors='none', edgecolors='r')
+            ax.set_title("Local Ground-Truth Trajectory")
+            ax.legend()
+           # ax.scatter(gtevalpoints[0,:,0].cpu().numpy(),gtevalpoints[0,:,1].cpu().numpy(), facecolors='none', edgecolors='g')
 
-            ax.scatter(xprednp,zprednp, facecolors='none', edgecolors='b')
+            #ax.scatter(xprednp,zprednp, facecolors='none', edgecolors='b')
             #ax.scatter(pred_control_points_np[:,0],pred_control_points_np[:,1], facecolors='none', edgecolors='r')
             skipn = 1
             #ax.quiver(gtevalpoints[0,::skipn,0].cpu().numpy(),gtevalpoints[0,::skipn,1].cpu().numpy(),(100/60)*gt_fit_vels[0,::skipn,0].cpu().numpy(),gt_fit_vels[0,::skipn,1].cpu().numpy())
@@ -116,7 +130,7 @@ def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,
             # plt.ylim(0,zmax)
             plt.show()
         t.set_postfix({"posloss":lossfloat/num_samples})
-    return losses, gterrors, gtvelerrors
+    return losses, gterrors, gtvelerrors, dtarr
 
 def plotStatistics(errors, label):
     figkde, axkde = plt.subplots()
@@ -221,7 +235,7 @@ def go():
     
     dataloader = data_utils.DataLoader(dset)
     print("Dataloader of of length %d" %(len(dataloader)))
-    losses, gterrors, gtvelerrors = run_epoch(net, dataloader, gpu, loss_func, debug=debug, use_float = use_float)
+    losses, gterrors, gtvelerrors, dtarr = run_epoch(net, dataloader, gpu, loss_func, debug=debug, use_float = use_float)
     #distances = np.sqrt(losses)
     distance_sort = np.argsort(losses)
     distances = losses.copy()[distance_sort]
@@ -231,6 +245,9 @@ def go():
     distances_sorted_descending = losses.copy()[distance_sort_descending]
     meandist = np.mean(distances)
     stddist = np.std(distances)
+    print(dtarr)
+    print("Mean dt: %f" % ( np.mean(dtarr) ) )
+    print("STD dt: %f" % ( np.std(dtarr) ) )
     print(gterrors)
     print("RMS gt fit error: %f" % ( np.mean(gterrors) ) )
     print(gtvelerrors)
