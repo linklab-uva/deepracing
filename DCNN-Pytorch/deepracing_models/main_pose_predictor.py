@@ -242,7 +242,7 @@ def go():
         dset = torch.utils.data.ConcatDataset(dsets)
     
     dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
-                        shuffle=True, num_workers=num_workers)
+                        shuffle=True, num_workers=num_workers, pin_memory=gpu>=0)
     print("Dataloader of of length %d" %(len(dataloader)))
     yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
     yaml.dump(config, stream=open(os.path.join(output_directory,"config.yaml"), "w"), Dumper = yaml.SafeDumper)
