@@ -61,18 +61,10 @@ def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,
             linear_velocities_torch = linear_velocities_torch.cuda(gpu)
  
         predictions = network(image_torch)
-        predictions_reshape = predictions.transpose(1,2)
         dt = session_times_torch[:,-1]-session_times_torch[:,0]
         s_torch = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
-        fitpoints = positions_torch[:,:,[0,2]]
-        fitvels = linear_velocities_torch[:,:,[0,2]]
-        bezier_order = network.params_per_dimension-1
-        Mfit, controlpoints_fit = math_utils.bezier.bezierLsqfit(fitpoints,s_torch,bezier_order)
-        gtevalpoints = torch.matmul(Mfit, controlpoints_fit)
-        _, gt_fit_vels = math_utils.bezier.bezierDerivative(controlpoints_fit,s_torch)
-        pred_eval_points = torch.matmul(Mfit, predictions_reshape)
-        _, pred_vels = math_utils.bezier.bezierDerivative(predictions_reshape,s_torch)
-        loss = torch.mean( torch.sqrt(loss_func(pred_eval_points,fitpoints)),dim=1)
+        fitpoints = positions_torch[:,:,[0,2]]      
+        loss = torch.mean( torch.sqrt(loss_func(predictions,fitpoints)),dim=1 )
        # print(loss.shape)
 
         currloss = float(torch.sum(loss).item())
@@ -94,39 +86,22 @@ def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,
             predevalpoints = torch.matmul(Mfit, predictions_reshape)
             xgtnp = fitpoints[0,:,0].cpu().detach().numpy()
             ygtnp = fitpoints[0,:,1].cpu().detach().numpy()
-            xgtevalnp = gtevalpoints[0,:,0].cpu().detach().numpy()
-            ygtevalnp = gtevalpoints[0,:,1].cpu().detach().numpy()
             xprednp = predevalpoints[0,:,0].cpu().detach().numpy()
             zprednp = predevalpoints[0,:,1].cpu().detach().numpy()
-            xvelprednp = pred_vels[0,:,0].cpu().detach().numpy()
-            zvelprednp = pred_vels[0,:,1].cpu().detach().numpy()
-            pred_control_points_np = predictions_reshape[0].cpu().detach().numpy()
-            gt_control_points_np = controlpoints_fit[0].cpu().detach().numpy()
-            print(i)
-            print(gt_control_points_np.shape)
             fig = plt.figure()
             ax = fig.add_subplot()
-            #ax.plot(-fitpoints[0,:,0].cpu().numpy(),fitpoints[0,:,1].cpu().numpy(),'b-',label="Ground Truth Trajectory")
             ax.plot([],[],'g',label="BSpline Samples")
             ax.scatter(-xgtnp,ygtnp, facecolors='none', edgecolors='g')
-            ax.plot(-xgtevalnp,ygtevalnp,'b-',label="Fitted Bezier Curve")
-            ax.plot([],[],'r',label="Bezier Curve Control Points")
-            ax.scatter(-gt_control_points_np[:,0],gt_control_points_np[:,1], facecolors='none', edgecolors='r')
+
+            predcolor = 'r'
+            ax.plot([],[],predcolor,label="Predictions")
+            ax.scatter(-xprednp[:,0],zprednp[:,1], facecolors='none', edgecolors=predcolor)
             ax.set_title("Local Ground-Truth Trajectory")
+
             ax.legend()
-           # ax.scatter(gtevalpoints[0,:,0].cpu().numpy(),gtevalpoints[0,:,1].cpu().numpy(), facecolors='none', edgecolors='g')
 
-            #ax.scatter(xprednp,zprednp, facecolors='none', edgecolors='b')
-            #ax.scatter(pred_control_points_np[:,0],pred_control_points_np[:,1], facecolors='none', edgecolors='r')
             skipn = 1
-            #ax.quiver(gtevalpoints[0,::skipn,0].cpu().numpy(),gtevalpoints[0,::skipn,1].cpu().numpy(),(100/60)*gt_fit_vels[0,::skipn,0].cpu().numpy(),gt_fit_vels[0,::skipn,1].cpu().numpy())
 
-            # zmax = np.max(zprednp) + 10
-            # xmin = np.min(xprednp) - 5
-            # xmax = np.max(xprednp) + 5
-            # dx = xmax-xmin
-            # plt.xlim(xmin,xmax)
-            # plt.ylim(0,zmax)
             plt.show()
         t.set_postfix({"posloss":lossfloat/num_samples})
     return losses, gterrors, gtvelerrors, dtarr
@@ -167,24 +142,23 @@ def go():
     debug = args.debug
     with open(config_file,'r') as f:
         config = yaml.load(f, Loader = yaml.SafeLoader)
-    with open(dataset_config_file,'r') as f:
-        datasets_config = yaml.load(f, Loader = yaml.SafeLoader)
-    with open(comet_config_file,'r') as f:
-        comet_config = yaml.load(f, Loader = yaml.SafeLoader)
+    # with open(dataset_config_file,'r') as f:
+    #     datasets_config = yaml.load(f, Loader = yaml.SafeLoader)
+    # with open(comet_config_file,'r') as f:
+    #     comet_config = yaml.load(f, Loader = yaml.SafeLoader)
 
-    image_size = datasets_config["image_size"]
+    image_size = np.array((66,200))
     hidden_dimension = config["hidden_dimension"]
     input_channels = config["input_channels"]
     context_length = config["context_length"]
-    bezier_order = config["bezier_order"]
+    sequence_length = config["sequence_length"]
     gpu = args.gpu
-    loss_weights = config["loss_weights"]
     temporal_conv_feature_factor = config["temporal_conv_feature_factor"]
     debug = args.debug
-    use_float = config["use_float"]
+    use_float = False
     learnable_initial_state = config.get("learnable_initial_state",True)
     print("Using config:\n%s" % (str(config)))
-    net = nn_models.Models.AdmiralNetKinematicPredictor(context_length= context_length, input_channels=input_channels, params_per_dimension=bezier_order+1) 
+    net = nn_models.Models.AdmiralNetKinematicPredictor(context_length= context_length, sequence_length=sequence_length, input_channels=input_channels) 
     net.load_state_dict(torch.load(model_file,map_location=torch.device("cpu")))
     print("net:\n%s" % (str(net)))
 
