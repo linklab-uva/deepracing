@@ -117,13 +117,20 @@ public:
       uint32_t h = roi_[3];
       cv::Mat im_resize;
       //std::printf("Extracting ROI: %u %u %u %u from image of size %u %u\n", x, y, w, h, data.image.rows, data.image.cols);
-      cv::resize(data.image(cv::Range(y , y + h), cv::Range( x , x+w ) ),im_resize,cv::Size(200,66), cv::INTER_AREA);
+      if (w>0 && h>0)
+      {
+       // std::cout<<"Cropping the image"<<std::endl;
+        cv::resize(data.image(cv::Range(y , y + h), cv::Range( x , x+w ) ),im_resize, cv::Size(/**/200,66), 1.0, 1.0, cv::INTER_AREA);
+      }
+      else{
+        cv::resize(data.image ,im_resize, cv::Size(), 0.25, 0.25, cv::INTER_AREA);
+      }
       deepf1::protobuf::images::Image im_proto = deepf1::OpenCVUtils::cvimageToProto(im_resize);
       size_t num_bytes = im_proto.ByteSize();
       std::unique_ptr<char[]> buffer(new char[num_bytes]);
       im_proto.SerializeToArray(buffer.get(),num_bytes);
       boost::system::error_code error;
-     // std::cout << "Sending image" << std::endl;
+      //std::cout << "Sending image of " << num_bytes << " bytes." << std::endl;
       size_t len = socket.send_to(boost::asio::buffer(buffer.get(),num_bytes), receiver_endpoint);
       //std::cout << "Sent image of " << len << " bytes." << std::endl;
       ready = true;
@@ -158,11 +165,21 @@ int main(int argc, char** argv)
   std::string search = "F1";
   float scale_factor=1.0;
   uint32_t x,y,w,h;
-  x = std::stoi(std::string(argv[1]));
-  y = std::stoi(std::string(argv[2]));
-  w = std::stoi(std::string(argv[3]));
-  h = std::stoi(std::string(argv[4]));
-  
+  std::cout<<argc<<std::endl;
+  if (argc>4)
+  {
+    x = std::stoi(std::string(argv[1]));
+    y = std::stoi(std::string(argv[2]));
+    w = std::stoi(std::string(argv[3]));
+    h = std::stoi(std::string(argv[4]));
+  }
+  else
+  {
+    x=0;
+    y=0;
+    w=0;
+    h=0;
+  }
   std::shared_ptr<ProtoRebroadcaster_FrameGrabHandler> image_handler(new ProtoRebroadcaster_FrameGrabHandler("127.0.0.1", 50051, std::vector<uint32_t>{x,y,w,h}));
   std::shared_ptr<ProtoRebroadcaster_2018DataGrabHandler> udp_handler(new ProtoRebroadcaster_2018DataGrabHandler("127.0.0.1", 50052));
   std::string inp;
