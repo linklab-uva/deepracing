@@ -43,6 +43,7 @@ import google.protobuf.json_format
 import matplotlib.pyplot as plt
 import deepracing.controls
 import endtoend_controls.EndToEndPurePursuit
+import nn_models.Models
 def serve():
     global velsetpoint, current_motion_data, throttle_out, running, speed
     parser = argparse.ArgumentParser(description='Pure Pursuit.')
@@ -50,6 +51,7 @@ def serve():
     parser.add_argument('address', type=str)
     parser.add_argument('port', type=int)
     parser.add_argument('trackfile', type=str)
+    parser.add_argument('--gpu', type=int, default=1, required=False)
     parser.add_argument('--lookahead_gain', type=float, default=0.3, required=False)
     parser.add_argument('--pgain', type=float, default=1.0, required=False)
     parser.add_argument('--igain', type=float, default=0.0225, required=False)
@@ -62,7 +64,10 @@ def serve():
     address = args.address
     port = args.port
     trackfile = args.trackfile
-    control = endtoend_controls.EndToEndPurePursuit.AdmiralNetPurePursuitController(model_file, trackfile, address=address, port=port, pgain=args.pgain, igain=args.igain, dgain=args.dgain, lookahead_gain=args.lookahead_gain)
+    gpu=args.gpu
+    
+    control = endtoend_controls.EndToEndPurePursuit.AdmiralNetPurePursuitController(model_file, trackfile,\
+         address=address, port=port, pgain=args.pgain, igain=args.igain, dgain=args.dgain, lookahead_gain=args.lookahead_gain, gpu=gpu)
     control.start()
     print("Cntrl-C to exit")
     try:

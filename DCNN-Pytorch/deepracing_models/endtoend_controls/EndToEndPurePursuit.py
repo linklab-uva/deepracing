@@ -70,30 +70,37 @@ def pbImageToNpImage(im_pb : Image_pb2.Image):
         raise ValueError("Unknown channel order: " + im_pb.channel_order)
     return im
 class AdmiralNetPurePursuitController(PPC):
-    def __init__(self, model_file, trackfile, forward_indices = 60,  address="127.0.0.1", port=50052, lookahead_gain = 0.5, L = 3.617, pgain=0.5, igain=0.0125, dgain=0.0125, plot=True):
+    def __init__(self, model_file, trackfile, forward_indices = 60,  address="127.0.0.1", port=50052, lookahead_gain = 0.5, L = 3.617, pgain=0.5, igain=0.0125, dgain=0.0125, plot=True, gpu=1):
         super(AdmiralNetPurePursuitController, self).__init__(address=address, port=port, lookahead_gain = lookahead_gain, L = L ,\
                                                     pgain=pgain, igain=igain, dgain=dgain)
         t, x, xdot = deepracing.loadArmaFile(trackfile)
         self.x = np.vstack((x.copy().transpose(),np.ones(x.shape[0])))
         self.xdot = xdot.copy().transpose()
         self.t = t.copy()
+        self.gpu = gpu
         self.forward_indices = forward_indices
         self.image_thread = threading.Thread(target=self.imageThread, args=(address, port-1))
         self.image_sock = None
         config_file = os.path.join(os.path.dirname(model_file),"config.yaml")
         with open(config_file,'r') as f:
-            self.config = yaml.load(f, Loader = yaml.SafeLoader)
-        input_channels = self.config["input_channels"]
-        context_length = self.config["context_length"]
-        self.bezier_order = self.config["bezier_order"]
-        self.image_buffer = RB(context_length,dtype=(np.float64,(3,66,200)))
-        self.optflow_buffer = RB(context_length,dtype=(np.float64,(2,66,200)))
-        self.net = nn_models.Models.AdmiralNetCurvePredictor(context_length= context_length, input_channels=input_channels, params_per_dimension=self.bezier_order+1) 
-        self.net = self.net.double()
+            config = yaml.load(f, Loader = yaml.SafeLoader)
+        input_channels = config["input_channels"]
+        context_length = config["context_length"]
+        bezier_order = config.get("bezier_order",None)
+        sequence_length = config.get("sequence_length",None)
+        if bezier_order is not None:
+            self.net = nn_models.Models.AdmiralNetCurvePredictor(context_length= context_length, input_channels=input_channels, params_per_dimension=bezier_order+1) 
+        else:
+            hidden_dimension = config["hidden_dimension"]
+            self.net = nn_models.Models.AdmiralNetKinematicPredictor(hidden_dim= hidden_dimension, input_channels=input_channels, output_dimension=2, sequence_length=sequence_length, context_length = context_length)
         self.net.load_state_dict(torch.load(model_file,map_location=torch.device("cpu")))
-        self.net = self.net.cuda(0)
-        self.s_torch = torch.linspace(0,1,60).unsqueeze(0).double().cuda(0)
-        self.bezierM = mu.bezierM(self.s_torch,self.bezier_order)#.double().cuda(0)
+        self.net = self.net.double()
+        self.net = self.net.cuda(self.gpu)
+        self.image_buffer = RB(self.net.context_length,dtype=(float,(3,66,200)))
+        self.optflow_buffer = RB(self.net.context_length,dtype=(float,(2,66,200)))
+        if isinstance(self.net,  nn_models.Models.AdmiralNetCurvePredictor):
+            self.s_torch = torch.linspace(0,1,60).unsqueeze(0).double().cuda(gpu)
+            self.bezierM = mu.bezierM(self.s_torch,self.net.params_per_dimension-1).double().cuda(gpu)
         self.plot = plot
         self.trajplot = None
         self.fig = None
@@ -117,8 +124,12 @@ class AdmiralNetPurePursuitController(PPC):
                 #print("Got %d bytes"% (len(data)))
                 current_image.ParseFromString(data)
                 imrcv = pbImageToNpImage(current_image)[:,:,0:3]
-                imgcurrgrey = cv2.cvtColor(imrcv,cv2.COLOR_RGB2GRAY)
-                self.image_buffer.append(imrcv.transpose(2,0,1).astype(np.float64)/255.0)
+                # rowstart = 32
+                # rowend = 394
+                imcrop = imrcv[:,:,:]
+                imresize = deepracing.imutils.resizeImage(imcrop,(66,200))
+                imgcurrgrey = cv2.cvtColor(imresize,cv2.COLOR_RGB2GRAY)
+                self.image_buffer.append(imresize.transpose(2,0,1).astype(np.float64)/255.0)
                 if imgprevgrey is not None:
                     self.optflow_buffer.append(cv2.calcOpticalFlowFarneback(imgprevgrey, imgcurrgrey, None, 0.5, 3, 15, 3, 5, 1.2, 0).astype(np.float64).transpose(2,0,1))
                 imgprevgrey = imgcurrgrey
@@ -161,25 +172,35 @@ class AdmiralNetPurePursuitController(PPC):
             imtorch = torch.from_numpy(np.array(self.image_buffer).copy())
             if (not imtorch.shape[0] == self.net.context_length):
                 return None, None, None
-            bezier_control_points = self.net(imtorch.unsqueeze(0).cuda(0)).transpose(1,2)
+            inputtorch = imtorch
         else:
             imtorch = torch.from_numpy(np.array(self.image_buffer).copy())
             optflowtorch = torch.from_numpy(np.array(self.optflow_buffer).copy())
             if (not optflowtorch.shape[0] == self.net.context_length) or (not imtorch.shape[0] == self.net.context_length):
                 return None, None, None
             inputtorch = torch.cat([imtorch,optflowtorch],dim=1)
-            bezier_control_points = self.net(inputtorch.unsqueeze(0).cuda(0)).transpose(1,2)
-        evalpoints = torch.matmul(self.bezierM, bezier_control_points)
-        x_samp = evalpoints[0].cpu().detach().numpy()
-        x_samp[:,0]*=1.125
+        if isinstance(self.net,  nn_models.Models.AdmiralNetCurvePredictor):
+            bezier_control_points = self.net(inputtorch.unsqueeze(0).cuda(self.gpu)).transpose(1,2)
+            evalpoints = torch.matmul(self.bezierM, bezier_control_points)
+            x_samp = evalpoints[0].cpu().detach().numpy()
+            x_samp[:,0]*=1.125
+            _, evalvel = mu.bezierDerivative(bezier_control_points,self.s_torch)
+            v_samp = (0.925)*(1/1.415)*(evalvel[0].cpu().detach().numpy())
+        else:
+            evalpoints =  self.net(inputtorch.unsqueeze(0).cuda(self.gpu))
+            x_samp = evalpoints[0].cpu().detach().numpy()
+            x_samp[:,0]*=1.125
+            tsamp = np.linspace(0,1.415,60)
+            spline = scipy.interpolate.make_interp_spline(tsamp,x_samp)
+            splineder = spline.derivative()
+            v_samp = splineder(tsamp)
+        #print(x_samp)
         distances_samp = la.norm(x_samp, axis=1)
-        _, evalvel = mu.bezierDerivative(bezier_control_points,self.s_torch)
-        v_samp = (0.925)*(1/1.415)*(evalvel[0].cpu().detach().numpy())
         if self.plot:
             if self.trajplot is None:
                 self.fig = plt.figure()
                 self.ax = self.fig.add_subplot()
-                self.trajplot, = self.ax.plot(x_samp[:,0],x_samp[:,1], color='b')
+                self.trajplot, = self.ax.plot(-x_samp[:,0],x_samp[:,1], color='b')
                 self.ax.set_xlim(-15,15)
                 self.ax.set_ylim(0,125)
                 plt.show(block=False)
