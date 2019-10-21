@@ -5,15 +5,15 @@ if(MSVC)
 		windows/f1_interface_factory.cpp
 	)
 	set(additional_controller_libs_ vjoy::vJoy_plusplus)
-	get_target_property(vjoy_library_type_ vjoy::vJoy_plusplus TYPE)
-	if("${vjoy_library_type_}" STREQUAL "SHARED_LIBRARY")
-		string(TOUPPER ${CMAKE_BUILD_TYPE} dll_postfix_)
-		get_target_property(vjoyppdll_ vjoy::vJoy_plusplus IMPORTED_LOCATION_${dll_postfix_})
-		add_custom_target(copy_vjoy_dll ALL
-		COMMAND ${CMAKE_COMMAND} -E copy ${vjoyppdll_} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
-		DEPENDS ${PROJECT_NAME}_controllers
-		)
-	endif()
+	# get_target_property(vjoy_library_type_ vjoy::vJoy_plusplus TYPE)
+	# if("${vjoy_library_type_}" STREQUAL "SHARED_LIBRARY")
+	# 	string(TOUPPER ${CMAKE_BUILD_TYPE} dll_postfix_)
+	# 	get_target_property(vjoyppdll_ vjoy::vJoy_plusplus IMPORTED_LOCATION_${dll_postfix_})
+	# 	add_custom_target(copy_vjoy_dll ALL
+	# 	COMMAND ${CMAKE_COMMAND} -E copy ${vjoyppdll_} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+	# 	DEPENDS ${PROJECT_NAME}_controllers
+	# 	)
+	# endif()
 elseif(APPLE)
 	set(controllers_SRCS
 		ios/f1_interface_factory.cpp

@@ -114,32 +114,33 @@ Eigen3::Eigen
 )
 target_include_directories(${PROJECT_NAME}_cv_viewer_example PRIVATE ${DIRECTXT_INCLUDE_DIR})
 set_target_properties(${PROJECT_NAME}_cv_viewer_example PROPERTIES FOLDER examples)
-
 if(MSVC)
-	add_executable(${PROJECT_NAME}_multithreaded_capture
-	multi_threaded_capture.cpp
-	)
-	target_link_libraries(${PROJECT_NAME}_multithreaded_capture
-	${PROJECT_NAME}
-	${PROJECT_NAME}_image_logging
-	${PROJECT_NAME}_image_logging_common
-	${PROJECT_NAME}_udp_logging
-	${PROJECT_NAME}_udp_logging_common
-	${PROJECT_NAME}_proto
-	${screen_capture_lite_LIBRARIES}
-	${screen_capture_lite_PLATFORM_LIBS}
-	${Boost_LIBRARIES}
-	${TBB_IMPORTED_TARGETS}
-	${YAML_CPP_LIBRARIES}
-	directxtk
-	)
-	if(WIN10API)
-		target_link_libraries(${PROJECT_NAME}_multithreaded_capture RuntimeObject)
+	option(BUILD_MULTITHREADED_EXAMPLE "" OFF)
+	if(BUILD_MULTITHREADED_EXAMPLE)
+		add_executable(${PROJECT_NAME}_multithreaded_capture
+		multi_threaded_capture.cpp
+		)
+		target_link_libraries(${PROJECT_NAME}_multithreaded_capture
+		${PROJECT_NAME}
+		${PROJECT_NAME}_image_logging
+		${PROJECT_NAME}_image_logging_common
+		${PROJECT_NAME}_udp_logging
+		${PROJECT_NAME}_udp_logging_common
+		${PROJECT_NAME}_proto
+		${screen_capture_lite_LIBRARIES}
+		${screen_capture_lite_PLATFORM_LIBS}
+		${Boost_LIBRARIES}
+		${TBB_IMPORTED_TARGETS}
+		${YAML_CPP_LIBRARIES}
+		directxtk
+		)
+		if(WIN10API)
+			target_link_libraries(${PROJECT_NAME}_multithreaded_capture RuntimeObject)
+		endif()
+		target_include_directories(${PROJECT_NAME}_multithreaded_capture PRIVATE ${DIRECTXT_INCLUDE_DIR})
+		set_target_properties(${PROJECT_NAME}_multithreaded_capture PROPERTIES FOLDER examples)
 	endif()
-	target_include_directories(${PROJECT_NAME}_multithreaded_capture PRIVATE ${DIRECTXT_INCLUDE_DIR})
-	set_target_properties(${PROJECT_NAME}_multithreaded_capture PROPERTIES FOLDER examples)
 endif()
-
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     target_link_libraries(${PROJECT_NAME}_replay_dataset stdc++fs )
     target_link_libraries(${PROJECT_NAME}_generate_sine_waves stdc++fs )
