@@ -70,13 +70,14 @@ def pbImageToNpImage(im_pb : Image_pb2.Image):
         raise ValueError("Unknown channel order: " + im_pb.channel_order)
     return im
 class AdmiralNetPurePursuitController(PPC):
-    def __init__(self, model_file, trackfile, forward_indices = 60,  address="127.0.0.1", port=50052, lookahead_gain = 0.5, L = 3.617, pgain=0.5, igain=0.0125, dgain=0.0125, plot=True, gpu=1):
+    def __init__(self, model_file, trackfile=None, forward_indices = 60,  address="127.0.0.1", port=50052, lookahead_gain = 0.5, L = 3.617, pgain=0.5, igain=0.0125, dgain=0.0125, plot=True, gpu=1):
         super(AdmiralNetPurePursuitController, self).__init__(address=address, port=port, lookahead_gain = lookahead_gain, L = L ,\
                                                     pgain=pgain, igain=igain, dgain=dgain)
-        t, x, xdot = deepracing.loadArmaFile(trackfile)
-        self.x = np.vstack((x.copy().transpose(),np.ones(x.shape[0])))
-        self.xdot = xdot.copy().transpose()
-        self.t = t.copy()
+        if trackfile is not None:
+            t, x, xdot = deepracing.loadArmaFile(trackfile)
+            self.x = np.vstack((x.copy().transpose(),np.ones(x.shape[0])))
+            self.xdot = xdot.copy().transpose()
+            self.t = t.copy()
         self.gpu = gpu
         self.forward_indices = forward_indices
         self.image_thread = threading.Thread(target=self.imageThread, args=(address, port-1))

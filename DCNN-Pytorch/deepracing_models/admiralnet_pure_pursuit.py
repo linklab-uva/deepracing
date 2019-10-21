@@ -50,7 +50,7 @@ def serve():
     parser.add_argument('model_file', type=str)
     parser.add_argument('address', type=str)
     parser.add_argument('port', type=int)
-    parser.add_argument('trackfile', type=str)
+    parser.add_argument('--trackfile', type=str, default=None, required=False)
     parser.add_argument('--gpu', type=int, default=1, required=False)
     parser.add_argument('--lookahead_gain', type=float, default=0.3, required=False)
     parser.add_argument('--pgain', type=float, default=1.0, required=False)
