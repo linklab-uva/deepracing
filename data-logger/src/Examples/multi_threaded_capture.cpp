@@ -18,6 +18,10 @@
 #include <chrono>
 #include <GamePad.h>
 #include <filesystem>
+#if _WIN32_WINNT>=_WIN32_WINNT_WIN10
+  #include <wrl\wrappers\corewrappers.h>
+  #include <wrl\client.h>
+#endif
 namespace fs = std::filesystem;
 namespace scl = SL::Screen_Capture;
 namespace po = boost::program_options;
@@ -31,6 +35,9 @@ void exit_with_help(po::options_description& desc)
 
 int main(int argc, char** argv)
 {
+  #if _WIN32_WINNT>=_WIN32_WINNT_WIN10
+    Microsoft::WRL::Wrappers::RoInitializeWrapper initialize(RO_INIT_MULTITHREADED);
+  #endif
   using namespace deepf1;
   std::string search_string, image_folder, image_extension, udp_folder, config_file, root_directory, driver_name;
   unsigned int image_threads, udp_port, udp_thread_sleeptime;

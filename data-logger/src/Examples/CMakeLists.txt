@@ -133,6 +133,9 @@ if(MSVC)
 	${YAML_CPP_LIBRARIES}
 	directxtk
 	)
+	if(WIN10API)
+		target_link_libraries(${PROJECT_NAME}_multithreaded_capture RuntimeObject)
+	endif()
 	target_include_directories(${PROJECT_NAME}_multithreaded_capture PRIVATE ${DIRECTXT_INCLUDE_DIR})
 	set_target_properties(${PROJECT_NAME}_multithreaded_capture PROPERTIES FOLDER examples)
 endif()
