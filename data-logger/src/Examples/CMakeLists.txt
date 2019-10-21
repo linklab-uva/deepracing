@@ -36,41 +36,6 @@ target_link_libraries(${PROJECT_NAME}_proto_rebroadcaster
 )
 
 
-add_executable(${PROJECT_NAME}_go_in_circle
-    ${${PROJECT_NAME}_go_in_circle_srcfile}
-)
-target_link_libraries(${PROJECT_NAME}_go_in_circle
-    ${PROJECT_NAME}
-    ${PROJECT_NAME}_alglib
-	${PROJECT_NAME}_controllers
-    ${PROJECT_NAME}_image_logging
-    ${PROJECT_NAME}_image_logging_common
-    ${PROJECT_NAME}_udp_logging
-    ${PROJECT_NAME}_udp_logging_common
-	${PROJECT_NAME}_post_processing
-    ${Boost_LIBRARIES}
-	${screen_capture_lite_LIBRARIES}
-	${screen_capture_lite_PLATFORM_LIBS}
-	${TBB_IMPORTED_TARGETS}
-)
-
-add_executable(${PROJECT_NAME}_replay_dataset
-    ${${PROJECT_NAME}_replay_dataset_srcfile}
-)
-target_link_libraries(${PROJECT_NAME}_replay_dataset
-    ${PROJECT_NAME}
-    ${PROJECT_NAME}_alglib
-    ${PROJECT_NAME}_image_logging
-    ${PROJECT_NAME}_image_logging_common
-    ${PROJECT_NAME}_udp_logging
-    ${PROJECT_NAME}_udp_logging_common
-	${PROJECT_NAME}_post_processing
-    ${Boost_LIBRARIES}
-	${screen_capture_lite_LIBRARIES}
-	${screen_capture_lite_PLATFORM_LIBS}
-	${TBB_IMPORTED_TARGETS}
-	${PROJECT_NAME}_controllers
-)
 if(MSVC)
     find_package(vJoy++ REQUIRED)
 	add_executable(${PROJECT_NAME}_generate_vjoy_calibration
@@ -107,46 +72,28 @@ if(MSVC)
 endif()
 
 	
-add_executable(${PROJECT_NAME}_generate_sine_waves
-    generate_sine_waves.cpp
-)
-target_link_libraries(${PROJECT_NAME}_generate_sine_waves
-    ${PROJECT_NAME}
-    ${PROJECT_NAME}_alglib
-	${PROJECT_NAME}_controllers
-    ${PROJECT_NAME}_image_logging
-    ${PROJECT_NAME}_image_logging_common
-    ${PROJECT_NAME}_udp_logging
-    ${PROJECT_NAME}_udp_logging_common
-	${PROJECT_NAME}_post_processing
-    ${Boost_LIBRARIES}
-	${screen_capture_lite_LIBRARIES}
-	${screen_capture_lite_PLATFORM_LIBS}
-	${TBB_IMPORTED_TARGETS}
-	${YAML_CPP_LIBRARIES}
-)
-set_target_properties(${PROJECT_NAME}_go_in_circle ${PROJECT_NAME}_replay_dataset ${PROJECT_NAME}_generate_sine_waves PROPERTIES FOLDER vjoy)
-
-add_executable(${PROJECT_NAME}_pure_pursuit_control
-    pure_pursuit_control.cpp
-)
-target_link_libraries(${PROJECT_NAME}_pure_pursuit_control
-    ${PROJECT_NAME}
-    ${PROJECT_NAME}_alglib
-	${PROJECT_NAME}_controllers
-    ${PROJECT_NAME}_image_logging
-    ${PROJECT_NAME}_image_logging_common
-	${PROJECT_NAME}_post_processing
-    ${PROJECT_NAME}_udp_logging
-    ${PROJECT_NAME}_udp_logging_common
-    ${Boost_LIBRARIES}
-	${screen_capture_lite_LIBRARIES}
-	${screen_capture_lite_PLATFORM_LIBS}
-	${TBB_IMPORTED_TARGETS}
-	${YAML_CPP_LIBRARIES}
-)
-set_target_properties(${PROJECT_NAME}_pure_pursuit_control PROPERTIES FOLDER vjoy)
-get_target_property(PP_OUTPUT_DIR ${PROJECT_NAME}_pure_pursuit_control RUNTIME_OUTPUT_DIRECTORY)
+if(${Eigen3_VERSION} VERSION_GREATER_EQUAL "3.3.9")
+	add_executable(${PROJECT_NAME}_pure_pursuit_control
+		pure_pursuit_control.cpp
+	)
+	target_link_libraries(${PROJECT_NAME}_pure_pursuit_control
+		${PROJECT_NAME}
+		${PROJECT_NAME}_alglib
+		${PROJECT_NAME}_controllers
+		${PROJECT_NAME}_image_logging
+		${PROJECT_NAME}_image_logging_common
+		${PROJECT_NAME}_post_processing
+		${PROJECT_NAME}_udp_logging
+		${PROJECT_NAME}_udp_logging_common
+		${Boost_LIBRARIES}
+		${screen_capture_lite_LIBRARIES}
+		${screen_capture_lite_PLATFORM_LIBS}
+		${TBB_IMPORTED_TARGETS}
+		${YAML_CPP_LIBRARIES}
+	)
+	set_target_properties(${PROJECT_NAME}_pure_pursuit_control PROPERTIES FOLDER vjoy)
+	get_target_property(PP_OUTPUT_DIR ${PROJECT_NAME}_pure_pursuit_control RUNTIME_OUTPUT_DIRECTORY)
+endif()
 
 
 add_executable(${PROJECT_NAME}_cv_viewer_example

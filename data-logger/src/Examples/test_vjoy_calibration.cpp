@@ -14,7 +14,7 @@
 #include <thread>
 #include <chrono>
 #include <fstream>
-#include <vJoy++/vjoy.h>
+#include <vJoy_plusplus/vjoy.h>
 
 void countdown(unsigned int seconds, std::string text = "")
 {

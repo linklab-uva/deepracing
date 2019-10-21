@@ -5,7 +5,7 @@
 #include <thread>
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
-#include <vJoy++/vjoy.h>
+#include <vJoy_plusplus/vjoy.h>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;

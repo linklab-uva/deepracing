@@ -2,7 +2,7 @@
 #define INCLUDE_CONTROLLERS_VJOY_INTERFACE_H_
 #include <cmath>
 #include <f1_datalogger/controllers/f1_interface.h>
-#include <vJoy++/vjoy.h>
+#include <vJoy_plusplus/vjoy.h>
 namespace deepf1 {
 	
 	class VJoyInterface : public F1Interface
