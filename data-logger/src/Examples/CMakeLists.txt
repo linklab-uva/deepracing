@@ -37,7 +37,8 @@ target_link_libraries(${PROJECT_NAME}_proto_rebroadcaster
 
 
 if(MSVC)
-    find_package(vJoy++ REQUIRED)
+	find_package(vJoy_plusplus REQUIRED)
+	set(WITH_VJOY ON)
 	add_executable(${PROJECT_NAME}_generate_vjoy_calibration
 	${${PROJECT_NAME}_generate_vjoy_calibration_srcfile}
 	)
@@ -51,8 +52,8 @@ if(MSVC)
 		${screen_capture_lite_LIBRARIES}
 		${screen_capture_lite_PLATFORM_LIBS}
 		${PROJECT_NAME}_controllers
+		vjoy::vJoy_plusplus
 	)
-	target_include_directories(${PROJECT_NAME}_generate_vjoy_calibration PRIVATE ${vJoy++_INCLUDE_DIR})
 	add_executable(${PROJECT_NAME}_test_vjoy_calibration
 	${${PROJECT_NAME}_test_vjoy_calibration_srcfile}
 	)
@@ -66,8 +67,8 @@ if(MSVC)
 		${Boost_LIBRARIES}
 		${screen_capture_lite_LIBRARIES}
 		${screen_capture_lite_PLATFORM_LIBS}
+		vjoy::vJoy_plusplus
 	)
-	target_include_directories(${PROJECT_NAME}_test_vjoy_calibration PRIVATE ${vJoy++_INCLUDE_DIR})
 	set_target_properties(${PROJECT_NAME}_test_vjoy_calibration ${PROJECT_NAME}_generate_vjoy_calibration PROPERTIES FOLDER vjoy)
 endif()
 
@@ -115,7 +116,7 @@ Eigen3::Eigen
 target_include_directories(${PROJECT_NAME}_cv_viewer_example PRIVATE ${DIRECTXT_INCLUDE_DIR})
 set_target_properties(${PROJECT_NAME}_cv_viewer_example PROPERTIES FOLDER examples)
 if(MSVC)
-	option(BUILD_MULTITHREADED_EXAMPLE "" OFF)
+	option(BUILD_MULTITHREADED_EXAMPLE "" ON)
 	if(BUILD_MULTITHREADED_EXAMPLE)
 		add_executable(${PROJECT_NAME}_multithreaded_capture
 		multi_threaded_capture.cpp
@@ -152,12 +153,11 @@ set(install_targets
 ${PROJECT_NAME}_cv_viewer_example
 )
 if(WITH_VJOY)
-    list(APPEND install_targets ${PROJECT_NAME}_pure_pursuit_control)
     list(APPEND install_targets ${PROJECT_NAME}_test_vjoy_calibration)
     list(APPEND install_targets ${PROJECT_NAME}_generate_vjoy_calibration)
-    list(APPEND install_targets ${PROJECT_NAME}_replay_dataset)
-	list(APPEND install_targets ${PROJECT_NAME}_generate_sine_waves)
-	list(APPEND install_targets ${PROJECT_NAME}_multithreaded_capture)
+	if(BUILD_MULTITHREADED_EXAMPLE)
+		list(APPEND install_targets ${PROJECT_NAME}_multithreaded_capture)
+	endif()
 	install(DIRECTORY ${CMAKE_SOURCE_DIR}/tracks/ DESTINATION bin
         FILES_MATCHING PATTERN "*.track")
 endif()

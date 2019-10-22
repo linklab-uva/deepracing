@@ -149,14 +149,7 @@ set_target_properties(${PROJECT_NAME}_proto
 
 add_subdirectory( src/alglib )
 message(STATUS "ALGLIB_DIR: ${ALGLIB_DIR}")
-
-if(${Eigen3_VERSION} VERSION_GREATER_EQUAL "3.3.9")
-    add_subdirectory( src/post_processing ) 
-	list(APPEND ${controllers_SRCS} src/pure_pursuit_controller.cpp)
-    set_target_properties(${PROJECT_NAME}_assign_labels ${PROJECT_NAME}_post_processing PROPERTIES FOLDER utils)
-endif()
 set_target_properties(${PROJECT_NAME}_alglib PROPERTIES FOLDER utils)
-
 
 if(BUILD_DATALOGGER)
 	option(WITH_ARMA "Use Armadillo library for matrix loading/storing" ON)
@@ -178,7 +171,9 @@ if(BUILD_DATALOGGER)
     ${PROJECT_NAME}_udp_logging 
     ${PROJECT_NAME}_proto 
     ${PROJECT_NAME}_alglib 
-	${PROJECT_NAME}_image_utils
+    ${PROJECT_NAME}_eigen_utils
+    ${PROJECT_NAME}_image_utils
+    ${PROJECT_NAME}_controllers
     ${Boost_LIBRARIES}
     )
     add_subdirectory( src/Examples )
