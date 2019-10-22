@@ -333,3 +333,6 @@ install
 *.gif
 build/
 *.pt
+buildros/
+installros/
+logros/
