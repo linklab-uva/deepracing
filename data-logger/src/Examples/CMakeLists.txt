@@ -133,6 +133,7 @@ if(MSVC)
 		${Boost_LIBRARIES}
 		${TBB_IMPORTED_TARGETS}
 		${YAML_CPP_LIBRARIES}
+		yaml-cpp
 		directxtk
 		)
 		if(WIN10API)
