@@ -116,6 +116,7 @@ Eigen3::Eigen
 target_include_directories(${PROJECT_NAME}_cv_viewer_example PRIVATE ${DIRECTXT_INCLUDE_DIR})
 set_target_properties(${PROJECT_NAME}_cv_viewer_example PROPERTIES FOLDER examples)
 if(MSVC)
+    
 	option(BUILD_MULTITHREADED_EXAMPLE "" ON)
 	if(BUILD_MULTITHREADED_EXAMPLE)
 		add_executable(${PROJECT_NAME}_multithreaded_capture
@@ -136,6 +137,9 @@ if(MSVC)
 		yaml-cpp
 		directxtk
 		)
+		if(YAML_CPP_DLL)
+			target_compile_definitions(${PROJECT_NAME}_multithreaded_capture PRIVATE "YAML_CPP_DLL")
+		endif()
 		if(WIN10API)
 			target_link_libraries(${PROJECT_NAME}_multithreaded_capture RuntimeObject)
 		endif()

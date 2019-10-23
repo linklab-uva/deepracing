@@ -50,6 +50,7 @@ set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE})
 find_package( Eigen3 REQUIRED )
 include_directories(${EIGEN3_INCLUDE_DIRS})
 
+option(YAML_CPP_DLL "Set this if YAML CPP was compiled as a DLL" ON)
 option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to interact with existing protobuf datasets" ON)
 option(GUI_TOOLS "Attempt to build the GUI tools" OFF)
 if(BUILD_DATALOGGER)
