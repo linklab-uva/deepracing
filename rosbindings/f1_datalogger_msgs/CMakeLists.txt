@@ -37,6 +37,7 @@ find_package(rosidl_default_generators REQUIRED)
 
  rosidl_generate_interfaces(${PROJECT_NAME}
    ${msg_files}
+   DEPENDENCIES geometry_msgs std_msgs visualization_msgs trajectory_msgs tf2_msgs
  )
 
  ament_export_dependencies(rosidl_default_runtime)
