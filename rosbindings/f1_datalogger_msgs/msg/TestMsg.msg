@@ -1,0 +1,2 @@
+float64 adoublevalue
+float32 afloatvalue
