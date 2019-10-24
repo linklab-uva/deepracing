@@ -29,6 +29,7 @@ find_package(rosidl_default_generators REQUIRED)
 # declare the message files to generate code for
  set(msg_files
    "msg/TestMsg.msg"
+   "msg/CarMotionData.msg"
  )
 
  rosidl_generate_interfaces(${PROJECT_NAME}
