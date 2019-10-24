@@ -31,6 +31,7 @@ find_package(rosidl_default_generators REQUIRED)
    "msg/TestMsg.msg"
    "msg/CarMotionData.msg"
    "msg/PacketHeader.msg"
+   "msg/PacketMotionData.msg"
  )
 
  rosidl_generate_interfaces(${PROJECT_NAME}
