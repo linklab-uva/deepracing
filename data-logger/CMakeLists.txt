@@ -185,16 +185,40 @@ if(BUILD_DATALOGGER)
 	set_target_properties(${PROJECT_NAME}_udp_logging_common ${PROJECT_NAME}_image_logging_common
 						PROPERTIES FOLDER common)
 
-    set(install_targets ${PROJECT_NAME} )
+    set(install_targets
+        ${PROJECT_NAME} 
+        ${PROJECT_NAME}_image_logging 
+        ${PROJECT_NAME}_image_logging_common 
+        ${PROJECT_NAME}_udp_utils
+        ${PROJECT_NAME}_udp_logging 
+        ${PROJECT_NAME}_udp_logging_common 
+        ${PROJECT_NAME}_proto 
+        ${PROJECT_NAME}_alglib 
+        ${PROJECT_NAME}_eigen_utils
+        ${PROJECT_NAME}_image_utils
+        ${PROJECT_NAME}_controllers
+        screen_capture_lite
+    )
     install(TARGETS ${install_targets}
+        EXPORT ${PROJECT_NAME}-export
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
+    )
+    install(EXPORT ${PROJECT_NAME}-export
+    FILE
+    ${PROJECT_NAME}Targets.cmake
+    NAMESPACE
+        f1_datalogger::
+    DESTINATION
+        cmake
     )
     install(DIRECTORY include/${PROJECT_NAME}
         DESTINATION include
         FILES_MATCHING PATTERN "*.h"
     )
+    configure_file(${PROJECT_NAME}-config.cmake.in ${PROJECT_NAME}-config.cmake @ONLY)
+    install(FILES ${CMAKE_BINARY_DIR}/${PROJECT_NAME}-config.cmake DESTINATION cmake/)
     unset(install_targets)
 endif()
 
