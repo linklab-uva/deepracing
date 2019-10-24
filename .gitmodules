@@ -13,3 +13,6 @@
 [submodule "data-logger/src/controllers/python_cpp_bindings/pybind11"]
 	path = data-logger/src/controllers/python_cpp_bindings/pybind11
 	url = https://github.com/pybind/pybind11.git
+[submodule "rosbindings/image_common"]
+	path = rosbindings/image_common
+	url = https://github.com/ros-perception/image_common.git
