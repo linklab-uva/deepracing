@@ -20,12 +20,31 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(image_tools REQUIRED)
 find_package(laser_geometry REQUIRED)
-#find_package(f1_datalogger REQUIRED)
+find_package(f1_datalogger_msgs REQUIRED)
+find_package(f1_datalogger_provider REQUIRED)
+find_package(f1_datalogger REQUIRED)
+set(BOOST_REQUIRED_COMPONENTS
+date_time
+filesystem
+program_options
+regex
+system
+thread
+)
+find_package( Boost 1.7 REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS} )
+find_package(Protobuf REQUIRED)
+find_package(gRPC CONFIG REQUIRED)
+find_package(OpenCV REQUIRED)
+
 
 add_executable(ros_rebroadcaster src/ros_rebroadcaster.cpp)
-#add_dependencies(ros_rebroadcaster f1_datalogger)
 ament_target_dependencies(ros_rebroadcaster f1_datalogger)
+ament_target_dependencies(ros_rebroadcaster f1_datalogger_msgs)
 ament_target_dependencies(ros_rebroadcaster rclcpp)
+target_link_libraries(ros_rebroadcaster
+ f1_datalogger::f1_datalogger_udp_utils
+ f1_datalogger::f1_datalogger_image_utils
+ )
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
