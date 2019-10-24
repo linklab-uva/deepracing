@@ -6,6 +6,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <sstream>
+#include <sensor_msgs/msg/image.hpp>
 #include <Eigen/Geometry>
 #include "f1_datalogger/udp_logging/utils/eigen_utils.h"
 #include "f1_datalogger/image_logging/utils/opencv_utils.h"
@@ -86,16 +87,22 @@ public:
   }
   void handleData(const deepf1::TimestampedImageData& data) override
   {
-    
+    const cv::Mat& imin = data.image;
+    cv::Mat rgbimage(imin.rows, imin.cols, CV_8UC3);
+    imin.convertTo(rgbimage, rgbimage.type());
+    sensor_msgs::msg::Image rosimage = f1_datalogger_ros::F1MsgUtils::toImageMsg(rgbimage);
+    this->publisher_->publish(rosimage);
   }
   void init(const deepf1::TimePoint& begin, const cv::Size& window_size) override
   {
+    this->publisher_ = node_->create_publisher<sensor_msgs::msg::Image>("f1_screencaps", 10);
     ready = true;
   }
   static constexpr double captureFreq = 35.0;
 private:
   bool ready;
   std::shared_ptr<rclcpp::Node> node_;
+  std::shared_ptr<rclcpp::Publisher <sensor_msgs::msg::Image> > publisher_;
   
 };
 class NodeWrapper_
@@ -105,6 +112,7 @@ class NodeWrapper_
     NodeWrapper_()
     {
       datagrab_handler.reset(new ROSRebroadcaster_2018DataGrabHandler(node));
+      image_handler.reset(new ROSRebroadcaster_FrameGrabHandler(node));
     }
     std::shared_ptr<rclcpp::Node> node = rclcpp::Node::make_shared("f1_data_publisher");
     std::shared_ptr<ROSRebroadcaster_2018DataGrabHandler> datagrab_handler;
@@ -115,8 +123,6 @@ int main(int argc, char *argv[]) {
   NodeWrapper_ nw;
   deepf1::F1DataLogger dl("F1");  
   dl.start(ROSRebroadcaster_FrameGrabHandler::captureFreq, nw.datagrab_handler, nw.image_handler);
-  auto node = rclcpp::Node::make_shared("ObiWan");
-
   RCLCPP_INFO(nw.node->get_logger(),
               "Help me Obi-Wan Kenobi, you're my only hope");
 

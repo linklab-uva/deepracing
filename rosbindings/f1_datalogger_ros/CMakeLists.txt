@@ -20,6 +20,8 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(image_tools REQUIRED)
 find_package(laser_geometry REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(f1_datalogger_msgs REQUIRED)
 find_package(f1_datalogger_provider REQUIRED)
 find_package(f1_datalogger REQUIRED)
@@ -43,15 +45,18 @@ find_package(Armadillo CONFIG REQUIRED)
 
 include_directories(include)
 add_library(f1_msg_utils src/utils/f1_msg_utils.cpp)
-ament_target_dependencies(f1_msg_utils f1_datalogger f1_datalogger_msgs rclcpp)
+ament_target_dependencies(f1_msg_utils f1_datalogger sensor_msgs std_msgs f1_datalogger_msgs rclcpp)
 target_link_libraries(f1_msg_utils
  f1_datalogger::f1_datalogger_udp_utils
  Eigen3::Eigen
+ Boost::system
+ Boost::regex
 )
 target_include_directories(f1_msg_utils PRIVATE ${ARMADILLO_INCLUDE_DIRS})
 
 add_executable(ros_rebroadcaster src/ros_rebroadcaster.cpp)
 ament_target_dependencies(ros_rebroadcaster f1_datalogger)
+ament_target_dependencies(ros_rebroadcaster sensor_msgs)
 ament_target_dependencies(ros_rebroadcaster f1_datalogger_msgs)
 ament_target_dependencies(ros_rebroadcaster rclcpp)
 target_link_libraries(ros_rebroadcaster

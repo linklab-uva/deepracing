@@ -1,5 +1,167 @@
+/*********************************************************************
+* Software License Agreement (BSD License)
+*
+*  Copyright (c) 2011, Willow Garage, Inc.
+*  Copyright (c) 2015, Tal Regev.
+*  Copyright (c) 2018 Intel Corporation.
+*  All rights reserved.
+*
+*  Redistribution and use in source and binary forms, with or without
+*  modification, are permitted provided that the following conditions
+*  are met:
+*
+*   * Redistributions of source code must retain the above copyright
+*     notice, this list of conditions and the following disclaimer.
+*   * Redistributions in binary form must reproduce the above
+*     copyright notice, this list of conditions and the following
+*     disclaimer in the documentation and/or other materials provided
+*     with the distribution.
+*   * Neither the name of the Willow Garage nor the names of its
+*     contributors may be used to endorse or promote products derived
+*     from this software without specific prior written permission.
+*
+*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+*  POSSIBILITY OF SUCH DAMAGE.
+*********************************************************************/
 #include "f1_datalogger_ros/utils/f1_msg_utils.h"
 #include <Eigen/Geometry>
+#include <opencv2/core.hpp>
+#include <sensor_msgs/image_encodings.hpp>
+#include <map>
+#include <memory>
+#include <regex>
+#include <string>
+#include <utility>
+#include <vector>
+#include <exception>
+#define BOOST_ENDIAN_DEPRECATED_NAMES
+#include <boost/endian/endian.hpp>
+namespace enc = sensor_msgs::image_encodings;
+int f1_datalogger_ros::F1MsgUtils::getCvType(const std::string & encoding)
+{
+  // Check for the most common encodings first
+  if (encoding == enc::BGR8) {return CV_8UC3;}
+  if (encoding == enc::MONO8) {return CV_8UC1;}
+  if (encoding == enc::RGB8) {return CV_8UC3;}
+  if (encoding == enc::MONO16) {return CV_16UC1;}
+  if (encoding == enc::BGR16) {return CV_16UC3;}
+  if (encoding == enc::RGB16) {return CV_16UC3;}
+  if (encoding == enc::BGRA8) {return CV_8UC4;}
+  if (encoding == enc::RGBA8) {return CV_8UC4;}
+  if (encoding == enc::BGRA16) {return CV_16UC4;}
+  if (encoding == enc::RGBA16) {return CV_16UC4;}
+
+  // For bayer, return one-channel
+  if (encoding == enc::BAYER_RGGB8) {return CV_8UC1;}
+  if (encoding == enc::BAYER_BGGR8) {return CV_8UC1;}
+  if (encoding == enc::BAYER_GBRG8) {return CV_8UC1;}
+  if (encoding == enc::BAYER_GRBG8) {return CV_8UC1;}
+  if (encoding == enc::BAYER_RGGB16) {return CV_16UC1;}
+  if (encoding == enc::BAYER_BGGR16) {return CV_16UC1;}
+  if (encoding == enc::BAYER_GBRG16) {return CV_16UC1;}
+  if (encoding == enc::BAYER_GRBG16) {return CV_16UC1;}
+
+  // Miscellaneous
+  if (encoding == enc::YUV422) {return CV_8UC2;}
+
+  // Check all the generic content encodings
+  std::cmatch m;
+
+  if (std::regex_match(encoding.c_str(), m,
+    std::regex("(8U|8S|16U|16S|32S|32F|64F)C([0-9]+)")))
+  {
+    return CV_MAKETYPE(depthStrToInt(m[1].str()), atoi(m[2].str().c_str()));
+  }
+
+  if (std::regex_match(encoding.c_str(), m,
+    std::regex("(8U|8S|16U|16S|32S|32F|64F)")))
+  {
+    return CV_MAKETYPE(depthStrToInt(m[1].str()), 1);
+  }
+
+  throw std::runtime_error("Unrecognized image encoding [" + encoding + "]");
+}
+int f1_datalogger_ros::F1MsgUtils::depthStrToInt(const std::string& depth)
+{
+  if (depth == "8U") {
+    return 0;
+  } else if (depth == "8S") {
+    return 1;
+  } else if (depth == "16U") {
+    return 2;
+  } else if (depth == "16S") {
+    return 3;
+  } else if (depth == "32S") {
+    return 4;
+  } else if (depth == "32F") {
+    return 5;
+  }
+  return 6;
+}
+enum Encoding { INVALID = -1, GRAY = 0, RGB, BGR, RGBA, BGRA, YUV422, BAYER_RGGB, BAYER_BGGR, BAYER_GBRG, BAYER_GRBG};
+Encoding getEncoding(const std::string & encoding)
+{
+  if ((encoding == enc::MONO8) || (encoding == enc::MONO16)) {return Encoding::GRAY;}
+  if ((encoding == enc::BGR8) || (encoding == enc::BGR16)) {return Encoding::BGR;}
+  if ((encoding == enc::RGB8) || (encoding == enc::RGB16)) {return Encoding::RGB;}
+  if ((encoding == enc::BGRA8) || (encoding == enc::BGRA16)) {return Encoding::BGRA;}
+  if ((encoding == enc::RGBA8) || (encoding == enc::RGBA16)) {return Encoding::RGBA;}
+  if (encoding == enc::YUV422) {return Encoding::YUV422;}
+
+  if ((encoding == enc::BAYER_RGGB8) || (encoding == enc::BAYER_RGGB16)) {return Encoding::BAYER_RGGB;}
+  if ((encoding == enc::BAYER_BGGR8) || (encoding == enc::BAYER_BGGR16)) {return Encoding::BAYER_BGGR;}
+  if ((encoding == enc::BAYER_GBRG8) || (encoding == enc::BAYER_GBRG16)) {return Encoding::BAYER_GBRG;}
+  if ((encoding == enc::BAYER_GRBG8) || (encoding == enc::BAYER_GRBG16)) {return Encoding::BAYER_GRBG;}
+
+  // We don't support conversions to/from other types
+  return Encoding::INVALID;
+}
+sensor_msgs::msg::Image f1_datalogger_ros::F1MsgUtils::toImageMsg(const cv::Mat & image, std_msgs::msg::Header header)
+{
+  sensor_msgs::msg::Image ros_image;
+  ros_image.header = header;
+  ros_image.height = image.rows;
+  ros_image.width = image.cols;
+  
+  if(image.type()==CV_8UC3)
+  {
+    ros_image.encoding = "rgb8";
+  }
+  else
+  {
+    ros_image.encoding = "rgba8";
+  }
+  
+  ros_image.is_bigendian = (boost::endian::order::native == boost::endian::order::big);
+  ros_image.step = image.cols * image.elemSize();
+  size_t size = ros_image.step * image.rows;
+  ros_image.data.resize(size);
+
+  if (image.isContinuous()) {
+    memcpy(reinterpret_cast<char *>(&ros_image.data[0]), image.data, size);
+  } else {
+    // Copy by row by row
+    uchar * ros_data_ptr = reinterpret_cast<uchar *>(&ros_image.data[0]);
+    uchar * cv_data_ptr = image.data;
+    for (int i = 0; i < image.rows; ++i) {
+      memcpy(ros_data_ptr, cv_data_ptr, ros_image.step);
+      ros_data_ptr += ros_image.step;
+      cv_data_ptr += image.step;
+    }
+  }
+
+  return ros_image;
+}
 void f1_datalogger_ros::F1MsgUtils::doNothing()
 {
     //I wasn't kidding, this does nothing.
