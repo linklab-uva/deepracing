@@ -90,6 +90,7 @@ public:
     const cv::Mat& imin = data.image;
     cv::Mat rgbimage(imin.rows, imin.cols, CV_8UC3);
     imin.convertTo(rgbimage, rgbimage.type());
+    cv::resize(rgbimage,rgbimage,cv::Size(),0.5,0.5,cv::INTER_AREA);
     sensor_msgs::msg::Image rosimage = f1_datalogger_ros::F1MsgUtils::toImageMsg(rgbimage);
     this->publisher_->publish(rosimage);
   }
@@ -121,7 +122,8 @@ class NodeWrapper_
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
   NodeWrapper_ nw;
-  deepf1::F1DataLogger dl("F1");  
+  std::string search(argv[1]);
+  deepf1::F1DataLogger dl(search);  
   dl.start(ROSRebroadcaster_FrameGrabHandler::captureFreq, nw.datagrab_handler, nw.image_handler);
   RCLCPP_INFO(nw.node->get_logger(),
               "Help me Obi-Wan Kenobi, you're my only hope");
