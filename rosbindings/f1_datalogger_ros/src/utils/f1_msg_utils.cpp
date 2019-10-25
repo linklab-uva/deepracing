@@ -35,6 +35,7 @@
 *********************************************************************/
 #include "f1_datalogger_ros/utils/f1_msg_utils.h"
 #include <Eigen/Geometry>
+#include <rclcpp/rclcpp.hpp>
 #include <opencv2/core.hpp>
 #include <sensor_msgs/image_encodings.hpp>
 #include <map>
@@ -264,32 +265,43 @@ f1_datalogger_msgs::msg::PacketMotionData f1_datalogger_ros::F1MsgUtils::toROS(c
 }
 f1_datalogger_msgs::msg::CarMotionData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::CarMotionData& motion_data)
 {
-    
     f1_datalogger_msgs::msg::CarMotionData rtn;
     Eigen::Vector3d forwardVec( (double)motion_data.m_worldForwardDirX, (double)motion_data.m_worldForwardDirY, (double)motion_data.m_worldForwardDirZ );
     forwardVec.normalize();
-    rtn.world_forward_dir.x = forwardVec.x();
-    rtn.world_forward_dir.y = forwardVec.y();
-    rtn.world_forward_dir.z = forwardVec.z();
+    rtn.world_forward_dir.header.frame_id="world";
+ //   rtn.world_forward_dir.header.stamp = rostime;
+    rtn.world_forward_dir.vector.x = forwardVec.x();
+    rtn.world_forward_dir.vector.y = forwardVec.y();
+    rtn.world_forward_dir.vector.z = forwardVec.z();
     Eigen::Vector3d rightVec( (double)motion_data.m_worldRightDirX, (double)motion_data.m_worldRightDirY, (double)motion_data.m_worldRightDirZ );
     rightVec.normalize();
     Eigen::Vector3d leftVec( -rightVec );
     Eigen::Vector3d upVec = forwardVec.cross(leftVec);
     upVec.normalize();
-    rtn.world_up_dir.x = upVec.x();
-    rtn.world_up_dir.y = upVec.y();
-    rtn.world_up_dir.z = upVec.z();
-    rtn.world_right_dir.x = rightVec.x();
-    rtn.world_right_dir.y = rightVec.y();
-    rtn.world_right_dir.z = rightVec.z();
+    rtn.world_up_dir.header.frame_id="world";
+  //  rtn.world_up_dir.header.stamp = rostime;
+    rtn.world_up_dir.vector.x = upVec.x();
+    rtn.world_up_dir.vector.y = upVec.y();
+    rtn.world_up_dir.vector.z = upVec.z();
+    rtn.world_right_dir.header.frame_id="world";
+    //rtn.world_right_dir.header.stamp = rostime;
+    rtn.world_right_dir.vector.x = rightVec.x();
+    rtn.world_right_dir.vector.y = rightVec.y();
+    rtn.world_right_dir.vector.z = rightVec.z();
 
-    rtn.world_position.x = motion_data.m_worldPositionX;
-    rtn.world_position.y = motion_data.m_worldPositionY;
-    rtn.world_position.z = motion_data.m_worldPositionZ;
 
-    rtn.world_velocity.x = motion_data.m_worldVelocityX;
-    rtn.world_velocity.y = motion_data.m_worldVelocityY;
-    rtn.world_velocity.z = motion_data.m_worldVelocityZ;
+    rtn.world_position.header.frame_id="world";
+ //   rtn.world_position.header.stamp = rostime;
+    rtn.world_position.point.x = motion_data.m_worldPositionX;
+    rtn.world_position.point.y = motion_data.m_worldPositionY;
+    rtn.world_position.point.z = motion_data.m_worldPositionZ;
+
+
+    rtn.world_velocity.header.frame_id="world";
+  //  rtn.world_velocity.header.stamp = rostime;
+    rtn.world_velocity.vector.x = motion_data.m_worldVelocityX;
+    rtn.world_velocity.vector.y = motion_data.m_worldVelocityY;
+    rtn.world_velocity.vector.z = motion_data.m_worldVelocityZ;
 
     rtn.g_force_lateral = motion_data.m_gForceLateral;
     rtn.g_force_longitudinal = motion_data.m_gForceLongitudinal;

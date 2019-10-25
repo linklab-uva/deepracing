@@ -46,8 +46,17 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketMotionData& data) override
   {
+    rclcpp::Time now = this->node_->now();
     f1_datalogger_msgs::msg::TimestampedPacketMotionData rosdata;
     rosdata.udp_packet = f1_datalogger_ros::F1MsgUtils::toROS(data.data);
+    for (f1_datalogger_msgs::msg::CarMotionData & motion_data : rosdata.udp_packet.car_motion_data)
+    {
+      motion_data.world_forward_dir.header.stamp = now;
+      motion_data.world_position.header.stamp = now;
+      motion_data.world_right_dir.header.stamp = now;
+      motion_data.world_up_dir.header.stamp = now;
+      motion_data.world_velocity.header.stamp = now;
+    }
     rosdata.timestamp = std::chrono::duration<double>(data.timestamp - begin_).count();
     motion_publisher_->publish(rosdata);
   }

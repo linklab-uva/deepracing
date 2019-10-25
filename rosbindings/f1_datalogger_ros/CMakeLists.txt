@@ -16,8 +16,10 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 # find dependencies
+
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rosidl_default_runtime REQUIRED)
 find_package(image_tools REQUIRED)
 find_package(laser_geometry REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -45,7 +47,7 @@ find_package(Armadillo CONFIG REQUIRED)
 
 include_directories(include)
 add_library(f1_msg_utils src/utils/f1_msg_utils.cpp)
-ament_target_dependencies(f1_msg_utils f1_datalogger sensor_msgs std_msgs f1_datalogger_msgs rclcpp)
+ament_target_dependencies(f1_msg_utils f1_datalogger sensor_msgs std_msgs f1_datalogger_msgs rclcpp rosidl_default_runtime)
 target_link_libraries(f1_msg_utils
  f1_datalogger::f1_datalogger_udp_utils
  Eigen3::Eigen
