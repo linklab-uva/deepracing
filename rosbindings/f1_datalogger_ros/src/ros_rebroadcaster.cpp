@@ -120,29 +120,37 @@ private:
   deepf1::TimePoint begin_;
   
 };
-class NodeWrapper_
+class NodeWrapper_ 
 {
 
   public:
-    NodeWrapper_()
-    {
+    NodeWrapper_( const rclcpp::NodeOptions & options = (
+      rclcpp::NodeOptions()
+      .allow_undeclared_parameters(true)
+      .automatically_declare_parameters_from_overrides(true)
+      ))
+     {
+     this->node = rclcpp::Node::make_shared("f1_data_publisher","",options);
       datagrab_handler.reset(new ROSRebroadcaster_2018DataGrabHandler(node));
       image_handler.reset(new ROSRebroadcaster_FrameGrabHandler(node));
-    }
-    std::shared_ptr<rclcpp::Node> node = rclcpp::Node::make_shared("f1_data_publisher");
+    }  
+    std::shared_ptr<rclcpp::Node> node;
     std::shared_ptr<ROSRebroadcaster_2018DataGrabHandler> datagrab_handler;
     std::shared_ptr<ROSRebroadcaster_FrameGrabHandler> image_handler;
 };
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
   NodeWrapper_ nw;
-  std::string search(argv[1]);
-  deepf1::F1DataLogger dl(search);  
+  std::shared_ptr<rclcpp::Node> node = nw.node;
+  std::string search_string("F1");
+  node->get_parameter("search_string",search_string);
+  deepf1::F1DataLogger dl(search_string);  
   dl.start(ROSRebroadcaster_FrameGrabHandler::captureFreq, nw.datagrab_handler, nw.image_handler);
-  RCLCPP_INFO(nw.node->get_logger(),
-              "Help me Obi-Wan Kenobi, you're my only hope");
+  
+  RCLCPP_INFO(node->get_logger(),
+              "Listening for data from the game");
 
-  rclcpp::spin(nw.node);
+  rclcpp::spin(node);
  // rclcpp::shutdown();
   return 0;
 }
