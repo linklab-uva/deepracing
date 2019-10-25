@@ -166,6 +166,34 @@ void f1_datalogger_ros::F1MsgUtils::doNothing()
 {
     //I wasn't kidding, this does nothing.
 }
+f1_datalogger_msgs::msg::MarshalZone f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::MarshalZone& marshal_zone)
+{
+  f1_datalogger_msgs::msg::MarshalZone rtn;
+  rtn.zone_flag = marshal_zone.m_zoneFlag;
+  rtn.zone_start = marshal_zone.m_zoneStart;
+  return rtn;
+}
+f1_datalogger_msgs::msg::PacketSessionData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::PacketSessionData& session_data)
+{
+  f1_datalogger_msgs::msg::PacketSessionData rtn;
+  rtn.header=toROS(session_data.m_header);
+  rtn.is_spectating = session_data.m_isSpectating;
+  for (unsigned int i = 0; i < 21; i++)
+  {
+    rtn.marshal_zones[i] = toROS(session_data.m_marshalZones[i]);
+  }
+  rtn.network_game = session_data.m_networkGame;
+  rtn.num_marshal_zones = session_data.m_numMarshalZones;
+  rtn.pit_speed_limit = session_data.m_pitSpeedLimit;
+  rtn.safety_car_status = session_data.m_safetyCarStatus;
+  rtn.session_duration = session_data.m_sessionDuration;
+  rtn.session_type = session_data.m_sessionType;
+  rtn.session_time_left = session_data.m_sessionTimeLeft;
+  rtn.game_paused  = session_data.m_gamePaused;
+  rtn.era = session_data.m_era;
+  rtn.air_temperature = session_data.m_airTemperature;
+  return rtn;
+}
 f1_datalogger_msgs::msg::CarTelemetryData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::CarTelemetryData& telemetry_data)
 {
   f1_datalogger_msgs::msg::CarTelemetryData  rtn;
