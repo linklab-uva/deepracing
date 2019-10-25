@@ -36,6 +36,9 @@ find_package(rosidl_default_generators REQUIRED)
    "msg/TimestampedPacketCarTelemetryData.msg"
    "msg/PacketCarTelemetryData.msg"
    "msg/CarTelemetryData.msg"
+   "msg/MarshalZone.msg"
+   "msg/PacketSessionData.msg"
+   "msg/TimestampedPacketSessionData.msg"
  )
 
  rosidl_generate_interfaces(${PROJECT_NAME}
