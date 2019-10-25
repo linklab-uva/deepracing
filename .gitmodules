@@ -16,3 +16,6 @@
 [submodule "rosbindings/rqt_image_view"]
 	path = rosbindings/rqt_image_view
 	url = https://github.com/ros-visualization/rqt_image_view.git
+[submodule "rosbindings/rqt_bag"]
+	path = rosbindings/rqt_bag
+	url = https://github.com/ros-visualization/rqt_bag.git

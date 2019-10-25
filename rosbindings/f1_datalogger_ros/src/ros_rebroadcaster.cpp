@@ -152,9 +152,11 @@ int main(int argc, char *argv[]) {
   NodeWrapper_ nw;
   std::shared_ptr<rclcpp::Node> node = nw.node;
   std::string search_string("F1");
+  double capture_frequency = ROSRebroadcaster_FrameGrabHandler::captureFreq;
   node->get_parameter("search_string",search_string);
+  node->get_parameter("capture_frequency",capture_frequency);
   deepf1::F1DataLogger dl(search_string);  
-  dl.start(ROSRebroadcaster_FrameGrabHandler::captureFreq, nw.datagrab_handler, nw.image_handler);
+  dl.start(capture_frequency, nw.datagrab_handler, nw.image_handler);
   
   RCLCPP_INFO(node->get_logger(),
               "Listening for data from the game");
