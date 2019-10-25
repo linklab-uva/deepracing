@@ -103,4 +103,13 @@ install(DIRECTORY
   launch/
   DESTINATION share/${PROJECT_NAME}/
 )
+get_filename_component(f1_cmakefile_ "${f1_datalogger_DIR}/f1_datalogger-config.cmake" REALPATH)
+get_filename_component(f1_cmake_directory_ "${f1_cmakefile_}" DIRECTORY)
+message(STATUS "f1_cmake_directory_: ${f1_cmake_directory_}")
+set(f1_python_directory_ "${f1_cmake_directory_}/../Lib/python")
+message(STATUS "f1_python_directory_: ${f1_python_directory_}")
+get_filename_component(f1_python_directory_ "${f1_python_directory_}" REALPATH)
+message(STATUS "f1_python_directory_ after resolving symlinks: ${f1_python_directory_}")
+configure_file(addpythonpath.bat.in addpythonpath.bat @ONLY)
+ament_environment_hooks(${CMAKE_BINARY_DIR}/addpythonpath.bat)
 ament_package()
