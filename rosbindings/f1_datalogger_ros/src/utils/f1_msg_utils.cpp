@@ -190,6 +190,10 @@ f1_datalogger_msgs::msg::PacketCarTelemetryData f1_datalogger_ros::F1MsgUtils::t
   f1_datalogger_msgs::msg::PacketCarTelemetryData rtn;
   rtn.button_status = telemetry_data.m_buttonStatus;
   rtn.header = toROS(telemetry_data.m_header);
+  for(unsigned int i = 0; i < 20; i++)
+  {
+    rtn.car_telemetry_data[i] = toROS(telemetry_data.m_carTelemetryData[i]);
+  }
   return rtn;
 }
 f1_datalogger_msgs::msg::PacketHeader f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::PacketHeader& header_data)

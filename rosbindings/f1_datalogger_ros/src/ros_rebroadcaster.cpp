@@ -12,6 +12,7 @@
 #include "f1_datalogger/image_logging/utils/opencv_utils.h"
 #include "f1_datalogger_ros/utils/f1_msg_utils.h"
 #include "f1_datalogger_msgs/msg/timestamped_packet_motion_data.hpp"
+#include "f1_datalogger_msgs/msg/timestamped_packet_car_telemetry_data.hpp"
 class ROSRebroadcaster_2018DataGrabHandler : public deepf1::IF12018DataGrabHandler
 {
 public:
@@ -31,6 +32,10 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData& data) override
   {
+    f1_datalogger_msgs::msg::TimestampedPacketCarTelemetryData rosdata;
+    rosdata.udp_packet = f1_datalogger_ros::F1MsgUtils::toROS(data.data);
+    rosdata.timestamp = std::chrono::duration<double>(data.timestamp - begin_).count();
+    telemetry_publisher_->publish(rosdata);
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketEventData& data) override
   {
@@ -40,11 +45,10 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketMotionData& data) override
   {
-    
     f1_datalogger_msgs::msg::TimestampedPacketMotionData rosdata;
     rosdata.udp_packet = f1_datalogger_ros::F1MsgUtils::toROS(data.data);
-    rosdata.timestamp = std::chrono::duration<double, std::ratio<1,1> >(data.timestamp - begin).count();
-    publisher_->publish(rosdata);
+    rosdata.timestamp = std::chrono::duration<double>(data.timestamp - begin_).count();
+    motion_publisher_->publish(rosdata);
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketParticipantsData& data) override
   {
@@ -56,20 +60,22 @@ public:
   void init(const std::string& host, unsigned int port, const deepf1::TimePoint& begin) override
   {
 
-    this->publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketMotionData>("motion_data", 10);
+    this->motion_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketMotionData>("motion_data", 10);
+    this->telemetry_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketCarTelemetryData>("telemetry_data", 10);
     ready_ = true;
-    this->begin = begin;
+    this->begin_ = begin;
     this->host_ = host;
     this->port_ = port;
   }
 private:
   bool ready_;
-  std::chrono::high_resolution_clock::time_point begin;
+  std::chrono::high_resolution_clock::time_point begin_;
   std::string host_;
   unsigned int port_;
 public:
   std::shared_ptr<rclcpp::Node> node_;
-  std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketMotionData> > publisher_;
+  std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketMotionData> > motion_publisher_;
+  std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketCarTelemetryData> > telemetry_publisher_;
 };
 class ROSRebroadcaster_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
 {
@@ -97,6 +103,7 @@ public:
   void init(const deepf1::TimePoint& begin, const cv::Size& window_size) override
   {
     this->publisher_ = node_->create_publisher<sensor_msgs::msg::Image>("f1_screencaps", 10);
+    this->begin_ = begin;
     ready = true;
   }
   static constexpr double captureFreq = 35.0;
@@ -104,6 +111,7 @@ private:
   bool ready;
   std::shared_ptr<rclcpp::Node> node_;
   std::shared_ptr<rclcpp::Publisher <sensor_msgs::msg::Image> > publisher_;
+  deepf1::TimePoint begin_;
   
 };
 class NodeWrapper_
