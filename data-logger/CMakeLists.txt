@@ -221,6 +221,9 @@ if(BUILD_DATALOGGER)
     install(FILES ${CMAKE_BINARY_DIR}/${PROJECT_NAME}-config.cmake DESTINATION cmake/)
     unset(install_targets)
 endif()
+install(DIRECTORY python/deepracing
+    DESTINATION Lib/python
+)
 
 
 if(${_gotqt} AND GUI_TOOLS)
