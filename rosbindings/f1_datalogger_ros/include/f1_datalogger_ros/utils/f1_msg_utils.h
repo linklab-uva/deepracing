@@ -3,7 +3,7 @@
 #include "f1_datalogger/car_data/timestamped_car_data.h"
 #include "f1_datalogger_msgs/msg/packet_header.hpp"
 #include "f1_datalogger_msgs/msg/packet_motion_data.hpp"
-#include "f1_datalogger_msgs/msg/car_motion_data.hpp"
+#include "f1_datalogger_msgs/msg/packet_car_telemetry_data.hpp"
 #include <sensor_msgs/msg/image.hpp>
 #include <std_msgs/msg/header.hpp>
 #include <opencv2/core.hpp>
@@ -14,6 +14,8 @@ namespace f1_datalogger_ros
     public:
         F1MsgUtils() = default;
         void doNothing();
+        static f1_datalogger_msgs::msg::CarTelemetryData toROS(const deepf1::twenty_eighteen::CarTelemetryData& telemetry_data);
+        static f1_datalogger_msgs::msg::PacketCarTelemetryData toROS(const deepf1::twenty_eighteen::PacketCarTelemetryData& telemetry_data);
         static f1_datalogger_msgs::msg::PacketHeader toROS(const deepf1::twenty_eighteen::PacketHeader& header_data);
         static f1_datalogger_msgs::msg::PacketMotionData toROS(const deepf1::twenty_eighteen::PacketMotionData& motion_data);
         static f1_datalogger_msgs::msg::CarMotionData toROS(const deepf1::twenty_eighteen::CarMotionData& motion_data);

@@ -166,6 +166,32 @@ void f1_datalogger_ros::F1MsgUtils::doNothing()
 {
     //I wasn't kidding, this does nothing.
 }
+f1_datalogger_msgs::msg::CarTelemetryData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::CarTelemetryData& telemetry_data)
+{
+  f1_datalogger_msgs::msg::CarTelemetryData  rtn;
+  
+  rtn.brake = telemetry_data.m_brake;
+  rtn.clutch = telemetry_data.m_clutch;
+  rtn.drs = telemetry_data.m_drs;
+  rtn.engine_rpm = telemetry_data.m_engineRPM;
+  rtn.engine_temperature = telemetry_data.m_engineTemperature;
+  rtn.gear = telemetry_data.m_gear;
+  rtn.rev_lights_percent = telemetry_data.m_revLightsPercent;
+  rtn.speed = telemetry_data.m_speed;
+  rtn.throttle = telemetry_data.m_throttle;
+  std::copy(telemetry_data.m_brakesTemperature, telemetry_data.m_brakesTemperature+4, rtn.brakes_temperature.begin());
+  std::copy(telemetry_data.m_tyresInnerTemperature, telemetry_data.m_tyresInnerTemperature+4, rtn.tyres_inner_temperature.begin());
+  std::copy(telemetry_data.m_tyresPressure, telemetry_data.m_tyresPressure+4, rtn.tyres_pressure.begin());
+  std::copy(telemetry_data.m_tyresSurfaceTemperature, telemetry_data.m_tyresSurfaceTemperature+4, rtn.tyres_surface_temperature.begin());
+  return rtn;
+}
+f1_datalogger_msgs::msg::PacketCarTelemetryData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::PacketCarTelemetryData& telemetry_data)
+{
+  f1_datalogger_msgs::msg::PacketCarTelemetryData rtn;
+  rtn.button_status = telemetry_data.m_buttonStatus;
+  rtn.header = toROS(telemetry_data.m_header);
+  return rtn;
+}
 f1_datalogger_msgs::msg::PacketHeader f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::PacketHeader& header_data)
 {
     f1_datalogger_msgs::msg::PacketHeader rtn;
