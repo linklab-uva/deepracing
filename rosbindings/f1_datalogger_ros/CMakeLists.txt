@@ -38,7 +38,6 @@ thread
 find_package( Boost 1.7 REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS} )
 find_package(Protobuf REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(gRPC CONFIG REQUIRED)
 find_package(OpenCV REQUIRED)
 if(WIN32)
   find_package(vJoy_plusplus REQUIRED)
