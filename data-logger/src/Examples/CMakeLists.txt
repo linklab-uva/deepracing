@@ -4,20 +4,6 @@ set(${PROJECT_NAME}_test_vjoy_calibration_srcfile test_vjoy_calibration.cpp)
 set(${PROJECT_NAME}_replay_dataset_srcfile replay_dataset.cpp)
 set(${PROJECT_NAME}_go_in_circle_srcfile go_in_circle.cpp)
 
-add_executable(${PROJECT_NAME}_proto_rebroadcaster_grpc
-proto_rebroadcaster_grpc.cpp
-)
-target_link_libraries(${PROJECT_NAME}_proto_rebroadcaster_grpc
-    ${PROJECT_NAME}
-    ${PROJECT_NAME}_image_logging
-	${PROJECT_NAME}_image_logging_common
-	${PROJECT_NAME}_image_utils
-    ${PROJECT_NAME}_udp_logging
-    ${PROJECT_NAME}_udp_logging_common
-    ${Boost_LIBRARIES}
-	${screen_capture_lite_LIBRARIES}
-	${screen_capture_lite_PLATFORM_LIBS}
-)
 
 
 add_executable(${PROJECT_NAME}_proto_rebroadcaster
