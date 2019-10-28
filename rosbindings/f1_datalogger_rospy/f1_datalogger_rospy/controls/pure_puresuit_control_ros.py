@@ -77,12 +77,12 @@ class PurePursuitControllerROS(Node):
         motion_data_vec : list = packet.car_motion_data
         if len(motion_data_vec)==0:
             return
-        self.current_motion_data = motion_data_vec[0]
-        if (self.current_motion_data is None):
-            return
+        self.current_motion_data : CarMotionData = motion_data_vec[0]
         velrosstamped : Vector3Stamped = self.current_motion_data.world_velocity
+        if (velrosstamped.header.frame_id == ""):
+            return
         velros : Vector3 = velrosstamped.vector
-        vel = np.array((velros.x, velros.y, velros.z), dtype=np.float64)
+        vel = np.array( (velros.x, velros.y, velros.z), dtype=np.float64)
         speed = la.norm(vel)
         self.current_speed = speed
         err = self.velsetpoint - speed
