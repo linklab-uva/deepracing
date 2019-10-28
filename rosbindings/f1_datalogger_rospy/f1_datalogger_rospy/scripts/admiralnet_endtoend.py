@@ -26,6 +26,7 @@ def main(args=None):
 
     node = PurePursuitControllerROS()
     node.start()
+    node.velsetpoint=70
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

@@ -33,7 +33,7 @@ from geometry_msgs.msg import Vector3Stamped, Vector3
 import rclpy
 from rclpy.node import Node
 class PurePursuitControllerROS(Node):
-    def __init__(self, address="127.0.0.1", port=50052, lookahead_gain = 0.35, L = 3.617,\
+    def __init__(self, lookahead_gain = 0.35, L = 3.617,\
         pgain=0.5, igain=0.0125, dgain=0.0125, tau = 0.025):
         super(PurePursuitControllerROS,self).__init__('pure_pursuit_control')
         self.packet_queue = queue.Queue()
@@ -48,7 +48,6 @@ class PurePursuitControllerROS(Node):
         self.controller = py_f1_interface.F1Interface(1)
         self.controller.setControl(0.0,0.0,0.0)
         self.L = L
-        self.rosnode = Node("pure_pursuit_control")
         self.pgain = pgain
         self.igain = igain
         self.dgain = dgain
@@ -67,7 +66,7 @@ class PurePursuitControllerROS(Node):
         self.running = False
         time.sleep(0.5)
     def velocityControl(self, msg : TimestampedPacketMotionData):
-        print("got some motion data")
+        #print("got some motion data")
         ierr_max = 50.0
         prev_err = 0.0
         dt=0.01
@@ -75,11 +74,11 @@ class PurePursuitControllerROS(Node):
         igain = self.igain
         dgain = self.dgain
         packet : PacketMotionData = msg.udp_packet
-        motion_data_vec : CarMotionData[] = packet.car_motion_data
+        motion_data_vec : list = packet.car_motion_data
         if len(motion_data_vec)==0:
             return
         self.current_motion_data = motion_data_vec[0]
-        if (self.current_motion_data is None) or len(motion_data_vec)==0:
+        if (self.current_motion_data is None):
             return
         velrosstamped : Vector3Stamped = self.current_motion_data.world_velocity
         velros : Vector3 = velrosstamped.vector
@@ -92,11 +91,6 @@ class PurePursuitControllerROS(Node):
             return
         self.integral += err*dt
         deriv = (err-self.prev_err)/dt
-        # #print("ierr: %f" %(ierr))
-        # if integral>integral_max:
-        #     integral=integral_max
-        # elif integral<-integral_max:
-        #     integral=-integral_max
         out = pgain*err + igain*self.integral + dgain*deriv
         if out<-1.0:
             self.throttle_out = -1.0
@@ -125,14 +119,13 @@ class PurePursuitControllerROS(Node):
             lookaheadDirection = lookaheadVector/D
             alpha = np.arctan2(lookaheadDirection[0],lookaheadDirection[1])
             physical_angle = np.arctan((2 * self.L*np.sin(alpha)) / D)
-            delta = 0.0
             if (physical_angle > 0) :
                 delta = 3.79616039*physical_angle# + 0.01004506
             else:
                 delta = 3.34446413*physical_angle# + 0.01094534
-            #print(delta)
+            delta = 0.0
             if self.throttle_out>0.0:
                 self.controller.setControl(delta,self.throttle_out,0.0)
             else:
                 self.controller.setControl(delta,0.0,-self.throttle_out)
-
+            #print(delta)

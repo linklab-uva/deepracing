@@ -41,9 +41,10 @@ from rclpy.node import Node
 
 
 class AdmiralNetPurePursuitControllerROS(PPC):
-    def __init__(self, model_file, trackfile=None, forward_indices = 60,  address="127.0.0.1", port=50052, lookahead_gain = 0.5, L = 3.617, pgain=0.5, igain=0.0125, dgain=0.0125, plot=True, gpu=1):
-        super(AdmiralNetPurePursuitControllerROS, self).__init__(address=address, port=port, lookahead_gain = lookahead_gain, L = L ,\
-                                                    pgain=pgain, igain=igain, dgain=dgain, deltaT = 1.415)
+    def __init__(self, model_file, trackfile=None, forward_indices = 60,\
+         lookahead_gain = 0.4, L = 3.617, pgain=0.5, igain=0.0125, dgain=0.0125, plot=True, gpu=1, deltaT = 1.415):
+        super(AdmiralNetPurePursuitControllerROS, self).__init__(lookahead_gain = lookahead_gain, L = L ,\
+                                                    pgain=pgain, igain=igain, dgain=dgain)
         if trackfile is not None:
             t, x, xdot = deepracing.loadArmaFile(trackfile)
             self.x = np.vstack((x.copy().transpose(),np.ones(x.shape[0])))
