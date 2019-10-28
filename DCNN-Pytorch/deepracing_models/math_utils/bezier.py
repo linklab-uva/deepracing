@@ -24,9 +24,14 @@ def bezierM(t,n):
 def evalBezier(M,control_points):
     return torch.matmul(M,control_points)
     
-def bezierDerivative(control_points, t, order = 1 ):
+def bezierDerivative(control_points, t = None, M = None, order = 1 ):
+    if ((t is None) and (M is None)) or ((t is not None) and (M is not None)):
+        raise ValueError("One of t or M must be set, but not both")
     n = control_points.shape[1]-1
-    Mderiv = bezierM(t,n-order)
+    if t is not None:
+        Mderiv = bezierM(t,n-order)
+    else:
+        Mderiv = M
     pdiff =  control_points[:,1:] - control_points[:,:-1]
     for i in range(1,order):
         pdiff =  pdiff[:,1:] - pdiff[:,:-1]

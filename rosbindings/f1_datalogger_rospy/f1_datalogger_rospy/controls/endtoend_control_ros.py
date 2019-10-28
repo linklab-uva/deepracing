@@ -242,6 +242,7 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         if isinstance(self.net,  M.AdmiralNetCurvePredictor):
             self.s_torch = torch.linspace(0,1,60).unsqueeze(0).double().cuda(gpu)
             self.bezierM = mu.bezierM(self.s_torch,self.net.params_per_dimension-1).double().cuda(gpu)
+            self.bezierMderiv = mu.bezierM(self.s_torch,self.net.params_per_dimension-2).double().cuda(gpu)
         self.trajplot = None
         self.fig = None
         self.ax = None
@@ -288,7 +289,7 @@ class AdmiralNetPurePursuitControllerROS(PPC):
             evalpoints = torch.matmul(self.bezierM, bezier_control_points)
             x_samp = evalpoints[0].cpu().detach().numpy()
             x_samp[:,0]*=self.xscale_factor
-            _, evalvel = mu.bezierDerivative(bezier_control_points,self.s_torch)
+            _, evalvel = mu.bezierDerivative(bezier_control_points, M = self.bezierMderiv)
             v_samp = (0.925/self.deltaT)*(evalvel[0].cpu().detach().numpy())
         else:
             evalpoints =  self.net(inputtorch.unsqueeze(0).cuda(self.gpu))

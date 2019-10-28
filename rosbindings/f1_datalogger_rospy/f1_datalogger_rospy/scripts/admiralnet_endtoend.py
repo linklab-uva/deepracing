@@ -27,7 +27,6 @@ def main(args=None):
     rclpy.init(args=args)
     node = AdmiralNetPurePursuitControllerROS()
     node.start()
-    node.velsetpoint=70
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
