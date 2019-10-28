@@ -110,8 +110,8 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         imnp = imnp[32:]
         imnp = imnp[0:self.cropheight,0:self.cropwidth,:]
         imnp = deepracing.imutils.resizeImage(imnp,(66,200))
-        imnpfloat = imnp.astype(np.float64)/255.0
-        self.image_buffer.append(imnpfloat.transpose(2,0,1))
+        imnpfloat = ((imnp.astype(np.float64))/255.0).transpose(2,0,1)
+        self.image_buffer.append(imnpfloat)
     def getTrajectory(self):
         if self.current_motion_data.world_velocity.header.frame_id == "":
             return None, None, None
