@@ -37,6 +37,7 @@ import matplotlib.pyplot as plt
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Vector3Stamped, Vector3, PointStamped, Point, PoseStamped, Pose
 import rclpy
+from rclpy import Parameter
 from rclpy.node import Node
 import deepracing_models.nn_models.Models as M
 
@@ -45,18 +46,16 @@ class AdmiralNetPurePursuitControllerROS(PPC):
          lookahead_gain = 0.4, L = 3.617, pgain=0.5, igain=0.0125, dgain=0.0125, plot=True, gpu=1, deltaT = 1.415):
         super(AdmiralNetPurePursuitControllerROS, self).__init__(lookahead_gain = lookahead_gain, L = L ,\
                                                     pgain=pgain, igain=igain, dgain=dgain)
-        if trackfile is not None:
-            t, x, xdot = deepracing.loadArmaFile(trackfile)
-            self.x = np.vstack((x.copy().transpose(),np.ones(x.shape[0])))
-            self.xdot = xdot.copy().transpose()
-            self.t = t.copy()
         
-    
+        trackfile = self.get_parameter_or("trackfile", trackfile)
+        if (trackfile is not None) and ( not trackfile.type_==Parameter.Type.NOT_SET  ):
+            t, x, xdot = deepracing.loadArmaFile(trackfile)
+            self.xgt = np.vstack((x.copy().transpose(),np.ones(x.shape[0])))
+            self.xdotgt = xdot.copy().transpose()
+            self.tgt = t.copy()    
         model_file = self.get_parameter("model_file")
-        gpu = self.get_parameter("gpu")
-        self.deltaT = deltaT
-        self.gpu = gpu
-        self.forward_indices = forward_indices
+        if (model_file.type_==Parameter.Type.NOT_SET):
+            raise ValueError("The parameter \"model_file\" must be set for this rosnode")
         config_file = os.path.join(os.path.dirname(model_file),"config.yaml")
         with open(config_file,'r') as f:
             config = yaml.load(f, Loader = yaml.SafeLoader)
@@ -64,6 +63,20 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         context_length = config["context_length"]
         bezier_order = config.get("bezier_order",None)
         sequence_length = config.get("sequence_length",None)
+
+        gpu = self.get_parameter_or("gpu",gpu)
+        self.gpu = gpu
+        L = self.get_parameter_or("wheelbase",L)
+        self.L = L
+
+        self.pgain = self.get_parameter_or("pgain",pgain)
+        self.igain = self.get_parameter_or("igain",igain)
+        self.dgain = self.get_parameter_or("dgain",dgain)
+        self.lookahead_gain = self.get_parameter_or("lookahead_gain",lookahead_gain)
+        self.plot = self.get_parameter_or("plot",plot)
+        self.deltaT = self.get_parameter_or("deltaT",deltaT)
+        self.forward_indices = self.get_parameter_or("forward_indices",forward_indices)
+        
         if bezier_order is not None:
             self.net : NN.Module = M.AdmiralNetCurvePredictor(context_length= context_length, input_channels=input_channels, params_per_dimension=bezier_order+1) 
         else:
@@ -74,11 +87,9 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         self.net.cuda(gpu)
         self.net.eval()
         self.image_buffer = RB(self.net.context_length,dtype=(float,(3,66,200)))
-#        self.optflow_buffer = RB(self.net.context_length,dtype=(float,(2,66,200)))
         if isinstance(self.net,  M.AdmiralNetCurvePredictor):
             self.s_torch = torch.linspace(0,1,60).unsqueeze(0).double().cuda(gpu)
             self.bezierM = mu.bezierM(self.s_torch,self.net.params_per_dimension-1).double().cuda(gpu)
-        self.plot = plot
         self.trajplot = None
         self.fig = None
         self.ax = None
@@ -94,11 +105,12 @@ class AdmiralNetPurePursuitControllerROS(PPC):
             return
         channels = 3
         imnp = np.frombuffer(msg.data.tobytes(),dtype=np.uint8).reshape(rows,cols,channels)
-        self.image_buffer.append(imnp.transpose(2,0,1))
+        imnpfloat = imnp.astype(np.float64)/255.0
+        self.image_buffer.append(imnpfloat.transpose(2,0,1))
     def getTrajectory(self):
         if self.current_motion_data.world_velocity.header.frame_id == "":
             return None, None, None
-        imtorch = torch.from_numpy(np.array(self.image_buffer).copy())
+        imtorch = torch.from_numpy(np.array(self.image_buffer).copy().astype(np.float64))
         if ( not imtorch.shape[0] == self.net.context_length ):
             return None, None, None
         inputtorch = imtorch
