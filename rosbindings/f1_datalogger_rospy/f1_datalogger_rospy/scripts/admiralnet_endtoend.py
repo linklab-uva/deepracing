@@ -24,9 +24,7 @@ from f1_datalogger_rospy.controls.pure_puresuit_control_ros import PurePursuitCo
 from f1_datalogger_rospy.controls.endtoend_control_ros import AdmiralNetPurePursuitControllerROS
 def main(args=None):
     rclpy.init(args=args)
-    node = AdmiralNetPurePursuitControllerROS(model_file)
-    
-   # node = PurePursuitControllerROS()
+    node = AdmiralNetPurePursuitControllerROS()
     node.start()
     node.velsetpoint=70
     try:
