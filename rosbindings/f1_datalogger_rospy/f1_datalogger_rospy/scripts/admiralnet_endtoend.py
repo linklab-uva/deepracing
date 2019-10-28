@@ -12,6 +12,7 @@
 
 import rclpy
 import time
+import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 from f1_datalogger_msgs.msg import TimestampedPacketMotionData, CarMotionData
@@ -23,8 +24,9 @@ from f1_datalogger_rospy.controls.pure_puresuit_control_ros import PurePursuitCo
 from f1_datalogger_rospy.controls.endtoend_control_ros import AdmiralNetPurePursuitControllerROS
 def main(args=None):
     rclpy.init(args=args)
-
-    node = PurePursuitControllerROS()
+    node = AdmiralNetPurePursuitControllerROS(model_file)
+    
+   # node = PurePursuitControllerROS()
     node.start()
     node.velsetpoint=70
     try:

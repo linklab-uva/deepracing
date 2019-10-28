@@ -41,7 +41,7 @@ from rclpy.node import Node
 import deepracing_models.nn_models.Models as M
 
 class AdmiralNetPurePursuitControllerROS(PPC):
-    def __init__(self, model_file, trackfile=None, forward_indices = 60,\
+    def __init__(self, trackfile=None, forward_indices = 60,\
          lookahead_gain = 0.4, L = 3.617, pgain=0.5, igain=0.0125, dgain=0.0125, plot=True, gpu=1, deltaT = 1.415):
         super(AdmiralNetPurePursuitControllerROS, self).__init__(lookahead_gain = lookahead_gain, L = L ,\
                                                     pgain=pgain, igain=igain, dgain=dgain)
@@ -50,6 +50,10 @@ class AdmiralNetPurePursuitControllerROS(PPC):
             self.x = np.vstack((x.copy().transpose(),np.ones(x.shape[0])))
             self.xdot = xdot.copy().transpose()
             self.t = t.copy()
+        
+    
+        model_file = self.get_parameter("model_file")
+        gpu = self.get_parameter("gpu")
         self.deltaT = deltaT
         self.gpu = gpu
         self.forward_indices = forward_indices
@@ -78,7 +82,7 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         self.trajplot = None
         self.fig = None
         self.ax = None
-        self.motion_data_sub = self.create_subscription(
+        self.image_sub = self.create_subscription(
             Image,
             '/f1_screencaps',
             self.imageCallback,
