@@ -108,7 +108,15 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         channels = 3
         imnp = np.frombuffer(msg.data.tobytes(),dtype=np.uint8).reshape(rows,cols,channels)
         imnp = imnp[32:]
-        imnp = imnp[0:self.cropheight,0:self.cropwidth,:]
+        if self.cropheight > 0:
+            cropheight = self.cropheight
+        else:
+            cropheight = imnp.shape[0]
+        if self.cropwidth > 0:
+            cropwidth = self.cropwidth
+        else:
+            cropwidth = imnp.shape[1]
+        imnp = imnp[0:cropheight,0:cropwidth,:]
         imnp = deepracing.imutils.resizeImage(imnp,(66,200))
         imnpfloat = ((imnp.astype(np.float64))/255.0).transpose(2,0,1)
         self.image_buffer.append(imnpfloat)
