@@ -93,6 +93,8 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         self.trajplot = None
         self.fig = None
         self.ax = None
+        self.cropwidth = self.get_parameter_or("cropwidth",1752)
+        self.cropheight = self.get_parameter_or("cropheight",465)
         self.image_sub = self.create_subscription(
             Image,
             '/f1_screencaps',
@@ -105,6 +107,9 @@ class AdmiralNetPurePursuitControllerROS(PPC):
             return
         channels = 3
         imnp = np.frombuffer(msg.data.tobytes(),dtype=np.uint8).reshape(rows,cols,channels)
+        imnp = imnp[32:]
+        imnp = imnp[0:self.cropheight,0:self.cropwidth,:]
+        imnp = deepracing.imutils.resizeImage(imnp,(66,200))
         imnpfloat = imnp.astype(np.float64)/255.0
         self.image_buffer.append(imnpfloat.transpose(2,0,1))
     def getTrajectory(self):
