@@ -35,7 +35,7 @@ setup(
     entry_points={
         'console_scripts': [
             'pose_publisher = %s.scripts.pose_publisher:main' % (package_name),
-            'pure_pursuit = %s.scripts.admiralnet_endtoend:main' % (package_name),
+            'pure_pursuit_control = %s.scripts.admiralnet_endtoend:main' % (package_name),
             # 'talker = demo_nodes_py.topics.talker:main',
             # 'listener_qos = demo_nodes_py.topics.listener_qos:main',
             # 'talker_qos = demo_nodes_py.topics.talker_qos:main',

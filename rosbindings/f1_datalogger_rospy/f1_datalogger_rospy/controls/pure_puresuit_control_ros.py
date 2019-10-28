@@ -34,8 +34,8 @@ import rclpy
 from rclpy.node import Node
 class PurePursuitControllerROS(Node):
     def __init__(self, lookahead_gain = 0.35, L = 3.617,\
-        pgain=0.5, igain=0.0125, dgain=0.0125, tau = 0.025):
-        super(PurePursuitControllerROS,self).__init__('pure_pursuit_control')
+        pgain=0.5, igain=0.0125, dgain=0.0125, tau = 0.0):
+        super(PurePursuitControllerROS,self).__init__('pure_pursuit_control', allow_undeclared_parameters=True, automatically_declare_parameters_from_overrides=True)
         self.packet_queue = queue.Queue()
         self.running = True
         self.current_motion_data : CarMotionData  = CarMotionData()
@@ -103,7 +103,7 @@ class PurePursuitControllerROS(Node):
         return None, None, None
     def lateralControl(self):
         while self.running:
-            time.sleep(self.tau)
+            #time.sleep(self.tau)
             lookahead_positions, v_local_forward, distances_forward_ = self.getTrajectory()
             if lookahead_positions is None:
                 continue
@@ -123,7 +123,7 @@ class PurePursuitControllerROS(Node):
                 delta = 3.79616039*physical_angle# + 0.01004506
             else:
                 delta = 3.34446413*physical_angle# + 0.01094534
-            delta = 0.0
+            #delta = 0.0
             if self.throttle_out>0.0:
                 self.controller.setControl(delta,self.throttle_out,0.0)
             else:

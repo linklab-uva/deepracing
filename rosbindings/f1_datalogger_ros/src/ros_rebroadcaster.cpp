@@ -95,7 +95,8 @@ public:
 class ROSRebroadcaster_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
 {
 public:
-  ROSRebroadcaster_FrameGrabHandler(std::shared_ptr<rclcpp::Node> node)
+  ROSRebroadcaster_FrameGrabHandler(std::shared_ptr<rclcpp::Node> node, double resize_factor = 1.0) :
+  resize_factor_(resize_factor)
   {
     this->node_ = node;
   }
@@ -109,9 +110,9 @@ public:
   void handleData(const deepf1::TimestampedImageData& data) override
   {
     const cv::Mat& imin = data.image;
-    cv::Mat rgbimage(imin.rows, imin.cols, CV_8UC3);
-    imin.convertTo(rgbimage, rgbimage.type());
-    cv::resize(rgbimage,rgbimage,cv::Size(),0.5,0.5,cv::INTER_AREA);
+    cv::Mat rgbimage;//(imin.rows, imin.cols, CV_8UC3);
+   // imin.convertTo(rgbimage, rgbimage.type());
+    cv::resize(imin,rgbimage,cv::Size(),resize_factor_,resize_factor_,cv::INTER_AREA);
     sensor_msgs::msg::Image rosimage = f1_datalogger_ros::F1MsgUtils::toImageMsg(rgbimage);
     this->publisher_->publish(rosimage);
   }
@@ -123,6 +124,7 @@ public:
   }
   static constexpr double captureFreq = 35.0;
 private:
+  double resize_factor_;
   bool ready;
   std::shared_ptr<rclcpp::Node> node_;
   std::shared_ptr<rclcpp::Publisher <sensor_msgs::msg::Image> > publisher_;
