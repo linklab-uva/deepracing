@@ -5,31 +5,14 @@ import lmdb
 import os
 from skimage.transform import resize
 import deepracing.imutils
-import DeepF1_RPC_pb2_grpc
-import DeepF1_RPC_pb2
 import PoseSequenceLabel_pb2
 import ChannelOrder_pb2
-import grpc
 import cv2
 import google.protobuf.json_format
 import google.protobuf.empty_pb2 as Empty_pb2
 import time
 import LabeledImage_pb2
 import ImageLabel_pb2
-class PoseSequenceLabelGRPCClient():
-    def __init__(self, address="127.0.0.1", port=50052):
-        self.im_size = None
-        self.channel = grpc.insecure_channel( "%s:%d" % ( address, port ) )
-        self.stub = DeepF1_RPC_pb2_grpc.LabelServiceStub(self.channel)
-    def getPoseSequenceLabel(self, key):
-        response = self.stub.GetPoseSequenceLabel( DeepF1_RPC_pb2.PoseSequenceLabelRequest(key=key) )
-        return response
-    def getNumLabels(self):
-        response = self.stub.GetDbMetadata(DeepF1_RPC_pb2.DbMetadataRequest())
-        return response.size
-    def getKeys(self):
-        response = self.stub.GetDbMetadata(DeepF1_RPC_pb2.DbMetadataRequest())
-        return list(response.keys)
 class ControlLabelLMDBWrapper():
     def __init__(self):
         self.env = None

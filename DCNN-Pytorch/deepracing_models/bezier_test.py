@@ -7,7 +7,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from numpy import array, linalg, matrix
 from scipy.special import comb as nOk
-import math_utils
+import deepracing_models.math_utils
 import torch
 def lsqfit(points,M):
     M_ = linalg.pinv(M)

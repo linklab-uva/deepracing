@@ -1,5 +1,5 @@
 import torch
-import nn_models.Models as M
+import deepracing_models.nn_models.Models as M
 import time
 net = M.AdmiralNetSplinePredictor()
 a = torch.rand(2,1,25,200)

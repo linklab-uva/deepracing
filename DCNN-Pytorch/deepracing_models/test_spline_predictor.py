@@ -3,8 +3,8 @@ import torch.nn as NN
 import torch.utils.data as data_utils
 import data_loading.proto_datasets
 from tqdm import tqdm as tqdm
-import nn_models.LossFunctions as loss_functions
-import nn_models.Models
+import deepracing_models.nn_models.LossFunctions as loss_functions
+import deepracing_models.nn_models.Models
 import numpy as np
 import torch.optim as optim
 from tqdm import tqdm as tqdm

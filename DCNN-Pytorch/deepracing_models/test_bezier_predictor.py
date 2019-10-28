@@ -4,8 +4,8 @@ import torch.nn as NN
 import torch.utils.data as data_utils
 import data_loading.proto_datasets
 from tqdm import tqdm as tqdm
-import nn_models.LossFunctions as loss_functions
-import nn_models.Models
+import deepracing_models.nn_models.LossFunctions as loss_functions
+import deepracing_models.nn_models.Models
 import numpy as np
 import torch.optim as optim
 from tqdm import tqdm as tqdm
@@ -27,7 +27,7 @@ import matplotlib.animation as animation
 import time
 import scipy.interpolate
 import numpy.linalg as la
-import math_utils.bezier
+import deepracing_models.math_utils.bezier
 from scipy.stats import norm
 from sklearn.neighbors import KernelDensity
 def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,  use_float=True):

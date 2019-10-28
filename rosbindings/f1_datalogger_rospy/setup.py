@@ -1,12 +1,11 @@
 from setuptools import find_packages
 from setuptools import setup
-
+import os
 package_name = 'f1_datalogger_rospy'
 
 setup(
     name=package_name,
     version='0.0.0',
-    packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
@@ -29,9 +28,14 @@ setup(
     ),
     license='Apache License, Version 2.0',
     tests_require=['pytest'],
+    packages=list(set(find_packages(exclude=['test'])+[
+                os.path.join(package_name,"controls"),
+              ])),
+
     entry_points={
         'console_scripts': [
             'pose_publisher = %s.scripts.pose_publisher:main' % (package_name),
+            'pure_pursuit = %s.scripts.admiralnet_endtoend:main' % (package_name),
             # 'talker = demo_nodes_py.topics.talker:main',
             # 'listener_qos = demo_nodes_py.topics.listener_qos:main',
             # 'talker_qos = demo_nodes_py.topics.talker_qos:main',

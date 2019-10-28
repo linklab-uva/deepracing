@@ -1,8 +1,3 @@
-import Image_pb2
-import TimestampedImage_pb2
-import ChannelOrder_pb2
-import PacketMotionData_pb2
-import TimestampedPacketMotionData_pb2
 import cv2
 import numpy as np
 import argparse
@@ -32,42 +27,22 @@ import numpy.linalg as la
 import scipy.integrate as integrate
 import socket
 import scipy.spatial
-import bisect
-import traceback
-import sys
 import queue
-from deepracing.controls.PurePursuitControl import PurePursuitController as PPC
-from deepracing.controls.PurePursuitControl import OraclePurePursuitController as OraclePPC
+from f1_datalogger_rospy.controls.pure_puresuit_control_ros import PurePursuitControllerROS as PPC
 import deepracing_models.math_utils as mu
 import torch
 import torch.nn as NN
 import torch.utils.data as data_utils
-
-import deepracing_models.nn_models.LossFunctions as loss_functions
 import deepracing_models.nn_models.Models
-import yaml
 import matplotlib.pyplot as plt
 
-def pbImageToNpImage(im_pb : Image_pb2.Image):
-    im = None
-    if im_pb.channel_order == ChannelOrder_pb2.BGR:
-        im = np.reshape(np.frombuffer(im_pb.image_data,dtype=np.uint8),np.array((im_pb.rows, im_pb.cols, 3)))
-        im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
-    elif im_pb.channel_order == ChannelOrder_pb2.RGB:
-        im = np.reshape(np.frombuffer(im_pb.image_data,dtype=np.uint8),np.array((im_pb.rows, im_pb.cols, 3)))
-    elif im_pb.channel_order == ChannelOrder_pb2.GRAYSCALE:
-        im = np.reshape(np.frombuffer(im_pb.image_data,dtype=np.uint8),np.array((im_pb.rows, im_pb.cols)))
-    elif im_pb.channel_order == ChannelOrder_pb2.RGBA:
-        im = np.reshape(np.frombuffer(im_pb.image_data,dtype=np.uint8),np.array((im_pb.rows, im_pb.cols, 4)))
-    elif im_pb.channel_order == ChannelOrder_pb2.BGRA:
-        im = np.reshape(np.frombuffer(im_pb.image_data,dtype=np.uint8),np.array((im_pb.rows, im_pb.cols, 4)))
-        im = cv2.cvtColor(im, cv2.COLOR_BGRA2RGBA)
-    else:
-        raise ValueError("Unknown channel order: " + im_pb.channel_order)
-    return im
-class AdmiralNetPurePursuitController(PPC):
+import rclpy
+from rclpy.node import Node
+
+
+class AdmiralNetPurePursuitControllerROS(PPC):
     def __init__(self, model_file, trackfile=None, forward_indices = 60,  address="127.0.0.1", port=50052, lookahead_gain = 0.5, L = 3.617, pgain=0.5, igain=0.0125, dgain=0.0125, plot=True, gpu=1):
-        super(AdmiralNetPurePursuitController, self).__init__(address=address, port=port, lookahead_gain = lookahead_gain, L = L ,\
+        super(AdmiralNetPurePursuitControllerROS, self).__init__(address=address, port=port, lookahead_gain = lookahead_gain, L = L ,\
                                                     pgain=pgain, igain=igain, dgain=dgain, deltaT = 1.415)
         if trackfile is not None:
             t, x, xdot = deepracing.loadArmaFile(trackfile)
@@ -77,8 +52,7 @@ class AdmiralNetPurePursuitController(PPC):
         self.deltaT = deltaT
         self.gpu = gpu
         self.forward_indices = forward_indices
-        self.image_thread = threading.Thread(target=self.imageThread, args=(address, port-1))
-        self.image_sock = None
+        self.rosnode = Node("pure_pursuit_control")
         config_file = os.path.join(os.path.dirname(model_file),"config.yaml")
         with open(config_file,'r') as f:
             config = yaml.load(f, Loader = yaml.SafeLoader)
@@ -103,69 +77,9 @@ class AdmiralNetPurePursuitController(PPC):
         self.trajplot = None
         self.fig = None
         self.ax = None
-    def start(self):
-        super().start()
-        self.image_thread.start()
-        self.net.eval()
-    def imageThread(self, address, port):
-        try:
-            if self.image_sock is not None:
-                self.image_sock.close()
-            self.image_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.image_sock.bind((address, port))
-            cv2.namedWindow("imrcv")
-            current_image = Image_pb2.Image()
-            imgcurrgrey = None
-            imgprevgrey = None
-            while self.running:
-                data, addr = self.image_sock.recvfrom(52811) # buffer size is 1024 bytes.
-                #print("Got %d bytes"% (len(data)))
-                current_image.ParseFromString(data)
-                imrcv = pbImageToNpImage(current_image)[:,:,0:3]
-                # rowstart = 32
-                # rowend = 394
-                imcrop = imrcv[:,:,:]
-                imresize = deepracing.imutils.resizeImage(imcrop,(66,200))
-                imgcurrgrey = cv2.cvtColor(imresize,cv2.COLOR_RGB2GRAY)
-                self.image_buffer.append(imresize.transpose(2,0,1).astype(np.float64)/255.0)
-                if imgprevgrey is not None:
-                    self.optflow_buffer.append(cv2.calcOpticalFlowFarneback(imgprevgrey, imgcurrgrey, None, 0.5, 3, 15, 3, 5, 1.2, 0).astype(np.float64).transpose(2,0,1))
-                imgprevgrey = imgcurrgrey
-                cv2.imshow("imrcv",cv2.cvtColor(imrcv,cv2.COLOR_RGB2BGR))
-                cv2.waitKey(1)
-               # print("Got Some Image Data")
-                #current_packet.ParseFromString(data)
-               #self.current_motion_data = current_packet.udp_packet
-        except Exception as e:
-            print(e)
     def getTrajectory(self):
-        if self.current_motion_data is None:
+        if self.current_motion_data.world_velocity.header.frame_id == "":
             return None, None, None
-        # motion_data = self.current_motion_data.m_carMotionData[0]
-        # current_pos, current_quat = deepracing.pose_utils.extractPose(self.current_motion_data)
-        # deltazmat = np.eye(4)
-        # deltazmat[2,3] = -self.L/2
-        # current_transform = np.matmul(deepracing.pose_utils.toHomogenousTransform(current_pos, current_quat), deltazmat)
-        # current_transform_inv = la.inv(current_transform)
-        # x_local_augmented = np.matmul(current_transform_inv,self.x)
-        # x_local = x_local_augmented[[0,2],:].transpose()
-        # v_local_augmented = np.matmul(current_transform_inv[0:3,0:3],self.xdot)
-        # v_local = v_local_augmented[[0,2],:].transpose()
-        # distances = la.norm(x_local, axis=1)
-        # closest_index = np.argmin(distances)
-        # forward_idx = np.linspace(closest_index,closest_index+self.forward_indices,self.forward_indices+1).astype(np.int32)%len(distances)
-        # v_local_forward = v_local[forward_idx]
-        # x_local_forward = x_local[forward_idx]
-        # t_forward = self.t[forward_idx]
-        # deltaT = t_forward[-1]-t_forward[0]
-        # if deltaT<0.1:
-        #     return x_local_forward, v_local_forward, distances[forward_idx]
-        # s = (t_forward - t_forward[0])/deltaT
-        # x_spline = scipy.interpolate.make_interp_spline(s, x_local_forward)
-        # s_samp = np.linspace(0.0,1.0,96)
-        # x_samp = x_spline(s_samp)
-        # v_samp = (1/deltaT)*x_spline(s_samp,nu=1)
-        # t_samp = s_samp*deltaT + t_forward[0]
         if(self.net.input_channels==3):
             imtorch = torch.from_numpy(np.array(self.image_buffer).copy())
             if (not imtorch.shape[0] == self.net.context_length):

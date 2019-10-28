@@ -268,7 +268,7 @@ f1_datalogger_msgs::msg::CarMotionData f1_datalogger_ros::F1MsgUtils::toROS(cons
     f1_datalogger_msgs::msg::CarMotionData rtn;
     Eigen::Vector3d forwardVec( (double)motion_data.m_worldForwardDirX, (double)motion_data.m_worldForwardDirY, (double)motion_data.m_worldForwardDirZ );
     forwardVec.normalize();
-    rtn.world_forward_dir.header.frame_id="world";
+    rtn.world_forward_dir.header.frame_id=world_coordinate_name;
  //   rtn.world_forward_dir.header.stamp = rostime;
     rtn.world_forward_dir.vector.x = forwardVec.x();
     rtn.world_forward_dir.vector.y = forwardVec.y();
@@ -278,26 +278,26 @@ f1_datalogger_msgs::msg::CarMotionData f1_datalogger_ros::F1MsgUtils::toROS(cons
     Eigen::Vector3d leftVec( -rightVec );
     Eigen::Vector3d upVec = forwardVec.cross(leftVec);
     upVec.normalize();
-    rtn.world_up_dir.header.frame_id="world";
+    rtn.world_up_dir.header.frame_id=world_coordinate_name;
   //  rtn.world_up_dir.header.stamp = rostime;
     rtn.world_up_dir.vector.x = upVec.x();
     rtn.world_up_dir.vector.y = upVec.y();
     rtn.world_up_dir.vector.z = upVec.z();
-    rtn.world_right_dir.header.frame_id="world";
+    rtn.world_right_dir.header.frame_id=world_coordinate_name;
     //rtn.world_right_dir.header.stamp = rostime;
     rtn.world_right_dir.vector.x = rightVec.x();
     rtn.world_right_dir.vector.y = rightVec.y();
     rtn.world_right_dir.vector.z = rightVec.z();
 
 
-    rtn.world_position.header.frame_id="world";
+    rtn.world_position.header.frame_id=world_coordinate_name;
  //   rtn.world_position.header.stamp = rostime;
     rtn.world_position.point.x = motion_data.m_worldPositionX;
     rtn.world_position.point.y = motion_data.m_worldPositionY;
     rtn.world_position.point.z = motion_data.m_worldPositionZ;
 
 
-    rtn.world_velocity.header.frame_id="world";
+    rtn.world_velocity.header.frame_id=world_coordinate_name;
   //  rtn.world_velocity.header.stamp = rostime;
     rtn.world_velocity.vector.x = motion_data.m_worldVelocityX;
     rtn.world_velocity.vector.y = motion_data.m_worldVelocityY;

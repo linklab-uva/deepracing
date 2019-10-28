@@ -5,11 +5,8 @@ import lmdb
 import os
 from skimage.transform import resize
 import deepracing.imutils
-import DeepF1_RPC_pb2_grpc
-import DeepF1_RPC_pb2
 import ChannelOrder_pb2
 import Image_pb2
-import grpc
 import cv2
 import time
 import google.protobuf.empty_pb2 as Empty_pb2

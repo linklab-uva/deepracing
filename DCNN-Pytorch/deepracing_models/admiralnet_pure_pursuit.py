@@ -1,10 +1,7 @@
-import DeepF1_RPC_pb2_grpc
-import DeepF1_RPC_pb2
 import Image_pb2
 import ChannelOrder_pb2
 import PacketMotionData_pb2
 import TimestampedPacketMotionData_pb2
-import grpc
 import cv2
 import numpy as np
 import argparse
@@ -18,7 +15,6 @@ import argparse
 import lmdb
 import cv2
 import deepracing.backend
-import deepracing.grpc
 from numpy_ringbuffer import RingBuffer
 import yaml
 import torch
@@ -43,7 +39,7 @@ import google.protobuf.json_format
 import matplotlib.pyplot as plt
 import deepracing.controls
 import endtoend_controls.EndToEndPurePursuit
-import nn_models.Models
+import deepracing_models.nn_models.Models
 def serve():
     global velsetpoint, current_motion_data, throttle_out, running, speed
     parser = argparse.ArgumentParser(description='Pure Pursuit.')

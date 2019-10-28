@@ -3,7 +3,7 @@ import py_vjoy
 import argparse
 from PIL import ImageGrab
 import cv2
-import nn_models.Models as models
+import deepracing_models.nn_models.Models as models
 import torch
 import torch.nn as nn 
 import pickle

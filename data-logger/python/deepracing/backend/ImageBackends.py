@@ -5,11 +5,8 @@ import lmdb
 import os
 from skimage.transform import resize
 import deepracing.imutils
-import DeepF1_RPC_pb2_grpc
-import DeepF1_RPC_pb2
 import ChannelOrder_pb2
 import Image_pb2
-import grpc
 import cv2
 import time
 import google.protobuf.empty_pb2 as Empty_pb2
@@ -31,22 +28,6 @@ def pbImageToNpImage(im_pb : Image_pb2.Image):
     else:
         raise ValueError("Unknown channel order: " + im_pb.channel_order)
     return im#.copy()
-class ImageGRPCClient():
-    def __init__(self, address="127.0.0.1", port=50051):
-        self.im_size = None
-        self.channel = grpc.insecure_channel( "%s:%d" % ( address, port ) )
-        self.stub = DeepF1_RPC_pb2_grpc.ImageServiceStub(self.channel)
-    def getNumImages(self):
-        response = self.stub.GetDbMetadata(DeepF1_RPC_pb2.DbMetadataRequest())
-        return response.size
-    def getImagePB(self, key):
-        return self.stub.GetImage( DeepF1_RPC_pb2.ImageRequest(key=key) )
-    def getImage(self, key):
-        im_pb = self.getImagePB(key)
-        return pbImageToNpImage(im_pb)
-    def getKeys(self):
-        response = self.stub.GetDbMetadata(DeepF1_RPC_pb2.DbMetadataRequest())
-        return list(response.keys)
 class ImageArrayBackend():
     def __init__(self, keyfile ):
         with open(keyfile,"r") as keyfile_:

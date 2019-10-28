@@ -1,10 +1,7 @@
-import DeepF1_RPC_pb2_grpc
-import DeepF1_RPC_pb2
 import Image_pb2
 import ChannelOrder_pb2
 import PacketMotionData_pb2
 import TimestampedPacketMotionData_pb2
-import grpc
 import cv2
 import numpy as np
 import argparse
@@ -18,7 +15,6 @@ import argparse
 import lmdb
 import cv2
 import deepracing.backend
-import deepracing.grpc
 from numpy_ringbuffer import RingBuffer
 import yaml
 import torch

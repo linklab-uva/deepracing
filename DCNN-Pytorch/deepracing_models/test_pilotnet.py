@@ -1,9 +1,9 @@
 import cv2
 import glob
 import numpy as np
-import nn_models
+import deepracing_models.math_utils
 import data_loading.image_loading as il
-import nn_models.Models as models
+import deepracing_models.nn_models.Models as models
 import data_loading.data_loaders as loaders
 import numpy.random
 import torch, random

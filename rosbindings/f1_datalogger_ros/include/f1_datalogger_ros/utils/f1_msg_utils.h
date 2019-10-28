@@ -26,6 +26,7 @@ namespace f1_datalogger_ros
         static int getCvType(const std::string & encoding);
         static sensor_msgs::msg::Image toImageMsg(const cv::Mat & image, std_msgs::msg::Header header = std_msgs::msg::Header());
     private:
+        static constexpr char* world_coordinate_name = "track";
 
     };
 }
