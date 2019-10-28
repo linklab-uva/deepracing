@@ -24,6 +24,8 @@ find_package(image_tools REQUIRED)
 find_package(laser_geometry REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
 find_package(f1_datalogger_msgs REQUIRED)
 find_package(f1_datalogger_provider REQUIRED)
 find_package(f1_datalogger REQUIRED)
@@ -54,6 +56,14 @@ target_link_libraries(f1_msg_utils
  Boost::regex
 )
 target_include_directories(f1_msg_utils PRIVATE ${ARMADILLO_INCLUDE_DIRS})
+
+add_executable(tf_updater src/tf_updater.cpp)
+ament_target_dependencies(tf_updater rclcpp f1_datalogger_msgs tf2_ros tf2)
+target_link_libraries(tf_updater
+ f1_msg_utils
+ Eigen3::Eigen
+)
+
 
 add_executable(ros_rebroadcaster src/ros_rebroadcaster.cpp)
 ament_target_dependencies(ros_rebroadcaster f1_datalogger)
@@ -92,6 +102,7 @@ endif()
 install(TARGETS
     ros_rebroadcaster
     f1_msg_utils
+    tf_updater
     DESTINATION lib/${PROJECT_NAME}
 )
 install(
