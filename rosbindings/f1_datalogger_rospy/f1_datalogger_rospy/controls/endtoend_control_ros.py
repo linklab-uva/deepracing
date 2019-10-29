@@ -35,11 +35,15 @@ import torch.nn as NN
 import torch.utils.data as data_utils
 import matplotlib.pyplot as plt
 from sensor_msgs.msg import Image
+from f1_datalogger_msgs.msg import PathRaw
 from geometry_msgs.msg import Vector3Stamped, Vector3, PointStamped, Point, PoseStamped, Pose, Quaternion
 from nav_msgs.msg import Path
+from std_msgs.msg import Float64, Header
 import rclpy
 from rclpy import Parameter
 from rclpy.node import Node
+from rclpy.time import Time
+from rclpy.clock import Clock, ROSClock
 import deepracing_models.nn_models.Models as M
 from scipy.spatial.transform import Rotation as Rot
 name_to_dtypes = {
@@ -154,7 +158,7 @@ class AdmiralNetPurePursuitControllerROS(PPC):
             self.xgt = np.vstack((x.copy().transpose(),np.ones(x.shape[0])))
             self.xdotgt = xdot.copy().transpose()
             self.tgt = t.copy()    
-        self.path_publisher = self.create_publisher(Path, "predicted_path", 10)
+        self.path_publisher = self.create_publisher(PathRaw, "predicted_path_raw", 10)
         model_file_param = self.get_parameter("model_file")
         if (model_file_param.type_==Parameter.Type.NOT_SET):
             raise ValueError("The parameter \"model_file\" must be set for this rosnode")
@@ -167,6 +171,8 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         context_length = config["context_length"]
         bezier_order = config.get("bezier_order",None)
         sequence_length = config.get("sequence_length",None)
+        self.rosclock = ROSClock()
+        #self.rosclock._set_ros_time_is_active(True)
 
 
         L = self.get_parameter_or("wheelbase",L)
@@ -286,13 +292,15 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         inputtorch = imtorch
         if isinstance(self.net,  M.AdmiralNetCurvePredictor):
             bezier_control_points = self.net(inputtorch.unsqueeze(0).cuda(self.gpu)).transpose(1,2)
+            stamp = self.rosclock.now().to_msg()
             evalpoints = torch.matmul(self.bezierM, bezier_control_points)
             x_samp = evalpoints[0].cpu().detach().numpy()
             x_samp[:,0]*=self.xscale_factor
             _, evalvel = mu.bezierDerivative(bezier_control_points, M = self.bezierMderiv)
-            v_samp = (0.925/self.deltaT)*(evalvel[0].cpu().detach().numpy())
+            v_samp = (1.0/self.deltaT)*(evalvel[0].cpu().detach().numpy())
         else:
             evalpoints =  self.net(inputtorch.unsqueeze(0).cuda(self.gpu))
+            stamp = self.rosclock.now().to_msg()
             x_samp = evalpoints[0].cpu().detach().numpy()
             x_samp[:,0]*=self.xscale_factor
             tsamp = np.linspace(0,self.deltaT,60)
@@ -303,7 +311,8 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         #print(x_samp)
         distances_samp = la.norm(x_samp, axis=1)
         if self.plot:
-            self.path_publisher.publish(npTrajectoryToROS(x_samp, v_samp))
+            PathRawMsg : PathRaw = PathRaw(header = Header(frame_id = "car", stamp = stamp), posx = x_samp[:,0], posz = x_samp[:,1], velx = v_samp[:,0], velz = v_samp[:,1]  )
+            self.path_publisher.publish(PathRawMsg)
             # if self.trajplot is None:
             #     self.fig = plt.figure()
             #     self.ax = self.fig.add_subplot()

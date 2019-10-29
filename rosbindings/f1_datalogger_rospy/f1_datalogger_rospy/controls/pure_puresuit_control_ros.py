@@ -30,6 +30,7 @@ import deepracing_models.nn_models.Models
 import matplotlib.pyplot as plt
 from f1_datalogger_msgs.msg import TimestampedPacketMotionData, PacketMotionData, CarMotionData
 from geometry_msgs.msg import Vector3Stamped, Vector3
+from std_msgs.msg import Float64
 import rclpy
 from rclpy.node import Node
 class PurePursuitControllerROS(Node):
@@ -39,6 +40,7 @@ class PurePursuitControllerROS(Node):
         self.packet_queue = queue.Queue()
         self.running = True
         self.current_motion_data : CarMotionData  = CarMotionData()
+        self.setpoint_publisher = self.create_publisher(Float64, "vel_setpoint", 10)
         self.sock = None
         self.tau = tau
         self.velsetpoint = 0.0
@@ -111,7 +113,8 @@ class PurePursuitControllerROS(Node):
                 distances_forward = la.norm(lookahead_positions, axis=1)
             else:
                 distances_forward = distances_forward_
-            self.velsetpoint = la.norm(v_local_forward[int(round(self.forward_indices/6))])
+            self.velsetpoint = la.norm(v_local_forward[int(round(self.forward_indices/4))])
+            self.setpoint_publisher.publish(Float64(data=3.6*self.velsetpoint))
             lookahead_distance = self.lookahead_gain*self.current_speed
             lookahead_index = np.argmin(np.abs(distances_forward-lookahead_distance))
             lookaheadVector = lookahead_positions[lookahead_index]
