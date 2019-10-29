@@ -4,6 +4,6 @@ pure_pursuit_control:
         lookahead_gain : 0.5
         cropwidth : 1758
         cropheight : 362
-        plot : False
+        plot : True
         gpu : 0
         x_scale_factor : 1.25
