@@ -16,6 +16,8 @@
   <depend>image_tools</depend>
   <depend>laser_geometry</depend>
   <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>sensor_msgs</depend>
 
   <test_depend>ament_lint_auto</test_depend>

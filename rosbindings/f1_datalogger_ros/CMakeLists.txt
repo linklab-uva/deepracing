@@ -22,6 +22,7 @@ find_package(rclcpp REQUIRED)
 find_package(rosidl_default_runtime REQUIRED)
 find_package(image_tools REQUIRED)
 find_package(laser_geometry REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(tf2 REQUIRED)
@@ -64,6 +65,11 @@ target_link_libraries(tf_updater
  Eigen3::Eigen
 )
 
+add_executable(path_converter src/path_converter.cpp)
+ament_target_dependencies(path_converter rclcpp geometry_msgs nav_msgs f1_datalogger_msgs)
+target_link_libraries(path_converter
+ Eigen3::Eigen
+)
 
 add_executable(ros_rebroadcaster src/ros_rebroadcaster.cpp)
 ament_target_dependencies(ros_rebroadcaster f1_datalogger)
@@ -82,6 +88,7 @@ target_link_libraries(ros_rebroadcaster
 #target_include_directories(ros_rebroadcaster PRIVATE ${ARMADILLO_INCLUDE_DIRS})
 
 
+ ament_export_libraries(f1_msg_utils)
  ament_export_dependencies(ament_cmake)
  ament_export_dependencies(rcl)
  ament_export_dependencies(image_tools)
@@ -103,6 +110,7 @@ install(TARGETS
     ros_rebroadcaster
     f1_msg_utils
     tf_updater
+    path_converter
     DESTINATION lib/${PROJECT_NAME}
 )
 install(

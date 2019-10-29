@@ -39,6 +39,7 @@ find_package(rosidl_default_generators REQUIRED)
    "msg/MarshalZone.msg"
    "msg/PacketSessionData.msg"
    "msg/TimestampedPacketSessionData.msg"
+   "msg/PathRaw.msg"
  )
 
  rosidl_generate_interfaces(${PROJECT_NAME}
