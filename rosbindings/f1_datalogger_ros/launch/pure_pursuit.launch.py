@@ -17,8 +17,3 @@ def generate_launch_description():
     nodelist+=[pathconverter]
     nodelist+=[rviz]
     return LaunchDescription(nodelist) 
-if __name__ == '__main__':
-    # ls = LaunchService(argv=argv, debug=True)  # Use this instead to get more debug messages.
-    ls = launch.LaunchService(argv=sys.argv[1:])
-    ls.include_launch_description(generate_launch_description())
-    sys.exit(ls.run())
