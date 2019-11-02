@@ -16,9 +16,3 @@
 [submodule "rosbindings/rqt_bag"]
 	path = rosbindings/rqt_bag
 	url = https://github.com/ros-visualization/rqt_bag.git
-[submodule "rosbindings/image_common"]
-	path = rosbindings/image_common
-	url = https://github.com/ros-perception/image_common.git
-[submodule "rosbindings/vision_opencv"]
-	path = rosbindings/vision_opencv
-	url = https://github.com/ros-perception/vision_opencv.git
