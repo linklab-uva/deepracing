@@ -73,18 +73,17 @@ if(BUILD_DATALOGGER)
 endif()
 
 
-if(BUILD_SHARED_LIBS)
-    if(MSVC)
-	    #set(CMAKE_STATIC_LIBRARY_PREFIX "")
-	    add_definitions( -DBOOST_ALL_NO_LIB )
-        #set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-		set(Boost_NO_SYSTEM_PATHS true)
-	endif()
-	set(Boost_USE_STATIC_LIBS OFF)
-else()
-    set(Boost_USE_STATIC_LIBS ON)
-endif()
-set (Boost_USE_MULTITHREADED ON)
+# if(BUILD_SHARED_LIBS)
+#     if(MSVC)
+# 	    #set(CMAKE_STATIC_LIBRARY_PREFIX "")
+# 	    add_definitions( -DBOOST_ALL_NO_LIB )
+#         #set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+# 		set(Boost_NO_SYSTEM_PATHS true)
+# 	endif()
+# 	set(Boost_USE_STATIC_LIBS OFF)
+# else()
+#     set(Boost_USE_STATIC_LIBS ON)
+# endif()
 set(BOOST_REQUIRED_COMPONENTS
 date_time
 filesystem
@@ -102,8 +101,8 @@ message(STATUS "Using Boost components: ${Boost_LIBRARIES}")
 
 
 find_package( OpenCV REQUIRED )
-find_package(Qt5 COMPONENTS Widgets Core Gui)
-set(_gotqt (DEFINED  Qt5Widgets_FOUND) AND (DEFINED  Qt5Widgets_FOUND) AND (DEFINED  Qt5Widgets_FOUND))
+find_package(Qt5 QUIET COMPONENTS Widgets Core Gui)
+set(_gotqt (DEFINED  Qt5Widgets_FOUND) AND (DEFINED  Qt5_FOUND))
 
 
 if(MSVC)

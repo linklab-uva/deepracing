@@ -153,11 +153,11 @@ class AdmiralNetPurePursuitControllerROS(PPC):
                                                     pgain=pgain, igain=igain, dgain=dgain)
         
         trackfile = self.get_parameter_or("trackfile", trackfile)
-        if (trackfile is not None) and ( not trackfile.type_==Parameter.Type.NOT_SET  ):
-            t, x, xdot = deepracing.loadArmaFile(trackfile)
-            self.xgt = np.vstack((x.copy().transpose(),np.ones(x.shape[0])))
-            self.xdotgt = xdot.copy().transpose()
-            self.tgt = t.copy()    
+        # if (trackfile is not None) and ( not trackfile.type_==Parameter.Type.NOT_SET  ):
+        #     t, x, xdot = deepracing.loadArmaFile(trackfile)
+        #     self.xgt = np.vstack((x.copy().transpose(),np.ones(x.shape[0])))
+        #     self.xdotgt = xdot.copy().transpose()
+        #     self.tgt = t.copy()    
         self.path_publisher = self.create_publisher(PathRaw, "predicted_path_raw", 10)
         model_file_param = self.get_parameter("model_file")
         if (model_file_param.type_==Parameter.Type.NOT_SET):
