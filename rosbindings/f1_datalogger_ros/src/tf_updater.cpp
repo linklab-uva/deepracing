@@ -49,13 +49,13 @@ class NodeWrapperTfUpdater_
     {
      // std::cout << "Got some data" << std::endl;
      // RCLCPP_INFO(node->get_logger(), "Got some data");
-      const f1_datalogger_msgs::msg::CarMotionData & motion_data = motion_data_packet->udp_packet.car_motion_data[0];
-      geometry_msgs::msg::Vector3Stamped velocityROS = motion_data.world_velocity;
-      geometry_msgs::msg::Vector3Stamped upROS = motion_data.world_up_dir;
-      geometry_msgs::msg::Vector3Stamped forwardROS = motion_data.world_forward_dir;
-      geometry_msgs::msg::Vector3Stamped rightROS = motion_data.world_right_dir;
+      const f1_datalogger_msgs::msg::CarMotionData &motion_data = motion_data_packet->udp_packet.car_motion_data[0];
+      const geometry_msgs::msg::Vector3Stamped &velocityROS = motion_data.world_velocity;
+      const geometry_msgs::msg::Vector3Stamped &upROS = motion_data.world_up_dir;
+      const geometry_msgs::msg::Vector3Stamped &forwardROS = motion_data.world_forward_dir;
+      const geometry_msgs::msg::Vector3Stamped &rightROS = motion_data.world_right_dir;
 
-      Eigen::Vector3d leftEigen = -1.0*Eigen::Vector3d(rightROS.vector.x, rightROS.vector.y, rightROS.vector.z);
+      Eigen::Vector3d leftEigen(-1.0*rightROS.vector.x, -1.0*rightROS.vector.y, -1.0*rightROS.vector.z);
       Eigen::Vector3d forwardEigen(forwardROS.vector.x, forwardROS.vector.y, forwardROS.vector.z);
       Eigen::Vector3d upEigen(upROS.vector.x, upROS.vector.y, upROS.vector.z);
       Eigen::Matrix3d rotmat;

@@ -11,9 +11,9 @@ def generate_launch_description():
     purepursuitnode = launch_ros.actions.Node( package='f1_datalogger_rospy', node_executable='pure_pursuit_control', node_name="pure_pursuit_control",  parameters=["D:/deepracing/DCNN-Pytorch/uva/rosparams/purepursuit_ros.yaml",] )
     rviz = launch_ros.actions.Node( package='rviz2', node_executable='rviz2', node_name="rviz" )
 
-    nodelist = [posepublishernode]
+    nodelist = [purepursuitnode]
     nodelist+=[tfupdater]
-    nodelist+=[purepursuitnode]
-    nodelist+=[pathconverter]
-    nodelist+=[rviz]
+    #nodelist+=[posepublishernode]
+    #nodelist+=[pathconverter]
+    #nodelist+=[rviz]
     return LaunchDescription(nodelist) 
