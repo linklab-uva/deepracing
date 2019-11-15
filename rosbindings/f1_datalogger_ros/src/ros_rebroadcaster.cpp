@@ -95,8 +95,7 @@ public:
 class ROSRebroadcaster_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
 {
 public:
-  ROSRebroadcaster_FrameGrabHandler(std::shared_ptr<rclcpp::Node> node, double resize_factor = 1.0) :
-  resize_factor_(resize_factor)
+  ROSRebroadcaster_FrameGrabHandler(std::shared_ptr<rclcpp::Node> node) 
   {
     this->node_ = node;
   }
@@ -110,9 +109,16 @@ public:
   void handleData(const deepf1::TimestampedImageData& data) override
   {
     const cv::Mat& imin = data.image;
-    cv::Mat rgbimage;//(imin.rows, imin.cols, CV_8UC3);
+    /*
+      cropwidth : 1758
+      cropheight : 362
+    */
    // imin.convertTo(rgbimage, rgbimage.type());
-    cv::resize(imin,rgbimage,cv::Size(),resize_factor_,resize_factor_,cv::INTER_AREA);
+    cv::Range rowrange(32,32+crop_height_);
+    cv::Range colrange(0,crop_width_-1);
+    cv::Mat & imcrop = imin(rowrange,colrange);
+    cv::Mat rgbimage;
+    cv::resize(imcrop,rgbimage,cv::Size(resize_width_,resize_height_),0.0,0.0,cv::INTER_AREA);
     sensor_msgs::msg::Image rosimage = f1_datalogger_ros::F1MsgUtils::toImageMsg(rgbimage);
     this->publisher_->publish(rosimage);
   }
@@ -123,8 +129,11 @@ public:
     ready = true;
   }
   static constexpr double captureFreq = 35.0;
+  unsigned int resize_width_;
+  unsigned int resize_height_;
+  unsigned int crop_height_;
+  unsigned int crop_width_;
 private:
-  double resize_factor_;
   bool ready;
   std::shared_ptr<rclcpp::Node> node_;
   std::shared_ptr<rclcpp::Publisher <sensor_msgs::msg::Image> > publisher_;
@@ -153,15 +162,25 @@ int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
   NodeWrapper_ nw;
   std::shared_ptr<rclcpp::Node> node = nw.node;
+  double resize_factor;
   std::string search_string("F1");
-  double capture_frequency = ROSRebroadcaster_FrameGrabHandler::captureFreq;
-  node->get_parameter("search_string",search_string);
-  node->get_parameter("capture_frequency",capture_frequency);
+  double capture_frequency;
+  unsigned int resize_height, resize_width, crop_height, crop_width;
+  node->get_parameter<std::string>("search_string",search_string);
+  node->get_parameter_or<double>("capture_frequency",capture_frequency, ROSRebroadcaster_FrameGrabHandler::captureFreq);
+  node->get_parameter_or<unsigned int>("resize_height",resize_height, 66);
+  node->get_parameter_or<unsigned int>("resize_width",resize_width, 200);
+  node->get_parameter_or<unsigned int>("crop_height",crop_height, 362);
+  node->get_parameter_or<unsigned int>("crop_width",crop_width, 1758);
+  nw.image_handler->resize_width_ = resize_width;
+  nw.image_handler->resize_height_ = resize_height;
+  nw.image_handler->crop_height_ = crop_height;
+  nw.image_handler->crop_width_ = crop_width;
   deepf1::F1DataLogger dl(search_string);  
   dl.start(capture_frequency, nw.datagrab_handler, nw.image_handler);
   
   RCLCPP_INFO(node->get_logger(),
-              "Listening for data from the game");
+              "Listening for data from the game. Resizing images to (HxW)  (%u, %u)",nw.image_handler->resize_height_, nw.image_handler->resize_width_);
 
   rclcpp::spin(node);
  // rclcpp::shutdown();

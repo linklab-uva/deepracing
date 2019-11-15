@@ -136,11 +136,15 @@ sensor_msgs::msg::Image f1_datalogger_ros::F1MsgUtils::toImageMsg(const cv::Mat 
   
   if(image.type()==CV_8UC3)
   {
-    ros_image.encoding = "rgb8";
+    ros_image.encoding = "bgr8";
+  }
+  else if(image.type()==CV_8UC4)
+  {
+    ros_image.encoding = "bgra8";
   }
   else
   {
-    ros_image.encoding = "rgba8";
+    throw std::runtime_error("Unsupported CV image type: " + std::to_string(image.type()));
   }
   
   ros_image.is_bigendian = (boost::endian::order::native == boost::endian::order::big);

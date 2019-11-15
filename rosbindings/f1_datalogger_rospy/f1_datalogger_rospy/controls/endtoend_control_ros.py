@@ -252,10 +252,6 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         self.trajplot = None
         self.fig = None
         self.ax = None
-        cropwidthparam : Parameter = self.get_parameter_or("cropwidth",1758)
-        cropheightparam : Parameter = self.get_parameter_or("cropheight",362)
-        self.cropheight = cropheightparam.get_parameter_value().integer_value
-        self.cropwidth = cropwidthparam.get_parameter_value().integer_value
         self.image_sub = self.create_subscription(
             Image,
             '/f1_screencaps',
@@ -267,18 +263,7 @@ class AdmiralNetPurePursuitControllerROS(PPC):
             return
         n_channels = 3
         imnpbgra = image_to_numpy( img_msg )
-        imnp = cv2.cvtColor(imnpbgra,cv2.COLOR_BGRA2RGB)
-        imnp = imnp[32:]
-        if self.cropheight > 0:
-            cropheight = self.cropheight
-        else:
-            cropheight = imnp.shape[0]
-        if self.cropwidth > 0:
-            cropwidth = self.cropwidth
-        else:
-            cropwidth = imnp.shape[1]
-        imnp = imnp[0:cropheight,0:cropwidth]
-        imnp = deepracing.imutils.resizeImage(imnp,(66,200))
+        imnp = deepracing.imutils.resizeImage(cv2.cvtColor(imnpbgra,cv2.COLOR_BGRA2RGB),(66,200))
         # cv2.imshow("imrecv", cv2.cvtColor(imnp,cv2.COLOR_RGB2BGR))
         # cv2.waitKey(1)
         imnpfloat = ((imnp.astype(np.float64))/255.0).transpose(2,0,1)
