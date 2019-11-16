@@ -42,6 +42,7 @@ find_package( Boost 1.7 REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS} )
 find_package(Protobuf REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(cv_bridge REQUIRED)
 if(WIN32)
   find_package(vJoy_plusplus REQUIRED)
 endif()
@@ -49,7 +50,7 @@ find_package(Armadillo CONFIG REQUIRED)
 
 include_directories(include)
 add_library(f1_msg_utils src/utils/f1_msg_utils.cpp)
-ament_target_dependencies(f1_msg_utils f1_datalogger sensor_msgs std_msgs f1_datalogger_msgs rclcpp rosidl_default_runtime)
+ament_target_dependencies(f1_msg_utils cv_bridge f1_datalogger sensor_msgs std_msgs f1_datalogger_msgs rclcpp rosidl_default_runtime)
 target_link_libraries(f1_msg_utils
  f1_datalogger::f1_datalogger_udp_utils
  Eigen3::Eigen
@@ -72,10 +73,7 @@ target_link_libraries(path_converter
 )
 
 add_executable(ros_rebroadcaster src/ros_rebroadcaster.cpp)
-ament_target_dependencies(ros_rebroadcaster f1_datalogger)
-ament_target_dependencies(ros_rebroadcaster sensor_msgs)
-ament_target_dependencies(ros_rebroadcaster f1_datalogger_msgs)
-ament_target_dependencies(ros_rebroadcaster rclcpp)
+ament_target_dependencies(ros_rebroadcaster cv_bridge f1_datalogger sensor_msgs f1_datalogger_msgs rclcpp)
 target_link_libraries(ros_rebroadcaster
  f1_msg_utils
  f1_datalogger::f1_datalogger
@@ -84,8 +82,9 @@ target_link_libraries(ros_rebroadcaster
  f1_datalogger::f1_datalogger_eigen_utils
  Eigen3::Eigen
  armadillo
+ ${cv_bridge_LIBRARIES}
 )
-#target_include_directories(ros_rebroadcaster PRIVATE ${ARMADILLO_INCLUDE_DIRS})
+target_include_directories(ros_rebroadcaster PRIVATE ${cv_bridge_INCLUDE_DIRS})
 
 
  ament_export_libraries(f1_msg_utils)

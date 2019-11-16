@@ -14,6 +14,7 @@
 #include "f1_datalogger_msgs/msg/timestamped_packet_motion_data.hpp"
 #include "f1_datalogger_msgs/msg/timestamped_packet_car_telemetry_data.hpp"
 #include "f1_datalogger_msgs/msg/timestamped_packet_session_data.hpp"
+#include <cv_bridge/cv_bridge.h>
 class ROSRebroadcaster_2018DataGrabHandler : public deepf1::IF12018DataGrabHandler
 {
 public:
