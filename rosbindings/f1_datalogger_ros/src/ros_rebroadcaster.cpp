@@ -120,8 +120,9 @@ public:
     cv::Mat & imcrop = imin(rowrange,colrange);
     cv::Mat rgbimage;
     cv::resize(imcrop,rgbimage,cv::Size(resize_width_,resize_height_),0.0,0.0,cv::INTER_AREA);
-    sensor_msgs::msg::Image rosimage = f1_datalogger_ros::F1MsgUtils::toImageMsg(rgbimage);
-    this->publisher_->publish(rosimage);
+    cv_bridge::CvImage bridge_image(std_msgs::msg::Header(), "bgra8",rgbimage);
+   // sensor_msgs::msg::Image rosimage = f1_datalogger_ros::F1MsgUtils::toImageMsg(rgbimage);
+    this->publisher_->publish(bridge_image.toImageMsg());
   }
   void init(const deepf1::TimePoint& begin, const cv::Size& window_size) override
   {
