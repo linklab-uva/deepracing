@@ -16,3 +16,6 @@
 [submodule "rosbindings/rqt_bag"]
 	path = rosbindings/rqt_bag
 	url = https://github.com/ros-visualization/rqt_bag.git
+[submodule "rosbindings/vision_opencv"]
+	path = rosbindings/vision_opencv
+	url = https://github.com/linklab-uva/vision_opencv.git
