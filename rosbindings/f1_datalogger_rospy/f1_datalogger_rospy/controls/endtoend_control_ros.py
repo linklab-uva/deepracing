@@ -262,8 +262,8 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         if img_msg.height<=0 or img_msg.width<=0:
             return
         n_channels = 3
-        imnpbgra = image_to_numpy( img_msg )
-        imnp = deepracing.imutils.resizeImage(cv2.cvtColor(imnpbgra,cv2.COLOR_BGRA2RGB),(66,200))
+        imnp= image_to_numpy( img_msg )
+        imnp = deepracing.imutils.resizeImage(image_to_numpy( img_msg ),(66,200))
         # cv2.imshow("imrecv", cv2.cvtColor(imnp,cv2.COLOR_RGB2BGR))
         # cv2.waitKey(1)
         imnpfloat = ((imnp.astype(np.float64))/255.0).transpose(2,0,1)

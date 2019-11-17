@@ -109,6 +109,7 @@ public:
   }
   void handleData(const deepf1::TimestampedImageData& data) override
   {
+    rclcpp::Time stamp=this->node_->now();
     const cv::Mat& imin = data.image;
     /*
       cropwidth : 1758
@@ -118,9 +119,13 @@ public:
     cv::Range rowrange(32,32+crop_height_);
     cv::Range colrange(0,crop_width_-1);
     cv::Mat & imcrop = imin(rowrange,colrange);
-    cv::Mat rgbimage;
-    cv::resize(imcrop,rgbimage,cv::Size(resize_width_,resize_height_),0.0,0.0,cv::INTER_AREA);
-    cv_bridge::CvImage bridge_image(std_msgs::msg::Header(), "bgra8",rgbimage);
+    cv::Mat rgbimage, bgraimage;
+    cv::resize(imcrop,bgraimage,cv::Size(resize_width_,resize_height_),0.0,0.0,cv::INTER_AREA);
+    cv::cvtColor(bgraimage,rgbimage,cv::COLOR_BGRA2RGB);
+    std_msgs::msg::Header header = std_msgs::msg::Header();
+    header.stamp=stamp;
+    header.frame_id="car";
+    cv_bridge::CvImage bridge_image(header, "rgb8",rgbimage);
    // sensor_msgs::msg::Image rosimage = f1_datalogger_ros::F1MsgUtils::toImageMsg(rgbimage);
     this->publisher_->publish(bridge_image.toImageMsg());
   }
