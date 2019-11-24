@@ -151,7 +151,6 @@ class AdmiralNetPurePursuitControllerROS(PPC):
     def __init__(self, trackfile=None, forward_indices : int = 60, lookahead_gain : float = 0.4, L : float= 3.617, pgain: float=0.5, igain : float=0.0125, dgain : float=0.0125, plot : bool =True, gpu : int=0, deltaT : float = 1.415):
         super(AdmiralNetPurePursuitControllerROS, self).__init__(lookahead_gain = lookahead_gain, L = L ,\
                                                     pgain=pgain, igain=igain, dgain=dgain)
-        
         trackfile = self.get_parameter_or("trackfile", trackfile)
         # if (trackfile is not None) and ( not trackfile.type_==Parameter.Type.NOT_SET  ):
         #     t, x, xdot = deepracing.loadArmaFile(trackfile)
@@ -241,8 +240,13 @@ class AdmiralNetPurePursuitControllerROS(PPC):
             hidden_dimension = config["hidden_dimension"]
             self.net : NN.Module = M.AdmiralNetKinematicPredictor(hidden_dim= hidden_dimension, input_channels=input_channels, output_dimension=2, sequence_length=sequence_length, context_length = context_length)
         self.net.double()
+        self.get_logger().info('Using the following predictive model:\n %s' % ( str(self.net) ) )
+        self.get_logger().info('Loading model file: %s' % (model_file) )
         self.net.load_state_dict(torch.load(model_file,map_location=torch.device("cpu")))
+        self.get_logger().info('Loaded model file: %s' % (model_file) )
+        self.get_logger().info('Moving model params to GPU')
         self.net.cuda(gpu)
+        self.get_logger().info('Moved model params to GPU')
         self.net.eval()
         self.image_buffer = RB(self.net.context_length,dtype=(float,(3,66,200)))
         if isinstance(self.net,  M.AdmiralNetCurvePredictor):

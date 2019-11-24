@@ -25,7 +25,9 @@ from f1_datalogger_rospy.controls.endtoend_control_ros import AdmiralNetPurePurs
 
 def main(args=None):
     rclpy.init(args=args)
+    rclpy.logging.initialize()
     node = AdmiralNetPurePursuitControllerROS()
+    node.get_logger().set_level(rclpy.logging.LoggingSeverity.INFO)
     node.start()
     try:
         rclpy.spin(node)

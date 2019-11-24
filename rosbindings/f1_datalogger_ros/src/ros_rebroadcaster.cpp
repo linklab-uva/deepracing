@@ -109,7 +109,7 @@ public:
   }
   void handleData(const deepf1::TimestampedImageData& data) override
   {
-    rclcpp::Time stamp=this->node_->now();
+    const rclcpp::Time stamp=this->node_->now();
     const cv::Mat& imin = data.image;
     /*
       cropwidth : 1758
