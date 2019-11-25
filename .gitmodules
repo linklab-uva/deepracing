@@ -22,3 +22,6 @@
 [submodule "rosbindings/rqt_image_view"]
 	path = rosbindings/rqt_image_view
 	url = https://github.com/ros-visualization/rqt_image_view.git
+[submodule "rosbindings/image_common"]
+	path = rosbindings/image_common
+	url = https://github.com/ros-perception/image_common.git
