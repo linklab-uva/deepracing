@@ -139,8 +139,8 @@ except KeyboardInterrupt:
 except:
   text = input("Could not import matplotlib, skipping visualization. Enter anything to continue.")
 #scipy.interpolate.interp1d
-output_dir=os.path.join(image_folder, args.output_dir)
-lmdb_dir=os.path.join(image_folder, args.output_dir+"_lmdb")
+output_dir=os.path.join(args.db_path, args.output_dir)
+lmdb_dir=os.path.join(output_dir,"lmdb")
 if not os.path.isdir(output_dir):
     os.makedirs(output_dir)
 if not os.path.isdir(lmdb_dir):
