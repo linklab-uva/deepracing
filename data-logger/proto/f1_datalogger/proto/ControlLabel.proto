@@ -1,0 +1,7 @@
+syntax = "proto3";
+package deepf1.protobuf;
+message ControlLabel {
+  float steering = 1;
+  float throttle = 2;
+  float brake = 3;
+}
