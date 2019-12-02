@@ -57,7 +57,6 @@ target_link_libraries(f1_msg_utils
  Boost::system
  Boost::regex
 )
-target_include_directories(f1_msg_utils PRIVATE ${ARMADILLO_INCLUDE_DIRS})
 
 add_executable(tf_updater src/tf_updater.cpp)
 ament_target_dependencies(tf_updater rclcpp f1_datalogger_msgs tf2_ros tf2)
@@ -73,18 +72,15 @@ target_link_libraries(path_converter
 )
 
 add_executable(ros_rebroadcaster src/ros_rebroadcaster.cpp)
-ament_target_dependencies(ros_rebroadcaster cv_bridge f1_datalogger sensor_msgs f1_datalogger_msgs rclcpp)
+ament_target_dependencies(ros_rebroadcaster cv_bridge f1_datalogger sensor_msgs std_msgs f1_datalogger_msgs)
 target_link_libraries(ros_rebroadcaster
  f1_msg_utils
  f1_datalogger::f1_datalogger
- f1_datalogger::f1_datalogger_udp_utils
- f1_datalogger::f1_datalogger_image_utils
- f1_datalogger::f1_datalogger_eigen_utils
  Eigen3::Eigen
  armadillo
  ${cv_bridge_LIBRARIES}
 )
-target_include_directories(ros_rebroadcaster PRIVATE ${cv_bridge_INCLUDE_DIRS})
+#target_include_directories(ros_rebroadcaster PRIVATE ${cv_bridge_INCLUDE_DIRS})
 
 
  ament_export_libraries(f1_msg_utils)

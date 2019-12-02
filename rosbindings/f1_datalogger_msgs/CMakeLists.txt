@@ -20,6 +20,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
@@ -28,7 +29,7 @@ find_package(rosidl_default_generators REQUIRED)
 
 # declare the message files to generate code for
  set(msg_files
-   "msg/TestMsg.msg"
+   "msg/TimestampedImage.msg"
    "msg/CarMotionData.msg"
    "msg/PacketHeader.msg"
    "msg/PacketMotionData.msg"
@@ -44,7 +45,7 @@ find_package(rosidl_default_generators REQUIRED)
 
  rosidl_generate_interfaces(${PROJECT_NAME}
    ${msg_files}
-   DEPENDENCIES geometry_msgs std_msgs visualization_msgs trajectory_msgs tf2_msgs
+   DEPENDENCIES geometry_msgs sensor_msgs std_msgs visualization_msgs trajectory_msgs tf2_msgs
  )
 
  ament_export_dependencies(rosidl_default_runtime)

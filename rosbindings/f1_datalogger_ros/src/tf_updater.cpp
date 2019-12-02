@@ -55,7 +55,7 @@ class NodeWrapperTfUpdater_
       const geometry_msgs::msg::Vector3Stamped &forwardROS = motion_data.world_forward_dir;
       const geometry_msgs::msg::Vector3Stamped &rightROS = motion_data.world_right_dir;
 
-      Eigen::Vector3d leftEigen(-1.0*rightROS.vector.x, -1.0*rightROS.vector.y, -1.0*rightROS.vector.z);
+      Eigen::Vector3d leftEigen(-rightROS.vector.x, -rightROS.vector.y, -rightROS.vector.z);
       Eigen::Vector3d forwardEigen(forwardROS.vector.x, forwardROS.vector.y, forwardROS.vector.z);
       Eigen::Vector3d upEigen(upROS.vector.x, upROS.vector.y, upROS.vector.z);
       Eigen::Matrix3d rotmat;

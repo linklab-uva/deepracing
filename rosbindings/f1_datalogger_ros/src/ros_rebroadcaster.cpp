@@ -1,16 +1,14 @@
 #include "rclcpp/rclcpp.hpp"
 #include "f1_datalogger/udp_logging/utils/udp_stream_utils.h"
-#include <Eigen/Geometry>
 #include "f1_datalogger/f1_datalogger.h"
 #include <iostream>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <sstream>
-#include <sensor_msgs/msg/image.hpp>
-#include <Eigen/Geometry>
 #include "f1_datalogger/udp_logging/utils/eigen_utils.h"
 #include "f1_datalogger/image_logging/utils/opencv_utils.h"
 #include "f1_datalogger_ros/utils/f1_msg_utils.h"
+#include "f1_datalogger_msgs/msg/timestamped_image.hpp"
 #include "f1_datalogger_msgs/msg/timestamped_packet_motion_data.hpp"
 #include "f1_datalogger_msgs/msg/timestamped_packet_car_telemetry_data.hpp"
 #include "f1_datalogger_msgs/msg/timestamped_packet_session_data.hpp"
@@ -98,7 +96,10 @@ class ROSRebroadcaster_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
 public:
   ROSRebroadcaster_FrameGrabHandler(std::shared_ptr<rclcpp::Node> node) 
   {
+    rclcpp::QoS qos_settings(100);
     this->node_ = node;
+    this->publisher_ = this->node_->create_publisher<sensor_msgs::msg::Image>("f1_screencaps", qos_settings);
+    this->timestamped_publisher_ = this->node_->create_publisher<f1_datalogger_msgs::msg::TimestampedImage>("timestamped_f1_screencaps", qos_settings);
   }
   virtual ~ROSRebroadcaster_FrameGrabHandler()
   {
@@ -125,13 +126,15 @@ public:
     std_msgs::msg::Header header = std_msgs::msg::Header();
     header.stamp=stamp;
     header.frame_id="car";
-    cv_bridge::CvImage bridge_image(header, "rgb8",rgbimage);
-   // sensor_msgs::msg::Image rosimage = f1_datalogger_ros::F1MsgUtils::toImageMsg(rgbimage);
-    this->publisher_->publish(bridge_image.toImageMsg());
+    cv_bridge::CvImage bridge_image(header, "rgb8", rgbimage);
+    f1_datalogger_msgs::msg::TimestampedImage timestamped_image;
+    timestamped_image.timestamp = std::chrono::duration<double>(data.timestamp - begin_).count();
+    timestamped_image.image = *(bridge_image.toImageMsg());
+    this->timestamped_publisher_->publish(timestamped_image);
+    this->publisher_->publish(timestamped_image.image);
   }
   void init(const deepf1::TimePoint& begin, const cv::Size& window_size) override
   {
-    this->publisher_ = node_->create_publisher<sensor_msgs::msg::Image>("f1_screencaps", 10);
     this->begin_ = begin;
     ready = true;
   }
@@ -144,6 +147,7 @@ private:
   bool ready;
   std::shared_ptr<rclcpp::Node> node_;
   std::shared_ptr<rclcpp::Publisher <sensor_msgs::msg::Image> > publisher_;
+  std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedImage> > timestamped_publisher_;
   deepf1::TimePoint begin_;
   
 };
