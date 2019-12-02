@@ -11,17 +11,6 @@ from tqdm import tqdm as tqdm
 from scipy import interpolate
 from scipy.spatial.transform import Rotation as Rot
 from scipy.spatial.transform import RotationSpline as RotSpline
-def downsampleVectorsSpline( times : np.ndarray, vectors: np.ndarray , num_output_vectors : int, k : int = 3 ):
-   teval = np.linspace( times[0] , times[-1] , num=num_output_vectors )
-   spl = interpolate.make_interp_spline( times , vectors, k=k )
-   vout = spl(teval)
-   return teval, vout
-
-def downsampleQuaternionsSquad( times : np.ndarray, quats : np.ndarray, num_output_quaternions : int ):
-   teval = np.linspace( times[0] , times[-1] , num=num_output_quaternions )
-   qout = quaternion.squad(quats,times,teval)
-   return teval, qout
-
 def randomTransform(pscale=1.0):
    T = np.eye(4)
    T[0:3,0:3] = Rot.random().as_dcm()
