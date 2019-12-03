@@ -1,6 +1,6 @@
 #model definition parameters
-use_float: False
 input_channels: 3
+output_dimension: 2
 
 #training hyperparameters
 gpu: 0
@@ -10,6 +10,3 @@ momentum: 1.0E-3
 num_epochs: 100
 num_workers: 0
 control_loss_reduction: "sum"
-
-#debugging settings
-debug: False

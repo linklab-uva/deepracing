@@ -1,3 +1,4 @@
+import comet_ml
 import torch
 import torch.utils.data as data_utils
 import data_loading.proto_datasets
@@ -73,7 +74,9 @@ def go():
     parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
     parser.add_argument("--override", action="store_true",  help="Delete output directory and replace with new data")
     parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
+    parser.add_argument("--epochstart", type=int, default=1,  help="Restart training from the given epoch number")
     args = parser.parse_args()
+    epochstart = args.epochstart
     training_config_file = args.training_config
     dataset_config_file = args.dataset_config
     output_directory = args.output_directory
@@ -85,6 +88,7 @@ def go():
 
     image_size = dataset_config["image_size"]
     input_channels = training_config["input_channels"]
+    output_dimension = training_config["output_dimension"]
     gpu = training_config["gpu"]
     batch_size = training_config["batch_size"]
     learning_rate = training_config["learning_rate"]
@@ -103,7 +107,7 @@ def go():
     elif os.path.isdir(output_directory):
         shutil.rmtree(output_directory)
     os.makedirs(output_directory)
-    net = models.PilotNet(input_channels=input_channels, output_dim=2)
+    net = models.PilotNet(input_channels=input_channels, output_dim=output_dimension)
     
     mse_loss = torch.nn.MSELoss(reduction=control_loss_reduction)
     optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum)
@@ -147,38 +151,54 @@ def go():
     print("Dataloader of of length %d" %(len(dataloader)))
     yaml.dump(training_config, stream=open(os.path.join(output_directory,"training_config.yaml"), "w"), Dumper = yaml.SafeDumper)
     yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
+    experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingpilotnet")
+    experiment.log_parameters(training_config)
+    experiment.log_parameters(dataset_config)
+    experiment_config = {"experiment_key": experiment.get_key()}
+    yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
     i = 0
-    while i < num_epochs:
-        time.sleep(2.0)
-        postfix = i + 1
-        print("Running Epoch Number %d" %(postfix))
-        #dset.clearReaders()
-        try:
-            tick = time.time()
-            run_epoch(net, optimizer, dataloader, gpu, mse_loss, debug=debug, use_tqdm=args.tqdm)
-            tock = time.time()
-            print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
-        except Exception as e:
-            print("Restarting epoch %d because %s"%(postfix, str(e)))
-            modelin = os.path.join(output_directory,"pilotnet_epoch_%d_params.pt" %(postfix-1))
-            optimizerin = os.path.join(output_directory,"pilotnet_epoch_%d_optimizer.pt" %(postfix-1))
-            net.load_state_dict(torch.load(modelin))
-            optimizer.load_state_dict(torch.load(optimizerin))
-            continue
-        modelout = os.path.join(output_directory,"pilotnet_epoch_%d_params.pt" %(postfix))
-        torch.save(net.state_dict(), modelout)
-        optimizerout = os.path.join(output_directory,"pilotnet_epoch_%d_optimizer.pt" %(postfix))
-        torch.save(optimizer.state_dict(), optimizerout)
-        irand = np.random.randint(0,high=len(dset))
-        input_test = torch.rand( 1, input_channels, image_size[0], image_size[1], dtype=torch.float32 )
-        input_test[0], control_label = dset[irand]
-        input_test = input_test.double()
-        if gpu>=0:
-            input_test = input_test.cuda(gpu)
-        control_pred = net(input_test)
-        print(control_pred)
-        print(control_label)
-        i = i + 1
+    netpostfix="pilotnet_epoch_%d_params.pt" 
+    optimizerpostfix = "pilotnet_epoch_%d_optimizer.pt"
+    with experiment.train():
+        while i < num_epochs:
+            time.sleep(2.0)
+            postfix = i + 1
+            print("Running Epoch Number %d" %(postfix))
+            #dset.clearReaders()
+            try:
+                tick = time.time()
+                run_epoch(net, optimizer, dataloader, gpu, mse_loss, debug=debug, use_tqdm=args.tqdm)
+                tock = time.time()
+                print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
+            except Exception as e:
+                print("Restarting epoch %d because %s"%(postfix, str(e)))
+                modelin = os.path.join(output_directory,netpostfix %(postfix-1))
+                optimizerin = os.path.join(output_directory,optimizerpostfix %(postfix-1))
+                net.load_state_dict(torch.load(modelin))
+                optimizer.load_state_dict(torch.load(optimizerin))
+                continue
+
+            netfile = netpostfix % ( postfix )
+            modelout = os.path.join( output_directory, netfile )
+            torch.save( net.state_dict(), modelout )
+            experiment.log_asset(modelout, file_name=netfile)
+            
+            optimizerfile = optimizerpostfix % ( postfix )
+            optimizerout = os.path.join( output_directory, optimizerfile )
+            torch.save( optimizer.state_dict(), optimizerout )
+            experiment.log_asset(optimizerout, file_name=optimizerfile )
+
+            irand = np.random.randint(0,high=len(dset))
+            input_test = torch.rand( 1, input_channels, image_size[0], image_size[1], dtype=torch.float32 )
+            input_test[0], control_label = dset[irand]
+            input_test = input_test.double()
+            if gpu>=0:
+                input_test = input_test.cuda(gpu)
+            control_pred = net(input_test)
+            print(control_pred)
+            print(control_label)
+
+            i = i + 1
 import logging
 if __name__ == '__main__':
     logging.basicConfig()

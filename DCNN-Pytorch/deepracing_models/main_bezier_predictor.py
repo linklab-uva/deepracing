@@ -302,7 +302,6 @@ def go():
             torch.save(optimizer.state_dict(), optimizerout)
             with open(optimizerout,'rb') as optimizerfile:
                 experiment.log_asset(optimizerfile,file_name=optimizerpostfix %(postfix))
-            
             i = i + 1
 import logging
 if __name__ == '__main__':

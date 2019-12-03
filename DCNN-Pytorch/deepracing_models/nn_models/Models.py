@@ -36,6 +36,8 @@ class PilotNet(nn.Module):
         self.fc3 = nn.Linear(50, 10)
         self.prediction_layer = nn.Linear(10, self.output_size)
 
+
+        self.tanh = nn.Tanh()
     def forward(self, x):
         out = self.conv1(x)
         out = self.conv2(out)
@@ -45,9 +47,16 @@ class PilotNet(nn.Module):
         # This flattens the output of the previous layer into a vector.
         out = out.view(out.size(0), -1) 
         out = self.fc1(out)
+        out = self.tanh(out)
+
         out = self.fc2(out)
+        out = self.tanh(out)
+
         out = self.fc3(out)
+        out = torch.clamp(out,-1.0,1.0)
+
         out = self.prediction_layer(out)
+        out = torch.clamp(out,-1.0,1.0)
         #out = out.unsqueeze(2)
         #print(out.size())
         return out
