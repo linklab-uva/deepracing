@@ -4,12 +4,12 @@ input_channels: 3
 
 #training hyperparameters
 gpu: 0
-batch_size: 100
-learning_rate: 5.0E-4
-momentum: 1.0E-4
+batch_size: 128
+learning_rate: 1.0E-3
+momentum: 1.0E-3
 num_epochs: 100
 num_workers: 0
-control_loss_reduction: "mean"
+control_loss_reduction: "sum"
 
 #debugging settings
 debug: False
