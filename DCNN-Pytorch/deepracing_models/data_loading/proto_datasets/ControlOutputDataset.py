@@ -46,7 +46,6 @@ class ControlOutputDataset(Dataset):
         with open(keyfile,'r') as filehandle:
             keystrings = filehandle.readlines()
             self.db_keys = [keystring.replace('\n','') for keystring in keystrings]
-        num_labels = self.label_db_wrapper.getNumLabels()
         self.length = len(self.db_keys)
     def __len__(self):
         return self.length
@@ -54,8 +53,10 @@ class ControlOutputDataset(Dataset):
         key = self.db_keys[index]
         label_packet = self.label_db_wrapper.getControlLabel(key)
         image_torch = self.totensor(resizeImage(self.image_db_wrapper.getImage(key), self.image_size))
-        control_outputs = torch.zeros(3,dtype=image_torch.dtype)
+        control_outputs = torch.zeros(2, dtype=image_torch.dtype)
+        throttle = label_packet.label.throttle
+        brake = label_packet.label.brake
+        accel = throttle-brake
         control_outputs[0] = label_packet.label.steering
-        control_outputs[1] = label_packet.label.throttle
-        control_outputs[2] = label_packet.label.brake
-        return image_torch, control_outputs
+        control_outputs[1] = accel
+        return image_torch, torch.clamp(control_outputs, -1.0, 1.0)
