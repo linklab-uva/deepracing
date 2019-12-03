@@ -1,35 +1,11 @@
-#datasets definition
-datasets:
-  -
-    image_db: D:\f1_training_data\australia_multiplayer_also_good\images\image_lmdb
-    label_db: D:\f1_training_data\australia_multiplayer_also_good\images\steering_labels_lmdb
-    key_file: D:\f1_training_data\australia_multiplayer_also_good\controloutputkeys.txt
-  -
-    image_db: D:\f1_training_data\australia_multiplayer_good\images\image_lmdb
-    label_db: D:\f1_training_data\australia_multiplayer_good\images\steering_labels_lmdb
-    key_file: D:\f1_training_data\australia_multiplayer_good\controloutputkeys.txt
-  -
-    image_db: D:\f1_training_data\australia_more_more_yet_again\images\image_lmdb
-    label_db: D:\f1_training_data\australia_more_more_yet_again\images\steering_labels_lmdb
-    key_file: D:\f1_training_data\australia_more_more_yet_again\controloutputkeys.txt
-  -
-    image_db: D:\f1_training_data\australia_more_yet_again\images\image_lmdb
-    label_db: D:\f1_training_data\australia_more_yet_again\images\steering_labels_lmdb
-    key_file: D:\f1_training_data\australia_more_yet_again\controloutputkeys.txt
-  -
-    image_db: D:\f1_training_data\trent_lazy_lap\images\image_lmdb
-    label_db: D:\f1_training_data\trent_lazy_lap\images\steering_labels_lmdb
-    key_file: D:\f1_training_data\trent_lazy_lap\controloutputkeys.txt
-image_size: [66, 200]
-
 #model definition parameters
 use_float: False
 input_channels: 3
 
 #training hyperparameters
 gpu: 0
-batch_size: 64
-learning_rate: 1.0E-3
+batch_size: 100
+learning_rate: 5.0E-4
 momentum: 1.0E-4
 num_epochs: 100
 num_workers: 0
