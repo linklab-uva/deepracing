@@ -1,0 +1,48 @@
+#datasets definition
+image_size: [66,200]
+datasets:
+  -
+    image_folder: /p/DeepRacing/f1_training_data/MadhurAustraliaFullscreen3/images
+    label_folder: /p/DeepRacing/f1_training_data/MadhurAustraliaFullscreen3/steering_labels
+    key_file: /p/DeepRacing/f1_training_data/MadhurAustraliaFullscreen3/controloutputkeys.txt
+    ROI: [0,0,1920,602]
+  -
+    image_folder: /p/DeepRacing/f1_training_data/trent_solo/images
+    label_folder: /p/DeepRacing/f1_training_data/trent_solo/steering_labels
+    key_file: /p/DeepRacing/f1_training_data/trent_solo/controloutputkeys.txt
+    ROI: [0,32,1758,362]
+  -
+    image_folder: /p/DeepRacing/f1_training_data/trent_solo_2/images
+    label_folder: /p/DeepRacing/f1_training_data/trent_solo_2/steering_labels
+    key_file: /p/DeepRacing/f1_training_data/trent_solo_2/controloutputkeys.txt
+    ROI: [0,32,1758,362]
+  -
+    image_folder: /p/DeepRacing/f1_training_data/trent_solo_3/images
+    label_folder: /p/DeepRacing/f1_training_data/trent_solo_3/steering_labels
+    key_file: /p/DeepRacing/f1_training_data/trent_solo_3/controloutputkeys.txt
+    ROI: [0,32,1758,362]
+  -
+    image_folder: /p/DeepRacing/f1_training_data/trent_solo_4/images
+    label_folder: /p/DeepRacing/f1_training_data/trent_solo_4/steering_labels
+    key_file: /p/DeepRacing/f1_training_data/trent_solo_4/controloutputkeys.txt
+    ROI: [0,32,1758,362]
+  -
+    image_folder: /p/DeepRacing/f1_training_data/trent_solo_5/images
+    label_folder: /p/DeepRacing/f1_training_data/trent_solo_5/steering_labels
+    key_file: /p/DeepRacing/f1_training_data/trent_solo_5/controloutputkeys.txt
+    ROI: [0,32,1758,362]
+  -
+    image_folder: /p/DeepRacing/f1_training_data/trent_solo_6/images
+    label_folder: /p/DeepRacing/f1_training_data/trent_solo_6/steering_labels
+    key_file: /p/DeepRacing/f1_training_data/trent_solo_6/controloutputkeys.txt
+    ROI: [0,32,1758,362]
+  -
+    image_folder: /p/DeepRacing/f1_training_data/trent_solo_8/images
+    label_folder: /p/DeepRacing/f1_training_data/trent_solo_8/steering_labels
+    key_file: /p/DeepRacing/f1_training_data/trent_solo_8/controloutputkeys.txt
+    ROI: [0,32,1758,362]
+  -
+    image_folder: /p/DeepRacing/f1_training_data/trent_solo_9/images
+    label_folder: /p/DeepRacing/f1_training_data/trent_solo_9/steering_labels
+    key_file: /p/DeepRacing/f1_training_data/trent_solo_9/controloutputkeys.txt
+    ROI: [0,32,1758,362]
