@@ -75,6 +75,7 @@ def go():
     parser.add_argument("--override", action="store_true",  help="Delete output directory and replace with new data")
     parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
     parser.add_argument("--epochstart", type=int, default=1,  help="Restart training from the given epoch number")
+    parser.add_argument("--gpu", type=int, default=-1,  help="Override GPU number in config file")
     args = parser.parse_args()
     epochstart = args.epochstart
     training_config_file = args.training_config
@@ -89,7 +90,10 @@ def go():
     image_size = dataset_config["image_size"]
     input_channels = training_config["input_channels"]
     output_dimension = training_config["output_dimension"]
-    gpu = training_config["gpu"]
+    if args.gpu>=0:
+        gpu = args.gpu
+    else:
+        gpu = training_config["gpu"]
     batch_size = training_config["batch_size"]
     learning_rate = training_config["learning_rate"]
     momentum = training_config["momentum"]
