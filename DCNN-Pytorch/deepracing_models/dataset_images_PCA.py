@@ -71,7 +71,7 @@ def main(args):
     # print("Got SVD")
     pca = PCA()
     pca.fit(datamatrix)
-
+    variance_ratios = pca.explained_variance_ratio_
     I = np.linspace(1,variance_ratios.shape[0],variance_ratios.shape[0]).astype(np.int32)
     fig = plt.figure("Scree Plot")
     plt.plot(I, variance_ratios, label='Ratio of Explained Variance')
