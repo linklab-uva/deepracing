@@ -82,7 +82,9 @@ def main(args):
     plt.savefig('scree_plot.png')
     with open(dataset_name+"_pca.pkl",'wb') as f:
         pickle.dump(pca,f)
+import logging
 if __name__ == '__main__':
+    logging.basicConfig()
     parser = argparse.ArgumentParser(description="Display Scree Plot of  a dataset")
     parser.add_argument("dataset_config_file", type=str, help="Dataset config file to load data from")
     #parser.add_argument("--display_resize_factor", type=float, default=0.5, help="Resize the first image by this factor for selecting a ROI.")
