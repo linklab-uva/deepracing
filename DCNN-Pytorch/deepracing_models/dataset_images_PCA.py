@@ -20,9 +20,12 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import cv2
 from tqdm import tqdm as tqdm
+import os
+import pickle
 def main(args):
     print("Hello World!")
     dataset_config_file = args.dataset_config_file
+    dataset_name = os.path.splitext(os.path.basename(dataset_config_file))[0]
     with open(dataset_config_file) as f:
         dataset_config = yaml.load(f, Loader = yaml.SafeLoader)
     print(dataset_config)
@@ -77,7 +80,8 @@ def main(args):
     plt.plot(I, variance_ratios, label='Ratio of Explained Variance')
     fig.legend()
     plt.savefig('scree_plot.png')
-   # plt.show()
+    with open(dataset_name+"_pca.pkl",'wb') as f:
+        pickle.dump(pca,f)
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Display Scree Plot of  a dataset")
     parser.add_argument("dataset_config_file", type=str, help="Dataset config file to load data from")
