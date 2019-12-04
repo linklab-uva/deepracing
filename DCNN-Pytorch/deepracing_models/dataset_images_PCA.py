@@ -67,8 +67,8 @@ def main(args):
     print("Loaded data")
     datamatrix_torch = batch_images.reshape(N,numfeatures).float()
     datamatrix_torch_cuda = datamatrix_torch.cuda(0)
-    U,S,V = torch.svd(datamatrix_torch_cuda)
-    print("Got SVD")
+    # U,S,V = torch.svd(datamatrix_torch_cuda)
+    # print("Got SVD")
     pca = PCA()
     pca.fit(datamatrix)
 
