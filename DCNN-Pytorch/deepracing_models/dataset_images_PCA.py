@@ -26,7 +26,6 @@ parser = argparse.ArgumentParser(description="Display Scree Plot of  a dataset")
 parser.add_argument("dataset_config_file", type=str, help="Dataset config file to load data from")
 #parser.add_argument("--display_resize_factor", type=float, default=0.5, help="Resize the first image by this factor for selecting a ROI.")
 args = parser.parse_args()
-main(args)
 print("Hello World!")
 dataset_config_file = args.dataset_config_file
 dataset_name = os.path.splitext(os.path.basename(dataset_config_file))[0]
