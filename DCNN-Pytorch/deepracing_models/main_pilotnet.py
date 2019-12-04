@@ -80,7 +80,7 @@ def go():
     epochstart = args.epochstart
     training_config_file = args.training_config
     dataset_config_file = args.dataset_config
-    output_directory = args.output_directory
+    output_directory = os.path.join(args.output_directory,os.path.splitext(os.path.basename(training_config_file))[0])
     debug = args.debug
     with open(training_config_file) as f:
         training_config = yaml.load(f, Loader = yaml.SafeLoader)
