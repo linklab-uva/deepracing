@@ -111,7 +111,7 @@ else:
     C = (1/(N-1))*torch.matmul(datamatrix_centered.transpose(0,1), datamatrix_centered)
     with open(covariance_file,'wb') as f:
         torch.save(C.cpu(),f)
-C_cuda = C.cuda(0)
+#C_cuda = C.cuda(0)
 C_np = C.numpy()#.copy()
 del datamatrix_torch
 print("Shape of covariance matrix: " + str(C.shape))
