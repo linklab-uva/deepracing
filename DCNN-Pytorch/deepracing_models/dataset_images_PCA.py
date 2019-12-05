@@ -23,20 +23,41 @@ from tqdm import tqdm as tqdm
 import os
 import pickle
 import numpy.linalg as la
+import torch.distributed
+import torch.nn as NN
+class PCASvdModule(NN.Module):
+    def __init__(self):
+        super(PCASvdModule, self).__init__()
+    def forward(self, X):
+        N = X.shape[0]
+        X_mean = torch.mean(X,0)
+        X = X - X_mean.expand_as(X)
+        # svd
+        U,S,V = torch.svd(X.transpose(0,1))
+        return (S**2)/(N-1), V
+class PCAEigenModule(NN.Module):
+    def __init__(self):
+        super(PCAEigenModule, self).__init__()
+    def forward(self, C):
+        eigenvalues, eigenvectors = C.symeig(eigenvectors=True)
+        return eigenvalues, eigenvectors
 parser = argparse.ArgumentParser(description="Display Scree Plot of  a dataset")
 parser.add_argument("dataset_config_file", type=str, help="Dataset config file to load data from")
 parser.add_argument("--use_sklearn", action="store_true", help="Attempt to use ScikitLearn's built-in PCA method")
+parser.add_argument("--gpu", default=-1, type=int, help="Use GPU.")
+parser.add_argument("--scale_factor", default=1.0, type=float, help="By what factor to scale down the images.")
 #parser.add_argument("--display_resize_factor", type=float, default=0.5, help="Resize the first image by this factor for selecting a ROI.")
 args = parser.parse_args()
 print("Hello World!")
 use_sklearn = args.use_sklearn
+gpu = args.gpu
 dataset_config_file = args.dataset_config_file
 dataset_name = os.path.splitext(os.path.basename(dataset_config_file))[0]
 with open(dataset_config_file) as f:
     dataset_config = yaml.load(f, Loader = yaml.SafeLoader)
 print(dataset_config)
 max_spare_txns = 16
-image_size = np.round((np.array(dataset_config["image_size"], dtype=np.float64)/1.0)).astype(np.int32)
+image_size = np.round((np.array(dataset_config["image_size"], dtype=np.float64)/args.scale_factor)).astype(np.int32)
 datasets = dataset_config["datasets"]
 
 # N = 50
@@ -77,7 +98,7 @@ else:
             dset = data_utils.ConcatDataset(dsets)
         exampleim = dset[0][0]
         numfeatures = exampleim.numel()
-        N = numsamples
+    N = numsamples
     dataloader = data_utils.DataLoader(dset, batch_size=N, shuffle=True)
     print("Loading data")
     batch_images, _ = next(iter(dataloader))
@@ -111,18 +132,24 @@ else:
     C = (1/(N-1))*torch.matmul(datamatrix_centered.transpose(0,1), datamatrix_centered)
     with open(covariance_file,'wb') as f:
         torch.save(C.cpu(),f)
+    del datamatrix_centered
 #C_cuda = C.cuda(0)
 C_np = C.numpy()#.copy()
-del datamatrix_torch
 print("Shape of covariance matrix: " + str(C.shape))
 print("Doing Eigenvalue Decomposition")
-eigenvalues_real, eigenvectors = torch.symeig(C, eigenvectors=True)
+del datamatrix_torch
+pca = PCAEigenModule()
+pca.eval()
+if gpu>=0:
+    pca = pca.cuda(gpu)
+    C = C.cuda(gpu)
+eigenvalues_real, eigenvectors = pca(datamatrix_torch)
 variances = torch.flip(eigenvalues_real,(0,))
 eigenvectors_sorted = torch.flip(eigenvectors,(1,))
 with open(dataset_name+"_eigenvalues.pt",'wb') as f:
-    torch.save(variances,f)
+    torch.save(variances.cpu(),f)
 with open(dataset_name+"_eigenvectors.pt",'wb') as f:
-    torch.save(eigenvectors_sorted,f)
+    torch.save(eigenvectors_sorted.cpu(),f)
 
 variance_ratios = (variances/torch.sum(variances)).numpy()
 
