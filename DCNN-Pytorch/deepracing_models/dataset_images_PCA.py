@@ -121,7 +121,10 @@ covariance_file = dataset_name+"_covariance.pt"
 if os.path.isfile(covariance_file):
     print("Using covariance matrix in %s" %(covariance_file))
     with open(covariance_file,'rb') as f:
-        C = torch.load(f).float()
+        if gpu>=0:
+            C = torch.load(f, map_location=torch.device("cuda:%d" % (gpu))).float()
+        else:
+            C = torch.load(f).float()
 else:
     print("Centering data")
     datamatrix_centered = torch.sub( datamatrix_torch, torch.mean(datamatrix_torch,0) ) 
@@ -129,25 +132,27 @@ else:
     print("Computing Covariance Matrix")
     #C = (1/(N-1))*torch.matmul(datamatrix_torch_cuda.transpose(0,1), datamatrix_torch_cuda)
     # C_np = C.cpu().numpy().copy()
+    if gpu>=0:
+        datamatrix_centered = datamatrix_centered.cuda(0)
     C = (1/(N-1))*torch.matmul(datamatrix_centered.transpose(0,1), datamatrix_centered)
     with open(covariance_file,'wb') as f:
         torch.save(C.cpu(),f)
     del datamatrix_centered
 print("Shape of covariance matrix: " + str(C.shape))
-print("Doing Eigenvalue Decomposition")
 del datamatrix_torch
-pca = PCAEigenModule()
-pca.eval()
-if gpu>=0:
-    pca = pca.cuda(gpu)
-    C = C.cuda(gpu)
-eigenvalues_real, eigenvectors = pca(C)
-variances = torch.flip(eigenvalues_real,(0,))
-eigenvectors_sorted = torch.flip(eigenvectors,(1,))
+# pca = PCAEigenModule()
+# pca.eval()
+# if gpu>=0:
+#     C = C.cuda(gpu)
+print("Doing Eigenvalue Decomposition")
+eigenvalues, eigenvectors = torch.symeig(C, eigenvectors=True)
+print("Done with Eigenvalue Decomposition")
+variances, indices = torch.sort(eigenvalues.cpu(),descending=True)
+eigenvectors_sorted = eigenvectors.cpu()[:,indices]
 with open(dataset_name+"_eigenvalues.pt",'wb') as f:
-    torch.save(variances.cpu(),f)
+    torch.save(variances,f)
 with open(dataset_name+"_eigenvectors.pt",'wb') as f:
-    torch.save(eigenvectors_sorted.cpu(),f)
+    torch.save(eigenvectors_sorted,f)
 
 variance_ratios = (variances/torch.sum(variances)).numpy()
 I = np.linspace(1,variance_ratios.shape[0],variance_ratios.shape[0]).astype(np.int32)
