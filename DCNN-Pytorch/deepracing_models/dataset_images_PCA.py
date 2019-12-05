@@ -133,8 +133,6 @@ else:
     with open(covariance_file,'wb') as f:
         torch.save(C.cpu(),f)
     del datamatrix_centered
-#C_cuda = C.cuda(0)
-C_np = C.numpy()#.copy()
 print("Shape of covariance matrix: " + str(C.shape))
 print("Doing Eigenvalue Decomposition")
 del datamatrix_torch
@@ -143,7 +141,7 @@ pca.eval()
 if gpu>=0:
     pca = pca.cuda(gpu)
     C = C.cuda(gpu)
-eigenvalues_real, eigenvectors = pca(datamatrix_torch)
+eigenvalues_real, eigenvectors = pca(C)
 variances = torch.flip(eigenvalues_real,(0,))
 eigenvectors_sorted = torch.flip(eigenvectors,(1,))
 with open(dataset_name+"_eigenvalues.pt",'wb') as f:
