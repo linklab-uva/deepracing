@@ -18,7 +18,12 @@ set(${PROJECT_NAME}_udp_utils_src
 utils/udp_stream_utils.cpp
 )
 add_library( ${PROJECT_NAME}_udp_utils ${${PROJECT_NAME}_udp_utils_src} )
-target_link_libraries(${PROJECT_NAME}_udp_utils ${PROJECT_NAME}_udp_logging ${PROJECT_NAME}_proto ${Boost_LIBRARIES})
+target_link_libraries(${PROJECT_NAME}_udp_utils ${PROJECT_NAME}_udp_logging ${PROJECT_NAME}_proto ${PROTO_LIBS} ${Boost_LIBRARIES})
+target_include_directories(${PROJECT_NAME}_udp_utils 
+PRIVATE
+${PROTO_INCLUDE_DIR}
+)
+
 
 
 set(${PROJECT_NAME}_eigen_utils_src
@@ -44,7 +49,10 @@ target_link_libraries( ${PROJECT_NAME}_udp_logging_common ${PROJECT_NAME}_udp_lo
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 target_link_libraries(${PROJECT_NAME}_udp_logging_common stdc++fs )
 endif()
-
+target_include_directories(${PROJECT_NAME}_udp_logging_common 
+PRIVATE
+${PROTO_INCLUDE_DIR}
+)
 
 set(install_targets
 #executables.

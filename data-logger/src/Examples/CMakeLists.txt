@@ -20,6 +20,10 @@ target_link_libraries(${PROJECT_NAME}_proto_rebroadcaster
 	${screen_capture_lite_LIBRARIES}
 	${screen_capture_lite_PLATFORM_LIBS}
 )
+target_include_directories(${PROJECT_NAME}_proto_rebroadcaster 
+PRIVATE
+${PROTO_INCLUDE_DIR}
+)
 
 
 if(MSVC)
@@ -99,8 +103,13 @@ ${Boost_LIBRARIES}
 ${TBB_IMPORTED_TARGETS}
 Eigen3::Eigen
 )
-target_include_directories(${PROJECT_NAME}_cv_viewer_example PRIVATE ${DIRECTXT_INCLUDE_DIR})
-set_target_properties(${PROJECT_NAME}_cv_viewer_example PROPERTIES FOLDER examples)
+target_include_directories(${PROJECT_NAME}_cv_viewer_example 
+PRIVATE
+${PROTO_INCLUDE_DIR}
+${DIRECTXT_INCLUDE_DIR}
+)
+
+
 if(MSVC)
     
 	option(BUILD_MULTITHREADED_EXAMPLE "" ON)
@@ -129,7 +138,11 @@ if(MSVC)
 		if(WIN10API)
 			target_link_libraries(${PROJECT_NAME}_multithreaded_capture RuntimeObject)
 		endif()
-		target_include_directories(${PROJECT_NAME}_multithreaded_capture PRIVATE ${DIRECTXT_INCLUDE_DIR})
+		target_include_directories(${PROJECT_NAME}_multithreaded_capture 
+		PRIVATE
+		${PROTO_INCLUDE_DIR}
+		${DIRECTXT_INCLUDE_DIR}
+		)
 		set_target_properties(${PROJECT_NAME}_multithreaded_capture PROPERTIES FOLDER examples)
 	endif()
 endif()

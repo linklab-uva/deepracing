@@ -4,15 +4,22 @@ utils/opencv_utils.cpp
 )
 add_library(${PROJECT_NAME}_image_utils ${${PROJECT_NAME}_utils_src})
 target_link_libraries(${PROJECT_NAME}_image_utils ${OpenCV_LIBRARIES} ${screen_capture_lite_LIBRARIES} ${PROJECT_NAME}_proto)
-if(MSVC AND BUILD_SHARED_LIBS)
-    set_target_properties(${PROJECT_NAME}_image_utils PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
-endif()
+target_include_directories(${PROJECT_NAME}_image_utils 
+PRIVATE
+${PROTO_INCLUDE_DIR}
+)
+
+
 
 set(${PROJECT_NAME}_image_logging_src
 f1_framegrab_manager.cpp
 )
 add_library(${PROJECT_NAME}_image_logging ${${PROJECT_NAME}_image_logging_src})
 target_link_libraries(${PROJECT_NAME}_image_logging ${PROJECT_NAME}_image_utils ${screen_capture_lite_PLATFORM_LIBS})
+target_include_directories(${PROJECT_NAME}_image_logging 
+PRIVATE
+${PROTO_INCLUDE_DIR}
+)
 
 
 
@@ -24,6 +31,10 @@ target_link_libraries(${PROJECT_NAME}_image_logging_common ${PROJECT_NAME}_image
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     target_link_libraries(${PROJECT_NAME}_image_logging_common stdc++fs )
 endif()
+target_include_directories(${PROJECT_NAME}_image_logging_common 
+PRIVATE
+${PROTO_INCLUDE_DIR}
+)
 
 
 set(install_targets
