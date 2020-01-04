@@ -1,9 +1,9 @@
 set(_required_cmake 3.15)
 cmake_minimum_required (VERSION ${_required_cmake} FATAL_ERROR)
 cmake_policy(VERSION ${_required_cmake})
-if(COMMAND cmake_policy)
-	cmake_policy(SET CMP0003 NEW)
-endif(COMMAND cmake_policy)
+# if(COMMAND cmake_policy)
+# 	cmake_policy(SET CMP0003 NEW)
+# endif(COMMAND cmake_policy)
 project(f1_datalogger)
 
 set(cxx_standard 17)
@@ -172,12 +172,6 @@ if(BUILD_DATALOGGER)
     ${Boost_LIBRARIES}
     )
     add_subdirectory( src/Examples )
-
-	
-	set_target_properties(${PROJECT_NAME} ${PROJECT_NAME}_udp_logging ${PROJECT_NAME}_image_logging  screen_capture_lite
-						PROPERTIES FOLDER core)
-	set_target_properties(${PROJECT_NAME}_udp_logging_common ${PROJECT_NAME}_image_logging_common
-						PROPERTIES FOLDER common)
 
     set(install_targets
         ${PROJECT_NAME} 
