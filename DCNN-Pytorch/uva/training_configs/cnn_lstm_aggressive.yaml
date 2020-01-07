@@ -1,0 +1,14 @@
+#model definition parameters
+input_channels: 3
+output_dimension: 2
+context_length: 5
+sequence_length: 1
+
+#training hyperparameters
+gpu: 0
+batch_size: 128
+learning_rate: 5.0E-4
+momentum: 1.0E-4
+num_epochs: 100
+num_workers: 0
+control_loss_reduction: "sum"
