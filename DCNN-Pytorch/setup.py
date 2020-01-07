@@ -18,7 +18,8 @@ setup(
     keywords = "Some deepracing python stuff",
    # url = "http://packages.python.org/an_example_pypi_project",
     packages=[package_name,
-              os.path.join(package_name,"endtoend_controls"),
+              os.path.join(package_name,"data_loading"),
+              os.path.join(package_name,"data_loading","proto_datasets"),
               os.path.join(package_name,"endtoend_controls"),
               os.path.join(package_name,"math_utils"),
               os.path.join(package_name,"nn_models"),
@@ -29,4 +30,5 @@ setup(
         "Development Status :: 3 - Alpha",
         "Topic :: Utilities",
     ],
+    install_requires=open("requirements.txt").readlines(),
 )
