@@ -49,7 +49,7 @@ class ControlOutputSequenceDataset(Dataset):
             keystrings = filehandle.readlines()
             self.db_keys = [keystring.replace('\n','') for keystring in keystrings]
         num_labels = self.label_db_wrapper.getNumLabels()
-        self.length = len(self.db_keys) - self.context_length - self.sequence_length - 1
+        self.length = len(self.db_keys) - self.context_length - self.sequence_length - 2
     def __len__(self):
         return self.length
     def __getitem__(self, index):
@@ -66,10 +66,10 @@ class ControlOutputSequenceDataset(Dataset):
             np.array( [ self.totensor( resizeImage(self.image_db_wrapper.getImage(key), self.image_size)  ).numpy() for key in image_keys ] )\
                 )
 
-        control_outputs = torch.zeros(self.sequence_length,3,dtype=image_torch.dtype)
-        for i in range(self.sequence_length):
+        control_outputs = torch.zeros(self.sequence_length, 2, dtype=image_torch.dtype)
+        for i in range(len(label_keys)):
             label_packet = self.label_db_wrapper.getControlLabel(label_keys[i])
             control_outputs[i][0] = label_packet.label.steering
-            control_outputs[i][1] = label_packet.label.throttle
-            control_outputs[i][2] = label_packet.label.brake
-        return image_torch, control_outputs
+            accel = label_packet.label.throttle - label_packet.label.brake
+            control_outputs[i][1] = accel
+        return image_torch, torch.clamp(control_outputs, -1.0, 1.0)
