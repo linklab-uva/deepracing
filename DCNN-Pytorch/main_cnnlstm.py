@@ -85,7 +85,8 @@ def go():
         training_config = yaml.load(f, Loader = yaml.SafeLoader)
     with open(dataset_config_file) as f:
         dataset_config = yaml.load(f, Loader = yaml.SafeLoader)
-
+    print("Using Dataset config:")
+    print(dataset_config)
     image_size = dataset_config["image_size"]
     input_channels = training_config["input_channels"]
     output_dimension = training_config["output_dimension"]
