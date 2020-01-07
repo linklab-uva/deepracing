@@ -59,7 +59,7 @@ class PilotNet(nn.Module):
         out = torch.clamp(out,-1.0,1.0)
         #out = out.unsqueeze(2)
         #print(out.size())
-        return return torch.clamp(out, -1.0, 1.0)
+        return torch.clamp(out, -1.0, 1.0)
 
 class CNNLSTM(nn.Module):
     def __init__(self, input_channels=3, output_dimension = 2, context_length=5, sequence_length=1, hidden_dim = 100):

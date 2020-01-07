@@ -1,7 +1,7 @@
 import comet_ml
 import torch
 import torch.utils.data as data_utils
-import data_loading.proto_datasets
+import deepracing_models.data_loading.proto_datasets
 from tqdm import tqdm as tqdm
 import deepracing_models.nn_models.LossFunctions as loss_functions
 import deepracing_models.nn_models.Models as models
@@ -146,7 +146,7 @@ def go():
         image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
         image_wrapper.readDatabase(image_lmdb, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
         
-        curent_dset = data_loading.proto_datasets.ControlOutputSequenceDataset(image_wrapper, label_wrapper, key_file, image_size = image_size, context_length = context_length, sequence_length=sequence_length)
+        curent_dset = deepracing_models.data_loading.proto_datasets.ControlOutputSequenceDataset(image_wrapper, label_wrapper, key_file, image_size = image_size, context_length = context_length, sequence_length=sequence_length)
         dsets.append(curent_dset)
     if len(dsets)==1:
         dset = dsets[0]
