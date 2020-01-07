@@ -1,4 +1,4 @@
-import quaternion
+
 import scipy
 import scipy.linalg as la
 import skimage
