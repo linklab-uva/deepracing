@@ -1,2 +1,0 @@
-set(VCPKG_TARGET_TRIPLET x64-windows-static CACHE STRING "")
-set(CMAKE_BUILD_TYPE Release)
