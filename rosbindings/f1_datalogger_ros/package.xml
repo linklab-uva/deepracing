@@ -14,6 +14,7 @@
   <depend>f1_datalogger_provider</depend>
   <depend>f1_datalogger_msgs</depend>
   <depend>image_tools</depend>
+  <depend>image_transport</depend>
   <depend>laser_geometry</depend>
   <depend>std_msgs</depend>
   <depend>geometry_msgs</depend>
