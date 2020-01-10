@@ -207,6 +207,14 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         gpu_param = self.get_parameter_or("gpu",gpu)
         print("gpu_param: " + str(gpu_param))
 
+        
+        velocity_scale_param : Parameter = self.get_parameter_or("velocity_scale_factor", 1.0)
+        print("velocity_scale_param: " + str(velocity_scale_param))
+
+        
+        num_sample_points_param : Parameter = self.get_parameter_or("num_sample_points", 60)
+        print("num_sample_points_param: " + str(num_sample_points_param))
+
         self.pgain : float = pgain_param
         self.igain : float = igain_param
         self.dgain : float = dgain_param
@@ -231,6 +239,22 @@ class AdmiralNetPurePursuitControllerROS(PPC):
             self.plot : bool = plot_param.get_parameter_value().bool_value
         else:
             self.plot : bool = plot
+        if isinstance(velocity_scale_param, Parameter):
+            self.velocity_scale_factor : float = velocity_scale_param.get_parameter_value().double_value
+        else:
+            self.velocity_scale_factor : float = 1.0
+
+        if isinstance(pgain_param, Parameter):
+            self.pgain : float = pgain_param.get_parameter_value().double_value
+        if isinstance(dgain_param, Parameter):
+            self.dgain : float = dgain_param.get_parameter_value().double_value
+        if isinstance(igain_param, Parameter):
+            self.igain : float = igain_param.get_parameter_value().double_value
+        if isinstance(num_sample_points_param, Parameter):
+            self.num_sample_points : int = num_sample_points_param.get_parameter_value().integer_value
+        else:
+            self.num_sample_points = 60
+
         self.deltaT : float = deltaT_param
         self.forward_indices : int = forward_indices_param
         
@@ -250,7 +274,7 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         self.net.eval()
         self.image_buffer = RB(self.net.context_length,dtype=(float,(3,66,200)))
         if isinstance(self.net,  M.AdmiralNetCurvePredictor):
-            self.s_torch = torch.linspace(0,1,60).unsqueeze(0).double().cuda(gpu)
+            self.s_torch = torch.linspace(0,1,self.num_sample_points).unsqueeze(0).double().cuda(gpu)
             self.bezierM = mu.bezierM(self.s_torch,self.net.params_per_dimension-1).double().cuda(gpu)
             self.bezierMderiv = mu.bezierM(self.s_torch,self.net.params_per_dimension-2).double().cuda(gpu)
         self.trajplot = None
@@ -286,13 +310,13 @@ class AdmiralNetPurePursuitControllerROS(PPC):
             x_samp = evalpoints[0].cpu().detach().numpy()
             x_samp[:,0]*=self.xscale_factor
             _, evalvel = mu.bezierDerivative(bezier_control_points, M = self.bezierMderiv)
-            v_samp = (1.0/self.deltaT)*(evalvel[0].cpu().detach().numpy())
+            v_samp = self.velocity_scale_factor*(1.0/self.deltaT)*(evalvel[0].cpu().detach().numpy())
         else:
             evalpoints =  self.net(inputtorch.unsqueeze(0).cuda(self.gpu))
             stamp = self.rosclock.now().to_msg()
             x_samp = evalpoints[0].cpu().detach().numpy()
             x_samp[:,0]*=self.xscale_factor
-            tsamp = np.linspace(0,self.deltaT,60)
+            tsamp = np.linspace(0,self.deltaT,self.num_sample_points)
             spline = scipy.interpolate.make_interp_spline(tsamp,x_samp)
             splineder = spline.derivative()
             v_samp = splineder(tsamp)

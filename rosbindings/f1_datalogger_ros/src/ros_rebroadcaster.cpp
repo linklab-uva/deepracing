@@ -106,10 +106,10 @@ public:
     }
     rclcpp::QoS qos_settings(100);
     this->node_ = node;
-  //  this->publisher_ = this->node_->create_publisher<sensor_msgs::msg::Image>("f1_screencaps", qos_settings);
-    this->timestamped_publisher_ = this->node_->create_publisher<f1_datalogger_msgs::msg::TimestampedImage>("timestamped_f1_screencaps", qos_settings);
+    this->publisher_ = this->node_->create_publisher<sensor_msgs::msg::Image>("f1_screencaps", qos_settings);
+  //  this->timestamped_publisher_ = this->node_->create_publisher<f1_datalogger_msgs::msg::TimestampedImage>("timestamped_f1_screencaps", qos_settings);
     
-    this->compressed_publisher_ = it.advertise("/f1_screencaps", 1, true);
+    //this->compressed_publisher_ = it.advertise("/f1_screencaps", 1, true);
 
   }
   virtual ~ROSRebroadcaster_FrameGrabHandler()
@@ -132,26 +132,26 @@ public:
     cv::Range colrange(0,crop_width_-1);
     cv::Mat & imcrop = imin(rowrange,colrange);
     cv::Mat rgbimage, bgraimage;
-    if (resize_width_>0 && resize_height_>0)
-    {
-      cv::resize(imcrop,bgraimage,cv::Size(resize_width_,resize_height_),0.0,0.0,cv::INTER_AREA);
-    }
-    else
-    {
-      bgraimage = imcrop;
-    }
+    cv::resize(imcrop,bgraimage,cv::Size(resize_width_,resize_height_),0.0,0.0,cv::INTER_AREA);
+    // if (resize_width_>0 && resize_height_>0)
+    // {
+    // }
+    // else
+    // {
+    //   bgraimage = imcrop;
+    // }
     cv::cvtColor(bgraimage,rgbimage,cv::COLOR_BGRA2BGR);
     std_msgs::msg::Header header = std_msgs::msg::Header();
     header.stamp=stamp;
     header.frame_id="car";
     cv_bridge::CvImage bridge_image(header, "bgr8", rgbimage);
-    sensor_msgs::msg::Image::SharedPtr image_msg = bridge_image.toImageMsg();
+    const sensor_msgs::msg::Image::SharedPtr & image_msg = bridge_image.toImageMsg();
     // f1_datalogger_msgs::msg::TimestampedImage timestamped_image;
     // timestamped_image.timestamp = std::chrono::duration<double>(data.timestamp - begin_).count();
     // timestamped_image.image = *image_msg;
     // this->timestamped_publisher_->publish(timestamped_image);
-    //this->publisher_->publish(timestamped_image.image);
-    this->compressed_publisher_.publish(image_msg);
+    //this->compressed_publisher_.publish(image_msg);
+    this->publisher_->publish(image_msg);
   }
   void init(const deepf1::TimePoint& begin, const cv::Size& window_size) override
   {

@@ -1,7 +1,14 @@
 pure_pursuit_control:
     ros__parameters:
         model_file : 'D:/f1_model_files/bezier_predictor/with_geometric_variants/cleansplinedata_comet/bezier_predictor_no_optflow_no_vel_loss_no_param_loss/epoch_100_params.pt'
-        lookahead_gain : 0.5
+       # model_file : 'D:/f1_model_files/bezier_predictor/with_geometric_variants/cleansplinedata_comet/bezier_predictor_no_optflow_no_vel_loss_no_param_loss/epoch_100_params.pt'
+        #pgain : 1.25
+        #igain : 0.0175
+       # dgain : 0.01
+        lookahead_gain : 0.35
         plot : False
         gpu : 0
         x_scale_factor : 1.45
+        velocity_scale_factor: 1.0
+        num_sample_points : 60
+        velocity_lookahead_gain: 0.0

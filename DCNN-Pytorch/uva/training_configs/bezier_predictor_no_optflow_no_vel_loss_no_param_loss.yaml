@@ -8,12 +8,12 @@ bezier_order: 7
 use_float: False
 
 #training hyperparameters
-gpu: 1
-batch_size: 100
-learning_rate: 5.0E-4
+gpu: 0
+batch_size: 64
+learning_rate: 1.0E-4
 momentum: 1.0E-4
 loss_weights: [0.0, 1.0, 0.0]
-num_epochs: 100
+num_epochs: 400
 num_workers: 0
 position_loss_reduction: "mean"
 
