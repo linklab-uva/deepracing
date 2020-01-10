@@ -132,8 +132,14 @@ public:
     cv::Range colrange(0,crop_width_-1);
     cv::Mat & imcrop = imin(rowrange,colrange);
     cv::Mat rgbimage, bgraimage;
-    //cv::resize(imcrop,bgraimage,cv::Size(resize_width_,resize_height_),0.0,0.0,cv::INTER_AREA);
-    bgraimage = imcrop;
+    if (resize_width_>0 && resize_height_>0)
+    {
+      cv::resize(imcrop,bgraimage,cv::Size(resize_width_,resize_height_),0.0,0.0,cv::INTER_AREA);
+    }
+    else
+    {
+      bgraimage = imcrop;
+    }
     cv::cvtColor(bgraimage,rgbimage,cv::COLOR_BGRA2BGR);
     std_msgs::msg::Header header = std_msgs::msg::Header();
     header.stamp=stamp;

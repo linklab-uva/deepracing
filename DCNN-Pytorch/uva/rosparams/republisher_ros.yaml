@@ -1,0 +1,6 @@
+f1_data_publisher:
+    ros__parameters:
+        resize_height : 128
+        resize_width : 400
+        crop_height : 362
+        crop_width : 1758
