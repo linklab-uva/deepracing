@@ -122,11 +122,11 @@ def go():
     parser.add_argument("--learning_rate", type=float, default=None,  help="Override the learning rate specified in the config file")
     parser.add_argument("--bezier_order", type=int, default=None,  help="Override the order of the bezier curve specified in the config file")
     parser.add_argument("--weighted_loss", action="store_true",  help="Use timewise weights on param loss")
+    parser.add_argument("--adam", action="store_true",  help="Use ADAM instead of SGD")
 
     args = parser.parse_args()
     dataset_config_file = args.dataset_config_file
     config_file = args.model_config_file
-    output_directory = os.path.join(args.output_directory,os.path.splitext(os.path.basename(config_file))[0])
     debug = args.debug
     epochstart = args.epochstart
     weighted_loss = args.weighted_loss
@@ -205,34 +205,31 @@ def go():
         net = net.cuda(gpu)
         params_loss = params_loss.cuda(gpu)
         kinematic_loss = kinematic_loss.cuda(gpu)
-    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=0.000, nesterov=True)
+    if args.adam:
+        config["optimizer"] = "Adam"
+        optimizer = optim.Adam(net.parameters(), lr = learning_rate)
+    else:
+        config["optimizer"] = "SGD"
+        optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=0.000, nesterov=True)
     netpostfix = "epoch_%d_params.pt"
     optimizerpostfix = "epoch_%d_optimizer.pt"
     
+    main_dir = args.output_directory
+    experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingbezierpredictor")
+    experiment.log_parameters(config)
+    experiment.log_parameters(dataset_config)
+    experiment.add_tag("bezierpredictor")
+    experiment_config = {"experiment_key": experiment.get_key()}
+    output_directory = os.path.join(main_dir, experiment.get_key())
+    if os.path.isdir(output_directory) :
+        raise FileExistsError("%s already exists, this should not happen." %(output_directory) )
+    os.makedirs(output_directory)
+    yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
+    yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
+    yaml.dump(config, stream=open(os.path.join(output_directory,"model_config.yaml"), "w"), Dumper = yaml.SafeDumper)
     
-    if epochstart>1:
-        net.load_state_dict(torch.load(os.path.join(output_directory,netpostfix %(epochstart)), map_location=next(net.parameters()).device))
-        optimizer.load_state_dict(torch.load(os.path.join(output_directory,optimizerpostfix %(epochstart)), map_location=next(net.parameters()).device))
-        experiment_config = yaml.load(open(os.path.join(output_directory,"experiment_config.yaml"),"r"), Loader=yaml.SafeLoader)
-        experiment = comet_ml.ExistingExperiment(workspace="electric-turtle", project_name="deepracingbezierpredictor", previous_experiment=experiment_config["experiment_key"])
-    else:
-        if (not args.override) and os.path.isdir(output_directory) :
-            s = ""
-            while(not (s=="y" or s=="n")):
-                s = input("Directory " + output_directory + " already exists. Overwrite it with new data? [y\\n]\n")
-            if s=="n":
-                print("Thanks for playing!")
-                exit(0)
-            shutil.rmtree(output_directory)
-        elif os.path.isdir(output_directory):
-            shutil.rmtree(output_directory)
-        os.makedirs(output_directory, exist_ok=True)
-        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingbezierpredictor")
-        experiment.log_parameters(config)
-        experiment.log_parameters(dataset_config)
-        experiment.add_tag("bezierpredictor")
-        experiment_config = {"experiment_key": experiment.get_key()}
-        yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
+    
+        
     if num_workers == 0:
         max_spare_txns = 50
     else:
@@ -269,8 +266,6 @@ def go():
     dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
                         shuffle=True, num_workers=num_workers, pin_memory=gpu>=0)
     print("Dataloader of of length %d" %(len(dataloader)))
-    yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
-    yaml.dump(config, stream=open(os.path.join(output_directory,"config.yaml"), "w"), Dumper = yaml.SafeDumper)
     if(epochstart==1):
         i = 0
     else:
@@ -288,6 +283,9 @@ def go():
                 print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
                 experiment.log_epoch_end(postfix)
             except Exception as e:
+                if isinstance(e, FileExistsError):
+                    print(e)
+                    exit(-1)
                 print("Restarting epoch %d because %s"%(postfix, str(e)))
                 modelin = os.path.join(output_directory, netpostfix %(postfix-1))
                 optimizerin = os.path.join(output_directory,optimizerpostfix %(postfix-1))
