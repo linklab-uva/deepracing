@@ -155,6 +155,7 @@ with open(dataset_name+"_eigenvectors.pt",'wb') as f:
     torch.save(eigenvectors_sorted,f)
 
 variance_ratios = (variances/torch.sum(variances)).numpy()
+
 I = np.linspace(1,variance_ratios.shape[0],variance_ratios.shape[0]).astype(np.int32)
 fig = plt.figure("Scree Plot")
 plt.plot(I, variance_ratios, label='Variance Ratios')
