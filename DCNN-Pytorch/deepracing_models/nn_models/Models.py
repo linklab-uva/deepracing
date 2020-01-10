@@ -59,10 +59,10 @@ class PilotNet(nn.Module):
         out = torch.clamp(out,-1.0,1.0)
         #out = out.unsqueeze(2)
         #print(out.size())
-        return out
+        return torch.clamp(out, -1.0, 1.0)
 
 class CNNLSTM(nn.Module):
-    def __init__(self, input_channels=3, output_dimension = 3, context_length=5, sequence_length=1, hidden_dim = 100):
+    def __init__(self, input_channels=3, output_dimension = 2, context_length=5, sequence_length=1, hidden_dim = 100):
         super(CNNLSTM, self).__init__()
         #self.input_channels = 5
         self.input_channels = input_channels
@@ -94,7 +94,7 @@ class CNNLSTM(nn.Module):
         self.rnn = nn.LSTM(self.feature_length, hidden_dim, batch_first = True)
  
         # Linear layers.
-        self.prediction_layer = nn.Linear(hidden_dim, self.output_size)
+        self.prediction_layer = nn.Linear(hidden_dim, self.output_dimension)
 
         #activations
         self.relu = nn.ReLU()
@@ -138,7 +138,7 @@ class CNNLSTM(nn.Module):
 
         predictions = self.prediction_layer(x17)
 
-        return predictions
+        return torch.clamp(predictions, -1.0, 1.0)
 
 
 class AdmiralNetKinematicPredictor(nn.Module):

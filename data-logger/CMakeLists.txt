@@ -1,9 +1,9 @@
 set(_required_cmake 3.15)
 cmake_minimum_required (VERSION ${_required_cmake} FATAL_ERROR)
 cmake_policy(VERSION ${_required_cmake})
-if(COMMAND cmake_policy)
-	cmake_policy(SET CMP0003 NEW)
-endif(COMMAND cmake_policy)
+# if(COMMAND cmake_policy)
+# 	cmake_policy(SET CMP0003 NEW)
+# endif(COMMAND cmake_policy)
 project(f1_datalogger)
 
 set(cxx_standard 17)
@@ -45,10 +45,9 @@ endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 set(THIRD_PARTY_REPOS ${CMAKE_SOURCE_DIR}/third_party)
-set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE})
 
 find_package( Eigen3 REQUIRED )
-include_directories(${EIGEN3_INCLUDE_DIRS})
 
 option(YAML_CPP_DLL "Set this if YAML CPP was compiled as a DLL" ON)
 option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to interact with existing protobuf datasets" ON)
@@ -139,13 +138,9 @@ include_directories( include )
 include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${YAML_CPP_INCLUDE_DIR} )
 
 include(FindProtobuf)
-find_package(Protobuf REQUIRED)
-#find_package(gRPC CONFIG REQUIRED)
+find_package(Protobuf CONFIG REQUIRED)
 add_subdirectory( proto/${PROJECT_NAME}/proto )
-#include_directories(${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
-include_directories(${CMAKE_BINARY_DIR}/proto)
-set_target_properties(${PROJECT_NAME}_proto
-                    PROPERTIES FOLDER proto)
+set(PROTO_INCLUDE_DIR ${CMAKE_BINARY_DIR}/proto)
 
 add_subdirectory( src/alglib )
 message(STATUS "ALGLIB_DIR: ${ALGLIB_DIR}")
@@ -177,12 +172,6 @@ if(BUILD_DATALOGGER)
     ${Boost_LIBRARIES}
     )
     add_subdirectory( src/Examples )
-
-	
-	set_target_properties(${PROJECT_NAME} ${PROJECT_NAME}_udp_logging ${PROJECT_NAME}_image_logging  screen_capture_lite
-						PROPERTIES FOLDER core)
-	set_target_properties(${PROJECT_NAME}_udp_logging_common ${PROJECT_NAME}_image_logging_common
-						PROPERTIES FOLDER common)
 
     set(install_targets
         ${PROJECT_NAME} 

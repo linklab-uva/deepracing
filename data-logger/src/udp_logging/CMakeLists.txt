@@ -18,7 +18,12 @@ set(${PROJECT_NAME}_udp_utils_src
 utils/udp_stream_utils.cpp
 )
 add_library( ${PROJECT_NAME}_udp_utils ${${PROJECT_NAME}_udp_utils_src} )
-target_link_libraries(${PROJECT_NAME}_udp_utils ${PROJECT_NAME}_udp_logging ${PROJECT_NAME}_proto ${Boost_LIBRARIES})
+target_link_libraries(${PROJECT_NAME}_udp_utils 
+${PROJECT_NAME}_udp_logging 
+${PROJECT_NAME}_proto 
+${Boost_LIBRARIES}
+)
+
 
 
 set(${PROJECT_NAME}_eigen_utils_src
@@ -33,6 +38,9 @@ endif()
 target_link_libraries( ${PROJECT_NAME}_eigen_utils Eigen3::Eigen ${Boost_LIBRARIES} ${PROJECT_NAME}_proto ${PROJECT_NAME}_alglib ${PROJECT_NAME}_udp_utils )
 target_include_directories(${PROJECT_NAME}_eigen_utils PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
 
+
+get_target_property(protoincludes ${PROJECT_NAME}_proto INTERFACE_INCLUDE_DIRECTORIES)
+message(STATUS "Includes inherited from proto library: ${protoincludes}")
 set(${PROJECT_NAME}_udp_logging_common_src
 common/multi_threaded_udp_handler.cpp
 common/multi_threaded_udp_handler_2018.cpp
@@ -40,11 +48,18 @@ common/measurement_handler.cpp
 common/measurement_handler_2018.cpp
 )
 add_library( ${PROJECT_NAME}_udp_logging_common ${${PROJECT_NAME}_udp_logging_common_src} )
-target_link_libraries( ${PROJECT_NAME}_udp_logging_common ${PROJECT_NAME}_udp_logging ${TBB_IMPORTED_TARGETS} ${Boost_LIBRARIES} ${PROJECT_NAME}_udp_utils)
+target_link_libraries( ${PROJECT_NAME}_udp_logging_common 
+PUBLIC
+${PROJECT_NAME}_udp_logging 
+${PROJECT_NAME}_udp_utils
+${PROJECT_NAME}_proto
+
+${TBB_IMPORTED_TARGETS} 
+${Boost_LIBRARIES} 
+)
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 target_link_libraries(${PROJECT_NAME}_udp_logging_common stdc++fs )
 endif()
-
 
 set(install_targets
 #executables.

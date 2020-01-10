@@ -20,7 +20,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rosidl_default_runtime REQUIRED)
-find_package(image_tools REQUIRED)
+find_package(image_transport REQUIRED)
 find_package(laser_geometry REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -72,7 +72,7 @@ target_link_libraries(path_converter
 )
 
 add_executable(ros_rebroadcaster src/ros_rebroadcaster.cpp)
-ament_target_dependencies(ros_rebroadcaster cv_bridge f1_datalogger sensor_msgs std_msgs f1_datalogger_msgs)
+ament_target_dependencies(ros_rebroadcaster cv_bridge f1_datalogger image_transport sensor_msgs std_msgs f1_datalogger_msgs)
 target_link_libraries(ros_rebroadcaster
  f1_msg_utils
  f1_datalogger::f1_datalogger

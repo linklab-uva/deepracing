@@ -1,0 +1,11 @@
+opencv_python
+pillow
+tqdm
+torch
+torchvision
+numpy
+scikit-image
+scikit-learn
+matplotlib
+lmdb
+pyyaml

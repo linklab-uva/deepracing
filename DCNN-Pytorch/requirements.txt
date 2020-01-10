@@ -2,3 +2,5 @@ torch
 torchvision
 scikit-image
 opencv_python
+deepracing
+protobuf

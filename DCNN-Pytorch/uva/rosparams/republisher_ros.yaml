@@ -1,0 +1,5 @@
+f1_data_publisher:
+    ros__parameters:
+        resize_height : 66
+        resize_width : 200
+       # capture_frequency: 35.0

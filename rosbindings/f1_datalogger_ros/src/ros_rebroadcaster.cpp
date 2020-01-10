@@ -13,6 +13,9 @@
 #include "f1_datalogger_msgs/msg/timestamped_packet_car_telemetry_data.hpp"
 #include "f1_datalogger_msgs/msg/timestamped_packet_session_data.hpp"
 #include <cv_bridge/cv_bridge.h>
+#include <image_transport/image_transport.h>
+// #include <image_transport/camera_publisher.h>
+// #include <image_transport/transport_hints.h>
 class ROSRebroadcaster_2018DataGrabHandler : public deepf1::IF12018DataGrabHandler
 {
 public:
@@ -94,12 +97,20 @@ public:
 class ROSRebroadcaster_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
 {
 public:
-  ROSRebroadcaster_FrameGrabHandler(std::shared_ptr<rclcpp::Node> node) 
+  ROSRebroadcaster_FrameGrabHandler(std::shared_ptr<rclcpp::Node> node) : it(node)
   {
+    std::cout<<"Loadable transports:"<<std::endl;
+    for(const std::string& s : it.getLoadableTransports())
+    {
+      std::cout<<s<<std::endl;
+    }
     rclcpp::QoS qos_settings(100);
     this->node_ = node;
     this->publisher_ = this->node_->create_publisher<sensor_msgs::msg::Image>("f1_screencaps", qos_settings);
-    this->timestamped_publisher_ = this->node_->create_publisher<f1_datalogger_msgs::msg::TimestampedImage>("timestamped_f1_screencaps", qos_settings);
+  //  this->timestamped_publisher_ = this->node_->create_publisher<f1_datalogger_msgs::msg::TimestampedImage>("timestamped_f1_screencaps", qos_settings);
+    
+    //this->compressed_publisher_ = it.advertise("/f1_screencaps", 1, true);
+
   }
   virtual ~ROSRebroadcaster_FrameGrabHandler()
   {
@@ -122,16 +133,25 @@ public:
     cv::Mat & imcrop = imin(rowrange,colrange);
     cv::Mat rgbimage, bgraimage;
     cv::resize(imcrop,bgraimage,cv::Size(resize_width_,resize_height_),0.0,0.0,cv::INTER_AREA);
-    cv::cvtColor(bgraimage,rgbimage,cv::COLOR_BGRA2RGB);
+    // if (resize_width_>0 && resize_height_>0)
+    // {
+    // }
+    // else
+    // {
+    //   bgraimage = imcrop;
+    // }
+    cv::cvtColor(bgraimage,rgbimage,cv::COLOR_BGRA2BGR);
     std_msgs::msg::Header header = std_msgs::msg::Header();
     header.stamp=stamp;
     header.frame_id="car";
-    cv_bridge::CvImage bridge_image(header, "rgb8", rgbimage);
-    f1_datalogger_msgs::msg::TimestampedImage timestamped_image;
-    timestamped_image.timestamp = std::chrono::duration<double>(data.timestamp - begin_).count();
-    timestamped_image.image = *(bridge_image.toImageMsg());
-    this->timestamped_publisher_->publish(timestamped_image);
-    this->publisher_->publish(timestamped_image.image);
+    cv_bridge::CvImage bridge_image(header, "bgr8", rgbimage);
+    const sensor_msgs::msg::Image::SharedPtr & image_msg = bridge_image.toImageMsg();
+    // f1_datalogger_msgs::msg::TimestampedImage timestamped_image;
+    // timestamped_image.timestamp = std::chrono::duration<double>(data.timestamp - begin_).count();
+    // timestamped_image.image = *image_msg;
+    // this->timestamped_publisher_->publish(timestamped_image);
+    //this->compressed_publisher_.publish(image_msg);
+    this->publisher_->publish(image_msg);
   }
   void init(const deepf1::TimePoint& begin, const cv::Size& window_size) override
   {
@@ -146,6 +166,8 @@ public:
 private:
   bool ready;
   std::shared_ptr<rclcpp::Node> node_;
+  image_transport::ImageTransport it;
+  image_transport::Publisher compressed_publisher_;
   std::shared_ptr<rclcpp::Publisher <sensor_msgs::msg::Image> > publisher_;
   std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedImage> > timestamped_publisher_;
   deepf1::TimePoint begin_;

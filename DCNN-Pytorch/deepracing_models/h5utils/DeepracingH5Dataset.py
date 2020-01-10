@@ -6,7 +6,7 @@ import torch
 from torch.utils.data.dataset import Dataset
 import os
 import deepracing.pose_utils
-import quaternion
+
 class DeepRacingH5DatasetBase(Dataset):
     def __init__(self, h5filepath: str, map_entire_file : bool = False):
         super(DeepRacingH5DatasetBase, self).__init__()

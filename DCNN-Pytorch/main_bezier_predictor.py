@@ -2,7 +2,7 @@ import comet_ml
 import torch
 import torch.nn as NN
 import torch.utils.data as data_utils
-import data_loading.proto_datasets
+import deepracing_models.data_loading.proto_datasets as PD
 from tqdm import tqdm as tqdm
 import deepracing_models.nn_models.LossFunctions as loss_functions
 import deepracing_models.nn_models.Models
@@ -61,10 +61,10 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
         fitpoints = positions_torch[:,:,[0,2]]
         fitvels = linear_velocities_torch[:,:,[0,2]]
         bezier_order = network.params_per_dimension-1
-        Mfit, controlpoints_fit = math_utils.bezier.bezierLsqfit(fitpoints,s_torch,bezier_order)
+        Mfit, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(fitpoints,s_torch,bezier_order)
         predictions_reshape = predictions.transpose(1,2)
         pred_points = torch.matmul(Mfit, predictions_reshape)
-        _, pred_vels = math_utils.bezier.bezierDerivative(predictions_reshape,s_torch)
+        _, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape,s_torch)
         if debug:
             images_np = image_torch[0].detach().cpu().numpy().copy()
             num_images = images_np.shape[0]
@@ -180,7 +180,7 @@ def go():
     
     
     print("Using config:\n%s" % (str(config)))
-    net = nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dim, num_recurrent_layers=num_recurrent_layers, params_per_dimension=bezier_order+1 ) 
+    net = deepracing_models.nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dim, num_recurrent_layers=num_recurrent_layers, params_per_dimension=bezier_order+1 ) 
     print("net:\n%s" % (str(net)))
     ppd = net.params_per_dimension
     numones = int(ppd/2)
@@ -188,8 +188,8 @@ def go():
         timewise_weights = torch.from_numpy( np.hstack( ( np.ones(numones), np.linspace(1,3, ppd - numones ) ) ) )
     else:
         timewise_weights = None
-    params_loss = nn_models.LossFunctions.SquaredLpNormLoss(timewise_weights=timewise_weights)
-    kinematic_loss = nn_models.LossFunctions.SquaredLpNormLoss()
+    params_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss(timewise_weights=timewise_weights)
+    kinematic_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss()
     if use_float:
         print("casting stuff to float")
         net = net.float()
@@ -257,7 +257,7 @@ def go():
         image_wrapper.readDatabase(os.path.join(image_folder,"image_lmdb"), max_spare_txns=max_spare_txns, mapsize=image_mapsize )
 
 
-        curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length,\
+        curent_dset = PD.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length,\
                      image_size = image_size, return_optflow=use_optflow, apply_color_jitter=apply_color_jitter, erasing_probability=erasing_probability)
         dsets.append(curent_dset)
         print("\n")

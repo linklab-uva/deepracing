@@ -14,6 +14,7 @@ target_link_libraries(${PROJECT_NAME}_proto_rebroadcaster
     ${PROJECT_NAME}_image_logging
 	${PROJECT_NAME}_image_logging_common
 	${PROJECT_NAME}_image_utils
+	${PROJECT_NAME}_proto
     ${PROJECT_NAME}_udp_logging
     ${PROJECT_NAME}_udp_logging_common
     ${Boost_LIBRARIES}
@@ -91,6 +92,7 @@ ${PROJECT_NAME}
 ${PROJECT_NAME}_eigen_utils
 ${PROJECT_NAME}_image_logging
 ${PROJECT_NAME}_image_logging_common
+${PROJECT_NAME}_proto
 ${PROJECT_NAME}_udp_logging
 ${PROJECT_NAME}_udp_logging_common
 ${screen_capture_lite_LIBRARIES}
@@ -99,8 +101,12 @@ ${Boost_LIBRARIES}
 ${TBB_IMPORTED_TARGETS}
 Eigen3::Eigen
 )
-target_include_directories(${PROJECT_NAME}_cv_viewer_example PRIVATE ${DIRECTXT_INCLUDE_DIR})
-set_target_properties(${PROJECT_NAME}_cv_viewer_example PROPERTIES FOLDER examples)
+target_include_directories(${PROJECT_NAME}_cv_viewer_example 
+PRIVATE
+${DIRECTXT_INCLUDE_DIR}
+)
+
+
 if(MSVC)
     
 	option(BUILD_MULTITHREADED_EXAMPLE "" ON)
@@ -129,7 +135,10 @@ if(MSVC)
 		if(WIN10API)
 			target_link_libraries(${PROJECT_NAME}_multithreaded_capture RuntimeObject)
 		endif()
-		target_include_directories(${PROJECT_NAME}_multithreaded_capture PRIVATE ${DIRECTXT_INCLUDE_DIR})
+		target_include_directories(${PROJECT_NAME}_multithreaded_capture 
+		PRIVATE
+		${DIRECTXT_INCLUDE_DIR}
+		)
 		set_target_properties(${PROJECT_NAME}_multithreaded_capture PROPERTIES FOLDER examples)
 	endif()
 endif()
@@ -149,7 +158,7 @@ if(WITH_VJOY)
 	if(BUILD_MULTITHREADED_EXAMPLE)
 		list(APPEND install_targets ${PROJECT_NAME}_multithreaded_capture)
 	endif()
-	install(DIRECTORY ${CMAKE_SOURCE_DIR}/tracks/ DESTINATION bin
+	install(DIRECTORY ${CMAKE_SOURCE_DIR}/tracks/ DESTINATION tracks
         FILES_MATCHING PATTERN "*.track")
 endif()
 install(TARGETS ${install_targets}
