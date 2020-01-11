@@ -106,10 +106,10 @@ public:
     }
     rclcpp::QoS qos_settings(100);
     this->node_ = node;
-    this->publisher_ = this->node_->create_publisher<sensor_msgs::msg::Image>("f1_screencaps", qos_settings);
+    //this->publisher_ = this->node_->create_publisher<sensor_msgs::msg::Image>("f1_screencaps", qos_settings);
   //  this->timestamped_publisher_ = this->node_->create_publisher<f1_datalogger_msgs::msg::TimestampedImage>("timestamped_f1_screencaps", qos_settings);
     
-    //this->compressed_publisher_ = it.advertise("/f1_screencaps", 1, true);
+    this->compressed_publisher_ = it.advertise("/f1_screencaps", 1, true);
 
   }
   virtual ~ROSRebroadcaster_FrameGrabHandler()
@@ -150,8 +150,8 @@ public:
     // timestamped_image.timestamp = std::chrono::duration<double>(data.timestamp - begin_).count();
     // timestamped_image.image = *image_msg;
     // this->timestamped_publisher_->publish(timestamped_image);
-    //this->compressed_publisher_.publish(image_msg);
-    this->publisher_->publish(image_msg);
+    this->compressed_publisher_.publish(image_msg);
+   // this->publisher_->publish(image_msg);
   }
   void init(const deepf1::TimePoint& begin, const cv::Size& window_size) override
   {
