@@ -120,6 +120,7 @@ def go():
     parser.add_argument("--batch_size", type=int, default=None,  help="Override the order of the batch size specified in the config file")
     parser.add_argument("--gpu", type=int, default=None,  help="Override the GPU index specified in the config file")
     parser.add_argument("--learning_rate", type=float, default=None,  help="Override the learning rate specified in the config file")
+    parser.add_argument("--momentum", type=float, default=None,  help="Override the momentum specified in the config file")
     parser.add_argument("--bezier_order", type=int, default=None,  help="Override the order of the bezier curve specified in the config file")
     parser.add_argument("--weighted_loss", action="store_true",  help="Use timewise weights on param loss")
     parser.add_argument("--optimizer", type=str, default="SGD",  help="Optimizer to use")
@@ -170,7 +171,11 @@ def go():
         config["learning_rate"] = learning_rate
     else:
         learning_rate = config["learning_rate"]
-    momentum = config["momentum"]
+    if args.momentum is not None:
+        momentum = args.momentum
+        config["momentum"] = momentum
+    else:
+        momentum = config["momentum"]
     num_epochs = config["num_epochs"]
     num_workers = config["num_workers"]
     use_float = config["use_float"]
@@ -209,16 +214,12 @@ def go():
     optimizer = args.optimizer
     config["optimizer"] = optimizer
     if optimizer=="Adam":
-        config["optimizer"] = "Adam"
         optimizer = optim.Adam(net.parameters(), lr = learning_rate)
     elif optimizer=="RMSprop":
-        config["optimizer"] = "RMSprop"
         optimizer = optim.RMSprop(net.parameters(), lr = learning_rate, momentum = momentum)
     elif optimizer=="ASGD":
-        config["optimizer"] = "ASGD"
         optimizer = optim.ASGD(net.parameters(), lr = learning_rate)
     elif optimizer=="SGD":
-        config["optimizer"] = "SGD"
         optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=0.000, nesterov=True)
     else:
         raise ValueError("Uknown optimizer " + optimizer)
