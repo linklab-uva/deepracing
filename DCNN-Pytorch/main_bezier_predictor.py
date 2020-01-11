@@ -127,6 +127,7 @@ def go():
     
 
     args = parser.parse_args()
+    
     dataset_config_file = args.dataset_config_file
     config_file = args.model_config_file
     debug = args.debug
