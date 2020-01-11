@@ -124,7 +124,9 @@ def go():
     parser.add_argument("--bezier_order", type=int, default=None,  help="Override the order of the bezier curve specified in the config file")
     parser.add_argument("--weighted_loss", action="store_true",  help="Use timewise weights on param loss")
     parser.add_argument("--optimizer", type=str, default="SGD",  help="Optimizer to use")
-    parser.add_argument("--velocity_loss", type=float, default=None,  help="Override velocity loss in config file")
+    parser.add_argument("--velocity_loss", type=float, default=None,  help="Override velocity loss weight in config file")
+    parser.add_argument("--position_loss", type=float, default=None,  help="Override position loss weight in config file")
+    parser.add_argument("--control_point_loss", type=float, default=None,  help="Override control point loss weight in config file")
     
 
     args = parser.parse_args()
@@ -179,6 +181,12 @@ def go():
     else:
         momentum = config["momentum"]
     loss_weights = config["loss_weights"]
+    if args.control_point_loss is not None:
+        loss_weights[0] = args.control_point_loss
+        config["loss_weights"] = loss_weights
+    if args.position_loss is not None:
+        loss_weights[1] = args.position_loss
+        config["loss_weights"] = loss_weights
     if args.velocity_loss is not None:
         loss_weights[2] = args.velocity_loss
         config["loss_weights"] = loss_weights
