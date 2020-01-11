@@ -140,11 +140,11 @@ public:
     // {
     //   bgraimage = imcrop;
     // }
-    cv::cvtColor(bgraimage,rgbimage,cv::COLOR_BGRA2BGR);
+    cv::cvtColor(bgraimage,rgbimage,cv::COLOR_BGRA2RGB);
     std_msgs::msg::Header header = std_msgs::msg::Header();
     header.stamp=stamp;
     header.frame_id="car";
-    cv_bridge::CvImage bridge_image(header, "bgr8", rgbimage);
+    cv_bridge::CvImage bridge_image(header, "rgb8", rgbimage);
     const sensor_msgs::msg::Image::SharedPtr & image_msg = bridge_image.toImageMsg();
     // f1_datalogger_msgs::msg::TimestampedImage timestamped_image;
     // timestamped_image.timestamp = std::chrono::duration<double>(data.timestamp - begin_).count();
