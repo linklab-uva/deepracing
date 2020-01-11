@@ -248,8 +248,6 @@ def go():
         optimizer = optim.ASGD(net.parameters(), lr = learning_rate)
     elif optimizer=="SGD":
         optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=0.000, nesterov=True)
-    elif optimizer=="LBFGS":
-        optimizer = optim.LBFGS(net.parameters(), lr = learning_rate, max_iter=15, tolerance_change=1E-8)
     else:
         raise ValueError("Uknown optimizer " + optimizer)
     netpostfix = "epoch_%d_params.pt"
