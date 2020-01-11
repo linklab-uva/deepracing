@@ -214,6 +214,9 @@ def go():
     elif optimizer=="RMSprop":
         config["optimizer"] = "RMSprop"
         optimizer = optim.RMSprop(net.parameters(), lr = learning_rate, momentum = momentum)
+    elif optimizer=="ASGD":
+        config["optimizer"] = "ASGD"
+        optimizer = optim.ASGD(net.parameters(), lr = learning_rate)
     elif optimizer=="SGD":
         config["optimizer"] = "SGD"
         optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=0.000, nesterov=True)
