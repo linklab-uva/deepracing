@@ -127,7 +127,7 @@ def go():
     
 
     args = parser.parse_args()
-    
+
     dataset_config_file = args.dataset_config_file
     config_file = args.model_config_file
     debug = args.debug
@@ -213,6 +213,20 @@ def go():
         params_loss = params_loss.cuda(gpu)
         kinematic_loss = kinematic_loss.cuda(gpu)
     optimizer = args.optimizer
+    
+# from .adadelta import Adadelta  # noqa: F401
+# from .adagrad import Adagrad  # noqa: F401
+# from .adam import Adam  # noqa: F401
+# from .adamw import AdamW  # noqa: F401
+# from .sparse_adam import SparseAdam  # noqa: F401
+# from .adamax import Adamax  # noqa: F401
+# from .asgd import ASGD  # noqa: F401
+# from .sgd import SGD  # noqa: F401
+# from .rprop import Rprop  # noqa: F401
+# from .rmsprop import RMSprop  # noqa: F401
+# from .optimizer import Optimizer  # noqa: F401
+# from .lbfgs import LBFGS  # noqa: F401
+# from . import lr_scheduler  # noqa: F401
     config["optimizer"] = optimizer
     if optimizer=="Adam":
         optimizer = optim.Adam(net.parameters(), lr = learning_rate, betas=(0.9, 0.9))
@@ -222,6 +236,8 @@ def go():
         optimizer = optim.ASGD(net.parameters(), lr = learning_rate)
     elif optimizer=="SGD":
         optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=0.000, nesterov=True)
+    elif optimizer=="LBFGS":
+        optimizer = optim.LBFGS(net.parameters(), lr = learning_rate, max_iter=15, tolerance_change=1E-8)
     else:
         raise ValueError("Uknown optimizer " + optimizer)
     netpostfix = "epoch_%d_params.pt"
