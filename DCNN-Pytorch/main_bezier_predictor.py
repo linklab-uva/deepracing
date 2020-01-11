@@ -123,6 +123,8 @@ def go():
     parser.add_argument("--bezier_order", type=int, default=None,  help="Override the order of the bezier curve specified in the config file")
     parser.add_argument("--weighted_loss", action="store_true",  help="Use timewise weights on param loss")
     parser.add_argument("--adam", action="store_true",  help="Use ADAM instead of SGD")
+    parser.add_argument("--rmsprop", action="store_true",  help="Use RMSprop instead of SGD")
+    
 
     args = parser.parse_args()
     dataset_config_file = args.dataset_config_file
@@ -208,6 +210,9 @@ def go():
     if args.adam:
         config["optimizer"] = "Adam"
         optimizer = optim.Adam(net.parameters(), lr = learning_rate)
+    elif args.rmsprop:
+        config["optimizer"] = "RMSprop"
+        optimizer = optim.RMSprop(net.parameters(), lr = learning_rate, momentum = momentum)
     else:
         config["optimizer"] = "SGD"
         optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=0.000, nesterov=True)
