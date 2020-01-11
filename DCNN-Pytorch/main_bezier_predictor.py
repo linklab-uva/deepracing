@@ -122,8 +122,7 @@ def go():
     parser.add_argument("--learning_rate", type=float, default=None,  help="Override the learning rate specified in the config file")
     parser.add_argument("--bezier_order", type=int, default=None,  help="Override the order of the bezier curve specified in the config file")
     parser.add_argument("--weighted_loss", action="store_true",  help="Use timewise weights on param loss")
-    parser.add_argument("--adam", action="store_true",  help="Use ADAM instead of SGD")
-    parser.add_argument("--rmsprop", action="store_true",  help="Use RMSprop instead of SGD")
+    parser.add_argument("--optimizer", type=str, default="SGD",  help="Optimizer to use")
     
 
     args = parser.parse_args()
@@ -207,15 +206,19 @@ def go():
         net = net.cuda(gpu)
         params_loss = params_loss.cuda(gpu)
         kinematic_loss = kinematic_loss.cuda(gpu)
-    if args.adam:
+    optimizer = args.optimizer
+    config["optimizer"] = optimizer
+    if optimizer=="Adam":
         config["optimizer"] = "Adam"
         optimizer = optim.Adam(net.parameters(), lr = learning_rate)
-    elif args.rmsprop:
+    elif optimizer=="RMSprop":
         config["optimizer"] = "RMSprop"
         optimizer = optim.RMSprop(net.parameters(), lr = learning_rate, momentum = momentum)
-    else:
+    elif optimizer=="SGD":
         config["optimizer"] = "SGD"
         optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=0.000, nesterov=True)
+    else:
+        raise ValueError("Uknown optimizer " + optimizer)
     netpostfix = "epoch_%d_params.pt"
     optimizerpostfix = "epoch_%d_optimizer.pt"
     
