@@ -124,6 +124,7 @@ def go():
     parser.add_argument("--bezier_order", type=int, default=None,  help="Override the order of the bezier curve specified in the config file")
     parser.add_argument("--weighted_loss", action="store_true",  help="Use timewise weights on param loss")
     parser.add_argument("--optimizer", type=str, default="SGD",  help="Optimizer to use")
+    parser.add_argument("--velocity_loss", type=float, default=None,  help="Override velocity loss in config file")
     
 
     args = parser.parse_args()
@@ -177,10 +178,13 @@ def go():
         config["momentum"] = momentum
     else:
         momentum = config["momentum"]
+    loss_weights = config["loss_weights"]
+    if args.velocity_loss is not None:
+        loss_weights[2] = args.velocity_loss
+        config["loss_weights"] = loss_weights
     num_epochs = config["num_epochs"]
     num_workers = config["num_workers"]
     use_float = config["use_float"]
-    loss_weights = config["loss_weights"]
     hidden_dim = config["hidden_dimension"]
     num_recurrent_layers = config.get("num_recurrent_layers",1)
     config["hostname"] = socket.gethostname()
