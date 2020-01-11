@@ -214,7 +214,7 @@ def go():
     optimizer = args.optimizer
     config["optimizer"] = optimizer
     if optimizer=="Adam":
-        optimizer = optim.Adam(net.parameters(), lr = learning_rate)
+        optimizer = optim.Adam(net.parameters(), lr = learning_rate, betas=(0.9, 0.9))
     elif optimizer=="RMSprop":
         optimizer = optim.RMSprop(net.parameters(), lr = learning_rate, momentum = momentum)
     elif optimizer=="ASGD":
