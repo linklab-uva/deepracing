@@ -100,23 +100,29 @@ name_to_dtypes = {
 }
 
 def image_to_numpy(msg : Image):
-	if not msg.encoding in name_to_dtypes:
-		raise TypeError('Unrecognized encoding {}'.format(msg.encoding))
-	dtype_class, channels = name_to_dtypes[msg.encoding]
-	dtype = np.dtype(dtype_class)
-	dtype = dtype.newbyteorder('>' if msg.is_bigendian else '<')
-	shape = (msg.height, msg.width, channels)
+    if not msg.encoding in name_to_dtypes:
+        raise TypeError('Unrecognized encoding {}'.format(msg.encoding))
+    dtype_class, channels = name_to_dtypes[msg.encoding]
+    dtype = np.dtype(dtype_class)
+    dtype = dtype.newbyteorder('>' if msg.is_bigendian else '<')
+    shape = (msg.height, msg.width, channels)
 
-	data = np.fromstring(msg.data.tostring(), dtype=dtype).reshape(shape)
-	data.strides = (
-		msg.step,
-		dtype.itemsize * channels,
-		dtype.itemsize
-	)
+    data = np.fromstring(msg.data.tostring(), dtype=dtype).reshape(shape)
+    data.strides = (
+        msg.step,
+        dtype.itemsize * channels,
+        dtype.itemsize
+    )
+    if channels == 1:
+        data = data[...,0]
 
-	if channels == 1:
-		data = data[...,0]
-	return data
+
+    if (str(msg.encoding) == "bgr8"):
+        return cv2.cvtColor(data,cv2.COLOR_BGR2RGB)
+    elif (str(msg.encoding) == "rgb8"):
+        return data
+    else:
+        raise TypeError("Unsupported image encoding: " + msg.encoding + ". Currently, only rgb8 and bgr8 are supported.")
 def npTrajectoryToROS(trajectory : np.ndarray, velocities : np.ndarray, frame_id = "map"):
     rtn : Path = Path()
     rtn.header.frame_id = frame_id
