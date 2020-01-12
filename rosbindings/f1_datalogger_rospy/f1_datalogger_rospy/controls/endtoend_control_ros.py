@@ -216,7 +216,6 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         
         velocity_scale_param : Parameter = self.get_parameter_or("velocity_scale_factor", 1.0)
         print("velocity_scale_param: " + str(velocity_scale_param))
-
         
         num_sample_points_param : Parameter = self.get_parameter_or("num_sample_points", 60)
         print("num_sample_points_param: " + str(num_sample_points_param))
@@ -224,6 +223,8 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         self.pgain : float = pgain_param
         self.igain : float = igain_param
         self.dgain : float = dgain_param
+
+
         if isinstance(lookahead_gain_param, Parameter):
             self.lookahead_gain : float = lookahead_gain_param.get_parameter_value().double_value
         else:
@@ -245,6 +246,8 @@ class AdmiralNetPurePursuitControllerROS(PPC):
             self.plot : bool = plot_param.get_parameter_value().bool_value
         else:
             self.plot : bool = plot
+
+
         if isinstance(velocity_scale_param, Parameter):
             self.velocity_scale_factor : float = velocity_scale_param.get_parameter_value().double_value
         else:

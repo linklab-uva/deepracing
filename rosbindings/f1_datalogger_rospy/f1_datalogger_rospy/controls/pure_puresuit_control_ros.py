@@ -56,13 +56,10 @@ class PurePursuitControllerROS(Node):
         self.dgain = dgain
         self.prev_err = None
         self.integral = 0.0
-        velocity_lookahead_gain_param : Parameter = self.get_parameter_or("velocity_lookahead_gain", 0.25)
+        velocity_lookahead_gain_param : Parameter = self.get_parameter_or("velocity_lookahead_gain", Parameter("velocity_lookahead_gain",value=0.25))
         print("velocity_lookahead_gain_param: " + str(velocity_lookahead_gain_param))
-        if isinstance(velocity_lookahead_gain_param, Parameter):
-            self.velocity_lookahead_gain : float = velocity_lookahead_gain_param.get_parameter_value().double_value
-        else:
-            self.velocity_lookahead_gain : float = velocity_lookahead_gain_param
-       # rclpy.spin()
+        self.velocity_lookahead_gain : float = velocity_lookahead_gain_param.get_parameter_value().double_value
+        
         self.motion_data_sub = self.create_subscription(
             TimestampedPacketMotionData,
             '/motion_data',
@@ -120,7 +117,8 @@ class PurePursuitControllerROS(Node):
                 distances_forward = la.norm(lookahead_positions, axis=1)
             else:
                 distances_forward = distances_forward_
-            self.velsetpoint = la.norm(v_local_forward[int(round(self.velocity_lookahead_gain*self.forward_indices))])
+            forward_vels = v_local_forward.shape[0]
+            self.velsetpoint = la.norm(v_local_forward[int(round(self.velocity_lookahead_gain*(forward_vels-1)))])
             self.setpoint_publisher.publish(Float64(data=3.6*self.velsetpoint))
             lookahead_distance = self.lookahead_gain*self.current_speed
             lookahead_index = np.argmin(np.abs(distances_forward-lookahead_distance))

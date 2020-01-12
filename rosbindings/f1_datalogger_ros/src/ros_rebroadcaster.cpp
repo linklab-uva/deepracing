@@ -123,35 +123,24 @@ public:
   {
     const rclcpp::Time stamp=this->node_->now();
     const cv::Mat& imin = data.image;
-    /*
-      cropwidth : 1758
-      cropheight : 362
-    */
-   // imin.convertTo(rgbimage, rgbimage.type());
     cv::Range rowrange(32,32+crop_height_);
     cv::Range colrange(0,crop_width_-1);
     cv::Mat & imcrop = imin(rowrange,colrange);
     cv::Mat rgbimage, bgraimage;
     cv::resize(imcrop,bgraimage,cv::Size(resize_width_,resize_height_),0.0,0.0,cv::INTER_AREA);
-    // if (resize_width_>0 && resize_height_>0)
-    // {
-    // }
-    // else
-    // {
-    //   bgraimage = imcrop;
-    // }
     cv::cvtColor(bgraimage,rgbimage,cv::COLOR_BGRA2RGB);
-    std_msgs::msg::Header header = std_msgs::msg::Header();
+    std_msgs::msg::Header header;
     header.stamp=stamp;
     header.frame_id="car";
     cv_bridge::CvImage bridge_image(header, "rgb8", rgbimage);
     const sensor_msgs::msg::Image::SharedPtr & image_msg = bridge_image.toImageMsg();
+    
     // f1_datalogger_msgs::msg::TimestampedImage timestamped_image;
     // timestamped_image.timestamp = std::chrono::duration<double>(data.timestamp - begin_).count();
     // timestamped_image.image = *image_msg;
     // this->timestamped_publisher_->publish(timestamped_image);
-    this->compressed_publisher_.publish(image_msg);
    // this->publisher_->publish(image_msg);
+    this->compressed_publisher_.publish(image_msg);
   }
   void init(const deepf1::TimePoint& begin, const cv::Size& window_size) override
   {
@@ -196,19 +185,15 @@ int main(int argc, char *argv[]) {
   NodeWrapper_ nw;
   std::shared_ptr<rclcpp::Node> node = nw.node;
   double resize_factor;
-  std::string search_string("F1");
+  std::string search_string;
   double capture_frequency;
   unsigned int resize_height, resize_width, crop_height, crop_width;
-  node->get_parameter<std::string>("search_string",search_string);
+  node->get_parameter_or<std::string>("search_string",search_string, std::string("F1") );
   node->get_parameter_or<double>("capture_frequency",capture_frequency, ROSRebroadcaster_FrameGrabHandler::captureFreq);
-  node->get_parameter_or<unsigned int>("resize_height",resize_height, 66);
-  node->get_parameter_or<unsigned int>("resize_width",resize_width, 200);
-  node->get_parameter_or<unsigned int>("crop_height",crop_height, 362);
-  node->get_parameter_or<unsigned int>("crop_width",crop_width, 1758);
-  nw.image_handler->resize_width_ = resize_width;
-  nw.image_handler->resize_height_ = resize_height;
-  nw.image_handler->crop_height_ = crop_height;
-  nw.image_handler->crop_width_ = crop_width;
+  node->get_parameter_or<unsigned int>("resize_height",nw.image_handler->resize_height_, 66);
+  node->get_parameter_or<unsigned int>("resize_width",nw.image_handler->resize_width_, 200);
+  node->get_parameter_or<unsigned int>("crop_height",nw.image_handler->crop_height_, 362);
+  node->get_parameter_or<unsigned int>("crop_width",nw.image_handler->crop_width_ , 1758);
   deepf1::F1DataLogger dl(search_string);  
   dl.start(capture_frequency, nw.datagrab_handler, nw.image_handler);
   
