@@ -20,8 +20,8 @@ class NodeWrapperPathConverter_
       ))
      {
      this->node = rclcpp::Node::make_shared("f1_path_converter");//,"",options);
-     this->listener = this->node->create_subscription<f1_datalogger_msgs::msg::PathRaw>("/predicted_path_raw", std::bind(&NodeWrapperPathConverter_::pathCallback, this, std::placeholders::_1));
-     this->publisher = this->node->create_publisher<nav_msgs::msg::Path>("/predicted_path");
+     this->listener = this->node->create_subscription<f1_datalogger_msgs::msg::PathRaw>("/predicted_path_raw", 10, std::bind(&NodeWrapperPathConverter_::pathCallback, this, std::placeholders::_1));
+     this->publisher = this->node->create_publisher<nav_msgs::msg::Path>("/predicted_path", 10);
      
      
      

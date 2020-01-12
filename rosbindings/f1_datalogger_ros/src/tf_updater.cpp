@@ -35,7 +35,7 @@ class NodeWrapperTfUpdater_
      worldToTrack.transform.rotation.z = quat.z();
      worldToTrack.transform.rotation.w = quat.w();
      this->statictfbroadcaster->sendTransform(worldToTrack);
-     this->listener = this->node->create_subscription<f1_datalogger_msgs::msg::TimestampedPacketMotionData>("/motion_data", std::bind(&NodeWrapperTfUpdater_::packetCallback, this, std::placeholders::_1));
+     this->listener = this->node->create_subscription<f1_datalogger_msgs::msg::TimestampedPacketMotionData>("/motion_data", 10, std::bind(&NodeWrapperTfUpdater_::packetCallback, this, std::placeholders::_1));
      
      
     }  
