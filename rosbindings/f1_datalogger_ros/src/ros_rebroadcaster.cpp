@@ -109,7 +109,7 @@ public:
     //this->publisher_ = this->node_->create_publisher<sensor_msgs::msg::Image>("f1_screencaps", qos_settings);
   //  this->timestamped_publisher_ = this->node_->create_publisher<f1_datalogger_msgs::msg::TimestampedImage>("timestamped_f1_screencaps", qos_settings);
     
-    this->compressed_publisher_ = it.advertise("/f1_screencaps", 1, true);
+    this->it_publisher_ = it.advertise("/f1_screencaps", 1, true);
 
   }
   virtual ~ROSRebroadcaster_FrameGrabHandler()
@@ -140,7 +140,7 @@ public:
     // timestamped_image.image = *image_msg;
     // this->timestamped_publisher_->publish(timestamped_image);
    // this->publisher_->publish(image_msg);
-    this->compressed_publisher_.publish(image_msg);
+    this->it_publisher_.publish(image_msg);
   }
   void init(const deepf1::TimePoint& begin, const cv::Size& window_size) override
   {
@@ -156,7 +156,7 @@ private:
   bool ready;
   std::shared_ptr<rclcpp::Node> node_;
   image_transport::ImageTransport it;
-  image_transport::Publisher compressed_publisher_;
+  image_transport::Publisher it_publisher_;
   std::shared_ptr<rclcpp::Publisher <sensor_msgs::msg::Image> > publisher_;
   std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedImage> > timestamped_publisher_;
   deepf1::TimePoint begin_;
@@ -198,7 +198,10 @@ int main(int argc, char *argv[]) {
   dl.start(capture_frequency, nw.datagrab_handler, nw.image_handler);
   
   RCLCPP_INFO(node->get_logger(),
-              "Listening for data from the game. Resizing images to (HxW)  (%u, %u)",nw.image_handler->resize_height_, nw.image_handler->resize_width_);
+              "Listening for data from the game. \n"
+              "Cropping an area (HxW)  (%u, %u)\n"
+              "Resizing cropped area to (HxW)  (%u, %u)\n"
+              ,nw.image_handler->crop_height_, nw.image_handler->crop_width_, nw.image_handler->resize_height_, nw.image_handler->resize_width_);
 
   rclcpp::spin(node);
  // rclcpp::shutdown();
