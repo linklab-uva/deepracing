@@ -127,7 +127,7 @@ if(MSVC)
 		${TBB_IMPORTED_TARGETS}
 		${YAML_CPP_LIBRARIES}
 		yaml-cpp
-		directxtk
+		DirectXTK
 		)
 		if(YAML_CPP_DLL)
 			target_compile_definitions(${PROJECT_NAME}_multithreaded_capture PRIVATE "YAML_CPP_DLL")
