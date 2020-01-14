@@ -123,11 +123,24 @@ public:
   {
     const rclcpp::Time stamp=this->node_->now();
     const cv::Mat& imin = data.image;
-    cv::Range rowrange(32,32+crop_height_);
-    cv::Range colrange(0,crop_width_-1);
-    cv::Mat & imcrop = imin(rowrange,colrange);
     cv::Mat rgbimage, bgraimage;
-    cv::resize(imcrop,bgraimage,cv::Size(resize_width_,resize_height_),0.0,0.0,cv::INTER_AREA);
+    
+    if(crop_height_ >0 && crop_width_ >0)
+    {
+      cv::Range rowrange(32,32+crop_height_);
+      cv::Range colrange(0,crop_width_-1);
+      cv::Mat & imcrop = imin(rowrange,colrange);
+      cv::resize(imcrop,bgraimage,cv::Size(resize_width_,resize_height_),0.0,0.0,cv::INTER_AREA);
+    }
+    else
+    {
+      cv::Range rowrange(32, imin.rows-1);
+      cv::Range colrange(0, imin.cols-1);
+      cv::Mat & imcrop = imin(rowrange,colrange);
+      cv::resize(imcrop,bgraimage,cv::Size(resize_width_,resize_height_),0.0,0.0,cv::INTER_AREA);
+    }
+
+
     cv::cvtColor(bgraimage,rgbimage,cv::COLOR_BGRA2RGB);
     std_msgs::msg::Header header;
     header.stamp=stamp;
@@ -192,8 +205,8 @@ int main(int argc, char *argv[]) {
   node->get_parameter_or<double>("capture_frequency",capture_frequency, ROSRebroadcaster_FrameGrabHandler::captureFreq);
   node->get_parameter_or<unsigned int>("resize_height",nw.image_handler->resize_height_, 66);
   node->get_parameter_or<unsigned int>("resize_width",nw.image_handler->resize_width_, 200);
-  node->get_parameter_or<unsigned int>("crop_height",nw.image_handler->crop_height_, 362);
-  node->get_parameter_or<unsigned int>("crop_width",nw.image_handler->crop_width_ , 1758);
+  node->get_parameter_or<unsigned int>("crop_height",nw.image_handler->crop_height_, 0);
+  node->get_parameter_or<unsigned int>("crop_width",nw.image_handler->crop_width_ , 0);
   deepf1::F1DataLogger dl(search_string);  
   dl.start(capture_frequency, nw.datagrab_handler, nw.image_handler);
   
