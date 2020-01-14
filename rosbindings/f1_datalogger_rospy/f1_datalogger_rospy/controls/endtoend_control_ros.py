@@ -1,5 +1,3 @@
-import cv2
-import numpy as np
 import argparse
 import skimage
 import skimage.io as io
@@ -9,7 +7,6 @@ from concurrent import futures
 import logging
 import argparse
 import lmdb
-import cv2
 import deepracing.backend
 from numpy_ringbuffer import RingBuffer as RB
 import yaml
@@ -46,83 +43,8 @@ from rclpy.time import Time
 from rclpy.clock import Clock, ROSClock
 import deepracing_models.nn_models.Models as M
 from scipy.spatial.transform import Rotation as Rot
-name_to_dtypes = {
-	"rgb8":    (np.uint8,  3),
-	"rgba8":   (np.uint8,  4),
-	"rgb16":   (np.uint16, 3),
-	"rgba16":  (np.uint16, 4),
-	"bgr8":    (np.uint8,  3),
-	"bgra8":   (np.uint8,  4),
-	"bgr16":   (np.uint16, 3),
-	"bgra16":  (np.uint16, 4),
-	"mono8":   (np.uint8,  1),
-	"mono16":  (np.uint16, 1),
-	
-    # for bayer image (based on cv_bridge.cpp)
-	"bayer_rggb8":	(np.uint8,  1),
-	"bayer_bggr8":	(np.uint8,  1),
-	"bayer_gbrg8":	(np.uint8,  1),
-	"bayer_grbg8":	(np.uint8,  1),
-	"bayer_rggb16":	(np.uint16, 1),
-	"bayer_bggr16":	(np.uint16, 1),
-	"bayer_gbrg16":	(np.uint16, 1),
-	"bayer_grbg16":	(np.uint16, 1),
+import cv_bridge, cv2, numpy as np
 
-    # OpenCV CvMat types
-	"8UC1":    (np.uint8,   1),
-	"8UC2":    (np.uint8,   2),
-	"8UC3":    (np.uint8,   3),
-	"8UC4":    (np.uint8,   4),
-	"8SC1":    (np.int8,    1),
-	"8SC2":    (np.int8,    2),
-	"8SC3":    (np.int8,    3),
-	"8SC4":    (np.int8,    4),
-	"16UC1":   (np.uint16,   1),
-	"16UC2":   (np.uint16,   2),
-	"16UC3":   (np.uint16,   3),
-	"16UC4":   (np.uint16,   4),
-	"16SC1":   (np.int16,  1),
-	"16SC2":   (np.int16,  2),
-	"16SC3":   (np.int16,  3),
-	"16SC4":   (np.int16,  4),
-	"32SC1":   (np.int32,   1),
-	"32SC2":   (np.int32,   2),
-	"32SC3":   (np.int32,   3),
-	"32SC4":   (np.int32,   4),
-	"32FC1":   (np.float32, 1),
-	"32FC2":   (np.float32, 2),
-	"32FC3":   (np.float32, 3),
-	"32FC4":   (np.float32, 4),
-	"64FC1":   (np.float64, 1),
-	"64FC2":   (np.float64, 2),
-	"64FC3":   (np.float64, 3),
-	"64FC4":   (np.float64, 4)
-}
-
-def image_to_numpy(msg : Image):
-    if not msg.encoding in name_to_dtypes:
-        raise TypeError('Unrecognized encoding {}'.format(msg.encoding))
-    dtype_class, channels = name_to_dtypes[msg.encoding]
-    dtype = np.dtype(dtype_class)
-    dtype = dtype.newbyteorder('>' if msg.is_bigendian else '<')
-    shape = (msg.height, msg.width, channels)
-
-    data = np.fromstring(msg.data.tostring(), dtype=dtype).reshape(shape)
-    data.strides = (
-        msg.step,
-        dtype.itemsize * channels,
-        dtype.itemsize
-    )
-    if channels == 1:
-        data = data[...,0]
-
-
-    if (str(msg.encoding) == "bgr8"):
-        return cv2.cvtColor(data,cv2.COLOR_BGR2RGB)
-    elif (str(msg.encoding) == "rgb8"):
-        return data
-    else:
-        raise TypeError("Unsupported image encoding: " + msg.encoding + ". Currently, only rgb8 and bgr8 are supported.")
 def npTrajectoryToROS(trajectory : np.ndarray, velocities : np.ndarray, frame_id = "map"):
     rtn : Path = Path()
     rtn.header.frame_id = frame_id
@@ -177,6 +99,7 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         bezier_order = config.get("bezier_order",None)
         sequence_length = config.get("sequence_length",None)
         self.rosclock = ROSClock()
+        self.cvbridge : cv_bridge.CvBridge = cv_bridge.CvBridge()
         #self.rosclock._set_ros_time_is_active(True)
 
 
@@ -298,13 +221,9 @@ class AdmiralNetPurePursuitControllerROS(PPC):
     def imageCallback(self, img_msg : Image):
         if img_msg.height<=0 or img_msg.width<=0:
             return
-        n_channels = 3
-        imnp= image_to_numpy( img_msg )
-        imnp = deepracing.imutils.resizeImage(image_to_numpy( img_msg ),(66,200))
-        # cv2.imshow("imrecv", cv2.cvtColor(imnp,cv2.COLOR_RGB2BGR))
-        # cv2.waitKey(1)
-        imnpfloat = ((imnp.astype(np.float64))/255.0).transpose(2,0,1)
-        self.image_buffer.append(imnpfloat)
+        imnp = deepracing.imutils.resizeImage( self.cvbridge.imgmsg_to_cv2(img_msg, desired_encoding="rgb8") , (66,200) )
+        imnpdouble = torchvision.transforms.functional.to_tensor(imnp).double().numpy()
+        self.image_buffer.append(imnpdouble)
     def getTrajectory(self):
         if self.current_motion_data.world_velocity.header.frame_id == "":
             return None, None, None
