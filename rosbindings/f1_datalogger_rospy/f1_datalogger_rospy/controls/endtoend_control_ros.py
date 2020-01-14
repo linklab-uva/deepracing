@@ -222,7 +222,7 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         if img_msg.height<=0 or img_msg.width<=0:
             return
         imnp = deepracing.imutils.resizeImage( self.cvbridge.imgmsg_to_cv2(img_msg, desired_encoding="rgb8") , (66,200) )
-        imnpdouble = torchvision.transforms.functional.to_tensor(imnp).double().numpy()
+        imnpdouble = tf.functional.to_tensor(imnp).double().numpy()
         self.image_buffer.append(imnpdouble)
     def getTrajectory(self):
         if self.current_motion_data.world_velocity.header.frame_id == "":
