@@ -28,20 +28,10 @@ find_package(sensor_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(f1_datalogger_msgs REQUIRED)
+
+#Provides imported targets for f1_datalogger, armadillo, Boost, Eigen3, and Opencv
 find_package(f1_datalogger_provider REQUIRED)
-find_package(f1_datalogger REQUIRED)
-set(BOOST_REQUIRED_COMPONENTS
-date_time
-filesystem
-program_options
-regex
-system
-thread
-)
-find_package( Boost 1.7 REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS} )
-find_package(Protobuf REQUIRED)
-find_package(Eigen3 REQUIRED)
-find_package(OpenCV REQUIRED)
+
 find_package(cv_bridge REQUIRED)
 if(WIN32)
   find_package(vJoy_plusplus REQUIRED)
@@ -77,7 +67,7 @@ target_link_libraries(ros_rebroadcaster
  f1_msg_utils
  f1_datalogger::f1_datalogger
  Eigen3::Eigen
- armadillo
+ ${ARMADILLO_LIBRARIES}
  ${cv_bridge_LIBRARIES}
 )
 #target_include_directories(ros_rebroadcaster PRIVATE ${cv_bridge_INCLUDE_DIRS})
