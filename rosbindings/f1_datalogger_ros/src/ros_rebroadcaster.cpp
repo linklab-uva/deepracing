@@ -124,20 +124,24 @@ public:
     const rclcpp::Time stamp=this->node_->now();
     const cv::Mat& imin = data.image;
     cv::Mat rgbimage, bgraimage;
-    
+    cv::Range rowrange, colrange;
     if(crop_height_ >0 && crop_width_ >0)
     {
-      cv::Range rowrange(32,32+crop_height_);
-      cv::Range colrange(0,crop_width_-1);
-      cv::Mat & imcrop = imin(rowrange,colrange);
-      cv::resize(imcrop,bgraimage,cv::Size(resize_width_,resize_height_),0.0,0.0,cv::INTER_AREA);
+      rowrange = cv::Range(top_left_row_,top_left_row_+crop_height_ - 1);
+      colrange = cv::Range(top_left_col_,top_left_col_+crop_width_ - 1);
     }
     else
     {
-      cv::Range rowrange(32, imin.rows-1);
-      cv::Range colrange(0, imin.cols-1);
-      cv::Mat & imcrop = imin(rowrange,colrange);
-      cv::resize(imcrop,bgraimage,cv::Size(resize_width_,resize_height_),0.0,0.0,cv::INTER_AREA);
+      rowrange = cv::Range(top_left_row_, imin.rows-1);
+      colrange = cv::Range(top_left_col_, imin.cols-1);
+    }
+    if(resize_width_ >0 && resize_height_ >0)
+    {
+      cv::resize(imin(rowrange,colrange),bgraimage,cv::Size(resize_width_,resize_height_),0.0,0.0,cv::INTER_AREA);
+    }
+    else
+    {
+      bgraimage = imin(rowrange,colrange);
     }
 
 
@@ -165,6 +169,8 @@ public:
   unsigned int resize_height_;
   unsigned int crop_height_;
   unsigned int crop_width_;
+  unsigned int top_left_row_;
+  unsigned int top_left_col_;
 private:
   bool ready;
   std::shared_ptr<rclcpp::Node> node_;
@@ -205,6 +211,8 @@ int main(int argc, char *argv[]) {
   node->get_parameter_or<double>("capture_frequency",capture_frequency, ROSRebroadcaster_FrameGrabHandler::captureFreq);
   node->get_parameter_or<unsigned int>("resize_height",nw.image_handler->resize_height_, 66);
   node->get_parameter_or<unsigned int>("resize_width",nw.image_handler->resize_width_, 200);
+  node->get_parameter_or<unsigned int>("top_left_row",nw.image_handler->top_left_row_, 32);
+  node->get_parameter_or<unsigned int>("top_left_col",nw.image_handler->top_left_col_, 0);
   node->get_parameter_or<unsigned int>("crop_height",nw.image_handler->crop_height_, 0);
   node->get_parameter_or<unsigned int>("crop_width",nw.image_handler->crop_width_ , 0);
   deepf1::F1DataLogger dl(search_string);  
