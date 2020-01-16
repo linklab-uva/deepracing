@@ -104,35 +104,11 @@ find_package( OpenCV REQUIRED )
 find_package(Qt5 QUIET COMPONENTS Widgets Core Gui)
 set(_gotqt (DEFINED  Qt5Widgets_FOUND) AND (DEFINED  Qt5_FOUND))
 
-
-if(MSVC)
-find_package(yaml-cpp REQUIRED)
-else()
-find_package(yaml-cpp REQUIRED)
-endif()
+find_package(yaml-cpp CONFIG REQUIRED)
 message(STATUS "Found yaml-cpp include dir: ${YAML_CPP_INCLUDE_DIR}")
 message(STATUS "Found yaml-cpp libraries: ${YAML_CPP_LIBRARIES}")
-if(MSVC)
-	message(STATUS "LIB Environment Variable: $ENV{LIB}")
-endif()
-option(GET_TBB "Download TBB from github rather than using a pre-installed version." OFF)
-if(GET_TBB)
-    if(MSVC)
-        message(STATUS "Getting TBB")
-        include(get_tbb)
-        message(STATUS "Got TBB targets: ${TBB_IMPORTED_TARGETS}")
-    else()
-        message(STATUS "Building TBB")
-        include(build_tbb)
-        message(STATUS "Built TBB targets: ${TBB_IMPORTED_TARGETS}")
-    endif()
-else()
-    find_package(TBB REQUIRED COMPONENTS tbb)
-	message(STATUS "TBB Configuration at : ${TBB_DIR}")
-	message(STATUS "Got TBB targets: ${TBB_IMPORTED_TARGETS}")
-	get_filename_component(TBB_ROOT_DIR ${TBB_DIR} DIRECTORY)
-	message(STATUS "Got TBB root: ${TBB_ROOT_DIR}")
-endif()
+
+find_package(TBB REQUIRED COMPONENTS tbb)
 
 
 include_directories( include )
@@ -211,7 +187,7 @@ if(BUILD_DATALOGGER)
     unset(install_targets)
 endif()
 install(DIRECTORY python/deepracing
-    DESTINATION Lib/python
+    DESTINATION lib/python
 )
 
 
