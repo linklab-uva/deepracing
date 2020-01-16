@@ -16,13 +16,20 @@
 #include <fstream>
 #include <yaml-cpp/yaml.h>
 #include <chrono>
-#include <GamePad.h>
-#include <filesystem>
-#if _WIN32_WINNT>=_WIN32_WINNT_WIN10
-  #include <wrl\wrappers\corewrappers.h>
-  #include <wrl\client.h>
+#ifdef _MSC_VER
+  #include <GamePad.h>
+  #if _WIN32_WINNT>=_WIN32_WINNT_WIN10
+    #include <wrl/wrappers/corewrappers.h>
+    #include <wrl/client.h>
+  #endif
 #endif
-namespace fs = std::filesystem;
+#if BOOST_FILESYSTEM
+  #include <boost/filesystem.hpp>
+  namespace fs = boost::filesystem;
+#else
+  #include <filesystem>
+  namespace fs = std::filesystem;
+#endif
 namespace scl = SL::Screen_Capture;
 namespace po = boost::program_options;
 void exit_with_help(po::options_description& desc)
@@ -35,8 +42,10 @@ void exit_with_help(po::options_description& desc)
 
 int main(int argc, char** argv)
 {
-  #if _WIN32_WINNT>=_WIN32_WINNT_WIN10
-    Microsoft::WRL::Wrappers::RoInitializeWrapper initialize(RO_INIT_MULTITHREADED);
+  #ifdef _MSC_VER
+    #if _WIN32_WINNT>=_WIN32_WINNT_WIN10
+      Microsoft::WRL::Wrappers::RoInitializeWrapper initialize(RO_INIT_MULTITHREADED);
+    #endif
   #endif
   using namespace deepf1;
   std::string search_string, image_folder, image_extension, udp_folder, config_file, root_directory, driver_name;
@@ -151,41 +160,48 @@ int main(int argc, char** argv)
 	std::cout << "Starting capture in " << initial_delay_time << " seconds." << std::endl;
 	std::this_thread::sleep_for(std::chrono::microseconds((long)std::round(initial_delay_time*1E6)));
 	dl->start(image_capture_frequency, udp_handler  , frame_handler );
-  unsigned int ycount = 0;
-  unsigned int bcount = 0;
-  std::cout << "Recording. Push Y to pause. Push left thumbstick to unpause. Push right thumbstick to unpause to Exit." << std::endl;
-  DirectX::GamePad gp;
-  DirectX::GamePad::State gpstate;
-  std::function<bool()> isUnpausePressed = std::bind(&DirectX::GamePad::State::IsLeftStickPressed, &gpstate);
-  std::function<bool()> pause = [&gpstate, &spectating]() {return (gpstate.IsStartPressed() || (spectating && (gpstate.IsYPressed() || gpstate.IsStartPressed() || gpstate.IsRightTriggerPressed() || gpstate.IsLeftTriggerPressed()
-    || gpstate.IsRightShoulderPressed() || gpstate.IsLeftShoulderPressed() || gpstate.IsBPressed() || gpstate.IsXPressed()) ) ); };
-  while (true)
-  {
-    gpstate = gp.GetState(0);
-    if (pause())
+  #ifdef _MSC_VER
+    unsigned int ycount = 0;
+    unsigned int bcount = 0;
+    std::cout << "Recording. Push Y to pause. Push left thumbstick to unpause. Push right thumbstick to unpause to Exit." << std::endl;
+    DirectX::GamePad gp;
+    DirectX::GamePad::State gpstate;
+    std::function<bool()> isUnpausePressed = std::bind(&DirectX::GamePad::State::IsLeftStickPressed, &gpstate);
+    std::function<bool()> pause = [&gpstate, &spectating]() {return (gpstate.IsStartPressed() || (spectating && (gpstate.IsYPressed() || gpstate.IsStartPressed() || gpstate.IsRightTriggerPressed() || gpstate.IsLeftTriggerPressed()
+      || gpstate.IsRightShoulderPressed() || gpstate.IsLeftShoulderPressed() || gpstate.IsBPressed() || gpstate.IsXPressed()) ) ); };
+    while (true)
     {
-      printf("Pausing %u\n", ++ycount);
-      frame_handler->pause();
+      gpstate = gp.GetState(0);
+      if (pause())
+      {
+        printf("Pausing %u\n", ++ycount);
+        frame_handler->pause();
+      }
+      if (gpstate.IsStartPressed())
+      {
+        printf("Start is pressed. Pausing %u\n", ++ycount);
+        frame_handler->pause();
+      }
+      if (isUnpausePressed())
+      {
+        printf("Unpausing %u\n", ++bcount);
+        frame_handler->resume();
+      }
+      if (gpstate.IsRightStickPressed())
+      {
+        printf("%s","Right stick is pressed. Exiting\n");
+        break;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(25));
     }
-    if (gpstate.IsStartPressed())
-    {
-      printf("Start is pressed. Pausing %u\n", ++ycount);
-      frame_handler->pause();
-    }
-    if (isUnpausePressed())
-    {
-      printf("Unpausing %u\n", ++bcount);
-      frame_handler->resume();
-    }
-    if (gpstate.IsRightStickPressed())
-    {
-      printf("%s","Right stick is pressed. Exiting\n");
-      break;
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(25));
-  }
+  #else
+    frame_handler->resume();
+    std::cout<<"Started recording. Enter anything to stop"<<std::endl;
+    std::string lol;
+    std::cin>>lol;
+  #endif
 	  //stop issuing new data to the handlers.
-	  dl->stop();
+	dl->stop();
   //stop listening for data and just process whatever is left in the buffers.
 	frame_handler->stop();
 	udp_handler->stop();

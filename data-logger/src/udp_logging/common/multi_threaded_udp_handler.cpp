@@ -12,10 +12,15 @@
 #include <iostream>
 #include <google/protobuf/util/json_util.h>
 #include <thread>
-#include <filesystem>
 #include <fstream>
 #include <sstream>
-namespace fs = std::filesystem;
+#ifdef BOOST_FILESYSTEM
+  #include <boost/filesystem.hpp>
+  namespace fs = boost::filesystem;
+#else
+  #include <filesystem>
+  namespace fs = std::filesystem;
+#endif
 namespace deepf1
 {
 MultiThreadedUDPHandler::MultiThreadedUDPHandler( std::string data_folder, unsigned int thread_count, bool write_json )

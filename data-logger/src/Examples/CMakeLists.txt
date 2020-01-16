@@ -107,57 +107,55 @@ ${DIRECTXT_INCLUDE_DIR}
 )
 
 
-if(MSVC)
-    
-	option(BUILD_MULTITHREADED_EXAMPLE "" ON)
-	if(BUILD_MULTITHREADED_EXAMPLE)
-		add_executable(${PROJECT_NAME}_multithreaded_capture
-		multi_threaded_capture.cpp
-		)
-		target_link_libraries(${PROJECT_NAME}_multithreaded_capture
-		${PROJECT_NAME}
-		${PROJECT_NAME}_image_logging
-		${PROJECT_NAME}_image_logging_common
-		${PROJECT_NAME}_udp_logging
-		${PROJECT_NAME}_udp_logging_common
-		${PROJECT_NAME}_proto
-		${screen_capture_lite_LIBRARIES}
-		${screen_capture_lite_PLATFORM_LIBS}
-		${Boost_LIBRARIES}
-		${TBB_IMPORTED_TARGETS}
-		${YAML_CPP_LIBRARIES}
-		yaml-cpp
-		DirectXTK
-		)
-		if(YAML_CPP_DLL)
-			target_compile_definitions(${PROJECT_NAME}_multithreaded_capture PRIVATE "YAML_CPP_DLL")
-		endif()
-		if(WIN10API)
-			target_link_libraries(${PROJECT_NAME}_multithreaded_capture RuntimeObject)
-		endif()
-		target_include_directories(${PROJECT_NAME}_multithreaded_capture 
-		PRIVATE
-		${DIRECTXT_INCLUDE_DIR}
-		)
-		set_target_properties(${PROJECT_NAME}_multithreaded_capture PROPERTIES FOLDER examples)
-	endif()
-endif()
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    target_link_libraries(${PROJECT_NAME}_replay_dataset stdc++fs )
-    target_link_libraries(${PROJECT_NAME}_generate_sine_waves stdc++fs )
-    target_link_libraries(${PROJECT_NAME}_pure_pursuit_control stdc++fs )
-endif()
 
 set(install_targets
 #executables.
 ${PROJECT_NAME}_cv_viewer_example
 )
+
+option(BUILD_MULTITHREADED_EXAMPLE "" ON)
+if(BUILD_MULTITHREADED_EXAMPLE)
+	add_executable(${PROJECT_NAME}_multithreaded_capture
+	multi_threaded_capture.cpp
+	)
+	set(multithreaded_capture_libs
+	${PROJECT_NAME}
+	${PROJECT_NAME}_image_logging
+	${PROJECT_NAME}_image_logging_common
+	${PROJECT_NAME}_udp_logging
+	${PROJECT_NAME}_udp_logging_common
+	${PROJECT_NAME}_proto
+	${screen_capture_lite_LIBRARIES}
+	${screen_capture_lite_PLATFORM_LIBS}
+	${Boost_LIBRARIES}
+	${TBB_IMPORTED_TARGETS}
+	${YAML_CPP_LIBRARIES}
+	yaml-cpp
+	)
+	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+		list(APPEND image_logging_libs stdc++fs)
+		target_compile_definitions(${PROJECT_NAME}_multithreaded_capture PRIVATE BOOST_FILESYSTEM=1)
+	endif()
+
+	if(MSVC)
+		list(APPEND multithreaded_capture_libs DirectXTK)
+		if(YAML_CPP_DLL)
+			target_compile_definitions(${PROJECT_NAME}_multithreaded_capture PRIVATE "YAML_CPP_DLL")
+		endif()
+		if(WIN10API)
+			list(APPEND multithreaded_capture_libs RuntimeObject)
+		endif()
+		target_include_directories(${PROJECT_NAME}_multithreaded_capture 
+		PRIVATE
+		${DIRECTXT_INCLUDE_DIR}
+		)
+	endif()
+	target_link_libraries(${PROJECT_NAME}_multithreaded_capture ${multithreaded_capture_libs})
+	list(APPEND install_targets ${PROJECT_NAME}_multithreaded_capture)
+endif()
 if(WITH_VJOY)
     list(APPEND install_targets ${PROJECT_NAME}_test_vjoy_calibration)
     list(APPEND install_targets ${PROJECT_NAME}_generate_vjoy_calibration)
-	if(BUILD_MULTITHREADED_EXAMPLE)
-		list(APPEND install_targets ${PROJECT_NAME}_multithreaded_capture)
-	endif()
 	install(DIRECTORY ${CMAKE_SOURCE_DIR}/tracks/ DESTINATION tracks
         FILES_MATCHING PATTERN "*.track")
 endif()

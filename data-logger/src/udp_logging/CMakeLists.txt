@@ -48,18 +48,21 @@ common/measurement_handler.cpp
 common/measurement_handler_2018.cpp
 )
 add_library( ${PROJECT_NAME}_udp_logging_common ${${PROJECT_NAME}_udp_logging_common_src} )
-target_link_libraries( ${PROJECT_NAME}_udp_logging_common 
-PUBLIC
+set(udp_logging_common_libs
 ${PROJECT_NAME}_udp_logging 
 ${PROJECT_NAME}_udp_utils
 ${PROJECT_NAME}_proto
-
 ${TBB_IMPORTED_TARGETS} 
 ${Boost_LIBRARIES} 
 )
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-target_link_libraries(${PROJECT_NAME}_udp_logging_common stdc++fs )
+    list(APPEND udp_logging_common_libs stdc++fs )
+    target_compile_definitions(${PROJECT_NAME}_udp_logging_common PRIVATE BOOST_FILESYSTEM=1)
 endif()
+target_link_libraries( ${PROJECT_NAME}_udp_logging_common 
+PUBLIC
+${udp_logging_common_libs}
+)
 
 set(install_targets
 #executables.

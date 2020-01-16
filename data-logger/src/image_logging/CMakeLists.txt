@@ -27,10 +27,18 @@ set(${PROJECT_NAME}_image_logging_common_src
 common/multi_threaded_framegrab_handler.cpp
 )
 add_library(${PROJECT_NAME}_image_logging_common ${${PROJECT_NAME}_image_logging_common_src})
-target_link_libraries(${PROJECT_NAME}_image_logging_common ${PROJECT_NAME}_image_logging ${PROJECT_NAME}_image_utils ${PROJECT_NAME}_proto ${TBB_IMPORTED_TARGETS} ${Boost_LIBRARIES})
+set(image_logging_libs
+${PROJECT_NAME}_image_logging 
+${PROJECT_NAME}_image_utils 
+${PROJECT_NAME}_proto 
+${TBB_IMPORTED_TARGETS} 
+${Boost_LIBRARIES}
+)
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    target_link_libraries(${PROJECT_NAME}_image_logging_common stdc++fs )
+    list(APPEND image_logging_libs stdc++fs)
+    target_compile_definitions(${PROJECT_NAME}_image_logging_common PRIVATE BOOST_FILESYSTEM=1)
 endif()
+target_link_libraries(${PROJECT_NAME}_image_logging_common ${image_logging_libs} )
 target_include_directories(${PROJECT_NAME}_image_logging_common 
 PRIVATE
 ${PROTO_INCLUDE_DIR}

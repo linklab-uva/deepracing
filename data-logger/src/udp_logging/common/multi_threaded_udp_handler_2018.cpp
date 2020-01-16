@@ -21,10 +21,15 @@
 #include "f1_datalogger/proto/TimestampedPacketSessionData.pb.h"
 #include <sstream>
 #include <exception>
-#include <filesystem>
 #include <iostream>
 #include <fstream>
-namespace fs = std::filesystem;
+#ifdef BOOST_FILESYSTEM
+  #include <boost/filesystem.hpp>
+  namespace fs = boost::filesystem;
+#else
+  #include <filesystem>
+  namespace fs = std::filesystem;
+#endif
 namespace deepf1
 {
 
