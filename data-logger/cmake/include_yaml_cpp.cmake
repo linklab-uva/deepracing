@@ -1,0 +1,12 @@
+
+if(DEFINED ENV{yamlcpp_DIR})
+	set(yaml-cpp_DIR $ENV{yamlcpp_DIR})
+	message(STATUS "Set yaml-cpp_DIR to: '${yaml-cpp_DIR}'")
+	find_package(yaml-cpp CONFIG REQUIRED)
+elseif(DEFINED ENV{yaml-cpp_DIR})
+	set(yaml-cpp_DIR $ENV{yaml-cpp_DIR})
+	message(STATUS "Set yaml-cpp_DIR to: '${yaml-cpp_DIR}'")
+	find_package(yaml-cpp CONFIG REQUIRED)
+else()
+	find_package(yaml-cpp REQUIRED)
+endif()

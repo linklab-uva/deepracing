@@ -1,12 +1,11 @@
-
-
-find_package (Python3 REQUIRED COMPONENTS Interpreter)
 file(GLOB PROTOFILES
   "*.proto"
 )
-protobuf_generate_cpp(${PROJECT_NAME}_PROTO_SRC ${PROJECT_NAME}_PROTO_HEADER 
-${PROTOFILES}
-)
+if(WIN32 AND BUILD_SHARED_LIBS)
+  protobuf_generate_cpp(${PROJECT_NAME}_PROTO_SRC ${PROJECT_NAME}_PROTO_HEADER EXPORT_MACRO DLL_EXPORT ${PROTOFILES} )
+else()
+  protobuf_generate_cpp(${PROJECT_NAME}_PROTO_SRC ${PROJECT_NAME}_PROTO_HEADER  ${PROTOFILES}  )
+endif()
 set(ProtobufIncludePath ${CMAKE_BINARY_DIR}/proto
     CACHE INTERNAL "Path to generated protobuf files.")
 protobuf_generate_python(PY_SOURCES ${PROTOFILES})
@@ -28,6 +27,9 @@ target_include_directories(${PROJECT_NAME}_proto
   $<INSTALL_INTERFACE:include> 
 )
 target_link_libraries(${PROJECT_NAME}_proto PUBLIC ${PROTO_LIBS})
+if(WIN32 AND BUILD_SHARED_LIBS)
+  target_compile_definitions(${PROJECT_NAME}_proto PUBLIC PROTOBUF_USE_DLLS=1)
+endif()
 set(install_targets
 #libraries
 ${PROJECT_NAME}_proto 

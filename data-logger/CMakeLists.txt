@@ -92,10 +92,14 @@ regex
 system
 thread
 )
-find_package( Boost 1.7 REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS} )
-foreach(boost_component_ ${BOOST_REQUIRED_COMPONENTS})
-	list(APPEND Boost_LIBRARIES Boost::${boost_component_})
-endforeach()
+find_package( Boost REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS} )
+# foreach(boost_component_ ${BOOST_REQUIRED_COMPONENTS})
+# endforeach()
+if(${Boost_VERSION} VERSION_GREATER_EQUAL 1.67.0)
+    list(APPEND Boost_LIBRARIES Boost::headers)
+else()
+    include_directories(${Boost_INCLUDE_DIRS})
+endif()
 message(STATUS "Using Boost components: ${Boost_LIBRARIES}")
 
 
@@ -104,7 +108,8 @@ find_package( OpenCV REQUIRED )
 find_package(Qt5 QUIET COMPONENTS Widgets Core Gui)
 set(_gotqt (DEFINED  Qt5Widgets_FOUND) AND (DEFINED  Qt5_FOUND))
 
-find_package(yaml-cpp CONFIG REQUIRED)
+include(include_yaml_cpp)
+#find_package(yaml-cpp CONFIG REQUIRED)
 message(STATUS "Found yaml-cpp include dir: ${YAML_CPP_INCLUDE_DIR}")
 message(STATUS "Found yaml-cpp libraries: ${YAML_CPP_LIBRARIES}")
 
@@ -115,7 +120,7 @@ include_directories( include )
 include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${YAML_CPP_INCLUDE_DIR} )
 
 include(FindProtobuf)
-find_package(Protobuf CONFIG REQUIRED)
+find_package(Protobuf REQUIRED)
 add_subdirectory( proto/${PROJECT_NAME}/proto )
 set(PROTO_INCLUDE_DIR ${CMAKE_BINARY_DIR}/proto)
 
@@ -139,6 +144,7 @@ if(BUILD_DATALOGGER)
     src/f1_datalogger.cpp
     )
     target_link_libraries(${PROJECT_NAME} 
+    PUBLIC
     ${PROJECT_NAME}_image_logging 
     ${PROJECT_NAME}_udp_logging 
     ${PROJECT_NAME}_proto 
@@ -147,6 +153,8 @@ if(BUILD_DATALOGGER)
     ${PROJECT_NAME}_image_utils
     ${PROJECT_NAME}_controllers
     ${Boost_LIBRARIES}
+    INTERFACE
+    ${screen_capture_lite_PLATFORM_LIBS}
     )
     add_subdirectory( src/Examples )
 
