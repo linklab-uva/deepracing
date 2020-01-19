@@ -164,7 +164,6 @@ public:
     this->begin_ = begin;
     ready = true;
   }
-  static constexpr double captureFreq = 35.0;
   unsigned int resize_width_;
   unsigned int resize_height_;
   unsigned int crop_height_;
@@ -208,7 +207,7 @@ int main(int argc, char *argv[]) {
   double capture_frequency;
   unsigned int resize_height, resize_width, crop_height, crop_width;
   node->get_parameter_or<std::string>("search_string",search_string, std::string("F1") );
-  node->get_parameter_or<double>("capture_frequency",capture_frequency, ROSRebroadcaster_FrameGrabHandler::captureFreq);
+  node->get_parameter_or<double>("capture_frequency",capture_frequency, 35.0);
   node->get_parameter_or<unsigned int>("resize_height",nw.image_handler->resize_height_, 66);
   node->get_parameter_or<unsigned int>("resize_width",nw.image_handler->resize_width_, 200);
   node->get_parameter_or<unsigned int>("top_left_row",nw.image_handler->top_left_row_, 32);
