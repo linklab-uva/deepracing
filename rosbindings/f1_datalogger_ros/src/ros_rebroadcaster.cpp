@@ -104,6 +104,13 @@ public:
     {
       std::cout<<s<<std::endl;
     }
+
+    node->get_parameter_or<unsigned int>("resize_height",resize_height_, 66);
+    node->get_parameter_or<unsigned int>("resize_width",resize_width_, 200);
+    node->get_parameter_or<unsigned int>("top_left_row",top_left_row_, 32);
+    node->get_parameter_or<unsigned int>("top_left_col",top_left_col_, 0);
+    node->get_parameter_or<unsigned int>("crop_height",crop_height_, 0);
+    node->get_parameter_or<unsigned int>("crop_width",crop_width_ , 0);
     rclcpp::QoS qos_settings(100);
     this->node_ = node;
     //this->publisher_ = this->node_->create_publisher<sensor_msgs::msg::Image>("f1_screencaps", qos_settings);
@@ -190,7 +197,7 @@ class NodeWrapper_
       .automatically_declare_parameters_from_overrides(true)
       ))
      {
-     this->node = rclcpp::Node::make_shared("f1_data_publisher","",options);
+      node = rclcpp::Node::make_shared("f1_data_publisher","",options);
       datagrab_handler.reset(new ROSRebroadcaster_2018DataGrabHandler(node));
       image_handler.reset(new ROSRebroadcaster_FrameGrabHandler(node));
     }  
@@ -208,12 +215,6 @@ int main(int argc, char *argv[]) {
   unsigned int resize_height, resize_width, crop_height, crop_width;
   node->get_parameter_or<std::string>("search_string",search_string, std::string("F1") );
   node->get_parameter_or<double>("capture_frequency",capture_frequency, 35.0);
-  node->get_parameter_or<unsigned int>("resize_height",nw.image_handler->resize_height_, 66);
-  node->get_parameter_or<unsigned int>("resize_width",nw.image_handler->resize_width_, 200);
-  node->get_parameter_or<unsigned int>("top_left_row",nw.image_handler->top_left_row_, 32);
-  node->get_parameter_or<unsigned int>("top_left_col",nw.image_handler->top_left_col_, 0);
-  node->get_parameter_or<unsigned int>("crop_height",nw.image_handler->crop_height_, 0);
-  node->get_parameter_or<unsigned int>("crop_width",nw.image_handler->crop_width_ , 0);
   deepf1::F1DataLogger dl(search_string);  
   dl.start(capture_frequency, nw.datagrab_handler, nw.image_handler);
   
