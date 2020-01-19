@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.15)
 project(f1_datalogger_ros)
 
 # Default to C99
@@ -36,7 +36,6 @@ find_package(cv_bridge REQUIRED)
 if(WIN32)
   find_package(vJoy_plusplus REQUIRED)
 endif()
-find_package(Armadillo CONFIG REQUIRED)
 
 include_directories(include)
 add_library(f1_msg_utils src/utils/f1_msg_utils.cpp)
