@@ -138,17 +138,12 @@ if(BUILD_MULTITHREADED_EXAMPLE)
 	endif()
 
 	if(MSVC)
-		list(APPEND multithreaded_capture_libs DirectXTK)
 		if(YAML_CPP_DLL)
 			target_compile_definitions(${PROJECT_NAME}_multithreaded_capture PRIVATE "YAML_CPP_DLL")
 		endif()
 		if(WIN10API)
 			list(APPEND multithreaded_capture_libs RuntimeObject)
 		endif()
-		target_include_directories(${PROJECT_NAME}_multithreaded_capture 
-		PRIVATE
-		${DIRECTXT_INCLUDE_DIR}
-		)
 	endif()
 	target_link_libraries(${PROJECT_NAME}_multithreaded_capture ${multithreaded_capture_libs})
 	list(APPEND install_targets ${PROJECT_NAME}_multithreaded_capture)

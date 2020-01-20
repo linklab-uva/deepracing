@@ -17,7 +17,6 @@
 #include <yaml-cpp/yaml.h>
 #include <chrono>
 #ifdef _MSC_VER
-  #include <GamePad.h>
   #if _WIN32_WINNT>=_WIN32_WINNT_WIN10
     #include <wrl/wrappers/corewrappers.h>
     #include <wrl/client.h>
@@ -160,46 +159,11 @@ int main(int argc, char** argv)
 	std::cout << "Starting capture in " << initial_delay_time << " seconds." << std::endl;
 	std::this_thread::sleep_for(std::chrono::microseconds((long)std::round(initial_delay_time*1E6)));
 	dl->start(image_capture_frequency, udp_handler  , frame_handler );
-  #ifdef _MSC_VER
-    unsigned int ycount = 0;
-    unsigned int bcount = 0;
-    std::cout << "Recording. Push Y to pause. Push left thumbstick to unpause. Push right thumbstick to unpause to Exit." << std::endl;
-    DirectX::GamePad gp;
-    DirectX::GamePad::State gpstate;
-    std::function<bool()> isUnpausePressed = std::bind(&DirectX::GamePad::State::IsLeftStickPressed, &gpstate);
-    std::function<bool()> pause = [&gpstate, &spectating]() {return (gpstate.IsStartPressed() || (spectating && (gpstate.IsYPressed() || gpstate.IsStartPressed() || gpstate.IsRightTriggerPressed() || gpstate.IsLeftTriggerPressed()
-      || gpstate.IsRightShoulderPressed() || gpstate.IsLeftShoulderPressed() || gpstate.IsBPressed() || gpstate.IsXPressed()) ) ); };
-    while (true)
-    {
-      gpstate = gp.GetState(0);
-      if (pause())
-      {
-        printf("Pausing %u\n", ++ycount);
-        frame_handler->pause();
-      }
-      if (gpstate.IsStartPressed())
-      {
-        printf("Start is pressed. Pausing %u\n", ++ycount);
-        frame_handler->pause();
-      }
-      if (isUnpausePressed())
-      {
-        printf("Unpausing %u\n", ++bcount);
-        frame_handler->resume();
-      }
-      if (gpstate.IsRightStickPressed())
-      {
-        printf("%s","Right stick is pressed. Exiting\n");
-        break;
-      }
-      std::this_thread::sleep_for(std::chrono::milliseconds(25));
-    }
-  #else
-    frame_handler->resume();
-    std::cout<<"Started recording. Enter anything to stop"<<std::endl;
-    std::string lol;
-    std::cin>>lol;
-  #endif
+  
+  frame_handler->resume();
+  std::cout<<"Started recording. Enter anything to stop"<<std::endl;
+  std::string lol;
+  std::cin>>lol;
 	  //stop issuing new data to the handlers.
 	dl->stop();
   //stop listening for data and just process whatever is left in the buffers.
