@@ -6,7 +6,7 @@ pure_pursuit_control:
         #igain : 0.0175
        # dgain : 0.01
         lookahead_gain : 0.5
-        plot : False
+        plot : True
         gpu : 0
         x_scale_factor : 1.45
         velocity_scale_factor: 1.0
