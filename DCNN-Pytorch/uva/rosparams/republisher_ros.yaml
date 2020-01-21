@@ -1,5 +1,7 @@
 f1_data_publisher:
-    ros__parameters:
-        resize_height : 66
-        resize_width : 200
-       # capture_frequency: 35.0
+  ros__parameters:
+    search_string : "F1"
+    crop_width: 1758
+    crop_height: 362
+    resize_height: 66
+    resize_width: 200
