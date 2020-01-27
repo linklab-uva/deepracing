@@ -33,6 +33,9 @@ with open(label1path,'r') as f:
 with open(label2path,'r') as f:
     pbjson.Parse(f.read(), label2)
 
+timeslabel1 = np.array([p.session_time for p in label1.subsequent_poses])
+timeslabel2 = np.array([p.session_time for p in label2.subsequent_poses]) 
+
 label1image = tf.to_tensor(imutils.readImage(os.path.join(label1imagedir,label1.image_tag.image_file)))
 label2image = tf.to_tensor(imutils.readImage(os.path.join(label2imagedir,label2.image_tag.image_file)))
 
@@ -54,8 +57,18 @@ label2positions = [p.translation for p in label2poses]
 label1positionsnp = np.array([np.array((t.x, t.y, t.z)) for t in label1positions])
 label2positionsnp = np.array([np.array((t.x, t.y, t.z)) for t in label2positions])
 
+
+
 print(label1positionsnp)
 print(label2positionsnp)
+
+
+
+diff = label1positionsnp - label2positionsnp
+diffsquare = np.square(diff)
+squared_distances = np.sum(diffsquare,axis=1)
+distances=np.sqrt(squared_distances)
+
 
 label1_x = label1positionsnp[:,0]
 label2_x = label2positionsnp[:,0]
@@ -73,19 +86,17 @@ plt.xlabel("X position in meters (Ego Vehicle Coordinates)")
 plt.ylabel("Z position in meters (Ego Vehicle Coordinates)")
 
 
-# fig2 = plt.figure()
-# plt.plot(-label2_x, label2_z)
-# plt.xlabel("X position (Ego Vehicle Coordinates)")
-# plt.ylabel("Z position (Ego Vehicle Coordinates)")
-
 fig2 = plt.figure()
+t = timeslabel1 - timeslabel1[0]
+plt.plot(t, distances)
+plt.xlabel("Time (Seconds)")
+plt.ylabel("Distance between trajectories (meters)")
+
+fig3 = plt.figure()
 imagegrid = tvutils.make_grid([label1image, label2image], nrow=1)
+meandistance = np.mean(distances)
+maxdistance = np.max(distances)
 
-diff = label1positionsnp - label2positionsnp
-diffsquare = np.square(diff)
-squarednorms = np.sum(diffsquare,axis=1)
-rms = np.sqrt(np.mean(diffsquare))
-
-print(rms)
+print("Mean Distance: %f. Max Distance: %f" % (meandistance, maxdistance))
 show(imagegrid)
 plt.show()
