@@ -336,3 +336,4 @@ build/
 buildros/
 installros/
 logros/
+example_trajectories

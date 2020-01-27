@@ -31,7 +31,7 @@ import torch
 import torch.nn as NN
 import torch.utils.data as data_utils
 import matplotlib.pyplot as plt
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CompressedImage
 from f1_datalogger_msgs.msg import PathRaw
 from geometry_msgs.msg import Vector3Stamped, Vector3, PointStamped, Point, PoseStamped, Pose, Quaternion
 from nav_msgs.msg import Path
@@ -212,17 +212,16 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         self.trajplot = None
         self.fig = None
         self.ax = None
-        self.image_sub = self.create_subscription(
-            Image,
-            '/f1_screencaps',
-            self.imageCallback,
-            10)
-       # cv2.namedWindow("imrecv", cv2.WINDOW_AUTOSIZE)
+        self.current_image = None
+        
+        self.image_sub = self.create_subscription( Image, '/f1_screencaps/cropped', self.imageCallback, 10)
+    
     def imageCallback(self, img_msg : Image):
         if img_msg.height<=0 or img_msg.width<=0:
             return
-        imnp = deepracing.imutils.resizeImage( self.cvbridge.imgmsg_to_cv2(img_msg, desired_encoding="rgb8") , (66,200) )
-        imnpdouble = tf.functional.to_tensor(imnp).double().numpy()
+        imnp = self.cvbridge.imgmsg_to_cv2(img_msg, desired_encoding="rgb8") 
+       # self.current_image = imnp.copy()
+        imnpdouble = tf.functional.to_tensor(deepracing.imutils.resizeImage( imnp, (66,200) ) ).double().numpy().copy()
         self.image_buffer.append(imnpdouble)
     def getTrajectory(self):
         if self.current_motion_data.world_velocity.header.frame_id == "":
