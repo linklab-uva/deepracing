@@ -25,33 +25,46 @@ parser.add_argument("trackfile", help="Path to trackfile to convert",  type=str)
 parser.add_argument("--add_interpolated_values", help="Path to trackfile to convert",  action="store_true")
 args = parser.parse_args()
 trackfilein = str(args.trackfile)
-track = np.loadtxt(trackfilein,delimiter=",",skiprows=2)
-print(track)
-
-#Eigen::Vector3d p(vec[1], vec[3], vec[2]);
-#rtn.push_back(std::make_pair(vec[0], p));
-
-r = track[:,0].copy()
-x = track[:,1].copy()
-y = track[:,3].copy()
-z = track[:,2].copy()
-
-tckX = scipy.interpolate.splrep(r, x, s=0)
-tckY = scipy.interpolate.splrep(r, y, s=0)
-tckZ = scipy.interpolate.splrep(r, z, s=0)
-
-xdot = scipy.interpolate.splev(r, tckX, der=1, ext=2)
-ydot = scipy.interpolate.splev(r, tckY, der=1, ext=2)
-zdot = scipy.interpolate.splev(r, tckZ, der=1, ext=2)
+trackin = np.loadtxt(trackfilein,delimiter=",",skiprows=2)
+print(trackin)
+print(trackin.shape)
+I = np.argsort(trackin[:,0])
+track = trackin[I].copy()
+r = track[:,0]
 
 
-xdotdot = scipy.interpolate.splev(r, tckX, der=2, ext=2)
-ydotdot = scipy.interpolate.splev(r, tckY, der=2, ext=2)
-zdotdot = scipy.interpolate.splev(r, tckZ, der=2, ext=2)
 
-X = np.vstack((x,y,z)).transpose()
-Xdot = np.vstack((xdot,ydot,zdot)).transpose()
-Xdotdot = np.vstack((xdotdot,ydotdot,zdotdot)).transpose()
+X = np.zeros((track.shape[0],3))
+X[:,0] = track[:,1]
+X[:,1] = track[:,3]
+X[:,2] = track[:,2]
+
+x = X[:,0]
+y = X[:,1]
+z = X[:,2]
+print(X)
+print(X.shape)
+
+
+spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(r, X)
+
+splinedot = spline.derivative(nu=1)
+splinedotdot = spline.derivative(nu=2)
+
+Xdot = splinedot(r)
+Xdotdot = splinedotdot(r)
+
+
+xdot = Xdot[:,0]
+ydot = Xdot[:,1]
+zdot = Xdot[:,2]
+
+
+xdotdot = Xdot[:,0]
+ydotdot = Xdot[:,1]
+zdotdot = Xdot[:,2]
+
+
 if args.add_interpolated_values:
     print("Adding interpolated values")
     print("Old X shape: ", X.shape)
