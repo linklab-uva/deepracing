@@ -47,6 +47,13 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
     #     loss_weights_torch = loss_weights_torch.double()
     # if gpu>=0:
     #     loss_weights_torch = loss_weights_torch.cuda(gpu)
+    _, _, _, _, _, _, sample_session_times = trainLoader.dataset[0]
+    s_torch = torch.linspace(0.0,1.0,steps=sample_session_times.shape[0]).unsqueeze(0).repeat(batch_size,1)
+    if gpu>=0:
+        s_torch = s_torch.cuda(gpu)
+    bezier_order = network.params_per_dimension-1
+    Mpos = deepracing_models.math_utils.bezier.bezierM(s_torch, bezier_order)
+    Mvel = deepracing_models.math_utils.bezier.bezierM(s_torch, bezier_order-1)
     for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
         if network.input_channels==5:
             image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
@@ -56,15 +63,13 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
             session_times_torch = session_times_torch.cuda(gpu)
             linear_velocities_torch = linear_velocities_torch.cuda(gpu)
         predictions = network(image_torch)
-        dt = session_times_torch[:,-1]-session_times_torch[:,0]
-        s_torch = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
-        fitpoints = positions_torch[:,:,[0,2]]
-        fitvels = linear_velocities_torch[:,:,[0,2]]
-        bezier_order = network.params_per_dimension-1
-        Mfit, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(fitpoints,s_torch,bezier_order)
         predictions_reshape = predictions.transpose(1,2)
-        pred_points = torch.matmul(Mfit, predictions_reshape)
-        _, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape,s_torch)
+        dt = session_times_torch[:,-1]-session_times_torch[:,0]
+        #s_torch = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
+        pred_points = torch.matmul(Mpos, predictions_reshape)
+        _, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape, M=Mvel)
+        gt_points = positions_torch[:,:,[0,2]]
+        gt_vels = linear_velocities_torch[:,:,[0,2]]
         if debug:
             images_np = image_torch[0].detach().cpu().numpy().copy()
             num_images = images_np.shape[0]
@@ -78,18 +83,24 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
             ani = animation.ArtistAnimation(plt.figure(), ims, interval=250, blit=True, repeat_delay=2000)
             fig = plt.figure()
             ax = fig.add_subplot()
-            fitpointsnp = fitpoints[0,:].detach().cpu().numpy().copy()
-            ax.plot(fitpointsnp[:,0],fitpointsnp[:,1],'r-')
+            gt_points_np = gt_points[0,:].detach().cpu().numpy().copy()
+            ax.plot(gt_points_np[:,0],gt_points_np[:,1],'r-')
             
-            evalpoints = torch.matmul(Mfit, controlpoints_fit)
-            evalpointsnp = evalpoints[0,:].detach().cpu().numpy().copy()
-            ax.plot(evalpointsnp[:,0],evalpointsnp[:,1],'bo')
+            # evalpoints = torch.matmul(Mfit, controlpoints_fit)
+            # evalpointsnp = evalpoints[0,:].detach().cpu().numpy().copy()
+            # ax.plot(evalpointsnp[:,0],evalpointsnp[:,1],'bo')
             plt.show()
 
-        current_param_loss = params_loss(predictions_reshape,controlpoints_fit)
-        current_position_loss = kinematic_loss(pred_points,fitpoints)
-        current_velocity_loss = kinematic_loss(pred_vels/dt[:,None,None],fitvels)
-        loss = loss_weights[0]*current_param_loss + loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
+        current_position_loss = kinematic_loss(pred_points,gt_points)
+        current_velocity_loss = kinematic_loss(pred_vels/dt[:,None,None],gt_vels)
+        if loss_weights[0]>0:
+            _, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(fitpoints, s_torch, bezier_order, M=Mpos)
+            current_param_loss = params_loss(predictions_reshape,controlpoints_fit)
+            loss = loss_weights[0]*current_param_loss + loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
+        else:
+            loss = loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
+
+       # loss = loss_weights[0]*current_param_loss + loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
         
         # Backward pass:
         optimizer.zero_grad()

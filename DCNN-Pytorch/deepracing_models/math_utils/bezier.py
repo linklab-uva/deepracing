@@ -3,7 +3,7 @@ import torch
 from scipy.special import comb as nChoosek
 def Mtk(k,n,t):
     return torch.pow(t,k)*torch.pow(1-t,(n-k))*nChoosek(n,k)
-def pinv(A):
+def pinv(A, minimum_singular_value = 0.0):
     """
     Return the batchwise pseudoinverse of A
 
@@ -11,7 +11,7 @@ def pinv(A):
     """
    # batch, rows, cols = A.size()
     U,S,V = torch.svd(A)
-    sinv =  torch.where(S > 0, 1/S, torch.zeros_like(S))
+    sinv =  torch.where(S > minimum_singular_value, 1/S, torch.zeros_like(S))
     #sinv = 1/S
     #sinv[sinv == float("Inf")] = 0
     return torch.matmul(torch.matmul(V,torch.diag_embed(sinv).transpose(1,2)),U.transpose(1,2))
@@ -38,10 +38,13 @@ def bezierDerivative(control_points, t = None, M = None, order = 1 ):
     factor = torch.prod(torch.linspace(n,n-order+1,order))
     return Mderiv, factor*torch.matmul(Mderiv, pdiff)
 
-def bezierLsqfit(points,t, n, built_in_lstq=False):
-    M = bezierM(t,n)
-    batch = M.shape[0]
-    if built_in_lstq:
-        return M, torch.stack([torch.lstsq(points[i], M[i])[0][0:n+1] for i in range(batch)],dim=0)
+def bezierLsqfit(points, t, n, M = None, built_in_lstq=False):
+    if M is None:
+        M_ = bezierM(t,n)
     else:
-        return M, torch.matmul(pinv(M), points)
+        M_ = M
+    batch = M_.shape[0]
+    if built_in_lstq:
+        return M_, torch.stack([torch.lstsq(points[i], M_[i])[0][0:n+1] for i in range(batch)],dim=0)
+    else:
+        return M_, torch.matmul(pinv(M_), points)
