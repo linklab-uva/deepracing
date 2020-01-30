@@ -26,9 +26,9 @@ void exit_with_help(po::options_description& desc)
         exit(0); // @suppress("Invalid arguments")
 }
 int main(int argc, char** argv) {
-		using boost::asio::ip::udp;
-		using namespace deepf1;
-		using namespace deepf1::twenty_eighteen;
+        using boost::asio::ip::udp;
+        using namespace deepf1;
+        using namespace deepf1::twenty_eighteen;
 	unsigned int packet_size = sizeof(deepf1::twenty_eighteen::PacketMotionData);// BUFLEN;
         unsigned int sleep_time;
 
