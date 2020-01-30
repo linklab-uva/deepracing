@@ -59,16 +59,16 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, kinematic_loss, 
         pointsz = positions_torch[:,:,2]
         pointsx_interp = torch.nn.functional.interpolate(pointsx.view(-1,1,numpoints), size=network.sequence_length, scale_factor=None, mode='linear', align_corners=None).squeeze()
         pointsz_interp = torch.nn.functional.interpolate(pointsz.view(-1,1,numpoints), size=network.sequence_length, scale_factor=None, mode='linear', align_corners=None).squeeze()
-        fitpoints = torch.stack([pointsx_interp,pointsz_interp],dim=1).transpose(1,2)
+        gtpoints = torch.stack([pointsx_interp,pointsz_interp],dim=1).transpose(1,2)
        # print(fitpoints.shape)
         if debug:
             fig = plt.figure()
             ax = fig.add_subplot()
             pointsxnp = pointsx[0].detach().cpu().numpy().copy()
             pointsznp = pointsz[0].detach().cpu().numpy().copy()
-            fitpointsnp = fitpoints[0].detach().cpu().numpy().copy()
+            gtpointsnp = gtpoints[0].detach().cpu().numpy().copy()
             ax.plot(pointsxnp,pointsznp,'r-')
-            ax.plot(fitpointsnp[:,0],fitpointsnp[:,1],'b+')
+            ax.plot(gtpointsnp[:,0],gtpointsnp[:,1],'b+')
             
             plt.show()
 
@@ -78,7 +78,7 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, kinematic_loss, 
         # current_param_loss = loss_weights[0]*params_loss(predictions_reshape,controlpoints_fit)
        # print(predictions.shape)
        # print(fitpoints.shape)
-        loss = kinematic_loss(predictions,fitpoints)
+        loss = kinematic_loss(predictions,gtpoints)
         # current_velocity_loss = loss_weights[2]*kinematic_loss(pred_vels/dt[:,None,None],fitvels)
         #loss = current_param_loss + current_position_loss + current_velocity_loss
         
@@ -179,31 +179,16 @@ def go():
         net = net.cuda(gpu)
         kinematic_loss = kinematic_loss.cuda(gpu)
     optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=0.000, nesterov=True)
-    netpostfix = "epoch_%d_params.pt"
-    optimizerpostfix = "epoch_%d_optimizer.pt"
-    if epochstart>1:
-        net.load_state_dict(torch.load(os.path.join(output_directory,netpostfix %(epochstart)), map_location=next(net.parameters()).device))
-        optimizer.load_state_dict(torch.load(os.path.join(output_directory,optimizerpostfix %(epochstart)), map_location=next(net.parameters()).device))
-        experiment_config = yaml.load(open(os.path.join(output_directory,"experiment_config.yaml"),"r"), Loader=yaml.SafeLoader)
-        experiment = comet_ml.ExistingExperiment(workspace="electric-turtle", project_name="deepracingposepredictor", previous_experiment=experiment_config["experiment_key"])
-    else:
-        if (not args.override) and os.path.isdir(output_directory) :
-            s = ""
-            while(not (s=="y" or s=="n")):
-                s = input("Directory " + output_directory + " already exists. Overwrite it with new data? [y\\n]\n")
-            if s=="n":
-                print("Thanks for playing!")
-                exit(0)
-            shutil.rmtree(output_directory)
-        elif os.path.isdir(output_directory):
-            shutil.rmtree(output_directory)
-        os.makedirs(output_directory, exist_ok=True)
-        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingposepredictor")
-        experiment.log_parameters(config)
-        experiment.log_parameters(dataset_config)
-        experiment.add_tag("posepredictor")
-        experiment_config = {"experiment_key": experiment.get_key()}
-        yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
+    main_dir = args.output_directory
+    experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingposepredictor")
+    experiment.log_parameters(config)
+    experiment.log_parameters(dataset_config)
+    experiment.add_tag("bezierpredictor")
+    experiment_config = {"experiment_key": experiment.get_key()}
+    output_directory = os.path.join(main_dir, experiment.get_key())
+    if os.path.isdir(output_directory) :
+        raise FileExistsError("%s already exists, this should not happen." %(output_directory) )
+    os.makedirs(output_directory)
     
     if num_workers == 0:
         max_spare_txns = 50
@@ -238,33 +223,24 @@ def go():
     else:
         dset = torch.utils.data.ConcatDataset(dsets)
     
-    dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
-                        shuffle=True, num_workers=num_workers, pin_memory=gpu>=0)
+    dataloader = data_utils.DataLoader(dset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=gpu>=0)
     print("Dataloader of of length %d" %(len(dataloader)))
+    yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
     yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
-    yaml.dump(config, stream=open(os.path.join(output_directory,"config.yaml"), "w"), Dumper = yaml.SafeDumper)
-    if(epochstart==1):
-        i = 0
-    else:
-        i = epochstart
+    yaml.dump(config, stream=open(os.path.join(output_directory,"model_config.yaml"), "w"), Dumper = yaml.SafeDumper)
+    i = 0
+    netpostfix = "epoch_%d_params.pt"
+    optimizerpostfix = "epoch_%d_optimizer.pt"
     with experiment.train():
         while i < num_epochs:
             time.sleep(2.0)
             postfix = i + 1
             print("Running Epoch Number %d" %(postfix))
             #dset.clearReaders()
-            try:
-                tick = time.time()
-                run_epoch(experiment, net, optimizer, dataloader, gpu, kinematic_loss, loss_weights, debug=debug, use_tqdm=args.tqdm, use_float = use_float)
-                tock = time.time()
-                print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
-            except Exception as e:
-                print("Restarting epoch %d because %s"%(postfix, str(e)))
-                modelin = os.path.join(output_directory, netpostfix %(postfix-1))
-                optimizerin = os.path.join(output_directory,optimizerpostfix %(postfix-1))
-                net.load_state_dict(torch.load(modelin))
-                optimizer.load_state_dict(torch.load(optimizerin))
-                continue
+            tick = time.time()
+            run_epoch(experiment, net, optimizer, dataloader, gpu, kinematic_loss, loss_weights, debug=debug, use_tqdm=args.tqdm, use_float = use_float)
+            tock = time.time()
+            print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
             modelout = os.path.join(output_directory,netpostfix %(postfix))
             torch.save(net.state_dict(), modelout)
             with open(modelout,'rb') as modelfile:
