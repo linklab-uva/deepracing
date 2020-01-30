@@ -31,9 +31,6 @@ private:
   void start(std::shared_ptr<IF1DatagrabHandler> data_handler);
   void start(std::shared_ptr<IF12018DataGrabHandler> data_handler);
   void stop();
-  void handle_send(boost::shared_ptr<std::string> message,
-    const boost::system::error_code& error,
-    std::size_t bytes_transferred);
 
   static constexpr unsigned int BUFFER_SIZE = sizeof(deepf1::twenty_eighteen::PacketMotionData);
   boost::asio::io_service io_service_;

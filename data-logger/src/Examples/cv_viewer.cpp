@@ -42,23 +42,8 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketMotionData& data) override
   {
-    //ready_ = false;
-    //const deepf1::twenty_eighteen::CarMotionData& motionPacket = data.data.m_carMotionData[car_index];
-    //Eigen::Affine3d poseGlobal = deepf1::EigenUtils::motionPacketToPose(motionPacket);
-    //Eigen::Vector3d velocityGlobal(motionPacket.m_worldVelocityX, motionPacket.m_worldVelocityY, motionPacket.m_worldVelocityZ);
-    //Eigen::Vector3d velocityLocalComputed = poseGlobal.rotation().inverse() * velocityGlobal;
-    //Eigen::Vector3d velocityLocal(data.data.m_localVelocityX, data.data.m_localVelocityY, data.data.m_localVelocityZ);
-    //std::cout << std::endl;
-    //std::cout << "Velocity Local Computed: " << std::endl << velocityLocalComputed << std::endl;
-    //std::cout << "Velocity Local: " << std::endl << velocityLocal << std::endl;
-    //std::cout << "Velocity Diff: " << (velocityLocalComputed - velocityLocal).norm() << std::endl;
-    //std::cout  << std::endl;
-    //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    //ready_ = true;
-
     
-
-	  
+    
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketParticipantsData& data) override
   {

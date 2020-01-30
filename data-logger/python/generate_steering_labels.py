@@ -1,6 +1,5 @@
 import numpy as np
 import numpy.linalg as la
-import quaternion
 import skimage
 import PIL
 from PIL import Image as PILImage

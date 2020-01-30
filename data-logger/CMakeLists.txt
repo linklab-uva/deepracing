@@ -199,14 +199,12 @@ install(DIRECTORY python/deepracing
 )
 
 
-if(${_gotqt} AND GUI_TOOLS)
-    add_subdirectory(src/guitools)
-endif()
-
 if(MSVC)
 	configure_file(scripts/windows/tbbvars2019.bat.in tbbvars2019.bat @ONLY NEWLINE_STYLE WIN32)
 	configure_file(scripts/windows/addpythonpath.bat.in addpythonpath.bat @ONLY NEWLINE_STYLE WIN32)
 	configure_file(scripts/windows/addpythonpath.ps.in addpythonpath.ps1 @ONLY NEWLINE_STYLE WIN32)
 else()
-	configure_file(scripts/bash/addpythonpath.in addpythonpath @ONLY NEWLINE_STYLE UNIX)
+    configure_file(scripts/bash/addpythonpath.in addpythonpath @ONLY NEWLINE_STYLE UNIX)
+    set(chmodsuccess_)
+    execute_process(COMMAND "chmod a+x addpythonpath" WORKING_DIRECTORY ${CMAKE_BINARY_DIR} RESULT_VARIABLE chmodsuccess_)
 endif() 
