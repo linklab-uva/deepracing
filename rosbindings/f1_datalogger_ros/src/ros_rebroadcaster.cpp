@@ -12,6 +12,7 @@
 #include "f1_datalogger_msgs/msg/timestamped_packet_motion_data.hpp"
 #include "f1_datalogger_msgs/msg/timestamped_packet_car_telemetry_data.hpp"
 #include "f1_datalogger_msgs/msg/timestamped_packet_session_data.hpp"
+
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.h>
 // #include <image_transport/camera_publisher.h>
@@ -104,20 +105,24 @@ public:
     {
       std::cout<<s<<std::endl;
     }
+    rclcpp::ParameterValue resize_height_p = node->declare_parameter("resize_height",rclcpp::ParameterValue(66));
+    resize_height_ =  resize_height_p.get<int>();
 
-    node->get_parameter_or<unsigned int>("resize_height",resize_height_, 66);
-    node->get_parameter_or<unsigned int>("resize_width",resize_width_, 200);
-    node->get_parameter_or<unsigned int>("top_left_row",top_left_row_, 32);
-    node->get_parameter_or<unsigned int>("top_left_col",top_left_col_, 0);
-    node->get_parameter_or<unsigned int>("crop_height",crop_height_, 0);
-    node->get_parameter_or<unsigned int>("crop_width",crop_width_ , 0);
-    rclcpp::QoS qos_settings(100);
-    node->get_parameter_or<unsigned int>("resize_height",resize_height_, 66);
-    node->get_parameter_or<unsigned int>("resize_width",resize_width_, 200);
-    node->get_parameter_or<unsigned int>("top_left_row",top_left_row_, 32);
-    node->get_parameter_or<unsigned int>("top_left_col",top_left_col_, 0);
-    node->get_parameter_or<unsigned int>("crop_height",crop_height_, 0);
-    node->get_parameter_or<unsigned int>("crop_width",crop_width_ , 0);
+    rclcpp::ParameterValue resize_width_p = node->declare_parameter("resize_width",rclcpp::ParameterValue(200));
+    resize_width_ =  resize_width_p.get<int>();
+
+    rclcpp::ParameterValue top_left_row_p = node->declare_parameter("top_left_row",rclcpp::ParameterValue(32));
+    top_left_row_ =  top_left_row_p.get<int>();
+
+    rclcpp::ParameterValue top_left_col_p = node->declare_parameter("top_left_col",rclcpp::ParameterValue(0));
+    top_left_col_ =  top_left_col_p.get<int>();
+
+    rclcpp::ParameterValue crop_height_p = node->declare_parameter("crop_height",rclcpp::ParameterValue(0));
+    crop_height_ =  crop_height_p.get<int>();
+
+    rclcpp::ParameterValue crop_width_p = node->declare_parameter("crop_width",rclcpp::ParameterValue(0));
+    crop_width_ =  crop_width_p.get<int>();
+
     this->node_ = node;
     //this->publisher_ = this->node_->create_publisher<sensor_msgs::msg::Image>("f1_screencaps", qos_settings);
   //  this->timestamped_publisher_ = this->node_->create_publisher<f1_datalogger_msgs::msg::TimestampedImage>("timestamped_f1_screencaps", qos_settings);
@@ -178,12 +183,12 @@ public:
     this->begin_ = begin;
     ready = true;
   }
-  unsigned int resize_width_;
-  unsigned int resize_height_;
-  unsigned int crop_height_;
-  unsigned int crop_width_;
-  unsigned int top_left_row_;
-  unsigned int top_left_col_;
+  int resize_width_;
+  int resize_height_;
+  int crop_height_;
+  int crop_width_;
+  int top_left_row_;
+  int top_left_col_;
 private:
   bool ready;
   std::shared_ptr<rclcpp::Node> node_;
@@ -199,13 +204,9 @@ class NodeWrapper_
 {
 
   public:
-    NodeWrapper_( const rclcpp::NodeOptions & options = (
-      rclcpp::NodeOptions()
-      .allow_undeclared_parameters(true)
-      .automatically_declare_parameters_from_overrides(true)
-      ))
+    NodeWrapper_()
      {
-      node = rclcpp::Node::make_shared("f1_data_publisher","",options);
+      node = rclcpp::Node::make_shared("f1_data_publisher","");
       datagrab_handler.reset(new ROSRebroadcaster_2018DataGrabHandler(node));
       image_handler.reset(new ROSRebroadcaster_FrameGrabHandler(node));
     }  
@@ -217,15 +218,34 @@ int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
   NodeWrapper_ nw;
   std::shared_ptr<rclcpp::Node> node = nw.node;
-  double resize_factor;
-  std::string search_string;
-  double capture_frequency;
-  unsigned int resize_height, resize_width, crop_height, crop_width;
-  node->get_parameter_or<std::string>("search_string",search_string, std::string("F1") );
-  node->get_parameter_or<double>("capture_frequency",capture_frequency, 35.0);
-  deepf1::F1DataLogger dl(search_string);  
-  dl.start(capture_frequency, nw.datagrab_handler, nw.image_handler);
+  rcl_interfaces::msg::ParameterDescriptor capture_freq_description;
+  capture_freq_description.floating_point_range = rosidl_generator_cpp::BoundedVector<rcl_interfaces::msg::FloatingPointRange,1>(1);
+  capture_freq_description.floating_point_range[0].from_value=1.0;
+  capture_freq_description.floating_point_range[0].to_value=60.0;
+  capture_freq_description.floating_point_range[0].step=0.0;
+  capture_freq_description.description="Frequency (in Hz) to capture images from the screen";
+
+  rclcpp::ParameterValue search_string_p = node->declare_parameter("search_string",rclcpp::ParameterValue("F1"));
+  rclcpp::ParameterValue capture_frequency_p = node->declare_parameter("capture_frequency",rclcpp::ParameterValue(35.0), capture_freq_description);
   
+  rclcpp::ParameterValue hostname_p = node->declare_parameter("hostname",rclcpp::ParameterValue("127.0.0.1"));
+  rcl_interfaces::msg::ParameterDescriptor port_description;
+  port_description.integer_range=rosidl_generator_cpp::BoundedVector<rcl_interfaces::msg::IntegerRange,1>(1);
+  port_description.integer_range[0].from_value=20777;
+  port_description.integer_range[0].to_value=21000;
+  port_description.integer_range[0].step=1;
+
+  rclcpp::ParameterValue port_p = node->declare_parameter("port",rclcpp::ParameterValue(20777), port_description);
+  rclcpp::ParameterValue rebroadcast_p = node->declare_parameter("rebroadcast",rclcpp::ParameterValue(false));
+
+  deepf1::F1DataLogger dl(search_string_p.get<std::string>(), hostname_p.get<std::string>(),
+                          port_p.get<int>(), rebroadcast_p.get<bool>());  
+  dl.start(capture_frequency_p.get<double>(), nw.datagrab_handler, nw.image_handler);
+  
+  if(rebroadcast_p.get<bool>())
+  {
+    printf("Rebroadcasting on port: %ld\n", port_p.get<int>()+1);
+  }
   RCLCPP_INFO(node->get_logger(),
               "Listening for data from the game. \n"
               "Cropping an area (HxW)  (%u, %u)\n"

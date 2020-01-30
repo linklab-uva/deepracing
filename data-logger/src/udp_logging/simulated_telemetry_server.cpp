@@ -7,7 +7,7 @@
 
 
 
-#include "f1_datalogger/car_data/car_data.h"
+#include "f1_datalogger/car_data/timestamped_car_data.h"
 #include <boost/program_options.hpp>
 #include <iostream>
 #include <boost/asio.hpp>
@@ -15,6 +15,7 @@
 #include <thread>
 #include <math.h> 
 #include <boost/math/constants/constants.hpp>
+#include <boost/math_fwd.hpp>
 namespace po = boost::program_options;
 void exit_with_help(po::options_description& desc)
 {
@@ -27,6 +28,7 @@ void exit_with_help(po::options_description& desc)
 int main(int argc, char** argv) {
 		using boost::asio::ip::udp;
 		using namespace deepf1;
+		using namespace deepf1::twenty_eighteen;
 		unsigned int packet_size = sizeof(deepf1::UDPPacket2017);// BUFLEN;
         unsigned int sleep_time;
 
@@ -38,7 +40,7 @@ int main(int argc, char** argv) {
                 ("help,h", "Displays options and exits")
                 ("address,a", po::value<std::string>(&address)->default_value("127.0.0.1"), "IPv4 Address to send data to")
                 ("port_number,p", po::value<std::string>(&port)->default_value("20777"), "Port number to send data to")
-                ("sleep_time,s", po::value<unsigned int>(&sleep_time)->default_value(100), "Number of milliseconds to sleep between simulated packets")
+                ("sleep_time,s", po::value<unsigned int>(&sleep_time)->default_value(17), "Number of milliseconds to sleep between simulated packets")
                 ;
 	        po::variables_map vm;
                 po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -57,25 +59,34 @@ int main(int argc, char** argv) {
         socket.open(udp::v4());
 
 
-        std::shared_ptr<UDPPacket2017> data(new UDPPacket2017);
+        std::shared_ptr<PacketCarTelemetryData> data(new PacketCarTelemetryData);
+        data->m_header.m_packetFormat=2;
+        data->m_header.m_packetId=PacketID::CARTELEMETRY;
+        data->m_header.m_packetVersion=18;
+        data->m_header.m_playerCarIndex=0;
         float fake_time = 0;
         float dt = 1E-3*( (float) sleep_time );
-        float period = 5.0;
+        float period = 1.0;
         float freq=1/period;
 	float pi = boost::math::constants::pi<float>();
+	float twopi = boost::math::constants::two_pi<float>();
         float factor = 2.0;
+        int id=0;
         while (true) {
-                data->m_time = fake_time;
-                data->m_steer = sin(factor* 2*pi*freq*fake_time);
-                data->m_throttle = sin(factor* 2*pi*freq*fake_time + pi / 3.0 );
-                data->m_brake = sin(factor* 2*pi*freq*fake_time + 2.0*pi / 3.0);
-                std::cout<<"Sending fake UDP data"<<std::endl;
+                data->m_header.m_frameIdentifier=id;
+                data->m_header.m_sessionTime=fake_time;
+                data->m_header.m_sessionUID=id;
+                data->m_carTelemetryData[data->m_header.m_playerCarIndex].m_steer = (int8_t)(100.0*std::sin(twopi*freq*fake_time));
+                data->m_carTelemetryData[data->m_header.m_playerCarIndex].m_throttle = 50 + (int8_t)(50.0*std::cos(twopi*freq*fake_time));
+                data->m_carTelemetryData[data->m_header.m_playerCarIndex].m_brake = 50;
+                //std::cout<<"Sending fake UDP data"<<std::endl;
                 // std::cout<<"fake_time: "<<fake_time<<std::endl;
                 // std::cout<<"Steering: "<<data->m_steer<<std::endl;
                 // std::cout<<"Throttle: "<<data->m_throttle<<std::endl;
                 // std::cout<<"B:rake "<<data->m_brake<<std::endl;
                 socket.send_to(boost::asio::buffer(boost::asio::buffer(data.get(), packet_size)), receiver_endpoint);
                 fake_time += dt;
+                id++;
                 std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
         }
         return 0;

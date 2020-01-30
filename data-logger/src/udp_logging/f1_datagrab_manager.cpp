@@ -59,11 +59,25 @@ void F1DataGrabManager::run2017(std::shared_ptr<IF1DatagrabHandler> data_handler
     }
   }
 }
-void F1DataGrabManager::handle_send(boost::shared_ptr<std::string> message,
+void handle_send(const boost::system::error_code& error,
+  std::size_t bytes_transferred)
+{
+  if(error.failed())
+  {
+   std::printf("Failed to rebroadcast %lu bytes. Error code: %d. Error Message: %s\n",
+              bytes_transferred, error.value(), error.message().c_str());
+  }
+}
+void handle_send(const std::string metadata,
   const boost::system::error_code& error,
   std::size_t bytes_transferred)
 {
-  //std::printf("Rebroadcasted %zu bytes. Error code: %s\n", bytes_transferred, error.message().c_str());
+  if(error.failed())
+  {
+   std::printf("Failed to rebroadcast %lu bytes. Error code: %d. Error Message: %s\n",
+              bytes_transferred, error.value(), error.message().c_str());
+   std::printf("Message metadata: %s\n", metadata.c_str());
+  }
 }
 void F1DataGrabManager::run2018(std::shared_ptr<IF12018DataGrabHandler> data_handler)
 {
@@ -71,22 +85,35 @@ void F1DataGrabManager::run2018(std::shared_ptr<IF12018DataGrabHandler> data_han
   char buffer[ F1DataGrabManager::BUFFER_SIZE ];
   deepf1::TimePoint timestamp;
   deepf1::twenty_eighteen::PacketHeader* header;
-  boost::shared_ptr< std::string > send_message(new std::string("THIS IS A MESSAGE. YAY"));
+  boost::asio::ip::udp::endpoint rebroadcastendpoint;
+  if(rebroadcast_)
+  {
+    rebroadcastendpoint = boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(socket_.local_endpoint().address().to_string()), socket_.local_endpoint().port() + 1);
+  }
   while (running_)
   {
     std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(buffer, BUFFER_SIZE), remote_endpoint_, 0, error);
     timestamp = clock_->now();
+   // std::printf("Received %lu bytes\n", received_bytes);
+    header = reinterpret_cast<deepf1::twenty_eighteen::PacketHeader*>(buffer);
     if (rebroadcast_)
     {
-       rebroadcast_socket_.async_send_to(boost::asio::buffer(buffer, received_bytes), boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(socket_.local_endpoint().address().to_string()), socket_.local_endpoint().port() + 1), 0,
-        boost::bind(&F1DataGrabManager::handle_send, this, send_message,
-          boost::asio::placeholders::error,
-          boost::asio::placeholders::bytes_transferred));
+      std::string metadata=
+      "Frame id: " + std::to_string(header->m_frameIdentifier) +"\n"
+      "Packet Format: " + std::to_string(header->m_packetFormat) +"\n"
+      "Packet id: " + std::to_string(header->m_packetId) +"\n"
+      "Packet version: " + std::to_string(header->m_packetVersion) +"\n"
+      "Player Car Index: " + std::to_string(header->m_playerCarIndex) +"\n"
+      "Session Time: " + std::to_string(header->m_sessionTime) +"\n"
+      "Session UID: " + std::to_string(header->m_sessionUID) +"\n";
+      rebroadcast_socket_.async_send_to(boost::asio::buffer(buffer, received_bytes), rebroadcastendpoint, 0,
+      boost::bind(&handle_send, metadata,
+        boost::asio::placeholders::error,
+        boost::asio::placeholders::bytes_transferred));
       rebroadcast_io_context_.run_one();
     }
     if (bool(data_handler) && data_handler->isReady())
     {
-      header = reinterpret_cast<deepf1::twenty_eighteen::PacketHeader*>(buffer);
 
       /*
 	    std::printf("Packet Type: %s. Number of bytes: %zu \n", packetIdMap.at(header->m_packetId).c_str(), received_bytes);
