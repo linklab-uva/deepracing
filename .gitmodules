@@ -28,3 +28,6 @@
 [submodule "rosbindings/rosbag2"]
 	path = rosbindings/rosbag2
 	url = https://github.com/linklab-uva/rosbag2.git
+[submodule "rosbindings/rcutils"]
+	path = rosbindings/rcutils
+	url = https://github.com/ros2/rcutils.git
