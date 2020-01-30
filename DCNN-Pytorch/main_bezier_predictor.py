@@ -48,7 +48,7 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
     # if gpu>=0:
     #     loss_weights_torch = loss_weights_torch.cuda(gpu)
     _, _, _, _, _, _, sample_session_times = trainLoader.dataset[0]
-    s_torch = torch.linspace(0.0,1.0,steps=sample_session_times.shape[0]).unsqueeze(0).repeat(batch_size,1)
+    s_torch = torch.linspace(0.0,1.0,steps=sample_session_times.shape[0]).unsqueeze(0).repeat(batch_size,1).double()
     if gpu>=0:
         s_torch = s_torch.cuda(gpu)
     bezier_order = network.params_per_dimension-1
@@ -98,6 +98,7 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
             current_param_loss = params_loss(predictions_reshape,controlpoints_fit)
             loss = loss_weights[0]*current_param_loss + loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
         else:
+            current_param_loss = torch.zeros(1).double()
             loss = loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
 
        # loss = loss_weights[0]*current_param_loss + loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
