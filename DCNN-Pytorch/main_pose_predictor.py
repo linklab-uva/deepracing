@@ -2,10 +2,11 @@ import comet_ml
 import torch
 import torch.nn as NN
 import torch.utils.data as data_utils
-import data_loading.proto_datasets
+import deepracing_models.data_loading.proto_datasets as PD
 from tqdm import tqdm as tqdm
-import deepracing_models.nn_models.LossFunctions as loss_functions
+import deepracing_models.nn_models
 import deepracing_models.nn_models.Models
+import deepracing_models.nn_models.LossFunctions as loss_functions
 import numpy as np
 import torch.optim as optim
 from tqdm import tqdm as tqdm
@@ -52,27 +53,23 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, kinematic_loss, 
             positions_torch = positions_torch.cuda(gpu)
             session_times_torch = session_times_torch.cuda(gpu)
         #print(image_torch.shape)
+        numpoints = positions_torch.shape[1]
         predictions = network(image_torch)
-        fitpoints = positions_torch[:,:,[0,2]]
+        pointsx = positions_torch[:,:,0]
+        pointsz = positions_torch[:,:,2]
+        pointsx_interp = torch.nn.functional.interpolate(pointsx.view(-1,1,numpoints), size=network.sequence_length, scale_factor=None, mode='linear', align_corners=None).squeeze()
+        pointsz_interp = torch.nn.functional.interpolate(pointsz.view(-1,1,numpoints), size=network.sequence_length, scale_factor=None, mode='linear', align_corners=None).squeeze()
+        fitpoints = torch.stack([pointsx_interp,pointsz_interp],dim=1).transpose(1,2)
+       # print(fitpoints.shape)
         if debug:
-            images_np = image_torch[0].detach().cpu().numpy().copy()
-            num_images = images_np.shape[0]
-            print(num_images)
-            images_np_transpose = np.zeros((num_images, images_np.shape[2], images_np.shape[3], images_np.shape[1]), dtype=np.uint8)
-            ims = []
-            for i in range(num_images):
-                images_np_transpose[i]=skimage.util.img_as_ubyte(images_np[i].transpose(1,2,0))
-                im = plt.imshow(images_np_transpose[i], animated=True)
-                ims.append([im])
-            ani = animation.ArtistAnimation(plt.figure(), ims, interval=250, blit=True, repeat_delay=2000)
             fig = plt.figure()
             ax = fig.add_subplot()
-            fitpointsnp = fitpoints[0,:].detach().cpu().numpy().copy()
-            ax.plot(fitpointsnp[:,0],fitpointsnp[:,1],'r-')
+            pointsxnp = pointsx[0].detach().cpu().numpy().copy()
+            pointsznp = pointsz[0].detach().cpu().numpy().copy()
+            fitpointsnp = fitpoints[0].detach().cpu().numpy().copy()
+            ax.plot(pointsxnp,pointsznp,'r-')
+            ax.plot(fitpointsnp[:,0],fitpointsnp[:,1],'b+')
             
-            #skipn = 20
-            #ax.quiver(Pbeziertorch[::skipn,0].numpy(),Pbeziertorch[::skipn,1].numpy(),Pbeziertorchderiv[::skipn,0].numpy(),Pbeziertorchderiv[::skipn,1].numpy())
-            #ax.plot(bezier_control_points[i,:,0].numpy(),bezier_control_points[i,:,1].numpy(),'go')
             plt.show()
 
         #print(predictions_reshape.shape)
@@ -165,7 +162,7 @@ def go():
     use_float = config["use_float"]
     loss_weights = config["loss_weights"]
     print("Using config:\n%s" % (str(config)))
-    net = nn_models.Models.AdmiralNetKinematicPredictor(context_length= context_length, sequence_length=sequence_length, input_channels=input_channels, hidden_dim = hidden_dimension, output_dimension=2) 
+    net = deepracing_models.nn_models.Models.AdmiralNetKinematicPredictor(context_length= context_length, sequence_length=sequence_length, input_channels=input_channels, hidden_dim = hidden_dimension, output_dimension=2) 
     print("net:\n%s" % (str(net)))
 
     kinematic_loss = loss_functions.SquaredLpNormLoss()
@@ -232,7 +229,7 @@ def go():
         image_wrapper.readDatabase(os.path.join(image_folder,"image_lmdb"), max_spare_txns=max_spare_txns, mapsize=image_mapsize )
 
 
-        curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length,\
+        curent_dset = PD.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length,\
                      image_size = image_size, return_optflow=use_optflow, apply_color_jitter=apply_color_jitter, erasing_probability=erasing_probability)
         dsets.append(curent_dset)
         print("\n")
