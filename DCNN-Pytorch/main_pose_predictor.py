@@ -54,12 +54,15 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, kinematic_loss, 
             session_times_torch = session_times_torch.cuda(gpu)
         #print(image_torch.shape)
         numpoints = positions_torch.shape[1]
+        if numpoints==network.sequence_length:
+            gtpoints = positions_torch
+        else:
+            pointsx = positions_torch[:,:,0]
+            pointsz = positions_torch[:,:,2]
+            pointsx_interp = torch.nn.functional.interpolate(pointsx.view(-1,1,numpoints), size=network.sequence_length, scale_factor=None, mode='linear', align_corners=None).squeeze()
+            pointsz_interp = torch.nn.functional.interpolate(pointsz.view(-1,1,numpoints), size=network.sequence_length, scale_factor=None, mode='linear', align_corners=None).squeeze()
+            gtpoints = torch.stack([pointsx_interp,pointsz_interp],dim=1).transpose(1,2)
         predictions = network(image_torch)
-        pointsx = positions_torch[:,:,0]
-        pointsz = positions_torch[:,:,2]
-        pointsx_interp = torch.nn.functional.interpolate(pointsx.view(-1,1,numpoints), size=network.sequence_length, scale_factor=None, mode='linear', align_corners=None).squeeze()
-        pointsz_interp = torch.nn.functional.interpolate(pointsz.view(-1,1,numpoints), size=network.sequence_length, scale_factor=None, mode='linear', align_corners=None).squeeze()
-        gtpoints = torch.stack([pointsx_interp,pointsz_interp],dim=1).transpose(1,2)
        # print(fitpoints.shape)
         if debug:
             fig = plt.figure()
