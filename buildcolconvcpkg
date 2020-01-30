@@ -1,0 +1,8 @@
+#!/bin/bash
+cmargs="-DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+
+colcon build --merge-install \
+--cmake-args ${cmargs} \
+--catkin-cmake-args ${cmargs} \
+--ament-cmake-args ${cmargs} \
+--catkin-skip-building-tests 
