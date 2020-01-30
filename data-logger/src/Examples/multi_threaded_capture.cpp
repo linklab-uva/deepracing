@@ -50,7 +50,7 @@ int main(int argc, char** argv)
   std::string search_string, image_folder, image_extension, udp_folder, config_file, root_directory, driver_name;
   unsigned int image_threads, udp_port, udp_thread_sleeptime;
   float image_capture_frequency, initial_delay_time;
-  bool spectating, use_json, init_paused;
+  bool spectating, use_json, init_paused, log_images;
   double capture_region_ratio;
 
 
@@ -97,6 +97,7 @@ int main(int argc, char** argv)
   spectating = config_node["spectating"].as<bool>(false);
   init_paused = config_node["init_paused"].as<bool>(false);
   use_json = config_node["use_json"].as<bool>(true);
+  log_images = config_node["log_images"].as<bool>(true);
   capture_region_ratio = config_node["capture_region_ratio"].as<double>(1.0);
   
   
@@ -127,24 +128,27 @@ int main(int argc, char** argv)
 
 
   std::cout<<"Creating handlers" <<std::endl;
-  deepf1::MultiThreadedFrameGrabHandlerSettings settings;
-  settings.image_extension=image_extension;
-  settings.images_folder=(root_dir/fs::path(image_folder)).string();
-  settings.thread_count=image_threads;
-  settings.write_json=use_json;
-  settings.capture_region_ratio=capture_region_ratio;
-  std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler(new deepf1::MultiThreadedFrameGrabHandler(settings));
-  if (init_paused)
+  std::shared_ptr<deepf1::MultiThreadedFrameGrabHandler> frame_handler;
+  if(log_images)
   {
-    std::cout<<"Initially pausing the frame-grab loop"<<std::endl;
-    frame_handler->pause();
+    deepf1::MultiThreadedFrameGrabHandlerSettings settings;
+    settings.image_extension=image_extension;
+    settings.images_folder=(root_dir/fs::path(image_folder)).string();
+    settings.thread_count=image_threads;
+    settings.write_json=use_json;
+    settings.capture_region_ratio=capture_region_ratio;
+    frame_handler.reset(new deepf1::MultiThreadedFrameGrabHandler(settings));
+    frame_handler->resume();
   }
   deepf1::MultiThreadedUDPHandler2018Settings udp_settings;
   udp_settings.write_json=use_json;
   udp_settings.udp_directory=(root_dir/fs::path(udp_folder)).string();
   udp_settings.sleeptime=udp_thread_sleeptime;
   std::shared_ptr<deepf1::MultiThreadedUDPHandler2018> udp_handler(new deepf1::MultiThreadedUDPHandler2018(udp_settings));
-  udp_handler->addPausedFunction(std::bind(&deepf1::MultiThreadedFrameGrabHandler::pause, frame_handler.get()));
+  if(frame_handler)
+  {
+    udp_handler->addPausedFunction(std::bind(&deepf1::MultiThreadedFrameGrabHandler::pause, frame_handler.get()));
+  }
   std::cout << "Created handlers" << std::endl;
 
 
@@ -160,17 +164,22 @@ int main(int argc, char** argv)
 	std::this_thread::sleep_for(std::chrono::microseconds((long)std::round(initial_delay_time*1E6)));
 	dl->start(image_capture_frequency, udp_handler  , frame_handler );
   
-  frame_handler->resume();
   std::cout<<"Started recording. Enter anything to stop"<<std::endl;
   std::string lol;
   std::cin>>lol;
 	  //stop issuing new data to the handlers.
 	dl->stop();
   //stop listening for data and just process whatever is left in the buffers.
-	frame_handler->stop();
+  if(frame_handler)
+	{
+    frame_handler->stop();
+  }
 	udp_handler->stop();
   //join with the main thread to keep the handlers in scope until all data has been written to file.
-	frame_handler->join();
+  if(frame_handler)
+	{
+	  frame_handler->join();
+  }
 	udp_handler->join(1);
   
 
