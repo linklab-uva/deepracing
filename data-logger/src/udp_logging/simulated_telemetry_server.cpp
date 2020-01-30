@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
 		using boost::asio::ip::udp;
 		using namespace deepf1;
 		using namespace deepf1::twenty_eighteen;
-		unsigned int packet_size = sizeof(deepf1::UDPPacket2017);// BUFLEN;
+	unsigned int packet_size = sizeof(deepf1::twenty_eighteen::PacketMotionData);// BUFLEN;
         unsigned int sleep_time;
 
         std::string address, port;
