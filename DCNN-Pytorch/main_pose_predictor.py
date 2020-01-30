@@ -55,7 +55,7 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, kinematic_loss, 
         #print(image_torch.shape)
         numpoints = positions_torch.shape[1]
         if numpoints==network.sequence_length:
-            gtpoints = positions_torch
+            gtpoints = positions_torch[:,:,[0,2]]
         else:
             pointsx = positions_torch[:,:,0]
             pointsz = positions_torch[:,:,2]
@@ -130,14 +130,12 @@ def go():
     if args.context_length is not None:
         context_length = args.context_length
         config["context_length"]  = context_length
-        output_directory+="_context%d"%(context_length)
     else:
         context_length = config["context_length"]
 
     if args.sequence_length is not None:
         sequence_length = args.sequence_length
         config["sequence_length"]  = sequence_length
-        output_directory+="_sequence%d"%(sequence_length)
     else:
         sequence_length = config["sequence_length"]
     hidden_dimension = config["hidden_dimension"]

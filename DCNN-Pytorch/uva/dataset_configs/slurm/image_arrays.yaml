@@ -37,11 +37,11 @@ datasets:
     image_folder: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_9/images
     label_folder: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_9/pose_sequence_labels
     key_file: /p/DeepRacing/datasets/simulatorcaptures/trent_solo_9/goodkeys.txt
-  -
-    image_folder: /p/DeepRacing/datasets/simulatorcaptures/madhur_run_1/images
-    label_folder: /p/DeepRacing/datasets/simulatorcaptures/madhur_run_1/pose_sequence_labels
-    key_file: /p/DeepRacing/datasets/simulatorcaptures/madhur_run_1/goodkeys.txt
-  -
-    image_folder: /p/DeepRacing/datasets/simulatorcaptures/madhur_run_2/images
-    label_folder: /p/DeepRacing/datasets/simulatorcaptures/madhur_run_2/pose_sequence_labels
-    key_file: /p/DeepRacing/datasets/simulatorcaptures/madhur_run_2/goodkeys.txt
+  # -
+  #   image_folder: /p/DeepRacing/datasets/simulatorcaptures/madhur_run_1/images
+  #   label_folder: /p/DeepRacing/datasets/simulatorcaptures/madhur_run_1/pose_sequence_labels
+  #   key_file: /p/DeepRacing/datasets/simulatorcaptures/madhur_run_1/goodkeys.txt
+  # -
+  #   image_folder: /p/DeepRacing/datasets/simulatorcaptures/madhur_run_2/images
+  #   label_folder: /p/DeepRacing/datasets/simulatorcaptures/madhur_run_2/pose_sequence_labels
+  #   key_file: /p/DeepRacing/datasets/simulatorcaptures/madhur_run_2/goodkeys.txt
