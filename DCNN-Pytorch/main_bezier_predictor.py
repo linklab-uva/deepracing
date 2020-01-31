@@ -52,8 +52,8 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
     if gpu>=0:
         s_torch = s_torch.cuda(gpu)
     bezier_order = network.params_per_dimension-1
-    Mpos = deepracing_models.math_utils.bezier.bezierM(s_torch, bezier_order)
-    Mvel = deepracing_models.math_utils.bezier.bezierM(s_torch, bezier_order-1)
+    Mpos_ = deepracing_models.math_utils.bezier.bezierM(s_torch, bezier_order)
+    Mvel_ = deepracing_models.math_utils.bezier.bezierM(s_torch, bezier_order-1)
     for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
         if network.input_channels==5:
             image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
@@ -65,6 +65,15 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
         predictions = network(image_torch)
         predictions_reshape = predictions.transpose(1,2)
         dt = session_times_torch[:,-1]-session_times_torch[:,0]
+        current_batch_size=session_times_torch.shape[0]
+        current_timesteps=session_times_torch.shape[1]
+        if current_batch_size==batch_size:
+            Mpos=Mpos_
+            Mvel=Mvel_
+        else:
+            s_torch_cur = torch.linspace(0.0,1.0,steps=current_timesteps, dtype=image_torch.dtype, device=image_torch.device).unsqueeze(0).repeat(current_batch_size,1)
+            Mpos = deepracing_models.math_utils.bezier.bezierM(s_torch_cur, bezier_order)
+            Mvel = deepracing_models.math_utils.bezier.bezierM(s_torch_cur, bezier_order-1)
         #s_torch = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
         pred_points = torch.matmul(Mpos, predictions_reshape)
         _, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape, M=Mvel)

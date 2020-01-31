@@ -62,7 +62,7 @@ class PilotNet(nn.Module):
         return torch.clamp(out, -1.0, 1.0)
 
 class CNNLSTM(nn.Module):
-    def __init__(self, input_channels=3, output_dimension = 2, context_length=5, sequence_length=1, hidden_dim = 100):
+    def __init__(self, input_channels=3, output_dimension = 2, context_length=5, sequence_length=1, hidden_dimension = 100):
         super(CNNLSTM, self).__init__()
         #self.input_channels = 5
         self.input_channels = input_channels
@@ -84,17 +84,17 @@ class CNNLSTM(nn.Module):
         #recurrent layers
         self.img_features = 1*64*18
         self.feature_length = (1*64*18)
-        self.hidden_dim = hidden_dim
+        self.hidden_dim = hidden_dimension
         self.context_length = context_length
         self.sequence_length = sequence_length
         
         self.rnn_init_hidden = torch.nn.Parameter(torch.normal(0, 1, size=(1,self.hidden_dim)), requires_grad=True)
         self.rnn_init_cell = torch.nn.Parameter(torch.normal(0, 1, size=(1,self.hidden_dim)), requires_grad=True)
 
-        self.rnn = nn.LSTM(self.feature_length, hidden_dim, batch_first = True)
+        self.rnn = nn.LSTM(self.feature_length, self.hidden_dim, batch_first = True)
  
         # Linear layers.
-        self.prediction_layer = nn.Linear(hidden_dim, self.output_dimension)
+        self.prediction_layer = nn.Linear(self.hidden_dim, self.output_dimension)
 
         #activations
         self.relu = nn.ReLU()

@@ -132,7 +132,7 @@ def go():
     net = deepracing_models.nn_models.Models.PilotNet(input_channels=input_channels, output_dim=output_dimension)
     
     mse_loss = torch.nn.MSELoss(reduction=loss_reduction)
-    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum)
+    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum, dampening=0.0, nesterov=True)
     net = net.double()
     mse_loss = mse_loss.double()
     if gpu>=0:
@@ -168,15 +168,8 @@ def go():
     else:
         dset = torch.utils.data.ConcatDataset(dsets)
     
-    dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
-                        shuffle=True, num_workers=num_workers)
+    dataloader = data_utils.DataLoader(dset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     print("Dataloader of of length %d" %(len(dataloader)))
-    yaml.dump(config, stream=open(os.path.join(output_directory,"training_config.yaml"), "w"), Dumper = yaml.SafeDumper)
-    yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
-    experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingpilotnet")
-    experiment.log_parameters(config)
-    experiment.log_parameters(dataset_config)
-    experiment_config = {"experiment_key": experiment.get_key()}
     yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
     yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
     yaml.dump(config, stream=open(os.path.join(output_directory,"model_config.yaml"), "w"), Dumper = yaml.SafeDumper)
