@@ -25,3 +25,6 @@
 [submodule "rosbindings/image_transport_plugins"]
 	path = rosbindings/image_transport_plugins
 	url = https://github.com/linklab-uva/image_transport_plugins.git
+[submodule "DCNN-Pytorch/kfac"]
+	path = DCNN-Pytorch/kfac
+	url = https://github.com/alecwangcq/KFAC-Pytorch.git
