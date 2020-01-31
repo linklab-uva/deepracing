@@ -9,4 +9,4 @@ learning_rate: 1.0E-4
 momentum: 1.0E-5
 num_epochs: 100
 num_workers: 0
-control_loss_reduction: "sum"
+loss_reduction: "sum"

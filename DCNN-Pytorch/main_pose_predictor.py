@@ -26,6 +26,8 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
 import deepracing_models.math_utils.bezier
+
+
 #torch.backends.cudnn.enabled = False
 def run_epoch(experiment, network, optimizer, trainLoader, gpu, kinematic_loss, loss_weights, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True, use_float=True):
     cum_loss = 0.0
@@ -109,9 +111,11 @@ def go():
     parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
     parser.add_argument("--override", action="store_true",  help="Delete output directory and replace with new data")
     parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
-    parser.add_argument("--batch_size", type=int, default=None,  help="Override the order of the batch size specified in the config file")
     parser.add_argument("--gpu", type=int, default=None,  help="Override the GPU index specified in the config file")
+    parser.add_argument("--batch_size", type=int, default=None,  help="Override the order of the batch size specified in the config file")
     parser.add_argument("--learning_rate", type=float, default=None,  help="Override the learning rate specified in the config file")
+    parser.add_argument("--momentum", type=float, default=None,  help="Override the momentum specified in the config file")
+
 
     args = parser.parse_args()
     dataset_config_file = args.dataset_config_file
@@ -157,7 +161,11 @@ def go():
         config["learning_rate"] = learning_rate
     else:
         learning_rate = config["learning_rate"]
-    momentum = config["momentum"]
+    if args.momentum is not None:
+        momentum=args.momentum
+        config["momentum"]=momentum
+    else:
+        momentum = config["momentum"]
     num_epochs = config["num_epochs"]
     num_workers = config["num_workers"]
     use_float = config["use_float"]
