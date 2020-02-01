@@ -170,13 +170,18 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         self.bezier_order = self.net.params_per_dimension-1
         self.bezierM = mu.bezierM(self.s_torch,self.bezier_order)
         self.bezierMderiv = mu.bezierM(self.s_torch,self.bezier_order-1)
-        self.trajplot = None
-        self.fig = None
-        self.ax = None
-        self.current_image = None
         
         self.image_sub = self.create_subscription( Image, '/f1_screencaps/cropped', self.imageCallback, 10)
     
+    def compressedImageCallback(self, img_msg : CompressedImage):
+        try:
+            imnp = self.cvbridge.compressed_imgmsg_to_cv2(img_msg, desired_encoding="rgb8") 
+        except:
+            return
+        if imnp.shape[0]<=0 or imnp.shape[0]<=0:
+            return
+        imnpdouble = tf.functional.to_tensor(deepracing.imutils.resizeImage( imnp, (66,200) ) ).double().numpy().copy()
+        self.image_buffer.append(imnpdouble)
     def imageCallback(self, img_msg : Image):
         if img_msg.height<=0 or img_msg.width<=0:
             return
