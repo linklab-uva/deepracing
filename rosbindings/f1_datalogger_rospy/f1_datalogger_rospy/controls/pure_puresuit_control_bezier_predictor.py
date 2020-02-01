@@ -121,6 +121,9 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         plot_param : Parameter = self.get_parameter_or("plot",Parameter("plot", value=plot))
         print("plot_param: " + str(plot_param))
 
+        use_compressed_images_param : Parameter = self.get_parameter_or("use_compressed_images",Parameter("use_compressed_images", value=False))
+        print("use_compressed_images_param: " + str(use_compressed_images_param))
+
         deltaT_param : Parameter = self.get_parameter_or("deltaT",Parameter("deltaT", value=deltaT))
         print("deltaT_param: " + str(deltaT_param))
 
@@ -171,7 +174,10 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         self.bezierM = mu.bezierM(self.s_torch,self.bezier_order)
         self.bezierMderiv = mu.bezierM(self.s_torch,self.bezier_order-1)
         
-        self.image_sub = self.create_subscription( Image, '/f1_screencaps/cropped', self.imageCallback, 10)
+        if use_compressed_images_param.get_parameter_value().bool_value:
+            self.image_sub = self.create_subscription( CompressedImage, '/f1_screencaps/cropped/compressed', self.compressedImageCallback, 10)
+        else:
+            self.image_sub = self.create_subscription( Image, '/f1_screencaps/cropped', self.imageCallback, 10)
     
     def compressedImageCallback(self, img_msg : CompressedImage):
         try:
@@ -191,8 +197,8 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
     def getTrajectory(self):
         if self.current_motion_data.world_velocity.header.frame_id == "":
             return None, None, None
-        imnp = np.array(self.image_buffer).copy().astype(np.float64)
-        imtorch = torch.from_numpy(imnp)
+        imnp = np.array(self.image_buffer).astype(np.float64).copy()
+        imtorch = torch.from_numpy(imnp.copy())
         if ( not imtorch.shape[0] == self.net.context_length ):
             return None, None, None
         inputtorch = imtorch
@@ -221,6 +227,7 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
             plotmsg.path = PathRaw(header = Header(frame_id = "car", stamp = stamp), posx = x_samp[:,0], posz = x_samp[:,1], velx = v_samp[:,0], velz = v_samp[:,1]  )
             imnpcurr = np.round((255.0*imnp[-1])).astype(np.uint8).transpose(1,2,0)
             plotmsg.image = self.cvbridge.cv2_to_imgmsg(imnpcurr, encoding='rgb8')
-            self.path_publisher.publish(PathRawMsg)
+            plotmsg.image.header = plotmsg.path.header
+            self.path_publisher.publish(plotmsg)
         return x_samp, v_samp, distances_samp
         
