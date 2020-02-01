@@ -34,8 +34,11 @@ ${PROJECT_NAME}_proto
 ${TBB_IMPORTED_TARGETS} 
 ${Boost_LIBRARIES}
 )
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    list(APPEND image_logging_libs stdc++fs)
+if (
+    ( ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU") AND (CMAKE_CXX_COMPILER_VERSION VERSION_LESS_EQUAL 8.1) ) OR
+    ( ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") AND (CMAKE_CXX_COMPILER_VERSION VERSION_LESS_EQUAL 9.0) ) OR
+    (${CMAKE_CXX_STANDARD} VERSION_LESS "17")
+   )
     target_compile_definitions(${PROJECT_NAME}_image_logging_common PRIVATE BOOST_FILESYSTEM=1)
 endif()
 target_link_libraries(${PROJECT_NAME}_image_logging_common ${image_logging_libs} )

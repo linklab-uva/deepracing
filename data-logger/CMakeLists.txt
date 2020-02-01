@@ -7,7 +7,7 @@ cmake_policy(VERSION ${_required_cmake})
 project(f1_datalogger)
 
 set(cxx_standard 17)
-set(CMAKE_CXX_STANDARD ${cxx_standard})
+set(CMAKE_CXX_STANDARD ${cxx_standard} CACHE STRING "C++ standard to use. 17 by default")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
@@ -204,7 +204,11 @@ if(MSVC)
 	configure_file(scripts/windows/addpythonpath.bat.in addpythonpath.bat @ONLY NEWLINE_STYLE WIN32)
 	configure_file(scripts/windows/addpythonpath.ps.in addpythonpath.ps1 @ONLY NEWLINE_STYLE WIN32)
 else()
-    configure_file(scripts/bash/addpythonpath.in addpythonpath @ONLY NEWLINE_STYLE UNIX)
-    set(chmodsuccess_)
-    execute_process(COMMAND "chmod a+x addpythonpath" WORKING_DIRECTORY ${CMAKE_BINARY_DIR} RESULT_VARIABLE chmodsuccess_)
+    configure_file(scripts/bash/addpythonpath.in ${CMAKE_BINARY_DIR}/addpythonpath @ONLY NEWLINE_STYLE UNIX)
+    add_custom_target(
+    chmodaddpythonpath ALL
+    DEPENDS ${CMAKE_BINARY_DIR}/addpythonpath
+    COMMAND dos2unix ${CMAKE_BINARY_DIR}/addpythonpath && chmod a+x ${CMAKE_BINARY_DIR}/addpythonpath
+    VERBATIM
+    )
 endif() 
