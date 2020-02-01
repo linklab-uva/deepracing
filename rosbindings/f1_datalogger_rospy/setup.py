@@ -37,13 +37,9 @@ setup(
             'pose_publisher = %s.scripts.pose_publisher:main' % (package_name),
             'pure_pursuit_bezier = %s.scripts.admiralnet_bezier_script:main' % (package_name),
             'pure_pursuit_waypoint = %s.scripts.admiralnet_waypoint_script:main' % (package_name),
-            # 'talker = demo_nodes_py.topics.talker:main',
-            # 'listener_qos = demo_nodes_py.topics.listener_qos:main',
-            # 'talker_qos = demo_nodes_py.topics.talker_qos:main',
-            # 'listener_serialized = demo_nodes_py.topics.listener_serialized:main',
-            # 'add_two_ints_client = demo_nodes_py.services.add_two_ints_client:main',
-            # 'add_two_ints_client_async = demo_nodes_py.services.add_two_ints_client_async:main',
-            # 'add_two_ints_server = demo_nodes_py.services.add_two_ints_server:main'
+            'pilotnet = %s.scripts.pilotnet_script:main' % (package_name),
+            'cnnlstm = %s.scripts.cnnlstm_script:main' % (package_name),
+            
         ],
     },
 )

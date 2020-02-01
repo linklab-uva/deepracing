@@ -20,17 +20,18 @@ from geometry_msgs.msg import PoseStamped, Pose
 from geometry_msgs.msg import PointStamped, Point
 import numpy as np
 from scipy.spatial.transform import Rotation as Rot
-from f1_datalogger_rospy.controls.pilotnet_ros import PilotNetROS
+from f1_datalogger_rospy.controls.cnnlstm_ros import CNNLSTMROS
 
 def main(args=None):
     rclpy.init(args=args)
     rclpy.logging.initialize()
-    node = PilotNetROS()
+    node = CNNLSTMROS()
     node.get_logger().set_level(rclpy.logging.LoggingSeverity.INFO)
     try:
+        node.start()
         rclpy.spin(node)
     except KeyboardInterrupt:
-        pass
+        node.stop()
     node.destroy_node()
     rclpy.shutdown()
     
