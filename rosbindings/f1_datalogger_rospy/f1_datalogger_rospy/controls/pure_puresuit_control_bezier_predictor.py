@@ -32,7 +32,7 @@ import torch.nn as NN
 import torch.utils.data as data_utils
 import matplotlib.pyplot as plt
 from sensor_msgs.msg import Image, CompressedImage
-from f1_datalogger_msgs.msg import PathRaw
+from f1_datalogger_msgs.msg import PathRaw, ImageWithPath
 from geometry_msgs.msg import Vector3Stamped, Vector3, PointStamped, Point, PoseStamped, Pose, Quaternion
 from nav_msgs.msg import Path
 from std_msgs.msg import Float64, Header
@@ -75,9 +75,9 @@ def npTrajectoryToROS(trajectory : np.ndarray, velocities : np.ndarray, frame_id
         posestamped.pose = pose
         rtn.poses.append(posestamped)
     return rtn
-class AdmiralNetPurePursuitControllerROS(PPC):
+class AdmiralNetBezierPurePursuitControllerROS(PPC):
     def __init__(self, trackfile=None, forward_indices : int = 60, lookahead_gain : float = 0.4, L : float= 3.617, pgain: float=0.5, igain : float=0.0125, dgain : float=0.0125, plot : bool =True, gpu : int=0, deltaT : float = 1.415):
-        super(AdmiralNetPurePursuitControllerROS, self).__init__(lookahead_gain = lookahead_gain, L = L ,\
+        super(AdmiralNetBezierPurePursuitControllerROS, self).__init__(lookahead_gain = lookahead_gain, L = L ,\
                                                     pgain=pgain, igain=igain, dgain=dgain)
         trackfile = self.get_parameter_or("trackfile", trackfile)
         # if (trackfile is not None) and ( not trackfile.type_==Parameter.Type.NOT_SET  ):
@@ -85,7 +85,7 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         #     self.xgt = np.vstack((x.copy().transpose(),np.ones(x.shape[0])))
         #     self.xdotgt = xdot.copy().transpose()
         #     self.tgt = t.copy()    
-        self.path_publisher = self.create_publisher(PathRaw, "predicted_path_raw", 10)
+        self.path_publisher = self.create_publisher(ImageWithPath, "predicted_path_raw", 10)
         model_file_param = self.get_parameter("model_file")
         if (model_file_param.type_==Parameter.Type.NOT_SET):
             raise ValueError("The parameter \"model_file\" must be set for this rosnode")
@@ -106,97 +106,58 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         L = self.get_parameter_or("wheelbase",L)
         self.L = L
 
-        pgain_param : Parameter = self.get_parameter_or("pgain",pgain)
+        pgain_param : Parameter = self.get_parameter_or("pgain",Parameter("pgain", value=pgain))
         print("pgain_param: " + str(pgain_param))
 
-        igain_param : Parameter = self.get_parameter_or("igain",igain)
+        igain_param : Parameter = self.get_parameter_or("igain",Parameter("igain", value=igain))
         print("igain_param: " + str(igain_param))
 
-        dgain_param : Parameter = self.get_parameter_or("dgain",dgain)
+        dgain_param : Parameter = self.get_parameter_or("dgain",Parameter("dgain", value=dgain))
         print("dgain_param: " + str(dgain_param))
 
-        lookahead_gain_param : Parameter = self.get_parameter_or("lookahead_gain",lookahead_gain)
+        lookahead_gain_param : Parameter = self.get_parameter_or("lookahead_gain",Parameter("lookahead_gain", value=lookahead_gain))
         print("lookahead_gain_param: " + str(lookahead_gain_param))
 
-        plot_param : Parameter = self.get_parameter_or("plot",plot)
+        plot_param : Parameter = self.get_parameter_or("plot",Parameter("plot", value=plot))
         print("plot_param: " + str(plot_param))
 
-        deltaT_param : Parameter = self.get_parameter_or("deltaT",deltaT)
+        deltaT_param : Parameter = self.get_parameter_or("deltaT",Parameter("deltaT", value=deltaT))
         print("deltaT_param: " + str(deltaT_param))
 
-        forward_indices_param : Parameter = self.get_parameter_or("forward_indices",forward_indices)
+        forward_indices_param : Parameter = self.get_parameter_or("forward_indices",Parameter("forward_indices", value=forward_indices))
         print("forward_indices_param: " + str(forward_indices_param))
 
-        x_scale_factor_param : Parameter = self.get_parameter_or("x_scale_factor",1.0)
+        x_scale_factor_param : Parameter = self.get_parameter_or("x_scale_factor",Parameter("x_scale_factor", value=1.0))
         print("xscale_factor_param: " + str(x_scale_factor_param))
 
-        z_offset_param : Parameter = self.get_parameter_or("z_offset",L/2.0)
+        z_offset_param : Parameter = self.get_parameter_or("z_offset",Parameter("z_offset", value=L/2.0))
         print("z_offset_param: " + str(z_offset_param))
 
-        gpu_param = self.get_parameter_or("gpu",gpu)
+        gpu_param = self.get_parameter_or("gpu",Parameter("gpu", value=gpu))
         print("gpu_param: " + str(gpu_param))
 
         
-        velocity_scale_param : Parameter = self.get_parameter_or("velocity_scale_factor", 1.0)
+        velocity_scale_param : Parameter = self.get_parameter_or("velocity_scale_factor",Parameter("velocity_scale_factor", value=1.0))
         print("velocity_scale_param: " + str(velocity_scale_param))
         
-        num_sample_points_param : Parameter = self.get_parameter_or("num_sample_points", 60)
+        num_sample_points_param : Parameter = self.get_parameter_or("num_sample_points",Parameter("num_sample_points", value=60))
         print("num_sample_points_param: " + str(num_sample_points_param))
 
-        self.pgain : float = pgain_param
-        self.igain : float = igain_param
-        self.dgain : float = dgain_param
-
-
-        if isinstance(lookahead_gain_param, Parameter):
-            self.lookahead_gain : float = lookahead_gain_param.get_parameter_value().double_value
-        else:
-            self.lookahead_gain : float = lookahead_gain_param
-        if isinstance(z_offset_param, Parameter):
-            self.z_offset : float = z_offset_param.get_parameter_value().double_value
-        else:
-            self.z_offset : float = L/2.0
-        if isinstance(gpu_param, Parameter):
-            gpu : int = gpu_param.get_parameter_value().integer_value
-        else:
-            gpu : int = gpu
-        self.gpu = gpu
-        if isinstance(x_scale_factor_param, Parameter):
-            self.xscale_factor : float = x_scale_factor_param.get_parameter_value().double_value
-        else:
-            self.xscale_factor : float = 1.0
-        if isinstance(plot_param, Parameter):
-            self.plot : bool = plot_param.get_parameter_value().bool_value
-        else:
-            self.plot : bool = plot
-
-
-        if isinstance(velocity_scale_param, Parameter):
-            self.velocity_scale_factor : float = velocity_scale_param.get_parameter_value().double_value
-        else:
-            self.velocity_scale_factor : float = 1.0
-
-        if isinstance(pgain_param, Parameter):
-            self.pgain : float = pgain_param.get_parameter_value().double_value
-        if isinstance(dgain_param, Parameter):
-            self.dgain : float = dgain_param.get_parameter_value().double_value
-        if isinstance(igain_param, Parameter):
-            self.igain : float = igain_param.get_parameter_value().double_value
-        if isinstance(num_sample_points_param, Parameter):
-            self.num_sample_points : int = num_sample_points_param.get_parameter_value().integer_value
-        else:
-            self.num_sample_points = 60
-
-        self.deltaT : float = deltaT_param
-        self.forward_indices : int = forward_indices_param
+        self.pgain : float = pgain_param.get_parameter_value().double_value
+        self.igain : float = igain_param.get_parameter_value().double_value
+        self.dgain : float = dgain_param.get_parameter_value().double_value
+        self.lookahead_gain : float = lookahead_gain_param.get_parameter_value().double_value
+        self.z_offset : float = z_offset_param.get_parameter_value().double_value
+        self.gpu : int = gpu_param.get_parameter_value().integer_value
+        self.xscale_factor : float = x_scale_factor_param.get_parameter_value().double_value
+        self.plot : bool = plot_param.get_parameter_value().bool_value
+        self.velocity_scale_factor : float = velocity_scale_param.get_parameter_value().double_value
+        self.num_sample_points : int = num_sample_points_param.get_parameter_value().integer_value
+        self.deltaT : float = deltaT_param.get_parameter_value().double_value
+        self.forward_indices : int = forward_indices_param.get_parameter_value().integer_value
         
-        if bezier_order is not None:
-            self.net : NN.Module = M.AdmiralNetCurvePredictor(context_length= context_length, input_channels=input_channels, params_per_dimension=bezier_order+1) 
-        else:
-            hidden_dimension = config["hidden_dimension"]
-            self.net : NN.Module = M.AdmiralNetKinematicPredictor(hidden_dim= hidden_dimension, input_channels=input_channels, output_dimension=2, sequence_length=sequence_length, context_length = context_length)
+        self.net : NN.Module = M.AdmiralNetCurvePredictor(context_length= context_length, input_channels=input_channels, params_per_dimension=bezier_order+1) 
         self.net.double()
-        self.get_logger().info('Using the following predictive model:\n %s' % ( str(self.net) ) )
         self.get_logger().info('Loading model file: %s' % (model_file) )
         self.net.load_state_dict(torch.load(model_file,map_location=torch.device("cpu")))
         self.get_logger().info('Loaded model file: %s' % (model_file) )
@@ -205,10 +166,10 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         self.get_logger().info('Moved model params to GPU')
         self.net.eval()
         self.image_buffer = RB(self.net.context_length,dtype=(float,(3,66,200)))
-        if isinstance(self.net,  M.AdmiralNetCurvePredictor):
-            self.s_torch = torch.linspace(0,1,self.num_sample_points).unsqueeze(0).double().cuda(gpu)
-            self.bezierM = mu.bezierM(self.s_torch,self.net.params_per_dimension-1).double().cuda(gpu)
-            self.bezierMderiv = mu.bezierM(self.s_torch,self.net.params_per_dimension-2).double().cuda(gpu)
+        self.s_torch = torch.linspace(0,1,self.num_sample_points).unsqueeze(0).double().cuda(self.gpu)
+        self.bezier_order = self.net.params_per_dimension-1
+        self.bezierM = mu.bezierM(self.s_torch,self.bezier_order)
+        self.bezierMderiv = mu.bezierM(self.s_torch,self.bezier_order-1)
         self.trajplot = None
         self.fig = None
         self.ax = None
@@ -220,13 +181,13 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         if img_msg.height<=0 or img_msg.width<=0:
             return
         imnp = self.cvbridge.imgmsg_to_cv2(img_msg, desired_encoding="rgb8") 
-       # self.current_image = imnp.copy()
         imnpdouble = tf.functional.to_tensor(deepracing.imutils.resizeImage( imnp, (66,200) ) ).double().numpy().copy()
         self.image_buffer.append(imnpdouble)
     def getTrajectory(self):
         if self.current_motion_data.world_velocity.header.frame_id == "":
             return None, None, None
-        imtorch = torch.from_numpy(np.array(self.image_buffer).copy().astype(np.float64))
+        imnp = np.array(self.image_buffer).copy().astype(np.float64)
+        imtorch = torch.from_numpy(imnp)
         if ( not imtorch.shape[0] == self.net.context_length ):
             return None, None, None
         inputtorch = imtorch
@@ -251,19 +212,10 @@ class AdmiralNetPurePursuitControllerROS(PPC):
         #print(x_samp)
         distances_samp = la.norm(x_samp, axis=1)
         if self.plot:
-            PathRawMsg : PathRaw = PathRaw(header = Header(frame_id = "car", stamp = stamp), posx = x_samp[:,0], posz = x_samp[:,1], velx = v_samp[:,0], velz = v_samp[:,1]  )
+            plotmsg : ImageWithPath = ImageWithPath()
+            plotmsg.path = PathRaw(header = Header(frame_id = "car", stamp = stamp), posx = x_samp[:,0], posz = x_samp[:,1], velx = v_samp[:,0], velz = v_samp[:,1]  )
+            imnpcurr = np.round((255.0*imnp[-1])).astype(np.uint8).transpose(1,2,0)
+            plotmsg.image = self.cvbridge.cv2_to_imgmsg(imnpcurr, encoding='rgb8')
             self.path_publisher.publish(PathRawMsg)
-            # if self.trajplot is None:
-            #     self.fig = plt.figure()
-            #     self.ax = self.fig.add_subplot()
-            #     self.trajplot, = self.ax.plot(-x_samp[:,0],x_samp[:,1], color='b')
-            #     self.ax.set_xlim(-15,15)
-            #     self.ax.set_ylim(0,125)
-            #     plt.show(block=False)
-            # else:
-            #     self.trajplot.set_xdata(-x_samp[:,0])
-            #     self.trajplot.set_ydata(x_samp[:,1])
-            #     self.fig.canvas.draw()
-            #     self.fig.canvas.flush_events()
         return x_samp, v_samp, distances_samp
         
