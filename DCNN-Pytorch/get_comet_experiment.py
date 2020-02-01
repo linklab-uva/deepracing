@@ -24,7 +24,9 @@ project_name = args.project_name
 experiment_key = args.experiment_key
 epoch_number = args.epoch_number
 restkey = args.restkey
-output_directory = args.output_directory
+output_directory = os.path.join(args.output_directory, experiment_key + "_from_comet")
+if not os.path.isdir(output_directory):
+    os.makedirs(output_directory)
 if restkey is None:
     api = API()
 else:
@@ -32,14 +34,27 @@ else:
 experiment : APIExperiment = api.get_experiment("electric-turtle", projectdict[project_name], experiment_key)
 assetlist = experiment.get_asset_list()
 assetdict = {d['fileName']: d['assetId'] for d in assetlist}
-print(assetdict)
-print("Getting weight file from COMET")
-filename = "epoch_%d_params.pt" %(epoch_number,)
-assetid = assetdict[filename]
-params_binary = experiment.get_asset(assetid)
-outputfile = os.path.join(output_directory,filename)
-with open(outputfile, 'wb') as f:
+
+#get network weight file
+weightfilename = "epoch_%d_params.pt" %(epoch_number,)
+optimizerfilename = "epoch_%d_optimizer.pt" %(epoch_number,)
+
+print("Getting network weights from comet")
+params_binary = experiment.get_asset(assetdict[weightfilename])
+
+#get optimizer weight file
+print("Getting optimizer weights from comet")
+optimizer_binary = experiment.get_asset(assetdict[optimizerfilename])
+
+outputweightfile = os.path.join(output_directory,weightfilename)
+with open(outputweightfile, 'wb') as f:
     f.write(params_binary)
+
+outputoptimizerfile = os.path.join(output_directory,optimizerfilename)
+with open(outputoptimizerfile, 'wb') as f:
+    f.write(optimizer_binary)
+
+#get parameters
 parameters_summary = experiment.get_parameters_summary()
 config = {d["name"] : d["valueCurrent"] for d in parameters_summary}
 print(config)
@@ -54,5 +69,5 @@ with open(outputconfigfile, 'w') as f:
 # num_recurrent_layers = int(config.get("num_recurrent_layers","1"))
 # net = deepracing_models.nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dimension, num_recurrent_layers=num_recurrent_layers, params_per_dimension=bezier_order+1 ) 
 # net = net.double()
-# with open(outputfile, 'rb') as f:
+# with open(outputweightfile, 'rb') as f:
 #     net.load_state_dict(torch.load(f, map_location=torch.device("cpu")))
