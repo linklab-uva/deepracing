@@ -28,37 +28,26 @@ find_package(trajectory_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 # declare the message files to generate code for
- set(msg_files
-   "msg/TimestampedImage.msg"
-   "msg/CarMotionData.msg"
-   "msg/PacketHeader.msg"
-   "msg/PacketMotionData.msg"
-   "msg/TimestampedPacketMotionData.msg"
-   "msg/TimestampedPacketCarTelemetryData.msg"
-   "msg/PacketCarTelemetryData.msg"
-   "msg/CarTelemetryData.msg"
-   "msg/MarshalZone.msg"
-   "msg/PacketSessionData.msg"
-   "msg/TimestampedPacketSessionData.msg"
-   "msg/PathRaw.msg"
- )
+file(GLOB msg_files
+     LIST_DIRECTORIES false RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+     "msg/*.msg"
+     )
+rosidl_generate_interfaces(${PROJECT_NAME}
+  ${msg_files}
+  DEPENDENCIES geometry_msgs sensor_msgs std_msgs visualization_msgs trajectory_msgs tf2_msgs
+)
 
- rosidl_generate_interfaces(${PROJECT_NAME}
-   ${msg_files}
-   DEPENDENCIES geometry_msgs sensor_msgs std_msgs visualization_msgs trajectory_msgs tf2_msgs
- )
-
- ament_export_dependencies(rosidl_default_runtime)
+ament_export_dependencies(rosidl_default_runtime)
 
 if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
-  # uncomment the line when a copyright and license is not present in all source files
-  #set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in a git repo)
-  # uncomment the line when this package is not in a git repo
-  #set(ament_cmake_cpplint_FOUND TRUE)
-  ament_lint_auto_find_test_dependencies()
+find_package(ament_lint_auto REQUIRED)
+# the following line skips the linter which checks for copyrights
+# uncomment the line when a copyright and license is not present in all source files
+#set(ament_cmake_copyright_FOUND TRUE)
+# the following line skips cpplint (only works in a git repo)
+# uncomment the line when this package is not in a git repo
+#set(ament_cmake_cpplint_FOUND TRUE)
+ament_lint_auto_find_test_dependencies()
 endif()
 
 ament_package()
