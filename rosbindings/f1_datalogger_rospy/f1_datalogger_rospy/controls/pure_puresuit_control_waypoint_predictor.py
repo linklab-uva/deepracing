@@ -75,16 +75,10 @@ def npTrajectoryToROS(trajectory : np.ndarray, velocities : np.ndarray, frame_id
         posestamped.pose = pose
         rtn.poses.append(posestamped)
     return rtn
-class AdmiralNetBezierPurePursuitControllerROS(PPC):
-    def __init__(self, trackfile=None, forward_indices : int = 60, lookahead_gain : float = 0.4, L : float= 3.617, pgain: float=0.5, igain : float=0.0125, dgain : float=0.0125, plot : bool =True, gpu : int=0, deltaT : float = 1.415):
-        super(AdmiralNetBezierPurePursuitControllerROS, self).__init__(lookahead_gain = lookahead_gain, L = L ,\
+class AdmiralNetWaypointPredictorROS(PPC):
+    def __init__(self, trackfile=None,  lookahead_gain : float = 0.4, L : float= 3.617, pgain: float=0.5, igain : float=0.0125, dgain : float=0.0125, plot : bool =True, gpu : int=0, deltaT : float = 1.415):
+        super(AdmiralNetWaypointPredictorROS, self).__init__(lookahead_gain = lookahead_gain, L = L ,\
                                                     pgain=pgain, igain=igain, dgain=dgain)
-        trackfile = self.get_parameter_or("trackfile", trackfile)
-        # if (trackfile is not None) and ( not trackfile.type_==Parameter.Type.NOT_SET  ):
-        #     t, x, xdot = deepracing.loadArmaFile(trackfile)
-        #     self.xgt = np.vstack((x.copy().transpose(),np.ones(x.shape[0])))
-        #     self.xdotgt = xdot.copy().transpose()
-        #     self.tgt = t.copy()    
         self.path_publisher = self.create_publisher(ImageWithPath, "predicted_path_raw", 10)
         model_file_param = self.get_parameter("model_file")
         if (model_file_param.type_==Parameter.Type.NOT_SET):
@@ -96,8 +90,8 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
             config = yaml.load(f, Loader = yaml.SafeLoader)
         input_channels = config["input_channels"]
         context_length = config["context_length"]
-        bezier_order = config.get("bezier_order",None)
-        sequence_length = config.get("sequence_length",None)
+        sequence_length = config["sequence_length"]
+        hidden_dimension = config["hidden_dimension"]
         self.rosclock = ROSClock()
         self.cvbridge : cv_bridge.CvBridge = cv_bridge.CvBridge()
         #self.rosclock._set_ros_time_is_active(True)
@@ -127,9 +121,6 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         deltaT_param : Parameter = self.get_parameter_or("deltaT",Parameter("deltaT", value=deltaT))
         print("deltaT_param: " + str(deltaT_param))
 
-        forward_indices_param : Parameter = self.get_parameter_or("forward_indices",Parameter("forward_indices", value=forward_indices))
-        print("forward_indices_param: " + str(forward_indices_param))
-
         x_scale_factor_param : Parameter = self.get_parameter_or("x_scale_factor",Parameter("x_scale_factor", value=1.0))
         print("xscale_factor_param: " + str(x_scale_factor_param))
 
@@ -138,13 +129,11 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
 
         gpu_param = self.get_parameter_or("gpu",Parameter("gpu", value=gpu))
         print("gpu_param: " + str(gpu_param))
-
         
         velocity_scale_param : Parameter = self.get_parameter_or("velocity_scale_factor",Parameter("velocity_scale_factor", value=1.0))
         print("velocity_scale_param: " + str(velocity_scale_param))
         
-        num_sample_points_param : Parameter = self.get_parameter_or("num_sample_points",Parameter("num_sample_points", value=60))
-        print("num_sample_points_param: " + str(num_sample_points_param))
+      
 
         self.pgain : float = pgain_param.get_parameter_value().double_value
         self.igain : float = igain_param.get_parameter_value().double_value
@@ -156,11 +145,9 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         self.xscale_factor : float = x_scale_factor_param.get_parameter_value().double_value
         self.plot : bool = plot_param.get_parameter_value().bool_value
         self.velocity_scale_factor : float = velocity_scale_param.get_parameter_value().double_value
-        self.num_sample_points : int = num_sample_points_param.get_parameter_value().integer_value
         self.deltaT : float = deltaT_param.get_parameter_value().double_value
-        self.forward_indices : int = forward_indices_param.get_parameter_value().integer_value
         
-        self.net : NN.Module = M.AdmiralNetCurvePredictor(context_length= context_length, input_channels=input_channels, params_per_dimension=bezier_order+1) 
+        self.net : NN.Module = M.AdmiralNetKinematicPredictor(context_length= context_length, sequence_length=sequence_length, input_channels=input_channels, hidden_dim=hidden_dimension) 
         self.net.double()
         self.get_logger().info('Loading model file: %s' % (model_file) )
         self.net.load_state_dict(torch.load(model_file,map_location=torch.device("cpu")))
@@ -170,10 +157,6 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         self.get_logger().info('Moved model params to GPU')
         self.net.eval()
         self.image_buffer = RB(self.net.context_length,dtype=(float,(3,66,200)))
-        self.s_torch = torch.linspace(0,1,self.num_sample_points).unsqueeze(0).double().cuda(self.gpu)
-        self.bezier_order = self.net.params_per_dimension-1
-        self.bezierM = mu.bezierM(self.s_torch,self.bezier_order)
-        self.bezierMderiv = mu.bezierM(self.s_torch,self.bezier_order-1)
         
         if use_compressed_images_param.get_parameter_value().bool_value:
             self.image_sub = self.create_subscription( CompressedImage, '/f1_screencaps/cropped/compressed', self.compressedImageCallback, 10)
@@ -204,14 +187,15 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
             return None, None, None
         inputtorch = imtorch
 
-        bezier_control_points = self.net(inputtorch.unsqueeze(0).cuda(self.gpu)).transpose(1,2)
+        evalpoints =  self.net(inputtorch.unsqueeze(0).cuda(self.gpu))
         stamp = self.rosclock.now().to_msg()
-        evalpoints = torch.matmul(self.bezierM, bezier_control_points)
         x_samp = evalpoints[0].cpu().detach().numpy()
         x_samp[:,0]*=self.xscale_factor
-        _, evalvel = mu.bezierDerivative(bezier_control_points, M = self.bezierMderiv)
-        v_samp = self.velocity_scale_factor*(1.0/self.deltaT)*(evalvel[0].cpu().detach().numpy())
-        
+        tsamp = np.linspace(0,self.deltaT,x_samp.shape[0])
+        spline = scipy.interpolate.make_interp_spline(tsamp,x_samp)
+        splineder = spline.derivative()
+        v_samp = splineder(tsamp)
+
         x_samp[:,1]-=self.z_offset
         #print(x_samp)
         distances_samp = la.norm(x_samp, axis=1)

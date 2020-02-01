@@ -36,6 +36,7 @@ setup(
         'console_scripts': [
             'pose_publisher = %s.scripts.pose_publisher:main' % (package_name),
             'pure_pursuit_bezier = %s.scripts.admiralnet_bezier_script:main' % (package_name),
+            'pure_pursuit_waypoint = %s.scripts.admiralnet_waypoint_script:main' % (package_name),
             # 'talker = demo_nodes_py.topics.talker:main',
             # 'listener_qos = demo_nodes_py.topics.listener_qos:main',
             # 'talker_qos = demo_nodes_py.topics.talker_qos:main',
