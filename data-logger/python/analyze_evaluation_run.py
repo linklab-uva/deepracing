@@ -16,7 +16,7 @@ def analyzedatasets(main_dir,subdirs,prefix):
     mean_failure_distances = np.zeros(runmax)
     num_failures = np.zeros(runmax)
     for (i, dset) in enumerate(subdirs):
-        print("Running dataset %d for %s:"%(i+1, prefix))
+        print("Running dataset %d for %s:"%(i+1, prefix), flush=True)
         dset_dir = os.path.join(main_dir, dset)
         failuredistances, failuretimes, failuretimediffs = deepracing.evaluation_utils.evalDataset(dset_dir,\
             "../tracks/Australia_innerlimit.track", "../tracks/Australia_outerlimit.track", plot=plot)
@@ -27,9 +27,9 @@ def analyzedatasets(main_dir,subdirs,prefix):
         # print( "Mean time between failures: %f" % ( mtbf[i] ) )
         # print( "Mean failure distance: %f" % ( mean_failure_distances[i] ) )
     print("Results for %s:"%(prefix))
-    print( "Average Number of failures: %d" % ( np.mean(num_failures) ) )
-    print( "Overall Mean time between failures: %f" % ( np.mean(mtbf) ) )
-    print( "Overall Mean failure distance: %f" % (  np.mean(mean_failure_distances)  ) )
+    print( "Average Number of failures: %d" % ( np.mean(num_failures) ) , flush=True)
+    print( "Overall Mean time between failures: %f" % ( np.mean(mtbf) ) , flush=True)
+    print( "Overall Mean failure distance: %f" % (  np.mean(mean_failure_distances)  ) , flush=True)
 parser = argparse.ArgumentParser()
 parser.add_argument("main_dir", help="Directory of the evaluation datasets",  type=str)
 args = parser.parse_args()
