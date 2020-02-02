@@ -69,17 +69,12 @@ def evalDataset(dset_dir, inner_trackfile, outer_trackfile, plot = False):
     numfailures = failureregions.shape[0]
 
     if numfailures>0:
-        print("Went off track %d times" %(numfailures,) )
-        failuredistances = np.array([np.mean(distancearray[failureregions[i,0]:failureregions[i,1]]) \
-                                    for i in range(failureregions.shape[0])])
-        failuretimes = np.array([(sessiontime_array[failureregions[i,0]],sessiontime_array[failureregions[i,1]] ) \
-                                    for i in range(failureregions.shape[0])])
+        # print("Went off track %d times" %(numfailures,) )
+        failuredistances = np.array([np.mean(distancearray[failureregions[i,0]:failureregions[i,1]])  for i in range(failureregions.shape[0])])
+        failuretimes = np.array([(sessiontime_array[failureregions[i,0]],sessiontime_array[failureregions[i,1]-1] )  for i in range(failureregions.shape[0])])
         failuretimediffs = np.array([failuretimes[0,0]]+[(failuretimes[i+1,0]-failuretimes[i,1]) for i in range(0,failuretimes.shape[0]-1)])
-        print(failuretimes)
-        print(failuretimediffs)
-        print( "Number of failures: %d" % ( failureregions.shape[0] ) )
-        print( "Mean time between failures: %f" % ( np.mean(failuretimediffs) ) )
-        print( "Mean failure distance: %f" % ( np.mean(failuredistances) ) )
+        # print(failuretimes)
+        # print(failuretimediffs)
         if plot:
             for i in range(failureregions.shape[0]):
                 Pathfail = xypoints[failureregions[i,0]:failureregions[i,1]]

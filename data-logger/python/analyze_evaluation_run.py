@@ -29,10 +29,86 @@ def contiguous_regions(condition):
 
     return idx.reshape(-1, 2)
 parser = argparse.ArgumentParser()
-parser.add_argument("dataset_dir", help="Directory of the dataset",  type=str)
+parser.add_argument("main_dir", help="Directory of the evaluation datasets",  type=str)
 args = parser.parse_args()
-dset_dir = args.dataset_dir
+main_dir = args.main_dir
+
+runmax = 2
+plot=False
+bezier_dsets = ["bezier_predictor_run%d" % i for i in range(1,runmax+1)]
+waypoint_dsets = ["waypoint_predictor_run%d" % i for i in range(1,runmax+1)]
+cnnlstm_dsets = ["cnnlstm_run%d" % i for i in range(1,runmax+1)]
+pilotnet_dsets = ["pilotnet_run%d" % i for i in range(1,runmax+1)]
+print(bezier_dsets)
+print(waypoint_dsets)
+print(cnnlstm_dsets)
+print(pilotnet_dsets)
+mtbf= np.zeros(runmax)
+mean_failure_distances = np.zeros(runmax)
+num_failures = np.zeros(runmax)
+for (i, dset) in enumerate(bezier_dsets):
+    dset_dir = os.path.join(main_dir, dset)
+    failuredistances, failuretimes, failuretimediffs = deepracing.evaluation_utils.evalDataset(dset_dir,\
+        "../tracks/Australia_innerlimit.track", "../tracks/Australia_outerlimit.track", plot=plot)
+    mtbf[i] = np.mean(failuretimediffs)
+    mean_failure_distances[i] = np.mean(failuredistances)
+    num_failures[i] = float(failuredistances.shape[0])
+    # print( "Number of failures: %d" % ( num_failures[i] ) )
+    # print( "Mean time between failures: %f" % ( mtbf[i] ) )
+    # print( "Mean failure distance: %f" % ( mean_failure_distances[i] ) )
+print("Results for Bezier Predictor:")
+print( "Average Number of failures: %d" % ( np.mean(num_failures) ) )
+print( "Overall Mean time between failures: %f" % ( np.mean(mtbf) ) )
+print( "Overall Mean failure distance: %f" % (  np.mean(mean_failure_distances)  ) )
 
 
-failuredistances, failuretimes, failuretimediffs = deepracing.evaluation_utils.evalDataset(dset_dir,\
-                                             "../tracks/Australia_innerlimit.track", "../tracks/Australia_outerlimit.track", plot=True)
+
+
+for (i, dset) in enumerate(waypoint_dsets):
+    dset_dir = os.path.join(main_dir, dset)
+    failuredistances, failuretimes, failuretimediffs = deepracing.evaluation_utils.evalDataset(dset_dir,\
+        "../tracks/Australia_innerlimit.track", "../tracks/Australia_outerlimit.track", plot=plot)
+    mtbf[i] = np.mean(failuretimediffs)
+    mean_failure_distances[i] = np.mean(failuredistances)
+    num_failures[i] = float(failuredistances.shape[0])
+    # print( "Number of failures: %d" % ( num_failures[i] ) )
+    # print( "Mean time between failures: %f" % ( mtbf[i] ) )
+    # print( "Mean failure distance: %f" % ( mean_failure_distances[i] ) )
+print("Results for Waypoint Predictor:")
+print( "Average Number of failures: %d" % ( np.mean(num_failures) ) )
+print( "Overall Mean time between failures: %f" % ( np.mean(mtbf) ) )
+print( "Overall Mean failure distance: %f" % (  np.mean(mean_failure_distances)  ) )
+
+
+
+for (i, dset) in enumerate(cnnlstm_dsets):
+    dset_dir = os.path.join(main_dir, dset)
+    failuredistances, failuretimes, failuretimediffs = deepracing.evaluation_utils.evalDataset(dset_dir,\
+        "../tracks/Australia_innerlimit.track", "../tracks/Australia_outerlimit.track", plot=plot)
+    mtbf[i] = np.mean(failuretimediffs)
+    mean_failure_distances[i] = np.mean(failuredistances)
+    num_failures[i] = float(failuredistances.shape[0])
+    # print( "Number of failures: %d" % ( num_failures[i] ) )
+    # print( "Mean time between failures: %f" % ( mtbf[i] ) )
+    # print( "Mean failure distance: %f" % ( mean_failure_distances[i] ) )
+print("Results for CNNLSTM:")
+print( "Average Number of failures: %d" % ( np.mean(num_failures) ) )
+print( "Overall Mean time between failures: %f" % ( np.mean(mtbf) ) )
+print( "Overall Mean failure distance: %f" % (  np.mean(mean_failure_distances)  ) )
+
+
+
+for (i, dset) in enumerate(pilotnet_dsets):
+    dset_dir = os.path.join(main_dir, dset)
+    failuredistances, failuretimes, failuretimediffs = deepracing.evaluation_utils.evalDataset(dset_dir,\
+        "../tracks/Australia_innerlimit.track", "../tracks/Australia_outerlimit.track", plot=plot)
+    mtbf[i] = np.mean(failuretimediffs)
+    mean_failure_distances[i] = np.mean(failuredistances)
+    num_failures[i] = float(failuredistances.shape[0])
+    # print( "Number of failures: %d" % ( num_failures[i] ) )
+    # print( "Mean time between failures: %f" % ( mtbf[i] ) )
+    # print( "Mean failure distance: %f" % ( mean_failure_distances[i] ) )
+print("Results for PilotNet:")
+print( "Average Number of failures: %d" % ( np.mean(num_failures) ) )
+print( "Overall Mean time between failures: %f" % ( np.mean(mtbf) ) )
+print( "Overall Mean failure distance: %f" % (  np.mean(mean_failure_distances)  ) )
