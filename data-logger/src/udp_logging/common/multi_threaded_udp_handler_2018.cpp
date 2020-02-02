@@ -23,6 +23,7 @@
 #include <exception>
 #include <iostream>
 #include <fstream>
+#include <cstdlib>
 #ifdef BOOST_FILESYSTEM
   #include <boost/filesystem.hpp>
   namespace fs = boost::filesystem;
@@ -54,7 +55,7 @@ MultiThreadedUDPHandler2018::MultiThreadedUDPHandler2018(MultiThreadedUDPHandler
     else
     {
       std::cout << "Thanks for playing!" << std::endl;
-      exit(0);
+      exit(0); // @suppress("undefined")
     }
   }
   fs::create_directories(main_dir);

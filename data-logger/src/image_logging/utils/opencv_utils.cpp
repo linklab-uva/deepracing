@@ -7,6 +7,8 @@
 
 #include "f1_datalogger/image_logging/utils/opencv_utils.h"
 #include <iostream>
+#include <cstring>
+#include <string.h>
 #include <stdexcept>
 namespace deepf1
 {
@@ -72,7 +74,7 @@ cv::Mat OpenCVUtils::protoImageToCV(const deepf1::protobuf::images::Image& proto
 {
   cv::Mat rtn;
   rtn.create(proto_image.rows(), proto_image.cols(), protoTypeToCV(proto_image.channel_order()));
-  memcpy(rtn.data, (uchar *)(&(proto_image.image_data()[0])), rtn.step[0] * (size_t)rtn.rows );
+  memcpy((void *) rtn.data, (void *)(&(proto_image.image_data()[0])), rtn.step[0] * (size_t)rtn.rows );
   return rtn;
 }
 deepf1::protobuf::images::Image OpenCVUtils::cvimageToProto(const cv::Mat& cv_image)
@@ -86,7 +88,7 @@ deepf1::protobuf::images::Image OpenCVUtils::cvimageToProto(const cv::Mat& cv_im
   proto_image.set_rows(cv_image.rows);
   size_t totalsize = cv_image.step[0] * cv_image.rows;
   proto_image.mutable_image_data()->resize(totalsize);
-  memcpy(proto_image.mutable_image_data()->data(), cv_image.data, totalsize);
+  memcpy((void *) proto_image.mutable_image_data()->data(), (void *) cv_image.data, totalsize);
   return proto_image;
 }
 void OpenCVUtils::toCV(const scl::Image& image_scl, const scl::Point& size, cv::Mat& out)

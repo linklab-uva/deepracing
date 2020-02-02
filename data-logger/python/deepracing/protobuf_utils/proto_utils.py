@@ -1,5 +1,8 @@
 import TimestampedPacketSessionData_pb2
 import TimestampedPacketCarTelemetryData_pb2
+import TimestampedPacketMotionData_pb2
+import PacketMotionData_pb2
+import CarTelemetryData_pb2
 import Spline2DParams_pb2
 import os
 import google.protobuf.json_format
@@ -58,3 +61,119 @@ def getAllSessionPackets(session_folder: str, use_json: bool):
             print("Could not read session packet file %s." %(filepath))
             continue
    return session_packets
+
+   def labelPacketToNumpy(label_tag):
+    #print(label_tag.subsequent_poses)
+    positions = np.array([np.array((pose.translation.x,pose.translation.y, pose.translation.z)) for pose in label_tag.subsequent_poses])
+    quats = np.array([np.array((pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w)) for pose in label_tag.subsequent_poses])
+    linear_velocities = np.array([np.array((vel.vector.x, vel.vector.y, vel.vector.z)) for vel in label_tag.subsequent_linear_velocities])
+    angular_velocities = np.array([np.array((vel.vector.x, vel.vector.y, vel.vector.z)) for vel in label_tag.subsequent_angular_velocities])
+    return positions, quats, linear_velocities, angular_velocities
+def getAllSequenceLabelPackets(label_packet_folder: str, use_json: bool = False):
+   label_packets = []
+   if use_json:
+      filepaths = [os.path.join(label_packet_folder, f) for f in os.listdir(label_packet_folder) if os.path.isfile(os.path.join(label_packet_folder, f)) and str.lower(os.path.splitext(f)[1])==".json"]
+      jsonstrings = [(open(path, 'r')).read() for path in filepaths]
+      for jsonstring in jsonstrings:
+         data = PoseSequenceLabel_pb2.PoseSequenceLabel()
+         google.protobuf.json_format.Parse(jsonstring, data)
+         label_packets.append(data)
+   else:
+      filepaths = [os.path.join(label_packet_folder, f) for f in os.listdir(label_packet_folder) if os.path.isfile(os.path.join(label_packet_folder, f)) and str.lower(os.path.splitext(f)[1])==".pb"]
+      for filepath in filepaths:
+         try:
+            data = PoseSequenceLabel_pb2.PoseSequenceLabel()
+            f = open(filepath,'rb')
+            data.ParseFromString(f.read())
+            f.close()
+            label_packets.append(data)
+         except Exception as e:
+            f.close()
+            print(str(e))
+            print("Could not read binary file %s." %(filepath))
+            continue
+   return label_packets
+def getAllMotionPackets(motion_data_folder: str, use_json: bool):
+   motion_packets = []
+   if use_json:
+      filepaths = [os.path.join(motion_data_folder, f) for f in os.listdir(motion_data_folder) if os.path.isfile(os.path.join(motion_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".json"]
+      jsonstrings = [(open(path, 'r')).read() for path in filepaths]
+      for jsonstring in jsonstrings:
+         data = TimestampedPacketMotionData_pb2.TimestampedPacketMotionData()
+         google.protobuf.json_format.Parse(jsonstring, data)
+         motion_packets.append(data)
+   else:
+      filepaths = [os.path.join(motion_data_folder, f) for f in os.listdir(motion_data_folder) if os.path.isfile(os.path.join(motion_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".pb"]
+      for filepath in filepaths:
+         try:
+            data = TimestampedPacketMotionData_pb2.TimestampedPacketMotionData()
+            f = open(filepath,'rb')
+            data.ParseFromString(f.read())
+            f.close()
+            motion_packets.append(data)
+         except:
+            f.close()
+            print("Could not read udp file %s." %(filepath))
+            continue
+   return motion_packets
+def getAllImageFilePackets(image_data_folder: str, use_json: bool):
+   image_packets = []
+   if use_json:
+      filepaths = [os.path.join(image_data_folder, f) for f in os.listdir(image_data_folder) if os.path.isfile(os.path.join(image_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".json"]
+      jsonstrings = [(open(path, 'r')).read() for path in filepaths]
+      for jsonstring in tqdm(jsonstrings):
+         data = TimestampedImage_pb2.TimestampedImage()
+         google.protobuf.json_format.Parse(jsonstring, data)
+         image_packets.append(data)
+   else:
+      filepaths = [os.path.join(image_data_folder, f) for f in os.listdir(image_data_folder) if os.path.isfile(os.path.join(image_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".pb"]
+      for filepath in tqdm(filepaths):
+         try:
+            data = TimestampedImage_pb2.TimestampedImage()
+            f = open(filepath,'rb')
+            data.ParseFromString(f.read())
+            f.close()
+            image_packets.append(data)
+         except:
+            f.close()
+            print("Could not read image data file %s." %(filepath))
+            continue
+   return image_packets
+
+
+def extractAngularVelocity(packet):
+    angular_velocity = np.array((packet.m_angularVelocityX, packet.m_angularVelocityY, packet.m_angularVelocityZ), np.float64)
+    return angular_velocity
+    
+def extractVelocity(packet, car_index = 0):
+    motion_data = packet.m_carMotionData[car_index]
+    velocity = np.array((motion_data.m_worldVelocityX, motion_data.m_worldVelocityY, motion_data.m_worldVelocityZ), np.float64)
+    return velocity
+    
+def extractPosition(packet , car_index = 0):
+    motion_data = packet.m_carMotionData[car_index]
+    position = np.array((motion_data.m_worldPositionX, motion_data.m_worldPositionY, motion_data.m_worldPositionZ), dtype=np.float64)
+    return position 
+
+def extractPose(packet , car_index = 0):
+    position = extractPosition(packet, car_index=car_index)
+    motion_data = packet.m_carMotionData[car_index]
+    rightvector = np.array((motion_data.m_worldRightDirX, motion_data.m_worldRightDirY, motion_data.m_worldRightDirZ), dtype=np.float64)
+    rightvector = rightvector/la.norm(rightvector)
+    forwardvector = np.array((motion_data.m_worldForwardDirX, motion_data.m_worldForwardDirY, motion_data.m_worldForwardDirZ), dtype=np.float64)
+    forwardvector = forwardvector/la.norm(forwardvector)
+    upvector = np.cross(rightvector,forwardvector)
+    upvector = upvector/la.norm(upvector)
+    rotationmat = np.vstack((-rightvector,upvector,forwardvector)).transpose()
+    quat = Rot.from_dcm(rotationmat).as_quat()
+    return position, quat 
+def loadTrackfile(filepath : str):
+   trackin = np.loadtxt(filepath,delimiter=",",skiprows=2)
+   I = np.argsort(trackin[:,0])
+   track = trackin[I].copy()
+   r = track[:,0]
+   X = np.zeros((track.shape[0],3))
+   X[:,0] = track[:,1]
+   X[:,1] = track[:,3]
+   X[:,2] = track[:,2]
+   return r, X
