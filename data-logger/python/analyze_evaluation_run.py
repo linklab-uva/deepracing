@@ -35,7 +35,7 @@ parser.add_argument("main_dir", help="Directory of the evaluation datasets",  ty
 args = parser.parse_args()
 main_dir = args.main_dir
 
-runmax = 2
+runmax = 5
 plot=False
 bezier_dsets = ["bezier_predictor_run%d" % i for i in range(1,runmax+1)]
 waypoint_dsets = ["waypoint_predictor_run%d" % i for i in range(1,runmax+1)]
