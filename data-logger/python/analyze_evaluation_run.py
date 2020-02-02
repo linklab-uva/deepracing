@@ -16,6 +16,7 @@ def analyzedatasets(main_dir,subdirs,prefix):
     mean_failure_distances = np.zeros(runmax)
     num_failures = np.zeros(runmax)
     for (i, dset) in enumerate(subdirs):
+        print("Running dataset %d for %s:"%(i+1, prefix))
         dset_dir = os.path.join(main_dir, dset)
         failuredistances, failuretimes, failuretimediffs = deepracing.evaluation_utils.evalDataset(dset_dir,\
             "../tracks/Australia_innerlimit.track", "../tracks/Australia_outerlimit.track", plot=plot)
