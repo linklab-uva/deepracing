@@ -79,7 +79,7 @@ class AdmiralNetWaypointPredictorROS(PPC):
     def __init__(self, trackfile=None,  lookahead_gain : float = 0.4, L : float= 3.617, pgain: float=0.5, igain : float=0.0125, dgain : float=0.0125, plot : bool =True, gpu : int=0, deltaT : float = 1.415):
         super(AdmiralNetWaypointPredictorROS, self).__init__(lookahead_gain = lookahead_gain, L = L ,\
                                                     pgain=pgain, igain=igain, dgain=dgain)
-        self.path_publisher = self.create_publisher(ImageWithPath, "predicted_path_raw", 10)
+        self.path_publisher = self.create_publisher(ImageWithPath, "predicted_path", 10)
         model_file_param = self.get_parameter("model_file")
         if (model_file_param.type_==Parameter.Type.NOT_SET):
             raise ValueError("The parameter \"model_file\" must be set for this rosnode")

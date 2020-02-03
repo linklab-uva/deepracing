@@ -35,6 +35,7 @@ setup(
     entry_points={
         'console_scripts': [
             'pose_publisher = %s.scripts.pose_publisher:main' % (package_name),
+            'plot_recorder = %s.scripts.record_plots:main' % (package_name),
             'pure_pursuit_bezier = %s.scripts.admiralnet_bezier_script:main' % (package_name),
             'pure_pursuit_waypoint = %s.scripts.admiralnet_waypoint_script:main' % (package_name),
             'pilotnet = %s.scripts.pilotnet_script:main' % (package_name),

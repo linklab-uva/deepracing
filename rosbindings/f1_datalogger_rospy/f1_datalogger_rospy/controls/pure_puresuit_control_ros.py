@@ -34,12 +34,14 @@ from std_msgs.msg import Float64
 import rclpy
 from rclpy.node import Node
 from rclpy import Parameter
+from copy import deepcopy
 class PurePursuitControllerROS(Node):
     def __init__(self, lookahead_gain = 0.35, L = 3.617,\
         pgain=0.5, igain=0.0125, dgain=0.0125, tau = 0.0):
         super(PurePursuitControllerROS,self).__init__('pure_pursuit_control', allow_undeclared_parameters=True, automatically_declare_parameters_from_overrides=True)
         self.packet_queue = queue.Queue()
         self.running = True
+        self.current_motion_packet : PacketMotionData  = PacketMotionData()
         self.current_motion_data : CarMotionData  = CarMotionData()
         self.setpoint_publisher = self.create_publisher(Float64, "vel_setpoint", 10)
         self.sock = None
@@ -80,10 +82,11 @@ class PurePursuitControllerROS(Node):
         igain = self.igain
         dgain = self.dgain
         packet : PacketMotionData = msg.udp_packet
+        self.current_motion_packet = deepcopy(packet)
         motion_data_vec : list = packet.car_motion_data
         if len(motion_data_vec)==0:
             return
-        self.current_motion_data : CarMotionData = motion_data_vec[0]
+        self.current_motion_data = deepcopy(motion_data_vec[0])
         velrosstamped : Vector3Stamped = self.current_motion_data.world_velocity
         if (velrosstamped.header.frame_id == ""):
             return

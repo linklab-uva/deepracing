@@ -85,7 +85,7 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         #     self.xgt = np.vstack((x.copy().transpose(),np.ones(x.shape[0])))
         #     self.xdotgt = xdot.copy().transpose()
         #     self.tgt = t.copy()    
-        self.path_publisher = self.create_publisher(ImageWithPath, "predicted_path_raw", 10)
+        self.path_publisher = self.create_publisher(ImageWithPath, "/predicted_path", 10)
         model_file_param = self.get_parameter("model_file")
         if (model_file_param.type_==Parameter.Type.NOT_SET):
             raise ValueError("The parameter \"model_file\" must be set for this rosnode")
