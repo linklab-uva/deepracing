@@ -8,6 +8,8 @@ import os
 import google.protobuf.json_format
 import scipy.interpolate
 import numpy as np
+from scipy.spatial.transform import Rotation as Rot
+
 def splineSciPyToPB(splineSciPy : scipy.interpolate.BSpline, tmin,tmax,Xmin,Xmax,Zmin,Zmax):
    return Spline2DParams_pb2.Spline2DParams(XParams = splineSciPy.c[:,0], ZParams = splineSciPy.c[:,1],degree=splineSciPy.k, knots=splineSciPy.t,\
                                                            tmin=tmin,tmax=tmax,Xmin=Xmin,Xmax=Xmax,Zmin=Zmin,Zmax=Zmax)
@@ -173,7 +175,11 @@ def loadTrackfile(filepath : str):
    track = trackin[I].copy()
    r = track[:,0]
    X = np.zeros((track.shape[0],3))
+   Xdot = np.zeros((track.shape[0],3))
    X[:,0] = track[:,1]
    X[:,1] = track[:,3]
    X[:,2] = track[:,2]
+
+   
+
    return r, X
