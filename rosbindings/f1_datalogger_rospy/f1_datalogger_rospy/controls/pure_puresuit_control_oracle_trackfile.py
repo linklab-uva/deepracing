@@ -135,7 +135,7 @@ class OraclePurePursuitControllerROS(PPC):
             segment = np.hstack((a,b))
         else:
             segment = self.X[ startindex : endindex , : ]
-        segmentaugmented = np.vstack( ( segment.transpose(), np.ones(self.X.shape[0]) ))
+        segmentaugmented = np.vstack( ( segment.transpose(), np.ones(self.X.shape[0]) ) )
         x_samp = np.matmul( la.inv(currentpose), segmentaugmented )[ [0,2] , : ].transpose()
         x_samp[:,1]-=self.z_offset
         t_samp = np.linspace(0,1,self.forward_indices)
@@ -144,8 +144,12 @@ class OraclePurePursuitControllerROS(PPC):
         #print(x_samp)
         distances_samp = la.norm(x_samp, axis=1)
         vectors = splinederiv(t_samp)
-        norms = 
-        v_samp = 10.0*
+        norms = la.norm(vectors, axis=1)
+        tangentvectors = vectors/norms[:,None]
+        angles = np.arctan2( tangentvectors[:,0], tangentvectors[:,1] )
+        angles_scaled = np.abs(angles/(np.pi/2))
+        #scale_factors = np.pi/2 - 
+        v_samp = 65.0*tangentvectors
        
         return x_samp, v_samp, distances_samp
         
