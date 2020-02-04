@@ -132,7 +132,7 @@ class OraclePurePursuitControllerROS(PPC):
         if endindex<startindex:
             a = self.X[ startindex : , : ]
             b = self.X[ 0 : endindex , : ]
-            segment = np.hstack((a,b))
+            segment = np.vstack((a,b))
         else:
             segment = self.X[ startindex : endindex , : ]
         segmentaugmented = np.vstack( ( segment.transpose(), np.ones(self.X.shape[0]) ) )
