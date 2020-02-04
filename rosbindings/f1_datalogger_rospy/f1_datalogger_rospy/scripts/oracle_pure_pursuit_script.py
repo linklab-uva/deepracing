@@ -21,12 +21,12 @@ from geometry_msgs.msg import PointStamped, Point
 import numpy as np
 from scipy.spatial.transform import Rotation as Rot
 from f1_datalogger_rospy.controls.pure_puresuit_control_ros import PurePursuitControllerROS
-from f1_datalogger_rospy.controls.pure_puresuit_control_bezier_predictor import AdmiralNetBezierPurePursuitControllerROS
+from f1_datalogger_rospy.controls.pure_puresuit_control_oracle_trackfile import OraclePurePursuitControllerROS
 
 def main(args=None):
     rclpy.init(args=args)
     rclpy.logging.initialize()
-    node = AdmiralNetBezierPurePursuitControllerROS()
+    node = OraclePurePursuitControllerROS()
     node.get_logger().set_level(rclpy.logging.LoggingSeverity.INFO)
     node.start()
     try:

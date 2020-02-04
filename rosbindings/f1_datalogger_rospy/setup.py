@@ -38,6 +38,7 @@ setup(
             'plot_recorder = %s.scripts.record_plots:main' % (package_name),
             'pure_pursuit_bezier = %s.scripts.admiralnet_bezier_script:main' % (package_name),
             'pure_pursuit_waypoint = %s.scripts.admiralnet_waypoint_script:main' % (package_name),
+            'pure_pursuit_oracle = %s.scripts.oracle_pure_pursuit_script:main' % (package_name),
             'pilotnet = %s.scripts.pilotnet_script:main' % (package_name),
             'cnnlstm = %s.scripts.cnnlstm_script:main' % (package_name),
             

@@ -23,9 +23,9 @@ class DataListener(Node):
 
     def __init__(self):
         super().__init__('motion_data_listener')
-        self.sub = self.create_subscription(TimestampedPacketMotionData, '/motion_data', self.motion_data_callback, 10)
-        self.point_pub = self.create_publisher(PointStamped, '/car_position')
-        self.pose_pub = self.create_publisher(PoseStamped, '/car_pose')
+        self.sub = self.create_subscription(TimestampedPacketMotionData, '/motion_data', self.motion_data_callback, 1)
+        self.point_pub = self.create_publisher(PointStamped, '/car_position', 1)
+        self.pose_pub = self.create_publisher(PoseStamped, '/car_pose', 1)
 
     def motion_data_callback(self, msg):
         motion_data : CarMotionData  = msg.udp_packet.car_motion_data[0]
