@@ -27,9 +27,10 @@ else()
 endif()
 
 if(${Eigen3_VERSION} VERSION_GREATER_EQUAL "3.3.9")
-	list(APPEND ${controllers_SRCS} src/pure_pursuit_controller.cpp)
+	list(APPEND controllers_SRCS pure_pursuit_controller.cpp)
 endif()
-
+message(STATUS "Eigen3 version: ${Eigen3_VERSION}")
+message(STATUS "Building controllers library with: ${controllers_SRCS}")
 add_library(${PROJECT_NAME}_controllers ${controllers_SRCS})
 if(UNIX)
 	set_property(TARGET ${PROJECT_NAME}_controllers PROPERTY POSITION_INDEPENDENT_CODE ON)

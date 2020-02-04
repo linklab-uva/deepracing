@@ -70,7 +70,6 @@ if(${Eigen3_VERSION} VERSION_GREATER_EQUAL "3.3.9")
 		${PROJECT_NAME}_controllers
 		${PROJECT_NAME}_image_logging
 		${PROJECT_NAME}_image_logging_common
-		${PROJECT_NAME}_post_processing
 		${PROJECT_NAME}_udp_logging
 		${PROJECT_NAME}_udp_logging_common
 		${Boost_LIBRARIES}
@@ -112,6 +111,9 @@ set(install_targets
 #executables.
 ${PROJECT_NAME}_cv_viewer_example
 )
+if(TARGET ${PROJECT_NAME}_pure_pursuit_control)
+   list(APPEND install_targets ${PROJECT_NAME}_pure_pursuit_control)
+endif(${PROJECT_NAME}_pure_pursuit_control)
 
 option(BUILD_MULTITHREADED_EXAMPLE "" ON)
 if(BUILD_MULTITHREADED_EXAMPLE)
