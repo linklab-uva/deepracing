@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.linalg as la
-import quaternion
 import scipy
+import scipy.stats
 import skimage
 import PIL
 from PIL import Image as PILImage
