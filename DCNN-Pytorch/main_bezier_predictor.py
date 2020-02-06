@@ -103,7 +103,7 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
         current_position_loss = kinematic_loss(pred_points,gt_points)
         current_velocity_loss = kinematic_loss(pred_vels/dt[:,None,None],gt_vels)
         if loss_weights[0]>0:
-            _, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(fitpoints, s_torch, bezier_order, M=Mpos)
+            _, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(gt_points, bezier_order, M=Mpos)
             current_param_loss = params_loss(predictions_reshape,controlpoints_fit)
             loss = loss_weights[0]*current_param_loss + loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
         else:
@@ -228,8 +228,8 @@ def go():
         timewise_weights = torch.from_numpy( np.hstack( ( np.ones(numones), np.linspace(1,3, ppd - numones ) ) ) )
     else:
         timewise_weights = None
-    params_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss(timewise_weights=timewise_weights)
-    kinematic_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss()
+    params_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss()
+    kinematic_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss(timewise_weights=timewise_weights)
     if use_float:
         print("casting stuff to float")
         net = net.float()

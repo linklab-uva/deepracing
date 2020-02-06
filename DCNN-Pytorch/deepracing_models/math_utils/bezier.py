@@ -38,7 +38,9 @@ def bezierDerivative(control_points, t = None, M = None, order = 1 ):
     factor = torch.prod(torch.linspace(n,n-order+1,order))
     return Mderiv, factor*torch.matmul(Mderiv, pdiff)
 
-def bezierLsqfit(points, t, n, M = None, built_in_lstq=False):
+def bezierLsqfit(points, n, t = None, M = None, built_in_lstq=False):
+    if ((t is None) and (M is None)) or ((t is not None) and (M is not None)):
+        raise ValueError("One of t or M must be set, but not both")
     if M is None:
         M_ = bezierM(t,n)
     else:

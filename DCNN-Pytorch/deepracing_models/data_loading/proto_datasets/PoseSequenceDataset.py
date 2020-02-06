@@ -93,7 +93,7 @@ class PoseSequenceDataset(Dataset):
 
 
         session_times = np.array([p.session_time for p in label_packet.subsequent_poses ])
-        positions, quats, linear_velocities, angular_velocities = deepracing.pose_utils.labelPacketToNumpy(label_packet)
+        positions, quats, linear_velocities, angular_velocities = deepracing.protobuf_utils.labelPacketToNumpy(label_packet)
         
         
         positions_np = positions
