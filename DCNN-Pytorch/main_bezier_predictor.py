@@ -52,8 +52,6 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
     if gpu>=0:
         s_torch = s_torch.cuda(gpu)
     bezier_order = network.params_per_dimension-1
-    Mpos_ = deepracing_models.math_utils.bezier.bezierM(s_torch, bezier_order)
-    Mvel_ = deepracing_models.math_utils.bezier.bezierM(s_torch, bezier_order-1)
     for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
         if network.input_channels==5:
             image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
@@ -67,41 +65,56 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
         dt = session_times_torch[:,-1]-session_times_torch[:,0]
         current_batch_size=session_times_torch.shape[0]
         current_timesteps=session_times_torch.shape[1]
+
+        print(session_times_torch)
+        print(dt)
         s_torch_cur = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
-        Mpos = deepracing_models.math_utils.bezier.bezierM(s_torch_cur, bezier_order)
-        Mvel = deepracing_models.math_utils.bezier.bezierM(s_torch_cur, bezier_order-1)
-        # if current_batch_size==batch_size:
-        #     Mpos=Mpos_
-        #     Mvel=Mvel_
-        # else:
-        #     Mpos = deepracing_models.math_utils.bezier.bezierM(s_torch_cur, bezier_order)
-        #     Mvel = deepracing_models.math_utils.bezier.bezierM(s_torch_cur, bezier_order-1)
-        pred_points = torch.matmul(Mpos, predictions_reshape)
-        _, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape, M=Mvel)
+        print(s_torch_cur)
+        
         gt_points = positions_torch[:,:,[0,2]]
         gt_vels = linear_velocities_torch[:,:,[0,2]]
-        _, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(gt_points, bezier_order, M=Mpos)
-        _, fit_vels = deepracing_models.math_utils.bezier.bezierDerivative(controlpoints_fit, M=Mvel)
+        Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(gt_points, bezier_order, t = s_torch_cur)
+        fit_points = torch.matmul(Mpos, controlpoints_fit)
+
+        Mvel, fit_vels = deepracing_models.math_utils.bezier.bezierDerivative(controlpoints_fit, t = s_torch_cur, order=1)
         fit_vels_scaled = fit_vels/dt[:,None,None]
+        
+
+        pred_points = torch.matmul(Mpos, predictions_reshape)
+        _, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape, t = s_torch_cur, order=1)
         pred_vels_scaled = pred_vels/dt[:,None,None]
+        
         if debug:
-            fig = plt.figure()
-            images_np = image_torch[0].detach().cpu().numpy().copy()
-            num_images = images_np.shape[0]
-            print(num_images)
-            images_np_transpose = np.zeros((num_images, images_np.shape[2], images_np.shape[3], images_np.shape[1]), dtype=np.uint8)
-            ims = []
-            for i in range(num_images):
-                images_np_transpose[i]=skimage.util.img_as_ubyte(images_np[i].transpose(1,2,0))
-                im = plt.imshow(images_np_transpose[i], animated=True)
-                ims.append([im])
-            ani = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat_delay=2000)
+            # fig = plt.figure()
+            # images_np = image_torch[0].detach().cpu().numpy().copy()
+            # num_images = images_np.shape[0]
+            # print(num_images)
+            # images_np_transpose = np.zeros((num_images, images_np.shape[2], images_np.shape[3], images_np.shape[1]), dtype=np.uint8)
+            # ims = []
+            # for i in range(num_images):
+            #     images_np_transpose[i]=skimage.util.img_as_ubyte(images_np[i].transpose(1,2,0))
+            #     im = plt.imshow(images_np_transpose[i], animated=True)
+            #     ims.append([im])
+            # ani = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat_delay=2000)
             fig2 = plt.figure()
             gt_points_np = gt_points[0,:].detach().cpu().numpy().copy()
-            fit_points_np = torch.matmul(Mpos, controlpoints_fit)[0].cpu().numpy().copy()
+            fit_points_np = fit_points[0].cpu().numpy().copy()
+            gt_vels_np = gt_vels[0].cpu().numpy().copy()
+            fit_vels_np = fit_vels_scaled[0].cpu().numpy().copy()
             plt.plot(gt_points_np[:,0],gt_points_np[:,1],'r+')
             plt.plot(fit_points_np[:,0],fit_points_np[:,1],'b-')
-            print( "Mean velocity error: %f" , kinematic_loss(fit_vels_scaled, gt_vels).item() )
+
+            #plt.quiver(gt_points_np[:,0],gt_points_np[:,1], gt_vels_np[:,0], gt_vels_np[:,1], color='g')
+            xmin, xmax = np.min(gt_points_np[:,0]), np.max(gt_points_np[:,0])
+            deltax = xmax-xmin
+            zmin, zmax = np.min(gt_points_np[:,1]), np.max(gt_points_np[:,1])
+            deltaz = zmax-zmin
+            deltaratio = deltaz/deltax
+
+            plt.quiver(fit_points_np[:,0],fit_points_np[:,1], deltaratio*fit_vels_np[:,0], fit_vels_np[:,1], color='r')
+
+            velocity_err = kinematic_loss(fit_vels_scaled, gt_vels).item()
+            print("\nMean velocity error: %f\n" % (velocity_err))
             
             plt.show()
 
@@ -128,8 +141,9 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
         cum_position_loss += float(current_position_loss.item())
         cum_velocity_loss += float(current_velocity_loss.item())
         num_samples += 1.0
-        experiment.log_metric("cumulative_position_error", cum_position_loss/num_samples, step=i)
-        experiment.log_metric("cumulative_velocity_error", cum_velocity_loss/num_samples, step=i)
+        if not debug:
+            experiment.log_metric("cumulative_position_error", cum_position_loss/num_samples, step=i)
+            experiment.log_metric("cumulative_velocity_error", cum_velocity_loss/num_samples, step=i)
         if use_tqdm:
             t.set_postfix({"cum_loss" : cum_loss/num_samples,"cum_param_loss" : cum_param_loss/num_samples,"cum_position_loss" : cum_position_loss/num_samples,"cum_velocity_loss" : cum_velocity_loss/num_samples})
 def go():
@@ -324,37 +338,40 @@ def go():
         i = 0
     else:
         i = epochstart
-    with experiment.train():
-        while i < num_epochs:
-            time.sleep(2.0)
-            postfix = i + 1
-            print("Running Epoch Number %d" %(postfix))
-            #dset.clearReaders()
-            try:
-                tick = time.time()
-                run_epoch(experiment, net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, debug=debug, use_tqdm=args.tqdm )
-                tock = time.time()
-                print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
-                experiment.log_epoch_end(postfix)
-            except Exception as e:
-                if isinstance(e, FileExistsError):
-                    print(e)
-                    exit(-1)
-                print("Restarting epoch %d because %s"%(postfix, str(e)))
-                modelin = os.path.join(output_directory, netpostfix %(postfix-1))
-                optimizerin = os.path.join(output_directory,optimizerpostfix %(postfix-1))
-                net.load_state_dict(torch.load(modelin))
-                optimizer.load_state_dict(torch.load(optimizerin))
-                continue
-            modelout = os.path.join(output_directory,netpostfix %(postfix))
-            torch.save(net.state_dict(), modelout)
-            with open(modelout,'rb') as modelfile:
-                experiment.log_asset(modelfile,file_name=netpostfix %(postfix))
-            optimizerout = os.path.join(output_directory,optimizerpostfix %(postfix))
-            torch.save(optimizer.state_dict(), optimizerout)
-            with open(optimizerout,'rb') as optimizerfile:
-                experiment.log_asset(optimizerfile,file_name=optimizerpostfix %(postfix))
-            i = i + 1
+    if debug:
+        run_epoch(None, net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, debug=debug, use_tqdm=args.tqdm )
+    else:
+        with experiment.train():
+            while i < num_epochs:
+                time.sleep(2.0)
+                postfix = i + 1
+                print("Running Epoch Number %d" %(postfix))
+                #dset.clearReaders()
+                try:
+                    tick = time.time()
+                    run_epoch(experiment, net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, debug=debug, use_tqdm=args.tqdm )
+                    tock = time.time()
+                    print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
+                    experiment.log_epoch_end(postfix)
+                except Exception as e:
+                    if isinstance(e, FileExistsError):
+                        print(e)
+                        exit(-1)
+                    print("Restarting epoch %d because %s"%(postfix, str(e)))
+                    modelin = os.path.join(output_directory, netpostfix %(postfix-1))
+                    optimizerin = os.path.join(output_directory,optimizerpostfix %(postfix-1))
+                    net.load_state_dict(torch.load(modelin))
+                    optimizer.load_state_dict(torch.load(optimizerin))
+                    continue
+                modelout = os.path.join(output_directory,netpostfix %(postfix))
+                torch.save(net.state_dict(), modelout)
+                with open(modelout,'rb') as modelfile:
+                    experiment.log_asset(modelfile,file_name=netpostfix %(postfix))
+                optimizerout = os.path.join(output_directory,optimizerpostfix %(postfix))
+                torch.save(optimizer.state_dict(), optimizerout)
+                with open(optimizerout,'rb') as optimizerfile:
+                    experiment.log_asset(optimizerfile,file_name=optimizerpostfix %(postfix))
+                i = i + 1
 import logging
 if __name__ == '__main__':
     logging.basicConfig()
