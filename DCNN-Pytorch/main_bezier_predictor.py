@@ -67,18 +67,23 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
         dt = session_times_torch[:,-1]-session_times_torch[:,0]
         current_batch_size=session_times_torch.shape[0]
         current_timesteps=session_times_torch.shape[1]
-        if current_batch_size==batch_size:
-            Mpos=Mpos_
-            Mvel=Mvel_
-        else:
-            s_torch_cur = torch.linspace(0.0,1.0,steps=current_timesteps, dtype=image_torch.dtype, device=image_torch.device).unsqueeze(0).repeat(current_batch_size,1)
-            Mpos = deepracing_models.math_utils.bezier.bezierM(s_torch_cur, bezier_order)
-            Mvel = deepracing_models.math_utils.bezier.bezierM(s_torch_cur, bezier_order-1)
-        #s_torch = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
+        s_torch_cur = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
+        Mpos = deepracing_models.math_utils.bezier.bezierM(s_torch_cur, bezier_order)
+        Mvel = deepracing_models.math_utils.bezier.bezierM(s_torch_cur, bezier_order-1)
+        # if current_batch_size==batch_size:
+        #     Mpos=Mpos_
+        #     Mvel=Mvel_
+        # else:
+        #     Mpos = deepracing_models.math_utils.bezier.bezierM(s_torch_cur, bezier_order)
+        #     Mvel = deepracing_models.math_utils.bezier.bezierM(s_torch_cur, bezier_order-1)
         pred_points = torch.matmul(Mpos, predictions_reshape)
         _, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape, M=Mvel)
         gt_points = positions_torch[:,:,[0,2]]
         gt_vels = linear_velocities_torch[:,:,[0,2]]
+        _, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(gt_points, bezier_order, M=Mpos)
+        _, fit_vels = deepracing_models.math_utils.bezier.bezierDerivative(controlpoints_fit, M=Mvel)
+        fit_vels_scaled = fit_vels/dt[:,None,None]
+        pred_vels_scaled = pred_vels/dt[:,None,None]
         if debug:
             images_np = image_torch[0].detach().cpu().numpy().copy()
             num_images = images_np.shape[0]
@@ -90,20 +95,19 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
                 im = plt.imshow(images_np_transpose[i], animated=True)
                 ims.append([im])
             ani = animation.ArtistAnimation(plt.figure(), ims, interval=250, blit=True, repeat_delay=2000)
-            fig = plt.figure()
-            ax = fig.add_subplot()
+            #fig = plt.figure()
             gt_points_np = gt_points[0,:].detach().cpu().numpy().copy()
-            ax.plot(gt_points_np[:,0],gt_points_np[:,1],'r-')
+            fit_points_np = torch.matmul(Mpos, controlpoints_fit)[0].cpu().numpy().copy()
+            plt.plot(gt_points_np[:,0],gt_points_np[:,1],'r+')
+            plt.plot(fit_points_np[:,0],fit_points_np[:,1],'b-')
+            print( "Mean velocity error: %f" , kinematic_loss(fit_vels_scaled, gt_vels).item() )
             
-            # evalpoints = torch.matmul(Mfit, controlpoints_fit)
-            # evalpointsnp = evalpoints[0,:].detach().cpu().numpy().copy()
-            # ax.plot(evalpointsnp[:,0],evalpointsnp[:,1],'bo')
             plt.show()
 
-        current_position_loss = kinematic_loss(pred_points,gt_points)
-        current_velocity_loss = kinematic_loss(pred_vels/dt[:,None,None],gt_vels)
+        current_position_loss = kinematic_loss(pred_points, gt_points)
+        #current_velocity_loss = kinematic_loss(pred_vels, fit_vels)
+        current_velocity_loss = kinematic_loss(pred_vels_scaled, gt_vels)
         if loss_weights[0]>0:
-            _, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(gt_points, bezier_order, M=Mpos)
             current_param_loss = params_loss(predictions_reshape,controlpoints_fit)
             loss = loss_weights[0]*current_param_loss + loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
         else:
@@ -247,19 +251,8 @@ def go():
         kinematic_loss = kinematic_loss.cuda(gpu)
     optimizer = args.optimizer
     
-# from .adadelta import Adadelta  # noqa: F401
-# from .adagrad import Adagrad  # noqa: F401
-# from .adam import Adam  # noqa: F401
-# from .adamw import AdamW  # noqa: F401
-# from .sparse_adam import SparseAdam  # noqa: F401
-# from .adamax import Adamax  # noqa: F401
-# from .asgd import ASGD  # noqa: F401
-# from .sgd import SGD  # noqa: F401
-# from .rprop import Rprop  # noqa: F401
-# from .rmsprop import RMSprop  # noqa: F401
-# from .optimizer import Optimizer  # noqa: F401
-# from .lbfgs import LBFGS  # noqa: F401
-# from . import lr_scheduler  # noqa: F401
+
+
     config["optimizer"] = optimizer
     if optimizer=="Adam":
         optimizer = optim.Adam(net.parameters(), lr = learning_rate, betas=(0.9, 0.9))
