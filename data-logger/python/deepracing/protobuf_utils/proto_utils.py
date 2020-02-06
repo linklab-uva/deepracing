@@ -64,13 +64,13 @@ def getAllSessionPackets(session_folder: str, use_json: bool):
             continue
    return session_packets
 
-   def labelPacketToNumpy(label_tag):
-    #print(label_tag.subsequent_poses)
-    positions = np.array([np.array((pose.translation.x,pose.translation.y, pose.translation.z)) for pose in label_tag.subsequent_poses])
-    quats = np.array([np.array((pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w)) for pose in label_tag.subsequent_poses])
-    linear_velocities = np.array([np.array((vel.vector.x, vel.vector.y, vel.vector.z)) for vel in label_tag.subsequent_linear_velocities])
-    angular_velocities = np.array([np.array((vel.vector.x, vel.vector.y, vel.vector.z)) for vel in label_tag.subsequent_angular_velocities])
-    return positions, quats, linear_velocities, angular_velocities
+def labelPacketToNumpy(label_tag):
+   #print(label_tag.subsequent_poses)
+   positions = np.array([np.array((pose.translation.x,pose.translation.y, pose.translation.z)) for pose in label_tag.subsequent_poses])
+   quats = np.array([np.array((pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w)) for pose in label_tag.subsequent_poses])
+   linear_velocities = np.array([np.array((vel.vector.x, vel.vector.y, vel.vector.z)) for vel in label_tag.subsequent_linear_velocities])
+   angular_velocities = np.array([np.array((vel.vector.x, vel.vector.y, vel.vector.z)) for vel in label_tag.subsequent_angular_velocities])
+   return positions, quats, linear_velocities, angular_velocities
 def getAllSequenceLabelPackets(label_packet_folder: str, use_json: bool = False):
    label_packets = []
    if use_json:

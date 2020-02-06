@@ -18,7 +18,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import bisect
 import scipy.interpolate
 import deepracing.pose_utils
-from deepracing.pose_utils import getAllImageFilePackets, getAllMotionPackets, getAllSequenceLabelPackets, labelPacketToNumpy
+from deepracing.protobuf_utils import getAllImageFilePackets, getAllMotionPackets, getAllSequenceLabelPackets, labelPacketToNumpy
 import numpy as np
 import torch
 from torch.utils.data import Dataset

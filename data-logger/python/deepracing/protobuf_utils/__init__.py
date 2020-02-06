@@ -10,3 +10,4 @@ from .proto_utils import extractVelocity as extractVelocity
 from .proto_utils import extractAngularVelocity as extractAngularVelocity
 from .proto_utils import extractPosition as extractPosition
 from .proto_utils import loadTrackfile as loadTrackfile
+from .proto_utils import labelPacketToNumpy as labelPacketToNumpy
