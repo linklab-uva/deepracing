@@ -66,10 +66,8 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
         current_batch_size=session_times_torch.shape[0]
         current_timesteps=session_times_torch.shape[1]
 
-        print(session_times_torch)
-        print(dt)
         s_torch_cur = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
-        print(s_torch_cur)
+        
         
         gt_points = positions_torch[:,:,[0,2]]
         gt_vels = linear_velocities_torch[:,:,[0,2]]
@@ -122,6 +120,9 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
 
             velocity_err = kinematic_loss(fit_vels_scaled, gt_vels).item()
             print("\nMean velocity error: %f\n" % (velocity_err))
+            print(session_times_torch)
+            print(dt)
+            print(s_torch_cur)
             
             plt.show()
 
