@@ -10,14 +10,14 @@
 [submodule "data-logger/src/controllers/python_cpp_bindings/pybind11"]
 	path = data-logger/src/controllers/python_cpp_bindings/pybind11
 	url = https://github.com/pybind/pybind11.git
-[submodule "rosbindings/vision_opencv"]
-	path = rosbindings/vision_opencv
+[submodule "rosbindings/third_party/vision_opencv"]
+	path = rosbindings/third_party/vision_opencv
 	url = https://github.com/linklab-uva/vision_opencv.git
-[submodule "rosbindings/image_common"]
-	path = rosbindings/image_common
+[submodule "rosbindings/third_party/image_common"]
+	path = rosbindings/third_party/image_common
 	url = https://github.com/linklab-uva/image_common.git
-[submodule "rosbindings/image_transport_plugins"]
-	path = rosbindings/image_transport_plugins
+[submodule "rosbindings/third_party/image_transport_plugins"]
+	path = rosbindings/third_party/image_transport_plugins
 	url = https://github.com/linklab-uva/image_transport_plugins.git
 [submodule "DCNN-Pytorch/kfac"]
 	path = DCNN-Pytorch/kfac
