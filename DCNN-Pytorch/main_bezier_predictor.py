@@ -126,15 +126,10 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
             plt.show()
 
         current_position_loss = kinematic_loss(pred_points, gt_points)
-        #current_velocity_loss = kinematic_loss(pred_vels, fit_vels)
         current_velocity_loss = kinematic_loss(pred_vels_scaled, gt_vels)
-        if loss_weights[0]>0:
-            current_param_loss = params_loss(predictions_reshape,controlpoints_fit)
-            loss = loss_weights[0]*current_param_loss + loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
-        else:
-            current_param_loss = torch.zeros(1).double()
-            loss = loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
-
+        current_param_loss = params_loss(predictions_reshape,controlpoints_fit)
+        loss = loss_weights[0]*current_param_loss + loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
+  
        # loss = loss_weights[0]*current_param_loss + loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
         
         # Backward pass:
