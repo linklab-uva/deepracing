@@ -8,6 +8,6 @@ image_threads: 2
 image_capture_frequency: 35.0
 initial_delay_time: 3.0
 image_extension: "jpg"
-use_json: False
+use_json: True
 spectating: False
 init_paused: False
