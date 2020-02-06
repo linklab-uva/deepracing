@@ -97,10 +97,16 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
             #     ims.append([im])
             # ani = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat_delay=2000)
             fig2 = plt.figure()
+
+
             gt_points_np = gt_points[0,:].detach().cpu().numpy().copy()
             fit_points_np = fit_points[0].cpu().numpy().copy()
+
+
             gt_vels_np = gt_vels[0].cpu().numpy().copy()
             fit_vels_np = fit_vels_scaled[0].cpu().numpy().copy()
+
+
             plt.plot(gt_points_np[:,0],gt_points_np[:,1],'r+')
             plt.plot(fit_points_np[:,0],fit_points_np[:,1],'b-')
 
@@ -111,7 +117,8 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
             deltaz = zmax-zmin
             deltaratio = deltaz/deltax
 
-            plt.quiver(fit_points_np[:,0],fit_points_np[:,1], deltaratio*fit_vels_np[:,0], fit_vels_np[:,1], color='r')
+            #plt.quiver(fit_points_np[:,0],fit_points_np[:,1], deltaratio*fit_vels_np[:,0], fit_vels_np[:,1], color='r')
+            plt.quiver(gt_points_np[:,0],gt_points_np[:,1], deltaratio*gt_vels_np[:,0], gt_vels_np[:,1], color='g')
 
             velocity_err = kinematic_loss(fit_vels_scaled, gt_vels).item()
             print("\nMean velocity error: %f\n" % (velocity_err))
@@ -283,18 +290,25 @@ def go():
     optimizerpostfix = "epoch_%d_optimizer.pt"
     
     main_dir = args.output_directory
-    experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingbezierpredictor")
-    experiment.log_parameters(config)
-    experiment.log_parameters(dataset_config)
-    experiment.add_tag("bezierpredictor")
-    experiment_config = {"experiment_key": experiment.get_key()}
-    output_directory = os.path.join(main_dir, experiment.get_key())
-    if os.path.isdir(output_directory) :
-        raise FileExistsError("%s already exists, this should not happen." %(output_directory) )
-    os.makedirs(output_directory)
-    yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
-    yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
-    yaml.dump(config, stream=open(os.path.join(output_directory,"model_config.yaml"), "w"), Dumper = yaml.SafeDumper)
+    if not debug:
+        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingbezierpredictor")
+        experiment.log_parameters(config)
+        experiment.log_parameters(dataset_config)
+        experiment.add_tag("bezierpredictor")
+        experiment_config = {"experiment_key": experiment.get_key()}
+        output_directory = os.path.join(main_dir, experiment.get_key())
+        if os.path.isdir(output_directory) :
+            raise FileExistsError("%s already exists, this should not happen." %(output_directory) )
+        os.makedirs(output_directory)
+        yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
+        yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
+        yaml.dump(config, stream=open(os.path.join(output_directory,"model_config.yaml"), "w"), Dumper = yaml.SafeDumper)
+    else:
+        output_directory = os.path.join(main_dir, "debug")
+        os.makedirs(output_directory, exist_ok=True)
+
+   
+    
     
     
         
