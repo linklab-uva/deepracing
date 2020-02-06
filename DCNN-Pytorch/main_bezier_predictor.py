@@ -85,6 +85,7 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
         fit_vels_scaled = fit_vels/dt[:,None,None]
         pred_vels_scaled = pred_vels/dt[:,None,None]
         if debug:
+            fig = plt.figure()
             images_np = image_torch[0].detach().cpu().numpy().copy()
             num_images = images_np.shape[0]
             print(num_images)
@@ -94,8 +95,8 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
                 images_np_transpose[i]=skimage.util.img_as_ubyte(images_np[i].transpose(1,2,0))
                 im = plt.imshow(images_np_transpose[i], animated=True)
                 ims.append([im])
-            ani = animation.ArtistAnimation(plt.figure(), ims, interval=250, blit=True, repeat_delay=2000)
-            #fig = plt.figure()
+            ani = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat_delay=2000)
+            fig2 = plt.figure()
             gt_points_np = gt_points[0,:].detach().cpu().numpy().copy()
             fit_points_np = torch.matmul(Mpos, controlpoints_fit)[0].cpu().numpy().copy()
             plt.plot(gt_points_np[:,0],gt_points_np[:,1],'r+')
