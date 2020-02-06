@@ -18,8 +18,7 @@ import FrameId_pb2
 import scipy.interpolate
 import deepracing.backend
 import deepracing.pose_utils
-from deepracing.pose_utils import getAllImageFilePackets, getAllMotionPackets
-from deepracing.protobuf_utils import getAllSessionPackets
+from deepracing.protobuf_utils import getAllSessionPackets, getAllImageFilePackets, getAllMotionPackets, extractPose, extractVelocity
 from tqdm import tqdm as tqdm
 import yaml
 import shutil
@@ -79,8 +78,8 @@ if spectating:
     else:
         car_index = car_indices[0]
 
-image_tags = deepracing.pose_utils.getAllImageFilePackets(image_folder, args.json)
-motion_packets = deepracing.pose_utils.getAllMotionPackets(motion_data_folder, args.json)
+image_tags = getAllImageFilePackets(image_folder, args.json)
+motion_packets = getAllMotionPackets(motion_data_folder, args.json)
 motion_packets = sorted(motion_packets, key=udpPacketKey)
 session_times = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets])
 system_times = np.array([packet.timestamp/1000.0 for packet in motion_packets])
@@ -110,8 +109,8 @@ print("Range of session times: [%f,%f]" %(session_times[0], session_times[-1]))
 print("Range of udp system times: [%f,%f]" %(system_times[0], system_times[-1]))
 print("Range of image system times: [%f,%f]" %(image_timestamps[0], image_timestamps[-1]))
 
-poses = [deepracing.pose_utils.extractPose(packet.udp_packet, car_index=car_index) for packet in motion_packets]
-velocities = np.array([deepracing.pose_utils.extractVelocity(packet.udp_packet, car_index=car_index) for packet in motion_packets])
+poses = [extractPose(packet.udp_packet, car_index=car_index) for packet in motion_packets]
+velocities = np.array([extractVelocity(packet.udp_packet, car_index=car_index) for packet in motion_packets])
 positions = np.array([pose[0] for pose in poses])
 position_diffs = np.diff(positions, axis=0)
 position_diff_norms = la.norm(position_diffs, axis=1)

@@ -1,6 +1,7 @@
 import TimestampedPacketSessionData_pb2
 import TimestampedPacketCarTelemetryData_pb2
 import TimestampedPacketMotionData_pb2
+import TimestampedImage_pb2
 import PacketMotionData_pb2
 import CarTelemetryData_pb2
 import Spline2DParams_pb2
@@ -8,7 +9,9 @@ import os
 import google.protobuf.json_format
 import scipy.interpolate
 import numpy as np
+import numpy.linalg as la
 from scipy.spatial.transform import Rotation as Rot
+from tqdm import tqdm as tqdm
 
 def splineSciPyToPB(splineSciPy : scipy.interpolate.BSpline, tmin,tmax,Xmin,Xmax,Zmin,Zmax):
    return Spline2DParams_pb2.Spline2DParams(XParams = splineSciPy.c[:,0], ZParams = splineSciPy.c[:,1],degree=splineSciPy.k, knots=splineSciPy.t,\
@@ -128,17 +131,20 @@ def getAllImageFilePackets(image_data_folder: str, use_json: bool):
          google.protobuf.json_format.Parse(jsonstring, data)
          image_packets.append(data)
    else:
+      print("Attempting to read pb files in : %s" %(image_data_folder))
       filepaths = [os.path.join(image_data_folder, f) for f in os.listdir(image_data_folder) if os.path.isfile(os.path.join(image_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".pb"]
       for filepath in tqdm(filepaths):
          try:
+            print("Attempting to open: %s" %(filepath))
             data = TimestampedImage_pb2.TimestampedImage()
             f = open(filepath,'rb')
             data.ParseFromString(f.read())
             f.close()
             image_packets.append(data)
-         except:
-            f.close()
+         except Exception as ex:
+            #f.close()
             print("Could not read image data file %s." %(filepath))
+            print(ex)
             continue
    return image_packets
 

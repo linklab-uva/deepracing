@@ -10,7 +10,8 @@ import cv2
 import deepracing.imutils
 import random
 import yaml
-from deepracing.pose_utils import getAllImageFilePackets
+from deepracing.protobuf_utils import getAllImageFilePackets
+from tqdm import tqdm as tqdm
 def packetSortKey(packet):
     return packet.timestamp
 def extractROI(x, y, w, h, image):
