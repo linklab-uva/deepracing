@@ -12,8 +12,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
-option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
 if(WIN32)
+    option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
     option(STATIC_CRT "Build against static CRT libraries (Only relevant on Windows)" OFF)
     option(WIN10API "Build against the Windows 10 Runtime" ON)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -40,6 +40,7 @@ if(WIN32)
         endforeach(flag_var)
     endif()
 else()
+    option(BUILD_SHARED_LIBS "Build Shared Libraries" ON)
     set_property(GLOBAL PROPERTY USE_FOLDERS OFF)
 endif()
 
