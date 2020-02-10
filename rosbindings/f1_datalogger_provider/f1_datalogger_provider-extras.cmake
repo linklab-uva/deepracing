@@ -1,7 +1,10 @@
-if(DEFINED ENV{f1_datalogger_DIR}) 
+if(f1_datalogger_DIR)
+    message(STATUS "Using manually specified f1_datalogger_DIR: ${f1_datalogger_DIR}")
+elseif(DEFINED ENV{f1_datalogger_DIR}) 
     set(f1_datalogger_DIR $ENV{f1_datalogger_DIR})
+    message(STATUS "Using environment f1_datalogger_DIR: ${f1_datalogger_DIR}")
 else()
-    set(f1_datalogger_DIR "${f1_datalogger_provider_DIR}/../../../cmake")
+    message(STATUS "Looking for f1_datalogger in the local ament prefix path")
 endif()
 set(BOOST_REQUIRED_COMPONENTS
 date_time
