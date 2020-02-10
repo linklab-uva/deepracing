@@ -109,14 +109,14 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
             plt.plot(fit_points_np[:,0],fit_points_np[:,1],'b-')
 
             #plt.quiver(gt_points_np[:,0],gt_points_np[:,1], gt_vels_np[:,0], gt_vels_np[:,1], color='g')
-            xmin, xmax = np.min(gt_points_np[:,0]), np.max(gt_points_np[:,0])
-            deltax = xmax-xmin
-            zmin, zmax = np.min(gt_points_np[:,1]), np.max(gt_points_np[:,1])
-            deltaz = zmax-zmin
-            deltaratio = deltaz/deltax
+            # xmin, xmax = np.min(gt_points_np[:,0]), np.max(gt_points_np[:,0])
+            # deltax = xmax-xmin
+            # zmin, zmax = np.min(gt_points_np[:,1]), np.max(gt_points_np[:,1])
+            # deltaz = zmax-zmin
+            # deltaratio = deltaz/deltax
 
             #plt.quiver(fit_points_np[:,0],fit_points_np[:,1], deltaratio*fit_vels_np[:,0], fit_vels_np[:,1], color='r')
-            plt.quiver(gt_points_np[:,0],gt_points_np[:,1], deltaratio*gt_vels_np[:,0], gt_vels_np[:,1], color='g')
+            plt.quiver(gt_points_np[:,0],gt_points_np[:,1], gt_vels_np[:,0], gt_vels_np[:,1], color='g', angles='xy')
 
             velocity_err = kinematic_loss(fit_vels_scaled, gt_vels).item()
             print("\nMean velocity error: %f\n" % (velocity_err))

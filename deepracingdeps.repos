@@ -1,0 +1,30 @@
+repositories:
+  ros-visualization/qt_gui_icons:
+    type: git
+    url: https://github.com/ros-visualization/qt_gui_icons.git
+    version: master
+  ros2/vision_opencv:
+    type: git
+    url: https://github.com/linklab-uva/vision_opencv.git
+    version: windows-fixes
+  ros2/image_common:
+    type: git
+    url: https://github.com/linklab-uva/image_common.git
+    version: ros2windows
+  ros2/image_transport_plugins:
+    type: git
+    url: https://github.com/linklab-uva/image_transport_plugins.git
+    version: ros2
+  ros-visualization/qt_gui_core:
+    type: git
+    url: https://github.com/Electric-Turtle/qt_gui_core.git
+    version: windows-fixes
+  ros-visualization/python_qt_binding:
+    type: git
+    url: https://github.com/Electric-Turtle/python_qt_binding.git
+    version: allow-specifying-qmake
+  ros-visualization/rqt_image_view:
+    type: git
+    url: https://github.com/linklab-uva/rqt_image_view.git
+    version: windows-fixes
+
