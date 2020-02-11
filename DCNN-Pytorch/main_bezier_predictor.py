@@ -237,6 +237,7 @@ def go():
     num_workers = config["num_workers"]
     use_float = config["use_float"]
     hidden_dim = config["hidden_dimension"]
+    loss_reduction = config["loss_reduction"]
     num_recurrent_layers = config.get("num_recurrent_layers",1)
     config["hostname"] = socket.gethostname()
     
@@ -250,8 +251,8 @@ def go():
         timewise_weights = torch.from_numpy( np.hstack( ( np.ones(numones), np.linspace(1,3, ppd - numones ) ) ) )
     else:
         timewise_weights = None
-    params_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss()
-    kinematic_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss(timewise_weights=timewise_weights)
+    params_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss(time_reduction=loss_reduction)
+    kinematic_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss(time_reduction=loss_reduction)
     if use_float:
         print("casting stuff to float")
         net = net.float()
