@@ -82,7 +82,7 @@ def evalDataset(dset_dir, inner_trackfile, outer_trackfile, plot = False):
         failuretimediffs = np.array([failuretimes[0,0]]+[(failuretimes[i+1,0]-failuretimes[i,1]) for i in range(0,failuretimes.shape[0]-1)])
         
         failuredistances = np.array([(cummulativenormsums[failureregions[i,0]],cummulativenormsums[failureregions[i,1]-1] )  for i in range(failureregions.shape[0])])
-        failuredistancediffs = np.array([failuredistances[0,0]]+[(failuredistances[i+1,0]-failuredistances[i,1]) for i in range(0,failuretimes.shape[0]-1)])
+        failuredistancediffs = np.array([failuredistances[0,0]]+[(failuredistances[i+1,0]-failuredistances[i,1]) for i in range(0,failuredistances.shape[0]-1)])
         
         # print(failuretimes)
         # print(failuretimediffs)

@@ -13,16 +13,18 @@ import scipy.spatial
 import deepracing.evaluation_utils
 def analyzedatasets(main_dir,subdirs,prefix):
     mtbf= np.zeros(runmax)
-    mean_failure_distances = np.zeros(runmax)
+    mdbf= np.zeros(runmax)
+    mean_failure_scores = np.zeros(runmax)
     num_failures = np.zeros(runmax)
     for (i, dset) in enumerate(subdirs):
         print("Running dataset %d for %s:"%(i+1, prefix), flush=True)
         dset_dir = os.path.join(main_dir, dset)
-        failuredistances, failuretimes, failuretimediffs, failuredistances, failuredistancediffs \
+        failurescores, failuretimes, failuretimediffs, failuredistances, failuredistancediffs \
             = deepracing.evaluation_utils.evalDataset(dset_dir,\
             "../tracks/Australia_innerlimit.track", "../tracks/Australia_outerlimit.track", plot=plot)
         mtbf[i] = np.mean(failuretimediffs)
-        mean_failure_distances[i] = np.mean(failuredistances)
+        mdbf[i] = np.mean(failuredistancediffs)
+        mean_failure_scores[i] = np.mean(failurescores)
         num_failures[i] = float(failuredistances.shape[0])
         # print( "Number of failures: %d" % ( num_failures[i] ) )
         # print( "Mean time between failures: %f" % ( mtbf[i] ) )
@@ -31,7 +33,8 @@ def analyzedatasets(main_dir,subdirs,prefix):
     print("Results for %s:"%(prefix))
     print( "Average Number of failures: %d" % ( np.mean(num_failures) ) , flush=True)
     print( "Overall Mean time between failures: %f" % ( np.mean(mtbf) ) , flush=True)
-    print( "Overall Mean failure distance: %f" % (  np.mean(mean_failure_distances)  ) , flush=True)
+    print( "Overall Mean distance between failures: %f" % ( np.mean(mdbf) ) , flush=True)
+    print( "Overall Mean failure score: %f" % (  np.mean(mean_failure_scores)  ) , flush=True)
     print("\n")
 parser = argparse.ArgumentParser()
 parser.add_argument("main_dir", help="Directory of the evaluation datasets",  type=str)
