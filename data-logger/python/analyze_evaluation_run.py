@@ -18,7 +18,8 @@ def analyzedatasets(main_dir,subdirs,prefix):
     for (i, dset) in enumerate(subdirs):
         print("Running dataset %d for %s:"%(i+1, prefix), flush=True)
         dset_dir = os.path.join(main_dir, dset)
-        failuredistances, failuretimes, failuretimediffs = deepracing.evaluation_utils.evalDataset(dset_dir,\
+        failuredistances, failuretimes, failuretimediffs, failuredistances, failuredistancediffs \
+            = deepracing.evaluation_utils.evalDataset(dset_dir,\
             "../tracks/Australia_innerlimit.track", "../tracks/Australia_outerlimit.track", plot=plot)
         mtbf[i] = np.mean(failuretimediffs)
         mean_failure_distances[i] = np.mean(failuredistances)
