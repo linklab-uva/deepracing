@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import deepracing.protobuf_utils as proto_utils
 import scipy
 import scipy.spatial
+import numpy.linalg as la
 def udpPacketKey(packet):
     return packet.udp_packet.m_header.m_sessionTime
 def contiguous_regions(condition):
@@ -34,6 +35,10 @@ def evalDataset(dset_dir, inner_trackfile, outer_trackfile, plot = False):
     motion_packets = sorted(proto_utils.getAllMotionPackets(motion_dir, False), key = udpPacketKey)
     positions = np.array([proto_utils.extractPosition(p.udp_packet) for p in motion_packets])
     xypoints = positions[:,[0,2]]
+    xydiffs = xypoints[1:] - xypoints[:-1]
+    xydiffs = np.vstack((np.zeros(2), xydiffs))
+    diffnorms = la.norm(xydiffs,axis=1)
+    cummulativenormsums = np.cumsum(diffnorms)
 
     rinner, Xinner = proto_utils.loadTrackfile(inner_trackfile)
     router, Xouter = proto_utils.loadTrackfile(outer_trackfile)
@@ -70,9 +75,15 @@ def evalDataset(dset_dir, inner_trackfile, outer_trackfile, plot = False):
 
     if numfailures>0:
         # print("Went off track %d times" %(numfailures,) )
-        failuredistances = np.array([np.mean(distancearray[failureregions[i,0]:failureregions[i,1]])  for i in range(failureregions.shape[0])])
+
+        failurescores = np.array([np.mean(distancearray[failureregions[i,0]:failureregions[i,1]])  for i in range(failureregions.shape[0])])
+        
         failuretimes = np.array([(sessiontime_array[failureregions[i,0]],sessiontime_array[failureregions[i,1]-1] )  for i in range(failureregions.shape[0])])
         failuretimediffs = np.array([failuretimes[0,0]]+[(failuretimes[i+1,0]-failuretimes[i,1]) for i in range(0,failuretimes.shape[0]-1)])
+        
+        failuredistances = np.array([(cummulativenormsums[failureregions[i,0]],cummulativenormsums[failureregions[i,1]-1] )  for i in range(failureregions.shape[0])])
+        failuredistancediffs = np.array([failuredistances[0,0]]+[(failuredistances[i+1,0]-failuredistances[i,1]) for i in range(0,failuretimes.shape[0]-1)])
+        
         # print(failuretimes)
         # print(failuretimediffs)
         if plot:
@@ -87,6 +98,6 @@ def evalDataset(dset_dir, inner_trackfile, outer_trackfile, plot = False):
                 plt.plot(Pathfail[:,0], Pathfail[:,1], label="Followed Path", color="b")
                 plt.legend()
                 plt.show()
-        return failuredistances, failuretimes, failuretimediffs
+        return failurescores, failuretimes, failuretimediffs, failuredistances, failuredistancediffs
     else:
         return None, None, None
