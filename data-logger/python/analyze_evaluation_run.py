@@ -41,7 +41,7 @@ def analyzedatasets(main_dir,subdirs,prefix, results_dir="results", plot=False):
         plt.xlabel("Session Time")
         plt.ylabel("Velocity (kilometer/hour)")
         plt.title("Velocity Plot (Run %d)" %(i,))
-        plt.savefig( "velplot_run_%d.png" % (i,) , bbox_inches='tight')
+        plt.savefig( os.path.join( results_dir, "velplot_run_%d.png" % (i,) ), bbox_inches='tight')
        # del fig
         # print( "Number of failures: %d" % ( num_failures[i] ) )
         # print( "Mean time between failures: %f" % ( mtbf[i] ) )
