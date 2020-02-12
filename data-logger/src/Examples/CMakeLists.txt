@@ -113,7 +113,7 @@ ${PROJECT_NAME}_cv_viewer_example
 )
 if(TARGET ${PROJECT_NAME}_pure_pursuit_control)
    list(APPEND install_targets ${PROJECT_NAME}_pure_pursuit_control)
-endif(${PROJECT_NAME}_pure_pursuit_control)
+endif(TARGET ${PROJECT_NAME}_pure_pursuit_control)
 
 option(BUILD_MULTITHREADED_EXAMPLE "" ON)
 if(BUILD_MULTITHREADED_EXAMPLE)

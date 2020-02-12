@@ -14,14 +14,17 @@ regex
 system
 thread
 )
-find_package(Boost REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS} )
+set(Boost_USE_STATIC_LIBS OFF)
+find_package(Boost QUIET CONFIG COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
+if(NOT Boost_FOUND)
+    set(Boost_USE_STATIC_LIBS ON)
+    find_package(Boost CONFIG REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
+endif(NOT Boost_FOUND)
 if(WIN32)
     find_package(Armadillo CONFIG REQUIRED)
 else()
     find_package(Armadillo REQUIRED)
 endif()
-
-
 find_package(Protobuf REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
