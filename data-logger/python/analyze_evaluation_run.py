@@ -55,6 +55,7 @@ def analyzedatasets(main_dir,subdirs,prefix, results_dir="results", plot=False):
     resultsdict["grandmean_num_failures"] = np.mean(num_failures)
     resultsdict["grandmean_time_between_failures"] = np.mean(mtbf)
     resultsdict["grandmean_distance_between_failures"] = np.mean(mdbf)
+    print(resultsdict)
     with open(results_fp,'w') as f:
         yaml.dump(resultsdict,f,Dumper=yaml.SafeDumper)
 
