@@ -20,6 +20,7 @@ def analyzedatasets(main_dir,subdirs,prefix, results_dir="results", plot=False):
     mean_failure_scores = np.zeros(runmax)
     num_failures = np.zeros(runmax)
     results_dir = os.path.join(main_dir, results_dir, prefix)
+    os.makedirs(results_dir,exist_ok=True)
     results_fp = os.path.join(results_dir, "results.yaml")
     resultsdict : dict = {}
     for (i, dset) in enumerate(subdirs):
@@ -40,7 +41,7 @@ def analyzedatasets(main_dir,subdirs,prefix, results_dir="results", plot=False):
         plt.xlabel("Session Time")
         plt.ylabel("Velocity (kilometer/hour)")
         plt.title("Velocity Plot (Run %d)" %(i,))
-        savefig( "velplot_run_%d.png" % (i,) , bbox_inches='tight')
+        plt.savefig( "velplot_run_%d.png" % (i,) , bbox_inches='tight')
        # del fig
         # print( "Number of failures: %d" % ( num_failures[i] ) )
         # print( "Mean time between failures: %f" % ( mtbf[i] ) )
