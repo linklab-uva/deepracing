@@ -54,7 +54,7 @@ def analyzedatasets(main_dir,subdirs,prefix, results_dir="results", plot=False):
     resultsdict["mean_time_between_failures"] = mtbf.tolist()
     resultsdict["mean_distance_between_failures"] = mdbf.tolist()
 
-    resultsdict["grandmean_failure_scores"] = float(np.mean(mean_failure_scores)))
+    resultsdict["grandmean_failure_scores"] = float(np.mean(mean_failure_scores))
     resultsdict["grandmean_num_failures"] = float(np.mean(num_failures))
     resultsdict["grandmean_time_between_failures"] = float(np.mean(mtbf))
     resultsdict["grandmean_distance_between_failures"] = float(np.mean(mdbf))
