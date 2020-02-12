@@ -28,7 +28,7 @@ def analyzedatasets(main_dir,subdirs,prefix, results_dir="results", plot=False):
     for (i, dset) in enumerate(subdirs):
         print("Running dataset %d for %s:"%(i+1, prefix), flush=True)
         dset_dir = os.path.join(main_dir, dset)
-        motion_packets, failurescores, failuretimes, failuretimediffs, failuredistances, failuredistancediffs, velocities \
+        motion_packets, failurescores, failuretimes, failuretimediffs, failuredistances, failuredistancediffs, velocities, cummulativedistance \
             = deepracing.evaluation_utils.evalDataset(dset_dir,\
             "../tracks/Australia_innerlimit.track", "../tracks/Australia_outerlimit.track", plot=plot)
         velocity_norms = 3.6*la.norm(velocities,axis=1)
@@ -40,11 +40,19 @@ def analyzedatasets(main_dir,subdirs,prefix, results_dir="results", plot=False):
         sessiontime_array = sessiontime_array - sessiontime_array[0]
         fig : matplotlib.figure.Figure = plt.figure()
        # axes : matplotlib.axes.Axes = fig.add_axes()
-        plt.plot(sessiontime_array, velocity_norms, figure=fig)
-        plt.xlabel("Session Time", figure=fig)
+        plt.plot(cummulativedistance, velocity_norms, figure=fig)
+        plt.xlabel("Distance (meters)", figure=fig)
         plt.ylabel("Velocity (kilometer/hour)", figure=fig)
-        plt.title("Velocity Plot (Run %d)" %(i+1,), figure=fig)
-        fig.savefig( os.path.join( output_dir, "velplot_run_%d.png" % (i+1,) ), bbox_inches='tight')
+        plt.title("Velocity versus Distance (Run %d)" %(i+1,), figure=fig)
+        fig.savefig( os.path.join( output_dir, "velplot_distance_run_%d.png" % (i+1,) ), bbox_inches='tight')
+        del fig
+        fig : matplotlib.figure.Figure = plt.figure()
+       # axes : matplotlib.axes.Axes = fig.add_axes()
+        plt.plot(sessiontime_array, velocity_norms, figure=fig)
+        plt.xlabel("Session Time (seconds)", figure=fig)
+        plt.ylabel("Velocity (kilometer/hour)", figure=fig)
+        plt.title("Velocity versus Session Time (Run %d)" %(i+1,), figure=fig)
+        fig.savefig( os.path.join( output_dir, "velplot_time_run_%d.png" % (i+1,) ), bbox_inches='tight')
         del fig
         # print( "Number of failures: %d" % ( num_failures[i] ) )
         # print( "Mean time between failures: %f" % ( mtbf[i] ) )
