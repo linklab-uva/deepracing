@@ -43,8 +43,8 @@ def analyzedatasets(main_dir,subdirs,prefix, results_dir="results", plot=False):
         plt.plot(sessiontime_array, velocity_norms, figure=fig)
         plt.xlabel("Session Time", figure=fig)
         plt.ylabel("Velocity (kilometer/hour)", figure=fig)
-        plt.title("Velocity Plot (Run %d)" %(i,), figure=fig)
-        fig.savefig( os.path.join( output_dir, "velplot_run_%d.png" % (i,) ), bbox_inches='tight')
+        plt.title("Velocity Plot (Run %d)" %(i+1,), figure=fig)
+        fig.savefig( os.path.join( output_dir, "velplot_run_%d.png" % (i+1,) ), bbox_inches='tight')
         del fig
         # print( "Number of failures: %d" % ( num_failures[i] ) )
         # print( "Mean time between failures: %f" % ( mtbf[i] ) )
