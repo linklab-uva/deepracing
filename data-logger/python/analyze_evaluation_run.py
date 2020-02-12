@@ -16,11 +16,12 @@ from matplotlib import pyplot as plt
 import numpy.linalg as la
 import matplotlib.figure
 import matplotlib.axes
-def analyzedatasets(main_dir,subdirs,prefix, results_dir="results", plot=False):
-    mtbf= np.zeros(runmax)
-    mdbf= np.zeros(runmax)
-    mean_failure_scores = np.zeros(runmax)
-    num_failures = np.zeros(runmax)
+def analyzedatasets(main_dir,subdirs, prefix, results_dir="results", plot=False):
+    numruns = len(subdirs)
+    mtbf= np.zeros(numruns)
+    mdbf= np.zeros(numruns)
+    mean_failure_scores = np.zeros(numruns)
+    num_failures = np.zeros(numruns)
     output_dir = os.path.join(main_dir, results_dir, prefix)
     os.makedirs(output_dir,exist_ok=True)
     results_fp = os.path.join(output_dir, "results.yaml")
