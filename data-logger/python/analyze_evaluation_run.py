@@ -40,10 +40,10 @@ def analyzedatasets(main_dir,subdirs,prefix, results_dir="results", plot=False):
         sessiontime_array = sessiontime_array - sessiontime_array[0]
         fig : matplotlib.figure.Figure = plt.figure()
        # axes : matplotlib.axes.Axes = fig.add_axes()
-        plt.plot(sessiontime_array, velocity_norms)
-        plt.xlabel("Session Time")
-        plt.ylabel("Velocity (kilometer/hour)")
-        plt.title("Velocity Plot (Run %d)" %(i,))
+        plt.plot(sessiontime_array, velocity_norms, figure=fig)
+        plt.xlabel("Session Time", figure=fig)
+        plt.ylabel("Velocity (kilometer/hour)", figure=fig)
+        plt.title("Velocity Plot (Run %d)" %(i,), figure=fig)
         fig.savefig( os.path.join( output_dir, "velplot_run_%d.png" % (i,) ), bbox_inches='tight')
         del fig
         # print( "Number of failures: %d" % ( num_failures[i] ) )
