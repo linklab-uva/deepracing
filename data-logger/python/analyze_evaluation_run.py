@@ -14,6 +14,8 @@ import deepracing.evaluation_utils
 import yaml
 from matplotlib import pyplot as plt
 import numpy.linalg as la
+import matplotlib.figure
+import matplotlib.axes
 def analyzedatasets(main_dir,subdirs,prefix, results_dir="results", plot=False):
     mtbf= np.zeros(runmax)
     mdbf= np.zeros(runmax)
@@ -36,13 +38,14 @@ def analyzedatasets(main_dir,subdirs,prefix, results_dir="results", plot=False):
         num_failures[i] = float(failuredistances.shape[0])
         sessiontime_array = np.array([p.udp_packet.m_header.m_sessionTime for p in motion_packets])
         sessiontime_array = sessiontime_array - sessiontime_array[0]
-       # fig = plt.figure()
-        plt.plot(sessiontime_array, velocity_norms)
-        plt.xlabel("Session Time")
-        plt.ylabel("Velocity (kilometer/hour)")
-        plt.title("Velocity Plot (Run %d)" %(i,))
-        plt.savefig( os.path.join( output_dir, "velplot_run_%d.png" % (i,) ), bbox_inches='tight')
-       # del fig
+        fig : matplotlib.figure.Figure = plt.figure()
+        axes : matplotlib.axes.Axes = fig.add_axes()
+        axes.plot(sessiontime_array, velocity_norms)
+        axes.set_xlabel("Session Time")
+        axes.set_ylabel("Velocity (kilometer/hour)")
+        axes.set_title("Velocity Plot (Run %d)" %(i,))
+        fig.savefig( os.path.join( output_dir, "velplot_run_%d.png" % (i,) ), bbox_inches='tight')
+        del fig
         # print( "Number of failures: %d" % ( num_failures[i] ) )
         # print( "Mean time between failures: %f" % ( mtbf[i] ) )
         # print( "Mean failure distance: %f" % ( mean_failure_distances[i] ) )
