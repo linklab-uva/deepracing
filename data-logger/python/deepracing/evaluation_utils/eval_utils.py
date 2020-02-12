@@ -99,6 +99,6 @@ def evalDataset(dset_dir, inner_trackfile, outer_trackfile, plot = False):
                 plt.plot(Pathfail[:,0], Pathfail[:,1], label="Followed Path", color="b")
                 plt.legend()
                 plt.show()
-        return motion_packets, failurescores, failuretimes, failuretimediffs, failuredistances, failuredistancediffs, velocities
+        return motion_packets, failurescores, failuretimes, failuretimediffs, failuredistances, failuredistancediffs, velocities, cummulativenormsums
     else:
-        return motion_packets, None, None, None, None, None, None
+        return motion_packets, None, None, None, None, None, None, None
