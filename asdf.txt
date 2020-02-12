@@ -1,1 +1,0 @@
-python main_bezier_predictor.py uva\dataset_configs\windows\image_arrays.yaml uva\training_configs\bezier_predictor_no_optflow_no_vel_loss_no_param_loss.yaml D:\f1_model_files\bezier_predictor\with_geometric_variants\cleansplinedata_comet_longtraining --tqdm
