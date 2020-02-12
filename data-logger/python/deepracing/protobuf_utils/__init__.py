@@ -3,6 +3,7 @@ from .proto_utils import getAllTelemetryPackets as getAllTelemetryPackets
 from .proto_utils import getAllMotionPackets as getAllMotionPackets
 from .proto_utils import getAllSequenceLabelPackets as getAllSequenceLabelPackets
 from .proto_utils import getAllImageFilePackets as getAllImageFilePackets
+from .proto_utils import getAllLapDataPackets as getAllLapDataPackets
 from .proto_utils import splinePBToSciPy as splinePBToSciPy
 from .proto_utils import splineSciPyToPB as splineSciPyToPB
 from .proto_utils import extractPose as extractPose

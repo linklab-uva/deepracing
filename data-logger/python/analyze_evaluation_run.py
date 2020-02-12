@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 import deepracing.protobuf_utils as proto_utils
 import scipy
 import scipy.spatial
-import deepracing.evaluation_utils
+import deepracing.evaluation_utils as eval_utils
+
 import yaml
 from matplotlib import pyplot as plt
 import numpy.linalg as la
@@ -18,8 +19,9 @@ import matplotlib.figure
 import matplotlib.axes
 def analyzedatasets(main_dir,subdirs, prefix, results_dir="results", plot=False):
     numruns = len(subdirs)
-    mtbf= np.zeros(numruns)
-    mdbf= np.zeros(numruns)
+    mtbf = np.zeros(numruns)
+    mdbf = np.zeros(numruns)
+    laptimes = np.zeros(numruns)
     mean_failure_scores = np.zeros(numruns)
     num_failures = np.zeros(numruns)
     output_dir = os.path.join(main_dir, results_dir, prefix)
@@ -29,9 +31,18 @@ def analyzedatasets(main_dir,subdirs, prefix, results_dir="results", plot=False)
     for (i, dset) in enumerate(subdirs):
         print("Running dataset %d for %s:"%(i+1, prefix), flush=True)
         dset_dir = os.path.join(main_dir, dset)
+        lapdata_dir = os.path.join(dset_dir, "udp_data", "lap_packets")
+        lapdata_packets = sorted(proto_utils.getAllLapDataPackets(lapdata_dir), key=eval_utils.udpPacketKey)
+        print("Got %d lap data packets" %(len(lapdata_packets),))
+        final_lap_packet = lapdata_packets[-1]
+        final_lap_data = final_lap_packet.udp_packet.m_lapData[0]
+        laptimes[i] = float(final_lap_data.m_currentLapTime)
+        #print(final_lap_data)
         motion_packets, failurescores, failuretimes, failuretimediffs, failuredistances, failuredistancediffs, velocities, cummulativedistance \
-            = deepracing.evaluation_utils.evalDataset(dset_dir,\
+            = eval_utils.evalDataset(dset_dir,\
             "../tracks/Australia_innerlimit.track", "../tracks/Australia_outerlimit.track", plot=plot)
+      #  if(failurescores is None):
+            
         velocity_norms = 3.6*la.norm(velocities,axis=1)
         mtbf[i] = np.mean(failuretimediffs)
         mdbf[i] = np.mean(failuredistancediffs)
@@ -62,7 +73,9 @@ def analyzedatasets(main_dir,subdirs, prefix, results_dir="results", plot=False)
     resultsdict["num_failures"] = num_failures.tolist()
     resultsdict["mean_time_between_failures"] = mtbf.tolist()
     resultsdict["mean_distance_between_failures"] = mdbf.tolist()
+    resultsdict["laptimes"] = laptimes.tolist()
 
+    resultsdict["grandmean_laptimes"] = float(np.mean(laptimes))
     resultsdict["grandmean_failure_scores"] = float(np.mean(mean_failure_scores))
     resultsdict["grandmean_num_failures"] = float(np.mean(num_failures))
     resultsdict["grandmean_time_between_failures"] = float(np.mean(mtbf))
@@ -80,10 +93,10 @@ def analyzedatasets(main_dir,subdirs, prefix, results_dir="results", plot=False)
     print("\n", flush=True)
 parser = argparse.ArgumentParser()
 parser.add_argument("main_dir", help="Directory of the evaluation datasets",  type=str)
+parser.add_argument("--runmax", type=int, default=5, help="How many runs to parse on each model")
 args = parser.parse_args()
 main_dir = args.main_dir
-
-runmax = 5
+runmax = args.runmax
 bezier_dsets = ["bezier_predictor_run%d" % i for i in range(1,runmax+1)]
 waypoint_dsets = ["waypoint_predictor_run%d" % i for i in range(1,runmax+1)]
 cnnlstm_dsets = ["cnnlstm_run%d" % i for i in range(1,runmax+1)]
