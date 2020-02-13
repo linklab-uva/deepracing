@@ -93,11 +93,11 @@ regex
 system
 thread
 )
-set(Boost_USE_STATIC_LIBS OFF)
-find_package(Boost QUIET CONFIG COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
+set(Boost_USE_STATIC_LIBS CACHE OFF)
+find_package(Boost QUIET COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
 if(NOT Boost_FOUND)
     set(Boost_USE_STATIC_LIBS ON)
-    find_package(Boost CONFIG REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
+    find_package(Boost REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
 endif(NOT Boost_FOUND)
 # foreach(boost_component_ ${BOOST_REQUIRED_COMPONENTS})
 # endforeach()
