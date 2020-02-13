@@ -93,7 +93,7 @@ regex
 system
 thread
 )
-set(Boost_USE_STATIC_LIBS CACHE OFF)
+set(Boost_USE_STATIC_LIBS OFF)
 find_package(Boost QUIET COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
 if(NOT Boost_FOUND)
     set(Boost_USE_STATIC_LIBS ON)
