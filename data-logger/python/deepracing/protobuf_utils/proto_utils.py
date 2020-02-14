@@ -1,6 +1,7 @@
 import TimestampedPacketSessionData_pb2
 import TimestampedPacketCarTelemetryData_pb2
 import TimestampedPacketMotionData_pb2
+import TimestampedPacketLapData_pb2
 import TimestampedImage_pb2
 import PacketMotionData_pb2
 import CarTelemetryData_pb2
@@ -74,6 +75,30 @@ def labelPacketToNumpy(label_tag):
    linear_velocities = np.array([np.array((vel.vector.x, vel.vector.y, vel.vector.z)) for vel in label_tag.subsequent_linear_velocities])
    angular_velocities = np.array([np.array((vel.vector.x, vel.vector.y, vel.vector.z)) for vel in label_tag.subsequent_angular_velocities])
    return positions, quats, linear_velocities, angular_velocities
+def getAllLapDataPackets(lapdata_packet_folder: str, use_json: bool = False):
+   lapdata_packets = []
+   if use_json:
+      filepaths = [os.path.join(lapdata_packet_folder, f) for f in os.listdir(lapdata_packet_folder) if os.path.isfile(os.path.join(lapdata_packet_folder, f)) and str.lower(os.path.splitext(f)[1])==".json"]
+      jsonstrings = [(open(path, 'r')).read() for path in filepaths]
+      for jsonstring in jsonstrings:
+         data = TimestampedPacketLapData_pb2.TimestampedPacketLapData()
+         google.protobuf.json_format.Parse(jsonstring, data)
+         lapdata_packets.append(data)
+   else:
+      filepaths = [os.path.join(lapdata_packet_folder, f) for f in os.listdir(lapdata_packet_folder) if os.path.isfile(os.path.join(lapdata_packet_folder, f)) and str.lower(os.path.splitext(f)[1])==".pb"]
+      for filepath in filepaths:
+         try:
+            data = TimestampedPacketLapData_pb2.TimestampedPacketLapData()
+            f = open(filepath,'rb')
+            data.ParseFromString(f.read())
+            f.close()
+            lapdata_packets.append(data)
+         except Exception as e:
+            f.close()
+            print(str(e))
+            print("Could not read binary file %s." %(filepath))
+            continue
+   return lapdata_packets
 def getAllSequenceLabelPackets(label_packet_folder: str, use_json: bool = False):
    label_packets = []
    if use_json:

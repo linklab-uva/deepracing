@@ -34,6 +34,7 @@ def evalDataset(dset_dir, inner_trackfile, outer_trackfile, plot = False):
     motion_dir = os.path.join(udp_dir,"motion_packets")
     motion_packets = sorted(proto_utils.getAllMotionPackets(motion_dir, False), key = udpPacketKey)
     positions = np.array([proto_utils.extractPosition(p.udp_packet) for p in motion_packets])
+    velocities = np.array([proto_utils.extractVelocity(p.udp_packet) for p in motion_packets])
     xypoints = positions[:,[0,2]]
     xydiffs = xypoints[1:] - xypoints[:-1]
     xydiffs = np.vstack((np.zeros(2), xydiffs))
@@ -98,6 +99,6 @@ def evalDataset(dset_dir, inner_trackfile, outer_trackfile, plot = False):
                 plt.plot(Pathfail[:,0], Pathfail[:,1], label="Followed Path", color="b")
                 plt.legend()
                 plt.show()
-        return failurescores, failuretimes, failuretimediffs, failuredistances, failuredistancediffs
+        return motion_packets, failurescores, failuretimes, failuretimediffs, failuredistances, failuredistancediffs, velocities, cummulativenormsums
     else:
-        return None, None, None
+        return motion_packets, None, None, None, None, None, None, None
