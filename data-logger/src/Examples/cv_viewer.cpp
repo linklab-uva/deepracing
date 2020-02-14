@@ -31,7 +31,7 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData& data) override
   {
-	//  std::printf("Got a telemetry packet. Steering Ratio: %d\n", data.data.m_carTelemetryData[car_index].m_steer);
+	  std::printf("Got a telemetry packet. Steering Ratio: %d\n", data.data.m_carTelemetryData[car_index].m_steer);
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketEventData& data) override
   {
@@ -43,6 +43,7 @@ public:
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketMotionData& data) override
   {
     
+	  std::printf("Got a motion packet. Front wheel angle: %f\n", data.data.m_frontWheelsAngle);
     
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketParticipantsData& data) override
@@ -96,13 +97,20 @@ public:
     if (!window_made)
     {
       cv::namedWindow(window_name, cv::WINDOW_AUTOSIZE);
-      window_made = true;
     }
     ready = false;
-    cv::Mat imcrop,imresize;
+    cv::Mat imcrop,imresize,imbgr;
     //imcrop = data.image;
     imcrop = data.image(cv::Range(0,(unsigned int)std::round((double)data.image.rows/scale_factor)),cv::Range(0,(unsigned int)std::round((double)data.image.cols/scale_factor)));
     cv::resize(imcrop,imresize,cv::Size(),1.0,1.0);
+    if (!window_made)
+    {
+	    video_writer_.reset(new cv::VideoWriter("out.avi", cv::VideoWriter::fourcc('M','J','P','G'), captureFreq, cv::Size2i(imresize.cols, imresize.rows)));
+      std::cout<<"Using video writer backend: " << video_writer_->getBackendName() << std::endl;
+      window_made = true;
+    }
+    cv::cvtColor(imresize,imbgr, cv::COLOR_BGRA2BGR);
+    video_writer_->write(imbgr);
     cv::imshow(window_name, imresize);
     cv::waitKey(5);
     ready = true;
@@ -131,7 +139,7 @@ public:
 	  this->begin = deepf1::TimePoint(begin);
 	  before = deepf1::TimePoint(begin);
 	  after = deepf1::TimePoint(begin);
-	  video_writer_.reset(new cv::VideoWriter("out.avi", cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), captureFreq, window_size));
+	  //video_writer_.reset(new cv::VideoWriter("out.avi", -1, captureFreq, window_size));
   }
   static constexpr float captureFreq = 30.0;
   const std::string window_name;
@@ -165,11 +173,10 @@ int main(int argc, char** argv)
   deepf1::F1DataLogger dl(search);  
   image_handler->scale_factor=scale_factor;
   dl.start((double)OpenCV_Viewer_Example_FrameGrabHandler::captureFreq, udp_handler, image_handler);
-  std::cout<<"Ctl-c to exit."<<std::endl;
-  while (true)
-  {
-	  std::this_thread::sleep_for( std::chrono::seconds( 5 ) );
-  }
+  std::cout<<"Enter anything to exit."<<std::endl;
+  std::string asdf;
+  std::cin >> asdf;
+ 
 
 }
 
