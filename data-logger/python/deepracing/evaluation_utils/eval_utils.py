@@ -28,11 +28,11 @@ def contiguous_regions(condition):
         idx = np.append(idx, len(condition))
 
     return idx.reshape(-1, 2)
-def evalDataset(dset_dir, inner_trackfile, outer_trackfile, plot = False):
+def evalDataset(dset_dir, inner_trackfile, outer_trackfile, plot = False, json=False):
     image_dir = os.path.join(dset_dir,"images")
     udp_dir = os.path.join(dset_dir,"udp_data")
     motion_dir = os.path.join(udp_dir,"motion_packets")
-    motion_packets = sorted(proto_utils.getAllMotionPackets(motion_dir, False), key = udpPacketKey)
+    motion_packets = sorted(proto_utils.getAllMotionPackets(motion_dir, json), key = udpPacketKey)
     positions = np.array([proto_utils.extractPosition(p.udp_packet) for p in motion_packets])
     velocities = np.array([proto_utils.extractVelocity(p.udp_packet) for p in motion_packets])
     xypoints = positions[:,[0,2]]
@@ -78,12 +78,19 @@ def evalDataset(dset_dir, inner_trackfile, outer_trackfile, plot = False):
         # print("Went off track %d times" %(numfailures,) )
 
         failurescores = np.array([np.mean(distancearray[failureregions[i,0]:failureregions[i,1]])  for i in range(failureregions.shape[0])])
+
         
         failuretimes = np.array([(sessiontime_array[failureregions[i,0]],sessiontime_array[failureregions[i,1]-1] )  for i in range(failureregions.shape[0])])
         failuretimediffs = np.array([failuretimes[0,0]]+[(failuretimes[i+1,0]-failuretimes[i,1]) for i in range(0,failuretimes.shape[0]-1)])
         
         failuredistances = np.array([(cummulativenormsums[failureregions[i,0]],cummulativenormsums[failureregions[i,1]-1] )  for i in range(failureregions.shape[0])])
         failuredistancediffs = np.array([failuredistances[0,0]]+[(failuredistances[i+1,0]-failuredistances[i,1]) for i in range(0,failuredistances.shape[0]-1)])
+
+        failurescores = failurescores[failurescores<1E10]
+        # failuretimes = failuretimes[failurescores<1E10]
+        # failuretimediffs = failuretimediffs[failurescores<1E10]
+        # failuredistances = failuredistances[failurescores<1E10]
+        # failuredistancediffs = failuredistancediffs[failurescores<1E10]
         
         # print(failuretimes)
         # print(failuretimediffs)
@@ -101,4 +108,4 @@ def evalDataset(dset_dir, inner_trackfile, outer_trackfile, plot = False):
                 plt.show()
         return motion_packets, failurescores, failuretimes, failuretimediffs, failuredistances, failuredistancediffs, velocities, cummulativenormsums
     else:
-        return motion_packets, None, None, None, None, None, None, None
+        return motion_packets, None, None, None, None, None, velocities, cummulativenormsums
