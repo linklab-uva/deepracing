@@ -1,7 +1,8 @@
 pure_pursuit_control:
     ros__parameters:
-        model_file : 'D:/f1_model_files/bezier_predictor/with_geometric_variants/cleansplinedata_comet/bezier_predictor_no_optflow_no_vel_loss_no_param_loss/epoch_100_params.pt'
-       #model_file : 'D:/f1_model_files/with_more_data/V2/pose_predictor_aggressive_no_optflow/epoch_40_params.pt'
+        #model_file : 'D:/f1_model_files/bezier_predictor/with_geometric_variants/cleansplinedata_comet/bezier_predictor_no_optflow_no_vel_loss_no_param_loss/epoch_100_params.pt'
+        #model_file : 'D:/f1_model_files/cometpulls/bezier/91a732d8f69141fea3cee04715f2404f_from_comet/epoch_100_params.pt'
+        model_file : 'D:/f1_model_files/cometpulls/bezier/38ad4466dc84463bbba04d3132e9a2ad_from_comet/epoch_100_params.pt'
         # model_file : 'D:/f1_model_files/with_more_data/pose_predictor_no_optflow/epoch_93_params.pt'
         #pgain : 1.25
         #igain : 0.0175
@@ -10,7 +11,7 @@ pure_pursuit_control:
         lookahead_gain : 0.5
         plot : True
         gpu : 0
-        x_scale_factor : 1.45
+        x_scale_factor : 1.00
         velocity_scale_factor: 1.0
         num_sample_points : 60
      #   velocity_lookahead_gain: 0.125
