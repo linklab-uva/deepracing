@@ -1,0 +1,4 @@
+# Imported targets
+set(vJoy_plusplus_DIR ${CMAKE_CURRENT_LIST_DIR})
+find_package(vJoy_plusplus CONFIG REQUIRED)
+include("${CMAKE_CURRENT_LIST_DIR}/f1_dataloggerTargets.cmake")

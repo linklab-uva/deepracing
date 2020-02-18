@@ -24,7 +24,7 @@ target_link_libraries(${PROJECT_NAME}_proto_rebroadcaster
 
 
 if(MSVC)
-	find_package(vJoy_plusplus REQUIRED)
+	#find_package(vJoy_plusplus REQUIRED)
 	set(WITH_VJOY ON)
 	add_executable(${PROJECT_NAME}_generate_vjoy_calibration
 	${${PROJECT_NAME}_generate_vjoy_calibration_srcfile}

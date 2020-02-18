@@ -196,7 +196,11 @@ if(BUILD_DATALOGGER)
         DESTINATION include
         FILES_MATCHING PATTERN "*.h"
     )
-    configure_file(${PROJECT_NAME}-config.cmake.in ${PROJECT_NAME}-config.cmake @ONLY)
+    if(LOCAL_VJOY)
+        configure_file(${PROJECT_NAME}-config-withlocalvjoypp.cmake.in ${PROJECT_NAME}-config.cmake @ONLY)
+    else()
+        configure_file(${PROJECT_NAME}-config.cmake.in ${PROJECT_NAME}-config.cmake @ONLY)
+    endif(LOCAL_VJOY)
     install(FILES ${CMAKE_BINARY_DIR}/${PROJECT_NAME}-config.cmake DESTINATION cmake/)
     unset(install_targets)
 endif()

@@ -1,19 +1,22 @@
 if(MSVC)
-    find_package(vJoy_plusplus REQUIRED)
+    find_package(vJoy_plusplus CONFIG QUIET)
+	if ( TARGET vjoy::vJoy_plusplus)
+		message(STATUS "Found external vJoy_plusplus at ${vJoy_plusplus_DIR}")
+		set(LOCAL_VJOY FALSE )
+		set(LOCAL_VJOY ${LOCAL_VJOY} PARENT_SCOPE)
+		set_target_properties(vjoy::vJoy_plusplus PROPERTIES IMPORTED_GLOBAL TRUE)
+	else()
+		message(STATUS "Using internal vJoy_plusplus")
+		add_subdirectory(${CMAKE_SOURCE_DIR}/third_party/vJoy/SDK ${CMAKE_BINARY_DIR}/third_party/vJoy)
+		add_library(vjoy::vJoy_plusplus ALIAS vJoy_plusplus)
+		set(LOCAL_VJOY TRUE )
+		set(LOCAL_VJOY ${LOCAL_VJOY} PARENT_SCOPE)
+	endif ( TARGET vjoy::vJoy_plusplus)
 	set(controllers_SRCS
 		windows/vjoy_interface.cpp
 		windows/f1_interface_factory.cpp
 	)
 	set(additional_controller_libs_ vjoy::vJoy_plusplus)
-	# get_target_property(vjoy_library_type_ vjoy::vJoy_plusplus TYPE)
-	# if("${vjoy_library_type_}" STREQUAL "SHARED_LIBRARY")
-	# 	string(TOUPPER ${CMAKE_BUILD_TYPE} dll_postfix_)
-	# 	get_target_property(vjoyppdll_ vjoy::vJoy_plusplus IMPORTED_LOCATION_${dll_postfix_})
-	# 	add_custom_target(copy_vjoy_dll ALL
-	# 	COMMAND ${CMAKE_COMMAND} -E copy ${vjoyppdll_} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
-	# 	DEPENDS ${PROJECT_NAME}_controllers
-	# 	)
-	# endif()
 elseif(APPLE)
 	set(controllers_SRCS
 		ios/f1_interface_factory.cpp
