@@ -28,6 +28,41 @@ def contiguous_regions(condition):
         idx = np.append(idx, len(condition))
 
     return idx.reshape(-1, 2)
+def getRacePlots(dset_dir, json=False):
+    motion_dir = os.path.join(dset_dir ,"udp_data","motion_packets")
+    lap_dir = os.path.join(dset_dir ,"udp_data","lap_packets")
+    telemetry_dir = os.path.join(dset_dir,"udp_data","car_telemetry_packets")
+    motion_packets = sorted(proto_utils.getAllMotionPackets(motion_dir, json), key = udpPacketKey)
+    lap_packets = sorted(proto_utils.getAllLapDataPackets(lap_dir, json), key = udpPacketKey)
+    telemetry_packets = sorted(proto_utils.getAllTelemetryPackets(telemetry_dir, json), key = udpPacketKey)
+
+    laptimes =  np.array([p.udp_packet.m_lapData[0].m_currentLapTime for p in lap_packets])
+    laptimedt = np.diff(laptimes)
+    drops = laptimedt<0
+    lapstart = np.argmax(drops)+1
+    if np.sum(drops.astype(np.int32))>1:
+        lapend = lapstart + np.argmax(drops[lapstart+1:]) + 2
+    else:
+        lapend = len(laptimes)
+    print("Got %d laptimes" %(len(laptimes),))
+    lapstart+=2
+    lapend-=2
+    print("lapstart index :%d" %( lapstart ,))
+    print("lapend index :%d" %( lapend ,))
+    print("Cropping to %d laptimes" %(lapend - lapstart,))
+    sessiontime_lapstart = lap_packets[lapstart].udp_packet.m_header.m_sessionTime
+    sessiontime_lapend = lap_packets[lapend].udp_packet.m_header.m_sessionTime
+    laptimes = lap_packets[lapstart:lapend]
+
+    distances = np.array([p.udp_packet.m_lapData[0].m_lapDistance\
+         for p in lap_packets if (p.udp_packet.m_header.m_sessionTime>=sessiontime_lapstart and p.udp_packet.m_header.m_sessionTime<=sessiontime_lapend)])
+    throttles = np.array([p.udp_packet.m_carTelemetryData[0].m_throttle\
+         for p in telemetry_packets if (p.udp_packet.m_header.m_sessionTime>=sessiontime_lapstart and p.udp_packet.m_header.m_sessionTime<=sessiontime_lapend)])/100.0
+    steering = -np.array([p.udp_packet.m_carTelemetryData[0].m_steer\
+         for p in telemetry_packets if (p.udp_packet.m_header.m_sessionTime>=sessiontime_lapstart and p.udp_packet.m_header.m_sessionTime<=sessiontime_lapend)])/100.0
+    velocities = 3.6*np.array([proto_utils.extractVelocity(p.udp_packet)\
+         for p in motion_packets if (p.udp_packet.m_header.m_sessionTime>=sessiontime_lapstart and p.udp_packet.m_header.m_sessionTime<=sessiontime_lapend)])
+    return distances, throttles, steering, velocities
 def evalDataset(dset_dir, inner_trackfile, outer_trackfile, plot = False, json=False):
     image_dir = os.path.join(dset_dir,"images")
     udp_dir = os.path.join(dset_dir,"udp_data")
