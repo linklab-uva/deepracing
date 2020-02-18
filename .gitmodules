@@ -13,3 +13,6 @@
 [submodule "DCNN-Pytorch/kfac"]
 	path = DCNN-Pytorch/kfac
 	url = https://github.com/alecwangcq/KFAC-Pytorch.git
+[submodule "data-logger/third_party/vJoy"]
+	path = data-logger/third_party/vJoy
+	url = https://github.com/linklab-uva/vJoy.git
