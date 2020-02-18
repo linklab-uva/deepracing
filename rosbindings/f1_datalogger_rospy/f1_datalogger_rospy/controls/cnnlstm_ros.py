@@ -42,6 +42,10 @@ from rclpy.clock import Clock, ROSClock
 import deepracing_models.nn_models.Models as M
 from scipy.spatial.transform import Rotation as Rot
 import cv_bridge, cv2, numpy as np
+from scipy.signal import butter, lfilter
+from scipy.signal import freqs, bilinear
+from numpy_ringbuffer import RingBuffer as RB
+import time
 class CNNLSTMROS(Node):
     def __init__(self):
         super(CNNLSTMROS,self).__init__('cnnlstm_control', allow_undeclared_parameters=True, automatically_declare_parameters_from_overrides=True)
@@ -79,6 +83,16 @@ class CNNLSTMROS(Node):
         self.net.eval()    
         self.rosclock = ROSClock()
         self.cvbridge : cv_bridge.CvBridge = cv_bridge.CvBridge()
+        capacity=10
+        self.steer_buffer = RB(capacity)
+        self.accel_buffer = RB(capacity)
+        cutoff_freq = 12.5 # 1 hz filter
+        b,a = butter(3,cutoff_freq,analog=True)
+        fs = 90.888099
+        self.dt = 1/fs
+        z, p = bilinear(b,a,fs=fs)
+        self.z = z
+        self.p = p
 
 
         if use_compressed_images_param.get_parameter_value().bool_value:
@@ -95,7 +109,7 @@ class CNNLSTMROS(Node):
         self.running=False
     def controlLoop(self):
         while self.running:
-
+            t1 = time.time()
             imnp = np.array(self.image_buffer).astype(np.float64).copy()
             imtorch = torch.from_numpy(imnp.copy())
             #print(imtorch.shape)
@@ -104,10 +118,22 @@ class CNNLSTMROS(Node):
             controlout = self.net(imtorch.unsqueeze(0).cuda(self.gpu))
             steering = controlout[0,0,0].item()
             differential = controlout[0,0,1].item()
+            self.steer_buffer.append(steering)
+            self.accel_buffer.append(differential)
+            if not (self.steer_buffer.is_full and self.accel_buffer.is_full):
+                continue
+            steering_filtered = lfilter(self.z,self.p,np.array(self.steer_buffer))
+            accel_filtered = np.array(self.accel_buffer)
+            #accel_filtered = lfilter(self.z,self.p,np.array(self.accel_buffer))
+            steering = 1.5*steering_filtered[-1]
+            differential = 10.0*accel_filtered[-1]
             if differential>0:
                 self.controller.setControl(-steering, differential, 0.0)
             else:
                 self.controller.setControl(-steering, 0.0, -differential)
+            t2 = time.time()
+            dt = t2-t1
+            print("dt: %f. fs: %f", (dt,1/dt))
     def compressedImageCallback(self, img_msg : CompressedImage):
        # print("Got a compressed image")
         try:

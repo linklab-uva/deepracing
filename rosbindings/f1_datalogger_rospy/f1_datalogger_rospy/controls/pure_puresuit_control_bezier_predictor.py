@@ -32,7 +32,7 @@ import torch.nn as NN
 import torch.utils.data as data_utils
 import matplotlib.pyplot as plt
 from sensor_msgs.msg import Image, CompressedImage
-from f1_datalogger_msgs.msg import PathRaw, ImageWithPath
+from f1_datalogger_msgs.msg import PathRaw, ImageWithPath, BezierCurve as BCMessage
 from geometry_msgs.msg import Vector3Stamped, Vector3, PointStamped, Point, PoseStamped, Pose, Quaternion
 from nav_msgs.msg import Path
 from std_msgs.msg import Float64, Header
@@ -85,7 +85,7 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         #     self.xgt = np.vstack((x.copy().transpose(),np.ones(x.shape[0])))
         #     self.xdotgt = xdot.copy().transpose()
         #     self.tgt = t.copy()    
-        self.path_publisher = self.create_publisher(ImageWithPath, "/predicted_path", 10)
+        self.path_publisher = self.create_publisher(BCMessage, "/predicted_path", 1)
         model_file_param = self.get_parameter("model_file")
         if (model_file_param.type_==Parameter.Type.NOT_SET):
             raise ValueError("The parameter \"model_file\" must be set for this rosnode")
@@ -216,11 +216,8 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         #print(x_samp)
         distances_samp = la.norm(x_samp, axis=1)
         if self.plot:
-            plotmsg : ImageWithPath = ImageWithPath()
-            plotmsg.path = PathRaw(header = Header(frame_id = "car", stamp = stamp), posx = x_samp[:,0], posz = x_samp[:,1], velx = v_samp[:,0], velz = v_samp[:,1]  )
-            imnpcurr = np.round((255.0*imnp[-1])).astype(np.uint8).transpose(1,2,0)
-            plotmsg.image = self.cvbridge.cv2_to_imgmsg(imnpcurr, encoding='rgb8')
-            plotmsg.image.header = plotmsg.path.header
+            bezier_control_points_np = bezier_control_points[0].cpu().detach().numpy()
+            plotmsg : BCMessage = BCMessage(header = Header(frame_id = "car", stamp = stamp), control_points_x = bezier_control_points_np[:,0], control_points_z = bezier_control_points_np[:,1] )
             self.path_publisher.publish(plotmsg)
         return x_samp, v_samp, distances_samp
         

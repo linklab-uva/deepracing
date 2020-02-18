@@ -135,6 +135,8 @@ for i in range(1,runmax+1):
     lap_packets_bezier = sorted(proto_utils.getAllLapDataPackets(lap_dir_bezier, json), key = eval_utils.udpPacketKey)
     telemetry_packets_bezier = sorted(proto_utils.getAllTelemetryPackets(telemetry_dir_bezier, json), key = eval_utils.udpPacketKey)
 
+    
+
     motion_dir_waypoint = os.path.join(main_dir, "waypoint_predictor_run%d" % (i,), "udp_data", "motion_packets")
     lap_dir_waypoint = os.path.join(main_dir, "waypoint_predictor_run%d" % (i,), "udp_data", "lap_packets")
     telemetry_dir_waypoint = os.path.join(main_dir,"waypoint_predictor_run%d" % (i,) ,"udp_data","car_telemetry_packets")

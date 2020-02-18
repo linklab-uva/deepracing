@@ -79,7 +79,7 @@ class AdmiralNetWaypointPredictorROS(PPC):
     def __init__(self, trackfile=None,  lookahead_gain : float = 0.4, L : float= 3.617, pgain: float=0.5, igain : float=0.0125, dgain : float=0.0125, plot : bool =True, gpu : int=0, deltaT : float = 1.415):
         super(AdmiralNetWaypointPredictorROS, self).__init__(lookahead_gain = lookahead_gain, L = L ,\
                                                     pgain=pgain, igain=igain, dgain=dgain)
-        self.path_publisher = self.create_publisher(ImageWithPath, "predicted_path", 10)
+        self.path_publisher = self.create_publisher(PathRaw, "/predicted_path", 10)
         model_file_param = self.get_parameter("model_file")
         if (model_file_param.type_==Parameter.Type.NOT_SET):
             raise ValueError("The parameter \"model_file\" must be set for this rosnode")
@@ -200,11 +200,7 @@ class AdmiralNetWaypointPredictorROS(PPC):
         #print(x_samp)
         distances_samp = la.norm(x_samp, axis=1)
         if self.plot:
-            plotmsg : ImageWithPath = ImageWithPath()
-            plotmsg.path = PathRaw(header = Header(frame_id = "car", stamp = stamp), posx = x_samp[:,0], posz = x_samp[:,1], velx = v_samp[:,0], velz = v_samp[:,1]  )
-            imnpcurr = np.round((255.0*imnp[-1])).astype(np.uint8).transpose(1,2,0)
-            plotmsg.image = self.cvbridge.cv2_to_imgmsg(imnpcurr, encoding='rgb8')
-            plotmsg.image.header = plotmsg.path.header
+            plotmsg : PathRaw = PathRaw(header = Header(frame_id = "car", stamp = stamp), posx = x_samp[:,0], posz = x_samp[:,1], velx = v_samp[:,0], velz = v_samp[:,1]  )
             self.path_publisher.publish(plotmsg)
         return x_samp, v_samp, distances_samp
         

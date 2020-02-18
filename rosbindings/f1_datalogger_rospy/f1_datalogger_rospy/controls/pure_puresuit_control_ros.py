@@ -75,39 +75,39 @@ class PurePursuitControllerROS(Node):
         time.sleep(0.5)
     def velocityControl(self, msg : TimestampedPacketMotionData):
         #print("got some motion data")
-        ierr_max = 50.0
-        prev_err = 0.0
-        dt=0.01
-        pgain = self.pgain
-        igain = self.igain
-        dgain = self.dgain
+        # ierr_max = 50.0
+        # prev_err = 0.0
+        # dt=0.01
+        # pgain = self.pgain
+        # igain = self.igain
+        # dgain = self.dgain
         packet : PacketMotionData = msg.udp_packet
         self.current_motion_packet = deepcopy(packet)
         motion_data_vec : list = packet.car_motion_data
         if len(motion_data_vec)==0:
             return
-        self.current_motion_data = deepcopy(motion_data_vec[0])
+        self.current_motion_data = motion_data_vec[0]
         velrosstamped : Vector3Stamped = self.current_motion_data.world_velocity
         if (velrosstamped.header.frame_id == ""):
-            return
+           return
         velros : Vector3 = velrosstamped.vector
         vel = np.array( (velros.x, velros.y, velros.z), dtype=np.float64)
         speed = la.norm(vel)
         self.current_speed = speed
-        err = self.velsetpoint - speed
-        if self.prev_err is None:
-            self.prev_err = err
-            return
-        self.integral += err*dt
-        deriv = (err-self.prev_err)/dt
-        out = pgain*err + igain*self.integral + dgain*deriv
-        if out<-1.0:
-            self.throttle_out = -1.0
-        elif out>1.0:
-            self.throttle_out = 1.0
-        else:
-            self.throttle_out = out
-        self.prev_err = err
+        # err = self.velsetpoint - speed
+        # if self.prev_err is None:
+        #     self.prev_err = err
+        #     return
+        # self.integral += err*dt
+        # deriv = (err-self.prev_err)/dt
+        # out = pgain*err + igain*self.integral + dgain*deriv
+        # if out<-1.0:
+        #     self.throttle_out = -1.0
+        # elif out>1.0:
+        #     self.throttle_out = 1.0
+        # else:
+        #     self.throttle_out = out
+        # self.prev_err = err
     def getTrajectory(self):
         return None, None, None
     def lateralControl(self):
@@ -123,6 +123,12 @@ class PurePursuitControllerROS(Node):
             forward_vels = v_local_forward.shape[0]
             self.velsetpoint = la.norm(v_local_forward[int(round(self.velocity_lookahead_gain*(forward_vels-1)))])
             self.setpoint_publisher.publish(Float64(data=3.6*self.velsetpoint))
+            # velrosstamped : Vector3Stamped = deepcopy(self.current_motion_data.world_velocity)
+            # if (velrosstamped.header.frame_id == ""):
+            #     return
+            # velros : Vector3 = velrosstamped.vector
+            # vel = np.array( (velros.x, velros.y, velros.z), dtype=np.float64)
+            # speed = la.norm(vel)
             lookahead_distance = self.lookahead_gain*self.current_speed
             lookahead_index = np.argmin(np.abs(distances_forward-lookahead_distance))
             lookaheadVector = lookahead_positions[lookahead_index]
@@ -131,12 +137,17 @@ class PurePursuitControllerROS(Node):
             alpha = np.arctan2(lookaheadDirection[0],lookaheadDirection[1])
             physical_angle = np.arctan((2 * self.L*np.sin(alpha)) / D)
             if (physical_angle > 0) :
-                delta = 3.79616039*physical_angle# + 0.01004506
+                delta = 3.59814*physical_angle# + 0.01004506
             else:
-                delta = 3.34446413*physical_angle# + 0.01094534
+                delta = 3.99545*physical_angle# + 0.01094534
             #delta = 0.0
-            if self.throttle_out>0.0:
-                self.controller.setControl(delta,self.throttle_out,0.0)
+            if self.velsetpoint>self.current_speed:
+                self.controller.setControl(delta,1.0,0.0)
             else:
-                self.controller.setControl(delta,0.0,-self.throttle_out)
+                self.controller.setControl(delta,0.0,1.0)
+            #print(delta)
+            # if self.throttle_out>0.0:
+            #     self.controller.setControl(delta,self.throttle_out,0.0)
+            # else:
+            #     self.controller.setControl(delta,0.0,-self.throttle_out)
             #print(delta)
