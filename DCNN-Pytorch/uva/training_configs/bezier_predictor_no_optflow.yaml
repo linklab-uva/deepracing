@@ -15,7 +15,7 @@ momentum: 1.0E-4
 loss_weights: [0.25, 1.0, 0.25]
 num_epochs: 100
 num_workers: 0
-position_loss_reduction: "mean"
+loss_reduction: "mean"
 
 #debugging settings
 debug: False

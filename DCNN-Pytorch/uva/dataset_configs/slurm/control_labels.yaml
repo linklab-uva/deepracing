@@ -2,7 +2,7 @@
 image_size: [66,200]
 datasets:
   -
-    image_folder: /p/DeepRacing/f1_training_data/MadhurAustraliaFullscreen3/images
+    root_folder: /p/DeepRacing/f1_training_data/MadhurAustraliaFullscreen3/images
     label_folder: /p/DeepRacing/f1_training_data/MadhurAustraliaFullscreen3/steering_labels
     key_file: /p/DeepRacing/f1_training_data/MadhurAustraliaFullscreen3/controloutputkeys.txt
     ROI: [0,0,1920,602]

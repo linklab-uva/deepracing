@@ -280,29 +280,9 @@ def go():
     elif optimizer=="ASGD":
         optimizer = optim.ASGD(net.parameters(), lr = learning_rate)
     elif optimizer=="SGD":
-        optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=0.000, nesterov=True)
+        optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=0.000, nesterov=momentum>0.0)
     else:
         raise ValueError("Uknown optimizer " + optimizer)
-    netpostfix = "epoch_%d_params.pt"
-    optimizerpostfix = "epoch_%d_optimizer.pt"
-    
-    main_dir = args.output_directory
-    if not debug:
-        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingbezierpredictor")
-        experiment.log_parameters(config)
-        experiment.log_parameters(dataset_config)
-        experiment.add_tag("bezierpredictor")
-        experiment_config = {"experiment_key": experiment.get_key()}
-        output_directory = os.path.join(main_dir, experiment.get_key())
-        if os.path.isdir(output_directory) :
-            raise FileExistsError("%s already exists, this should not happen." %(output_directory) )
-        os.makedirs(output_directory)
-        yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
-        yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
-        yaml.dump(config, stream=open(os.path.join(output_directory,"model_config.yaml"), "w"), Dumper = yaml.SafeDumper)
-    else:
-        output_directory = os.path.join(main_dir, "debug")
-        os.makedirs(output_directory, exist_ok=True)
 
    
     
@@ -320,9 +300,10 @@ def go():
     use_optflow = net.input_channels==5
     for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
-        label_folder = dataset["label_folder"]
-        key_file = dataset["key_file"]
-        image_folder = dataset["image_folder"]
+        root_folder = dataset["root_folder"]
+        label_folder = os.path.join(root_folder,"pose_sequence_labels")
+        image_folder = os.path.join(root_folder,"images")
+        key_file = os.path.join(root_folder,"goodkeys.txt")
         apply_color_jitter = dataset.get("apply_color_jitter",False)
         erasing_probability = dataset.get("erasing_probability",0.0)
         label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
@@ -345,10 +326,27 @@ def go():
     dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
                         shuffle=True, num_workers=num_workers, pin_memory=gpu>=0)
     print("Dataloader of of length %d" %(len(dataloader)))
-    if(epochstart==1):
-        i = 0
+    netpostfix = "epoch_%d_params.pt"
+    optimizerpostfix = "epoch_%d_optimizer.pt"
+    
+    main_dir = args.output_directory
+    if not debug:
+        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingbezierpredictor")
+        experiment.log_parameters(config)
+        experiment.log_parameters(dataset_config)
+        experiment.add_tag("bezierpredictor")
+        experiment_config = {"experiment_key": experiment.get_key()}
+        output_directory = os.path.join(main_dir, experiment.get_key())
+        if os.path.isdir(output_directory) :
+            raise FileExistsError("%s already exists, this should not happen." %(output_directory) )
+        os.makedirs(output_directory)
+        yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
+        yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
+        yaml.dump(config, stream=open(os.path.join(output_directory,"model_config.yaml"), "w"), Dumper = yaml.SafeDumper)
     else:
-        i = epochstart
+        output_directory = os.path.join(main_dir, "debug")
+        os.makedirs(output_directory, exist_ok=True)
+    i = 0
     if debug:
         run_epoch(None, net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, debug=debug, use_tqdm=args.tqdm )
     else:
