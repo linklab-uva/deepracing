@@ -9,10 +9,12 @@ use_float: False
 
 #training hyperparameters
 gpu: 0
-batch_size: 100
-learning_rate: 5.0E-4
-momentum: 1.0E-4
-loss_weights: [0.25, 1.0, 0.25]
+batch_size: 256
+learning_rate: 1.0E-6
+momentum: 1.0E-3
+nesterov: False
+dampening: 0.0E-0
+loss_weights: [0.0, 1.0, 0.0]
 num_epochs: 100
 num_workers: 0
 loss_reduction: "mean"

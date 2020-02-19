@@ -26,6 +26,7 @@ import matplotlib.animation as animation
 import time
 import deepracing_models.math_utils.bezier
 import socket
+import json
 
 #torch.backends.cudnn.enabled = False
 def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True):
@@ -164,6 +165,8 @@ def go():
     parser.add_argument("--gpu", type=int, default=None,  help="Override the GPU index specified in the config file")
     parser.add_argument("--learning_rate", type=float, default=None,  help="Override the learning rate specified in the config file")
     parser.add_argument("--momentum", type=float, default=None,  help="Override the momentum specified in the config file")
+    parser.add_argument("--dampening", type=float, default=None,  help="Override the dampening specified in the config file")
+    parser.add_argument("--nesterov", type=float, default=None,  help="Override the nesterov specified in the config file")
     parser.add_argument("--bezier_order", type=int, default=None,  help="Override the order of the bezier curve specified in the config file")
     parser.add_argument("--weighted_loss", action="store_true",  help="Use timewise weights on param loss")
     parser.add_argument("--optimizer", type=str, default="SGD",  help="Optimizer to use")
@@ -223,6 +226,16 @@ def go():
         config["momentum"] = momentum
     else:
         momentum = config["momentum"]
+    if args.dampening is not None:
+        dampening = args.dampening
+        config["dampening"] = dampening
+    else:
+        dampening = config["dampening"]
+    if args.nesterov is not None:
+        nesterov = args.nesterov
+        config["nesterov"] = nesterov
+    else:
+        nesterov = config["nesterov"]
     loss_weights = config["loss_weights"]
     if args.control_point_loss is not None:
         loss_weights[0] = args.control_point_loss
@@ -280,7 +293,12 @@ def go():
     elif optimizer=="ASGD":
         optimizer = optim.ASGD(net.parameters(), lr = learning_rate)
     elif optimizer=="SGD":
-        optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=0.000, nesterov=momentum>0.0)
+        nesterov_ = momentum>0.0 and nesterov
+        if nesterov_:
+            dampening_=0.0
+        else:
+            dampening_=dampening
+        optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=dampening_, nesterov=nesterov_)
     else:
         raise ValueError("Uknown optimizer " + optimizer)
 
@@ -298,9 +316,11 @@ def go():
     
     dsets=[]
     use_optflow = net.input_channels==5
+    dsetfolders = []
     for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
         root_folder = dataset["root_folder"]
+        dsetfolders.append(root_folder)
         label_folder = os.path.join(root_folder,"pose_sequence_labels")
         image_folder = os.path.join(root_folder,"images")
         key_file = os.path.join(root_folder,"goodkeys.txt")
@@ -332,14 +352,19 @@ def go():
     main_dir = args.output_directory
     if not debug:
         experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingbezierpredictor")
-        experiment.log_parameters(config)
-        experiment.log_parameters(dataset_config)
-        experiment.add_tag("bezierpredictor")
-        experiment_config = {"experiment_key": experiment.get_key()}
         output_directory = os.path.join(main_dir, experiment.get_key())
         if os.path.isdir(output_directory) :
             raise FileExistsError("%s already exists, this should not happen." %(output_directory) )
         os.makedirs(output_directory)
+        experiment.log_parameters(config)
+        yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
+        experiment.log_asset(os.path.join(output_directory,"dataset_config.yaml"),file_name="datasets.yaml")
+        #experiment.log_parameters(dataset_config)
+        dsetsjson = json.dumps(dataset_config, indent=1)
+        experiment.log_parameter("datasets",dsetsjson)
+        experiment.log_text(dsetsjson)
+        experiment.add_tag("bezierpredictor")
+        experiment_config = {"experiment_key": experiment.get_key()}
         yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
         yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
         yaml.dump(config, stream=open(os.path.join(output_directory,"model_config.yaml"), "w"), Dumper = yaml.SafeDumper)
