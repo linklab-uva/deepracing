@@ -74,17 +74,6 @@ if(BUILD_DATALOGGER)
 endif()
 
 
-# if(BUILD_SHARED_LIBS)
-#     if(MSVC)
-# 	    #set(CMAKE_STATIC_LIBRARY_PREFIX "")
-# 	    add_definitions( -DBOOST_ALL_NO_LIB )
-#         #set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-# 		set(Boost_NO_SYSTEM_PATHS true)
-# 	endif()
-# 	set(Boost_USE_STATIC_LIBS OFF)
-# else()
-#     set(Boost_USE_STATIC_LIBS ON)
-# endif()
 set(BOOST_REQUIRED_COMPONENTS
 date_time
 filesystem
@@ -93,14 +82,20 @@ regex
 system
 thread
 )
-set(Boost_USE_STATIC_LIBS OFF)
-find_package(Boost CONFIG QUIET COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
-if(NOT Boost_FOUND)
-    set(Boost_USE_STATIC_LIBS ON)
-    find_package(Boost REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
-endif(NOT Boost_FOUND)
-# foreach(boost_component_ ${BOOST_REQUIRED_COMPONENTS})
-# endforeach()
+find_package(Boost CONFIG COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
+if(Boost_FOUND)
+    message(STATUS "Found boost via cmake config at ${Boost_DIR}")
+else()
+
+    set(Boost_USE_STATIC_LIBS OFF)
+    find_package(Boost COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
+    if(NOT Boost_FOUND)
+        set(Boost_USE_STATIC_LIBS ON)
+        find_package(Boost REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
+    endif(NOT Boost_FOUND)
+
+endif(Boost_FOUND)
+
 if(${Boost_VERSION} VERSION_GREATER_EQUAL 1.67.0)
     list(APPEND Boost_LIBRARIES Boost::headers)
 else()
@@ -201,11 +196,8 @@ install(DIRECTORY include/${PROJECT_NAME}
     DESTINATION include
     FILES_MATCHING PATTERN "*.h"
 )
-if(LOCAL_VJOY)
-    configure_file(${PROJECT_NAME}-config-withlocalvjoypp.cmake.in ${PROJECT_NAME}-config.cmake @ONLY)
-else()
-    configure_file(${PROJECT_NAME}-config.cmake.in ${PROJECT_NAME}-config.cmake @ONLY)
-endif(LOCAL_VJOY)
+
+configure_file(${PROJECT_NAME}-config.cmake.in ${PROJECT_NAME}-config.cmake @ONLY)
 install(FILES ${CMAKE_BINARY_DIR}/${PROJECT_NAME}-config.cmake DESTINATION cmake/)
 install(DIRECTORY python/deepracing
     DESTINATION lib/python

@@ -1,17 +1,6 @@
 if(MSVC)
-    find_package(vJoy_plusplus CONFIG QUIET)
-	if ( TARGET vjoy::vJoy_plusplus)
-		message(STATUS "Found external vJoy_plusplus at ${vJoy_plusplus_DIR}")
-		set(LOCAL_VJOY FALSE )
-		set(LOCAL_VJOY ${LOCAL_VJOY} PARENT_SCOPE)
-		set_target_properties(vjoy::vJoy_plusplus PROPERTIES IMPORTED_GLOBAL TRUE)
-	else()
-		message(STATUS "Using internal vJoy_plusplus")
-		add_subdirectory(${CMAKE_SOURCE_DIR}/third_party/vJoy/SDK ${CMAKE_BINARY_DIR}/third_party/vJoy)
-		add_library(vjoy::vJoy_plusplus ALIAS vJoy_plusplus)
-		set(LOCAL_VJOY TRUE )
-		set(LOCAL_VJOY ${LOCAL_VJOY} PARENT_SCOPE)
-	endif ( TARGET vjoy::vJoy_plusplus)
+    find_package(vJoy_plusplus CONFIG REQUIRED)
+	set_target_properties(vjoy::vJoy_plusplus PROPERTIES IMPORTED_GLOBAL TRUE)
 	set(controllers_SRCS
 		windows/vjoy_interface.cpp
 		windows/f1_interface_factory.cpp
