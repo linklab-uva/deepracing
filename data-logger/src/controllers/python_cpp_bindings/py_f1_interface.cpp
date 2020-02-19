@@ -6,19 +6,26 @@ class PyF1Interface {
     {
         interface = deepf1::F1InterfaceFactory::getDefaultInterface(device_id);
     }
+    void pushDRS()
+    {
+        interface->pushDRS();
+    }
     void setControl(float steering, float throttle, float brake)
     {
-        interface->setCommands(deepf1::F1ControlCommand(steering, throttle, brake));
+        current_control = deepf1::F1ControlCommand(steering, throttle, brake);
+        interface->setCommands(current_control);
     }
     private:
+        deepf1::F1ControlCommand current_control;
         std::shared_ptr<deepf1::F1Interface> interface;
 
 };
 namespace py = pybind11;
 
-PYBIND11_MODULE(py_f1_interface, m) {
+PYBIND11_MODULE(py_f1_interface, m)
+{
     py::class_<PyF1Interface> py_f1_interface(m, "F1Interface");
-     py_f1_interface.def(py::init<const unsigned int>())
-        .def("setControl", &PyF1Interface::setControl)
-        ;
+    py_f1_interface.def(py::init<const unsigned int>())
+    .def("pushDRS", &PyF1Interface::pushDRS)
+    .def("setControl", &PyF1Interface::setControl);
 }

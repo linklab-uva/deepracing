@@ -6,6 +6,7 @@ elseif(DEFINED ENV{f1_datalogger_DIR})
 else()
     message(STATUS "Looking for f1_datalogger in the local ament prefix path")
 endif()
+
 set(BOOST_REQUIRED_COMPONENTS
 date_time
 filesystem
@@ -14,12 +15,27 @@ regex
 system
 thread
 )
-set(Boost_USE_STATIC_LIBS OFF)
-find_package(Boost QUIET CONFIG COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
-if(NOT Boost_FOUND)
-    set(Boost_USE_STATIC_LIBS ON)
-    find_package(Boost CONFIG REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
-endif(NOT Boost_FOUND)
+find_package(Boost CONFIG COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
+if(Boost_FOUND)
+    message(STATUS "Found boost via cmake config at ${Boost_DIR}")
+else()
+
+    set(Boost_USE_STATIC_LIBS OFF)
+    find_package(Boost COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
+    if(NOT Boost_FOUND)
+        set(Boost_USE_STATIC_LIBS ON)
+        find_package(Boost REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
+    endif(NOT Boost_FOUND)
+
+endif(Boost_FOUND)
+
+if(${Boost_VERSION} VERSION_GREATER_EQUAL 1.67.0)
+    list(APPEND Boost_LIBRARIES Boost::headers)
+else()
+    include_directories(${Boost_INCLUDE_DIRS})
+endif()
+message(STATUS "Using Boost components: ${Boost_LIBRARIES}")
+
 if(WIN32)
     find_package(Armadillo CONFIG REQUIRED)
 else()

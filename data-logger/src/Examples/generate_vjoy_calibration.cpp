@@ -81,6 +81,10 @@ int main(int argc, char** argv)
 	{
 		direction = 0;
 	}
+	else if (specified_control.compare("drs") == 0)
+	{
+		direction = 0;
+	}
 	else
 	{
 		std::cerr << "Invalid direction specifier " << specified_control << std::endl;
@@ -217,7 +221,7 @@ int main(int argc, char** argv)
 	}
 	else if (specified_control.compare("c") == 0)
 	{
-		joystick_value.lButtons = 0x2;
+		joystick_value.lButtons = 0x1<<1;
 		vjoy->update(joystick_value);
 		std::this_thread::sleep_for(std::chrono::milliseconds(125));
 		joystick_value.lButtons = 0x0;
@@ -225,7 +229,7 @@ int main(int argc, char** argv)
 	}
 	else if (specified_control.compare("gu") == 0)
 	{
-		joystick_value.lButtons = 0x4;
+		joystick_value.lButtons =  0x1<<2;
 		vjoy->update(joystick_value);
 		std::this_thread::sleep_for(std::chrono::milliseconds(125));
 		joystick_value.lButtons = 0x0;
@@ -233,11 +237,19 @@ int main(int argc, char** argv)
 	}
 	else if (specified_control.compare("gd") == 0)
 	{
-	joystick_value.lButtons = 0x8;
-	vjoy->update(joystick_value);
-	std::this_thread::sleep_for(std::chrono::milliseconds(125));
-	joystick_value.lButtons = 0x0;
-	vjoy->update(joystick_value);
+		joystick_value.lButtons = 0x1<<3;
+		vjoy->update(joystick_value);
+		std::this_thread::sleep_for(std::chrono::milliseconds(125));
+		joystick_value.lButtons = 0x0;
+		vjoy->update(joystick_value);
+	}
+	else if (specified_control.compare("drs") == 0)
+	{
+		joystick_value.lButtons = 0x1<<4;
+		vjoy->update(joystick_value);
+		std::this_thread::sleep_for(std::chrono::milliseconds(125));
+		joystick_value.lButtons = 0x0;
+		vjoy->update(joystick_value);
 	}
 	std::printf("Reset all values to 0\n");
 	joystick_value.wAxisX = 0;

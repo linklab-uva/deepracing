@@ -10,6 +10,7 @@
 #include "f1_datalogger_ros/utils/f1_msg_utils.h"
 #include "f1_datalogger_msgs/msg/timestamped_image.hpp"
 #include "f1_datalogger_msgs/msg/timestamped_packet_motion_data.hpp"
+#include "f1_datalogger_msgs/msg/timestamped_packet_car_status_data.hpp"
 #include "f1_datalogger_msgs/msg/timestamped_packet_car_telemetry_data.hpp"
 #include "f1_datalogger_msgs/msg/timestamped_packet_session_data.hpp"
 
@@ -33,6 +34,12 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarStatusData& data) override
   {
+    f1_datalogger_msgs::msg::TimestampedPacketCarStatusData rosdata;
+    rosdata.udp_packet.car_status_data[0].m_drs_allowed = data.data.m_carStatusData[0].m_drsAllowed;
+    //rosdata.udp_packet = f1_datalogger_ros::F1MsgUtils::toROS(data.data);
+    rosdata.timestamp = std::chrono::duration<double>(data.timestamp - begin_).count();
+    
+
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData& data) override
   {
@@ -253,7 +260,7 @@ int main(int argc, char *argv[]) {
               "Cropping an area (HxW)  (%u, %u)\n"
               "Resizing cropped area to (HxW)  (%u, %u)\n"
               ,nw.image_handler->crop_height_, nw.image_handler->crop_width_, nw.image_handler->resize_height_, nw.image_handler->resize_width_);
-  rclcpp::executors::MultiThreadedExecutor exec(rclcpp::executor::ExecutorArgs(),2);
+  rclcpp::executors::MultiThreadedExecutor exec(rclcpp::executor::ExecutorArgs(),4);
   exec.add_node(datagrab_node);
   exec.add_node(imagegrab_node);
   dl.start(capture_frequency_p.get<double>(), nw.datagrab_handler, nw.image_handler);

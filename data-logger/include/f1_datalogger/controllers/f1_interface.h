@@ -22,6 +22,7 @@ namespace deepf1 {
 	{
 	public:
 		virtual void setCommands(const F1ControlCommand& command) = 0;
+		virtual void pushDRS() = 0;
 	};
 }
 #endif

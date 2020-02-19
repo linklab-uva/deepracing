@@ -137,9 +137,9 @@ class PurePursuitControllerROS(Node):
             alpha = np.arctan2(lookaheadDirection[0],lookaheadDirection[1])
             physical_angle = np.arctan((2 * self.L*np.sin(alpha)) / D)
             if (physical_angle > 0) :
-                delta = 3.59814*physical_angle# + 0.01004506
+                delta = 3.39814*physical_angle# + 0.01004506
             else:
-                delta = 3.99545*physical_angle# + 0.01094534
+                delta = 3.79545*physical_angle# + 0.01094534
             #delta = 0.0
             if self.velsetpoint>self.current_speed:
                 self.controller.setControl(delta,1.0,0.0)
