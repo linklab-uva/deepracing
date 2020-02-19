@@ -94,7 +94,7 @@ system
 thread
 )
 set(Boost_USE_STATIC_LIBS OFF)
-find_package(Boost QUIET COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
+find_package(Boost CONFIG QUIET COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
 if(NOT Boost_FOUND)
     set(Boost_USE_STATIC_LIBS ON)
     find_package(Boost REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
@@ -178,32 +178,35 @@ if(BUILD_DATALOGGER)
         ${PROJECT_NAME}_controllers
         screen_capture_lite
     )
-    install(TARGETS ${install_targets}
-        EXPORT ${PROJECT_NAME}-export
-        RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib
-    )
-    install(EXPORT ${PROJECT_NAME}-export
-    FILE
-    ${PROJECT_NAME}Targets.cmake
-    NAMESPACE
-        f1_datalogger::
-    DESTINATION
-        cmake
-    )
-    install(DIRECTORY include/${PROJECT_NAME}
-        DESTINATION include
-        FILES_MATCHING PATTERN "*.h"
-    )
-    if(LOCAL_VJOY)
-        configure_file(${PROJECT_NAME}-config-withlocalvjoypp.cmake.in ${PROJECT_NAME}-config.cmake @ONLY)
-    else()
-        configure_file(${PROJECT_NAME}-config.cmake.in ${PROJECT_NAME}-config.cmake @ONLY)
-    endif(LOCAL_VJOY)
-    install(FILES ${CMAKE_BINARY_DIR}/${PROJECT_NAME}-config.cmake DESTINATION cmake/)
-    unset(install_targets)
+else()
+    set(install_targets
+            ${PROJECT_NAME}_proto 
+        )
 endif()
+install(TARGETS ${install_targets}
+    EXPORT ${PROJECT_NAME}-export
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+)
+install(EXPORT ${PROJECT_NAME}-export
+FILE
+${PROJECT_NAME}Targets.cmake
+NAMESPACE
+    f1_datalogger::
+DESTINATION
+    cmake
+)
+install(DIRECTORY include/${PROJECT_NAME}
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.h"
+)
+if(LOCAL_VJOY)
+    configure_file(${PROJECT_NAME}-config-withlocalvjoypp.cmake.in ${PROJECT_NAME}-config.cmake @ONLY)
+else()
+    configure_file(${PROJECT_NAME}-config.cmake.in ${PROJECT_NAME}-config.cmake @ONLY)
+endif(LOCAL_VJOY)
+install(FILES ${CMAKE_BINARY_DIR}/${PROJECT_NAME}-config.cmake DESTINATION cmake/)
 install(DIRECTORY python/deepracing
     DESTINATION lib/python
 )
