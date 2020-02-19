@@ -28,7 +28,7 @@ import torch.nn as NN
 import torch.utils.data as data_utils
 import deepracing_models.nn_models.Models
 import matplotlib.pyplot as plt
-from f1_datalogger_msgs.msg import TimestampedPacketMotionData, PacketMotionData, CarMotionData
+from f1_datalogger_msgs.msg import TimestampedPacketCarStatusData, TimestampedPacketCarTelemetryData, TimestampedPacketMotionData, PacketCarTelemetryData, PacketMotionData, CarMotionData, CarStatusData, CarTelemetryData
 from geometry_msgs.msg import Vector3Stamped, Vector3
 from std_msgs.msg import Float64
 import rclpy
@@ -43,6 +43,8 @@ class PurePursuitControllerROS(Node):
         self.running = True
         self.current_motion_packet : PacketMotionData  = PacketMotionData()
         self.current_motion_data : CarMotionData  = CarMotionData()
+        self.current_status_data : CarStatusData  = CarStatusData()
+        self.current_telemetry_data : CarTelemetryData  = CarTelemetryData()
         self.setpoint_publisher = self.create_publisher(Float64, "vel_setpoint", 10)
         self.sock = None
         self.tau = tau
@@ -66,13 +68,30 @@ class PurePursuitControllerROS(Node):
             TimestampedPacketMotionData,
             '/motion_data',
             self.velocityControl,
-            10)
+            1)
+        self.status_data_sub = self.create_subscription(
+            TimestampedPacketCarStatusData,
+            '/status_data',
+            self.statusUpdate,
+            1)
+        self.telemetry_data_sub = self.create_subscription(
+            TimestampedPacketCarTelemetryData,
+            '/telemetry_data',
+            self.telemetryUpdate,
+            1)
         self.control_thread = threading.Thread(target=self.lateralControl)
     def start(self):
         self.control_thread.start()
     def stop(self):
         self.running = False
         time.sleep(0.5)
+
+    def telemetryUpdate(self, msg : TimestampedPacketCarTelemetryData):
+        self.current_telemetry_data = msg.udp_packet.car_telemetry_data[0]
+
+    def statusUpdate(self, msg : TimestampedPacketCarStatusData):
+        self.current_status_data = msg.udp_packet.car_status_data[0]
+
     def velocityControl(self, msg : TimestampedPacketMotionData):
         #print("got some motion data")
         # ierr_max = 50.0
@@ -145,6 +164,8 @@ class PurePursuitControllerROS(Node):
                 self.controller.setControl(delta,1.0,0.0)
             else:
                 self.controller.setControl(delta,0.0,1.0)
+            if self.current_status_data.m_drs_allowed==1 and self.current_telemetry_data.drs==0:
+                self.controller.pushDRS()
             #print(delta)
             # if self.throttle_out>0.0:
             #     self.controller.setControl(delta,self.throttle_out,0.0)

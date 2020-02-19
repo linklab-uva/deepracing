@@ -38,6 +38,7 @@ public:
     rosdata.udp_packet.car_status_data[0].m_drs_allowed = data.data.m_carStatusData[0].m_drsAllowed;
     //rosdata.udp_packet = f1_datalogger_ros::F1MsgUtils::toROS(data.data);
     rosdata.timestamp = std::chrono::duration<double>(data.timestamp - begin_).count();
+    status_publisher_->publish(rosdata);
     
 
   }
@@ -86,6 +87,7 @@ public:
     this->motion_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketMotionData>("motion_data", 10);
     this->telemetry_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketCarTelemetryData>("telemetry_data", 10);
     this->session_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketSessionData>("session_data", 10);
+    this->status_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketCarStatusData>("status_data", 10);
     ready_ = true;
     this->begin_ = begin;
     this->host_ = host;
@@ -101,6 +103,7 @@ public:
   std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketMotionData> > motion_publisher_;
   std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketCarTelemetryData> > telemetry_publisher_;
   std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketSessionData> > session_publisher_;
+  std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketCarStatusData> > status_publisher_;
 };
 class ROSRebroadcaster_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
 {
