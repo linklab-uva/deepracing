@@ -1,9 +1,0 @@
-{
-    "names":
-    {
-        "f1_datalogger":
-        {
-            "cmake-args": [-DCMAKE_BUILD_TYPE=Release, -DCMAKE_TOOLCHAIN_FILE=/p/DeepRacing/vcpkg/scripts/buildsystems/vcpkg.cmake, -DBUILD_DATALOGGER=OFF]
-        }
-    }
-}
