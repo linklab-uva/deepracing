@@ -201,10 +201,11 @@ try:
 #   plt.plot(image_session_timestamps,interpolated_positions[:,2])
   plt.show()
 except KeyboardInterrupt:
-    exit(0)
+  exit(0)
 except Exception as e:
+  print("Skipping visualiation")
   print(e)
-  text = input("Could not import matplotlib, skipping visualization. Enter anything to continue.")
+  #text = input("Could not import matplotlib, skipping visualization. Enter anything to continue.")
 #scipy.interpolate.interp1d
 output_dir = os.path.join(root_dir, args.output_dir)
 lmdb_dir = os.path.join(output_dir,"lmdb")
