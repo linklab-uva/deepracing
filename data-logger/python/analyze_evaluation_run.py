@@ -57,6 +57,9 @@ def analyzedatasets(main_dir,subdirs, prefix, results_dir="results", plot=False,
           plt.ylabel("Velocity (kilometer/hour)", figure=fig)
           plt.title("Velocity versus Distance (Run %d)" %(i+1,), figure=fig)
           fig.savefig( os.path.join( output_dir, "velplot_distance_run_%d.png" % (i+1,) ), bbox_inches='tight')
+          fig.savefig( os.path.join( output_dir, "velplot_distance_run_%d.eps" % (i+1,) ), format='eps', bbox_inches='tight')
+          fig.savefig( os.path.join( output_dir, "velplot_distance_run_%d.pdf" % (i+1,) ), format='pdf', bbox_inches='tight')
+          fig.savefig( os.path.join( output_dir, "velplot_distance_run_%d.svg" % (i+1,) ), format='svg', bbox_inches='tight')
           del fig
           fig : matplotlib.figure.Figure = plt.figure()
         # axes : matplotlib.axes.Axes = fig.add_axes()
@@ -65,6 +68,9 @@ def analyzedatasets(main_dir,subdirs, prefix, results_dir="results", plot=False,
           plt.ylabel("Velocity (kilometer/hour)", figure=fig)
           plt.title("Velocity versus Session Time (Run %d)" %(i+1,), figure=fig)
           fig.savefig( os.path.join( output_dir, "velplot_time_run_%d.png" % (i+1,) ), bbox_inches='tight')
+          fig.savefig( os.path.join( output_dir, "velplot_time_run_%d.eps" % (i+1,) ), format='eps', bbox_inches='tight')
+          fig.savefig( os.path.join( output_dir, "velplot_time_run_%d.pdf" % (i+1,) ), format='pdf', bbox_inches='tight')
+          fig.savefig( os.path.join( output_dir, "velplot_time_run_%d.svg" % (i+1,) ), format='svg', bbox_inches='tight')
           thiswillfailifnone = failurescores[0]
           mtbf[i] = np.mean(failuretimediffs)
           mdbf[i] = np.mean(failuredistancediffs)
@@ -119,66 +125,31 @@ print(pilotnet_dsets)
 results_dir="results"
 json=True
 #analyzedatasets(main_dir,bezier_dsets,"Bezier_Predictor",results_dir=results_dir,json=True)
-analyzedatasets(main_dir,waypoint_dsets,"Waypoint_Predictor",results_dir=results_dir,json=True)
-#nalyzedatasets(main_dir,cnnlstm_dsets,"CNNLSTM",results_dir=results_dir,json=True)
-#analyzedatasets(main_dir,pilotnet_dsets,"PilotNet",results_dir=results_dir,json=True)
-exit(0)
+# analyzedatasets(main_dir,waypoint_dsets,"Waypoint_Predictor",results_dir=results_dir,json=True)
+# analyzedatasets(main_dir,cnnlstm_dsets,"CNNLSTM",results_dir=results_dir,json=False)
+# analyzedatasets(main_dir,pilotnet_dsets,"PilotNet",results_dir=results_dir,json=False)
+# exit(0)
 
 output_dir = os.path.join(main_dir,results_dir)
 for i in range(1,runmax+1):
     if i == 3:
       continue
-    motion_dir_bezier = os.path.join(main_dir,"bezier_predictor_run%d" % (i,) ,"udp_data","motion_packets")
-    lap_dir_bezier = os.path.join(main_dir,"bezier_predictor_run%d" % (i,) ,"udp_data","lap_packets")
-    telemetry_dir_bezier = os.path.join(main_dir,"bezier_predictor_run%d" % (i,) ,"udp_data","car_telemetry_packets")
-    motion_packets_bezier = sorted(proto_utils.getAllMotionPackets(motion_dir_bezier, json), key = eval_utils.udpPacketKey)
-    lap_packets_bezier = sorted(proto_utils.getAllLapDataPackets(lap_dir_bezier, json), key = eval_utils.udpPacketKey)
-    telemetry_packets_bezier = sorted(proto_utils.getAllTelemetryPackets(telemetry_dir_bezier, json), key = eval_utils.udpPacketKey)
 
-    
-
-    motion_dir_waypoint = os.path.join(main_dir, "waypoint_predictor_run%d" % (i,), "udp_data", "motion_packets")
-    lap_dir_waypoint = os.path.join(main_dir, "waypoint_predictor_run%d" % (i,), "udp_data", "lap_packets")
-    telemetry_dir_waypoint = os.path.join(main_dir,"waypoint_predictor_run%d" % (i,) ,"udp_data","car_telemetry_packets")
-    motion_packets_waypoint = sorted(proto_utils.getAllMotionPackets(motion_dir_waypoint, json), key = eval_utils.udpPacketKey)
-    lap_packets_waypoint = sorted(proto_utils.getAllLapDataPackets(lap_dir_waypoint, json), key = eval_utils.udpPacketKey)
-    telemetry_packets_waypoint = sorted(proto_utils.getAllTelemetryPackets(telemetry_dir_waypoint, json), key = eval_utils.udpPacketKey)
-
-    minIbezier = int(np.min([len(motion_packets_bezier), len(lap_packets_bezier), len(telemetry_packets_bezier)]))
-    motion_packets_bezier = motion_packets_bezier[0:minIbezier]
-    lap_packets_bezier = lap_packets_bezier[0:minIbezier]
-    telemetry_packets_bezier = telemetry_packets_bezier[0:minIbezier]
-    session_times_bezier = np.array([p.udp_packet.m_header.m_sessionTime for p in motion_packets_bezier])
-    session_times_bezier = session_times_bezier - session_times_bezier[0]
-    laptimes_bezier =  np.array([p.udp_packet.m_lapData[0].m_currentLapTime for p in lap_packets_bezier])
-    distances_bezier = np.array([p.udp_packet.m_lapData[0].m_lapDistance for p in lap_packets_bezier])
-    throttles_bezier = np.array([p.udp_packet.m_carTelemetryData[0].m_throttle for p in telemetry_packets_bezier])/100.0
-    steering_bezier = -np.array([p.udp_packet.m_carTelemetryData[0].m_steer for p in telemetry_packets_bezier])/100.0
-    velocities_bezier = 3.6*np.array([proto_utils.extractVelocity(p.udp_packet) for p in motion_packets_bezier])
+    distances_bezier, throttles_bezier, steering_bezier, velocities_bezier = eval_utils.getRacePlots(os.path.join(main_dir,bezier_dsets[i-1]), json=True)
     speeds_bezier = la.norm(velocities_bezier,axis=1)
+    
+    distances_waypoint, throttles_waypoint, steering_waypoint, velocities_waypoint = eval_utils.getRacePlots(os.path.join(main_dir,waypoint_dsets[i-1]), json=True)
+    speeds_waypoint = la.norm(velocities_waypoint,axis=1)
     # print(len(motion_packets_bezier))
     # print(len(lap_packets_bezier))
     # print(len(telemetry_packets_bezier))
 
-    minIwaypoint = int(np.min([len(motion_packets_waypoint), len(lap_packets_waypoint), len(telemetry_packets_waypoint)]))
-    motion_packets_waypoint = motion_packets_waypoint[0:minIwaypoint]
-    lap_packets_waypoint = lap_packets_waypoint[0:minIwaypoint]
-    telemetry_packets_waypoint = telemetry_packets_waypoint[0:minIwaypoint]
-    session_times_waypoint = np.array([p.udp_packet.m_header.m_sessionTime for p in motion_packets_waypoint])
-    session_times_waypoint = session_times_waypoint - session_times_waypoint[0]
-    laptimes_waypoint =  np.array([p.udp_packet.m_lapData[0].m_currentLapTime for p in lap_packets_waypoint])
-    distances_waypoint = np.array([p.udp_packet.m_lapData[0].m_lapDistance for p in lap_packets_waypoint])
-    throttles_waypoint = np.array([p.udp_packet.m_carTelemetryData[0].m_throttle for p in telemetry_packets_waypoint])/100.0
-    steering_waypoint = -np.array([p.udp_packet.m_carTelemetryData[0].m_steer for p in telemetry_packets_waypoint])/100.0
-    velocities_waypoint = 3.6*np.array([proto_utils.extractVelocity(p.udp_packet) for p in motion_packets_waypoint])
-    speeds_waypoint = la.norm(velocities_waypoint,axis=1)
 
     idxskip=100
     fig : matplotlib.figure.Figure = plt.figure(frameon=True)
-    ax1 : matplotlib.axes.Axes = fig.add_subplot(311)
-    ax2 : matplotlib.axes.Axes = fig.add_subplot(312)
-    ax3 : matplotlib.axes.Axes = fig.add_subplot(313)
-    fig.suptitle('Throttle And Speed versus Distance')
+    ax1 : matplotlib.axes.Axes = fig.add_subplot(211)
+    ax3 : matplotlib.axes.Axes = fig.add_subplot(212)
+    fig.suptitle('Speed And Steering versus Distance')
 
     beziercolor='teal'
     waypointcolor='darkslategray'
@@ -190,9 +161,7 @@ for i in range(1,runmax+1):
     lineswaypoint = ax1.plot(distances_waypoint[idxskip:] - distances_waypoint[idxskip], speeds_waypoint[idxskip:],c=waypointcolor,label=waypointlabel)
     #ax1.legend(loc=legendpos)
     
-    ax2.plot(distances_bezier[idxskip:] - distances_bezier[idxskip], throttles_bezier[idxskip:],c=beziercolor,label=bezierlabel)
-    ax2.plot(distances_waypoint[idxskip:] - distances_waypoint[idxskip], throttles_waypoint[idxskip:],c=waypointcolor,label=waypointlabel)
-    #ax2.legend(loc=legendpos)
+
     
     ax3.plot(distances_bezier[idxskip:] - distances_bezier[idxskip], steering_bezier[idxskip:],c=beziercolor,label=bezierlabel)
     ax3.plot(distances_waypoint[idxskip:] - distances_waypoint[idxskip], steering_waypoint[idxskip:],c=waypointcolor,label=waypointlabel)
@@ -203,27 +172,21 @@ for i in range(1,runmax+1):
 
     ax1.set_ylabel("Speed (meters/second)")
 
-    #ax2.get_
-    secax2 = ax2.secondary_yaxis('right')
     secax3 = ax3.secondary_yaxis('right')
-    secax2.set_ylabel("Throttle ([0,1])")
     secax3.set_ylabel("Steering ([-1,1])")
     ax3.set_xlabel("Distance (meters)")
 
     plt.setp(ax1.get_xticklabels(), visible=False)
     plt.setp(ax1.get_xaxis(), visible=False)
-    plt.setp(ax2.get_yaxis(), visible=False)
     plt.setp(ax3.get_yaxis(), visible=False)
-  #  plt.setp(fig.patch, visible=False)
-  #  ax1.set_frame_on(False)
-   # ax2.set_frame_on(False)
+
     fig.set_frameon(True)
     fig.subplots_adjust(hspace=0.0)
-  #  plt.subplots_adjust(bottom=0.01, right=0.8, top=0.02)
-   # fig.tight_layout()
-  #  fig.set_frame_on(True)
-   # plt.show()
+
     fig.savefig( os.path.join( output_dir, "comparison_distance_run_%d.png" % (i,) ), bbox_inches='tight')
+    fig.savefig( os.path.join( output_dir, "comparison_distance_run_%d.eps" % (i,) ), format='eps', bbox_inches='tight')
+    fig.savefig( os.path.join( output_dir, "comparison_distance_run_%d.pdf" % (i,) ), format='pdf', bbox_inches='tight')
+    fig.savefig( os.path.join( output_dir, "comparison_distance_run_%d.svg" % (i,) ), format='svg', bbox_inches='tight')
     del fig
     
     # print(len(motion_packets_waypoint))
