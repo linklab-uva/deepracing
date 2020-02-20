@@ -1,4 +1,4 @@
-set(_required_cmake 3.15)
+set(_required_cmake 3.12)
 cmake_minimum_required (VERSION ${_required_cmake} FATAL_ERROR)
 cmake_policy(VERSION ${_required_cmake})
 # if(COMMAND cmake_policy)
@@ -6,9 +6,11 @@ cmake_policy(VERSION ${_required_cmake})
 # endif(COMMAND cmake_policy)
 project(f1_datalogger)
 
-set(cxx_standard 17)
-set(CMAKE_CXX_STANDARD ${cxx_standard} CACHE STRING "C++ standard to use. 17 by default")
+if(NOT CMAKE_CXX_STANDARD)
+    set(CMAKE_CXX_STANDARD 14)
+endif(NOT CMAKE_CXX_STANDARD)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_DEBUG_POSTFIX _debug)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
@@ -76,12 +78,25 @@ endif()
 
 set(BOOST_REQUIRED_COMPONENTS
 date_time
-filesystem
 program_options
 regex
 system
 thread
 )
+
+if(NOT MSVC)
+    include(CheckCXXSourceCompiles)
+    check_cxx_source_compiles("#include <filesystem>
+                                std::filesystem::path p;
+                                int main() { return 0; }" HAS_STDCXXFS)
+else()
+    set(HAS_STDCXXFS TRUE)
+endif(NOT MSVC)
+
+if(NOT HAS_STDCXXFS)
+    list(APPEND BOOST_REQUIRED_COMPONENTS filesystem)
+endif(NOT HAS_STDCXXFS)
+
 find_package(Boost CONFIG COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
 if(Boost_FOUND)
     message(STATUS "Found boost via cmake config at ${Boost_DIR}")
@@ -96,11 +111,13 @@ else()
 
 endif(Boost_FOUND)
 
-if(${Boost_VERSION} VERSION_GREATER_EQUAL 1.67.0)
-    list(APPEND Boost_LIBRARIES Boost::headers)
-else()
-    include_directories(${Boost_INCLUDE_DIRS})
+set(internal_boost_headers_target FALSE)
+if(NOT TARGET Boost::headers)
+    set(internal_boost_headers_target TRUE)
+    add_library(Boost::headers INTERFACE IMPORTED GLOBAL)
+    target_include_directories(Boost::headers INTERFACE ${Boost_INCLUDE_DIRS})
 endif()
+list(APPEND Boost_LIBRARIES Boost::headers)
 message(STATUS "Using Boost components: ${Boost_LIBRARIES}")
 
 
@@ -178,6 +195,8 @@ else()
             ${PROJECT_NAME}_proto 
         )
 endif()
+
+
 install(TARGETS ${install_targets}
     EXPORT ${PROJECT_NAME}-export
     RUNTIME DESTINATION bin

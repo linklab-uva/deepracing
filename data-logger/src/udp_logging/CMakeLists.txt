@@ -55,13 +55,9 @@ ${PROJECT_NAME}_proto
 ${TBB_IMPORTED_TARGETS} 
 ${Boost_LIBRARIES} 
 )
-if (
-    ( ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU") AND (CMAKE_CXX_COMPILER_VERSION VERSION_LESS_EQUAL 8.1) ) OR
-    ( ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") AND (CMAKE_CXX_COMPILER_VERSION VERSION_LESS_EQUAL 9.0) ) OR
-    (${CMAKE_CXX_STANDARD} VERSION_LESS "17")
-   )
+if (NOT HAS_STDCXXFS)
     target_compile_definitions(${PROJECT_NAME}_udp_logging_common PRIVATE BOOST_FILESYSTEM=1)
-endif()
+endif (NOT HAS_STDCXXFS)
 target_link_libraries( ${PROJECT_NAME}_udp_logging_common 
 PUBLIC
 ${udp_logging_common_libs}
