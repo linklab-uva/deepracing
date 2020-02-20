@@ -170,7 +170,7 @@ for i in range(1,runmax+1):
     #fig.legend(loc=legendpos, handles=linesbezier )
     
 
-    ax1.set_ylabel("Speed (meters/second)")
+    ax1.set_ylabel("Speed (kph)")
 
     secax3 = ax3.secondary_yaxis('right')
     secax3.set_ylabel("Steering ([-1,1])")
