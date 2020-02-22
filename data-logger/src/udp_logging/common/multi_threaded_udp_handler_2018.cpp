@@ -24,13 +24,7 @@
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
-#ifdef BOOST_FILESYSTEM
-  #include <boost/filesystem.hpp>
-  namespace fs = boost::filesystem;
-#else
-  #include <filesystem>
-  namespace fs = std::filesystem;
-#endif
+#include "f1_datalogger/filesystem_helper.h"
 namespace deepf1
 {
 

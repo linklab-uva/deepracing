@@ -5,6 +5,7 @@ cmake_policy(VERSION ${_required_cmake})
 # 	cmake_policy(SET CMP0003 NEW)
 # endif(COMMAND cmake_policy)
 project(f1_datalogger)
+message(STATUS "Using CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 
 if(NOT CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD 14)
@@ -80,14 +81,10 @@ system
 thread
 )
 
-if(NOT MSVC)
-    include(CheckCXXSourceCompiles)
-    check_cxx_source_compiles("#include <filesystem>
-                                std::filesystem::path p;
-                                int main() { return 0; }" HAS_STDCXXFS)
-else()
-    set(HAS_STDCXXFS TRUE)
-endif(NOT MSVC)
+include(CheckCXXSourceCompiles)
+check_cxx_source_compiles("#include <filesystem>
+                            int main(int argc, char** argv) { std::filesystem::path p; return 0; }" HAS_STDCXXFS)
+set(HAS_STDCXXFS TRUE)
 
 if(NOT HAS_STDCXXFS)
     list(APPEND BOOST_REQUIRED_COMPONENTS filesystem)
@@ -127,8 +124,11 @@ find_package(TBB REQUIRED COMPONENTS tbb)
 include_directories( include )
 include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${YAML_CPP_INCLUDE_DIR} )
 
+
+
 include(FindProtobuf)
 find_package(Protobuf REQUIRED)
+
 add_subdirectory( proto/${PROJECT_NAME}/proto )
 set(PROTO_INCLUDE_DIR ${CMAKE_BINARY_DIR}/proto)
 

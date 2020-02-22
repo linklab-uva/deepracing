@@ -160,7 +160,6 @@ def getAllImageFilePackets(image_data_folder: str, use_json: bool):
       filepaths = [os.path.join(image_data_folder, f) for f in os.listdir(image_data_folder) if os.path.isfile(os.path.join(image_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".pb"]
       for filepath in tqdm(filepaths):
          try:
-            print("Attempting to open: %s" %(filepath))
             data = TimestampedImage_pb2.TimestampedImage()
             f = open(filepath,'rb')
             data.ParseFromString(f.read())

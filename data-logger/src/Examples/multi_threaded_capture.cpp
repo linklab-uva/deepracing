@@ -22,13 +22,7 @@
     #include <wrl/client.h>
   #endif
 #endif
-#if BOOST_FILESYSTEM
-  #include <boost/filesystem.hpp>
-  namespace fs = boost::filesystem;
-#else
-  #include <filesystem>
-  namespace fs = std::filesystem;
-#endif
+#include "f1_datalogger/filesystem_helper.h"
 namespace scl = SL::Screen_Capture;
 namespace po = boost::program_options;
 void exit_with_help(po::options_description& desc)
@@ -175,6 +169,7 @@ int main(int argc, char** argv)
     frame_handler->stop();
   }
 	udp_handler->stop();
+  udp_handler->setSleepTime(1);
   //join with the main thread to keep the handlers in scope until all data has been written to file.
   if(frame_handler)
 	{

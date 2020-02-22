@@ -15,13 +15,7 @@
 #include <fstream>
 #include <google/protobuf/util/time_util.h>
 
-#ifdef BOOST_FILESYSTEM
-  #include <boost/filesystem.hpp>
-  namespace fs = boost::filesystem;
-#else
-  #include <filesystem>
-  namespace fs = std::filesystem;
-#endif
+#include "f1_datalogger/filesystem_helper.h"
 namespace deepf1
 {
 MultiThreadedFrameGrabHandler::MultiThreadedFrameGrabHandler(deepf1::MultiThreadedFrameGrabHandlerSettings settings)

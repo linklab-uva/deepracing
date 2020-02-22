@@ -61,6 +61,10 @@ motion_data_folder = os.path.join(root_dir,"udp_data","motion_packets")
 image_folder = os.path.join(root_dir,"images")
 session_folder = os.path.join(root_dir,"udp_data","session_packets")
 session_packets = getAllSessionPackets(session_folder,args.json)
+output_dir = os.path.join(root_dir, args.output_dir)
+if os.path.isdir(output_dir):
+    shutil.rmtree(output_dir)
+os.makedirs(output_dir)
 
 spectating_flags = [bool(packet.udp_packet.m_isSpectating) for packet in session_packets]
 spectating = False
@@ -130,10 +134,16 @@ print(len(positions))
 print(len(velocities))
 print(len(quaternions))
 print()
-slope_session_time_fit, intercept_session_time_fit, _, _, _ = scipy.stats.linregress(np.linspace(1,session_times.shape[0],session_times.shape[0]), session_times)
+slope_session_time_fit, intercept_session_time_fit, rvalue, pvalue, stderr = scipy.stats.linregress(np.linspace(1,session_times.shape[0],session_times.shape[0]), session_times)
 print("Slope and intercept of raw session times: [%f,%f]" %(slope_session_time_fit, intercept_session_time_fit))
 
+#session_times = session_times - session_times[0]
+#image_timestamps = image_timestamps - image_timestamps[0]
+#system_times = system_times - image_timestamps[0]
 slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(system_times, session_times)
+print("Slope and intercept of session time vs system time: [%f,%f]" %(slope, intercept))
+print( "r value of session time vs system time: %f" % ( rvalue ) )
+print( "r^2 value of session time vs system time: %f" % ( rvalue**2 ) )
 
 image_session_timestamps = slope*image_timestamps + intercept
 print("Range of image session times before clipping: [%f,%f]" %(image_session_timestamps[0], image_session_timestamps[-1]))
@@ -176,25 +186,43 @@ print("R^2: %f" %(r_value**2))
 try:
   import matplotlib.pyplot as plt
   from mpl_toolkits.mplot3d import Axes3D
-  fig = plt.figure("System Time vs F1 Session Time")
-  plt.plot(system_times, session_times, label='udp data times')
-  plt.plot(system_times, slope*system_times + intercept, label='fitted line')
+  fig = plt.figure("F1 Session Time vs System Time")
+  skipn=100
+  plt.scatter(system_times[::skipn], session_times[::skipn], label='measured data',facecolors='none', edgecolors='b', s=8)
+  if intercept>=0:
+      plotlabel = 'fitted line:\n y=%f*x+%f' % (slope, intercept)
+  else:
+      plotlabel = 'fitted line:\n y=%f*x-%f' % (slope, -intercept)
+  plt.plot(system_times, slope*system_times + intercept, label=plotlabel,color='black')
+  plt.title("F1 Session Time vs System Time", fontsize=20)
+  plt.xlabel("OS-tagged System Time", fontsize=20)
+  plt.ylabel("F1 Session Time", fontsize=20)
+  #plt.rcParams.update({'font.size': 12})
+  #plt.rcParams.update({'font.size': 12})
+  
   #plt.plot(image_timestamps, label='image tag times')
-  fig.legend()
-  fig = plt.figure("Image Session Times on Normalized Domain")
-  t = np.linspace( 0.0, 1.0 , num=len(image_session_timestamps) )
-  slope_remap, intercept_remap, r_value_remap, p_value_remap, std_err_remap = scipy.stats.linregress(t, image_session_timestamps)
-  print("Slope of all point session times" %(slope_remap))
-  print("Standard error remap: %f" %(std_err_remap))
-  print("R^2 of remap: %f" %(r_value_remap**2))
-  plt.plot( t, image_session_timestamps, label='dem timez' )
-  plt.plot( t, t*slope_remap + intercept_remap, label='fitted line' )
-  racelinefig,racelineax = plt.subplots()
-  racelineax.scatter( positions[:,0], positions[:,2], facecolors='none', edgecolors='g')
-  plt.figure()
-  plt.scatter( interpolated_positions[:,0], interpolated_positions[:,2], facecolors='none', edgecolors='b')
-  plt.figure()
-  plt.plot(session_times[1:],position_diff_norms)
+  fig.legend(loc='center right')#,fontsize=20)
+
+  fig.savefig( os.path.join( output_dir, "datalogger_remap_plot.png" ), bbox_inches='tight')
+  fig.savefig( os.path.join( output_dir, "datalogger_remap_plot.eps" ), format='eps', bbox_inches='tight')
+  fig.savefig( os.path.join( output_dir, "datalogger_remap_plot.pdf" ), format='pdf', bbox_inches='tight')
+  fig.savefig( os.path.join( output_dir, "datalogger_remap_plot.svg" ), format='svg', bbox_inches='tight')
+
+
+#   fig = plt.figure("Image Session Times on Normalized Domain")
+#   t = np.linspace( 0.0, 1.0 , num=len(image_session_timestamps) )
+#   slope_remap, intercept_remap, r_value_remap, p_value_remap, std_err_remap = scipy.stats.linregress(t, image_session_timestamps)
+#   print("Slope of all point session times" %(slope_remap))
+#   print("Standard error remap: %f" %(std_err_remap))
+#   print("R^2 of remap: %f" %(r_value_remap**2))
+#   plt.plot( t, image_session_timestamps, label='dem timez' )
+#   plt.plot( t, t*slope_remap + intercept_remap, label='fitted line' )
+#   racelinefig,racelineax = plt.subplots()
+#   racelineax.scatter( positions[:,0], positions[:,2], facecolors='none', edgecolors='g')
+#   plt.figure()
+#   plt.scatter( interpolated_positions[:,0], interpolated_positions[:,2], facecolors='none', edgecolors='b')
+#   plt.figure()
+#   plt.plot(session_times[1:],position_diff_norms)
 #   plt.plot(session_times,positions[:,2])
 #   plt.figure()
 #   plt.plot(image_session_timestamps,interpolated_positions[:,0])
@@ -207,11 +235,7 @@ except Exception as e:
   print(e)
   #text = input("Could not import matplotlib, skipping visualization. Enter anything to continue.")
 #scipy.interpolate.interp1d
-output_dir = os.path.join(root_dir, args.output_dir)
 lmdb_dir = os.path.join(output_dir,"lmdb")
-if os.path.isdir(output_dir):
-    shutil.rmtree(output_dir)
-os.makedirs(output_dir)
 if os.path.isdir(lmdb_dir):
     shutil.rmtree(lmdb_dir)
 os.makedirs(lmdb_dir)

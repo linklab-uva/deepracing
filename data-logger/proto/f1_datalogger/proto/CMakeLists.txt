@@ -2,7 +2,7 @@ file(GLOB PROTOFILES
   "*.proto"
 )
 
-protobuf_generate_cpp(${PROJECT_NAME}_PROTO_SRC ${PROJECT_NAME}_PROTO_HEADER  ${PROTOFILES}  )
+PROTOBUF_GENERATE_CPP(${PROJECT_NAME}_PROTO_SRC ${PROJECT_NAME}_PROTO_HEADER  ${PROTOFILES}  )
 set(ProtobufIncludePath ${CMAKE_BINARY_DIR}/proto
     CACHE INTERNAL "Path to generated protobuf files.")
 protobuf_generate_python(PY_SOURCES ${PROTOFILES})

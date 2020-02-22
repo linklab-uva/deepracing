@@ -65,6 +65,10 @@ public:
   void join(unsigned int extra_threads = 1);
   void addPausedFunction(const std::function<void()>& f);
   void addUnpausedFunction(const std::function<void()>& f);
+  void setSleepTime(const unsigned int& sleeptime)
+  {
+    sleeptime_ = sleeptime;
+  }
 
 private:
   std::shared_ptr< tbb::task_group > thread_pool_ ;
