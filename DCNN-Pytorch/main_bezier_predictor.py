@@ -29,7 +29,7 @@ import socket
 import json
 
 #torch.backends.cudnn.enabled = False
-def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True):
+def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, epoch_number, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True):
     cum_loss = 0.0
     cum_param_loss = 0.0
     cum_position_loss = 0.0
@@ -41,6 +41,7 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
     else:
         t = enumerate(trainLoader)
     network.train()  # This is important to call before training!
+    dataloaderlen = len(trainLoader)
     # loss_weights_torch = torch.tensor(loss_weights)
     # if use_float:
     #     loss_weights_torch = session_times_torch.loss_weights_torch()
@@ -146,8 +147,8 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
         cum_velocity_loss += float(current_velocity_loss.item())
         num_samples += 1.0
         if not debug:
-            experiment.log_metric("cumulative_position_error", cum_position_loss/num_samples, step=i)
-            experiment.log_metric("cumulative_velocity_error", cum_velocity_loss/num_samples, step=i)
+            experiment.log_metric("cumulative_position_error", cum_position_loss/num_samples, step=(epoch_number-1)*dataloaderlen + i)
+            experiment.log_metric("cumulative_velocity_error", cum_velocity_loss/num_samples, step=(epoch_number-1)*dataloaderlen + i)
         if use_tqdm:
             t.set_postfix({"cum_loss" : cum_loss/num_samples,"cum_param_loss" : cum_param_loss/num_samples,"cum_position_loss" : cum_position_loss/num_samples,"cum_velocity_loss" : cum_velocity_loss/num_samples})
 def go():
@@ -373,7 +374,7 @@ def go():
         os.makedirs(output_directory, exist_ok=True)
     i = 0
     if debug:
-        run_epoch(None, net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, debug=debug, use_tqdm=args.tqdm )
+        run_epoch(None, net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, 1, debug=debug, use_tqdm=args.tqdm )
     else:
         with experiment.train():
             while i < num_epochs:
@@ -383,7 +384,7 @@ def go():
                 #dset.clearReaders()
                 try:
                     tick = time.time()
-                    run_epoch(experiment, net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, debug=debug, use_tqdm=args.tqdm )
+                    run_epoch(experiment, net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, postfix, debug=debug, use_tqdm=args.tqdm )
                     tock = time.time()
                     print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
                     experiment.log_epoch_end(postfix)
