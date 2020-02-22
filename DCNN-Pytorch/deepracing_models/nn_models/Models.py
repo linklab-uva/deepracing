@@ -4,6 +4,7 @@ import torch.optim as optim
 import torch.utils.data as data
 import numpy as np
 import torch
+import torch.nn.utils.rnn as RNNUtils
 import torchvision.models as visionmodels
 import torchvision.models.vgg
 import sys
@@ -425,6 +426,8 @@ class AdmiralNetCurvePredictor(nn.Module):
 
         linear_rnn_init_hidden = self.linear_rnn_init_hidden.unsqueeze(1).repeat(1,batch_size,1)
         linear_rnn_init_cell = self.linear_rnn_init_cell.unsqueeze(1).repeat(1,batch_size,1)
+        #print(context_in.shape)
+        # = RNNUtils.pack_padded_sequence(context_in, (context_in.shape[1]*np.ones(context_in.shape[0])).tolist() , batch_first=True, enforce_sorted=False)
         _, (linear_new_hidden, linear_new_cell) = self.linear_rnn(context_in, (linear_rnn_init_hidden,  linear_rnn_init_cell) )
         
       

@@ -1,9 +1,10 @@
 pure_pursuit_control:
     ros__parameters:
         #model_file : 'D:/f1_model_files/bezier_predictor/with_geometric_variants/cleansplinedata_comet/bezier_predictor_no_optflow_no_vel_loss_no_param_loss/epoch_100_params.pt'
-        #model_file : 'D:/f1_model_files/cometpulls/bezier/91a732d8f69141fea3cee04715f2404f_from_comet/epoch_100_params.pt'
-        model_file : 'D:/f1_model_files/cometpulls/bezier/38ad4466dc84463bbba04d3132e9a2ad_from_comet/epoch_100_params.pt'
-        # model_file : 'D:/f1_model_files/with_more_data/pose_predictor_no_optflow/epoch_93_params.pt'
+        #model_file : 'D:/f1_model_files/cometpulls/bezier/38ad4466dc84463bbba04d3132e9a2ad_from_comet/epoch_100_params.pt' #only australia data
+        #model_file : 'D:/f1_model_files/cometpulls/bezier/74740994ece64bd19e4d5ca59422dfcd_from_comet/epoch_100_params.pt' #combined with silverstone data
+        #model_file : 'D:/f1_model_files/cometpulls/bezier/6f4eace2f1674bd585d921815599cc70_from_comet/epoch_66_params.pt' #combined with silverstone data
+        model_file : 'D:/f1_model_files/cometpulls/bezier/7bc671d6548743be9555cf0136601094_from_comet/epoch_95_params.pt' #combined with silverstone data
         #pgain : 1.25
         #igain : 0.0175
        # dgain : 0.01
@@ -14,4 +15,6 @@ pure_pursuit_control:
         x_scale_factor : 1.00
         velocity_scale_factor: 1.0
         num_sample_points : 60
+        left_steer_factor: 3.389
+        right_steer_factor: 3.942
      #   velocity_lookahead_gain: 0.125

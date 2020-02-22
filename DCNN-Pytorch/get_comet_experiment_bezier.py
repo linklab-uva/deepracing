@@ -57,7 +57,10 @@ with open(outputoptimizerfile, 'wb') as f:
 parameters_summary = experiment.get_parameters_summary()
 configin = {d["name"] : d["valueCurrent"] for d in parameters_summary}
 config = {}
-config["image_size"] = np.fromstring(configin["image_size"].replace(" ","")[1:-1],sep=',').astype(np.int32).tolist()
+try:
+    config["image_size"] = np.fromstring(configin["image_size"].replace(" ","")[1:-1],sep=',').astype(np.int32).tolist()
+except:
+    config["image_size"] = [66,200]
 config["input_channels"] = int( configin["input_channels"] )
 config["hidden_dimension"] = int( configin["hidden_dimension"] )
 config["sequence_length"] = int( configin["sequence_length"] )
