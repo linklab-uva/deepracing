@@ -167,7 +167,7 @@ def go():
     parser.add_argument("--learning_rate", type=float, default=None,  help="Override the learning rate specified in the config file")
     parser.add_argument("--momentum", type=float, default=None,  help="Override the momentum specified in the config file")
     parser.add_argument("--dampening", type=float, default=None,  help="Override the dampening specified in the config file")
-    parser.add_argument("--nesterov", type=float, default=None,  help="Override the nesterov specified in the config file")
+    parser.add_argument("--nesterov", action="store_true",  help="Override the nesterov specified in the config file")
     parser.add_argument("--bezier_order", type=int, default=None,  help="Override the order of the bezier curve specified in the config file")
     parser.add_argument("--weighted_loss", action="store_true",  help="Use timewise weights on param loss")
     parser.add_argument("--optimizer", type=str, default="SGD",  help="Optimizer to use")
@@ -232,8 +232,8 @@ def go():
         config["dampening"] = dampening
     else:
         dampening = config["dampening"]
-    if args.nesterov is not None:
-        nesterov = args.nesterov
+    if args.nesterov:
+        nesterov = True
         config["nesterov"] = nesterov
     else:
         nesterov = config["nesterov"]

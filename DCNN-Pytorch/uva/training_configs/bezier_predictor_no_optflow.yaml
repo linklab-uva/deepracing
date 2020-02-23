@@ -13,7 +13,7 @@ batch_size: 128
 learning_rate: 1.0E-4
 momentum: 1.0E-1
 nesterov: False
-dampening: 0.0E-0
+dampening: 0.01E-0
 loss_weights: [0.1, 1.0, 0.1]
 num_epochs: 100
 num_workers: 0
