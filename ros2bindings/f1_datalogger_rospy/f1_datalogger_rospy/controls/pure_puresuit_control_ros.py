@@ -61,8 +61,23 @@ class PurePursuitControllerROS(Node):
         self.prev_err = None
         self.integral = 0.0
         velocity_lookahead_gain_param : Parameter = self.get_parameter_or("velocity_lookahead_gain", Parameter("velocity_lookahead_gain",value=0.25))
-        print("velocity_lookahead_gain_param: " + str(velocity_lookahead_gain_param))
+        print("velocity_lookahead_gain_param: " + str(velocity_lookahead_gain_param.get_parameter_value()))
         self.velocity_lookahead_gain : float = velocity_lookahead_gain_param.get_parameter_value().double_value
+        
+        left_steer_factor_param : Parameter = self.get_parameter_or("left_steer_factor", Parameter("left_steer_factor",value=3.39814))
+        print("left_steer_factor_param: " + str(left_steer_factor_param.get_parameter_value()))
+        self.left_steer_factor : float = left_steer_factor_param.get_parameter_value().double_value
+        
+        right_steer_factor_param : Parameter = self.get_parameter_or("right_steer_factor", Parameter("right_steer_factor",value=3.72814))
+        print("right_steer_factor_param: " + str(right_steer_factor_param.get_parameter_value()))
+        self.right_steer_factor : float = right_steer_factor_param.get_parameter_value().double_value
+        
+        use_drs_param : Parameter = self.get_parameter_or("use_drs", Parameter("use_drs",value=False))
+        self.use_drs : bool = use_drs_param.get_parameter_value().bool_value
+        if self.use_drs:
+            print("Using DRS")
+        else:
+            print("Not using DRS")
         
         self.motion_data_sub = self.create_subscription(
             TimestampedPacketMotionData,
@@ -156,15 +171,15 @@ class PurePursuitControllerROS(Node):
             alpha = np.arctan2(lookaheadDirection[0],lookaheadDirection[1])
             physical_angle = np.arctan((2 * self.L*np.sin(alpha)) / D)
             if (physical_angle > 0) :
-                delta = 3.39814*physical_angle# + 0.01004506
+                delta = self.left_steer_factor*physical_angle# + 0.01004506
             else:
-                delta = 3.79545*physical_angle# + 0.01094534
+                delta = self.right_steer_factor*physical_angle# + 0.01094534
             #delta = 0.0
             if self.velsetpoint>self.current_speed:
                 self.controller.setControl(delta,1.0,0.0)
             else:
                 self.controller.setControl(delta,0.0,1.0)
-            if self.current_status_data.m_drs_allowed==1 and self.current_telemetry_data.drs==0:
+            if self.use_drs and self.current_status_data.m_drs_allowed==1 and self.current_telemetry_data.drs==0:
                 self.controller.pushDRS()
             #print(delta)
             # if self.throttle_out>0.0:

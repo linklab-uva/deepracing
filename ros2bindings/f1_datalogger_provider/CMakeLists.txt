@@ -38,6 +38,7 @@ set(f1_python_directory_ "${f1_cmake_directory_}/../lib/python")
 message(STATUS "f1_python_directory_: ${f1_python_directory_}")
 get_filename_component(f1_python_directory_ "${f1_python_directory_}" REALPATH)
 message(STATUS "f1_python_directory_ after resolving symlinks: ${f1_python_directory_}")
+file(TO_NATIVE_PATH ${f1_python_directory_} f1_python_directory_)
 
 if(WIN32)
   configure_file(addpythonpath.bat.in addpythonpath.bat @ONLY)

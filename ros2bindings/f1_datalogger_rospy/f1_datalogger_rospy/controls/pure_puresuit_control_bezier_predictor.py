@@ -104,47 +104,47 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
 
 
         L_param : Parameter = self.get_parameter_or("wheelbase",Parameter("wheelbase", value=L))
-        print("L_param: " + str(L_param))
+        print("L_param: " + str(L_param.get_parameter_value()))
 
         pgain_param : Parameter = self.get_parameter_or("pgain",Parameter("pgain", value=pgain))
-        print("pgain_param: " + str(pgain_param))
+        print("pgain_param: " + str(pgain_param.get_parameter_value()))
 
         igain_param : Parameter = self.get_parameter_or("igain",Parameter("igain", value=igain))
-        print("igain_param: " + str(igain_param))
+        print("igain_param: " + str(igain_param.get_parameter_value()))
 
         dgain_param : Parameter = self.get_parameter_or("dgain",Parameter("dgain", value=dgain))
-        print("dgain_param: " + str(dgain_param))
+        print("dgain_param: " + str(dgain_param.get_parameter_value()))
 
         lookahead_gain_param : Parameter = self.get_parameter_or("lookahead_gain",Parameter("lookahead_gain", value=lookahead_gain))
-        print("lookahead_gain_param: " + str(lookahead_gain_param))
+        print("lookahead_gain_param: " + str(lookahead_gain_param.get_parameter_value()))
 
         plot_param : Parameter = self.get_parameter_or("plot",Parameter("plot", value=plot))
-        print("plot_param: " + str(plot_param))
+        print("plot_param: " + str(plot_param.get_parameter_value()))
 
         use_compressed_images_param : Parameter = self.get_parameter_or("use_compressed_images",Parameter("use_compressed_images", value=False))
-        print("use_compressed_images_param: " + str(use_compressed_images_param))
+        print("use_compressed_images_param: " + str(use_compressed_images_param.get_parameter_value()))
 
         deltaT_param : Parameter = self.get_parameter_or("deltaT",Parameter("deltaT", value=deltaT))
-        print("deltaT_param: " + str(deltaT_param))
+        print("deltaT_param: " + str(deltaT_param.get_parameter_value()))
 
         forward_indices_param : Parameter = self.get_parameter_or("forward_indices",Parameter("forward_indices", value=forward_indices))
-        print("forward_indices_param: " + str(forward_indices_param))
+        print("forward_indices_param: " + str(forward_indices_param.get_parameter_value()))
 
         x_scale_factor_param : Parameter = self.get_parameter_or("x_scale_factor",Parameter("x_scale_factor", value=1.0))
-        print("xscale_factor_param: " + str(x_scale_factor_param))
+        print("xscale_factor_param: " + str(x_scale_factor_param.get_parameter_value()))
 
         z_offset_param : Parameter = self.get_parameter_or("z_offset",Parameter("z_offset", value=L/2.0))
-        print("z_offset_param: " + str(z_offset_param))
+        print("z_offset_param: " + str(z_offset_param.get_parameter_value()))
 
         gpu_param = self.get_parameter_or("gpu",Parameter("gpu", value=gpu))
-        print("gpu_param: " + str(gpu_param))
+        print("gpu_param: " + str(gpu_param.get_parameter_value()))
 
         
         velocity_scale_param : Parameter = self.get_parameter_or("velocity_scale_factor",Parameter("velocity_scale_factor", value=1.0))
-        print("velocity_scale_param: " + str(velocity_scale_param))
+        print("velocity_scale_param: " + str(velocity_scale_param.get_parameter_value()))
         
         num_sample_points_param : Parameter = self.get_parameter_or("num_sample_points",Parameter("num_sample_points", value=60))
-        print("num_sample_points_param: " + str(num_sample_points_param))
+        print("num_sample_points_param: " + str(num_sample_points_param.get_parameter_value()))
 
         self.pgain : float = pgain_param.get_parameter_value().double_value
         self.igain : float = igain_param.get_parameter_value().double_value
