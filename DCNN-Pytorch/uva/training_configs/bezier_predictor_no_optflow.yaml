@@ -4,7 +4,7 @@ input_channels: 3
 sequence_length: 10
 context_length: 5
 temporal_conv_feature_factor: 1
-bezier_order: 7
+bezier_order: 5
 use_float: False
 
 #training hyperparameters

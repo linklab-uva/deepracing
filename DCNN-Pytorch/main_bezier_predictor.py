@@ -202,7 +202,6 @@ def go():
     if args.bezier_order is not None:
         bezier_order = args.bezier_order
         config["bezier_order"]  = bezier_order
-        output_directory+="_bezier_order%d"%(bezier_order)
     else:
         bezier_order = config["bezier_order"]
     #num_recurrent_layers = config["num_recurrent_layers"]
