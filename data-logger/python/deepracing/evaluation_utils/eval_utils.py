@@ -8,6 +8,7 @@ from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 import matplotlib.pyplot as plt
 import deepracing.protobuf_utils as proto_utils
+import deepracing.pose_utils as pose_utils
 import scipy
 import scipy.spatial
 import numpy.linalg as la
@@ -39,11 +40,15 @@ def getRacePlots(dset_dir, json=False):
     laptimes =  np.array([p.udp_packet.m_lapData[0].m_currentLapTime for p in lap_packets])
     laptimedt = np.diff(laptimes)
     drops = laptimedt<0
-    lapstart = np.argmax(drops)+1
-    if np.sum(drops.astype(np.int32))>1:
-        lapend = lapstart + np.argmax(drops[lapstart+1:]) + 2
-    else:
+    if np.sum(drops.astype(np.uint32))==0:
+        lapstart = 0
         lapend = len(laptimes)
+    else:
+        lapstart = np.argmax(drops)+1
+        if np.sum(drops.astype(np.int32))>1:
+            lapend = lapstart + np.argmax(drops[lapstart+1:]) + 2
+        else:
+            lapend = len(laptimes)
     print("Got %d laptimes" %(len(laptimes),))
     lapstart+=2
     lapend-=2
@@ -53,7 +58,9 @@ def getRacePlots(dset_dir, json=False):
     sessiontime_lapstart = lap_packets[lapstart].udp_packet.m_header.m_sessionTime
     sessiontime_lapend = lap_packets[lapend].udp_packet.m_header.m_sessionTime
     laptimes = lap_packets[lapstart:lapend]
-
+    poses = [proto_utils.extractPose(p.udp_packet) for p in motion_packets]
+    positions = np.array([pose[0] for pose in poses])
+    rotations = np.array([pose[1] for pose in poses])
     distances = np.array([p.udp_packet.m_lapData[0].m_lapDistance\
          for p in lap_packets if (p.udp_packet.m_header.m_sessionTime>=sessiontime_lapstart and p.udp_packet.m_header.m_sessionTime<=sessiontime_lapend)])
     throttles = np.array([p.udp_packet.m_carTelemetryData[0].m_throttle\
@@ -62,7 +69,7 @@ def getRacePlots(dset_dir, json=False):
          for p in telemetry_packets if (p.udp_packet.m_header.m_sessionTime>=sessiontime_lapstart and p.udp_packet.m_header.m_sessionTime<=sessiontime_lapend)])/100.0
     velocities = 3.6*np.array([proto_utils.extractVelocity(p.udp_packet)\
          for p in motion_packets if (p.udp_packet.m_header.m_sessionTime>=sessiontime_lapstart and p.udp_packet.m_header.m_sessionTime<=sessiontime_lapend)])
-    return distances, throttles, steering, velocities
+    return distances, throttles, steering, velocities, positions, rotations
 def evalDataset(dset_dir, inner_trackfile, outer_trackfile, plot = False, json=False):
     image_dir = os.path.join(dset_dir,"images")
     udp_dir = os.path.join(dset_dir,"udp_data")

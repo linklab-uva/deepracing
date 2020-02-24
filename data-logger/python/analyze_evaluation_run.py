@@ -124,22 +124,81 @@ print(pilotnet_dsets)
 
 results_dir="results"
 json=True
-#analyzedatasets(main_dir,bezier_dsets,"Bezier_Predictor",results_dir=results_dir,json=True)
+# analyzedatasets(main_dir,bezier_dsets,"Bezier_Predictor",results_dir=results_dir,json=True)
 # analyzedatasets(main_dir,waypoint_dsets,"Waypoint_Predictor",results_dir=results_dir,json=True)
 # analyzedatasets(main_dir,cnnlstm_dsets,"CNNLSTM",results_dir=results_dir,json=False)
 # analyzedatasets(main_dir,pilotnet_dsets,"PilotNet",results_dir=results_dir,json=False)
 # exit(0)
-
+rinner, Xinner = proto_utils.loadTrackfile("../tracks/Australia_innerlimit.track")
+router, Xouter = proto_utils.loadTrackfile("../tracks/Australia_outerlimit.track")
 output_dir = os.path.join(main_dir,results_dir)
 for i in range(1,runmax+1):
     if i == 3:
       continue
 
-    distances_bezier, throttles_bezier, steering_bezier, velocities_bezier = eval_utils.getRacePlots(os.path.join(main_dir,bezier_dsets[i-1]), json=True)
+    distances_bezier, throttles_bezier, steering_bezier, velocities_bezier, positions_bezier, rotations_bezier = eval_utils.getRacePlots(os.path.join(main_dir,bezier_dsets[i-1]), json=True)
     speeds_bezier = la.norm(velocities_bezier,axis=1)
     
-    distances_waypoint, throttles_waypoint, steering_waypoint, velocities_waypoint = eval_utils.getRacePlots(os.path.join(main_dir,waypoint_dsets[i-1]), json=True)
+    distances_waypoint, throttles_waypoint, steering_waypoint, velocities_waypoint, positions_waypoint, rotations_waypoint = eval_utils.getRacePlots(os.path.join(main_dir,waypoint_dsets[i-1]), json=True)
     speeds_waypoint = la.norm(velocities_waypoint,axis=1)
+
+    distances_pilotnet, throttles_pilotnet, steering_pilotnet, velocities_pilotnet, positions_pilotnet, rotations_pilotnet = eval_utils.getRacePlots(os.path.join(main_dir,pilotnet_dsets[i-1]), json=False)
+    speeds_pilotnet = la.norm(velocities_pilotnet,axis=1)
+
+    distances_cnnlstm, throttles_cnnlstm, steering_cnnlstm, velocities_cnnlstm, positions_cnnlstm, rotations_cnnlstm = eval_utils.getRacePlots(os.path.join(main_dir,cnnlstm_dsets[i-1]), json=False)
+    speeds_cnnlstm = la.norm(velocities_cnnlstm,axis=1)
+
+    xmin = 590
+    xmax = 900
+    zmin = 570
+    zmax = 870
+    Xinnerisolated = np.array([Xinner[i,:] for i in range(Xinner.shape[0])\
+     if Xinner[i,0]>xmin and Xinner[i,0]<xmax and Xinner[i,2]>zmin and Xinner[i,2]<zmax ])
+    Xouterisolated = np.array([Xouter[i,:] for i in range(Xouter.shape[0])\
+     if Xouter[i,0]>xmin and Xouter[i,0]<xmax and Xouter[i,2]>zmin and Xouter[i,2]<zmax ])
+    positions_bezier_isolated = np.array([positions_bezier[i,:] for i in range(positions_bezier.shape[0])\
+     if positions_bezier[i,0]>xmin and positions_bezier[i,0]<xmax and positions_bezier[i,2]>zmin and positions_bezier[i,2]<zmax ])
+    positions_waypoint_isolated = np.array([positions_waypoint[i,:] for i in range(positions_waypoint.shape[0])\
+     if positions_waypoint[i,0]>xmin and positions_waypoint[i,0]<xmax and positions_waypoint[i,2]>zmin and positions_waypoint[i,2]<zmax ])
+
+    figbezier : matplotlib.figure.Figure = plt.figure(frameon=True)
+    plt.plot(Xinnerisolated[:,0], Xinnerisolated[:,2], color='gray', label='Inner Boundary')
+    plt.plot(Xouterisolated[:,0], Xouterisolated[:,2], color='black', label='Outer Boundary')
+    plt.plot(positions_bezier_isolated[:,0], positions_bezier_isolated[:,2], color='blue', label='Bezier Predictor Path')
+    plt.legend(fontsize='large')
+    os.makedirs(os.path.join( output_dir, "trouble_area_plots"), exist_ok=True)
+    figbezier.savefig( os.path.join( output_dir, "trouble_area_plots", "trouble_area_bezier_run_%d.png" % (i,) ), bbox_inches='tight')
+    figbezier.savefig( os.path.join( output_dir, "trouble_area_plots", "trouble_area_bezier_run_%d.eps" % (i,) ), format='eps', bbox_inches='tight')
+    figbezier.savefig( os.path.join( output_dir, "trouble_area_plots", "trouble_area_bezier_run_%d.pdf" % (i,) ), format='pdf', bbox_inches='tight')
+    figbezier.savefig( os.path.join( output_dir, "trouble_area_plots", "trouble_area_bezier_run_%d.svg" % (i,) ), format='svg', bbox_inches='tight')
+    del figbezier
+
+
+    figwaypoint : matplotlib.figure.Figure = plt.figure(frameon=True)
+    plt.plot(Xinnerisolated[:,0], Xinnerisolated[:,2], color='gray', label='Inner Boundary')
+    plt.plot(Xouterisolated[:,0], Xouterisolated[:,2], color='black', label='Outer Boundary')
+    plt.plot(positions_waypoint_isolated[:,0], positions_waypoint_isolated[:,2], color='blue', label='Waypoint Predictor Path')
+    plt.legend(fontsize='large')
+    print(positions_bezier.shape)
+    print(positions_waypoint.shape)
+    figwaypoint.savefig( os.path.join( output_dir, "trouble_area_plots", "trouble_area_waypoint_run_%d.png" % (i,) ), bbox_inches='tight')
+    figwaypoint.savefig( os.path.join( output_dir, "trouble_area_plots", "trouble_area_waypoint_run_%d.eps" % (i,) ), format='eps', bbox_inches='tight')
+    figwaypoint.savefig( os.path.join( output_dir, "trouble_area_plots", "trouble_area_waypoint_run_%d.pdf" % (i,) ), format='pdf', bbox_inches='tight')
+    figwaypoint.savefig( os.path.join( output_dir, "trouble_area_plots", "trouble_area_waypoint_run_%d.svg" % (i,) ), format='svg', bbox_inches='tight')
+    del figwaypoint
+
+
+    figcombined : matplotlib.figure.Figure = plt.figure(frameon=True)
+    plt.scatter(positions_cnnlstm[:,2], positions_cnnlstm[:,0], color='gray', label='CNNLSTM')
+    plt.scatter(positions_pilotnet[:,2], positions_pilotnet[:,0], color='black', label='PilotNet')
+    plt.plot(positions_bezier[:,2], positions_bezier[:,0], color='blue', label='Bezier Predictor')
+    plt.legend(fontsize='large')
+    os.makedirs(os.path.join( output_dir, "total_path_comparison_plots"), exist_ok=True)
+    figcombined.savefig( os.path.join( output_dir, "total_path_comparison_plots", "total_path_comparison_run_%d.png" % (i,) ), bbox_inches='tight')
+    figcombined.savefig( os.path.join( output_dir, "total_path_comparison_plots", "total_path_comparison_run_%d.eps" % (i,) ), format='eps', bbox_inches='tight')
+    figcombined.savefig( os.path.join( output_dir, "total_path_comparison_plots", "total_path_comparison_run_%d.pdf" % (i,) ), format='pdf', bbox_inches='tight')
+    figcombined.savefig( os.path.join( output_dir, "total_path_comparison_plots", "total_path_comparison_run_%d.svg" % (i,) ), format='svg', bbox_inches='tight')
+    del figcombined
     # print(len(motion_packets_bezier))
     # print(len(lap_packets_bezier))
     # print(len(telemetry_packets_bezier))
@@ -183,10 +242,11 @@ for i in range(1,runmax+1):
     fig.set_frameon(True)
     fig.subplots_adjust(hspace=0.0)
 
-    fig.savefig( os.path.join( output_dir, "comparison_distance_run_%d.png" % (i,) ), bbox_inches='tight')
-    fig.savefig( os.path.join( output_dir, "comparison_distance_run_%d.eps" % (i,) ), format='eps', bbox_inches='tight')
-    fig.savefig( os.path.join( output_dir, "comparison_distance_run_%d.pdf" % (i,) ), format='pdf', bbox_inches='tight')
-    fig.savefig( os.path.join( output_dir, "comparison_distance_run_%d.svg" % (i,) ), format='svg', bbox_inches='tight')
+    os.makedirs(os.path.join( output_dir, "f1_style_comparisons"), exist_ok=True)
+    fig.savefig( os.path.join( output_dir, "f1_style_comparisons", "comparison_distance_run_%d.png" % (i,) ), bbox_inches='tight')
+    fig.savefig( os.path.join( output_dir, "f1_style_comparisons", "comparison_distance_run_%d.eps" % (i,) ), format='eps', bbox_inches='tight')
+    fig.savefig( os.path.join( output_dir, "f1_style_comparisons", "comparison_distance_run_%d.pdf" % (i,) ), format='pdf', bbox_inches='tight')
+    fig.savefig( os.path.join( output_dir, "f1_style_comparisons", "comparison_distance_run_%d.svg" % (i,) ), format='svg', bbox_inches='tight')
     del fig
     
     # print(len(motion_packets_waypoint))
