@@ -195,7 +195,6 @@ def go():
     if args.context_length is not None:
         context_length = args.context_length
         config["context_length"]  = context_length
-        output_directory+="_context%d"%(context_length)
     else:
         context_length = config["context_length"]
         
