@@ -54,6 +54,7 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
     if gpu>=0:
         s_torch = s_torch.cuda(gpu)
     bezier_order = network.params_per_dimension-1
+    experiment.set_epoch(epoch_number)
     for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
         if network.input_channels==5:
             image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)

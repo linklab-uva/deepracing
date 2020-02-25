@@ -1,4 +1,5 @@
 import comet_ml
+from comet_ml import Experiment, ExistingExperiment, APIExperiment
 import torch
 import torch.nn as NN
 import torch.utils.data as data_utils
@@ -26,8 +27,9 @@ import matplotlib.animation as animation
 import time
 import deepracing_models.math_utils.bezier
 import socket
+import io
+from io import BytesIO
 import json
-
 #torch.backends.cudnn.enabled = False
 def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, epoch_number, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True):
     cum_loss = 0.0
@@ -153,46 +155,78 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
             t.set_postfix({"cum_loss" : cum_loss/num_samples,"cum_param_loss" : cum_param_loss/num_samples,"cum_position_loss" : cum_position_loss/num_samples,"cum_velocity_loss" : cum_velocity_loss/num_samples})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
-    parser.add_argument("experiment_id", type=str,  required=True, help="Dataset Configuration file to load")
-    parser.add_argument("epochstart", type=int, required=True,  help="Restart training from the given epoch number")
+    parser.add_argument("experiment_key", type=str,  help="Dataset Configuration file to load")
+    parser.add_argument("epochstart", type=int,  help="Restart training from the given epoch number")
+    parser.add_argument("output_directory", type=str,  help="Where to put output files")
 
-    parser.add_argument("--api_key",  type=int, default=None,  help="Override the context length specified in the config file")
+    parser.add_argument("--rest_api_key",  type=str, default=None,  help="Manually set the REST Api Key from Comet")
+    parser.add_argument("--api_key",  type=str, default=None,  help="Manually set the Api Key from Comet")
     parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
     parser.add_argument("--gpu", type=int, default=-1,  help="Select GPU to use")
+    parser.add_argument("--batch_size", type=int, default=None,  help="Select GPU to use")
+    parser.add_argument("--dataset_config",  type=str, default=None,  help="Override the dataset file in Comet")
+    parser.add_argument("--debug",  action="store_true",  help="Just debug locally")
     
 
     args = parser.parse_args()
 
-    experiment_id = args.experiment_id
-    config_file = args.model_config_file
+    experiment_key = args.experiment_key
     epochstart = args.epochstart
     api_key = args.api_key
     tqdm = args.tqdm
     api_key = args.api_key
+    rest_api_key = args.rest_api_key
     gpu = args.gpu
-       
-    
+    dataset_config = args.dataset_config
+    debug = args.debug
 
+
+    weightfilename = "epoch_%d_params.pt" %(epochstart,)
+    optimizerfilename = "epoch_%d_optimizer.pt" %(epochstart,)
+
+    experiment_grab = APIExperiment(rest_api_key=rest_api_key, previous_experiment=experiment_key)
+    assets = experiment_grab.get_asset_list()
+    asset_filename_dict = {asset['fileName'] : asset for asset in assets}
+    model_config_yaml = experiment_grab.get_asset(asset_filename_dict['model_config.yaml']['assetId'], return_type="text")
+    print(model_config_yaml)
+    config = yaml.load(model_config_yaml, Loader=yaml.SafeLoader)
+    print(config)
+    if(args.batch_size is not None):
+        batch_size = args.batch_size
+        config["batch_size"] = batch_size
+    else:
+        batch_size=config["batch_size"]
+
+    
     num_epochs = config["num_epochs"]
     num_workers = config["num_workers"]
     use_float = config["use_float"]
     hidden_dim = config["hidden_dimension"]
+    context_length = config["context_length"]
+    input_channels = config["input_channels"]
+    bezier_order = config["bezier_order"]
+    loss_weights = config["loss_weights"]
+    sequence_length = config["sequence_length"]
     loss_reduction = config["loss_reduction"]
     num_recurrent_layers = config.get("num_recurrent_layers",1)
+    optimizer_str = config["optimizer"]
     config["hostname"] = socket.gethostname()
+
+
+    learning_rate = config["learning_rate"]
+    momentum = config["momentum"]
+    nesterov = config["nesterov"]
+    dampening = config["dampening"]
     
     
     print("Using config:\n%s" % (str(config)))
     net = deepracing_models.nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dim, num_recurrent_layers=num_recurrent_layers, params_per_dimension=bezier_order+1 ) 
     print("net:\n%s" % (str(net)))
-    ppd = net.params_per_dimension
-    numones = int(ppd/2)
-    if weighted_loss:
-        timewise_weights = torch.from_numpy( np.hstack( ( np.ones(numones), np.linspace(1,3, ppd - numones ) ) ) )
-    else:
-        timewise_weights = None
+    
     params_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss(time_reduction=loss_reduction)
-    kinematic_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss(time_reduction=loss_reduction)
+    kinematic_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss(time_reduction=loss_reduction)    
+
+
     if use_float:
         print("casting stuff to float")
         net = net.float()
@@ -203,24 +237,22 @@ def go():
         net = net.double()
         params_loss = params_loss.double()
         kinematic_loss = kinematic_loss.float()
+    print("Grabbing model weights from Comet")
+    model_weights = experiment_grab.get_asset(asset_filename_dict[weightfilename]['assetId'], return_type="binary")
+    net.load_state_dict(torch.load(BytesIO(model_weights), map_location=torch.device("cpu")))
     if gpu>=0:
         print("moving stuff to GPU")
         net = net.cuda(gpu)
         params_loss = params_loss.cuda(gpu)
         kinematic_loss = kinematic_loss.cuda(gpu)
-    optimizer = args.optimizer
     net.linear_rnn.flatten_parameters()
-    
-
-
-    config["optimizer"] = optimizer
-    if optimizer=="Adam":
+    if optimizer_str=="Adam":
         optimizer = optim.Adam(net.parameters(), lr = learning_rate, betas=(0.9, 0.9))
-    elif optimizer=="RMSprop":
+    elif optimizer_str=="RMSprop":
         optimizer = optim.RMSprop(net.parameters(), lr = learning_rate, momentum = momentum)
-    elif optimizer=="ASGD":
+    elif optimizer_str=="ASGD":
         optimizer = optim.ASGD(net.parameters(), lr = learning_rate)
-    elif optimizer=="SGD":
+    elif optimizer_str=="SGD":
         nesterov_ = momentum>0.0 and nesterov
         if nesterov_:
             dampening_=0.0
@@ -229,18 +261,28 @@ def go():
         optimizer = optim.SGD( net.parameters(), lr = learning_rate , momentum = momentum , dampening = dampening_ , nesterov = nesterov_ )
     else:
         raise ValueError("Uknown optimizer " + optimizer)
-
-   
+    print("Grabbing optimizer weights from Comet")
+    optimizer_weights = experiment_grab.get_asset(asset_filename_dict[optimizerfilename]['assetId'], return_type="binary")
+    optimizer.load_state_dict(torch.load(BytesIO(optimizer_weights), map_location=torch.device("cpu")))
     
     
     
-        
+    num_workers=0
     if num_workers == 0:
         max_spare_txns = 50
     else:
         max_spare_txns = num_workers
 
-    #image_wrapper = deepracing.backend.ImageFolderWrapper(os.path.dirname(image_db))
+    if args.dataset_config is None:
+        dataset_config_yaml = experiment_grab.get_asset(asset_filename_dict['datasets.yaml']['assetId'], return_type="text")
+        dataset_config = yaml.load(dataset_config_yaml, Loader=yaml.SafeLoader)
+    else:
+        with open(args.dataset_config,'r') as f:
+            dataset_config = yaml.load(f, Loader=yaml.SafeLoader)
+
+    print(dataset_config)
+    image_size = np.array(dataset_config["image_size"])
+    print(image_size)
     
     dsets=[]
     use_optflow = net.input_channels==5
@@ -276,31 +318,25 @@ def go():
     print("Dataloader of of length %d" %(len(dataloader)))
     netpostfix = "epoch_%d_params.pt"
     optimizerpostfix = "epoch_%d_optimizer.pt"
-    
+    #experiment_grab = APIExperiment(rest_api_key=rest_api_key, previous_experiment=experiment_key)
+    del experiment_grab
     main_dir = args.output_directory
     if not debug:
-        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingbezierpredictor")
+        experiment = ExistingExperiment(api_key=api_key, previous_experiment=experiment_key, workspace="electric-turtle", project_name="deepracingbezierpredictor")
         output_directory = os.path.join(main_dir, experiment.get_key())
-        if os.path.isdir(output_directory) :
-            raise FileExistsError("%s already exists, this should not happen." %(output_directory) )
-        os.makedirs(output_directory)
-        experiment.log_parameters(config)
-        experiment.log_parameters(dataset_config)
-        dsetsjson = json.dumps(dataset_config, indent=1)
-        experiment.log_parameter("datasets",dsetsjson)
-        experiment.log_text(dsetsjson)
+        
+        os.makedirs(output_directory, exist_ok=True)
+        experiment.log_parameter("batch_size", batch_size)
+        
         experiment.add_tag("bezierpredictor")
         experiment_config = {"experiment_key": experiment.get_key()}
         yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
         yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
         yaml.dump(config, stream=open(os.path.join(output_directory,"model_config.yaml"), "w"), Dumper = yaml.SafeDumper)
-        experiment.log_asset(os.path.join(output_directory,"dataset_config.yaml"),file_name="datasets.yaml")
-        experiment.log_asset(os.path.join(output_directory,"experiment_config.yaml"),file_name="experiment_config.yaml")
-        experiment.log_asset(os.path.join(output_directory,"model_config.yaml"),file_name="model_config.yaml")
     else:
         output_directory = os.path.join(main_dir, "debug")
         os.makedirs(output_directory, exist_ok=True)
-    i = 0
+    i = epochstart
     if debug:
         run_epoch(None, net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, 1, debug=debug, use_tqdm=args.tqdm )
     else:
@@ -316,10 +352,15 @@ def go():
                     tock = time.time()
                     print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
                     experiment.log_epoch_end(postfix)
+                except KeyboardInterrupt as e:
+                    exit(0)
+                except FileNotFoundError as e:
+                    print(e)
+                    exit(-1)
+                except FileExistsError as e:
+                    print(e)
+                    exit(-1)
                 except Exception as e:
-                    if isinstance(e, FileExistsError):
-                        print(e)
-                        exit(-1)
                     print("Restarting epoch %d because %s"%(postfix, str(e)))
                     modelin = os.path.join(output_directory, netpostfix %(postfix-1))
                     optimizerin = os.path.join(output_directory,optimizerpostfix %(postfix-1))
@@ -335,6 +376,7 @@ def go():
                 with open(optimizerout,'rb') as optimizerfile:
                     experiment.log_asset(optimizerfile,file_name=optimizerpostfix %(postfix))
                 i = i + 1
+    exit(0)
 import logging
 if __name__ == '__main__':
     logging.basicConfig()
