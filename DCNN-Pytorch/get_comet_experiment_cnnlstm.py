@@ -32,15 +32,21 @@ else:
 experiment : APIExperiment = api.get_experiment("electric-turtle", "deepracingcnnlstm", experiment_key)
 assetlist = experiment.get_asset_list()
 assetdict = {d['fileName']: d['assetId'] for d in assetlist}
-
+#print(assetdict)
 #get network weight file
 weightfilename = "pilotnet_epoch_%d_params.pt" %(epoch_number,)
+weightfilenamealt = "CNNLSTM_epoch_%d_params.pt" %(epoch_number,)
 
 print("Getting network weights from comet")
-params_binary = experiment.get_asset(assetdict[weightfilename])
+try:
+    params_binary = experiment.get_asset(assetdict[weightfilename])
+    outputweightfile = os.path.join(output_directory,weightfilename)
+except KeyError as e:
+    params_binary = experiment.get_asset(assetdict[weightfilenamealt])
+    outputweightfile = os.path.join(output_directory,weightfilenamealt)
+    
 
 
-outputweightfile = os.path.join(output_directory,weightfilename)
 with open(outputweightfile, 'wb') as f:
     f.write(params_binary)
 
@@ -48,12 +54,12 @@ with open(outputweightfile, 'wb') as f:
 parameters_summary = experiment.get_parameters_summary()
 configin = {d["name"] : d["valueCurrent"] for d in parameters_summary}
 config = {}
-config["image_size"] = np.fromstring(configin["image_size"].replace(" ","")[1:-1],sep=',').astype(np.int32).tolist()
+config["image_size"] = np.fromstring( configin["image_size"].replace(" ","")[1:-1], sep=',', dtype=np.int32).tolist()
 config["input_channels"] = int( configin["input_channels"] )
 config["output_dimension"] = int( configin["output_dimension"] )
-config["hidden_dimension"] = int( configin["hidden_dimension"] )
+config["hidden_dimension"] = int( configin.get("hidden_dimension","100") )
 config["sequence_length"] = int( configin["sequence_length"] )
-config["context_length"] = int( configin["context_length"] )
+config["context_length"] = int( configin.get("context_length","5") )
 print(config)
 
 

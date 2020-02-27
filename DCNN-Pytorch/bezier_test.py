@@ -4,6 +4,8 @@ import scipy.interpolate
 from scipy.interpolate import make_interp_spline as mkspl
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 import numpy as np
 from numpy import array, linalg, matrix
 from scipy.special import comb as nOk
@@ -56,24 +58,27 @@ print(bezier_control_points.shape)
 Pbeziertorch = torch.matmul(M,bezier_control_points)
 
 
-Mderiv, Pbeziertorchderiv = math_utils.bezierDerivative(bezier_control_points,storch, order=1)
-Pbeziertorchderiv= Pbeziertorchderiv/dt[:,None,None]
+Mderiv, Pdot_s = math_utils.bezierDerivative(bezier_control_points,storch, order=1)
+Pdot_t= Pdot_s/dt[:,None,None]
 
 Mdotdot, Pdotdot_s = math_utils.bezierDerivative(bezier_control_points, storch, order=2)
 Pdotdot_t= Pdotdot_s/((dt**2)[:,None,None])
 
 
 for i in range(numcurves):
-    fig = plt.figure()
-    ax = fig.add_subplot()
-    ax.plot(P[i,:,0],P[i,:,1],'r-')
-    ax.scatter(Pbeziertorch[i,:,0].numpy(),Pbeziertorch[i,:,1].numpy(), facecolors='none', edgecolors='b')
-    skipn = 5
-    ax.plot(bezier_control_points[i,:,0].numpy(),bezier_control_points[i,:,1].numpy(),'go')
-    ax.quiver(Pbeziertorch[i,::skipn,0].numpy(),Pbeziertorch[i,::skipn,1].numpy(),Pbeziertorchderiv[i,::skipn,0].numpy(),Pbeziertorchderiv[i,::skipn,1].numpy(), angles='xy')
-    ax.quiver(Pbeziertorch[i,::skipn,0].numpy(),Pbeziertorch[i,::skipn,1].numpy(),Pdotdot_t[i,::skipn,0].numpy(),Pdotdot_t[i,::skipn,1].numpy(), angles='xy')
+    fig : Figure = plt.figure()
+    ax : Axes = fig.add_subplot()
+   #ax.plot(P[i,:,0],P[i,:,1],'r-')
+    ax.set_title("A Bézier Curve and its Control Points")
+    ax.plot(Pbeziertorch[i,:,0].numpy(),Pbeziertorch[i,:,1].numpy(), color='blue', label="A Bézier Curve")
+   # ax.scatter(Pbeziertorch[i,:,0].numpy(),Pbeziertorch[i,:,1].numpy(), facecolors='none', edgecolors='b')
+    skipn = 50
+    #ax.plot(bezier_control_points[i,:,0].numpy(),bezier_control_points[i,:,1].numpy(),'go')
+    ax.scatter(bezier_control_points[i,:,0].numpy(),bezier_control_points[i,:,1].numpy(), facecolors='none', edgecolors='g', label="Control Points")
+    ax.quiver(Pbeziertorch[i,::skipn,0].numpy(),Pbeziertorch[i,::skipn,1].numpy(),Pdot_t[i,::skipn,0].numpy(),Pdot_t[i,::skipn,1].numpy(), angles='xy', color='black', label="Velocity Vectors")
+    ax.legend(loc="best")
 
     print("Mean distance: %f" %(torch.mean(torch.norm(Pbeziertorch[i]-Ptorch[i],dim=1,p=2)).item()))
-    print("Mean velocity diff: %f" %(torch.mean(torch.norm(Pbeziertorchderiv[i]-Pprimetorch[i],dim=1,p=2)).item()))
+    print("Mean velocity diff: %f" %(torch.mean(torch.norm(Pdot_t[i]-Pprimetorch[i],dim=1,p=2)).item()))
     print("Mean acceleration diff: %f" %(torch.mean(torch.norm(Pdotdot_t[i]-Pprimeprimetorch[i],dim=1,p=2)).item()))
     plt.show()
