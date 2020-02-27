@@ -18,8 +18,7 @@ import scipy
 import scipy.interpolate
 import deepracing.pose_utils
 import deepracing.backend
-from deepracing.pose_utils import getAllImageFilePackets, getAllMotionPackets
-from deepracing.protobuf_utils import getAllSessionPackets, getAllTelemetryPackets
+from deepracing.protobuf_utils import getAllSessionPackets, getAllTelemetryPackets, getAllImageFilePackets, getAllMotionPackets
 from tqdm import tqdm as tqdm
 import yaml
 import LabeledImage_pb2
@@ -55,8 +54,8 @@ if spectating:
     else:
         car_index = car_indices[0]
 
-image_tags = deepracing.pose_utils.getAllImageFilePackets(image_folder, args.json)
-telemetry_packets = deepracing.protobuf_utils.getAllTelemetryPackets(telemetry_folder, args.json)
+image_tags = getAllImageFilePackets(image_folder, args.json)
+telemetry_packets = getAllTelemetryPackets(telemetry_folder, args.json)
 telemetry_packets = sorted(telemetry_packets, key=udpPacketKey)
 session_times = np.array([packet.udp_packet.m_header.m_sessionTime for packet in telemetry_packets])
 system_times = np.array([packet.timestamp/1000.0 for packet in telemetry_packets])
@@ -110,6 +109,8 @@ interpolated_steerings = steering_interpolant(image_session_timestamps)
 interpolated_throttles = throttle_interpolant(image_session_timestamps)
 interpolated_brakes = brake_interpolant(image_session_timestamps)
 
+
+
 print()
 print(len(image_tags))
 print(len(image_session_timestamps))
@@ -120,12 +121,20 @@ print("R^2: %f" %(r_value**2))
 try:
   import matplotlib.pyplot as plt
   from mpl_toolkits.mplot3d import Axes3D
-  fig = plt.figure("System Time vs F1 Session Time")
+  fig1 = plt.figure("Steering and interpolation")
+  plt.plot(session_times, steering, label='steering')
+  plt.plot(image_session_timestamps, interpolated_steerings, label='fitted steering')
+  fig1.legend()
+
+  
+  fig2 = plt.figure("System Time vs F1 Session Time")
   plt.plot(system_times, session_times, label='udp data times')
   plt.plot(system_times, slope*system_times + intercept, label='fitted line')
   #plt.plot(image_timestamps, label='image tag times')
-  fig.legend()
-  fig = plt.figure("Image Session Times on Normalized Domain")
+
+  fig2.legend()
+
+  fig3 = plt.figure("Image Session Times on Normalized Domain")
   t = np.linspace( 0.0, 1.0 , num=len(image_session_timestamps) )
   slope_remap, intercept_remap, r_value_remap, p_value_remap, std_err_remap = scipy.stats.linregress(t, image_session_timestamps)
   print("Slope of all point session times" %(slope_remap))
@@ -133,6 +142,7 @@ try:
   print("R^2 of remap: %f" %(r_value_remap**2))
   plt.plot( t, image_session_timestamps, label='dem timez' )
   plt.plot( t, t*slope_remap + intercept_remap, label='fitted line' )
+  fig3.legend()
   plt.show()
 except KeyboardInterrupt:
     exit(0)

@@ -169,7 +169,6 @@ int main(int argc, char** argv)
     frame_handler->stop();
   }
 	udp_handler->stop();
-  udp_handler->setSleepTime(1);
   //join with the main thread to keep the handlers in scope until all data has been written to file.
   if(frame_handler)
 	{
