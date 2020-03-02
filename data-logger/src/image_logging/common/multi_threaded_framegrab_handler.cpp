@@ -54,7 +54,7 @@ void MultiThreadedFrameGrabHandler::join()
 {
   {
     std::unique_lock<std::mutex> lk(queue_mutex_);
-    printf("Cleaning up %ud remaining images in the queue.\n", (unsigned int)queue_->unsafe_size());
+    printf("Cleaning up %u remaining images in the queue.\n", (unsigned int)queue_->unsafe_size());
   }
   thread_pool_->wait();
 }

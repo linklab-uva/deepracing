@@ -34,33 +34,16 @@ experiment : APIExperiment = api.get_experiment("electric-turtle", "deepracingbe
 assetlist = experiment.get_asset_list()
 assetdict = {d['fileName']: d['assetId'] for d in assetlist}
 
-#get network weight file
-weightfilename = "epoch_%d_params.pt" %(epoch_number,)
-optimizerfilename = "epoch_%d_optimizer.pt" %(epoch_number,)
 
-print("Getting network weights from comet")
-params_binary = experiment.get_asset(assetdict[weightfilename])
-
-#get optimizer weight file
-print("Getting optimizer weights from comet")
-optimizer_binary = experiment.get_asset(assetdict[optimizerfilename])
-
-outputweightfile = os.path.join(output_directory,weightfilename)
-with open(outputweightfile, 'wb') as f:
-    f.write(params_binary)
-
-outputoptimizerfile = os.path.join(output_directory,optimizerfilename)
-with open(outputoptimizerfile, 'wb') as f:
-    f.write(optimizer_binary)
-
-#get parameters
+print("Getting hyperparameters from comet")
 parameters_summary = experiment.get_parameters_summary()
 configin = {d["name"] : d["valueCurrent"] for d in parameters_summary}
 config = {}
-try:
-    config["image_size"] = np.fromstring(configin["image_size"].replace(" ","")[1:-1],sep=',').astype(np.int32).tolist()
-except:
-    config["image_size"] = [66,200]
+config["image_size"] = np.fromstring( configin["image_size"].replace(" ","").replace("[","").replace("]",""), sep=',', dtype=np.int32 ).tolist()
+# try:
+#     config["image_size"] = np.fromstring( configin["image_size"].replace(" ","").replace("[","").replace("]",""), sep=',', dtype=np.int32 ).tolist()
+# except:
+#     config["image_size"] = [66,200]
 config["input_channels"] = int( configin["input_channels"] )
 config["hidden_dimension"] = int( configin["hidden_dimension"] )
 config["sequence_length"] = int( configin["sequence_length"] )
@@ -70,6 +53,28 @@ print(config)
 outputconfigfile = os.path.join(output_directory,"config.yaml")
 with open(outputconfigfile, 'w') as f:
     yaml.dump(config,stream=f,Dumper=yaml.SafeDumper)
+
+
+#get network weight file
+weightfilename = "epoch_%d_params.pt" %(epoch_number,)
+optimizerfilename = "epoch_%d_optimizer.pt" %(epoch_number,)
+
+print("Getting network weights from comet")
+params_binary = experiment.get_asset(assetdict[weightfilename])
+
+outputweightfile = os.path.join(output_directory,weightfilename)
+with open(outputweightfile, 'wb') as f:
+    f.write(params_binary)
+
+#get optimizer weight file
+print("Getting optimizer weights from comet")
+optimizer_binary = experiment.get_asset(assetdict[optimizerfilename])
+
+
+outputoptimizerfile = os.path.join(output_directory,optimizerfilename)
+with open(outputoptimizerfile, 'wb') as f:
+    f.write(optimizer_binary)
+
 
 context_length = int(config["context_length"])
 input_channels = int(config["input_channels"])

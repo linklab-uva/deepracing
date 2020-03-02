@@ -52,6 +52,44 @@ set(CMAKE_CXX_EXTENSIONS ON)
 set(THIRD_PARTY_REPOS ${CMAKE_SOURCE_DIR}/third_party)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE})
 
+
+
+set(BOOST_REQUIRED_COMPONENTS
+date_time
+program_options
+regex
+system
+thread
+)
+
+
+include(CheckCXXSourceCompiles)
+check_cxx_source_compiles("#include <filesystem>
+                            int main(int argc, char** argv) { std::filesystem::path p; return 0; }" HAS_STDCXXFS)
+
+if(NOT HAS_STDCXXFS)
+    list(APPEND BOOST_REQUIRED_COMPONENTS filesystem)
+endif(NOT HAS_STDCXXFS)
+
+set(Boost_USE_STATIC_LIBS (NOT ${BUILD_SHARED_LIBS}))
+find_package(Boost CONFIG COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
+if(Boost_FOUND)
+    message(STATUS "Found boost via cmake config at ${Boost_DIR}")
+else()
+    find_package(Boost REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
+endif(Boost_FOUND)
+
+set(internal_boost_headers_target FALSE)
+if(NOT TARGET Boost::headers)
+    set(internal_boost_headers_target TRUE)
+    add_library(Boost::headers INTERFACE IMPORTED GLOBAL)
+    target_include_directories(Boost::headers INTERFACE ${Boost_INCLUDE_DIRS})
+endif()
+list(APPEND Boost_LIBRARIES Boost::headers)
+message(STATUS "Using Boost components: ${Boost_LIBRARIES}")
+
+
+
 find_package( Eigen3 REQUIRED )
 
 option(YAML_CPP_DLL "Set this if YAML CPP was compiled as a DLL" ON)
@@ -72,40 +110,6 @@ if(BUILD_DATALOGGER)
     include_directories(${SCL_SUBDIR}/include)
 endif()
 
-
-set(BOOST_REQUIRED_COMPONENTS
-date_time
-program_options
-regex
-system
-thread
-)
-
-include(CheckCXXSourceCompiles)
-check_cxx_source_compiles("#include <filesystem>
-                            int main(int argc, char** argv) { std::filesystem::path p; return 0; }" HAS_STDCXXFS)
-set(HAS_STDCXXFS TRUE)
-
-if(NOT HAS_STDCXXFS)
-    list(APPEND BOOST_REQUIRED_COMPONENTS filesystem)
-endif(NOT HAS_STDCXXFS)
-
-find_package(Boost CONFIG COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
-if(Boost_FOUND)
-    message(STATUS "Found boost via cmake config at ${Boost_DIR}")
-else()
-    set(Boost_USE_STATIC_LIBS (NOT ${BUILD_SHARED_LIBS}))
-    find_package(Boost REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
-endif(Boost_FOUND)
-
-set(internal_boost_headers_target FALSE)
-if(NOT TARGET Boost::headers)
-    set(internal_boost_headers_target TRUE)
-    add_library(Boost::headers INTERFACE IMPORTED GLOBAL)
-    target_include_directories(Boost::headers INTERFACE ${Boost_INCLUDE_DIRS})
-endif()
-list(APPEND Boost_LIBRARIES Boost::headers)
-message(STATUS "Using Boost components: ${Boost_LIBRARIES}")
 
 
 
