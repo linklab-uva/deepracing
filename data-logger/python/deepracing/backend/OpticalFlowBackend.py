@@ -29,8 +29,8 @@ class OpticalFlowLMDBWrapper():
         for i in tqdm(range(1,len(keys)), total=len(keys)-1):
             keyprev = keys[i-1]
             key = keys[i]
-            img_prev = cv2.cvtColor(image_wrapper.getImage(keyprev),cv2.COLOR_RGB2GRAY)
-            img_curr = cv2.cvtColor(image_wrapper.getImage(key),cv2.COLOR_RGB2GRAY)
+            img_prev = cv2.cvtColor( image_wrapper.getImage(keyprev) , cv2.COLOR_RGB2GRAY )
+            img_curr = cv2.cvtColor( image_wrapper.getImage(key) , cv2.COLOR_RGB2GRAY )
             flow = cv2.calcOpticalFlowFarneback(img_prev, img_curr, None, 0.5, 3, 15, 3, 5, 1.2, 0).astype(np.float32)
             entry = Image_pb2.Image( rows=img_curr.shape[0] , cols=img_curr.shape[1] , channel_order=ChannelOrder_pb2.OPTICAL_FLOW , image_data=flow.flatten().tobytes() )
             with env.begin(write=True) as write_txn:
