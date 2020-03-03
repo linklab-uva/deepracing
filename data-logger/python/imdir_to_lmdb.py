@@ -97,9 +97,11 @@ def main(args):
     print("Grabbing image with key: %s" %(randomkey))
     im = db.getImage(randomkey)
     try:
-        cv2.imshow(windowname, cv2.cvtColor(im, cv2.COLOR_RGB2BGR))
-        cv2.waitKey(0)
-        cv2.destroyWindow(windowname)
+        plt.imshow(im)
+        plt.show()
+        # cv2.imshow(windowname, cv2.cvtColor(im, cv2.COLOR_RGB2BGR))
+        # cv2.waitKey(0)
+        # cv2.destroyWindow(windowname)
     except Exception as ex:
         print(im)
         print(im.shape)
