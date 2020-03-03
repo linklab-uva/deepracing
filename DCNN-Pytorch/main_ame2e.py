@@ -176,12 +176,13 @@ def go():
     use_optflow=True
     for dataset in datasets:
         print("Parsing database config: %s" %(str(dataset)))
-        image_folder = dataset["image_folder"]
+        root_folder = dataset["root_folder"]
+        image_folder = os.path.join(root_folder,"images")
         image_lmdb = os.path.join(image_folder,"image_lmdb")
         optflow_lmdb = os.path.join(image_folder,"optical_flow_lmdb")
-        label_folder = dataset["label_folder"]
+        label_folder = os.path.join(root_folder,"steering_labels")
         label_lmdb = os.path.join(label_folder,"lmdb")
-        key_file = dataset["key_file"]
+        key_file = os.path.join(root_folder,dataset["key_file"])
 
         label_wrapper = deepracing.backend.ControlLabelLMDBWrapper()
         label_wrapper.readDatabase(label_lmdb, mapsize=3e9, max_spare_txns=max_spare_txns )
