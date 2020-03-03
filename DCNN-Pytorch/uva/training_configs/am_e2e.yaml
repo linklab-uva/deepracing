@@ -11,5 +11,5 @@ learning_rate: 1.0E-4
 momentum: 1.0E-1
 num_epochs: 500
 num_workers: 0
-loss_function: "L1"
-loss_reduction: "sum"
+loss_function: "MSE"
+loss_reduction: "mean"
