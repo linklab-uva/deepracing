@@ -12,6 +12,7 @@ import random
 import yaml
 from deepracing.protobuf_utils import getAllImageFilePackets
 from tqdm import tqdm as tqdm
+from matplotlib import pyplot as plt
 def packetSortKey(packet):
     return packet.timestamp
 def extractROI(x, y, w, h, image):
@@ -27,32 +28,6 @@ def main(args):
     imrows = args.imrows
     imcols = args.imcols
     roi = args.ROI
-    im = deepracing.imutils.readImage(img_files[0])
-    if roi is not None:
-        assert(len(roi) == 4)
-        x = int(roi[0])
-        y = int(roi[1])
-        w = int(roi[2])
-        h = int(roi[3])
-    else:    
-        factor = args.display_resize_factor
-        windowname = "Test Image"
-        cv2.namedWindow(windowname,cv2.WINDOW_AUTOSIZE)
-        x_,y_,w_,h_ = cv2.selectROI(windowname, cv2.cvtColor(deepracing.imutils.resizeImageFactor(im,factor), cv2.COLOR_RGB2BGR), showCrosshair =True)
-        #print((x_,y_,w_,h_))
-        x = int(round(x_/factor))
-        y = int(round(y_/factor))
-        w = int(round(w_/factor))
-        h = int(round(h_/factor))
-        print("Selected ROI:")
-        print((x,y,w,h))
-        cv2.imshow(windowname, cv2.cvtColor(im[y:y+h, x:x+w], cv2.COLOR_RGB2BGR))
-        cv2.waitKey(0)
-        cv2.destroyWindow(windowname)
-    if(imrows>0 and imcols>0):
-        im_size = np.array((imrows, imcols, im.shape[2]))
-    else:
-        im_size = np.array( ( h, w, im.shape[2] ) )
     dbpath = os.path.join(img_folder,"image_lmdb")
     if(os.path.isdir(dbpath)):
         if args.override:
@@ -61,23 +36,64 @@ def main(args):
             s=""
             while not (s=='n' or s=='y'):
                 s=input("Database folder " + dbpath+ " already exists. overwrite with new data? [y/n]\n")
-            if(s=='n'):
-                print("Goodbye then!")
-                exit(0)
-            shutil.rmtree(dbpath)
-    if(args.mapsize>0):
-        mapsize = int(args.mapsize)
+            if(s=='y'):
+                shutil.rmtree(dbpath)
+                overwrite_images = True
+            else:
+                print("Skipping image db")
+                overwrite_images = False
     else:
-        mapsize = int( float(np.prod(im_size) + 12 )*float(len(img_files))*1.1 )
-    print("Using a mapsize of " + str(mapsize))
+        overwrite_images = True
+    im = deepracing.imutils.readImage(img_files[0])
     db = deepracing.backend.ImageLMDBWrapper()
-    db.readImages(img_files, keys, dbpath, im_size, ROI=(x,y,w,h), mapsize=mapsize)
-    yaml.dump({"ROI":[x,y,w,h]},open(os.path.join(dbpath,"config.yaml"),"w"),Dumper=yaml.SafeDumper)
-    print("Done creating LMDB")
-    db.readDatabase(dbpath, mapsize=mapsize, max_spare_txns=16)
+    
+    if overwrite_images:
+        if roi is not None:
+            assert(len(roi) == 4)
+            x = int(roi[0])
+            y = int(roi[1])
+            w = int(roi[2])
+            h = int(roi[3])
+        else:    
+            factor = args.display_resize_factor
+            windowname = "Test Image"
+            cv2.namedWindow(windowname,cv2.WINDOW_AUTOSIZE)
+            x_,y_,w_,h_ = cv2.selectROI(windowname, cv2.cvtColor(deepracing.imutils.resizeImageFactor(im,factor), cv2.COLOR_RGB2BGR), showCrosshair =True)
+            #print((x_,y_,w_,h_))
+            x = int(round(x_/factor))
+            y = int(round(y_/factor))
+            w = int(round(w_/factor))
+            h = int(round(h_/factor))
+            print("Selected ROI:")
+            print((x,y,w,h))
+            cv2.imshow(windowname, cv2.cvtColor(im[y:y+h, x:x+w], cv2.COLOR_RGB2BGR))
+            cv2.waitKey(0)
+            cv2.destroyWindow(windowname)
+        if(imrows>0 and imcols>0):
+            im_size = np.array((imrows, imcols, im.shape[2]))
+        else:
+            im_size = np.array( ( h, w, im.shape[2] ) )
+        if(args.mapsize>0):
+            mapsize = int(args.mapsize)
+        else:
+            mapsize = int( float(np.prod(im_size) + 12 )*float(len(img_files))*1.1 )
+        print("Using a mapsize of " + str(mapsize))
+        db.readImages(img_files, keys, dbpath, im_size, ROI=(x,y,w,h), mapsize=mapsize)
+        with open(os.path.join(dbpath,"config.yaml"),"w") as f:
+            yaml.dump({"ROI":[x,y,w,h]},f,Dumper=yaml.SafeDumper)
+        print("Done creating LMDB")
+        db.readDatabase(dbpath, mapsize=mapsize, max_spare_txns=32)
+    else:
+        im_size = np.array((imrows, imcols, im.shape[2]))
+        if(args.mapsize>0):
+            mapsize = int(args.mapsize)
+        else:
+            mapsize = int( float(np.prod(im_size) + 12 )*float(len(img_files))*1.1 )
+        db.readDatabase(dbpath, mapsize=mapsize, max_spare_txns=32)
     windowname="DB Image"
     idx = random.randint(0,len(keys)-1)
-    randomkey = keys[idx]
+    #randomkey = keys[idx]
+    randomkey = "image_626"
     print("Grabbing image with key: %s" %(randomkey))
     im = db.getImage(randomkey)
     try:
@@ -90,6 +106,7 @@ def main(args):
         print("Could not display db image because:")
         print(ex)
     if args.optical_flow:
+        optflow_db = deepracing.backend.OpticalFlowLMDBWrapper()
         optflow_dbpath = os.path.join(img_folder,"optical_flow_lmdb")
         if(os.path.isdir(optflow_dbpath)):
             s=""
@@ -99,13 +116,33 @@ def main(args):
                 print("Goodbye then!")
                 exit(0)
             shutil.rmtree(optflow_dbpath)
-        optflow_db = deepracing.backend.OpticalFlowLMDBWrapper()
         if(args.mapsize>0):
             mapsize = int(8*args.mapsize/3)
         else:
             mapsize = int( float(np.prod(im_size[0:2])*8 + 12 )*float(len(img_files))*1.1 )
         print("Using an optical flow mapsize of " + str(mapsize))
         optflow_db.readImages( keys, optflow_dbpath, db, mapsize=mapsize )
+        optflow_db.readDatabase(optflow_dbpath, mapsize=mapsize)
+        try:
+            r, c, _ = im.shape
+            gd = 8 # every 10th point
+            X = np.linspace(0,c-1,int(c/gd)+int(bool(not c%gd==0)))
+            Y = np.linspace(0,r-1,int(r/gd)+int(bool(not r%gd==0)))
+            flow_db = optflow_db.getImage(randomkey)
+            print(flow_db.shape)
+            dY = flow_db[::gd,::gd,0]
+            dX = flow_db[::gd,::gd,1]
+            print(X.shape)
+            print(Y.shape)
+            print(dX.shape)
+            print(dY.shape)
+            plt.figure()
+            plt.quiver(X, Y, dX, dY, color='r')
+            plt.imshow(im)
+            plt.show()
+        except Exception as e:
+            print(e)
+            print("Loading of optical flow database was successful, but could not visualize the optical flow image for reason printed above")
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Load an image directory into a database")
     parser.add_argument("image_dir", type=str, help="Directory containing the images")
