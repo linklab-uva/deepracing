@@ -38,7 +38,7 @@ def run_epoch(network, optimizer, trainLoader, gpu, loss_function, imsize=(66,20
     else:
         t = enumerate(trainLoader)
     network.train()  # This is important to call before training!
-    for (i, (image_torch, control_output) ) in t:
+    for (i, (image_torch, optflow_torch, control_output) ) in t:
         if debug:
             image_np = image_torch[0].numpy().copy().transpose(1,2,0)
             image_ubyte = skimage.util.img_as_ubyte(image_np)
@@ -47,13 +47,18 @@ def run_epoch(network, optimizer, trainLoader, gpu, loss_function, imsize=(66,20
             cv2.imshow("Image", cv2.cvtColor(image_ubyte,cv2.COLOR_RGB2BGR))
             cv2.waitKey(0)
         image_torch = image_torch.double()
+        optflow_torch = optflow_torch.double()
         control_output = control_output.double()
+
         if gpu>=0:
             image_torch = image_torch.cuda(gpu)
+            optflow_torch = optflow_torch.cuda(gpu)
             control_output = control_output.cuda(gpu)
-      #  print(image_torch.dtype)
-        # Forward pass:
-        predictions = network(image_torch)
+        if torch.prod(optflow_torch!=optflow_torch).item()==1:
+            input_torch = image_torch
+        else:
+            input_torch = torch.cat( ( image_torch, optflow_torch ) , dim=2 )
+        predictions = network(input_torch)
         loss = loss_function(predictions, control_output)
         
         # Backward pass:
@@ -69,7 +74,7 @@ def run_epoch(network, optimizer, trainLoader, gpu, loss_function, imsize=(66,20
             num_samples += float(batch_size)
             t.set_postfix({"cum_loss" : cum_loss/num_samples})
 def go():
-    parser = argparse.ArgumentParser(description="Train PilotNet Control Predictor")
+    parser = argparse.ArgumentParser(description="Train CNNLSTM Control Predictor")
     parser.add_argument("training_config", type=str,  help="Training Parameters Configuration file to load")
     parser.add_argument("dataset_config", type=str,  help="Dataset Configuration file to load")
     parser.add_argument("output_directory", type=str,  help="Where to put the resulting model files")
@@ -96,7 +101,7 @@ def go():
         dataset_config = yaml.load(f, Loader = yaml.SafeLoader)
 
     image_size = dataset_config["image_size"]
-    input_channels = config["input_channels"]
+    config["input_channels"] = 3
     output_dimension = config["output_dimension"]
     sequence_length = config["sequence_length"]
     context_length = config["context_length"]
@@ -135,8 +140,7 @@ def go():
     num_workers = config["num_workers"]
     loss_reduction = config["loss_reduction"]
     
-    net = deepracing_models.nn_models.Models.CNNLSTM(input_channels=input_channels, output_dimension=output_dimension, \
-                                                    context_length=context_length, sequence_length=sequence_length, hidden_dimension = hidden_dimension)
+    net = deepracing_models.nn_models.Models.CNNLSTM(input_channels=3, output_dimension=2, context_length=context_length, sequence_length=sequence_length, hidden_dimension = hidden_dimension)
     if loss_function=="L1":
         loss_func = torch.nn.L1Loss(reduction=loss_reduction)
     elif loss_function=="MSE":
@@ -155,7 +159,7 @@ def go():
         max_spare_txns = num_workers
     optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum, dampening=0.0, nesterov=True)
     main_dir = args.output_directory
-    experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingcnnlstm")
+    experiment = comet_ml.Experiment(project_name="deepracingcnnlstm", workspace="electric-turtle")
     experiment.log_parameters(config)
     experiment.log_parameters(dataset_config)
     experiment.add_tag("bezierpredictor")
@@ -172,11 +176,12 @@ def go():
     use_optflow=True
     for dataset in datasets:
         print("Parsing database config: %s" %(str(dataset)))
-        image_folder = dataset["image_folder"]
+        root_folder = dataset["root_folder"]
+        image_folder = os.path.join(root_folder,"images")
         image_lmdb = os.path.join(image_folder,"image_lmdb")
-        label_folder = dataset["label_folder"]
+        label_folder = os.path.join(root_folder,"steering_labels")
         label_lmdb = os.path.join(label_folder,"lmdb")
-        key_file = dataset["key_file"]
+        key_file = os.path.join(root_folder,dataset["key_file"])
 
         label_wrapper = deepracing.backend.ControlLabelLMDBWrapper()
         label_wrapper.readDatabase(label_lmdb, mapsize=3e9, max_spare_txns=max_spare_txns )
@@ -185,19 +190,20 @@ def go():
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
         image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
         image_wrapper.readDatabase(image_lmdb, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
+
         
-        curent_dset = PD.ControlOutputSequenceDataset(image_wrapper, label_wrapper, key_file, image_size = image_size)
+        curent_dset = PD.ControlOutputSequenceDataset(image_wrapper, label_wrapper, key_file, image_size = image_size, optflow_db_wrapper=None)
         dsets.append(curent_dset)
     if len(dsets)==1:
         dset = dsets[0]
     else:
         dset = torch.utils.data.ConcatDataset(dsets)
     
-    dataloader = data_utils.DataLoader(dset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    dataloader = data_utils.DataLoader(dset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=gpu>=0)
     print("Dataloader of of length %d" %(len(dataloader)))
     i = 0
-    netpostfix="pilotnet_epoch_%d_params.pt" 
-    optimizerpostfix = "pilotnet_epoch_%d_optimizer.pt"
+    netpostfix="admiralnet_epoch_%d_params.pt" 
+    optimizerpostfix = "admiralnet_epoch_%d_optimizer.pt"
     with experiment.train():
         while i < num_epochs:
             time.sleep(2.0)

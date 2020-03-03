@@ -67,7 +67,7 @@ class ControlOutputSequenceDataset(Dataset):
             np.array( [ self.totensor( resizeImage(self.image_db_wrapper.getImage(key), self.image_size)  ).numpy() for key in image_keys ] )\
                 )
         if self.optflow_db_wrapper is None:
-            opt_flow_torch = None
+            opt_flow_torch = torch.from_numpy(np.nan(self.context_length,2,self.image_size[0],self.image_size[1]))
         else:
             opt_flow_torch = torch.from_numpy(\
                         np.array( [ self.optflow_db_wrapper.getImage(key).transpose(2,0,1) for key in image_keys ] )\

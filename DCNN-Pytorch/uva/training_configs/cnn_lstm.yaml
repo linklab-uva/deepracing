@@ -8,9 +8,9 @@ hidden_dimension: 200
 #training hyperparameters
 gpu: 0
 batch_size: 128
-learning_rate: 1.0E-4
+learning_rate: 1.0E-3
 momentum: 1.0E-4
 num_epochs: 500
 num_workers: 0
-loss_function: "L1"
-loss_reduction: "sum"
+loss_function: "MSE"
+loss_reduction: "mean"
