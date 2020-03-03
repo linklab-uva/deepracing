@@ -37,9 +37,10 @@ def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
 class ControlOutputSequenceDataset(Dataset):
     def __init__(self, image_db_wrapper : deepracing.backend.ImageLMDBWrapper, label_db_wrapper : deepracing.backend.ControlLabelLMDBWrapper, \
-        keyfile, image_size = np.array((66,200)), context_length = 5, sequence_length = 1):
+        keyfile, image_size = np.array((66,200)), context_length = 5, sequence_length = 1, optflow_db_wrapper = None):
         super(ControlOutputSequenceDataset, self).__init__()
         self.image_db_wrapper = image_db_wrapper
+        self.optflow_db_wrapper = optflow_db_wrapper
         self.label_db_wrapper = label_db_wrapper
         self.image_size = image_size
         self.totensor = transforms.ToTensor()
@@ -65,6 +66,12 @@ class ControlOutputSequenceDataset(Dataset):
         image_torch = torch.from_numpy(\
             np.array( [ self.totensor( resizeImage(self.image_db_wrapper.getImage(key), self.image_size)  ).numpy() for key in image_keys ] )\
                 )
+        if self.optflow_db_wrapper is None:
+            opt_flow_torch = None
+        else:
+            opt_flow_torch = torch.from_numpy(\
+                        np.array( [ self.optflow_db_wrapper.getImage(key).transpose(2,0,1) for key in image_keys ] )\
+                            )
 
         control_outputs = torch.zeros(self.sequence_length, 2, dtype=image_torch.dtype)
         for i in range(len(label_keys)):
@@ -72,4 +79,4 @@ class ControlOutputSequenceDataset(Dataset):
             control_outputs[i][0] = label_packet.label.steering
             accel = label_packet.label.throttle - label_packet.label.brake
             control_outputs[i][1] = accel
-        return image_torch, torch.clamp(control_outputs, -1.0, 1.0)
+        return image_torch, opt_flow_torch, torch.clamp(control_outputs, -1.0, 1.0)
