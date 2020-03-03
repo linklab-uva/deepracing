@@ -194,7 +194,7 @@ def go():
 
         
         curent_dset = PD.ControlOutputSequenceDataset(image_wrapper, label_wrapper, key_file,\
-             context_length=context_length, sequence_length=sequence_length, image_size = image_size, optflow_db_wrapper=optflow_wrapper)
+             context_length=context_length, sequence_length=sequence_length, image_size = image_size, optflow_db_wrapper=None)
         dsets.append(curent_dset)
     if len(dsets)==1:
         dset = dsets[0]
@@ -204,8 +204,8 @@ def go():
     dataloader = data_utils.DataLoader(dset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=gpu>=0)
     print("Dataloader of of length %d" %(len(dataloader)))
     i = 0
-    netpostfix="admiralnet_epoch_%d_params.pt" 
-    optimizerpostfix = "admiralnet_epoch_%d_optimizer.pt"
+    netpostfix="cnnlstm_epoch_%d_params.pt" 
+    optimizerpostfix = "cnnlstm_epoch_%d_optimizer.pt"
     with experiment.train():
         while i < num_epochs:
             time.sleep(2.0)

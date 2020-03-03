@@ -56,7 +56,14 @@ def run_epoch(network, optimizer, trainLoader, gpu, loss_function, imsize=(66,20
             control_output = control_output.cuda(gpu)
       #  print(image_torch.dtype)
         # Forward pass:
-        input_torch = torch.cat((image_torch, optflow_torch), dim=2)
+        if network.input_channels==5:
+            input_torch = torch.cat((image_torch, optflow_torch), dim=2)
+        elif network.input_channels==3:
+            input_torch = image_torch
+        elif network.input_channels==2:
+            input_torch = optflow_torch
+        else:
+            raise ValueError("Invalid number of input channels: %d" %(net.input_channels))
         predictions = network(input_torch)
         loss = loss_function(predictions, control_output)
         
@@ -100,11 +107,11 @@ def go():
         dataset_config = yaml.load(f, Loader = yaml.SafeLoader)
 
     image_size = dataset_config["image_size"]
-    config["input_channels"] = 5
     output_dimension = config["output_dimension"]
     sequence_length = config["sequence_length"]
     context_length = config["context_length"]
     hidden_dimension = config["hidden_dimension"]
+    input_channels  = config["input_channels"] 
     if args.gpu is not None:
         gpu = args.gpu
         config["gpu"]=gpu
@@ -138,8 +145,10 @@ def go():
     num_epochs = config["num_epochs"]
     num_workers = config["num_workers"]
     loss_reduction = config["loss_reduction"]
+    nesterov = config["nesterov"]
+
     
-    net = deepracing_models.nn_models.Models.AdmiralNetKinematicPredictor(input_channels=5, output_dimension=2, \
+    net = deepracing_models.nn_models.Models.AdmiralNetKinematicPredictor(input_channels=input_channels, output_dimension=2, \
                                                     context_length=context_length, sequence_length=sequence_length, hidden_dim = hidden_dimension)
     if loss_function=="L1":
         loss_func = torch.nn.L1Loss(reduction=loss_reduction)
@@ -157,7 +166,7 @@ def go():
         max_spare_txns = 16
     else:
         max_spare_txns = num_workers
-    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum, dampening=0.0, nesterov=True)
+    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum, dampening=0.0, nesterov=(nesterov and momentum>0) )
     main_dir = args.output_directory
     experiment = comet_ml.Experiment(project_name="deepracingadmiralnet-e2e", workspace="electric-turtle")
     experiment.log_parameters(config)

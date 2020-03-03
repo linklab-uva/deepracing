@@ -4,9 +4,11 @@ output_dimension: 2
 
 #training hyperparameters
 gpu: 0
-batch_size: 128
+batch_size: 96
 learning_rate: 1.0E-3
-momentum: 1.0E-5
-num_epochs: 100
+momentum: 1.0E-4
+num_epochs: 500
 num_workers: 0
-control_loss_reduction: "sum"
+loss_function: "MSE"
+loss_reduction: "mean"
+nesterov: False

@@ -2,47 +2,38 @@
 image_size: [66,200]
 datasets:
   -
-    image_folder: D:\f1_training_data\MadhurAustraliaFullscreen3\images
-    label_folder: D:\f1_training_data\MadhurAustraliaFullscreen3\steering_labels
-    key_file: D:\f1_training_data\MadhurAustraliaFullscreen3\controloutputkeys.txt
+    root_folder: D:/f1_training_data/MadhurAustraliaFullscreen3
+    key_file: controloutputkeys.txt
     ROI: [0,0,1920,602]
   -
-    image_folder: D:\f1_training_data\trent_solo\images
-    label_folder: D:\f1_training_data\trent_solo\steering_labels
-    key_file: D:\f1_training_data\trent_solo\controloutputkeys.txt
+    root_folder: D:/f1_training_data/trent_solo
+    key_file: controloutputkeys.txt
     ROI: [0,32,1758,362]
   -
-    image_folder: D:\f1_training_data\trent_solo_2\images
-    label_folder: D:\f1_training_data\trent_solo_2\steering_labels
-    key_file: D:\f1_training_data\trent_solo_2\controloutputkeys.txt
+    root_folder: D:/f1_training_data/trent_solo_2
+    key_file: controloutputkeys.txt
     ROI: [0,32,1758,362]
   -
-    image_folder: D:\f1_training_data\trent_solo_3\images
-    label_folder: D:\f1_training_data\trent_solo_3\steering_labels
-    key_file: D:\f1_training_data\trent_solo_3\controloutputkeys.txt
+    root_folder: D:/f1_training_data/trent_solo_3
+    key_file: controloutputkeys.txt
     ROI: [0,32,1758,362]
   -
-    image_folder: D:\f1_training_data\trent_solo_4\images
-    label_folder: D:\f1_training_data\trent_solo_4\steering_labels
-    key_file: D:\f1_training_data\trent_solo_4\controloutputkeys.txt
+    root_folder: D:/f1_training_data/trent_solo_4
+    key_file: controloutputkeys.txt
     ROI: [0,32,1758,362]
   -
-    image_folder: D:\f1_training_data\trent_solo_5\images
-    label_folder: D:\f1_training_data\trent_solo_5\steering_labels
-    key_file: D:\f1_training_data\trent_solo_5\controloutputkeys.txt
+    root_folder: D:/f1_training_data/trent_solo_5
+    key_file: controloutputkeys.txt
     ROI: [0,32,1758,362]
   -
-    image_folder: D:\f1_training_data\trent_solo_6\images
-    label_folder: D:\f1_training_data\trent_solo_6\steering_labels
-    key_file: D:\f1_training_data\trent_solo_6\controloutputkeys.txt
+    root_folder: D:/f1_training_data/trent_solo_6
+    key_file: controloutputkeys.txt
     ROI: [0,32,1758,362]
   -
-    image_folder: D:\f1_training_data\trent_solo_8\images
-    label_folder: D:\f1_training_data\trent_solo_8\steering_labels
-    key_file: D:\f1_training_data\trent_solo_8\controloutputkeys.txt
+    root_folder: D:/f1_training_data/trent_solo_8
+    key_file: controloutputkeys.txt
     ROI: [0,32,1758,362]
   -
-    image_folder: D:\f1_training_data\trent_solo_9\images
-    label_folder: D:\f1_training_data\trent_solo_9\steering_labels
-    key_file: D:\f1_training_data\trent_solo_9\controloutputkeys.txt
+    root_folder: D:/f1_training_data/trent_solo_9
+    key_file: controloutputkeys.txt
     ROI: [0,32,1758,362]

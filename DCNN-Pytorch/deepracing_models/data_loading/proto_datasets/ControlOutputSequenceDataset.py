@@ -50,7 +50,7 @@ class ControlOutputSequenceDataset(Dataset):
             keystrings = filehandle.readlines()
             self.db_keys = [keystring.replace('\n','') for keystring in keystrings]
         num_labels = self.label_db_wrapper.getNumLabels()
-        self.length = len(self.db_keys) - self.context_length - self.sequence_length - 2
+        self.length = len(self.db_keys) - self.context_length - self.sequence_length - 3
     def __len__(self):
         return self.length
     def __getitem__(self, index):

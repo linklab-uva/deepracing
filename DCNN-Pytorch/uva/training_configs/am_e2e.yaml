@@ -3,12 +3,13 @@ output_dimension: 2
 context_length: 5
 sequence_length: 1
 hidden_dimension: 200
+input_channels: 2
 
 #training hyperparameters
 gpu: 0
-batch_size: 128
+batch_size: 64
 learning_rate: 1.0E-3
-momentum: 1.0E-1
+momentum: 1.0E-4
 num_epochs: 500
 num_workers: 0
 loss_function: "MSE"
