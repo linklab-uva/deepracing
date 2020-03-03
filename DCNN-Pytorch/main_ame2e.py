@@ -185,7 +185,7 @@ def go():
         key_file = os.path.join(root_folder,dataset["key_file"])
 
         label_wrapper = deepracing.backend.ControlLabelLMDBWrapper()
-        label_wrapper.readDatabase(label_lmdb, mapsize=3e9, max_spare_txns=max_spare_txns )
+        label_wrapper.readDatabase(label_lmdb, mapsize=1e9, max_spare_txns=max_spare_txns )
 
         image_size = np.array(image_size)
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
@@ -195,7 +195,8 @@ def go():
         optflow_wrapper = deepracing.backend.OpticalFlowLMDBWrapper()
         optflow_wrapper.readDatabase(optflow_lmdb, mapsize=8*image_mapsize)
         
-        curent_dset = PD.ControlOutputSequenceDataset(image_wrapper, label_wrapper, key_file, image_size = image_size, optflow_db_wrapper=optflow_wrapper)
+        curent_dset = PD.ControlOutputSequenceDataset(image_wrapper, label_wrapper, key_file,\
+             context_length=context_length, sequence_length=sequence_length, image_size = image_size, optflow_db_wrapper=optflow_wrapper)
         dsets.append(curent_dset)
     if len(dsets)==1:
         dset = dsets[0]

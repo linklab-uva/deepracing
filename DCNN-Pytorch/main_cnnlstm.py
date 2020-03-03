@@ -139,12 +139,13 @@ def go():
     num_epochs = config["num_epochs"]
     num_workers = config["num_workers"]
     loss_reduction = config["loss_reduction"]
+    nesterov = config["nesterov"]
     
-    net = deepracing_models.nn_models.Models.CNNLSTM(input_channels=3, output_dimension=2, context_length=context_length, sequence_length=sequence_length, hidden_dimension = hidden_dimension)
+    net = deepracing_models.nn_models.Models.CNNLSTM( input_channels = 3 , output_dimension = 2 , context_length = context_length , sequence_length = sequence_length , hidden_dimension = hidden_dimension )
     if loss_function=="L1":
-        loss_func = torch.nn.L1Loss(reduction=loss_reduction)
+        loss_func = torch.nn.L1Loss( reduction = loss_reduction )
     elif loss_function=="MSE":
-        loss_func = torch.nn.MSELoss(reduction=loss_reduction)
+        loss_func = torch.nn.MSELoss( reduction = loss_reduction )
     else:
         raise ValueError("Unknown loss function: " + loss_function)
 
@@ -157,7 +158,7 @@ def go():
         max_spare_txns = 16
     else:
         max_spare_txns = num_workers
-    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum, dampening=0.0, nesterov=True)
+    optimizer = optim.SGD( net.parameters() , lr = learning_rate , momentum=momentum , dampening=0.0 , nesterov = (nesterov and momentum>0) )
     main_dir = args.output_directory
     experiment = comet_ml.Experiment(project_name="deepracingcnnlstm", workspace="electric-turtle")
     experiment.log_parameters(config)
@@ -184,7 +185,7 @@ def go():
         key_file = os.path.join(root_folder,dataset["key_file"])
 
         label_wrapper = deepracing.backend.ControlLabelLMDBWrapper()
-        label_wrapper.readDatabase(label_lmdb, mapsize=3e9, max_spare_txns=max_spare_txns )
+        label_wrapper.readDatabase(label_lmdb, mapsize=1e9, max_spare_txns=max_spare_txns )
 
         image_size = np.array(image_size)
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
@@ -192,7 +193,8 @@ def go():
         image_wrapper.readDatabase(image_lmdb, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
 
         
-        curent_dset = PD.ControlOutputSequenceDataset(image_wrapper, label_wrapper, key_file, image_size = image_size, optflow_db_wrapper=None)
+        curent_dset = PD.ControlOutputSequenceDataset(image_wrapper, label_wrapper, key_file,\
+             context_length=context_length, sequence_length=sequence_length, image_size = image_size, optflow_db_wrapper=optflow_wrapper)
         dsets.append(curent_dset)
     if len(dsets)==1:
         dset = dsets[0]

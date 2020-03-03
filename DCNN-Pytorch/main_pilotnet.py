@@ -147,19 +147,21 @@ def go():
     use_optflow=True
     for dataset in datasets:
         print("Parsing database config: %s" %(str(dataset)))
-        image_folder = dataset["image_folder"]
+        root_folder = dataset["root_folder"]
+        image_folder = os.path.join(root_folder,"images")
         image_lmdb = os.path.join(image_folder,"image_lmdb")
-        label_folder = dataset["label_folder"]
+        label_folder = os.path.join(root_folder,"steering_labels")
         label_lmdb = os.path.join(label_folder,"lmdb")
-        key_file = dataset["key_file"]
+        key_file = os.path.join(root_folder,dataset["key_file"])
 
         label_wrapper = deepracing.backend.ControlLabelLMDBWrapper()
-        label_wrapper.readDatabase(label_lmdb, mapsize=3e9, max_spare_txns=max_spare_txns )
+        label_wrapper.readDatabase(label_lmdb, mapsize=1e9, max_spare_txns=max_spare_txns )
 
         image_size = np.array(image_size)
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
         image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
         image_wrapper.readDatabase(image_lmdb, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
+
         
         curent_dset = PD.ControlOutputDataset(image_wrapper, label_wrapper, key_file, image_size = image_size)
         dsets.append(curent_dset)
