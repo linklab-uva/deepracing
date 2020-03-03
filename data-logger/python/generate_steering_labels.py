@@ -179,6 +179,7 @@ for idx in tqdm(range(len(image_tags))):
     lmdb_backend.writeControlLabel(key,label_tag)
 lmdb_backend.readDatabase(lmdb_dir, mapsize=3e9, readonly=True)
 keys = [os.path.splitext(os.path.split(image_tag.image_file)[1])[0] for image_tag in image_tags]
+keys = keys[10:]
 irand = np.random.randint(0,high=len(keys))
 keyrand = keys[irand]
 print("Entry at key %s" % (keyrand))
