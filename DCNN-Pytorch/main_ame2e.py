@@ -73,7 +73,7 @@ def run_epoch(network, optimizer, trainLoader, gpu, loss_function, imsize=(66,20
             num_samples += float(batch_size)
             t.set_postfix({"cum_loss" : cum_loss/num_samples})
 def go():
-    parser = argparse.ArgumentParser(description="Train PilotNet Control Predictor")
+    parser = argparse.ArgumentParser(description="Train AdmiralNet Control Predictor")
     parser.add_argument("training_config", type=str,  help="Training Parameters Configuration file to load")
     parser.add_argument("dataset_config", type=str,  help="Dataset Configuration file to load")
     parser.add_argument("output_directory", type=str,  help="Where to put the resulting model files")
@@ -205,8 +205,8 @@ def go():
     dataloader = data_utils.DataLoader(dset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     print("Dataloader of of length %d" %(len(dataloader)))
     i = 0
-    netpostfix="pilotnet_epoch_%d_params.pt" 
-    optimizerpostfix = "pilotnet_epoch_%d_optimizer.pt"
+    netpostfix="admiralnet_epoch_%d_params.pt" 
+    optimizerpostfix = "admiralnet_epoch_%d_optimizer.pt"
     with experiment.train():
         while i < num_epochs:
             time.sleep(2.0)
