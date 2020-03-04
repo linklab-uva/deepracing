@@ -213,34 +213,47 @@ def go():
         config["momentum"] = momentum
         nesterov = api_experiment.get_parameters_summary(parameter="nesterov")["valueCurrent"]=="true"
         config["nesterov"] = nesterov
+        
+        net = deepracing_models.nn_models.Models.AdmiralNetKinematicPredictor(input_channels=input_channels, output_dimension=2, \
+                                                        context_length=context_length, sequence_length=sequence_length, hidden_dim = hidden_dimension)
+        net = net.double()
 
         assetlist = api_experiment.get_asset_list()
         assetdict = {d['fileName']: d['assetId'] for d in assetlist}
         indices : set = set([int(d['fileName'].split("_")[2]) for d in assetlist])
         print(indices)
         i = np.max(np.array(list(indices)))-1
+
         print("Resuming from epoch %d" %(i,))
+        networkweightsfile = netpostfix%(i,)
+        optimizerweightsfile = optimizerpostfix%(i,)
         
-        print("Getting network weights")
-        
-        net = deepracing_models.nn_models.Models.AdmiralNetKinematicPredictor(input_channels=input_channels, output_dimension=2, \
-                                                        context_length=context_length, sequence_length=sequence_length, hidden_dim = hidden_dimension)
-        net = net.double()
-        networkweights = api_experiment.get_asset(assetdict[netpostfix%(i,)])
-        net.load_state_dict(torch.load(BytesIO(networkweights), map_location=torch.device("cpu")))
+        output_directory = os.path.join(main_dir, exp_id)
+        os.makedirs(output_directory, exist_ok=True)
+        nwf = os.path.join(output_directory,networkweightsfile)
+        if os.path.isfile(nwf):
+            net.load_state_dict(torch.load(nwf, map_location=torch.device("cpu")))
+        else:
+            print("Getting network weights from comet.ml")
+            networkweights = api_experiment.get_asset(assetdict[networkweightsfile])
+            net.load_state_dict(torch.load(BytesIO(networkweights), map_location=torch.device("cpu")))
+            torch.save(net.state_dict(), nwf)
         if gpu>=0:
             net = net.cuda(gpu)
 
-        print("Getting optimizer weights")
-        optimizerweights = api_experiment.get_asset(assetdict[optimizerpostfix%(i,)])
         optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum, dampening=0.0, nesterov=(nesterov and momentum>0) )
-        optimizer.load_state_dict(torch.load(BytesIO(optimizerweights), map_location=torch.device("cpu")))
+        owf = os.path.join(output_directory,optimizerweightsfile)
+        if os.path.isfile(owf):
+            optimizer.load_state_dict(torch.load(owf, map_location=next(net.parameters()).device) )
+        else:
+            print("Getting optimizer weights from comet")
+            optimizerweights = api_experiment.get_asset(assetdict[optimizerweightsfile])
+            optimizer.load_state_dict(torch.load(BytesIO(optimizerweights), map_location=next(net.parameters()).device))
+            torch.save(optimizer.state_dict(), owf)
         del api
         del api_experiment
         experiment : comet_ml.ExistingExperiment = comet_ml.ExistingExperiment(previous_experiment=exp_id, project_name="deepracingadmiralnet-e2e", workspace="electric-turtle")
 
-        output_directory = os.path.join(main_dir, experiment.get_key())
-        os.makedirs(output_directory, exist_ok=True)
 
     else:
         net = deepracing_models.nn_models.Models.AdmiralNetKinematicPredictor(input_channels=input_channels, output_dimension=2, \
