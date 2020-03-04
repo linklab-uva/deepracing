@@ -7,9 +7,9 @@ input_channels: 2
 
 #training hyperparameters
 gpu: 0
-batch_size: 64
-learning_rate: 1.0E-3
-momentum: 1.0E-4
+batch_size: 50
+learning_rate: 0.1
+momentum: 0.01
 num_epochs: 500
 num_workers: 0
 loss_function: "MSE"

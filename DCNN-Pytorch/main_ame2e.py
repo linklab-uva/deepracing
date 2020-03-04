@@ -25,6 +25,7 @@ import imageio
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
+from io import BytesIO
 
 
 loss = torch.zeros(1)
@@ -92,6 +93,7 @@ def go():
     parser.add_argument("--learning_rate", type=float, default=None,  help="Override the learning rate specified in the config file")
     parser.add_argument("--momentum", type=float, default=None,  help="Override the momentum specified in the config file")
     parser.add_argument("--loss_function", type=str, default=None,  help="Override the loss function specified in the config file")
+    parser.add_argument("--experiment_id", type=str, default=None,  help="Resume from a specific comet experiment.")
 
     
     args : argparse.Namespace = parser.parse_args()
@@ -100,6 +102,8 @@ def go():
     print(argsdict)
     training_config_file = args.training_config
     dataset_config_file = args.dataset_config
+    main_dir = args.output_directory
+    exp_id = args.experiment_id
     debug = args.debug
     with open(training_config_file) as f:
         config = yaml.load(f, Loader = yaml.SafeLoader)
@@ -148,38 +152,20 @@ def go():
     nesterov = config["nesterov"]
 
     
-    net = deepracing_models.nn_models.Models.AdmiralNetKinematicPredictor(input_channels=input_channels, output_dimension=2, \
-                                                    context_length=context_length, sequence_length=sequence_length, hidden_dim = hidden_dimension)
     if loss_function=="L1":
         loss_func = torch.nn.L1Loss(reduction=loss_reduction)
     elif loss_function=="MSE":
         loss_func = torch.nn.MSELoss(reduction=loss_reduction)
     else:
         raise ValueError("Unknown loss function: " + loss_function)
-
-    net = net.double()
     loss_func = loss_func.double()
     if gpu>=0:
         loss_func = loss_func.cuda(gpu)
-        net = net.cuda(gpu)
     if num_workers == 0:
         max_spare_txns = 16
     else:
         max_spare_txns = num_workers
-    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum, dampening=0.0, nesterov=(nesterov and momentum>0) )
-    main_dir = args.output_directory
-    experiment = comet_ml.Experiment(project_name="deepracingadmiralnet-e2e", workspace="electric-turtle")
-    experiment.log_parameters(config)
-    experiment.log_parameters(dataset_config)
-    experiment.add_tag("bezierpredictor")
-    experiment_config = {"experiment_key": experiment.get_key()}
-    output_directory = os.path.join(main_dir, experiment.get_key())
-    if os.path.isdir(output_directory) :
-        raise FileExistsError( "%s already exists, this should not happen." % (output_directory) )
-    os.makedirs(output_directory)
-    yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
-    yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
-    yaml.dump(config, stream=open(os.path.join(output_directory,"model_config.yaml"), "w"), Dumper = yaml.SafeDumper)
+    
     datasets = dataset_config["datasets"]
     dsets=[]
     use_optflow=True
@@ -194,7 +180,7 @@ def go():
         key_file = os.path.join(root_folder,dataset["key_file"])
 
         label_wrapper = deepracing.backend.ControlLabelLMDBWrapper()
-        label_wrapper.readDatabase(label_lmdb, mapsize=1e9, max_spare_txns=max_spare_txns )
+        label_wrapper.readDatabase(label_lmdb, mapsize=2e9, max_spare_txns=max_spare_txns )
 
         image_size = np.array(image_size)
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
@@ -213,10 +199,71 @@ def go():
         dset = torch.utils.data.ConcatDataset(dsets)
     
     dataloader = data_utils.DataLoader(dset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=gpu>=0)
-    print("Dataloader of of length %d" %(len(dataloader)))
-    i = 0
     netpostfix="admiralnet_epoch_%d_params.pt" 
     optimizerpostfix = "admiralnet_epoch_%d_optimizer.pt"
+    if exp_id is not None:
+        api = comet_ml.API()
+        api_experiment : comet_ml.APIExperiment  =  api.get_experiment("electric-turtle", "deepracingadmiralnet-e2e", exp_id)
+
+        learning_rate = float(api_experiment.get_parameters_summary(parameter="learning_rate")["valueCurrent"])
+        config["learning_rate"] = learning_rate
+        input_channels = int(api_experiment.get_parameters_summary(parameter="input_channels")["valueCurrent"])
+        config["input_channels"] = input_channels
+        momentum = float(api_experiment.get_parameters_summary(parameter="momentum")["valueCurrent"])
+        config["momentum"] = momentum
+        nesterov = api_experiment.get_parameters_summary(parameter="nesterov")["valueCurrent"]=="true"
+        config["nesterov"] = nesterov
+
+        assetlist = api_experiment.get_asset_list()
+        assetdict = {d['fileName']: d['assetId'] for d in assetlist}
+        indices : set = set([int(d['fileName'].split("_")[2]) for d in assetlist])
+        print(indices)
+        i = np.max(np.array(list(indices)))-1
+        print("Resuming from epoch %d" %(i,))
+        
+        print("Getting network weights")
+        
+        net = deepracing_models.nn_models.Models.AdmiralNetKinematicPredictor(input_channels=input_channels, output_dimension=2, \
+                                                        context_length=context_length, sequence_length=sequence_length, hidden_dim = hidden_dimension)
+        net = net.double()
+        networkweights = api_experiment.get_asset(assetdict[netpostfix%(i,)])
+        net.load_state_dict(torch.load(BytesIO(networkweights), map_location=torch.device("cpu")))
+        if gpu>=0:
+            net = net.cuda(gpu)
+
+        print("Getting optimizer weights")
+        optimizerweights = api_experiment.get_asset(assetdict[optimizerpostfix%(i,)])
+        optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum, dampening=0.0, nesterov=(nesterov and momentum>0) )
+        optimizer.load_state_dict(torch.load(BytesIO(optimizerweights), map_location=torch.device("cpu")))
+        del api
+        del api_experiment
+        experiment : comet_ml.ExistingExperiment = comet_ml.ExistingExperiment(previous_experiment=exp_id, project_name="deepracingadmiralnet-e2e", workspace="electric-turtle")
+
+        output_directory = os.path.join(main_dir, experiment.get_key())
+        os.makedirs(output_directory, exist_ok=True)
+
+    else:
+        net = deepracing_models.nn_models.Models.AdmiralNetKinematicPredictor(input_channels=input_channels, output_dimension=2, \
+                                                        context_length=context_length, sequence_length=sequence_length, hidden_dim = hidden_dimension)
+        net = net.double()
+        if gpu>=0:
+            net = net.cuda(gpu)
+        optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum, dampening=0.0, nesterov=(nesterov and momentum>0) )
+        experiment = comet_ml.Experiment(project_name="deepracingadmiralnet-e2e", workspace="electric-turtle")
+        experiment.log_parameters(config)
+        experiment.log_parameters(dataset_config)
+        output_directory = os.path.join(main_dir, experiment.get_key())
+        if os.path.isdir(output_directory) :
+            raise FileExistsError( "%s already exists, this should not happen." % (output_directory) )
+        os.makedirs(output_directory)
+        i = 0
+    experiment_config = {"experiment_key": experiment.get_key()}
+    yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
+    yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
+    yaml.dump(config, stream=open(os.path.join(output_directory,"model_config.yaml"), "w"), Dumper = yaml.SafeDumper)
+    if gpu>=0:
+        net = net.cuda(gpu)
+    print("Dataloader of of length %d" %(len(dataloader)))
     with experiment.train():
         while i < num_epochs:
             time.sleep(2.0)
@@ -239,12 +286,12 @@ def go():
             netfile = netpostfix % ( postfix )
             modelout = os.path.join( output_directory, netfile )
             torch.save( net.state_dict(), modelout )
-            experiment.log_asset(modelout, file_name=netfile)
+            experiment.log_asset(modelout, file_name=netfile, overwrite=True, copy_to_tmp=False )
             
             optimizerfile = optimizerpostfix % ( postfix )
             optimizerout = os.path.join( output_directory, optimizerfile )
             torch.save( optimizer.state_dict(), optimizerout )
-            experiment.log_asset(optimizerout, file_name=optimizerfile )
+            experiment.log_asset(optimizerout, file_name=optimizerfile, overwrite=True, copy_to_tmp=False )
             i = i + 1
 import logging
 if __name__ == '__main__':
