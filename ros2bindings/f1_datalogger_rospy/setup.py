@@ -42,6 +42,7 @@ setup(
             'pure_pursuit_oracle = %s.scripts.oracle_pure_pursuit_script:main' % (package_name),
             'pilotnet = %s.scripts.pilotnet_script:main' % (package_name),
             'cnnlstm = %s.scripts.cnnlstm_script:main' % (package_name),
+            'admiralnet_e2e = %s.scripts.admiralnet_e2e_script:main' % (package_name),
             
         ],
     },
