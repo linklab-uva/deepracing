@@ -1,0 +1,5 @@
+pose_publisher:
+    ros__parameters:
+        trackfiles : 
+          -  'D:/deepracing/data-logger/tracks/Australia_innerlimit.track'
+          -  'D:/deepracing/data-logger/tracks/Australia_outerlimit.track'
