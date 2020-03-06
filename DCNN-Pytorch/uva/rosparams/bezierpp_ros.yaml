@@ -1,6 +1,6 @@
 pure_pursuit_control:
     ros__parameters:
-        #model_file : 'D:/f1_model_files/bezier_predictor/with_geometric_variants/cleansplinedata_comet/bezier_predictor_no_optflow_no_vel_loss_no_param_loss/epoch_100_params.pt'
+        model_file : 'D:/f1_model_files/bezier_predictor/with_geometric_variants/cleansplinedata_comet/bezier_predictor_no_optflow_no_vel_loss_no_param_loss/epoch_100_params.pt'
         #model_file : 'D:/f1_model_files/cometpulls/bezier/38ad4466dc84463bbba04d3132e9a2ad_from_comet/epoch_100_params.pt' #only australia data
         #model_file : 'D:/f1_model_files/cometpulls/bezier/74740994ece64bd19e4d5ca59422dfcd_from_comet/epoch_100_params.pt' #combined with silverstone data
         #model_file : 'D:/f1_model_files/cometpulls/bezier/6f4eace2f1674bd585d921815599cc70_from_comet/epoch_66_params.pt' #combined with silverstone data
@@ -10,7 +10,7 @@ pure_pursuit_control:
         #model_file : 'D:/f1_model_files/cometpulls/bezier/1bb363d3c94f4224a3c08757b2f756de_from_comet/epoch_80_params.pt' #combined with silverstone data, bezier order 3, better loss
         #model_file : 'D:/f1_model_files/cometpulls/bezier/cba533f5861948ee826109d2ec8344fe_from_comet/epoch_77_params.pt' #combined with silverstone data, bezier order 5
         #model_file : 'D:/f1_model_files/cometpulls/bezier/6165951b25844589857597596118dfce_from_comet/epoch_100_params.pt' #combined with silverstone data, bezier order 5
-        model_file : 'D:/f1_model_files/cometpulls/bezier/aa77cbe4b0eb4e63882bc0b7f0a4c44b_from_comet/epoch_100_params.pt' #combined with silverstone data, bezier order 5, better loss
+        #model_file : 'D:/f1_model_files/cometpulls/bezier/aa77cbe4b0eb4e63882bc0b7f0a4c44b_from_comet/epoch_100_params.pt' #combined with silverstone data, bezier order 5, better loss
         
         
         #pgain : 1.25

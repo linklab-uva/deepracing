@@ -211,6 +211,7 @@ f1_datalogger_msgs::msg::CarTelemetryData f1_datalogger_ros::F1MsgUtils::toROS(c
   rtn.gear = telemetry_data.m_gear;
   rtn.rev_lights_percent = telemetry_data.m_revLightsPercent;
   rtn.speed = telemetry_data.m_speed;
+  rtn.steer = telemetry_data.m_steer;
   rtn.throttle = telemetry_data.m_throttle;
   std::copy(telemetry_data.m_brakesTemperature, telemetry_data.m_brakesTemperature+4, rtn.brakes_temperature.begin());
   std::copy(telemetry_data.m_tyresInnerTemperature, telemetry_data.m_tyresInnerTemperature+4, rtn.tyres_inner_temperature.begin());

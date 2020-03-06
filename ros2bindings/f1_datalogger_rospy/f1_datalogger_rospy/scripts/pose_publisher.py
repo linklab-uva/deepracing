@@ -71,7 +71,7 @@ class DataListener(Node):
         left_vec = -1.0*np.array((right_vec_ros.x, right_vec_ros.y, right_vec_ros.z))
         forward_vec = np.array((forward_vec_ros.x, forward_vec_ros.y, forward_vec_ros.z))
         rotmat = np.vstack((left_vec, up_vec, forward_vec)).transpose()
-        rot = Rot.from_dcm(rotmat)
+        rot = Rot.from_matrix(rotmat)
         quatnp = rot.as_quat()
 
         pose : Pose = Pose()
