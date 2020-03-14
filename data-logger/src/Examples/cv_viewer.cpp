@@ -31,7 +31,13 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData& data) override
   {
-	  std::printf("Got a telemetry packet. Steering Ratio: %d\n", data.data.m_carTelemetryData[car_index].m_steer);
+    const int8_t& steer_value = data.data.m_carTelemetryData[car_index].m_steer;
+    const int8_t& throttle_value = data.data.m_carTelemetryData[car_index].m_throttle;
+    const int8_t& brake_value = data.data.m_carTelemetryData[car_index].m_brake;
+	  std::printf("Got a telemetry packet. Steering Ratio: %f\n", ((double)steer_value)/100.0);
+	  std::printf("Got a telemetry packet. Throttle Ratio: %f\n", ((double)throttle_value)/100.0);
+	  std::printf("Got a telemetry packet. Brake Ratio: %f\n", ((double)brake_value)/100.0);
+	 // std::printf("Got a telemetry packet. Steering Ratio: %f\n", data.data.m_carTelemetryData[car_index].m_steer);
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketEventData& data) override
   {
@@ -43,7 +49,7 @@ public:
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketMotionData& data) override
   {
     
-	  std::printf("Got a motion packet. Front wheel angle: %f\n", data.data.m_frontWheelsAngle);
+	  //std::printf("Got a motion packet. Front wheel angle: %f\n", data.data.m_frontWheelsAngle);
     
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketParticipantsData& data) override
