@@ -189,9 +189,11 @@ for i in range(1,runmax+1):
 
 
     figcombined : matplotlib.figure.Figure = plt.figure(frameon=True)
-    plt.scatter(positions_cnnlstm[:,2], positions_cnnlstm[:,0], color='gray', label='CNNLSTM')
-    plt.scatter(positions_pilotnet[:,2], positions_pilotnet[:,0], color='black', label='PilotNet')
-    plt.plot(positions_bezier[:,2], positions_bezier[:,0], color='blue', label='Bezier Predictor')
+    plt.scatter(positions_pilotnet[:,2], positions_pilotnet[:,0], color='teal', label='PilotNet', marker='+')
+    plt.scatter(positions_cnnlstm[:,2], positions_cnnlstm[:,0], color='gray', label='CNNLSTM', marker='o')
+    plt.plot(positions_bezier[:,2], positions_bezier[:,0], color='blue', label='Bezier Predictor (does not crash)')
+    plt.scatter(positions_pilotnet[-1,2], positions_pilotnet[-1,0], color='black', label='PilotNet Crash Point', marker='X')
+    plt.scatter(positions_cnnlstm[-1,2], positions_cnnlstm[-1,0], color='black', label='CNNLSTM Crash Point', marker='X')
     plt.legend(fontsize='large')
     os.makedirs(os.path.join( output_dir, "total_path_comparison_plots"), exist_ok=True)
     figcombined.savefig( os.path.join( output_dir, "total_path_comparison_plots", "total_path_comparison_run_%d.png" % (i,) ), bbox_inches='tight')
