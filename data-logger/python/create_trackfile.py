@@ -18,8 +18,10 @@ import bisect
 import FrameId_pb2
 import Vector3dStamped_pb2
 import scipy.interpolate
-import deepracing.protobuf_utils
+import deepracing.protobuf_utils as protobuf_utils
 import deepracing.pose_utils as pose_utils
+import deepracing.arma_utils
+import deepracing
 def sortKey(packet):
     return packet.udp_packet.m_header.m_sessionTime
 parser = argparse.ArgumentParser()
@@ -31,14 +33,14 @@ args = parser.parse_args()
 motion_data_dir = args.motion_data_dir
 use_json = args.json 
 trackfileout = args.trackfileout
-motion_packets = sorted(pose_utils.getAllMotionPackets(motion_data_dir, args.json), key=sortKey)
+motion_packets = sorted(protobuf_utils.getAllMotionPackets(motion_data_dir, args.json), key=sortKey)
 #print(motion_packets)
 
 car_index = 0
-poses = [ pose_utils.extractPose(p.udp_packet, car_index = car_index) for p in motion_packets]
+poses = [ protobuf_utils.extractPose(p.udp_packet, car_index = car_index) for p in motion_packets]
 t =  np.array([sortKey(p) for p in motion_packets])
 X = np.array([ pose[0] for pose in poses])
-Xdot = np.array([pose_utils.extractVelocity(p.udp_packet, car_index = car_index) for p in motion_packets])
+Xdot = np.array([protobuf_utils.extractVelocity(p.udp_packet, car_index = car_index) for p in motion_packets])
 _,unique_indices = np.unique(t,return_index=True)
 t = t[unique_indices]
 X = X[unique_indices]
@@ -60,4 +62,4 @@ plt.show()
 
 if not os.path.isdir(os.path.dirname(trackfileout)):
     os.makedirs(os.path.dirname(trackfileout))
-deepracing.writeArmaFile(trackfileout,t,X,Xdot)
+deepracing.arma_utils.writeArmaFile(trackfileout,t,X,Xdot)

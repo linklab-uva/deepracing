@@ -15,7 +15,7 @@ regex
 system
 thread
 )
-find_package(Boost CONFIG COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
+find_package(Boost COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
 if(Boost_FOUND)
     message(STATUS "Found boost via cmake config at ${Boost_DIR}")
 else()

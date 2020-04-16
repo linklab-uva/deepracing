@@ -46,6 +46,8 @@ from scipy.signal import butter, lfilter
 from scipy.signal import freqs, bilinear
 from numpy_ringbuffer import RingBuffer as RB
 import time
+import timeit
+
 class CNNLSTMROS(Node):
     def __init__(self):
         super(CNNLSTMROS,self).__init__('cnnlstm_control', allow_undeclared_parameters=True, automatically_declare_parameters_from_overrides=True)
@@ -102,6 +104,8 @@ class CNNLSTMROS(Node):
         self.control_thread = threading.Thread(target=self.controlLoop)
         self.image_buffer = RB(self.net.context_length,dtype=(float,(3,66,200)))
         self.running=False
+        self.timerpub = self.create_publisher(Float64, "/dt", 1)
+
     def start(self):
         self.running=True
         self.control_thread.start()
@@ -109,7 +113,7 @@ class CNNLSTMROS(Node):
         self.running=False
     def controlLoop(self):
         while self.running:
-            t1 = time.time()
+            t1 = timeit.default_timer()
             imnp = np.array(self.image_buffer).astype(np.float64).copy()
             imtorch = torch.from_numpy(imnp.copy())
             #print(imtorch.shape)
@@ -131,9 +135,10 @@ class CNNLSTMROS(Node):
                 self.controller.setControl(-steering, differential, 0.0)
             else:
                 self.controller.setControl(-steering, 0.0, -differential)
-            t2 = time.time()
+            t2 = timeit.default_timer()
             dt = t2-t1
-            print("dt: %f. fs: %f", (dt,1/dt))
+            self.timerpub.publish(Float64(data=dt))
+            
     def compressedImageCallback(self, img_msg : CompressedImage):
        # print("Got a compressed image")
         try:
