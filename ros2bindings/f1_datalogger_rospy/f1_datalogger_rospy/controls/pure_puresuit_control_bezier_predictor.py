@@ -44,6 +44,7 @@ from rclpy.clock import Clock, ROSClock
 import deepracing_models.nn_models.Models as M
 from scipy.spatial.transform import Rotation as Rot
 import cv_bridge, cv2, numpy as np
+import timeit
 
 def npTrajectoryToROS(trajectory : np.ndarray, velocities : np.ndarray, frame_id = "map"):
     rtn : Path = Path()
@@ -100,6 +101,7 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         sequence_length = config.get("sequence_length",None)
         self.rosclock = ROSClock()
         self.cvbridge : cv_bridge.CvBridge = cv_bridge.CvBridge()
+        self.bufferdtpub = self.create_publisher(Float64, "/buffer_dt", 1)
         #self.rosclock._set_ros_time_is_active(True)
 
 
@@ -174,13 +176,13 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         self.bezier_order = self.net.params_per_dimension-1
         self.bezierM = mu.bezierM(self.s_torch,self.bezier_order)
         self.bezierMderiv = mu.bezierM(self.s_torch,self.bezier_order-1)
+        self.buffertimer = timeit.Timer(stmt=self.addToBuffer)
         
         if use_compressed_images_param.get_parameter_value().bool_value:
             self.image_sub = self.create_subscription( CompressedImage, '/f1_screencaps/cropped/compressed', self.compressedImageCallback, 10)
         else:
             self.image_sub = self.create_subscription( Image, '/f1_screencaps/cropped', self.imageCallback, 10)
-    
-    def compressedImageCallback(self, img_msg : CompressedImage):
+    def addToBuffer(self, img_msg : CompressedImage):
         try:
             imnp = self.cvbridge.compressed_imgmsg_to_cv2(img_msg, desired_encoding="rgb8") 
         except:
@@ -189,6 +191,11 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
             return
         imnpdouble = tf.functional.to_tensor(deepracing.imutils.resizeImage( imnp, (66,200) ) ).double().numpy().copy()
         self.image_buffer.append(imnpdouble)
+    def compressedImageCallback(self, img_msg : CompressedImage):
+        #t1 = timeit.default_timer()
+        self.addToBuffer(img_msg)
+        #t2 = timeit.default_timer()
+        #self.bufferdtpub.publish(Float64(data=(t2-t1)))
     def imageCallback(self, img_msg : Image):
         if img_msg.height<=0 or img_msg.width<=0:
             return

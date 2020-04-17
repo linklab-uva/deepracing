@@ -1,7 +1,7 @@
 import torch
 import deepracing_models.nn_models.Models as M
 import time
-net = M.AdmiralNetCurvePredictor()
+net = M.AdmiralNetCurvePredictor(use_3dconv=False)
 a = torch.rand(2,1,25,200)
 print(net.hidden_decoder(a).shape)
 net = net.cuda(0)

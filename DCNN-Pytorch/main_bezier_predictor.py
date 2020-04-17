@@ -54,7 +54,8 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
     if gpu>=0:
         s_torch = s_torch.cuda(gpu)
     bezier_order = network.params_per_dimension-1
-    experiment.set_epoch(epoch_number)
+    if not debug:
+        experiment.set_epoch(epoch_number)
     for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
         if network.input_channels==5:
             image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
@@ -102,15 +103,21 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
 
             gt_points_np = gt_points[0,:].detach().cpu().numpy().copy()
             fit_points_np = fit_points[0].cpu().numpy().copy()
+            fit_control_points_np = controlpoints_fit[0].cpu().numpy().copy()
+            
 
 
             gt_vels_np = gt_vels[0].cpu().numpy().copy()
             fit_vels_np = fit_vels_scaled[0].cpu().numpy().copy()
 
 
-            plt.plot(gt_points_np[:,0],gt_points_np[:,1],'r+')
-            plt.plot(fit_points_np[:,0],fit_points_np[:,1],'b-')
-
+            plt.plot(gt_points_np[:,0],gt_points_np[:,1],'g+', label="Ground Truth Waypoints")
+            plt.plot(fit_points_np[:,0],fit_points_np[:,1],'b-', label="Best-fit Bézier Curve")
+            plt.scatter(fit_control_points_np[:,0],fit_control_points_np[:,1],c="r", label="Bézier Curve's Control Points")
+            plt.legend()
+            plt.xlabel("X position (meters)")
+            plt.ylabel("Z position (meters)")
+            #plt.title
             #plt.quiver(gt_points_np[:,0],gt_points_np[:,1], gt_vels_np[:,0], gt_vels_np[:,1], color='g')
             # xmin, xmax = np.min(gt_points_np[:,0]), np.max(gt_points_np[:,0])
             # deltax = xmax-xmin
@@ -119,7 +126,7 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
             # deltaratio = deltaz/deltax
 
             #plt.quiver(fit_points_np[:,0],fit_points_np[:,1], deltaratio*fit_vels_np[:,0], fit_vels_np[:,1], color='r')
-            plt.quiver(gt_points_np[:,0],gt_points_np[:,1], gt_vels_np[:,0], gt_vels_np[:,1], color='g', angles='xy')
+           # plt.quiver(gt_points_np[:,0],gt_points_np[:,1], gt_vels_np[:,0], gt_vels_np[:,1], color='g', angles='xy')
 
             velocity_err = kinematic_loss(fit_vels_scaled, gt_vels).item()
             print("\nMean velocity error: %f\n" % (velocity_err))
@@ -176,7 +183,6 @@ def go():
     parser.add_argument("--position_loss", type=float, default=None,  help="Override position loss weight in config file")
     parser.add_argument("--control_point_loss", type=float, default=None,  help="Override control point loss weight in config file")
     
-
     args = parser.parse_args()
 
     dataset_config_file = args.dataset_config_file
@@ -198,7 +204,6 @@ def go():
         config["context_length"]  = context_length
     else:
         context_length = config["context_length"]
-        
     if args.bezier_order is not None:
         bezier_order = args.bezier_order
         config["bezier_order"]  = bezier_order
@@ -251,12 +256,13 @@ def go():
     use_float = config["use_float"]
     hidden_dim = config["hidden_dimension"]
     loss_reduction = config["loss_reduction"]
+    use_3dconv = config["use_3dconv"]
     num_recurrent_layers = config.get("num_recurrent_layers",1)
     config["hostname"] = socket.gethostname()
     
     
     print("Using config:\n%s" % (str(config)))
-    net = deepracing_models.nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dim, num_recurrent_layers=num_recurrent_layers, params_per_dimension=bezier_order+1 ) 
+    net = deepracing_models.nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dim, num_recurrent_layers=num_recurrent_layers, params_per_dimension=bezier_order+1 , use_3dconv = use_3dconv) 
     print("net:\n%s" % (str(net)))
     ppd = net.params_per_dimension
     numones = int(ppd/2)

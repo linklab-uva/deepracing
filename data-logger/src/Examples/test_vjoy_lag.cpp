@@ -176,10 +176,10 @@ int main(int argc, char** argv)
   controller->setCommands(cc);
   
   deepf1::F1DataLogger dl(search);  
-  YAML::Node config;
-  config["timediff"] = (double)dt;
-  config["control_delta"] = delta;
   std::chrono::duration sleeptime = std::chrono::milliseconds(dt);
+  YAML::Node config;
+  config["sleeptime"] = (double)dt;
+  config["control_delta"] = delta;
   std::cout<<"Enter anything to start the test."<<std::endl;
   std::string asdf;
   std::cin >> asdf;

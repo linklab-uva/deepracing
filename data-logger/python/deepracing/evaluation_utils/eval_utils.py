@@ -6,6 +6,7 @@ import os
 import numpy as np
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
+from shapely.geometry import LinearRing
 import matplotlib.pyplot as plt
 import deepracing.protobuf_utils as proto_utils
 import deepracing.pose_utils as pose_utils
@@ -29,6 +30,11 @@ def contiguous_regions(condition):
         idx = np.append(idx, len(condition))
 
     return idx.reshape(-1, 2)
+def polyDist(polygon : Polygon, point : Point):
+    if point.within(polygon):
+        return polygon.exterior.distance(point)
+    return point.distance(polygon)
+    
 def getRacePlots(dset_dir, json=False):
     motion_dir = os.path.join(dset_dir ,"udp_data","motion_packets")
     lap_dir = os.path.join(dset_dir ,"udp_data","lap_packets")
@@ -59,8 +65,12 @@ def getRacePlots(dset_dir, json=False):
     sessiontime_lapend = lap_packets[lapend].udp_packet.m_header.m_sessionTime
     laptimes = lap_packets[lapstart:lapend]
     poses = [proto_utils.extractPose(p.udp_packet) for p in motion_packets]
+    poses_true = [proto_utils.extractPose(p.udp_packet)\
+        for p in motion_packets if (p.udp_packet.m_header.m_sessionTime>=sessiontime_lapstart and p.udp_packet.m_header.m_sessionTime<=sessiontime_lapend)]
     positions = np.array([pose[0] for pose in poses])
     rotations = np.array([pose[1] for pose in poses])
+    positions_true = np.array([pose[0] for pose in poses_true])
+    rotations_true = np.array([pose[1] for pose in poses_true])
     distances = np.array([p.udp_packet.m_lapData[0].m_lapDistance\
          for p in lap_packets if (p.udp_packet.m_header.m_sessionTime>=sessiontime_lapstart and p.udp_packet.m_header.m_sessionTime<=sessiontime_lapend)])
     throttles = np.array([p.udp_packet.m_carTelemetryData[0].m_throttle\
@@ -69,7 +79,7 @@ def getRacePlots(dset_dir, json=False):
          for p in telemetry_packets if (p.udp_packet.m_header.m_sessionTime>=sessiontime_lapstart and p.udp_packet.m_header.m_sessionTime<=sessiontime_lapend)])/100.0
     velocities = 3.6*np.array([proto_utils.extractVelocity(p.udp_packet)\
          for p in motion_packets if (p.udp_packet.m_header.m_sessionTime>=sessiontime_lapstart and p.udp_packet.m_header.m_sessionTime<=sessiontime_lapend)])
-    return distances, throttles, steering, velocities, positions, rotations
+    return distances, throttles, steering, velocities, positions, rotations, positions_true, rotations_true
 def evalDataset(dset_dir, inner_trackfile, outer_trackfile, plot = False, json=False):
     image_dir = os.path.join(dset_dir,"images")
     udp_dir = os.path.join(dset_dir,"udp_data")
@@ -90,6 +100,7 @@ def evalDataset(dset_dir, inner_trackfile, outer_trackfile, plot = False, json=F
     innerKdTree = scipy.spatial.KDTree(Xinner[:,[0,2]])
 
     innerpolygon : Polygon = Polygon(Xinner[:,[0,2]].tolist())
+    innerpolygon_ext = LinearRing(innerpolygon.exterior.coords)
     outerpolygon : Polygon = Polygon(Xouter[:,[0,2]].tolist())
     if plot:
         plt.plot(xypoints[:,0], xypoints[:,1])
@@ -100,12 +111,12 @@ def evalDataset(dset_dir, inner_trackfile, outer_trackfile, plot = False, json=F
     offtrackarr = []
     distancelist = []
     for i in range(len(motion_packets)):
-        point : Point = Point(xypoints[i])
+        point : Point = Point(xypoints[i].tolist())
         outside = not point.within(outerpolygon)
         inside = point.within(innerpolygon)
         offtrackarr.append(outside or inside)
         if inside:
-            distancelist.append(point.distance(innerpolygon))
+            distancelist.append(innerpolygon.exterior.distance(point))
         elif outside:
             distancelist.append(point.distance(outerpolygon))
         else:

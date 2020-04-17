@@ -5,6 +5,7 @@ setup(
     name='deepracing',
     version='0.0.1',
     packages=['deepracing',
+              'deepracing/arma_utils',
               'deepracing/backend',
               'deepracing/controls',
               'deepracing/imutils',

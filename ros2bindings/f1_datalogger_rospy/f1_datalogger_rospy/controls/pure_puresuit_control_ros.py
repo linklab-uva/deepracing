@@ -35,6 +35,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy import Parameter
 from copy import deepcopy
+import timeit
 class PurePursuitControllerROS(Node):
     def __init__(self, lookahead_gain = 0.35, L = 3.617,\
         pgain=0.5, igain=0.0125, dgain=0.0125, tau = 0.0):
@@ -45,7 +46,8 @@ class PurePursuitControllerROS(Node):
         self.current_motion_data : CarMotionData  = CarMotionData()
         self.current_status_data : CarStatusData  = CarStatusData()
         self.current_telemetry_data : CarTelemetryData  = CarTelemetryData()
-        self.setpoint_publisher = self.create_publisher(Float64, "vel_setpoint", 10)
+        self.setpoint_publisher = self.create_publisher(Float64, "vel_setpoint", 1)
+        self.dt_publisher = self.create_publisher(Float64, "dt", 1)
         self.sock = None
         self.tau = tau
         self.velsetpoint = 0.0
@@ -144,46 +146,47 @@ class PurePursuitControllerROS(Node):
         # self.prev_err = err
     def getTrajectory(self):
         return None, None, None
+    def setControl(self):
+        lookahead_positions, v_local_forward, distances_forward_ = self.getTrajectory()
+        if lookahead_positions is None:
+            return
+        if distances_forward_ is None:
+            distances_forward = la.norm(lookahead_positions, axis=1)
+        else:
+            distances_forward = distances_forward_
+        forward_vels = v_local_forward.shape[0]
+        self.velsetpoint = la.norm(v_local_forward[int(round(self.velocity_lookahead_gain*(forward_vels-1)))])
+        self.setpoint_publisher.publish(Float64(data=3.6*self.velsetpoint))
+        # velrosstamped : Vector3Stamped = deepcopy(self.current_motion_data.world_velocity)
+        # if (velrosstamped.header.frame_id == ""):
+        #     return
+        # velros : Vector3 = velrosstamped.vector
+        # vel = np.array( (velros.x, velros.y, velros.z), dtype=np.float64)
+        # speed = la.norm(vel)
+        lookahead_distance = self.lookahead_gain*self.current_speed
+        lookahead_index = np.argmin(np.abs(distances_forward-lookahead_distance))
+        lookaheadVector = lookahead_positions[lookahead_index]
+        D = la.norm(lookaheadVector)
+        lookaheadDirection = lookaheadVector/D
+        alpha = np.arctan2(lookaheadDirection[0],lookaheadDirection[1])
+        physical_angle = np.arctan((2 * self.L*np.sin(alpha)) / D)
+        if (physical_angle > 0) :
+            delta = self.left_steer_factor*physical_angle# + 0.01004506
+        else:
+            delta = self.right_steer_factor*physical_angle# + 0.01094534
+        #delta = 0.0
+        if self.velsetpoint>self.current_speed:
+            self.controller.setControl(delta,1.0,0.0)
+        else:
+            self.controller.setControl(delta,0.0,1.0)
+        if self.use_drs and self.current_status_data.m_drs_allowed==1 and self.current_telemetry_data.drs==0:
+            self.controller.pushDRS()
     def lateralControl(self):
+        timer = timeit.Timer(stmt=self.setControl, timer=timeit.default_timer)
         while self.running:
-            #time.sleep(self.tau)
-            lookahead_positions, v_local_forward, distances_forward_ = self.getTrajectory()
-            if lookahead_positions is None:
-                continue
-            if distances_forward_ is None:
-                distances_forward = la.norm(lookahead_positions, axis=1)
-            else:
-                distances_forward = distances_forward_
-            forward_vels = v_local_forward.shape[0]
-            self.velsetpoint = la.norm(v_local_forward[int(round(self.velocity_lookahead_gain*(forward_vels-1)))])
-            self.setpoint_publisher.publish(Float64(data=3.6*self.velsetpoint))
-            # velrosstamped : Vector3Stamped = deepcopy(self.current_motion_data.world_velocity)
-            # if (velrosstamped.header.frame_id == ""):
-            #     return
-            # velros : Vector3 = velrosstamped.vector
-            # vel = np.array( (velros.x, velros.y, velros.z), dtype=np.float64)
-            # speed = la.norm(vel)
-            lookahead_distance = self.lookahead_gain*self.current_speed
-            lookahead_index = np.argmin(np.abs(distances_forward-lookahead_distance))
-            lookaheadVector = lookahead_positions[lookahead_index]
-            D = la.norm(lookaheadVector)
-            lookaheadDirection = lookaheadVector/D
-            alpha = np.arctan2(lookaheadDirection[0],lookaheadDirection[1])
-            physical_angle = np.arctan((2 * self.L*np.sin(alpha)) / D)
-            if (physical_angle > 0) :
-                delta = self.left_steer_factor*physical_angle# + 0.01004506
-            else:
-                delta = self.right_steer_factor*physical_angle# + 0.01094534
-            #delta = 0.0
-            if self.velsetpoint>self.current_speed:
-                self.controller.setControl(delta,1.0,0.0)
-            else:
-                self.controller.setControl(delta,0.0,1.0)
-            if self.use_drs and self.current_status_data.m_drs_allowed==1 and self.current_telemetry_data.drs==0:
-                self.controller.pushDRS()
-            #print(delta)
-            # if self.throttle_out>0.0:
-            #     self.controller.setControl(delta,self.throttle_out,0.0)
-            # else:
-            #     self.controller.setControl(delta,0.0,-self.throttle_out)
-            #print(delta)
+            #self.setControl()
+            dt = timer.timeit(number=1)
+            self.dt_publisher.publish(Float64(data=dt))
+            # t1 = timeit.default_timer()
+            # t2 = timeit.default_timer()
+            # dt = t2 - t1

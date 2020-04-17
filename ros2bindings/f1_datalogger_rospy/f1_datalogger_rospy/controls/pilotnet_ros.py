@@ -42,6 +42,7 @@ from rclpy.clock import Clock, ROSClock
 import deepracing_models.nn_models.Models as M
 from scipy.spatial.transform import Rotation as Rot
 import cv_bridge, cv2, numpy as np
+import timeit
 class PilotNetROS(Node):
     def __init__(self):
         super(PilotNetROS,self).__init__('pilotnet_control', allow_undeclared_parameters=True, automatically_declare_parameters_from_overrides=True)
@@ -75,6 +76,7 @@ class PilotNetROS(Node):
         self.net.eval()    
         self.rosclock = ROSClock()
         self.cvbridge : cv_bridge.CvBridge = cv_bridge.CvBridge()
+        self.timerpub = self.create_publisher(Float64, "/dt", 1)
 
 
         if use_compressed_images_param.get_parameter_value().bool_value:
@@ -84,6 +86,7 @@ class PilotNetROS(Node):
 
     def compressedImageCallback(self, img_msg : CompressedImage):
        # print("Got a compressed image")
+        t1 = timeit.default_timer()
         try:
             imnp = self.cvbridge.compressed_imgmsg_to_cv2(img_msg, desired_encoding="rgb8") 
         except Exception as e:
@@ -101,6 +104,9 @@ class PilotNetROS(Node):
             self.controller.setControl(steering, differential,0.0)
         else:
             self.controller.setControl(steering, 0.0, -differential)
+        t2 = timeit.default_timer()
+        dt = t2 - t1
+        self.timerpub.publish(Float64(data=dt))
     def imageCallback(self, img_msg : Image):
         print("Got an image")
         if img_msg.height<=0 or img_msg.width<=0:
