@@ -71,7 +71,7 @@ if(NOT HAS_STDCXXFS)
     list(APPEND BOOST_REQUIRED_COMPONENTS filesystem)
 endif(NOT HAS_STDCXXFS)
 
-set(Boost_USE_STATIC_LIBS (NOT ${BUILD_SHARED_LIBS}))
+set( Boost_USE_STATIC_LIBS (NOT ${BUILD_SHARED_LIBS}) )
 find_package(Boost CONFIG COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
 if(Boost_FOUND)
     message(STATUS "Found boost via cmake config at ${Boost_DIR}")
