@@ -183,7 +183,6 @@ def go():
     parser.add_argument("--position_loss", type=float, default=None,  help="Override position loss weight in config file")
     parser.add_argument("--control_point_loss", type=float, default=None,  help="Override control point loss weight in config file")
     
-
     args = parser.parse_args()
 
     dataset_config_file = args.dataset_config_file
@@ -205,7 +204,6 @@ def go():
         config["context_length"]  = context_length
     else:
         context_length = config["context_length"]
-        
     if args.bezier_order is not None:
         bezier_order = args.bezier_order
         config["bezier_order"]  = bezier_order
@@ -258,12 +256,13 @@ def go():
     use_float = config["use_float"]
     hidden_dim = config["hidden_dimension"]
     loss_reduction = config["loss_reduction"]
+    use_3dconv = config["use_3dconv"]
     num_recurrent_layers = config.get("num_recurrent_layers",1)
     config["hostname"] = socket.gethostname()
     
     
     print("Using config:\n%s" % (str(config)))
-    net = deepracing_models.nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dim, num_recurrent_layers=num_recurrent_layers, params_per_dimension=bezier_order+1 ) 
+    net = deepracing_models.nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dim, num_recurrent_layers=num_recurrent_layers, params_per_dimension=bezier_order+1 , use_3dconv = use_3dconv) 
     print("net:\n%s" % (str(net)))
     ppd = net.params_per_dimension
     numones = int(ppd/2)

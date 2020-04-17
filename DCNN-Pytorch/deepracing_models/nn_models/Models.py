@@ -263,7 +263,7 @@ class AdmiralNetKinematicPredictor(nn.Module):
 class AdmiralNetCurvePredictor(nn.Module):
     def __init__(self, input_channels=3, params_per_dimension=11, \
                  context_length = 5, hidden_dim = 200, num_recurrent_layers = 1, rnn_bidirectional=False,  \
-                    additional_rnn_calls=25, learnable_initial_state=True, output_dimension = 2):
+                    additional_rnn_calls=25, learnable_initial_state=True, output_dimension = 2, use_3dconv=True):
         super(AdmiralNetCurvePredictor, self).__init__()
         self.imsize = (66,200)
         self.input_channels = input_channels
@@ -300,56 +300,61 @@ class AdmiralNetCurvePredictor(nn.Module):
         ])
         self.img_features = 1*64*18
 
-        #projection encoder
-        self.conv3d1 = nn.Conv3d(input_channels, 10, kernel_size=(5,3,3), stride = (1,2,2), padding=(2,0,0) )
-        self.Norm3d_1 = nn.BatchNorm3d(10)
-        self.conv3d2 = nn.Conv3d(10, 20, kernel_size=(5,3,3), stride = (1,2,2), padding=(2,0,0) )
-        self.Norm3d_2 = nn.BatchNorm3d(20)
-        self.conv3d3 = nn.Conv3d(20, 40, kernel_size=(3,3,3), stride = (1,2,2), padding=(1,0,0) )
-        self.Norm3d_3 = nn.BatchNorm3d(40) 
-        self.Pool3d_1 = torch.nn.MaxPool3d(3, stride=(1,1,1), padding=(1,0,0) )
-        self.conv3d4 = nn.Conv3d(40, 120, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
-        self.Norm3d_4 = nn.BatchNorm3d(120) 
-        self.conv3d5 = nn.Conv3d(120, 120, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
-        self.Norm3d_5 = nn.BatchNorm3d(120) 
-        self.conv3d6 = nn.Conv3d(120, 240, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
-        self.Norm3d_6 = nn.BatchNorm3d(240) 
-        self.Pool3d_2 = torch.nn.AvgPool3d(3, stride=(1,1,1), padding=(1,0,0))
 
-        self.projection_encoder = torch.nn.Sequential(*[
-            self.conv3d1,
-            self.Norm3d_1,
-            self.conv3d2,
-            self.Norm3d_2,
-            self.relu,
-            self.conv3d3,
-            self.Norm3d_3,
-            self.relu,
-            self.Pool3d_1,
-            self.conv3d4,
-            self.Norm3d_4,
-            self.tanh,
-            self.conv3d5,
-            self.Norm3d_5,
-            self.tanh,
-            self.conv3d6,
-            self.Norm3d_6,
-            self.tanh,
-            self.Pool3d_2,
-        ])
-
-
-        #recurrent layers
-        self.hidden_dim = hidden_dim
-        self.linear_rnn = nn.LSTM(self.img_features, self.hidden_dim, batch_first = True, num_layers = num_recurrent_layers, bidirectional=rnn_bidirectional)
-        self.linear_rnn_init_hidden = torch.nn.Parameter(torch.normal(0, 1, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),self.hidden_dim)), requires_grad=learnable_initial_state)
-        self.linear_rnn_init_cell = torch.nn.Parameter(torch.normal(0, 1, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),self.hidden_dim)), requires_grad=learnable_initial_state)
 
 
         self.projection_features = 240*self.context_length * 3 * 20
         self.additional_rnn_calls = additional_rnn_calls
         self.intermediate_projection_size = int(self.projection_features/self.additional_rnn_calls)
-        self.projection_layer = nn.Linear(self.intermediate_projection_size, self.img_features)
+        self.use_3dconv = use_3dconv
+        if self.use_3dconv:
+            #projection encoder
+            self.conv3d1 = nn.Conv3d(input_channels, 10, kernel_size=(5,3,3), stride = (1,2,2), padding=(2,0,0) )
+            self.Norm3d_1 = nn.BatchNorm3d(10)
+            self.conv3d2 = nn.Conv3d(10, 20, kernel_size=(5,3,3), stride = (1,2,2), padding=(2,0,0) )
+            self.Norm3d_2 = nn.BatchNorm3d(20)
+            self.conv3d3 = nn.Conv3d(20, 40, kernel_size=(3,3,3), stride = (1,2,2), padding=(1,0,0) )
+            self.Norm3d_3 = nn.BatchNorm3d(40) 
+            self.Pool3d_1 = torch.nn.MaxPool3d(3, stride=(1,1,1), padding=(1,0,0) )
+            self.conv3d4 = nn.Conv3d(40, 120, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
+            self.Norm3d_4 = nn.BatchNorm3d(120) 
+            self.conv3d5 = nn.Conv3d(120, 120, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
+            self.Norm3d_5 = nn.BatchNorm3d(120) 
+            self.conv3d6 = nn.Conv3d(120, 240, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
+            self.Norm3d_6 = nn.BatchNorm3d(240) 
+            self.Pool3d_2 = torch.nn.AvgPool3d(3, stride=(1,1,1), padding=(1,0,0))
+            self.projection_encoder = torch.nn.Sequential(*[
+                self.conv3d1,
+                self.Norm3d_1,
+                self.conv3d2,
+                self.Norm3d_2,
+                self.relu,
+                self.conv3d3,
+                self.Norm3d_3,
+                self.relu,
+                self.Pool3d_1,
+                self.conv3d4,
+                self.Norm3d_4,
+                self.tanh,
+                self.conv3d5,
+                self.Norm3d_5,
+                self.tanh,
+                self.conv3d6,
+                self.Norm3d_6,
+                self.tanh,
+                self.Pool3d_2,
+            ])
+            self.projection_layer = nn.Linear(self.intermediate_projection_size, self.img_features)
+        else:
+            self.projection_features = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.additional_rnn_calls, self.img_features), requires_grad=learnable_initial_state))
+
+
+        #recurrent layers
+        self.hidden_dim = hidden_dim
+        self.linear_rnn = nn.LSTM(self.img_features, self.hidden_dim, batch_first = True, num_layers = num_recurrent_layers, bidirectional=rnn_bidirectional)
+        self.linear_rnn_init_hidden = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),self.hidden_dim)), requires_grad=learnable_initial_state)
+        self.linear_rnn_init_cell = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),self.hidden_dim)), requires_grad=learnable_initial_state)
+
 
         
     
@@ -366,14 +371,7 @@ class AdmiralNetCurvePredictor(nn.Module):
         self.subConv5= nn.Conv2d(64, 128, kernel_size=3, stride=1)
         self.subConvNorm_5 = nn.BatchNorm2d(self.subConv5.out_channels)
         self.subConvPool_2 = torch.nn.MaxPool2d(3, stride=(1,1))
-        # self.subConv6= nn.Conv2d(164, 164, kernel_size=3, stride=1)
-        # self.subConvNorm_6 = nn.BatchNorm2d(self.subConv6.out_channels)
-        # self.subConv7= nn.Conv2d(164, 164, kernel_size=3, stride=1)
-        # self.subConvNorm_7 = nn.BatchNorm2d(self.subConv7.out_channels)
-        # self.subConv8= nn.Conv2d(164, 164, kernel_size=3, stride=1)
-        # self.subConvNorm_8 = nn.BatchNorm2d(self.subConv8.out_channels)
-        # self.subConv9= nn.Conv2d(164, 164, kernel_size=3, stride=1)
-        # self.subConvNorm_9 = nn.BatchNorm2d(self.subConv9.out_channels)
+
 
         self.hidden_decoder = torch.nn.Sequential(*[
         self.subConv1,
@@ -393,16 +391,6 @@ class AdmiralNetCurvePredictor(nn.Module):
         self.subConvNorm_5,
         self.relu,
         self.subConvPool_2,
-        # self.subConv6,
-        # self.subConvNorm_6,
-        # self.subConvPool_2,
-        # self.subConv7,
-        # self.subConvNorm_7,
-        # self.subConv8,
-        # self.subConvNorm_8,
-        # self.subConv9,
-        # self.subConvNorm_9,
-
         ])
         self.hidden_decoder_features = 2432
         self.classifier = nn.Sequential(*[
@@ -426,16 +414,21 @@ class AdmiralNetCurvePredictor(nn.Module):
 
         linear_rnn_init_hidden = self.linear_rnn_init_hidden.unsqueeze(1).repeat(1,batch_size,1)
         linear_rnn_init_cell = self.linear_rnn_init_cell.unsqueeze(1).repeat(1,batch_size,1)
+
+        # linear_rnn_init_hidden = self.linear_rnn_init_hidden.expand(self.linear_rnn_init_hidden.shape[0],batch_size,self.linear_rnn_init_hidden.shape[1])
+        # linear_rnn_init_cell = self.linear_rnn_init_cell.expand(self.linear_rnn_init_cell.shape[0],batch_size,self.linear_rnn_init_cell.shape[1])
         #print(context_in.shape)
         # = RNNUtils.pack_padded_sequence(context_in, (context_in.shape[1]*np.ones(context_in.shape[0])).tolist() , batch_first=True, enforce_sorted=False)
         _, (linear_new_hidden, linear_new_cell) = self.linear_rnn(context_in, (linear_rnn_init_hidden,  linear_rnn_init_cell) )
         
       
-        conv3d_out = self.projection_encoder( x.view(batch_size, self.input_channels, self.context_length, self.imsize[0], self.imsize[1]) )
         #print(conv3d_out.shape)
-        projection_in = conv3d_out.view(batch_size, self.additional_rnn_calls, self.intermediate_projection_size)
-        projection_features = self.projection_layer(projection_in)
-
+        if self.use_3dconv:
+            conv3d_out = self.projection_encoder( x.view(batch_size, self.input_channels, self.context_length, self.imsize[0], self.imsize[1]) )
+            projection_in = conv3d_out.view(batch_size, self.additional_rnn_calls, self.intermediate_projection_size)
+            projection_features = self.projection_layer(projection_in)
+        else:
+            projection_features = self.projection_features.expand(batch_size,self.projection_features.shape[0],self.projection_features.shape[1])
         x_linear, (final_hidden_position, final_cell_position) = self.linear_rnn(  projection_features , (linear_new_hidden, linear_new_cell) )
         x_linear_unsqueeze = x_linear.unsqueeze(1)
         hidden_convout = self.hidden_decoder(x_linear_unsqueeze)
