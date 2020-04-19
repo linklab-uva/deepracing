@@ -99,6 +99,7 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         context_length = config["context_length"]
         bezier_order = config.get("bezier_order",None)
         sequence_length = config.get("sequence_length",None)
+        use_3dconv = config.get("use_3dconv",True)
         self.rosclock = ROSClock()
         self.cvbridge : cv_bridge.CvBridge = cv_bridge.CvBridge()
         self.bufferdtpub = self.create_publisher(Float64, "/buffer_dt", 1)
@@ -162,7 +163,8 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         self.deltaT : float = deltaT_param.get_parameter_value().double_value
         self.forward_indices : int = forward_indices_param.get_parameter_value().integer_value
         
-        self.net : NN.Module = M.AdmiralNetCurvePredictor(context_length= context_length, input_channels=input_channels, params_per_dimension=bezier_order+1) 
+        
+        self.net : NN.Module = M.AdmiralNetCurvePredictor(context_length= context_length, input_channels=input_channels, params_per_dimension=bezier_order+1, use_3dconv=use_3dconv) 
         self.net.double()
         self.get_logger().info('Loading model file: %s' % (model_file) )
         self.net.load_state_dict(torch.load(model_file,map_location=torch.device("cpu")))

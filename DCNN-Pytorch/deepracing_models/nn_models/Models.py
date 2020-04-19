@@ -141,17 +141,55 @@ class CNNLSTM(nn.Module):
 
         return torch.clamp(predictions, -1.0, 1.0)
 
+def generate3DConv(input_channels: int, relu, tanh):
+    conv3d1 = nn.Conv3d(input_channels, 10, kernel_size=(5,3,3), stride = (1,2,2), padding=(2,0,0) )
+    Norm3d_1 = nn.BatchNorm3d(10)
+    conv3d2 = nn.Conv3d(10, 20, kernel_size=(5,3,3), stride = (1,2,2), padding=(2,0,0) )
+    Norm3d_2 = nn.BatchNorm3d(20)
+    conv3d3 = nn.Conv3d(20, 40, kernel_size=(3,3,3), stride = (1,2,2), padding=(1,0,0) )
+    Norm3d_3 = nn.BatchNorm3d(40) 
+    Pool3d_1 = torch.nn.MaxPool3d(3, stride=(1,1,1), padding=(1,0,0) )
+    conv3d4 = nn.Conv3d(40, 120, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
+    Norm3d_4 = nn.BatchNorm3d(120) 
+    conv3d5 = nn.Conv3d(120, 120, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
+    Norm3d_5 = nn.BatchNorm3d(120) 
+    conv3d6 = nn.Conv3d(120, 240, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
+    Norm3d_6 = nn.BatchNorm3d(240) 
+    Pool3d_2 = torch.nn.AvgPool3d(3, stride=(1,1,1), padding=(1,0,0))
 
+    projection_encoder = torch.nn.Sequential(*[
+        conv3d1,
+        Norm3d_1,
+        conv3d2,
+        Norm3d_2,
+        relu,
+        conv3d3,
+        Norm3d_3,
+        relu,
+        Pool3d_1,
+        conv3d4,
+        Norm3d_4,
+        tanh,
+        conv3d5,
+        Norm3d_5,
+        tanh,
+        conv3d6,
+        Norm3d_6,
+        tanh,
+        Pool3d_2,
+    ])
+    return projection_encoder
 class AdmiralNetKinematicPredictor(nn.Module):
     def __init__(self, input_channels=3, output_dimension=2, sequence_length=10, \
                  context_length = 15, hidden_dim = 100, num_recurrent_layers = 1,  \
-                     learnable_initial_state=True):
+                     learnable_initial_state=True, use_3dconv=True):
         super(AdmiralNetKinematicPredictor, self).__init__()
         self.imsize = (66,200)
         self.input_channels = input_channels
         self.sequence_length = sequence_length
         self.context_length = context_length
         self.output_dimension = output_dimension
+        self.use_3dconv = use_3dconv
         #activations
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
@@ -181,44 +219,14 @@ class AdmiralNetKinematicPredictor(nn.Module):
         ])
         self.img_features = 1*64*18
 
+        self.projection_features = 240*self.context_length * 3 * 20
         #projection encoder
-        self.conv3d1 = nn.Conv3d(input_channels, 10, kernel_size=(5,3,3), stride = (1,2,2), padding=(2,0,0) )
-        self.Norm3d_1 = nn.BatchNorm3d(10)
-        self.conv3d2 = nn.Conv3d(10, 20, kernel_size=(5,3,3), stride = (1,2,2), padding=(2,0,0) )
-        self.Norm3d_2 = nn.BatchNorm3d(20)
-        self.conv3d3 = nn.Conv3d(20, 40, kernel_size=(3,3,3), stride = (1,2,2), padding=(1,0,0) )
-        self.Norm3d_3 = nn.BatchNorm3d(40) 
-        self.Pool3d_1 = torch.nn.MaxPool3d(3, stride=(1,1,1), padding=(1,0,0) )
-        self.conv3d4 = nn.Conv3d(40, 120, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
-        self.Norm3d_4 = nn.BatchNorm3d(120) 
-        self.conv3d5 = nn.Conv3d(120, 120, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
-        self.Norm3d_5 = nn.BatchNorm3d(120) 
-        self.conv3d6 = nn.Conv3d(120, 240, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
-        self.Norm3d_6 = nn.BatchNorm3d(240) 
-        self.Pool3d_2 = torch.nn.AvgPool3d(3, stride=(1,1,1), padding=(1,0,0))
-
-        self.projection_encoder = torch.nn.Sequential(*[
-            self.conv3d1,
-            self.Norm3d_1,
-            self.conv3d2,
-            self.Norm3d_2,
-            self.relu,
-            self.conv3d3,
-            self.Norm3d_3,
-            self.relu,
-            self.Pool3d_1,
-            self.conv3d4,
-            self.Norm3d_4,
-            self.tanh,
-            self.conv3d5,
-            self.Norm3d_5,
-            self.tanh,
-            self.conv3d6,
-            self.Norm3d_6,
-            self.tanh,
-            self.Pool3d_2,
-        ])
-
+        if self.use_3dconv:
+            self.intermediate_projection_size = int(self.projection_features/self.sequence_length)
+            self.projection_layer = nn.Linear(self.intermediate_projection_size, self.img_features)
+            self.projection_encoder = generate3DConv(self.input_channels, self.relu, self.tanh)
+        else:
+            self.projection_feature_sequence = nn.Parameter(torch.normal(0,0.5, size=(self.sequence_length,self.img_features)), requires_grad=learnable_initial_state)
 
         #recurrent layers
         self.hidden_dim = hidden_dim
@@ -227,9 +235,6 @@ class AdmiralNetKinematicPredictor(nn.Module):
         self.linear_rnn_init_cell = torch.nn.Parameter(torch.normal(0, 1, size=(1,self.hidden_dim)), requires_grad=learnable_initial_state)
 
 
-        self.projection_features = 240*self.context_length * 3 * 20
-        self.intermediate_projection_size = int(self.projection_features/self.sequence_length)
-        self.projection_layer = nn.Linear(self.intermediate_projection_size, self.img_features)
 
         
     
@@ -249,11 +254,13 @@ class AdmiralNetKinematicPredictor(nn.Module):
         linear_rnn_init_cell = self.linear_rnn_init_cell.unsqueeze(1).repeat(1,batch_size,1)
         _, (linear_new_hidden, linear_new_cell) = self.linear_rnn(context_in, (linear_rnn_init_hidden,  linear_rnn_init_cell) )
         
-      
-        conv3d_out = self.projection_encoder( x.view(batch_size, self.input_channels, self.context_length, self.imsize[0], self.imsize[1]) )
-        #print(conv3d_out.shape)
-        projection_in = conv3d_out.view(batch_size, self.sequence_length, self.intermediate_projection_size)
-        projection_features = self.projection_layer(projection_in)
+        if self.use_3dconv:
+            conv3d_out = self.projection_encoder( x.view(batch_size, self.input_channels, self.context_length, self.imsize[0], self.imsize[1]) )
+            #print(conv3d_out.shape)
+            projection_in = conv3d_out.view(batch_size, self.sequence_length, self.intermediate_projection_size)
+            projection_features = self.projection_layer(projection_in)
+        else:
+            projection_features = self.projection_feature_sequence.unsqueeze(0).repeat(batch_size,1,1)
 
         x_linear, (final_hidden_position, final_cell_position) = self.linear_rnn(  projection_features , (linear_new_hidden, linear_new_cell) )
 
