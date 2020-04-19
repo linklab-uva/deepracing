@@ -16,25 +16,26 @@ def lsqfit(points,M):
     return M_ * points
 pi = np.pi
 num_points = 1000
-tmin = -2.0
-tmax = 2.0
-d = 3
+tmin = -1.0
+tmax = 1.0
+d = 4
 kbezier = d - 0
-numcurves = 8
+numcurves = d
 Mtk = lambda i, n, t: t**(i)*(1-t)**(n-i)*nOk(n,i)
 bezierFactors = lambda ts, n: matrix([[Mtk(k_,n,t) for k_ in range(n+1)] for t in ts])
 P = np.zeros((numcurves,num_points,2))
 Pprime = np.zeros((numcurves,num_points,2))
 Pprimeprime = np.zeros((numcurves,num_points,2))
 tnp = np.zeros((numcurves,num_points))
-for i in range(numcurves):
+t = np.linspace(tmin, tmax, num_points )
+tfunc = t
+for order in range(1,numcurves+1):
+    i = order-1
    #P[i] = np.zeros((num_points,2))
-    t = np.linspace(tmin*np.random.rand(), tmax*np.random.rand(), num_points )
-    tfunc = t
    # tfunc = t-t[int(len(t)/2)]
     tnp[i] = tfunc.copy()
-    px = 5.0*np.random.randn(d)
-    py = 5.0*np.random.randn(d)
+    px = 1.0*np.random.randn(order)
+    py = 1.0*np.random.randn(order)
     P[i,:,0] = np.polyval(px,tnp[i])
     P[i,:,1] = np.polyval(py,tnp[i])
     P[i,:,0] = P[i,:,0] - P[i,0,0] 
@@ -65,20 +66,20 @@ Mdotdot, Pdotdot_s = math_utils.bezierDerivative(bezier_control_points, storch, 
 Pdotdot_t= Pdotdot_s/((dt**2)[:,None,None])
 
 
+fig : Figure = plt.figure()
 for i in range(numcurves):
-    fig : Figure = plt.figure()
-    ax : Axes = fig.add_subplot()
    #ax.plot(P[i,:,0],P[i,:,1],'r-')
-    ax.set_title("A Bézier Curve and its Control Points")
-    ax.plot(Pbeziertorch[i,:,0].numpy(),Pbeziertorch[i,:,1].numpy(), color='blue', label="A Bézier Curve")
+    plt.title("A Bézier Curve and its Control Points")
+    plt.plot(Pbeziertorch[i,:,0].numpy(),Pbeziertorch[i,:,1].numpy(), color='blue')#, label="A Bézier Curve")
    # ax.scatter(Pbeziertorch[i,:,0].numpy(),Pbeziertorch[i,:,1].numpy(), facecolors='none', edgecolors='b')
     skipn = 50
     #ax.plot(bezier_control_points[i,:,0].numpy(),bezier_control_points[i,:,1].numpy(),'go')
-    ax.scatter(bezier_control_points[i,:,0].numpy(),bezier_control_points[i,:,1].numpy(), facecolors='none', edgecolors='g', label="Control Points")
-    ax.quiver(Pbeziertorch[i,::skipn,0].numpy(),Pbeziertorch[i,::skipn,1].numpy(),Pdot_t[i,::skipn,0].numpy(),Pdot_t[i,::skipn,1].numpy(), angles='xy', color='black', label="Velocity Vectors")
-    ax.legend(loc="best")
+    plt.scatter(bezier_control_points[i,:,0].numpy(),bezier_control_points[i,:,1].numpy(), facecolors='none', edgecolors='g')#, label="Control Points")
+    plt.quiver(Pbeziertorch[i,::skipn,0].numpy(),Pbeziertorch[i,::skipn,1].numpy(),Pdot_t[i,::skipn,0].numpy(),Pdot_t[i,::skipn,1].numpy(), angles='xy', color='black')#, label="Velocity Vectors")
+    
 
     print("Mean distance: %f" %(torch.mean(torch.norm(Pbeziertorch[i]-Ptorch[i],dim=1,p=2)).item()))
     print("Mean velocity diff: %f" %(torch.mean(torch.norm(Pdot_t[i]-Pprimetorch[i],dim=1,p=2)).item()))
     print("Mean acceleration diff: %f" %(torch.mean(torch.norm(Pdotdot_t[i]-Pprimeprimetorch[i],dim=1,p=2)).item()))
-    plt.show()
+plt.legend(loc="best")
+plt.show()

@@ -18,13 +18,18 @@ def show(img):
 #D:\f1_training_data\trent_solo_4\pose_sequence_labels\image_36_sequence_label.json D:\f1_training_data\trent_solo\pose_sequence_labels\image_65_sequence_label.json
 # are strong candidates
 parser = argparse.ArgumentParser()
-parser.add_argument("label1", help="First label file",  type=str)
-parser.add_argument("label2", help="Second label file",  type=str)
+parser.add_argument("dbpath", help="main database path",  type=str)
+parser.add_argument("label1", help="First label index",  type=int)
+parser.add_argument("label2", help="Second label index",  type=int)
 args = parser.parse_args()
-label1path = args.label1
-label2path = args.label2
-label1imagedir = os.path.join(os.path.dirname(os.path.dirname(label1path)),"images")
-label2imagedir = os.path.join(os.path.dirname(os.path.dirname(label2path)),"images")
+dbpath = args.dbpath
+label1 = args.label1
+label2 = args.label2
+#/home/ttw2xk/f1_data/madhur_head2head_3/pose_sequence_labels
+label1path = os.path.join(dbpath,"pose_sequence_labels","image_%d_sequence_label.json" %(label1))
+label2path = os.path.join(dbpath,"pose_sequence_labels","image_%d_sequence_label.json" %(label2))
+label1imagepath = os.path.join(dbpath,"images","image_%d.jpg" %(label2))
+label2imagepath = os.path.join(dbpath,"images","image_%d.jpg" %(label2))
 
 label1 = PoseSequenceLabel_pb2.PoseSequenceLabel()
 label2 = PoseSequenceLabel_pb2.PoseSequenceLabel()
@@ -36,8 +41,8 @@ with open(label2path,'r') as f:
 timeslabel1 = np.array([p.session_time for p in label1.subsequent_poses])
 timeslabel2 = np.array([p.session_time for p in label2.subsequent_poses]) 
 
-label1image = tf.to_tensor(imutils.readImage(os.path.join(label1imagedir,label1.image_tag.image_file)))
-label2image = tf.to_tensor(imutils.readImage(os.path.join(label2imagedir,label2.image_tag.image_file)))
+label1image = tf.to_tensor(imutils.readImage(label1imagepath))
+label2image = tf.to_tensor(imutils.readImage(label2imagepath))
 
 label1image = label1image[:,32:,:]
 label2image = label2image[:,32:,:]
