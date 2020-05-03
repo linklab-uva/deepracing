@@ -224,7 +224,42 @@ class AdmiralNetKinematicPredictor(nn.Module):
         if self.use_3dconv:
             self.intermediate_projection_size = int(self.projection_features/self.sequence_length)
             self.projection_layer = nn.Linear(self.intermediate_projection_size, self.img_features)
-            self.projection_encoder = generate3DConv(self.input_channels, self.relu, self.tanh)
+            self.conv3d1 = nn.Conv3d(input_channels, 10, kernel_size=(5,3,3), stride = (1,2,2), padding=(2,0,0) )
+            self.Norm3d_1 = nn.BatchNorm3d(10)
+            self.conv3d2 = nn.Conv3d(10, 20, kernel_size=(5,3,3), stride = (1,2,2), padding=(2,0,0) )
+            self.Norm3d_2 = nn.BatchNorm3d(20)
+            self.conv3d3 = nn.Conv3d(20, 40, kernel_size=(3,3,3), stride = (1,2,2), padding=(1,0,0) )
+            self.Norm3d_3 = nn.BatchNorm3d(40) 
+            self.Pool3d_1 = torch.nn.MaxPool3d(3, stride=(1,1,1), padding=(1,0,0) )
+            self.conv3d4 = nn.Conv3d(40, 120, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
+            self.Norm3d_4 = nn.BatchNorm3d(120) 
+            self.conv3d5 = nn.Conv3d(120, 120, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
+            self.Norm3d_5 = nn.BatchNorm3d(120) 
+            self.conv3d6 = nn.Conv3d(120, 240, kernel_size=(3,3,3), stride = (1,1,1), padding=(1,1,1) )
+            self.Norm3d_6 = nn.BatchNorm3d(240) 
+            self.Pool3d_2 = torch.nn.AvgPool3d(3, stride=(1,1,1), padding=(1,0,0))
+
+            self.projection_encoder = torch.nn.Sequential(*[
+                self.conv3d1,
+                self.Norm3d_1,
+                self.conv3d2,
+                self.Norm3d_2,
+                self.relu,
+                self.conv3d3,
+                self.Norm3d_3,
+                self.relu,
+                self.Pool3d_1,
+                self.conv3d4,
+                self.Norm3d_4,
+                self.tanh,
+                self.conv3d5,
+                self.Norm3d_5,
+                self.tanh,
+                self.conv3d6,
+                self.Norm3d_6,
+                self.tanh,
+                self.Pool3d_2,
+            ])
         else:
             self.projection_feature_sequence = nn.Parameter(torch.normal(0,0.5, size=(self.sequence_length,self.img_features)), requires_grad=learnable_initial_state)
 

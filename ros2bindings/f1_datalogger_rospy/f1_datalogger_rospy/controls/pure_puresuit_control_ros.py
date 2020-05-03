@@ -184,9 +184,9 @@ class PurePursuitControllerROS(Node):
     def lateralControl(self):
         timer = timeit.Timer(stmt=self.setControl, timer=timeit.default_timer)
         while self.running:
-            #self.setControl()
             dt = timer.timeit(number=1)
             self.dt_publisher.publish(Float64(data=dt))
+          #  self.setControl()
             # t1 = timeit.default_timer()
             # t2 = timeit.default_timer()
             # dt = t2 - t1

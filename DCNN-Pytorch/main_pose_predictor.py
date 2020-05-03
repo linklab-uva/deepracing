@@ -29,7 +29,7 @@ import deepracing_models.math_utils.bezier
 
 
 #torch.backends.cudnn.enabled = False
-def run_epoch(experiment, network, optimizer, trainLoader, gpu, kinematic_loss, loss_weights, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True, use_float=True):
+def run_epoch(experiment, network, optimizer, trainLoader, gpu, kinematic_loss, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True, use_float=True):
     cum_loss = 0.0
     num_samples=0.0
     batch_size = trainLoader.batch_size
@@ -80,12 +80,9 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, kinematic_loss, 
         #print(predictions_reshape.shape)
       #  print(controlpoints_fit.shape)
        # print(predictions.shape)
-        # current_param_loss = loss_weights[0]*params_loss(predictions_reshape,controlpoints_fit)
        # print(predictions.shape)
        # print(fitpoints.shape)
         loss = kinematic_loss(predictions,gtpoints)
-        # current_velocity_loss = loss_weights[2]*kinematic_loss(pred_vels/dt[:,None,None],fitvels)
-        #loss = current_param_loss + current_position_loss + current_velocity_loss
         
         # Backward pass:
         optimizer.zero_grad()
@@ -169,9 +166,9 @@ def go():
     num_epochs = config["num_epochs"]
     num_workers = config["num_workers"]
     use_float = config["use_float"]
-    loss_weights = config["loss_weights"]
+    use_3dconv = config["use_3dconv"]
     print("Using config:\n%s" % (str(config)))
-    net = deepracing_models.nn_models.Models.AdmiralNetKinematicPredictor(context_length= context_length, sequence_length=sequence_length, input_channels=input_channels, hidden_dim = hidden_dimension, output_dimension=2) 
+    net = deepracing_models.nn_models.Models.AdmiralNetKinematicPredictor(context_length= context_length, sequence_length=sequence_length, input_channels=input_channels, hidden_dim = hidden_dimension, output_dimension=2, use_3dconv=use_3dconv) 
     print("net:\n%s" % (str(net)))
 
     kinematic_loss = loss_functions.SquaredLpNormLoss()
@@ -187,7 +184,7 @@ def go():
         print("moving stuff to GPU")
         net = net.cuda(gpu)
         kinematic_loss = kinematic_loss.cuda(gpu)
-    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=0.000, nesterov=True)
+    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=0.000, nesterov=False)
     main_dir = args.output_directory
     experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingposepredictor")
     experiment.log_parameters(config)
@@ -208,11 +205,14 @@ def go():
     
     dsets=[]
     use_optflow = net.input_channels==5
+    dsetfolders = []
     for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
-        label_folder = dataset["label_folder"]
-        key_file = dataset["key_file"]
-        image_folder = dataset["image_folder"]
+        root_folder = dataset["root_folder"]
+        dsetfolders.append(root_folder)
+        label_folder = os.path.join(root_folder,"pose_sequence_labels")
+        image_folder = os.path.join(root_folder,"images")
+        key_file = os.path.join(root_folder,"goodkeys.txt")
         apply_color_jitter = dataset.get("apply_color_jitter",False)
         erasing_probability = dataset.get("erasing_probability",0.0)
         label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
@@ -232,11 +232,15 @@ def go():
     else:
         dset = torch.utils.data.ConcatDataset(dsets)
     
-    dataloader = data_utils.DataLoader(dset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=gpu>=0)
+    dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
+                        shuffle=True, num_workers=num_workers, pin_memory=gpu>=0)
     print("Dataloader of of length %d" %(len(dataloader)))
     yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
     yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
     yaml.dump(config, stream=open(os.path.join(output_directory,"model_config.yaml"), "w"), Dumper = yaml.SafeDumper)
+    experiment.log_asset(os.path.join(output_directory,"experiment_config.yaml"), file_name="experiment_config.yaml")
+    experiment.log_asset(os.path.join(output_directory,"dataset_config.yaml"), file_name="dataset_config.yaml")
+    experiment.log_asset(os.path.join(output_directory,"model_config.yaml"), file_name="model_config.yaml")
     i = 0
     netpostfix = "epoch_%d_params.pt"
     optimizerpostfix = "epoch_%d_optimizer.pt"
@@ -247,7 +251,7 @@ def go():
             print("Running Epoch Number %d" %(postfix))
             #dset.clearReaders()
             tick = time.time()
-            run_epoch(experiment, net, optimizer, dataloader, gpu, kinematic_loss, loss_weights, debug=debug, use_tqdm=args.tqdm, use_float = use_float)
+            run_epoch(experiment, net, optimizer, dataloader, gpu, kinematic_loss, debug=debug, use_tqdm=args.tqdm, use_float = use_float)
             tock = time.time()
             print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
             modelout = os.path.join(output_directory,netpostfix %(postfix))

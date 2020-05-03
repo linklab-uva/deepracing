@@ -1,7 +1,8 @@
 pure_pursuit_control:
     ros__parameters:
         #model_file : 'D:/f1_model_files/bezier_predictor/with_geometric_variants/cleansplinedata_comet/bezier_predictor_no_optflow_no_vel_loss_no_param_loss/epoch_100_params.pt'
-        model_file : 'D:/f1_model_files/bezier_predictor/noconv3d/0fc8be197bf94dcfb99d491e74d6ece3/epoch_100_params.pt'
+        model_file : 'D:/f1_model_files/bezier_predictor/noconv3d/8a67bea64eea44efa0024ad13ca70fb6/epoch_100_params.pt' #no 3d convolution, slow learning rate
+        #model_file : 'D:/f1_model_files/bezier_predictor/noconv3d/0fc8be197bf94dcfb99d491e74d6ece3/epoch_100_params.pt' #no 3d convolution, fast learning rate
         #model_file : 'D:/f1_model_files/cometpulls/bezier/38ad4466dc84463bbba04d3132e9a2ad_from_comet/epoch_100_params.pt' #only australia data
         #model_file : 'D:/f1_model_files/cometpulls/bezier/74740994ece64bd19e4d5ca59422dfcd_from_comet/epoch_100_params.pt' #combined with silverstone data
         #model_file : 'D:/f1_model_files/cometpulls/bezier/6f4eace2f1674bd585d921815599cc70_from_comet/epoch_66_params.pt' #combined with silverstone data

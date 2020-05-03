@@ -300,10 +300,7 @@ def go():
         optimizer = optim.ASGD(net.parameters(), lr = learning_rate)
     elif optimizer=="SGD":
         nesterov_ = momentum>0.0 and nesterov
-        if nesterov_:
-            dampening_=0.0
-        else:
-            dampening_=dampening
+        dampening_=dampening*float(not nesterov_)
         optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=dampening_, nesterov=nesterov_)
     else:
         raise ValueError("Uknown optimizer " + optimizer)

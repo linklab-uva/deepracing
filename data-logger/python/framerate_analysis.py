@@ -12,6 +12,7 @@ args = parser.parse_args()
 filepath = args.filepath
 output_dir = args.output_dir
 runtimes = np.loadtxt(filepath)
+os.makedirs(output_dir,exist_ok=True)
 #runtimes = runtimes[runtimes<=.10]
 mean = np.mean(runtimes)
 stdev = np.std(runtimes)

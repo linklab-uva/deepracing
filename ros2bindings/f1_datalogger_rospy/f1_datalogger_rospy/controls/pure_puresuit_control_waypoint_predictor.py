@@ -92,10 +92,11 @@ class AdmiralNetWaypointPredictorROS(PPC):
         context_length = config["context_length"]
         sequence_length = config["sequence_length"]
         hidden_dimension = config["hidden_dimension"]
+        use_3dconv = config.get("use_3dconv",True)
+        print(config)
         self.rosclock = ROSClock()
         self.cvbridge : cv_bridge.CvBridge = cv_bridge.CvBridge()
         #self.rosclock._set_ros_time_is_active(True)
-
 
         L_param : Parameter = self.get_parameter_or("wheelbase",Parameter("wheelbase", value=L))
         print("L_param: " + str(L_param))
@@ -147,7 +148,7 @@ class AdmiralNetWaypointPredictorROS(PPC):
         self.velocity_scale_factor : float = velocity_scale_param.get_parameter_value().double_value
         self.deltaT : float = deltaT_param.get_parameter_value().double_value
         
-        self.net : NN.Module = M.AdmiralNetKinematicPredictor(context_length= context_length, sequence_length=sequence_length, input_channels=input_channels, hidden_dim=hidden_dimension) 
+        self.net : NN.Module = M.AdmiralNetKinematicPredictor(context_length= context_length, sequence_length=sequence_length, input_channels=input_channels, hidden_dim=hidden_dimension, use_3dconv=use_3dconv) 
         self.net.double()
         self.get_logger().info('Loading model file: %s' % (model_file) )
         self.net.load_state_dict(torch.load(model_file,map_location=torch.device("cpu")))
