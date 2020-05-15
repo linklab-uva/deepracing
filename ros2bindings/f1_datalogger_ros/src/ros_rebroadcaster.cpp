@@ -232,7 +232,7 @@ int main(int argc, char *argv[]) {
   std::shared_ptr<rclcpp::Node> datagrab_node = nw.datagrab_node;
   std::shared_ptr<rclcpp::Node> imagegrab_node = nw.imagegrab_node;
   rcl_interfaces::msg::ParameterDescriptor capture_freq_description;
-  capture_freq_description.floating_point_range = rosidl_generator_cpp::BoundedVector<rcl_interfaces::msg::FloatingPointRange,1>(1);
+  capture_freq_description.floating_point_range.push_back(rcl_interfaces::msg::FloatingPointRange());
   capture_freq_description.floating_point_range[0].from_value=1.0;
   capture_freq_description.floating_point_range[0].to_value=60.0;
   capture_freq_description.floating_point_range[0].step=0.0;
@@ -243,7 +243,7 @@ int main(int argc, char *argv[]) {
   
   rclcpp::ParameterValue hostname_p = datagrab_node->declare_parameter("hostname",rclcpp::ParameterValue("127.0.0.1"));
   rcl_interfaces::msg::ParameterDescriptor port_description;
-  port_description.integer_range=rosidl_generator_cpp::BoundedVector<rcl_interfaces::msg::IntegerRange,1>(1);
+  port_description.integer_range.push_back(rcl_interfaces::msg::IntegerRange());
   port_description.integer_range[0].from_value=20777;
   port_description.integer_range[0].to_value=21000;
   port_description.integer_range[0].step=1;
