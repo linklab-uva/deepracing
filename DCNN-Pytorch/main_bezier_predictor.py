@@ -29,7 +29,7 @@ import socket
 import json
 
 #torch.backends.cudnn.enabled = False
-def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, epoch_number, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True):
+def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, epoch_number, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True):
     cum_loss = 0.0
     cum_param_loss = 0.0
     cum_position_loss = 0.0
@@ -51,9 +51,11 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
     #     loss_weights_torch = loss_weights_torch.cuda(gpu)
     _, _, _, _, _, _, sample_session_times = trainLoader.dataset[0]
     s_torch = torch.linspace(0.0,1.0,steps=sample_session_times.shape[0]).unsqueeze(0).repeat(batch_size,1).double()
+    initial_zeros = torch.zeros(batch_size,2,1)
     if gpu>=0:
         s_torch = s_torch.cuda(gpu)
-    bezier_order = network.params_per_dimension-1
+        initial_zeros = initial_zeros.cuda(gpu)
+    bezier_order = network.params_per_dimension-1+int(fix_first_point)
     if not debug:
         experiment.set_epoch(epoch_number)
     for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
@@ -65,7 +67,10 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
             session_times_torch = session_times_torch.cuda(gpu)
             linear_velocities_torch = linear_velocities_torch.cuda(gpu)
         predictions = network(image_torch)
-        predictions_reshape = predictions.transpose(1,2)
+        if fix_first_point:
+            predictions_reshape = torch.cat((initial_zeros,predictions.transpose(1,2),dim=2))
+        else:
+            predictions_reshape = predictions.transpose(1,2)
         dt = session_times_torch[:,-1]-session_times_torch[:,0]
         current_batch_size=session_times_torch.shape[0]
         current_timesteps=session_times_torch.shape[1]
@@ -83,6 +88,7 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
         
 
         pred_points = torch.matmul(Mpos, predictions_reshape)
+        
         _, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape, t = s_torch_cur, order=1)
         pred_vels_scaled = pred_vels/dt[:,None,None]
         
@@ -182,6 +188,7 @@ def go():
     parser.add_argument("--velocity_loss", type=float, default=None,  help="Override velocity loss weight in config file")
     parser.add_argument("--position_loss", type=float, default=None,  help="Override position loss weight in config file")
     parser.add_argument("--control_point_loss", type=float, default=None,  help="Override control point loss weight in config file")
+    parset.add_argument("--fix_first_point",type=bool,default=False, help="Override fix_first_point in the config file")
     
     args = parser.parse_args()
 
@@ -241,6 +248,11 @@ def go():
         config["nesterov"] = nesterov
     else:
         nesterov = config["nesterov"]
+    if args.fix_first_point:
+        fix_first_point = True
+        config["fix_first_point"] = fix_first_point
+    else:
+        fix_first_point = config["fix_first_point"]
     loss_weights = config["loss_weights"]
     if args.control_point_loss is not None:
         loss_weights[0] = args.control_point_loss
@@ -262,7 +274,7 @@ def go():
     
     
     print("Using config:\n%s" % (str(config)))
-    net = deepracing_models.nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dim, num_recurrent_layers=num_recurrent_layers, params_per_dimension=bezier_order+1 , use_3dconv = use_3dconv) 
+    net = deepracing_models.nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dim, num_recurrent_layers=num_recurrent_layers, params_per_dimension=bezier_order + 1 - int(fix_first_point), use_3dconv = use_3dconv) 
     print("net:\n%s" % (str(net)))
     ppd = net.params_per_dimension
     numones = int(ppd/2)
@@ -387,7 +399,7 @@ def go():
                 #dset.clearReaders()
                 try:
                     tick = time.time()
-                    run_epoch(experiment, net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, postfix, debug=debug, use_tqdm=args.tqdm )
+                    run_epoch(experiment, net, fix_first_point, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, postfix, debug=debug, use_tqdm=args.tqdm )
                     tock = time.time()
                     print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
                     experiment.log_epoch_end(postfix)
