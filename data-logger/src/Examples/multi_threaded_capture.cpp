@@ -16,6 +16,7 @@
 #include <fstream>
 #include <yaml-cpp/yaml.h>
 #include <chrono>
+#include <map>
 #ifdef _MSC_VER
   #if _WIN32_WINNT>=_WIN32_WINNT_WIN10
     #include <wrl/wrappers/corewrappers.h>
@@ -46,6 +47,7 @@ int main(int argc, char** argv)
   float image_capture_frequency, initial_delay_time;
   bool spectating, use_json, init_paused, log_images;
   double capture_region_ratio;
+  std::map<std::string, unsigned int> udp_thread_dict;
 
 
   po::options_description desc("F1 Datalogger Multithreaded Capture. Command line arguments are as follows");
@@ -93,6 +95,7 @@ int main(int argc, char** argv)
   use_json = config_node["use_json"].as<bool>(true);
   log_images = config_node["log_images"].as<bool>(true);
   capture_region_ratio = config_node["capture_region_ratio"].as<double>(1.0);
+  udp_thread_dict = config_node["udp_threads"].as<std::map<std::string,unsigned int>>(std::map<std::string,unsigned int>());
   
   
   config_node["search_string"] = search_string;
@@ -138,11 +141,19 @@ int main(int argc, char** argv)
   udp_settings.write_json=use_json;
   udp_settings.udp_directory=(root_dir/fs::path(udp_folder)).string();
   udp_settings.sleeptime=udp_thread_sleeptime;
+  udp_settings.motionThreads = udp_thread_dict.at("motion");
+  udp_settings.sessionThreads = udp_thread_dict.at("session");
+  udp_settings.lapDataThreads = udp_thread_dict.at("lap_data");
+  udp_settings.eventThreads = udp_thread_dict.at("event");
+  udp_settings.carsetupsThreads = udp_thread_dict.at("car_setups");
+  udp_settings.participantsThreads = udp_thread_dict.at("participants");
+  udp_settings.cartelemetryThreads = udp_thread_dict.at("telemetry");
+  udp_settings.carstatusThreads = udp_thread_dict.at("car_status");
   std::shared_ptr<deepf1::MultiThreadedUDPHandler2018> udp_handler(new deepf1::MultiThreadedUDPHandler2018(udp_settings));
-  if(frame_handler)
-  {
-    udp_handler->addPausedFunction(std::bind(&deepf1::MultiThreadedFrameGrabHandler::pause, frame_handler.get()));
-  }
+  // if(frame_handler)
+  // {
+  //   udp_handler->addPausedFunction(std::bind(&deepf1::MultiThreadedFrameGrabHandler::pause, frame_handler.get()));
+  // }
   std::cout << "Created handlers" << std::endl;
 
 

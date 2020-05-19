@@ -319,15 +319,24 @@ void MultiThreadedUDPHandler2018::workerFunc(deepf1::twenty_eighteen::PacketID p
 
 void MultiThreadedUDPHandler2018::handleData(const deepf1::twenty_eighteen::TimestampedPacketCarSetupData& data)
 {
+  if (thread_settings_.carsetupsThreads>0)
+  {
     setup_data_queue_->push(data);
+  }  
 }
 void MultiThreadedUDPHandler2018::handleData(const deepf1::twenty_eighteen::TimestampedPacketCarStatusData& data)
 {
+  if (thread_settings_.carsetupsThreads>0)
+  {
     status_data_queue_->push(data);
+  }  
 }
 void MultiThreadedUDPHandler2018::handleData(const deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData& data)
 {
+  if (thread_settings_.cartelemetryThreads>0)
+  {
     telemetry_data_queue_->push(data);
+  }  
 }
 void MultiThreadedUDPHandler2018::handleData(const deepf1::twenty_eighteen::TimestampedPacketEventData& data)
 {
@@ -337,27 +346,40 @@ void MultiThreadedUDPHandler2018::handleData(const deepf1::twenty_eighteen::Time
 }
 void MultiThreadedUDPHandler2018::handleData(const deepf1::twenty_eighteen::TimestampedPacketLapData& data)
 {
+  if (thread_settings_.lapDataThreads>0)
+  {
     lap_data_queue_->push(data);
+  }  
 }
 void MultiThreadedUDPHandler2018::handleData(const deepf1::twenty_eighteen::TimestampedPacketMotionData& data)
 {
+  if (thread_settings_.motionThreads>0)
+  {
     motion_data_queue_->push(data);
+  }  
 }
 void MultiThreadedUDPHandler2018::handleData(const deepf1::twenty_eighteen::TimestampedPacketParticipantsData& data)
 {
+  if (thread_settings_.participantsThreads>0)
+  {
     participant_data_queue_->push(data);
+  }  
 }
 void MultiThreadedUDPHandler2018::handleData(const deepf1::twenty_eighteen::TimestampedPacketSessionData& data) 
 {
-  session_data_queue_->push(data);
-  if (bool(data.data.m_gamePaused))// && !paused_)
+  if (thread_settings_.sessionThreads>0)
+  {
+    session_data_queue_->push(data);
+  }  
+    
+  if (bool(data.data.m_gamePaused) && !pausedHandlers_.empty())
   {
     for (const std::function<void()> f: pausedHandlers_)
     {
       f();
     }
   }
-  else if (!bool(data.data.m_gamePaused))// && paused_)
+  else if (!bool(data.data.m_gamePaused) && !unpausedHandlers_.empty())
   {
     for (const std::function<void()> f: unpausedHandlers_)
     {
