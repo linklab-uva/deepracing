@@ -1,0 +1,9 @@
+$extrapythonpaths="@CMAKE_INSTALL_PREFIX@/Lib/python"
+If( "$Env:PYTHONPATH" -eq "")
+{
+	$Env:PYTHONPATH=$extrapythonpaths
+}
+Else
+{
+	$Env:PYTHONPATH+=";"+$extrapythonpaths
+}

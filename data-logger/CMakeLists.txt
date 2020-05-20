@@ -220,7 +220,9 @@ install(DIRECTORY python/deepracing
 if(MSVC)
 	configure_file(scripts/windows/tbbvars2019.bat.in tbbvars2019.bat @ONLY NEWLINE_STYLE WIN32)
 	configure_file(scripts/windows/addpythonpath.bat.in addpythonpath.bat @ONLY NEWLINE_STYLE WIN32)
-	configure_file(scripts/windows/addpythonpath.ps.in addpythonpath.ps1 @ONLY NEWLINE_STYLE WIN32)
+	configure_file(scripts/windows/addpythonpath.build.ps1.in ${CMAKE_CURRENT_BINARY_DIR}/addpythonpathbuild.ps1 @ONLY NEWLINE_STYLE WIN32)
+    configure_file(scripts/windows/addpythonpath.install.ps1.in ${CMAKE_CURRENT_BINARY_DIR}/addpythonpath.ps1 @ONLY NEWLINE_STYLE WIN32)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/addpythonpath.ps1 DESTINATION share/${PROJECT_NAME})
 else()
     configure_file(scripts/bash/addpythonpath.in ${CMAKE_BINARY_DIR}/addpythonpath @ONLY NEWLINE_STYLE UNIX)
     add_custom_target(
