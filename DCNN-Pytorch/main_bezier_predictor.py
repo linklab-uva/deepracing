@@ -51,10 +51,8 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu,
     #     loss_weights_torch = loss_weights_torch.cuda(gpu)
     _, _, _, _, _, _, sample_session_times = trainLoader.dataset[0]
     s_torch = torch.linspace(0.0,1.0,steps=sample_session_times.shape[0]).unsqueeze(0).repeat(batch_size,1).double()
-    initial_zeros = torch.zeros(batch_size,2,1)
     if gpu>=0:
         s_torch = s_torch.cuda(gpu)
-        initial_zeros = initial_zeros.cuda(gpu)
     bezier_order = network.params_per_dimension-1+int(fix_first_point)
     if not debug:
         experiment.set_epoch(epoch_number)
@@ -68,7 +66,11 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu,
             linear_velocities_torch = linear_velocities_torch.cuda(gpu)
         predictions = network(image_torch)
         if fix_first_point:
-            predictions_reshape = torch.cat((initial_zeros,predictions.transpose(1,2),dim=2))
+            initial_zeros = torch.zeros(image_torch.shape[0],1,2).double()
+            if gpu>=0:
+                initial_zeros = initial_zeros.cuda(gpu)
+            network_output_reshape = predictions.transpose(1,2)
+            predictions_reshape = torch.cat((initial_zeros,network_output_reshape),dim=1)
         else:
             predictions_reshape = predictions.transpose(1,2)
         dt = session_times_torch[:,-1]-session_times_torch[:,0]
@@ -188,7 +190,7 @@ def go():
     parser.add_argument("--velocity_loss", type=float, default=None,  help="Override velocity loss weight in config file")
     parser.add_argument("--position_loss", type=float, default=None,  help="Override position loss weight in config file")
     parser.add_argument("--control_point_loss", type=float, default=None,  help="Override control point loss weight in config file")
-    parset.add_argument("--fix_first_point",type=bool,default=False, help="Override fix_first_point in the config file")
+    parser.add_argument("--fix_first_point",type=bool,default=False, help="Override fix_first_point in the config file")
     
     args = parser.parse_args()
 
@@ -202,7 +204,7 @@ def go():
 
     with open(dataset_config_file) as f:
         dataset_config = yaml.load(f, Loader = yaml.SafeLoader)
-
+    print(dataset_config)
     image_size = dataset_config["image_size"]
     input_channels = config["input_channels"]
     
@@ -389,7 +391,7 @@ def go():
         os.makedirs(output_directory, exist_ok=True)
     i = 0
     if debug:
-        run_epoch(None, net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, 1, debug=debug, use_tqdm=args.tqdm )
+        run_epoch(None, net, fix_first_point , optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, 1, debug=debug, use_tqdm=args.tqdm )
     else:
         with experiment.train():
             while i < num_epochs:
