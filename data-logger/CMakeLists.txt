@@ -224,11 +224,14 @@ if(MSVC)
     configure_file(scripts/windows/addpythonpath.install.ps1.in ${CMAKE_CURRENT_BINARY_DIR}/addpythonpath.ps1 @ONLY NEWLINE_STYLE WIN32)
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/addpythonpath.ps1 DESTINATION share/${PROJECT_NAME})
 else()
-    configure_file(scripts/bash/addpythonpath.in ${CMAKE_BINARY_DIR}/addpythonpath @ONLY NEWLINE_STYLE UNIX)
+    configure_file(scripts/bash/addpythonpath.build.bash.in ${CMAKE_BINARY_DIR}/addpythonpathbuild.bash @ONLY NEWLINE_STYLE UNIX)
+    configure_file(scripts/bash/addpythonpath.install.bash.in ${CMAKE_BINARY_DIR}/addpythonpath.bash @ONLY NEWLINE_STYLE UNIX)
+    install(FILES ${CMAKE_BINARY_DIR}/addpythonpath.bash DESTINATION share/${PROJECT_NAME})
+
     add_custom_target(
     chmodaddpythonpath ALL
-    DEPENDS ${CMAKE_BINARY_DIR}/addpythonpath
-    COMMAND dos2unix ${CMAKE_BINARY_DIR}/addpythonpath && chmod a+x ${CMAKE_BINARY_DIR}/addpythonpath
+    DEPENDS ${CMAKE_BINARY_DIR}/addpythonpath.bash
+    COMMAND dos2unix ${CMAKE_BINARY_DIR}/addpythonpath.bash && chmod a+x ${CMAKE_BINARY_DIR}/addpythonpath.bash
     VERBATIM
     )
 endif() 
