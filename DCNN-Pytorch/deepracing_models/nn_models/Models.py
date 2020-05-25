@@ -463,7 +463,7 @@ class AdmiralNetCurvePredictor(nn.Module):
         # = RNNUtils.pack_padded_sequence(context_in, (context_in.shape[1]*np.ones(context_in.shape[0])).tolist() , batch_first=True, enforce_sorted=False)
         _, (linear_new_hidden, linear_new_cell) = self.linear_rnn(context_in, (linear_rnn_init_hidden,  linear_rnn_init_cell) )
         
-      
+    
         #print(conv3d_out.shape)
         if self.use_3dconv:
             conv3d_out = self.projection_encoder( x.view(batch_size, self.input_channels, self.context_length, self.imsize[0], self.imsize[1]) )
