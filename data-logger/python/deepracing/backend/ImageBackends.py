@@ -100,12 +100,13 @@ class ImageLMDBWrapper():
             self.env.close()
             del self.env
             time.sleep(1)
-            self.readDatabase(path, mapsize=mapsize, max_spare_txns=self.spare_txns)
-    def readDatabase(self, db_path : str, mapsize=int(1e10), max_spare_txns=64):
+            self.readDatabase(path, mapsize=mapsize, max_spare_txns=self.spare_txns, readonly=True, lock=False)
+    def readDatabase(self, db_path : str, mapsize=int(1e10), max_spare_txns=125, readonly=True, lock=False):
         if not os.path.isdir(db_path):
             raise IOError("Path " + db_path + " is not a directory")
         self.spare_txns = max_spare_txns
-        self.env = lmdb.open(db_path, map_size=mapsize, readonly=True, max_spare_txns=max_spare_txns)#, lock=False)
+        self.env = lmdb.open(db_path, map_size=round(mapsize,None), max_spare_txns=max_spare_txns,\
+            create=False, lock=lock, readonly=readonly)
     def getImagePB(self, key : str):
         im_pb = Image_pb2.Image()
         with self.env.begin(write=False) as txn:

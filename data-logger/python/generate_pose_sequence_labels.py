@@ -164,7 +164,6 @@ velocity_interpolant = scipy.interpolate.make_interp_spline(session_times, veloc
 
 interpolated_positions = position_interpolant(image_session_timestamps)
 interpolated_velocities = velocity_interpolant(image_session_timestamps)
-#interpolated_accelerations = 0.25*position_interpolant(image_session_timestamps,nu=2) + 0.75*velocity_interpolant(image_session_timestamps,nu=1)
 interpolated_quaternions = rotation_interpolant(image_session_timestamps)
 if args.use_given_angular_velocities:
     angular_velocities = np.array([deepracing.pose_utils.extractAngularVelocity(packet.udp_packet) for packet in motion_packets])
@@ -209,24 +208,7 @@ try:
   fig.savefig( os.path.join( output_dir, "datalogger_remap_plot.svg" ), format='svg', bbox_inches='tight')
 
 
-#   fig = plt.figure("Image Session Times on Normalized Domain")
-#   t = np.linspace( 0.0, 1.0 , num=len(image_session_timestamps) )
-#   slope_remap, intercept_remap, r_value_remap, p_value_remap, std_err_remap = scipy.stats.linregress(t, image_session_timestamps)
-#   print("Slope of all point session times" %(slope_remap))
-#   print("Standard error remap: %f" %(std_err_remap))
-#   print("R^2 of remap: %f" %(r_value_remap**2))
-#   plt.plot( t, image_session_timestamps, label='dem timez' )
-#   plt.plot( t, t*slope_remap + intercept_remap, label='fitted line' )
-#   racelinefig,racelineax = plt.subplots()
-#   racelineax.scatter( positions[:,0], positions[:,2], facecolors='none', edgecolors='g')
-#   plt.figure()
-#   plt.scatter( interpolated_positions[:,0], interpolated_positions[:,2], facecolors='none', edgecolors='b')
-#   plt.figure()
-#   plt.plot(session_times[1:],position_diff_norms)
-#   plt.plot(session_times,positions[:,2])
-#   plt.figure()
-#   plt.plot(image_session_timestamps,interpolated_positions[:,0])
-#   plt.plot(image_session_timestamps,interpolated_positions[:,2])
+
   plt.show()
 except KeyboardInterrupt:
   exit(0)
@@ -297,27 +279,7 @@ for idx in tqdm(range(len(image_tags))):
         subsequent_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector( pose_global , subsequent_velocities )
         subsequent_angular_velocities_local = deepracing.pose_utils.toLocalCoordinatesVector( pose_global , subsequent_angular_velocities )
 
-        # position_spline_ordinates = subsequent_positions_local[:,[0,2]].copy()
-        # #print(position_spline_ordinates.shape)
-        # tspline = subsequent_times.copy()
-        # tspline = (tspline-tspline[0])/(tspline[-1]-tspline[0])
-        # #tspline = np.linspace(0.0,1.0,position_spline_ordinates.shape[0])
-        # numpoints = position_spline_ordinates.shape[0]
-        # knots = np.hstack((np.zeros(splK+1),np.linspace((splK-1)/(numpoints-splK+1),(numpoints-splK-1)/(numpoints-splK+1),numpoints-splK-1),np.ones(splK+1)))
-        # #knots = None
-        # position_spline_ordinates[:,0] = (position_spline_ordinates[:,0] - splxmin)/(splxmax - splxmin)
-        # position_spline_ordinates[:,1] = (position_spline_ordinates[:,1] - splzmin)/(splzmax - splzmin)
-        # position_spline = scipy.interpolate.make_interp_spline(tspline,position_spline_ordinates,k=splK,t=knots)
-        # position_spline_pb = deepracing.protobuf_utils.splineSciPyToPB(position_spline,tspline[0],tspline[-1],splxmin,splxmax,splzmin,splzmax)
-        # label_tag.position_spline.CopyFrom(position_spline_pb)
-
-
-        # velocity_spline_ordinates = subsequent_velocities_local[:,[0,2]].copy()
-        # velocity_spline_ordinates[:,0] = (velocity_spline_ordinates[:,0] - splxmin)/(splxmax - splxmin)
-        # velocity_spline_ordinates[:,1] = (velocity_spline_ordinates[:,1] - splzmin)/(splzmax - splzmin)
-        # velocity_spline = scipy.interpolate.make_interp_spline(tspline,velocity_spline_ordinates,k=splK,t=knots)
-        # velocity_spline_pb = deepracing.protobuf_utils.splineSciPyToPB(velocity_spline,tspline[0],tspline[-1],splxmin,splxmax,splzmin,splzmax)
-        # label_tag.velocity_spline.CopyFrom(velocity_spline_pb)
+        
         label_tag.car_pose.translation.x = carposition_global[0]
         label_tag.car_pose.translation.y = carposition_global[1]
         label_tag.car_pose.translation.z = carposition_global[2]

@@ -2,21 +2,21 @@
 hidden_dimension: 200
 input_channels: 3
 sequence_length: 10
-context_length: 10
+context_length: 5
 temporal_conv_feature_factor: 1
 bezier_order: 7
 use_float: False
-use_3dconv: False
+use_3dconv: True
 fix_first_point: True
 
 #training hyperparameters
 gpu: 0
 batch_size: 128
-learning_rate: 1.0E-3
-momentum: 1.0E-1
+learning_rate: 0.0001
+momentum: 0.0001
 nesterov: False
 dampening: 0.0
-loss_weights: [0.01, 1.0, 0.05]
+loss_weights: [0.01, 1.0, 0.001]
 num_epochs: 200
 num_workers: 0
 loss_reduction: "mean"
