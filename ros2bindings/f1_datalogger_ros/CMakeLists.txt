@@ -30,7 +30,7 @@ find_package(tf2_ros REQUIRED)
 find_package(f1_datalogger_msgs REQUIRED)
 
 #Provides imported targets for f1_datalogger, armadillo, Boost, Eigen3, and Opencv
-find_package(f1_datalogger_provider REQUIRED)
+find_package(f1_datalogger CONFIG REQUIRED)
 
 find_package(cv_bridge REQUIRED)
 if(WIN32)
@@ -65,8 +65,6 @@ ament_target_dependencies(ros_rebroadcaster cv_bridge f1_datalogger image_transp
 target_link_libraries(ros_rebroadcaster
  f1_msg_utils
  f1_datalogger::f1_datalogger
- Eigen3::Eigen
- ${ARMADILLO_LIBRARIES}
  ${cv_bridge_LIBRARIES}
 )
 #target_include_directories(ros_rebroadcaster PRIVATE ${cv_bridge_INCLUDE_DIRS})
@@ -78,8 +76,8 @@ target_link_libraries(ros_rebroadcaster
  ament_export_dependencies(image_tools)
  ament_export_dependencies(laser_geometry)
  ament_export_dependencies(f1_datalogger_msgs)
- ament_export_dependencies(f1_datalogger_provider)
- #ament_export_dependencies(f1_datalogger)
+ ament_export_dependencies(f1_datalogger)
+ #ament_export_dependencies(f1_datalogger_provider)
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights

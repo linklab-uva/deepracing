@@ -78,15 +78,12 @@ if(Boost_FOUND)
 else()
     find_package(Boost REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
 endif(Boost_FOUND)
-
-set(internal_boost_headers_target FALSE)
-if(NOT TARGET Boost::headers)
-    set(internal_boost_headers_target TRUE)
-    add_library(Boost::headers INTERFACE IMPORTED GLOBAL)
-    target_include_directories(Boost::headers INTERFACE ${Boost_INCLUDE_DIRS})
-endif()
-list(APPEND Boost_LIBRARIES Boost::headers)
-message(STATUS "Using Boost components: ${Boost_LIBRARIES}")
+set(Boost_TARGETS)
+foreach(comp IN LISTS BOOST_REQUIRED_COMPONENTS)
+  list(APPEND Boost_TARGETS Boost::${comp})
+endforeach(comp IN LISTS BOOST_REQUIRED_COMPONENTS)
+list(APPEND Boost_TARGETS Boost::headers)
+set(Boost_LIBRARIES ${Boost_TARGETS})
 
 
 
