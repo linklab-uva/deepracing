@@ -22,7 +22,7 @@ args = parser.parse_args()
 experiment_key = args.experiment_key
 epoch_number = args.epoch_number
 restkey = args.restkey
-output_directory = os.path.join(args.output_directory, experiment_key + "_from_comet")
+output_directory = os.path.join(args.output_directory, experiment_key )
 if not os.path.isdir(output_directory):
     os.makedirs(output_directory)
 if restkey is None:
@@ -36,23 +36,33 @@ assetdict = {d['fileName']: d['assetId'] for d in assetlist}
 
 
 print("Getting hyperparameters from comet")
-parameters_summary = experiment.get_parameters_summary()
-configin = {d["name"] : d["valueCurrent"] for d in parameters_summary}
-config = {}
-config["image_size"] = np.fromstring( configin["image_size"].replace(" ","").replace("[","").replace("]",""), sep=',', dtype=np.int32 ).tolist()
-# try:
-#     config["image_size"] = np.fromstring( configin["image_size"].replace(" ","").replace("[","").replace("]",""), sep=',', dtype=np.int32 ).tolist()
-# except:
-#     config["image_size"] = [66,200]
-config["input_channels"] = int( configin["input_channels"] )
-config["hidden_dimension"] = int( configin["hidden_dimension"] )
-config["sequence_length"] = int( configin["sequence_length"] )
-config["context_length"] = int( configin["context_length"] )
-config["bezier_order"] = int( configin["bezier_order"] )
-print(config)
-outputconfigfile = os.path.join(output_directory,"config.yaml")
+config_file_name = "model_config.yaml"
+config_yaml = experiment.get_asset(assetdict[config_file_name], return_type="text")
+outputconfigfile = os.path.join(output_directory,config_file_name)
 with open(outputconfigfile, 'w') as f:
-    yaml.dump(config,stream=f,Dumper=yaml.SafeDumper)
+    f.write(config_yaml)
+with open(outputconfigfile, 'r') as f:
+    config = yaml.load(f,Loader=yaml.SafeLoader)
+print("Got config from comet")
+print(config)
+
+# parameters_summary = experiment.get_parameters_summary()
+# configin = {d["name"] : d["valueCurrent"] for d in parameters_summary}
+# config = {}
+# config["image_size"] = np.fromstring( configin["image_size"].replace(" ","").replace("[","").replace("]",""), sep=',', dtype=np.int32 ).tolist()
+# # try:
+# #     config["image_size"] = np.fromstring( configin["image_size"].replace(" ","").replace("[","").replace("]",""), sep=',', dtype=np.int32 ).tolist()
+# # except:
+# #     config["image_size"] = [66,200]
+# config["input_channels"] = int( configin["input_channels"] )
+# config["hidden_dimension"] = int( configin["hidden_dimension"] )
+# config["sequence_length"] = int( configin["sequence_length"] )
+# config["context_length"] = int( configin["context_length"] )
+# config["bezier_order"] = int( configin["bezier_order"] )
+# print(config)
+# outputconfigfile = os.path.join(output_directory,"config.yaml")
+# with open(outputconfigfile, 'w') as f:
+#     yaml.dump(config,stream=f,Dumper=yaml.SafeDumper)
 
 
 #get network weight file
@@ -76,12 +86,13 @@ with open(outputoptimizerfile, 'wb') as f:
     f.write(optimizer_binary)
 
 
-context_length = int(config["context_length"])
-input_channels = int(config["input_channels"])
-hidden_dimension = int(config["hidden_dimension"])
-bezier_order = int(config["bezier_order"])
-num_recurrent_layers = int(config.get("num_recurrent_layers","1"))
-net = deepracing_models.nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dimension, num_recurrent_layers=num_recurrent_layers, params_per_dimension=bezier_order+1 ) 
+context_length = config["context_length"]
+input_channels = config["input_channels"]
+hidden_dimension = config["hidden_dimension"]
+bezier_order = config["bezier_order"]
+num_recurrent_layers = config.get("num_recurrent_layers",1)
+fix_first_point = config.get("fix_first_point",False)
+net = deepracing_models.nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dimension, num_recurrent_layers=num_recurrent_layers, params_per_dimension=bezier_order+1-int(fix_first_point) ) 
 net = net.double()
 with open(outputweightfile, 'rb') as f:
     net.load_state_dict(torch.load(f, map_location=torch.device("cpu")))
