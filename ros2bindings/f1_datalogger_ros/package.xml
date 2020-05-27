@@ -11,7 +11,7 @@
 
   <depend>rclcpp</depend>
   <depend>rosidl_default_runtime</depend>
-  <depend>f1_datalogger_provider</depend>
+  <depend>f1_datalogger</depend>
   <depend>f1_datalogger_msgs</depend>
   <depend>image_tools</depend>
   <depend>image_transport</depend>
