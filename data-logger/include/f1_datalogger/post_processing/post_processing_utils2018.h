@@ -4,11 +4,13 @@
 #include <vector>
 #include "f1_datalogger/proto/TimestampedPacketMotionData.pb.h"
 #include <Eigen/Core>
+#include <f1_datalogger/visibility_control.h>
+
 namespace deepf1 
 {
 namespace post_processing
 {
-	class PostProcessingUtils2018
+	class F1_DATALOGGER_PUBLIC PostProcessingUtils2018
 	{
 	  public:
       static std::vector<deepf1::twenty_eighteen::protobuf::TimestampedPacketMotionData> 

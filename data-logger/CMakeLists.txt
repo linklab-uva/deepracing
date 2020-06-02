@@ -15,32 +15,19 @@ set(CMAKE_DEBUG_POSTFIX _debug)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
-option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
+option(BUILD_SHARED_LIBS "Build Shared Libraries" ON)
 if(WIN32)
-    option(STATIC_CRT "Build against static CRT libraries (Only relevant on Windows)" OFF)
     option(WIN10API "Build against the Windows 10 Runtime" ON)
 	include(cmake/windows_stuff.cmake)
 	get_WIN32_WINNT(win32_ver)
     message(STATUS "Win32 version: ${win32_ver}")
     if(WIN10API)
-        add_definitions(-D_WIN32_WINNT=${win32_ver})
-        set(BUILD_XAUDIO_WIN10 ON CACHE BOOL "Build for XAudio 2.9" FORCE)
+      add_definitions(-D_WIN32_WINNT=${win32_ver})
+      set(BUILD_XAUDIO_WIN10 ON CACHE BOOL "Build for XAudio 2.9" FORCE)
     endif()
     if(BUILD_SHARED_LIBS)
-        set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+      add_definitions(-DF1_DATALOGGER_BUILDING_DLL)
     endif()
-    if(STATIC_CRT)
-        foreach(flag_var
-            CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
-            CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
-            CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
-            CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-
-            if(${flag_var} MATCHES "/MD")
-                string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
-            endif(${flag_var} MATCHES "/MD")
-        endforeach(flag_var)
-    endif(STATIC_CRT)
 endif(WIN32)
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)

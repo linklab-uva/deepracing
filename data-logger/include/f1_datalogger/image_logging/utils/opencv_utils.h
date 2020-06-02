@@ -10,10 +10,12 @@
 #include "ScreenCapture.h"
 #include "opencv2/core.hpp"
 #include "f1_datalogger/proto/Image.pb.h"
+#include <f1_datalogger/visibility_control.h>
+
 namespace deepf1
 {
 namespace scl = SL::Screen_Capture;
-class OpenCVUtils
+class F1_DATALOGGER_PUBLIC OpenCVUtils
 {
 public:
   typedef cv::Vec<uint8_t, 4> CVPixel;

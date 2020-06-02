@@ -11,14 +11,11 @@
 #include "f1_datalogger/proto/PacketMotionData.pb.h"
 #include "f1_datalogger/proto/PacketParticipantsData.pb.h"
 #include "f1_datalogger/proto/PacketSessionData.pb.h"
-// #include "f1_datalogger/proto/UDPData.pb.h"
-// #include "f1_datalogger/proto/UDPData.pb.h"
-// #include "f1_datalogger/proto/UDPData.pb.h"
-// #include "f1_datalogger/proto/UDPData.pb.h"
-// #include "f1_datalogger/proto/UDPData.pb.h"
+#include <f1_datalogger/visibility_control.h>
+
 namespace deepf1
 {
-	class UDPStreamUtils
+	class F1_DATALOGGER_PUBLIC UDPStreamUtils
 	{
 	public:
 		UDPStreamUtils();
@@ -28,7 +25,7 @@ namespace deepf1
 	};
 	namespace twenty_eighteen
 	{
-		class TwentyEighteenUDPStreamUtils
+		class F1_DATALOGGER_PUBLIC TwentyEighteenUDPStreamUtils
 		{
 		public:
 			TwentyEighteenUDPStreamUtils();

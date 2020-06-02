@@ -5,9 +5,12 @@
 #include "f1_datalogger/proto/CarMotionData.pb.h"
 #include "f1_datalogger/car_data/car_data.h"
 #include "f1_datalogger/proto/Pose3d.pb.h"
+#include <f1_datalogger/visibility_control.h>
+
+
 namespace deepf1
 {
-	class EigenUtils
+	class F1_DATALOGGER_PUBLIC EigenUtils
 	{
 	public:
 		EigenUtils();

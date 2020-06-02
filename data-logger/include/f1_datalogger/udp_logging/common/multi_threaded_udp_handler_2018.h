@@ -51,7 +51,7 @@ public:
   unsigned int sleeptime;
   std::string udp_directory;
 };
-class MultiThreadedUDPHandler2018 : public IF12018DataGrabHandler
+class F1_DATALOGGER_PUBLIC MultiThreadedUDPHandler2018 : public IF12018DataGrabHandler
 {
   using timeunit = std::milli;
 public:

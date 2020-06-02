@@ -6,11 +6,13 @@
 #include "f1_datalogger/proto/TimestampedImage.pb.h"
 #include "f1_datalogger/proto/LabeledImage.pb.h"
 #include <Eigen/Core>
+#include <f1_datalogger/visibility_control.h>
+
 namespace deepf1 
 {
 namespace post_processing
 {
-	class PostProcessingUtils
+	class F1_DATALOGGER_PUBLIC PostProcessingUtils
 	{
 	public:
 		PostProcessingUtils();

@@ -16,9 +16,11 @@
 #include "f1_datalogger/udp_logging/f1_protocol_versions.h"
 #include <chrono>
 #include <map>
+#include <f1_datalogger/visibility_control.h>
+
 namespace deepf1
 {
-class F1DataGrabManager
+class F1_DATALOGGER_PUBLIC F1DataGrabManager
 {
   friend class F1DataLogger;
 public:

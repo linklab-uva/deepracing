@@ -9,10 +9,11 @@
 #define INCLUDE_F1_DATALOGGER_H_
 #include "image_logging/f1_framegrab_manager.h"
 #include "udp_logging/f1_datagrab_manager.h"
+#include <f1_datalogger/visibility_control.h>
 namespace deepf1
 {
 
-class F1DataLogger
+class F1_DATALOGGER_PUBLIC F1DataLogger
 {
 public:
   F1DataLogger(const std::string& search_string, std::string host="127.0.0.1", unsigned int port= 20777, bool rebroadcast = false);

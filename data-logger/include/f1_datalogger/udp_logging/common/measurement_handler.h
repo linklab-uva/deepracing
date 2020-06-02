@@ -4,7 +4,7 @@
 #include "f1_datalogger/udp_logging/f1_datagrab_handler.h"
 namespace deepf1
 {
-	class MeasurementHandler : public IF1DatagrabHandler
+	class F1_DATALOGGER_PUBLIC MeasurementHandler : public IF1DatagrabHandler
 	{
 	public:
 		MeasurementHandler(unsigned int buffer_capacity=10);

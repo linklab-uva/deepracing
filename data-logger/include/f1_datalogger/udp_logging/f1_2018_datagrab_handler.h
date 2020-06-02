@@ -9,10 +9,13 @@
 #define INCLUDE_UDP_LOGGING_F1_2018_DATAGRAB_HANDLER_H_
 #include "f1_datalogger/car_data/timestamped_car_data.h"
 #include <string>
+#include <f1_datalogger/visibility_control.h>
+
+
 namespace deepf1
 {
 
-class IF12018DataGrabHandler
+class F1_DATALOGGER_PUBLIC IF12018DataGrabHandler
 {
 public:
   IF12018DataGrabHandler() = default;

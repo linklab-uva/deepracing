@@ -10,10 +10,12 @@
 #include "f1_datalogger/image_logging/framegrab_handler.h"
 #include <ScreenCapture.h>
 #include <chrono>
+#include <f1_datalogger/visibility_control.h>
+
 namespace deepf1
 {
 namespace scl = SL::Screen_Capture;
-class F1FrameGrabManager
+class F1_DATALOGGER_PUBLIC F1FrameGrabManager
 {
 
   friend class F1DataLogger;

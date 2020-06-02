@@ -12,6 +12,8 @@
 #include <tbb/task_group.h>
 #include <mutex>
 #include <memory>
+#include <f1_datalogger/visibility_control.h>
+
 namespace deepf1
 {
 struct MultiThreadedFrameGrabHandlerSettings
@@ -29,7 +31,7 @@ struct MultiThreadedFrameGrabHandlerSettings
     double capture_region_ratio;
 
 };
-class MultiThreadedFrameGrabHandler : public IF1FrameGrabHandler
+class F1_DATALOGGER_PUBLIC MultiThreadedFrameGrabHandler : public IF1FrameGrabHandler
 {
 	using timeunit = std::milli;
 public:

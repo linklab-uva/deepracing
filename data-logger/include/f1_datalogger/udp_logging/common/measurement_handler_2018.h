@@ -4,7 +4,7 @@
 #include "f1_datalogger/udp_logging/f1_2018_datagrab_handler.h"
 namespace deepf1
 {
-		class MeasurementHandler2018 : public IF12018DataGrabHandler
+		class F1_DATALOGGER_PUBLIC MeasurementHandler2018 : public IF12018DataGrabHandler
 		{
 		public:
 			MeasurementHandler2018();
