@@ -16,3 +16,6 @@
 [submodule "vJoy"]
 	path = vJoy
 	url = https://github.com/linklab-uva/vJoy.git
+[submodule "ros2bindings/image_transport_plugins"]
+	path = ros2bindings/image_transport_plugins
+	url = https://github.com/Electric-Turtle/image_transport_plugins.git
