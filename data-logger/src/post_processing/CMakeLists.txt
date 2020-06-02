@@ -6,7 +6,6 @@ post_processing_utils2018.cpp
 target_include_directories(${PROJECT_NAME}_post_processing PRIVATE ${ALGLIB_DIR}/..)
 target_link_libraries(${PROJECT_NAME}_post_processing 
 ${PROJECT_NAME}_proto 
-${PROJECT_NAME}_alglib 
 ${Boost_LIBRARIES}
 )
 

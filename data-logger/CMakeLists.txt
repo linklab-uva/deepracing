@@ -133,9 +133,6 @@ find_package(Protobuf REQUIRED)
 add_subdirectory( proto/${PROJECT_NAME}/proto )
 set(PROTO_INCLUDE_DIR ${CMAKE_BINARY_DIR}/proto)
 
-add_subdirectory( src/alglib )
-message(STATUS "ALGLIB_DIR: ${ALGLIB_DIR}")
-set_target_properties(${PROJECT_NAME}_alglib PROPERTIES FOLDER utils)
 
 if(BUILD_DATALOGGER)
 	option(WITH_ARMA "Use Armadillo library for matrix loading/storing" ON)
@@ -157,7 +154,6 @@ if(BUILD_DATALOGGER)
     ${PROJECT_NAME}_image_logging 
     ${PROJECT_NAME}_udp_logging 
     ${PROJECT_NAME}_proto 
-    ${PROJECT_NAME}_alglib 
     ${PROJECT_NAME}_eigen_utils
     ${PROJECT_NAME}_image_utils
     ${PROJECT_NAME}_controllers
@@ -175,7 +171,6 @@ if(BUILD_DATALOGGER)
         ${PROJECT_NAME}_udp_logging 
         ${PROJECT_NAME}_udp_logging_common 
         ${PROJECT_NAME}_proto 
-        ${PROJECT_NAME}_alglib 
         ${PROJECT_NAME}_eigen_utils
         ${PROJECT_NAME}_image_utils
         ${PROJECT_NAME}_controllers

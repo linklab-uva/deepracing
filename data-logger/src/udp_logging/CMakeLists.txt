@@ -35,7 +35,7 @@ if(WITH_ARMA)
     target_include_directories(${PROJECT_NAME}_eigen_utils PRIVATE ${ARMADILLO_INCLUDE_DIRS})
 	target_link_libraries(${PROJECT_NAME}_eigen_utils ${ARMADILLO_LIBRARIES})
 endif()
-target_link_libraries( ${PROJECT_NAME}_eigen_utils Eigen3::Eigen ${Boost_LIBRARIES} ${PROJECT_NAME}_proto ${PROJECT_NAME}_alglib ${PROJECT_NAME}_udp_utils )
+target_link_libraries( ${PROJECT_NAME}_eigen_utils Eigen3::Eigen ${Boost_LIBRARIES} ${PROJECT_NAME}_proto ${PROJECT_NAME}_udp_utils )
 target_include_directories(${PROJECT_NAME}_eigen_utils PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
 
 

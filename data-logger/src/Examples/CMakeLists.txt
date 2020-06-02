@@ -131,7 +131,6 @@ if(${Eigen3_VERSION} VERSION_GREATER_EQUAL "3.3.9")
 	)
 	target_link_libraries(${PROJECT_NAME}_pure_pursuit_control
 		${PROJECT_NAME}
-		${PROJECT_NAME}_alglib
 		${PROJECT_NAME}_controllers
 		${PROJECT_NAME}_image_logging
 		${PROJECT_NAME}_image_logging_common
