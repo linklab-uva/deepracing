@@ -2,9 +2,7 @@
 #include <thread>
 #include <iostream>
 #include <google/protobuf/util/json_util.h>
-#include "f1_datalogger/alglib/interpolation.h"
 #include <sstream>
-#include "f1_datalogger/controllers/kdtree_eigen.h"
 #include "f1_datalogger/udp_logging/utils/udp_stream_utils.h"
 #ifdef USE_ARMADILLO
 #include <armadillo>
