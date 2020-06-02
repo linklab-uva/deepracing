@@ -1,15 +1,13 @@
-include(FindPython3)
-find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+
+find_package(Python REQUIRED COMPONENTS Interpreter Development)
 
 add_subdirectory(pybind11)
 
-#Python3::Module
-#Python3::Python
 pybind11_add_module(py_f1_interface py_f1_interface.cpp)
 target_link_libraries(py_f1_interface
 PRIVATE
-Python3::Module
-Python3::Python
+Python::Module
+Python::Python
 pybind11::module
 pybind11::pybind11
 ${PROJECT_NAME}_controllers
