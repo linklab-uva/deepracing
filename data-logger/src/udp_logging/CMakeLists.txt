@@ -3,7 +3,7 @@ add_executable(${PROJECT_NAME}_simulated_telemetry_server
 simulated_telemetry_server.cpp
 )
 target_link_libraries(${PROJECT_NAME}_simulated_telemetry_server
-${Boost_LIBRARIES}
+${Boost_TARGETS}
 ${CMAKE_THREAD_LIBS_INIT}
 )
 
@@ -12,7 +12,7 @@ set(${PROJECT_NAME}_udp_logging_src
 f1_datagrab_manager.cpp
 )
 add_library(${PROJECT_NAME}_udp_logging ${${PROJECT_NAME}_udp_logging_src})
-target_link_libraries(${PROJECT_NAME}_udp_logging ${Boost_LIBRARIES} )
+target_link_libraries(${PROJECT_NAME}_udp_logging ${Boost_TARGETS} )
 
 set(${PROJECT_NAME}_udp_utils_src
 utils/udp_stream_utils.cpp
@@ -21,7 +21,7 @@ add_library( ${PROJECT_NAME}_udp_utils ${${PROJECT_NAME}_udp_utils_src} )
 target_link_libraries(${PROJECT_NAME}_udp_utils 
 ${PROJECT_NAME}_udp_logging 
 ${PROJECT_NAME}_proto 
-${Boost_LIBRARIES}
+${Boost_TARGETS}
 )
 
 
@@ -35,7 +35,7 @@ if(WITH_ARMA)
     target_include_directories(${PROJECT_NAME}_eigen_utils PRIVATE ${ARMADILLO_INCLUDE_DIRS})
 	target_link_libraries(${PROJECT_NAME}_eigen_utils ${ARMADILLO_LIBRARIES})
 endif()
-target_link_libraries( ${PROJECT_NAME}_eigen_utils Eigen3::Eigen ${Boost_LIBRARIES} ${PROJECT_NAME}_proto ${PROJECT_NAME}_udp_utils )
+target_link_libraries( ${PROJECT_NAME}_eigen_utils Eigen3::Eigen ${Boost_TARGETS} ${PROJECT_NAME}_proto ${PROJECT_NAME}_udp_utils )
 target_include_directories(${PROJECT_NAME}_eigen_utils PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
 
 
@@ -53,7 +53,7 @@ ${PROJECT_NAME}_udp_logging
 ${PROJECT_NAME}_udp_utils
 ${PROJECT_NAME}_proto
 ${TBB_IMPORTED_TARGETS} 
-${Boost_LIBRARIES} 
+${Boost_TARGETS} 
 )
 if (NOT HAS_STDCXXFS)
     target_compile_definitions(${PROJECT_NAME}_udp_logging_common PRIVATE BOOST_FILESYSTEM=1)

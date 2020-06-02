@@ -8,7 +8,7 @@ project(f1_datalogger)
 message(STATUS "Using CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 
 if(NOT CMAKE_CXX_STANDARD)
-    set(CMAKE_CXX_STANDARD 14)
+    set(CMAKE_CXX_STANDARD 17)
 endif(NOT CMAKE_CXX_STANDARD)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_DEBUG_POSTFIX _debug)
@@ -70,7 +70,6 @@ foreach(comp IN LISTS BOOST_REQUIRED_COMPONENTS)
   list(APPEND Boost_TARGETS Boost::${comp})
 endforeach(comp IN LISTS BOOST_REQUIRED_COMPONENTS)
 list(APPEND Boost_TARGETS Boost::headers)
-set(Boost_LIBRARIES ${Boost_TARGETS})
 
 
 
@@ -144,7 +143,7 @@ if(BUILD_DATALOGGER)
     ${PROJECT_NAME}_eigen_utils
     ${PROJECT_NAME}_image_utils
     ${PROJECT_NAME}_controllers
-    ${Boost_LIBRARIES}
+    ${Boost_TARGETS}
     INTERFACE
     ${screen_capture_lite_PLATFORM_LIBS}
     )

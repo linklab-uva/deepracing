@@ -32,7 +32,7 @@ ${PROJECT_NAME}_image_logging
 ${PROJECT_NAME}_image_utils 
 ${PROJECT_NAME}_proto 
 ${TBB_IMPORTED_TARGETS} 
-${Boost_LIBRARIES}
+${Boost_TARGETS}
 )
 if (NOT HAS_STDCXXFS)
     target_compile_definitions(${PROJECT_NAME}_image_logging_common PRIVATE BOOST_FILESYSTEM=1)

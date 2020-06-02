@@ -31,7 +31,7 @@ target_link_libraries(${PROJECT_NAME}_controllers
 ${PROJECT_NAME}_eigen_utils
 ${PROJECT_NAME}_udp_utils
 ${PROJECT_NAME}_udp_logging_common
-${Boost_LIBRARIES}
+${Boost_TARGETS}
 Eigen3::Eigen
 ${additional_controller_libs_}
 )

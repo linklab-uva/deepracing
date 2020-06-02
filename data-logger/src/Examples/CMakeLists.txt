@@ -18,7 +18,7 @@ ${PROJECT_NAME}_udp_logging
 ${PROJECT_NAME}_udp_logging_common
 ${screen_capture_lite_LIBRARIES}
 ${screen_capture_lite_PLATFORM_LIBS}
-${Boost_LIBRARIES}
+${Boost_TARGETS}
 ${TBB_IMPORTED_TARGETS}
 Eigen3::Eigen
 )
@@ -38,7 +38,7 @@ target_link_libraries(${PROJECT_NAME}_proto_rebroadcaster
 	${PROJECT_NAME}_proto
     ${PROJECT_NAME}_udp_logging
     ${PROJECT_NAME}_udp_logging_common
-    ${Boost_LIBRARIES}
+    ${Boost_TARGETS}
 	${screen_capture_lite_LIBRARIES}
 	${screen_capture_lite_PLATFORM_LIBS}
 )
@@ -61,7 +61,7 @@ if(MSVC)
 		${PROJECT_NAME}_image_logging_common
 		${PROJECT_NAME}_udp_logging
 		${PROJECT_NAME}_udp_logging_common
-		${Boost_LIBRARIES}
+		${Boost_TARGETS}
 		${screen_capture_lite_LIBRARIES}
 		${screen_capture_lite_PLATFORM_LIBS}
 		${PROJECT_NAME}_controllers
@@ -77,7 +77,7 @@ if(MSVC)
 		${PROJECT_NAME}_image_logging_common
 		${PROJECT_NAME}_udp_logging
 		${PROJECT_NAME}_udp_logging_common
-		${Boost_LIBRARIES}
+		${Boost_TARGETS}
 		${screen_capture_lite_LIBRARIES}
 		${screen_capture_lite_PLATFORM_LIBS}
 		vjoy::vJoy_plusplus
@@ -94,7 +94,7 @@ if(MSVC)
 		${PROJECT_NAME}_proto
 		${PROJECT_NAME}_udp_logging
 		${PROJECT_NAME}_udp_logging_common
-		${Boost_LIBRARIES}
+		${Boost_TARGETS}
 		${screen_capture_lite_LIBRARIES}
 		${screen_capture_lite_PLATFORM_LIBS}
 		vjoy::vJoy_plusplus
@@ -110,7 +110,7 @@ if(MSVC)
 		${PROJECT_NAME}_proto
 		${PROJECT_NAME}_udp_logging
 		${PROJECT_NAME}_udp_logging_common
-		${Boost_LIBRARIES}
+		${Boost_TARGETS}
 		${screen_capture_lite_LIBRARIES}
 		${screen_capture_lite_PLATFORM_LIBS}
 		${TBB_IMPORTED_TARGETS} 
@@ -136,7 +136,7 @@ if(${Eigen3_VERSION} VERSION_GREATER_EQUAL "3.3.9")
 		${PROJECT_NAME}_image_logging_common
 		${PROJECT_NAME}_udp_logging
 		${PROJECT_NAME}_udp_logging_common
-		${Boost_LIBRARIES}
+		${Boost_TARGETS}
 		${screen_capture_lite_LIBRARIES}
 		${screen_capture_lite_PLATFORM_LIBS}
 		${TBB_IMPORTED_TARGETS}
@@ -166,7 +166,7 @@ if(BUILD_MULTITHREADED_EXAMPLE)
 	${PROJECT_NAME}_proto
 	${screen_capture_lite_LIBRARIES}
 	${screen_capture_lite_PLATFORM_LIBS}
-	${Boost_LIBRARIES}
+	${Boost_TARGETS}
 	${TBB_IMPORTED_TARGETS}
 	${YAML_CPP_LIBRARIES}
 	yaml-cpp
