@@ -1,11 +1,8 @@
 file(GLOB PROTOFILES
   "*.proto"
 )
-if(BUILD_SHARED_LIBS AND WIN32)
-  protobuf_generate_cpp(${PROJECT_NAME}_PROTO_SRC ${PROJECT_NAME}_PROTO_HEADER EXPORT_MACRO F1_DATALOGGER_PROTO_DLL_MACRO ${PROTOFILES}  )
-else()
-  protobuf_generate_cpp(${PROJECT_NAME}_PROTO_SRC ${PROJECT_NAME}_PROTO_HEADER ${PROTOFILES}  )
-endif()
+protobuf_generate_cpp(${PROJECT_NAME}_PROTO_SRC ${PROJECT_NAME}_PROTO_HEADER EXPORT_MACRO F1_DATALOGGER_PROTO_DLL_MACRO ${PROTOFILES}  )
+
 set(ProtobufIncludePath ${CMAKE_BINARY_DIR}/proto
     CACHE INTERNAL "Path to generated protobuf files.")
 protobuf_generate_python(PY_SOURCES ${PROTOFILES})
@@ -28,9 +25,10 @@ target_include_directories(${PROJECT_NAME}_proto
 )
 target_link_libraries(${PROJECT_NAME}_proto PUBLIC ${PROTO_LIBS})
 if(BUILD_SHARED_LIBS AND WIN32)
-    set_target_properties(${PROJECT_NAME}_proto PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS FALSE)
-    target_compile_definitions(${PROJECT_NAME}_proto PRIVATE "F1_DATALOGGER_PROTO_DLL_MACRO=__declspec(dllexport)")
-    target_compile_definitions(${PROJECT_NAME}_proto INTERFACE "F1_DATALOGGER_PROTO_DLL_MACRO=__declspec(dllimport)")
+  target_compile_definitions(${PROJECT_NAME}_proto PRIVATE "F1_DATALOGGER_PROTO_DLL_MACRO=__declspec(dllexport)")
+  target_compile_definitions(${PROJECT_NAME}_proto INTERFACE "F1_DATALOGGER_PROTO_DLL_MACRO=__declspec(dllimport)")
+else()
+  target_compile_definitions(${PROJECT_NAME}_proto PUBLIC "F1_DATALOGGER_PROTO_DLL_MACRO")
 endif()
 set(install_targets
 #libraries
