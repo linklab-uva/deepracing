@@ -46,6 +46,8 @@ from scipy.spatial.transform import Rotation as Rot
 import cv_bridge, cv2, numpy as np
 import timeit
 
+from copy import deepcopy
+
 def npTrajectoryToROS(trajectory : np.ndarray, velocities : np.ndarray, frame_id = "map"):
     rtn : Path = Path()
     rtn.header.frame_id = frame_id
@@ -180,7 +182,7 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         self.net.eval()
         self.image_buffer = RB(self.net.context_length,dtype=(float,(3,66,200)))
         self.s_torch = torch.linspace(0,1,self.num_sample_points).unsqueeze(0).double().cuda(self.gpu)
-        self.bezier_order = self.net.params_per_dimension-1
+        self.bezier_order = self.net.params_per_dimension-1+int(self.fix_first_point)
         self.bezierM = mu.bezierM(self.s_torch,self.bezier_order)
         self.bezierMderiv = mu.bezierM(self.s_torch,self.bezier_order-1)
         self.buffertimer = timeit.Timer(stmt=self.addToBuffer)
@@ -197,7 +199,7 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
             imnp = self.cvbridge.compressed_imgmsg_to_cv2(img_msg, desired_encoding="rgb8") 
         except:
             return
-        if imnp.shape[0]<=0 or imnp.shape[0]<=0:
+        if imnp.shape[0]<=0 or imnp.shape[1]<=0 or (not imnp.shape[2]==3) :
             return
         imnpdouble = tf.functional.to_tensor(deepracing.imutils.resizeImage( imnp, (66,200) ) ).double().numpy().copy()
         self.image_buffer.append(imnpdouble)
@@ -215,6 +217,7 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
     def getTrajectory(self):
         if self.current_motion_data.world_velocity.header.frame_id == "":
             return None, None, None
+        stamp = self.rosclock.now().to_msg()
         imnp = np.array(self.image_buffer).astype(np.float64).copy()
         imtorch = torch.from_numpy(imnp.copy())
         if ( not imtorch.shape[0] == self.net.context_length ):
@@ -224,7 +227,8 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
             bezier_control_points = torch.cat((self.initial_zeros,self.net(inputtorch.unsqueeze(0).cuda(self.gpu)).transpose(1,2)),dim=1)    
         else:
             bezier_control_points = self.net(inputtorch.unsqueeze(0).cuda(self.gpu)).transpose(1,2)
-        stamp = self.rosclock.now().to_msg()
+       # print(self.bezierM.shape)
+       # print(bezier_control_points.shape)
         evalpoints = torch.matmul(self.bezierM, bezier_control_points)
         x_samp = evalpoints[0].cpu().detach().numpy()
         x_samp[:,0]*=self.xscale_factor
@@ -236,7 +240,7 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         distances_samp = la.norm(x_samp, axis=1)
         if self.plot:
             bezier_control_points_np = bezier_control_points[0].cpu().detach().numpy()
-            plotmsg : BCMessage = BCMessage(header = Header(frame_id = "car", stamp = stamp), control_points_x = bezier_control_points_np[:,0], control_points_z = bezier_control_points_np[:,1] )
+            plotmsg : BCMessage = BCMessage(header = Header(stamp=stamp,frame_id="car"), control_points_x = bezier_control_points_np[:,0], control_points_z = bezier_control_points_np[:,1] )
             self.path_publisher.publish(plotmsg)
         return x_samp, v_samp, distances_samp
         

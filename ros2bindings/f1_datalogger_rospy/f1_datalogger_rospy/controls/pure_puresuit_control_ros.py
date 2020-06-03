@@ -42,7 +42,7 @@ class PurePursuitControllerROS(Node):
         super(PurePursuitControllerROS,self).__init__('pure_pursuit_control', allow_undeclared_parameters=True, automatically_declare_parameters_from_overrides=True)
         self.packet_queue = queue.Queue()
         self.running = True
-        self.current_motion_packet : PacketMotionData  = PacketMotionData()
+        self.current_motion_packet : TimestampedPacketMotionData  = TimestampedPacketMotionData()
         self.current_motion_data : CarMotionData  = CarMotionData()
         self.current_status_data : CarStatusData  = CarStatusData()
         self.current_telemetry_data : CarTelemetryData  = CarTelemetryData()
@@ -117,8 +117,8 @@ class PurePursuitControllerROS(Node):
         # pgain = self.pgain
         # igain = self.igain
         # dgain = self.dgain
-        packet : PacketMotionData = msg.udp_packet
-        self.current_motion_packet = deepcopy(packet)
+        self.current_motion_packet = deepcopy(msg)
+        packet : PacketMotionData = self.current_motion_packet.udp_packet
         motion_data_vec : list = packet.car_motion_data
         if len(motion_data_vec)==0:
             return
@@ -130,20 +130,7 @@ class PurePursuitControllerROS(Node):
         vel = np.array( (velros.x, velros.y, velros.z), dtype=np.float64)
         speed = la.norm(vel)
         self.current_speed = speed
-        # err = self.velsetpoint - speed
-        # if self.prev_err is None:
-        #     self.prev_err = err
-        #     return
-        # self.integral += err*dt
-        # deriv = (err-self.prev_err)/dt
-        # out = pgain*err + igain*self.integral + dgain*deriv
-        # if out<-1.0:
-        #     self.throttle_out = -1.0
-        # elif out>1.0:
-        #     self.throttle_out = 1.0
-        # else:
-        #     self.throttle_out = out
-        # self.prev_err = err
+        
     def getTrajectory(self):
         return None, None, None
     def setControl(self):
