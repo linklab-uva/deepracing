@@ -18,33 +18,36 @@ endif()
 # find dependencies
 
 find_package(ament_cmake REQUIRED)
-find_package(rclcpp REQUIRED)
-find_package(rosidl_default_runtime REQUIRED)
+find_package(f1_datalogger_msgs REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(laser_geometry REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(rosbag2_cpp REQUIRED)
+find_package(rosbag2_storage REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rosidl_default_runtime REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
-find_package(f1_datalogger_msgs REQUIRED)
 
-#Provides imported targets for f1_datalogger, armadillo, Boost, Eigen3, and Opencv
+#Provides imported targets for f1_datalogger, armadillo, Boost, Eigen3, Opencv, and (on Windows) vJoy_plusplus
 find_package(f1_datalogger CONFIG REQUIRED)
 
 find_package(cv_bridge REQUIRED)
-if(WIN32)
-  find_package(vJoy_plusplus REQUIRED)
-endif()
 
-include_directories(include)
 add_library(f1_msg_utils src/utils/f1_msg_utils.cpp)
 ament_target_dependencies(f1_msg_utils cv_bridge f1_datalogger sensor_msgs std_msgs f1_datalogger_msgs rclcpp rosidl_default_runtime)
 target_link_libraries(f1_msg_utils
  f1_datalogger::f1_datalogger_udp_utils
+ f1_datalogger::f1_datalogger_proto
  Eigen3::Eigen
- Boost::system
- Boost::regex
+)
+target_compile_definitions(f1_msg_utils PRIVATE F1_DATALOGGER_ROS_BUILDING_DLL)
+target_include_directories(f1_msg_utils
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
 )
 
 add_executable(tf_updater src/tf_updater.cpp)
@@ -58,6 +61,7 @@ add_executable(path_converter src/path_converter.cpp)
 ament_target_dependencies(path_converter rclcpp geometry_msgs nav_msgs f1_datalogger_msgs)
 target_link_libraries(path_converter
  Eigen3::Eigen
+ f1_msg_utils
 )
 
 add_executable(ros_rebroadcaster src/ros_rebroadcaster.cpp)
@@ -67,17 +71,23 @@ target_link_libraries(ros_rebroadcaster
  f1_datalogger::f1_datalogger
  ${cv_bridge_LIBRARIES}
 )
+
+add_executable(extract_bezier_curves src/extract_bezier_curves.cpp)
+ament_target_dependencies(extract_bezier_curves f1_datalogger rosbag2_cpp rosbag2_storage sensor_msgs std_msgs f1_datalogger_msgs)
+target_link_libraries(extract_bezier_curves
+ f1_msg_utils
+ f1_datalogger::f1_datalogger_proto
+ Eigen3::Eigen
+)
 #target_include_directories(ros_rebroadcaster PRIVATE ${cv_bridge_INCLUDE_DIRS})
 
 
- ament_export_libraries(f1_msg_utils)
  ament_export_dependencies(ament_cmake)
  ament_export_dependencies(rcl)
  ament_export_dependencies(image_tools)
  ament_export_dependencies(laser_geometry)
  ament_export_dependencies(f1_datalogger_msgs)
  ament_export_dependencies(f1_datalogger)
- #ament_export_dependencies(f1_datalogger_provider)
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
@@ -90,10 +100,17 @@ if(BUILD_TESTING)
 endif()
 install(TARGETS
     ros_rebroadcaster
-    f1_msg_utils
     tf_updater
     path_converter
+    extract_bezier_curves
     DESTINATION lib/${PROJECT_NAME}
+)
+install(TARGETS
+    f1_msg_utils
+    EXPORT f1_datalogger_ros
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
 )
 install(
   DIRECTORY include/
@@ -103,4 +120,5 @@ install(DIRECTORY
   launch/
   DESTINATION share/${PROJECT_NAME}/
 )
+ament_export_targets(f1_datalogger_ros)
 ament_package()
