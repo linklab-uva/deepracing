@@ -167,10 +167,7 @@ sensor_msgs::msg::Image f1_datalogger_ros::F1MsgUtils::toImageMsg(const cv::Mat 
 
   return ros_image;
 }
-void f1_datalogger_ros::F1MsgUtils::doNothing()
-{
-    //I wasn't kidding, this does nothing.
-}
+
 f1_datalogger_msgs::msg::MarshalZone f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::MarshalZone& marshal_zone)
 {
   f1_datalogger_msgs::msg::MarshalZone rtn;
@@ -219,12 +216,13 @@ f1_datalogger_msgs::msg::CarTelemetryData f1_datalogger_ros::F1MsgUtils::toROS(c
   std::copy(telemetry_data.m_tyresSurfaceTemperature, telemetry_data.m_tyresSurfaceTemperature+4, rtn.tyres_surface_temperature.begin());
   return rtn;
 }
-f1_datalogger_msgs::msg::PacketCarTelemetryData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::PacketCarTelemetryData& telemetry_data)
+f1_datalogger_msgs::msg::PacketCarTelemetryData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::PacketCarTelemetryData& telemetry_data, bool copy_all_cars)
 {
   f1_datalogger_msgs::msg::PacketCarTelemetryData rtn;
   rtn.button_status = telemetry_data.m_buttonStatus;
   rtn.header = toROS(telemetry_data.m_header);
-  for(unsigned int i = 0; i < 20; i++)
+  unsigned int imax = (copy_all_cars) ? 20 : 1;
+  for (unsigned int i = 0; i < imax; i++)
   {
     rtn.car_telemetry_data[i] = toROS(telemetry_data.m_carTelemetryData[i]);
   }
@@ -243,7 +241,7 @@ f1_datalogger_msgs::msg::PacketHeader f1_datalogger_ros::F1MsgUtils::toROS(const
 
     return rtn;
 }
-f1_datalogger_msgs::msg::PacketMotionData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::PacketMotionData& motion_data)
+f1_datalogger_msgs::msg::PacketMotionData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::PacketMotionData& motion_data, bool copy_all_cars)
 {
     f1_datalogger_msgs::msg::PacketMotionData rtn;
     rtn.header = toROS(motion_data.m_header);
@@ -262,7 +260,8 @@ f1_datalogger_msgs::msg::PacketMotionData f1_datalogger_ros::F1MsgUtils::toROS(c
     std::copy(motion_data.m_suspensionAcceleration,motion_data.m_suspensionAcceleration+4, rtn.suspension_acceleration.begin());
     std::copy(motion_data.m_suspensionVelocity,motion_data.m_suspensionVelocity+4, rtn.suspension_velocity.begin());
     std::copy(motion_data.m_suspensionPosition,motion_data.m_suspensionPosition+4, rtn.suspension_position.begin());
-    for (unsigned int i = 0; i < 20; i++)
+    unsigned int imax = (copy_all_cars) ? 20 : 1;
+    for (unsigned int i = 0; i < imax; i++)
     {
         rtn.car_motion_data[i] = toROS(motion_data.m_carMotionData[i]);
     }

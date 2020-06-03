@@ -24,6 +24,12 @@ public:
   ROSRebroadcaster_2018DataGrabHandler(std::shared_ptr<rclcpp::Node> node)
   {
     this->node_ = node;
+    rcl_interfaces::msg::ParameterDescriptor all_cars_description;
+    all_cars_description.name = "publish_all_cars";
+    all_cars_description.type = rcl_interfaces::msg::ParameterType::PARAMETER_BOOL;
+    all_cars_description.description = "Whether to publish information about all 20 cars in the session, or just the ego vehicle. True means publish information about all cars";
+    all_cars_description.read_only = false;
+    all_cars_param_ = node->declare_parameter<bool>("publish_all_cars", true, all_cars_description);
   }
   bool isReady() override
   {
@@ -34,7 +40,9 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarStatusData& data) override
   {
+    rclcpp::Time now = this->node_->now();
     f1_datalogger_msgs::msg::TimestampedPacketCarStatusData rosdata;
+    rosdata.header.stamp = now;
     rosdata.udp_packet.car_status_data[0].m_drs_allowed = data.data.m_carStatusData[0].m_drsAllowed;
     //rosdata.udp_packet = f1_datalogger_ros::F1MsgUtils::toROS(data.data);
     rosdata.timestamp = std::chrono::duration<double>(data.timestamp - begin_).count();
@@ -44,8 +52,10 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData& data) override
   {
+    rclcpp::Time now = this->node_->now();
     f1_datalogger_msgs::msg::TimestampedPacketCarTelemetryData rosdata;
-    rosdata.udp_packet = f1_datalogger_ros::F1MsgUtils::toROS(data.data);
+    rosdata.header.stamp = now;
+    rosdata.udp_packet = f1_datalogger_ros::F1MsgUtils::toROS(data.data, all_cars_param_);
     rosdata.timestamp = std::chrono::duration<double>(data.timestamp - begin_).count();
     telemetry_publisher_->publish(rosdata);
   }
@@ -59,7 +69,8 @@ public:
   {
     rclcpp::Time now = this->node_->now();
     f1_datalogger_msgs::msg::TimestampedPacketMotionData rosdata;
-    rosdata.udp_packet = f1_datalogger_ros::F1MsgUtils::toROS(data.data);
+    rosdata.header.stamp = now;
+    rosdata.udp_packet = f1_datalogger_ros::F1MsgUtils::toROS(data.data, all_cars_param_);
     for (f1_datalogger_msgs::msg::CarMotionData & motion_data : rosdata.udp_packet.car_motion_data)
     {
       motion_data.world_forward_dir.header.stamp = now;
@@ -98,6 +109,7 @@ private:
   std::chrono::high_resolution_clock::time_point begin_;
   std::string host_;
   unsigned int port_;
+  bool all_cars_param_;
 public:
   std::shared_ptr<rclcpp::Node> node_;
   std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketMotionData> > motion_publisher_;
@@ -137,7 +149,6 @@ public:
     //this->publisher_ = this->node_->create_publisher<sensor_msgs::msg::Image>("f1_screencaps", qos_settings);
   //  this->timestamped_publisher_ = this->node_->create_publisher<f1_datalogger_msgs::msg::TimestampedImage>("timestamped_f1_screencaps", qos_settings);
     
-    this->it_publisher_ = it.advertise("/f1_screencaps", 1, true);
     this->it_cropped_publisher_ = it.advertise("/f1_screencaps/cropped", 1, true);
 
   }
@@ -157,11 +168,7 @@ public:
     const cv::Mat& imin = data.image;
 
     
-    cv::Mat bgraimage, rgbimage, rgbuncroppedimage;
-    cv::cvtColor( imin, rgbuncroppedimage, cv::COLOR_BGRA2RGB );
-    cv_bridge::CvImage bridge_image_uncropped(header, "rgb8", rgbuncroppedimage);
-    this->it_publisher_.publish(bridge_image_uncropped.toImageMsg());
-
+    cv::Mat bgraimage, rgbimage;
 
     cv::Range rowrange, colrange;
     if(crop_height_ >0 && crop_width_ >0)
@@ -203,7 +210,6 @@ private:
   bool ready;
   std::shared_ptr<rclcpp::Node> node_;
   image_transport::ImageTransport it;
-  image_transport::Publisher it_publisher_;
   image_transport::Publisher it_cropped_publisher_;
   std::shared_ptr<rclcpp::Publisher <sensor_msgs::msg::Image> > publisher_;
   std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedImage> > timestamped_publisher_;
