@@ -6,6 +6,8 @@ if(MSVC)
 		windows/f1_interface_factory.cpp
 	)
 	set(additional_controller_libs_ vjoy::vJoy_plusplus)
+	set(USING_VJOY TRUE)
+	set(USING_VJOY TRUE PARENT_SCOPE)
 elseif(APPLE)
 	set(controllers_SRCS
 		ios/f1_interface_factory.cpp
