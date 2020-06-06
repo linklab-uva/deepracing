@@ -19,9 +19,7 @@
 #include <sstream>
 #include <f1_datalogger_msgs/msg/bezier_curve.hpp>
 #include <f1_datalogger_msgs/msg/timestamped_packet_motion_data.hpp>
-#ifndef F1_DATALOGGER_PROTO_DLL_MACRO
-    #define F1_DATALOGGER_PROTO_DLL_MACRO __declspec(dllimport)
-#endif
+
 #include <f1_datalogger/proto/BezierCurve.pb.h>
 #include <google/protobuf/util/json_util.h>
 #include <iostream>
@@ -82,14 +80,6 @@ int main(int argc, char** argv)
         fs::create_directories(output_directory);
     }
     RCLCPP_INFO(node->get_logger(), "Attempting to open bagfile: %s", storage_uri.c_str());
-    // rosbag2_storage::TopicMetadata topic_with_type;
-    // topic_with_type.name = "/predicted_path";
-    // topic_with_type.type = "f1_datalogger_msgs/BezierCurve";
-    // topic_with_type.serialization_format = "cdr";
-    // auto topics_and_types = std::vector<rosbag2_storage::TopicMetadata>{topic_with_type};
-
-    // auto message = std::make_shared<rosbag2_storage::SerializedBagMessage>();
-    // message->topic_name = topic_with_type.name;
 
     rosbag2_cpp::StorageOptions storage_options;
     storage_options.uri=storage_uri;
@@ -151,25 +141,26 @@ int main(int argc, char** argv)
     }
     Eigen::Map<Eigen::VectorXd> ros_timestamps_eigen(motion_data_ros_timestamps.data(), motion_data_ros_timestamps.size());
     double t0 = ros_timestamps_eigen[0];
-    ros_timestamps_eigen = ros_timestamps_eigen - t0*Eigen::VectorXd::Ones(motion_data_ros_timestamps.size());
     Eigen::Map<Eigen::VectorXd> session_timestamps_eigen(motion_data_session_timestamps.data(), motion_data_session_timestamps.size());
     Eigen::MatrixXd A(ros_timestamps_eigen.size(),2);
-    A.col(0) = ros_timestamps_eigen;
+    A.col(0) = ros_timestamps_eigen - t0*Eigen::VectorXd::Ones(ros_timestamps_eigen.size());
     A.col(1) = Eigen::VectorXd::Ones(ros_timestamps_eigen.size());
     std::stringstream ss;
     ss << std::endl << A << std::endl;
     RCLCPP_DEBUG(node->get_logger(), "%s", ss.str().c_str());
     RCLCPP_INFO(node->get_logger(), "Lsq matrix: is [%d x %d]", A.rows(),A.cols());
     Eigen::VectorXd solution = A.colPivHouseholderQr().solve(session_timestamps_eigen);
-    RCLCPP_INFO(node->get_logger(), "Solution vector: [%f , %f]", solution[0], solution[1]);
+    RCLCPP_INFO(node->get_logger(), "Linear map from ros time to session time: Tsession = %f*Tros + %f", solution[0], solution[1]);
     google::protobuf::util::JsonOptions json_options;
     json_options.add_whitespace = true;
     json_options.always_print_primitive_fields = true;
+    std::vector<double> bezier_curve_session_times;
     for(unsigned int i = 0; i < bezier_curves.size(); i++)
     {
         std::shared_ptr<f1_datalogger_msgs::msg::BezierCurve> bezier_curve_msg = bezier_curves[i];
         rclcpp::Time timestamp = bezier_curve_msg->header.stamp;
         double session_timestamp = solution[0]*(timestamp.seconds() - t0) + solution[1];
+        bezier_curve_session_times.push_back(session_timestamp);
         RCLCPP_DEBUG(node->get_logger(), "Session timestamp for Bezier Curve %d: %f", i, session_timestamp);
         deepf1::twenty_eighteen::protobuf::BezierCurve bezier_curve_proto;
         for(unsigned int j = 0; j < bezier_curve_msg->control_points_x.size();++j)
@@ -186,7 +177,8 @@ int main(int argc, char** argv)
         ostream.flush();
         ostream.close();
     }
-    RCLCPP_INFO(node->get_logger(), "Range of session times: [%f , %f]", session_timestamps_eigen[0], session_timestamps_eigen[session_timestamps_eigen.size()-1]);
+    RCLCPP_INFO(node->get_logger(), "Range of bezier curve session times: [%f , %f]", bezier_curve_session_times[0], bezier_curve_session_times[bezier_curve_session_times.size()-1]);
+    RCLCPP_INFO(node->get_logger(), "Range of motion packet session times: [%f , %f]", session_timestamps_eigen[0], session_timestamps_eigen[session_timestamps_eigen.size()-1]);
 
     
     
