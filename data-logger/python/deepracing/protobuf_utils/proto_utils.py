@@ -13,6 +13,7 @@ import numpy as np
 import numpy.linalg as la
 from scipy.spatial.transform import Rotation as Rot
 from tqdm import tqdm as tqdm
+import BezierCurve_pb2
 
 def splineSciPyToPB(splineSciPy : scipy.interpolate.BSpline, tmin,tmax,Xmin,Xmax,Zmin,Zmax):
    return Spline2DParams_pb2.Spline2DParams(XParams = splineSciPy.c[:,0], ZParams = splineSciPy.c[:,1],degree=splineSciPy.k, knots=splineSciPy.t,\
@@ -44,6 +45,31 @@ def getAllTelemetryPackets(telemetry_folder: str, use_json: bool):
             print("Could not read telemetry packet file %s." %(filepath))
             continue
    return telemetry_packets
+   
+def getAllBezierCurves(bezier_curve_folder: str, use_json: bool):
+   bezier_curves = []
+   if use_json:
+      filepaths = [os.path.join(bezier_curve_folder, f) for f in os.listdir(bezier_curve_folder) if os.path.isfile(os.path.join(bezier_curve_folder, f)) and os.path.splitext(f)[1].lower()==".json"]
+      jsonstrings = [(open(path, 'r')).read() for path in filepaths]
+      for jsonstring in jsonstrings:
+         data = BezierCurve_pb2.BezierCurve()
+         google.protobuf.json_format.Parse(jsonstring, data)
+         bezier_curves.append(data)
+   else:
+      filepaths = [os.path.join(bezier_curve_folder, f) for f in os.listdir(bezier_curve_folder) if os.path.isfile(os.path.join(bezier_curve_folder, f)) and str.lower(os.path.splitext(f)[1])==".pb"]
+      for filepath in filepaths:
+         try:
+            data = BezierCurve_pb2.BezierCurve()
+            f = open(filepath,'rb')
+            data.ParseFromString(f.read())
+            f.close()
+            bezier_curves.append(data)
+         except:
+            f.close()
+            print("Could not read bezier curve binary file %s." %(filepath))
+            continue
+   return bezier_curves
+
 def getAllSessionPackets(session_folder: str, use_json: bool):
    session_packets = []
    if use_json:
@@ -187,7 +213,7 @@ def extractPosition(packet , car_index = 0):
     position = np.array((motion_data.m_worldPositionX, motion_data.m_worldPositionY, motion_data.m_worldPositionZ), dtype=np.float64)
     return position 
 
-def extractPose(packet , car_index = 0):
+def extractPose(packet : PacketMotionData_pb2.PacketMotionData, car_index = 0):
     position = extractPosition(packet, car_index=car_index)
     motion_data = packet.m_carMotionData[car_index]
     rightvector = np.array((motion_data.m_worldRightDirX, motion_data.m_worldRightDirY, motion_data.m_worldRightDirZ), dtype=np.float64)

@@ -1,4 +1,5 @@
 from .proto_utils import getAllSessionPackets as getAllSessionPackets
+from .proto_utils import getAllBezierCurves as getAllBezierCurves
 from .proto_utils import getAllTelemetryPackets as getAllTelemetryPackets
 from .proto_utils import getAllMotionPackets as getAllMotionPackets
 from .proto_utils import getAllSequenceLabelPackets as getAllSequenceLabelPackets
