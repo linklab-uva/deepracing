@@ -112,6 +112,7 @@ parser.add_argument("--runmax", type=int, default=5, help="How many runs to pars
 args = parser.parse_args()
 main_dir = args.main_dir
 runmax = args.runmax
+bezier_dsets_fix_first_point = ["bezier_australia_run%d" % i for i in range(1,runmax+1)]
 bezier_no3dconv_dsets = ["bezier_no3dconv_run%d" % i for i in range(1,runmax+1)]
 bezier_dsets = ["bezier_predictor_run%d" % i for i in range(1,runmax+1)]
 waypoint_no3dconv_dsets = ["waypoint_predictor_no3dconv_run%d" % i for i in range(1,runmax+1)]
@@ -126,13 +127,14 @@ print(pilotnet_dsets)
 
 
 results_dir="results"
-analyzedatasets(main_dir,waypoint_no3dconv_dsets,"Waypoint_Predictor_No3dConv",results_dir=results_dir,json=True)
+analyzedatasets(main_dir,bezier_dsets_fix_first_point,"Bezier_Predictor_Fix_First_Point",results_dir=results_dir,json=True)
+# analyzedatasets(main_dir,waypoint_no3dconv_dsets,"Waypoint_Predictor_No3dConv",results_dir=results_dir,json=True)
+# analyzedatasets(main_dir,bezier_no3dconv_dsets,"Bezier_Predictor_No3dConv",results_dir=results_dir,json=True)
+# analyzedatasets(main_dir,bezier_dsets,"Bezier_Predictor",results_dir=results_dir,json=True)
+# analyzedatasets(main_dir,waypoint_dsets,"Waypoint_Predictor",results_dir=results_dir,json=True)
+# analyzedatasets(main_dir,cnnlstm_dsets,"CNNLSTM",results_dir=results_dir,json=False)
+# analyzedatasets(main_dir,pilotnet_dsets,"PilotNet",results_dir=results_dir,json=False)
 exit(0)
-analyzedatasets(main_dir,bezier_no3dconv_dsets,"Bezier_Predictor_No3dConv",results_dir=results_dir,json=True)
-analyzedatasets(main_dir,bezier_dsets,"Bezier_Predictor",results_dir=results_dir,json=True)
-analyzedatasets(main_dir,waypoint_dsets,"Waypoint_Predictor",results_dir=results_dir,json=True)
-analyzedatasets(main_dir,cnnlstm_dsets,"CNNLSTM",results_dir=results_dir,json=False)
-analyzedatasets(main_dir,pilotnet_dsets,"PilotNet",results_dir=results_dir,json=False)
 rinner, Xinner = proto_utils.loadTrackfile("../tracks/Australia_innerlimit.track")
 router, Xouter = proto_utils.loadTrackfile("../tracks/Australia_outerlimit.track")
 rraceline, Xraceline = proto_utils.loadTrackfile("../tracks/Australia_racingline.track")
