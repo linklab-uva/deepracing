@@ -36,14 +36,19 @@ find_package(f1_datalogger CONFIG REQUIRED)
 
 find_package(cv_bridge REQUIRED)
 
-add_library(f1_msg_utils src/utils/f1_msg_utils.cpp)
-ament_target_dependencies(f1_msg_utils cv_bridge f1_datalogger sensor_msgs std_msgs f1_datalogger_msgs rclcpp rosidl_default_runtime)
+add_library(f1_msg_utils SHARED src/utils/f1_msg_utils.cpp)
+ament_target_dependencies(f1_msg_utils cv_bridge sensor_msgs std_msgs f1_datalogger_msgs rclcpp rosidl_default_runtime)
 target_link_libraries(f1_msg_utils
  f1_datalogger::f1_datalogger_udp_utils
  f1_datalogger::f1_datalogger_proto
  Eigen3::Eigen
 )
-target_compile_definitions(f1_msg_utils PRIVATE F1_DATALOGGER_ROS_BUILDING_DLL)
+if(WIN32)
+  target_compile_definitions(f1_msg_utils 
+    PRIVATE "F1_DATALOGGER_ROS_PUBLIC=__declspec(dllexport)"
+    INTERFACE "F1_DATALOGGER_ROS_PUBLIC=__declspec(dllimport)"
+  )
+endif()
 target_include_directories(f1_msg_utils
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
@@ -65,25 +70,22 @@ target_link_libraries(path_converter
 )
 
 add_executable(ros_rebroadcaster src/ros_rebroadcaster.cpp)
-ament_target_dependencies(ros_rebroadcaster cv_bridge f1_datalogger image_transport sensor_msgs std_msgs f1_datalogger_msgs)
+ament_target_dependencies(ros_rebroadcaster cv_bridge image_transport sensor_msgs std_msgs f1_datalogger_msgs)
 target_link_libraries(ros_rebroadcaster
  f1_msg_utils
  f1_datalogger::f1_datalogger
- ${cv_bridge_LIBRARIES}
 )
 
 add_executable(extract_bezier_curves src/extract_bezier_curves.cpp)
-ament_target_dependencies(extract_bezier_curves f1_datalogger rosbag2_cpp rosbag2_storage sensor_msgs std_msgs f1_datalogger_msgs)
+ament_target_dependencies(extract_bezier_curves rosbag2_cpp rosbag2_storage sensor_msgs std_msgs f1_datalogger_msgs)
 target_link_libraries(extract_bezier_curves
  f1_msg_utils
- f1_datalogger::f1_datalogger_proto
- Eigen3::Eigen
 )
 #target_include_directories(ros_rebroadcaster PRIVATE ${cv_bridge_INCLUDE_DIRS})
 
 
  ament_export_dependencies(ament_cmake)
- ament_export_dependencies(rcl)
+ ament_export_dependencies(rclcpp)
  ament_export_dependencies(image_tools)
  ament_export_dependencies(laser_geometry)
  ament_export_dependencies(f1_datalogger_msgs)
@@ -107,7 +109,7 @@ install(TARGETS
 )
 install(TARGETS
     f1_msg_utils
-    EXPORT f1_datalogger_ros
+    EXPORT ${PROJECT_NAME}
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION bin
@@ -120,5 +122,5 @@ install(DIRECTORY
   launch/
   DESTINATION share/${PROJECT_NAME}/
 )
-ament_export_targets(f1_datalogger_ros)
+ament_export_targets(${PROJECT_NAME})
 ament_package()
