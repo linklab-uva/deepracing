@@ -67,20 +67,19 @@ if os.path.isdir(output_dir):
 os.makedirs(output_dir)
 
 spectating_flags = [bool(packet.udp_packet.m_isSpectating) for packet in session_packets]
-spectating = False
-for flag in spectating_flags:
-    spectating = spectating or flag
+spectating = any(spectating_flags)
 car_indices = [int(packet.udp_packet.m_spectatorCarIndex) for packet in session_packets]
 print(spectating_flags)
 print(car_indices)
 print(spectating)
 car_indices_set = set(car_indices)
-car_index = None
 if spectating:
     if len(car_indices_set)>1:
         raise ValueError("Spectated datasets are only supported if you only spectate 1 car the entire time.")
     else:
         car_index = car_indices[0]
+else:
+    car_index = None
 
 image_tags = getAllImageFilePackets(image_folder, args.json)
 motion_packets = getAllMotionPackets(motion_data_folder, args.json)
