@@ -203,28 +203,40 @@ def extractAngularVelocity(packet):
     angular_velocity = np.array((packet.m_angularVelocityX, packet.m_angularVelocityY, packet.m_angularVelocityZ), np.float64)
     return angular_velocity
     
-def extractVelocity(packet, car_index = 0):
-    motion_data = packet.m_carMotionData[car_index]
-    velocity = np.array((motion_data.m_worldVelocityX, motion_data.m_worldVelocityY, motion_data.m_worldVelocityZ), np.float64)
-    return velocity
+def extractVelocity(packet, car_index = None):
+   if car_index is None:
+      idx = packet.m_header.m_playerCarIndex
+   else:
+      idx = car_index
+   motion_data = packet.m_carMotionData[idx]
+   velocity = np.array((motion_data.m_worldVelocityX, motion_data.m_worldVelocityY, motion_data.m_worldVelocityZ), np.float64)
+   return velocity
     
-def extractPosition(packet , car_index = 0):
-    motion_data = packet.m_carMotionData[car_index]
-    position = np.array((motion_data.m_worldPositionX, motion_data.m_worldPositionY, motion_data.m_worldPositionZ), dtype=np.float64)
-    return position 
+def extractPosition(packet , car_index = None):
+   if car_index is None:
+      idx = packet.m_header.m_playerCarIndex
+   else:
+      idx = car_index
+   motion_data = packet.m_carMotionData[idx]
+   position = np.array((motion_data.m_worldPositionX, motion_data.m_worldPositionY, motion_data.m_worldPositionZ), dtype=np.float64)
+   return position 
 
-def extractPose(packet : PacketMotionData_pb2.PacketMotionData, car_index = 0):
-    position = extractPosition(packet, car_index=car_index)
-    motion_data = packet.m_carMotionData[car_index]
-    rightvector = np.array((motion_data.m_worldRightDirX, motion_data.m_worldRightDirY, motion_data.m_worldRightDirZ), dtype=np.float64)
-    rightvector = rightvector/la.norm(rightvector)
-    forwardvector = np.array((motion_data.m_worldForwardDirX, motion_data.m_worldForwardDirY, motion_data.m_worldForwardDirZ), dtype=np.float64)
-    forwardvector = forwardvector/la.norm(forwardvector)
-    upvector = np.cross(rightvector,forwardvector)
-    upvector = upvector/la.norm(upvector)
-    rotationmat = np.vstack((-rightvector,upvector,forwardvector)).transpose()
-    quat = Rot.from_dcm(rotationmat).as_quat()
-    return position, quat 
+def extractPose(packet : PacketMotionData_pb2.PacketMotionData, car_index = None):
+   if car_index is None:
+      idx = packet.m_header.m_playerCarIndex
+   else:
+      idx = car_index
+   position = extractPosition(packet, car_index=idx)
+   motion_data = packet.m_carMotionData[idx]
+   rightvector = np.array((motion_data.m_worldRightDirX, motion_data.m_worldRightDirY, motion_data.m_worldRightDirZ), dtype=np.float64)
+   rightvector = rightvector/la.norm(rightvector)
+   forwardvector = np.array((motion_data.m_worldForwardDirX, motion_data.m_worldForwardDirY, motion_data.m_worldForwardDirZ), dtype=np.float64)
+   forwardvector = forwardvector/la.norm(forwardvector)
+   upvector = np.cross(rightvector,forwardvector)
+   upvector = upvector/la.norm(upvector)
+   rotationmat = np.vstack((-rightvector,upvector,forwardvector)).transpose()
+   quat = Rot.from_dcm(rotationmat).as_quat()
+   return position, quat 
 def loadTrackfile(filepath : str):
    trackin = np.loadtxt(filepath,delimiter=",",skiprows=2)
    I = np.argsort(trackin[:,0])

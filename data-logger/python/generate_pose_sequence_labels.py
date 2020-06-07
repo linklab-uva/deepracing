@@ -75,7 +75,7 @@ print(spectating_flags)
 print(car_indices)
 print(spectating)
 car_indices_set = set(car_indices)
-car_index = 0
+car_index = None
 if spectating:
     if len(car_indices_set)>1:
         raise ValueError("Spectated datasets are only supported if you only spectate 1 car the entire time.")
