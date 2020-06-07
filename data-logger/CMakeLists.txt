@@ -44,9 +44,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE})
 
 
 
-#include(FindProtobuf)
-find_package(Protobuf CONFIG REQUIRED)
+include(FindProtobuf)
+find_package(Protobuf REQUIRED)
 
+add_subdirectory( proto/${PROJECT_NAME}/proto )
+set(PROTO_INCLUDE_DIR ${CMAKE_BINARY_DIR}/proto)
 
 option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to interact with existing protobuf datasets" ON)
 if(BUILD_DATALOGGER)
@@ -101,12 +103,7 @@ if(BUILD_DATALOGGER)
     #find_package(yaml-cpp CONFIG REQUIRED)
     message(STATUS "Found yaml-cpp include dir: ${YAML_CPP_INCLUDE_DIR}")
     message(STATUS "Found yaml-cpp libraries: ${YAML_CPP_LIBRARIES}")
-endif()
 
-add_subdirectory( proto/${PROJECT_NAME}/proto )
-set(PROTO_INCLUDE_DIR ${CMAKE_BINARY_DIR}/proto)
-
-if(BUILD_DATALOGGER)
 	option(WITH_ARMA "Use Armadillo library for matrix loading/storing" ON)
 	if(WITH_ARMA)
 		include(include_arma)
