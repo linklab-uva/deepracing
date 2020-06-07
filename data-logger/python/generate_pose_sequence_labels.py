@@ -225,7 +225,7 @@ config_dict = {"lookahead_indices": lookahead_indices}
 with open(os.path.join(output_dir,'config.yaml'), 'w') as yaml_file:
     yaml.dump(config_dict, yaml_file, Dumper=yaml.SafeDumper)
 db = deepracing.backend.PoseSequenceLabelLMDBWrapper()
-db.readDatabase( lmdb_dir, mapsize=int(round(len(image_tags)*1.25)), max_spare_txns=16, readonly=False )
+db.readDatabase( lmdb_dir, mapsize=int(round(9996*len(image_tags)*1.25)), max_spare_txns=16, readonly=False )
 
 for idx in tqdm(range(len(image_tags))):
     try:
