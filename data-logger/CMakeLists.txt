@@ -41,44 +41,43 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE})
 
 
 
-set(BOOST_REQUIRED_COMPONENTS
-date_time
-program_options
-regex
-system
-thread
-)
-
-
-include(CheckCXXSourceCompiles)
-check_cxx_source_compiles("#include <filesystem>
-                            int main(int argc, char** argv) { std::filesystem::path p; return 0; }" HAS_STDCXXFS)
-
-if(NOT HAS_STDCXXFS)
-    list(APPEND BOOST_REQUIRED_COMPONENTS filesystem)
-endif(NOT HAS_STDCXXFS)
-
-set( Boost_USE_STATIC_LIBS (NOT ${BUILD_SHARED_LIBS}) )
-find_package(Boost CONFIG COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
-if(Boost_FOUND)
-    message(STATUS "Found boost via cmake config at ${Boost_DIR}")
-else()
-    find_package(Boost REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
-endif(Boost_FOUND)
-set(Boost_TARGETS)
-foreach(comp IN LISTS BOOST_REQUIRED_COMPONENTS)
-  list(APPEND Boost_TARGETS Boost::${comp})
-endforeach(comp IN LISTS BOOST_REQUIRED_COMPONENTS)
-list(APPEND Boost_TARGETS Boost::headers)
 
 
 
-find_package( Eigen3 REQUIRED )
+#include(FindProtobuf)
+find_package(Protobuf CONFIG REQUIRED)
 
-option(YAML_CPP_DLL "Set this if YAML CPP was compiled as a DLL" ON)
+
 option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to interact with existing protobuf datasets" ON)
-option(GUI_TOOLS "Attempt to build the GUI tools" OFF)
 if(BUILD_DATALOGGER)
+    option(YAML_CPP_DLL "Set this if YAML CPP was compiled as a DLL" ON)
+    option(GUI_TOOLS "Attempt to build the GUI tools" OFF)
+    set(BOOST_REQUIRED_COMPONENTS
+    date_time
+    program_options
+    regex
+    system
+    thread
+    )
+    include(CheckCXXSourceCompiles)
+    check_cxx_source_compiles("#include <filesystem>
+                                int main(int argc, char** argv) { std::filesystem::path p; return 0; }" HAS_STDCXXFS)
+    if(NOT HAS_STDCXXFS)
+        list(APPEND BOOST_REQUIRED_COMPONENTS filesystem)
+    endif(NOT HAS_STDCXXFS)
+    set( Boost_USE_STATIC_LIBS (NOT ${BUILD_SHARED_LIBS}) )
+    find_package(Boost CONFIG COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
+    if(Boost_FOUND)
+        message(STATUS "Found boost via cmake config at ${Boost_DIR}")
+    else()
+        find_package(Boost REQUIRED COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
+    endif(Boost_FOUND)
+    set(Boost_TARGETS)
+    foreach(comp IN LISTS BOOST_REQUIRED_COMPONENTS)
+    list(APPEND Boost_TARGETS Boost::${comp})
+    endforeach(comp IN LISTS BOOST_REQUIRED_COMPONENTS)
+    list(APPEND Boost_TARGETS Boost::headers)
+
     if(MSVC)
 		set(DIRECTXK_DIR ${THIRD_PARTY_REPOS}/DirectXTK)
 		add_subdirectory(${DIRECTXK_DIR})
@@ -91,34 +90,21 @@ if(BUILD_DATALOGGER)
     include(screen_capture_lite_PLATFORM_LIBS)
     message(STATUS "Found screen_capture_lite platform libraries: ${screen_capture_lite_PLATFORM_LIBS}")
     include_directories(${SCL_SUBDIR}/include)
+    find_package( OpenCV REQUIRED )
+    find_package( Eigen3 REQUIRED )
+    find_package(Qt5 QUIET COMPONENTS Widgets Core Gui)
+    set(_gotqt (DEFINED  Qt5Widgets_FOUND) AND (DEFINED  Qt5_FOUND))
+    include_directories( include )
+    include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${YAML_CPP_INCLUDE_DIR} )
+    find_package(TBB REQUIRED COMPONENTS tbb)
+    include(include_yaml_cpp)
+    #find_package(yaml-cpp CONFIG REQUIRED)
+    message(STATUS "Found yaml-cpp include dir: ${YAML_CPP_INCLUDE_DIR}")
+    message(STATUS "Found yaml-cpp libraries: ${YAML_CPP_LIBRARIES}")
 endif()
-
-
-
-
-find_package( OpenCV REQUIRED )
-find_package(Qt5 QUIET COMPONENTS Widgets Core Gui)
-set(_gotqt (DEFINED  Qt5Widgets_FOUND) AND (DEFINED  Qt5_FOUND))
-
-include(include_yaml_cpp)
-#find_package(yaml-cpp CONFIG REQUIRED)
-message(STATUS "Found yaml-cpp include dir: ${YAML_CPP_INCLUDE_DIR}")
-message(STATUS "Found yaml-cpp libraries: ${YAML_CPP_LIBRARIES}")
-
-find_package(TBB REQUIRED COMPONENTS tbb)
-
-
-include_directories( include )
-include_directories( ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${YAML_CPP_INCLUDE_DIR} )
-
-
-
-include(FindProtobuf)
-find_package(Protobuf REQUIRED)
 
 add_subdirectory( proto/${PROJECT_NAME}/proto )
 set(PROTO_INCLUDE_DIR ${CMAKE_BINARY_DIR}/proto)
-
 
 if(BUILD_DATALOGGER)
 	option(WITH_ARMA "Use Armadillo library for matrix loading/storing" ON)
