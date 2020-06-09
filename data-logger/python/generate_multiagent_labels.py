@@ -84,9 +84,9 @@ spectator_car_indices = [int(packet.udp_packet.m_spectatorCarIndex) for packet i
 print(spectating_flags)
 print(spectator_car_indices)
 print(spectating)
-spectator_car_indices = set(spectator_car_indices)
+spectator_car_indices_set = set(spectator_car_indices)
 if spectating:
-    if len(car_indices_set)>1:
+    if len(spectator_car_indices_set)>1:
         raise ValueError("Spectated datasets are only supported if you only spectate 1 car the entire time.")
     else:
         ego_vehicle_index = spectator_car_indices[0]
