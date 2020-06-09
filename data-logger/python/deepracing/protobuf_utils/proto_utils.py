@@ -6,6 +6,8 @@ import TimestampedImage_pb2
 import PacketMotionData_pb2
 import CarTelemetryData_pb2
 import Spline2DParams_pb2
+import Vector3d_pb2
+import Quaterniond_pb2
 import os
 import google.protobuf.json_format
 import scipy.interpolate
@@ -154,13 +156,15 @@ def getAllMotionPackets(motion_data_folder: str, use_json: bool):
    if use_json:
       filepaths = [os.path.join(motion_data_folder, f) for f in os.listdir(motion_data_folder) if os.path.isfile(os.path.join(motion_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".json"]
       jsonstrings = [(open(path, 'r')).read() for path in filepaths]
-      for jsonstring in jsonstrings:
+      print("Loading json files for motion packets")
+      for jsonstring in tqdm(jsonstrings):
          data = TimestampedPacketMotionData_pb2.TimestampedPacketMotionData()
          google.protobuf.json_format.Parse(jsonstring, data)
          motion_packets.append(data)
    else:
       filepaths = [os.path.join(motion_data_folder, f) for f in os.listdir(motion_data_folder) if os.path.isfile(os.path.join(motion_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".pb"]
-      for filepath in filepaths:
+      print("Loading binary files for motion packets")
+      for filepath in tqdm(filepaths):
          try:
             data = TimestampedPacketMotionData_pb2.TimestampedPacketMotionData()
             f = open(filepath,'rb')
@@ -197,6 +201,21 @@ def getAllImageFilePackets(image_data_folder: str, use_json: bool):
             print(ex)
             continue
    return image_packets
+def quaternionFromScipy(quaternion : Rot):
+   return quaternionFromNumpy(quaternion.as_quat())
+def quaternionFromNumpy(quaternionnp : np.ndarray):
+   rtn = Quaterniond_pb2.Quaterniond()
+   rtn.x = quaternionnp[0]
+   rtn.y = quaternionnp[1]
+   rtn.z = quaternionnp[2]
+   rtn.w = quaternionnp[3]
+   return rtn
+def vectorFromNumpy(vectornp : np.ndarray):
+   rtn =  Vector3d_pb2.Vector3d()
+   rtn.x = vectornp[0]
+   rtn.y = vectornp[1]
+   rtn.z = vectornp[2]
+   return rtn
 
 
 def extractAngularVelocity(packet):
@@ -234,8 +253,8 @@ def extractPose(packet : PacketMotionData_pb2.PacketMotionData, car_index = None
    forwardvector = forwardvector/la.norm(forwardvector)
    upvector = np.cross(rightvector,forwardvector)
    upvector = upvector/la.norm(upvector)
-   rotationmat = np.vstack((-rightvector,upvector,forwardvector)).transpose()
-   quat = Rot.from_dcm(rotationmat).as_quat()
+   rotationmat = np.column_stack((-rightvector,upvector,forwardvector))
+   quat = Rot.from_matrix(rotationmat).as_quat()
    return position, quat 
 def loadTrackfile(filepath : str):
    trackin = np.loadtxt(filepath,delimiter=",",skiprows=2)

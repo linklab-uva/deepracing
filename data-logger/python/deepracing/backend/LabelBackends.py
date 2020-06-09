@@ -6,6 +6,7 @@ import os
 from skimage.transform import resize
 import deepracing.imutils
 import PoseSequenceLabel_pb2
+import MultiAgentLabel_pb2
 import ChannelOrder_pb2
 import cv2
 import google.protobuf.json_format
@@ -45,6 +46,48 @@ class ControlLabelLMDBWrapper():
             raise ValueError("Keyset is empty in control label dataset for some reason")
         return keys
 
+class MultiAgentLabelLMDBWrapper():
+    def __init__(self):
+        self.env = None
+        self.encoding = "ascii"
+        self.spare_txns=1
+    def clearStaleReaders(self):
+        self.env.reader_check()
+    def resetEnv(self):
+        if self.env is not None:
+            path = self.env.path()
+            mapsize = self.env.info()['map_size']
+            self.env.close()
+            del self.env
+            time.sleep(1)
+            self.readDatabase(path, mapsize=mapsize, max_spare_txns=self.spare_txns)
+    def openDatabase(self, db_path : str, mapsize=1e10, max_spare_txns=125, readonly=True, lock=False):
+        if not os.path.isdir(db_path):
+            raise IOError("Path " + db_path + " is not a directory")
+        self.spare_txns = max_spare_txns
+        self.env = lmdb.open(db_path, map_size=round(mapsize,None), max_spare_txns=max_spare_txns,\
+            create=False, lock=lock, readonly=readonly)
+        self.env.reader_check()
+    def writeMultiAgentLabel(self, key, entry):
+        with self.env.begin(write=True) as txn:
+            txn.put(key.encode( self.encoding ),entry.SerializeToString())
+    def getMultiAgentLabel(self, key):
+        rtn = MultiAgentLabel_pb2.MultiAgentLabel()
+        with self.env.begin(write=False) as txn:
+            entry_in = txn.get( key.encode( self.encoding ) )#.tobytes()
+            if (entry_in is None):
+                raise ValueError("Invalid key on label database: %s" %(key))
+            rtn.ParseFromString(entry_in)
+        return rtn
+    def getNumLabels(self):
+        return self.env.stat()['entries']
+    def getKeys(self):
+        keys = None
+        with self.env.begin(write=False) as txn:
+            keys = [ str(key, encoding=self.encoding) for key, _ in txn.cursor() ]
+        if (keys is None) or len(keys)==0:
+            raise ValueError("Keyset is empty in label dataset for some reason")
+        return keys
 
 class PoseSequenceLabelLMDBWrapper():
     def __init__(self):

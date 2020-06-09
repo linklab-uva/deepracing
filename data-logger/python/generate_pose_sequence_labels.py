@@ -28,8 +28,6 @@ from scipy.spatial.transform import RotationSpline as RotSpline
 from scipy.spatial.transform import Slerp
 def imageDataKey(data):
     return data.timestamp
-def udpPacketKey(packet):
-    return packet.udp_packet.m_header.m_sessionTime
 
 def poseSequenceLabelKey(label):
     return label.car_pose.session_time
@@ -46,7 +44,6 @@ parser.add_argument("--splineZmax", help="Max Scale factor for computing the Z-c
 parser.add_argument("--splineK", help="Spline degree to fit",  type=int, default=3)
 parser.add_argument("--use_given_angular_velocities", help=angvelhelp, action="store_true", required=False)
 parser.add_argument("--debug", help="Display debug plots", action="store_true", required=False)
-parser.add_argument("--json", help="Assume dataset files are in JSON rather than binary .pb files.",  action="store_true", required=False)
 parser.add_argument("--output_dir", help="Output directory for the labels. relative to the database images folder",  default="pose_sequence_labels", required=False)
 
 args = parser.parse_args()
@@ -60,11 +57,14 @@ root_dir = args.db_path
 motion_data_folder = os.path.join(root_dir,"udp_data","motion_packets")
 image_folder = os.path.join(root_dir,"images")
 session_folder = os.path.join(root_dir,"udp_data","session_packets")
-session_packets = getAllSessionPackets(session_folder,args.json)
+session_packets = getAllSessionPackets(session_folder,use_json)
 output_dir = os.path.join(root_dir, args.output_dir)
 if os.path.isdir(output_dir):
     shutil.rmtree(output_dir)
 os.makedirs(output_dir)
+with open(os.path.join(db_path,"f1_dataset_config.yaml"),"r") as f:
+    config = yaml.load(f,Loader=yaml.SafeLoader)
+    use_json = config["use_json"]
 
 spectating_flags = [bool(packet.udp_packet.m_isSpectating) for packet in session_packets]
 spectating = any(spectating_flags)
@@ -81,9 +81,9 @@ if spectating:
 else:
     car_index = None
 
-image_tags = getAllImageFilePackets(image_folder, args.json)
-motion_packets = getAllMotionPackets(motion_data_folder, args.json)
-motion_packets = sorted(motion_packets, key=udpPacketKey)
+image_tags = getAllImageFilePackets(image_folder, use_json)
+motion_packets = getAllMotionPackets(motion_data_folder, use_json)
+motion_packets = sorted(motion_packets, key=deepracing.timestampedUdpPacketKey)
 session_times = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets])
 system_times = np.array([packet.timestamp/1000.0 for packet in motion_packets])
 print(system_times)
@@ -96,15 +96,15 @@ image_timestamps = np.array([data.timestamp/1000.0 for data in image_tags])
 
 first_image_time = image_timestamps[0]
 print(first_image_time)
-Imin = system_times>first_image_time
+Imin = system_times>(first_image_time + 1.0)
 firstIndex = np.argmax(Imin)
 
 motion_packets = motion_packets[firstIndex:]
-motion_packets = sorted(motion_packets, key=udpPacketKey)
+motion_packets = sorted(motion_packets, key=deepracing.timestampedUdpPacketKey)
 session_times = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets])
 unique_session_times, unique_session_time_indices = np.unique(session_times, return_index=True)
 motion_packets = [motion_packets[i] for i in unique_session_time_indices]
-motion_packets = sorted(motion_packets, key=udpPacketKey)
+motion_packets = sorted(motion_packets, key=deepracing.timestampedUdpPacketKey)
 session_times = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets])
 system_times = np.array([packet.timestamp/1000.0 for packet in motion_packets])
 
@@ -124,21 +124,10 @@ quaternions = np.array([pose[1] for pose in poses])
 #     if quaternions[i,3]<0:
 #         quaternions[i] = - quaternions[i]
 rotations = Rot.from_quat(quaternions)
-print()
-print(len(motion_packets))
-print(len(session_times))
-print(len(system_times))
-print(len(poses))
-print(len(positions))
-print(len(velocities))
-print(len(quaternions))
-print()
+
 slope_session_time_fit, intercept_session_time_fit, rvalue, pvalue, stderr = scipy.stats.linregress(np.linspace(1,session_times.shape[0],session_times.shape[0]), session_times)
 print("Slope and intercept of raw session times: [%f,%f]" %(slope_session_time_fit, intercept_session_time_fit))
 
-#session_times = session_times - session_times[0]
-#image_timestamps = image_timestamps - image_timestamps[0]
-#system_times = system_times - image_timestamps[0]
 slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(system_times, session_times)
 print("Slope and intercept of session time vs system time: [%f,%f]" %(slope, intercept))
 print( "r value of session time vs system time: %f" % ( rvalue ) )
@@ -150,15 +139,12 @@ print("Range of image session times before clipping: [%f,%f]" %(image_session_ti
 Iclip = (image_session_timestamps>np.min(session_times)) * (image_session_timestamps<np.max(session_times))
 image_tags = [image_tags[i] for i in range(len(image_session_timestamps)) if Iclip[i]]
 image_session_timestamps = image_session_timestamps[Iclip]
-#and image_session_timestamps<np.max(session_timestamps)
 print("Range of image session times after clipping: [%f,%f]" %(image_session_timestamps[0], image_session_timestamps[-1]))
 
 
 position_interpolant = scipy.interpolate.make_interp_spline(session_times, positions)
-#rotation_interpolant = Slerp(session_times,Rot.from_quat(quaternions))
 rotation_interpolant = RotSpline(session_times,rotations)
 velocity_interpolant = scipy.interpolate.make_interp_spline(session_times, velocities)
-#accelerations = 0.25*position_interpolant(session_times,nu=2) + 0.75*velocity_interpolant(session_times,nu=1)
 
 
 interpolated_positions = position_interpolant(image_session_timestamps)

@@ -3,4 +3,5 @@ from .ImageBackends import ImageFolderWrapper as ImageFolderWrapper
 from .ImageBackends import ImageArrayBackend as ImageArrayBackend
 from .LabelBackends import PoseSequenceLabelLMDBWrapper as PoseSequenceLabelLMDBWrapper
 from .LabelBackends import ControlLabelLMDBWrapper as ControlLabelLMDBWrapper
+from .LabelBackends import MultiAgentLabelLMDBWrapper as MultiAgentLabelLMDBWrapper
 from .OpticalFlowBackend import OpticalFlowLMDBWrapper as OpticalFlowLMDBWrapper

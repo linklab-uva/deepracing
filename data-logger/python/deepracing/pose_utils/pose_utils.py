@@ -11,6 +11,51 @@ from tqdm import tqdm as tqdm
 from scipy import interpolate
 from scipy.spatial.transform import Rotation as Rot
 from scipy.spatial.transform import RotationSpline as RotSpline
+import deepracing
+import scipy, scipy.stats
+
+def registerImagesToMotiondata(motion_packets, image_tags):
+    motion_packets = sorted(motion_packets, key=deepracing.timestampedUdpPacketKey)
+    motion_packet_session_times = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets])
+    motion_packet_system_times = np.array([packet.timestamp/1000.0 for packet in motion_packets])
+
+    image_tags = [tag for tag in image_tags if tag.timestamp/1000.0<motion_packet_system_times[-1]]
+    image_tags = sorted(image_tags, key = deepracing.imageDataKey)
+    image_system_timestamps = np.array([data.timestamp/1000.0 for data in image_tags])
+
+    #find first packet with a system timestamp >= the system timestamp of the first image
+    Imin = motion_packet_system_times>=image_system_timestamps[0]
+    firstIndex = np.argmax(Imin)
+    motion_packets = motion_packets[firstIndex:]
+    motion_packets = sorted(motion_packets, key=deepracing.timestampedUdpPacketKey)
+    
+    #filter out duplicate packets (which happens for occasionally for some reason)
+    motion_packet_session_times = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets])
+    unique_session_times, unique_session_time_indices = np.unique(motion_packet_session_times, return_index=True)
+    motion_packets = [motion_packets[i] for i in unique_session_time_indices]
+    motion_packets = sorted(motion_packets, key=deepracing.timestampedUdpPacketKey)
+
+    motion_packet_session_times = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets])
+    motion_packet_system_times = np.array([packet.timestamp/1000.0 for packet in motion_packets])
+
+    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(motion_packet_system_times, motion_packet_session_times)
+    print("Slope and intercept of session time vs system time: [%f,%f]" %(slope, intercept))
+    print( "r value of session time vs system time: %f" % ( r_value ) )
+    print( "r^2 value of session time vs system time: %f" % ( r_value**2 ) )
+    image_session_timestamps = slope*image_system_timestamps + intercept
+    print("Range of image session times before clipping: [%f,%f]" %(image_session_timestamps[0], image_session_timestamps[-1]))
+    if not len(image_tags) == len(image_session_timestamps):
+        raise ValueError("Different number of image tags (%d) than image session timestamps (%d)" % (len(image_tags), len(image_session_timestamps)) )
+
+    #clip the image tags to be within the range of the known session times
+    Iclip = (image_session_timestamps>np.min(motion_packet_session_times)) * (image_session_timestamps<np.max(motion_packet_session_times))
+    image_tags = [image_tags[i] for i in range(len(image_tags)) if Iclip[i]]
+    image_session_timestamps = image_session_timestamps[Iclip]
+    print("Range of image session times after clipping: [%f,%f]" %(image_session_timestamps[0], image_session_timestamps[-1]))
+    if not len(image_tags) == len(image_session_timestamps):
+        raise ValueError("Different number of image tags (%d) than image session timestamps (%d)" % (len(image_tags), len(image_session_timestamps)) )
+    return image_tags, image_session_timestamps, motion_packets, slope, intercept
+
 def randomTransform(pscale=1.0):
    T = np.eye(4)
    T[0:3,0:3] = Rot.random().as_dcm()
