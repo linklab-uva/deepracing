@@ -69,6 +69,8 @@ z = X[:,2]
 position_diffs = np.diff(positions, axis=0)
 position_diff_norms = la.norm(position_diffs, axis=1)
 quaternions = np.array([pose[1] for pose in poses])
+print(positions)
+print(quaternions)
 
 fig = plt.figure()
 #plt.plot(x,z,c="b")
