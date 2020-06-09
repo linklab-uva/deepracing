@@ -42,9 +42,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE})
 
 
 
-
 set(protobuf_MODULE_COMPATIBLE TRUE)
-find_package(Protobuf CONFIG REQUIRED)
+find_package(Protobuf REQUIRED)
 
 add_subdirectory( proto/${PROJECT_NAME}/proto )
 set(PROTO_INCLUDE_DIR ${CMAKE_BINARY_DIR}/proto)

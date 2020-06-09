@@ -1,0 +1,15 @@
+syntax = "proto3";
+package deepf1.protobuf;
+import "Pose3d.proto";
+import "TimestampedImage.proto";
+import "Vector3dStamped.proto";
+import "PoseAndVelocitiesList.proto";
+message MultiAgentLabel {
+		TimestampedImage image_tag = 1;
+		deepf1.protobuf.eigen.Pose3d ego_vehicle_pose = 2;
+		deepf1.protobuf.eigen.Vector3dStamped ego_vehicle_linear_velocity = 3;
+		deepf1.protobuf.eigen.Vector3dStamped ego_vehicle_angular_velocity = 4;
+		deepf1.protobuf.PoseAndVelocitiesList ego_vehicle_path = 5;
+		repeated deepf1.protobuf.PoseAndVelocitiesList external_agent_paths = 6;
+		
+}

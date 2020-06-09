@@ -1,0 +1,6 @@
+syntax = "proto3";
+package deepf1.protobuf;
+import "PoseAndVelocities.proto";
+message PoseAndVelocitiesList {
+	repeated deepf1.protobuf.PoseAndVelocities pose_and_velocities = 1;
+}

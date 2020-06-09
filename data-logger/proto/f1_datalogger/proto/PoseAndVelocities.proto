@@ -1,0 +1,9 @@
+syntax = "proto3";
+package deepf1.protobuf;
+import "Pose3d.proto";
+import "Vector3dStamped.proto";
+message PoseAndVelocities {
+	deepf1.protobuf.eigen.Pose3d pose = 1;
+	deepf1.protobuf.eigen.Vector3dStamped linear_velocity = 2;
+	deepf1.protobuf.eigen.Vector3dStamped angular_velocity = 3;
+}
