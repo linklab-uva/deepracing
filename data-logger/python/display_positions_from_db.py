@@ -73,5 +73,11 @@ quaternions = np.array([pose[1] for pose in poses])
 fig = plt.figure()
 #plt.plot(x,z,c="b")
 plt.scatter( x, z, marker="o", c="b", s = 0.1*np.ones_like(x) )
-plt.savefig(os.path.join(dataset_dir,"udp_data"))
-plt.show()
+fig.savefig( os.path.join( dataset_dir, "car_%d_path.png" % (index,) ), bbox_inches='tight')
+fig.savefig( os.path.join( dataset_dir, "car_%d_path.eps" % (index,) ), format = "eps", bbox_inches='tight')
+fig.savefig( os.path.join( dataset_dir, "car_%d_path.pdf" % (index,) ), format = "pdf", bbox_inches='tight')
+fig.savefig( os.path.join( dataset_dir, "car_%d_path.svg" % (index,) ), format = "svg", bbox_inches='tight')
+try:
+    plt.show()
+except:
+    pass
