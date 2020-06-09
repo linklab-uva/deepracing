@@ -45,6 +45,7 @@ parser.add_argument("--max_distance", help="Ignore other agents further than thi
 parser.add_argument("--spline_degree", help="Spline degree to fit",  type=int, default=3)
 parser.add_argument("--debug", help="Display debug plots", action="store_true", required=False)
 parser.add_argument("--output_dir", help="Output directory for the labels. relative to the database images folder",  default="multi_agent_labels", required=False)
+parser.add_argument("--override", help="Always delete existing directories without prompting the user", action="store_true")
 
 args = parser.parse_args()
 lookahead_indices = args.lookahead_indices
@@ -52,6 +53,7 @@ spline_degree = args.spline_degree
 root_dir = args.db_path
 debug = args.debug
 max_distance = args.max_distance
+override = args.override
 motion_data_folder = os.path.join(root_dir,"udp_data","motion_packets")
 image_folder = os.path.join(root_dir,"images")
 session_folder = os.path.join(root_dir,"udp_data","session_packets")
@@ -63,7 +65,17 @@ use_json = dset_config["use_json"]
 session_packets = getAllSessionPackets(session_folder, use_json)
 output_dir = os.path.join(root_dir, args.output_dir)
 if os.path.isdir(output_dir):
-    shutil.rmtree(output_dir)
+    if override:
+        shutil.rmtree(output_dir)
+    else:
+        s = 'asdf'
+        while not ( (s=='y') or (s=='n') ):
+            s = input("Directory %s already exists. overwrite it? (y\\n)" %(output_dir,))
+        if s=='y':
+            shutil.rmtree(output_dir)
+        else:
+            print("Thanks for playing!")
+            exit(0)
 os.makedirs(output_dir)
 
 spectating_flags = [bool(packet.udp_packet.m_isSpectating) for packet in session_packets]
@@ -199,6 +211,8 @@ for idx in tqdm(range(len(image_tags))):
         tmax = tlabel + dt
         if ( tmax >= motion_packet_session_times[-1] ) or ( tmax >= image_session_timestamps[-1] ):
             continue
+        motion_packets_local = motion_packets[lowerbound-25:upperbound+25]
+        session_times_local = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets_local])
         tsamp = np.linspace(tlabel, tmax, lookahead_indices)
         future_ego_positions = ego_vehicle_position_interpolant(tsamp)
         future_ego_linear_velocities = ego_vehicle_velocity_interpolant(tsamp)
@@ -222,8 +236,6 @@ for idx in tqdm(range(len(image_tags))):
         PoseMatrixEgo[0:3,0:3] = ego_vehicle_rotation.as_matrix()
         PoseMatrixEgo[0:3,3] = ego_vehicle_position
         PoseMatrixEgoInverse = np.linalg.inv(PoseMatrixEgo)
-        motion_packets_local = motion_packets[lowerbound-lookahead_indices:upperbound+lookahead_indices]
-        session_times_local = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets_local])
       #  print("tlabel: %f. t0 of local data: %f" %(tlabel, motion_packets_local[lookahead_indices].udp_packet.m_header.m_sessionTime))
         labelsgood = True
         for i in range(0,20):
@@ -241,6 +253,7 @@ for idx in tqdm(range(len(image_tags))):
             if np.isnan(np.prod(vehicle_quaternions)):
                 continue
             vehicle_rotations = Rot.from_quat(vehicle_quaternions)
+            
             # print("Local data")
             # print(vehicle_positions.shape)
             # print(vehicle_velocities.shape)
