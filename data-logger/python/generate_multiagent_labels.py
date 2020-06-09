@@ -41,6 +41,7 @@ def poseSequenceLabelKey(label):
 parser = argparse.ArgumentParser()
 parser.add_argument("db_path", help="Path to root directory of DB",  type=str)
 parser.add_argument("lookahead_indices", help="Number of indices to look forward for each label",  type=int)
+parser.add_argument("--max_distance", help="Ignore other agents further than this many meters away",  type=float, default=60)
 parser.add_argument("--spline_degree", help="Spline degree to fit",  type=int, default=3)
 parser.add_argument("--debug", help="Display debug plots", action="store_true", required=False)
 parser.add_argument("--output_dir", help="Output directory for the labels. relative to the database images folder",  default="multi_agent_labels", required=False)
@@ -50,6 +51,7 @@ lookahead_indices = args.lookahead_indices
 spline_degree = args.spline_degree
 root_dir = args.db_path
 debug = args.debug
+max_distance = args.max_distance
 motion_data_folder = os.path.join(root_dir,"udp_data","motion_packets")
 image_folder = os.path.join(root_dir,"images")
 session_folder = os.path.join(root_dir,"udp_data","session_packets")
@@ -104,10 +106,10 @@ ego_vehicle_position_interpolant = scipy.interpolate.make_interp_spline(motion_p
 ego_vehicle_rotation_interpolant = RotSpline(motion_packet_session_times, ego_vehicle_rotations)
 ego_vehicle_velocity_interpolant = scipy.interpolate.make_interp_spline(motion_packet_session_times, ego_vehicle_velocities)
 
-other_agents_position_interpolants : dict = {}
-other_agents_rotation_interpolants : dict = {}
-other_agents_linear_velocity_interpolants : dict = {}
-other_agents_angular_velocity_interpolants : dict = {}
+position_interpolants : dict = {}
+rotation_interpolants : dict = {}
+linear_velocity_interpolants : dict = {}
+angular_velocity_interpolants : dict = {}
 
 # for i in range(0,20):
 #     if
@@ -157,13 +159,19 @@ config_dict : dict = {"lookahead_indices": lookahead_indices, "regression_slope"
 with open(os.path.join(output_dir,'config.yaml'), 'w') as yaml_file:
     yaml.dump(config_dict, yaml_file)#, Dumper=yaml.SafeDumper)
 db = deepracing.backend.MultiAgentLabelLMDBWrapper()
-db.openDatabase( lmdb_dir, mapsize=int(round(99960*len(image_tags)*1.25)), max_spare_txns=16, readonly=False, lock=True )
+db.openDatabase( lmdb_dir, mapsize=int(round(76000*len(image_tags)*1.25)), max_spare_txns=16, readonly=False, lock=True )
 
 for idx in tqdm(range(len(image_tags))):
     label_tag = MultiAgentLabel_pb2.MultiAgentLabel()
     try:
         label_tag.image_tag.CopyFrom(image_tags[idx])
         tlabel = image_session_timestamps[idx]
+        lowerbound = bisect.bisect_left(motion_packet_session_times,tlabel)
+        if lowerbound <= round(1.25*lookahead_indices,None):
+            continue
+        upperbound = lowerbound+lookahead_indices
+        if(upperbound >= ( len(motion_packets) - round(1.25*lookahead_indices,None) ) ):
+            continue
         label_tag.ego_vehicle_pose.frame = FrameId_pb2.GLOBAL
         label_tag.ego_vehicle_linear_velocity.frame = FrameId_pb2.GLOBAL
         label_tag.ego_vehicle_angular_velocity.frame = FrameId_pb2.GLOBAL
@@ -187,10 +195,6 @@ for idx in tqdm(range(len(image_tags))):
         label_tag.ego_vehicle_angular_velocity.frame = FrameId_pb2.GLOBAL
         label_tag.ego_vehicle_angular_velocity.session_time = tlabel
         
-        lowerbound = bisect.bisect_left(motion_packet_session_times,tlabel)
-        upperbound = lowerbound+lookahead_indices
-        if(upperbound >= ( len(motion_packet_session_times) - round(1.25*lookahead_indices,None) ) ):
-            continue
         dt = motion_packet_session_times[upperbound] - motion_packet_session_times[lowerbound]
         tmax = tlabel + dt
         if ( tmax >= motion_packet_session_times[-1] ) or ( tmax >= image_session_timestamps[-1] ):
@@ -218,16 +222,75 @@ for idx in tqdm(range(len(image_tags))):
         PoseMatrixEgo[0:3,0:3] = ego_vehicle_rotation.as_matrix()
         PoseMatrixEgo[0:3,3] = ego_vehicle_position
         PoseMatrixEgoInverse = np.linalg.inv(PoseMatrixEgo)
-        
-
-
-        
-
+        motion_packets_local = motion_packets[lowerbound-lookahead_indices:upperbound+lookahead_indices]
+        session_times_local = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets_local])
+      #  print("tlabel: %f. t0 of local data: %f" %(tlabel, motion_packets_local[lookahead_indices].udp_packet.m_header.m_sessionTime))
+        labelsgood = True
+        for i in range(0,20):
+            if any([p.udp_packet.m_header.m_playerCarIndex==i for p in motion_packets_local]):
+               # print("ignoring index %d. That is the index for the ego vehicle" %(i,))
+                continue
+            vehicle_poses = [extractPose(packet.udp_packet, car_index=i) for packet in motion_packets_local]
+            vehicle_positions = np.array([pose[0] for pose in vehicle_poses])
+            if np.sum(vehicle_positions)<1.0:
+                continue
+            vehicle_position_diffs = np.diff(vehicle_positions, axis=0)
+            vehicle_position_diff_norms = la.norm(vehicle_position_diffs, axis=1)
+            vehicle_velocities = np.array([extractVelocity(packet.udp_packet, car_index=i) for packet in motion_packets_local])
+            vehicle_quaternions = np.array([pose[1] for pose in vehicle_poses])
+            if np.isnan(np.prod(vehicle_quaternions)):
+                continue
+            vehicle_rotations = Rot.from_quat(vehicle_quaternions)
+            # print("Local data")
+            # print(vehicle_positions.shape)
+            # print(vehicle_velocities.shape)
+            # print(vehicle_rotations.as_quat().shape)
+            # print()
+            # fig = plt.figure()
+            # plt.plot(vehicle_positions[:,0], vehicle_positions[:,2])
+            # plt.show()
+            maxnormdiff = np.max(vehicle_position_diff_norms)
+            if maxnormdiff>3.5:
+                raise ValueError("Saw vehicle %i jump by a distance of %f for image %d. ignoring image %d" % (i, maxnormdiff, idx, idx))
+            #print("Max local diff for vehicle %d: %f" % (i, np.max(vehicle_position_diff_norms)) )
+            vehicle_position_interpolant = scipy.interpolate.make_interp_spline(session_times_local, vehicle_positions)
+            vehicle_rotation_interpolant = RotSpline(session_times_local, vehicle_rotations)
+            vehicle_velocity_interpolant = scipy.interpolate.make_interp_spline(session_times_local, vehicle_velocities)
+            future_vehicle_positions = vehicle_position_interpolant(tsamp)
+            future_vehicle_rotations = vehicle_rotation_interpolant(tsamp)
+            future_vehicle_linear_velocities = vehicle_velocity_interpolant(tsamp)
+            future_vehicle_angular_velocities = vehicle_rotation_interpolant(tsamp,1)
+            current_vehicle_position = future_vehicle_positions[0]
+            current_vehicle_rotation = future_vehicle_rotations[0]
+            PoseMatrixCurrentVehicle = np.eye(4)
+            PoseMatrixCurrentVehicle[0:3,0:3] = current_vehicle_rotation.as_matrix()
+            PoseMatrixCurrentVehicle[0:3,3] = current_vehicle_position
+            current_vehicle_pose_wrt_ego = np.matmul(PoseMatrixEgoInverse, PoseMatrixCurrentVehicle)
+            current_vehicle_position_wrt_ego = current_vehicle_pose_wrt_ego[0:3,3]
+            if current_vehicle_position_wrt_ego[2]>-0.75 and np.linalg.norm(current_vehicle_position_wrt_ego)<max_distance:
+               # print("Got what looks like a match for vehicle %d. It should appear in image %d at position %s" % (i, idx, str(current_vehicle_position_wrt_ego)))
+                newagent = label_tag.external_agent_paths.add()
+                for j in range(lookahead_indices):
+                    entry = newagent.pose_and_velocities.add()
+                    entry.pose.session_time = tsamp[i]
+                    entry.pose.frame = FrameId_pb2.GLOBAL
+                    entry.pose.translation.CopyFrom(proto_utils.vectorFromNumpy(future_vehicle_positions[i]))
+                    entry.pose.rotation.CopyFrom(proto_utils.quaternionFromScipy(future_vehicle_rotations[i]))
+                    entry.pose.session_time = tsamp[i]
+                    entry.pose.frame = FrameId_pb2.GLOBAL
+                    entry.linear_velocity.vector.CopyFrom(proto_utils.vectorFromNumpy(future_vehicle_linear_velocities[i]))
+                    entry.linear_velocity.session_time = tsamp[i]
+                    entry.linear_velocity.frame = FrameId_pb2.GLOBAL
+                    entry.angular_velocity.vector.CopyFrom(proto_utils.vectorFromNumpy(future_vehicle_angular_velocities[i]))
+                    entry.angular_velocity.session_time = tsamp[i]
+                    entry.angular_velocity.frame = FrameId_pb2.GLOBAL
+    except KeyboardInterrupt as e:
+        raise e
     except Exception as e:
         print("Could not generate label for %s" %(label_tag.image_tag.image_file))
         print("Exception message: %s"%(str(e)))
-        #continue    
-        raise e      
+        continue    
+        #raise e      
     image_file_base = os.path.splitext(os.path.basename(label_tag.image_tag.image_file))[0]
     key = image_file_base
 
