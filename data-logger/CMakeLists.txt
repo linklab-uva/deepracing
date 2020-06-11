@@ -28,6 +28,7 @@ if(WIN32)
     if(BUILD_SHARED_LIBS)
       add_definitions(-DF1_DATALOGGER_BUILDING_DLL)
     endif()
+    add_compile_options(-w)
 endif(WIN32)
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
