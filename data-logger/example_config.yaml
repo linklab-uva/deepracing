@@ -8,6 +8,7 @@ image_threads: 2
 image_capture_frequency: 35.0
 initial_delay_time: 3.0
 image_extension: "jpg"
+log_images: True
 use_json: True
 spectating: True
 init_paused: False
@@ -20,4 +21,3 @@ udp_threads:
   car_setups: 1
   telemetry: 2 
   car_status:  2
-   

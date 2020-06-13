@@ -171,7 +171,7 @@ config_dict : dict = {"lookahead_indices": lookahead_indices, "regression_slope"
 with open(os.path.join(output_dir,'config.yaml'), 'w') as yaml_file:
     yaml.dump(config_dict, yaml_file)#, Dumper=yaml.SafeDumper)
 db = deepracing.backend.MultiAgentLabelLMDBWrapper()
-db.openDatabase( lmdb_dir, mapsize=int(round(76000*len(image_tags)*1.25)), max_spare_txns=16, readonly=False, lock=True )
+db.openDatabase( lmdb_dir, mapsize=int(round(76000*len(image_tags)*1.25)) , max_spare_txns=16, readonly=False, lock=True )
 
 for idx in tqdm(range(len(image_tags))):
     label_tag = MultiAgentLabel_pb2.MultiAgentLabel()

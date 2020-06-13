@@ -3,10 +3,9 @@
 #include <cmath>
 #include <f1_datalogger/controllers/f1_interface.h>
 #include <vJoy_plusplus/vjoy.h>
-#include <f1_datalogger/visibility_control.h>
 namespace deepf1 {
 	
-	class F1_DATALOGGER_PUBLIC VJoyInterface : public F1Interface
+	class F1_DATALOGGER_CONTROLS_PUBLIC VJoyInterface : public F1Interface
 	{
 	public:
 		VJoyInterface(const unsigned int& device_id = 1);

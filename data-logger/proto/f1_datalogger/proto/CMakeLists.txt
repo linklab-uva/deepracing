@@ -45,8 +45,12 @@ install(TARGETS ${install_targets}
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
 )
-install(FILES ${${PROJECT_NAME}_PY_SOURCES} DESTINATION lib/python)
 install(FILES ${PROTOFILES} DESTINATION share/${PROJECT_NAME}/proto)
+if(ament_cmake_FOUND)
+  install(FILES ${${PROJECT_NAME}_PY_SOURCES} DESTINATION lib/site-packages)
+else()
+  install(FILES ${${PROJECT_NAME}_PY_SOURCES} DESTINATION lib/python)
+endif()
 
 set(pb_headers ${${PROJECT_NAME}_PROTO_CPP_SOURCES})
 list(FILTER pb_headers INCLUDE REGEX "[.]*.pb.h")

@@ -1,10 +1,12 @@
 #ifndef INCLUDE_CONTROLLERS_F1_INTERFACE_H_
 #define INCLUDE_CONTROLLERS_F1_INTERFACE_H_
 
-#include <f1_datalogger/visibility_control.h>
+
+#include "f1_datalogger/controllers/visibility_control.h"
+
 
 namespace deepf1 {
-	struct F1ControlCommand
+	struct F1_DATALOGGER_CONTROLS_PUBLIC F1ControlCommand
 	{
 	public:
 		double steering;
@@ -21,7 +23,7 @@ namespace deepf1 {
 		{
 		}
 	};
-	class F1_DATALOGGER_PUBLIC F1Interface
+	class F1_DATALOGGER_CONTROLS_PUBLIC F1Interface
 	{
 	public:
 		virtual void setCommands(const F1ControlCommand& command) = 0;

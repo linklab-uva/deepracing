@@ -26,9 +26,9 @@ endif()
 message(STATUS "Eigen3 version: ${Eigen3_VERSION}")
 message(STATUS "Building controllers library with: ${controllers_SRCS}")
 add_library(${PROJECT_NAME}_controllers ${controllers_SRCS})
-if(UNIX)
-	set_property(TARGET ${PROJECT_NAME}_controllers PROPERTY POSITION_INDEPENDENT_CODE ON)
-endif(UNIX)
+# if(UNIX)
+# 	set_property(TARGET ${PROJECT_NAME}_controllers PROPERTY POSITION_INDEPENDENT_CODE ON)
+# endif(UNIX)
 target_link_libraries(${PROJECT_NAME}_controllers
 ${PROJECT_NAME}_eigen_utils
 ${PROJECT_NAME}_udp_utils
@@ -38,11 +38,9 @@ Eigen3::Eigen
 ${additional_controller_libs_}
 )
 target_include_directories(${PROJECT_NAME}_controllers PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR} )
-
-
+set_target_properties(${PROJECT_NAME}_controllers PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_definitions(${PROJECT_NAME}_controllers PRIVATE "F1_DATALOGGER_CONTROLS_BUILDING_DLL")
 add_dependencies(${PROJECT_NAME}_controllers ${PROJECT_NAME}_proto)
-set_target_properties(${PROJECT_NAME}_controllers
-					  PROPERTIES FOLDER vjoy)
 					  
 add_subdirectory(python_cpp_bindings)
 

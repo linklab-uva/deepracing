@@ -1,0 +1,2 @@
+set extrapythonpaths=@CMAKE_INSTALL_PREFIX@/Lib/python
+IF "%PYTHONPATH%"=="" (set PYTHONPATH=%extrapythonpaths%) ELSE (set PYTHONPATH=%PYTHONPATH%;%extrapythonpaths%)

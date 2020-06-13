@@ -6,10 +6,9 @@
 #include <boost/math/constants/constants.hpp>
 #include "f1_datalogger/controllers/f1_interface.h"
 #include <memory>
-#include <f1_datalogger/visibility_control.h>
 namespace deepf1
 {
-	class F1_DATALOGGER_PUBLIC PurePursuitController
+	class F1_DATALOGGER_CONTROLS_PUBLIC PurePursuitController
 	{
 	public:
 

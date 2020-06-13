@@ -5,6 +5,7 @@ cmake_policy(VERSION ${_required_cmake})
 # 	cmake_policy(SET CMP0003 NEW)
 # endif(COMMAND cmake_policy)
 project(f1_datalogger)
+find_package(ament_cmake QUIET)
 message(STATUS "Using CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 
 if(NOT CMAKE_CXX_STANDARD)
@@ -38,7 +39,7 @@ endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 set(THIRD_PARTY_REPOS ${CMAKE_SOURCE_DIR}/third_party)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE})
+#set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE})
 
 
 
@@ -157,41 +158,53 @@ install(TARGETS ${install_targets}
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
 )
-install(EXPORT ${PROJECT_NAME}-export
-FILE
-${PROJECT_NAME}Targets.cmake
-NAMESPACE
-    f1_datalogger::
-DESTINATION
-    cmake
-)
+
 install(DIRECTORY include/${PROJECT_NAME}
-    DESTINATION include
-    FILES_MATCHING PATTERN "*.h"
+DESTINATION include
+FILES_MATCHING PATTERN "*.h"
 )
-
-configure_file(${PROJECT_NAME}-config.cmake.in ${PROJECT_NAME}-config.cmake @ONLY)
-install(FILES ${CMAKE_BINARY_DIR}/${PROJECT_NAME}-config.cmake DESTINATION cmake/)
-install(DIRECTORY python/deepracing
-    DESTINATION lib/python
-)
-
-
-if(MSVC)
-	configure_file(scripts/windows/tbbvars2019.bat.in tbbvars2019.bat @ONLY NEWLINE_STYLE WIN32)
-	configure_file(scripts/windows/addpythonpath.bat.in addpythonpath.bat @ONLY NEWLINE_STYLE WIN32)
-	configure_file(scripts/windows/addpythonpath.build.ps1.in ${CMAKE_CURRENT_BINARY_DIR}/addpythonpathbuild.ps1 @ONLY NEWLINE_STYLE WIN32)
-    configure_file(scripts/windows/addpythonpath.install.ps1.in ${CMAKE_CURRENT_BINARY_DIR}/addpythonpath.ps1 @ONLY NEWLINE_STYLE WIN32)
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/addpythonpath.ps1 DESTINATION share/${PROJECT_NAME})
+if(ament_cmake_FOUND)
+    message(STATUS "Ament was found. Building a ROS2-style cmake package")
+    ament_export_targets(${PROJECT_NAME}-export)
+    add_subdirectory(python)
+    ament_package(CONFIG_EXTRAS cmake/find_deps.cmake.in)
 else()
-    configure_file(scripts/bash/addpythonpath.build.bash.in ${CMAKE_BINARY_DIR}/addpythonpathbuild.bash @ONLY NEWLINE_STYLE UNIX)
-    configure_file(scripts/bash/addpythonpath.install.bash.in ${CMAKE_BINARY_DIR}/addpythonpath.bash @ONLY NEWLINE_STYLE UNIX)
-    install(FILES ${CMAKE_BINARY_DIR}/addpythonpath.bash DESTINATION share/${PROJECT_NAME})
-
-    add_custom_target(
-    chmodaddpythonpath ALL
-    DEPENDS ${CMAKE_BINARY_DIR}/addpythonpath.bash
-    COMMAND dos2unix ${CMAKE_BINARY_DIR}/addpythonpath.bash && chmod a+x ${CMAKE_BINARY_DIR}/addpythonpath.bash
-    VERBATIM
+    install(EXPORT ${PROJECT_NAME}-export
+    FILE
+    ${PROJECT_NAME}Targets.cmake
+    NAMESPACE
+        f1_datalogger::
+    DESTINATION
+        cmake
     )
-endif() 
+
+    configure_file(${PROJECT_NAME}-config.cmake.in ${PROJECT_NAME}-config.cmake @ONLY)
+
+    install(FILES ${CMAKE_BINARY_DIR}/${PROJECT_NAME}-config.cmake DESTINATION cmake/)
+    install(DIRECTORY python/deepracing
+        DESTINATION lib/python
+    )
+
+
+    if(MSVC)
+        file(TO_NATIVE_PATH ${CMAKE_INSTALL_PREFIX}/Lib/python python_install_directory)
+        configure_file(scripts/windows/tbbvars2019.bat.in tbbvars2019.bat @ONLY NEWLINE_STYLE WIN32)
+        configure_file(scripts/windows/addpythonpath.build.ps1.in ${CMAKE_CURRENT_BINARY_DIR}/addpythonpathbuild.ps1 @ONLY NEWLINE_STYLE WIN32)
+        configure_file(scripts/windows/addpythonpath.install.ps1.in ${CMAKE_CURRENT_BINARY_DIR}/addpythonpath.ps1 @ONLY NEWLINE_STYLE WIN32)
+        configure_file(scripts/windows/addpythonpath.install.bat.in ${CMAKE_CURRENT_BINARY_DIR}/addpythonpath.bat @ONLY NEWLINE_STYLE WIN32)
+        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/addpythonpath.ps1 DESTINATION share/${PROJECT_NAME})
+        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/addpythonpath.bat DESTINATION share/${PROJECT_NAME})
+    else()
+        configure_file(scripts/bash/addpythonpath.build.bash.in ${CMAKE_BINARY_DIR}/addpythonpathbuild.bash @ONLY NEWLINE_STYLE UNIX)
+        configure_file(scripts/bash/addpythonpath.install.bash.in ${CMAKE_BINARY_DIR}/addpythonpath.bash @ONLY NEWLINE_STYLE UNIX)
+        install(FILES ${CMAKE_BINARY_DIR}/addpythonpath.bash DESTINATION share/${PROJECT_NAME})
+
+        add_custom_target(
+        chmodaddpythonpath ALL
+        DEPENDS ${CMAKE_BINARY_DIR}/addpythonpath.bash
+        COMMAND dos2unix ${CMAKE_BINARY_DIR}/addpythonpath.bash && chmod a+x ${CMAKE_BINARY_DIR}/addpythonpath.bash
+        VERBATIM
+        )
+    endif() 
+
+endif()

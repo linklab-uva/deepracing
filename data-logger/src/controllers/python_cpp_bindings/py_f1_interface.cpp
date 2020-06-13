@@ -1,8 +1,7 @@
 #include "f1_datalogger/controllers/f1_interface_factory.h"
 #include <pybind11/pybind11.h>
-#include <f1_datalogger/visibility_control.h>
 
-class F1_DATALOGGER_PUBLIC PyF1Interface {
+class PyF1Interface {
     public:
     PyF1Interface(unsigned int device_id=1)
     {
