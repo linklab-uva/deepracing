@@ -287,6 +287,7 @@ def go():
     
     ppd = net.params_per_dimension
     numones = int(ppd/2)
+    weighted_loss = config.get("weighted_loss", False)
     if weighted_loss:
         timewise_weights = torch.from_numpy( np.hstack( ( np.ones(numones), np.linspace(1,3, ppd - numones ) ) ) )
     else:
