@@ -314,8 +314,8 @@ def go():
     assetlist = apiexperiment.get_asset_list()
     assetdict = {d['fileName']: d['assetId'] for d in assetlist}
     #get network weights
-    weightfilename = "epoch_%d_params.pt" %(epochstart,)
-    optimizerfilename = "epoch_%d_optimizer.pt" %(epochstart,)
+    weightfilename = os.path.join(output_directory,"epoch_%d_params.pt" %(epochstart,))
+    optimizerfilename = os.path.join(output_directory,"epoch_%d_optimizer.pt" %(epochstart,))
     print("Getting network weights from comet")
     params_binary = apiexperiment.get_asset(assetdict[weightfilename])
     with io.BytesIO(params_binary) as f:
@@ -324,7 +324,7 @@ def go():
     print("Getting optimizer weights from comet")
     optimizer_binary = apiexperiment.get_asset(assetdict[optimizerfilename])
     with io.BytesIO(optimizer_binary) as f:
-        net.load_state_dict(torch.load(f, map_location=torch.device("cpu")))
+        optimizer.load_state_dict(torch.load(f, map_location=torch.device("cpu")))
     del apiexperiment
     
     
