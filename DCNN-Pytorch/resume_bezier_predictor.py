@@ -309,23 +309,15 @@ def go():
         raise ValueError("Uknown optimizer " + optimizer)
 
    
-    api = API()
-    apiexperiment : APIExperiment = api.get_experiment("electric-turtle", "deepracingbezierpredictor", experiment_id)
-    assetlist = apiexperiment.get_asset_list()
-    assetdict = {d['fileName']: d['assetId'] for d in assetlist}
     #get network weights
-    weightfilename = "epoch_%d_params.pt" %(epochstart,)
-    optimizerfilename = "epoch_%d_optimizer.pt" %(epochstart,)
-    print("Getting network weights from comet")
-    params_binary = apiexperiment.get_asset(assetdict[weightfilename])
-    with io.BytesIO(params_binary) as f:
+    weightfilename = os.path.join(output_directory,"epoch_%d_params.pt" %(epochstart,))
+    optimizerfilename = os.path.join(output_directory,"epoch_%d_optimizer.pt" %(epochstart,))
+    with open(weightfilename,"rb") as f:
         net.load_state_dict(torch.load(f, map_location=torch.device("cpu")))
     #get optimizer weights
-    print("Getting optimizer weights from comet")
     optimizer_binary = apiexperiment.get_asset(assetdict[optimizerfilename])
-    with io.BytesIO(optimizer_binary) as f:
+    with open(optimizerfilename,"rb") as f:
         optimizer.load_state_dict(torch.load(f, map_location=torch.device("cpu")))
-    del apiexperiment
     
     
     if use_float:
