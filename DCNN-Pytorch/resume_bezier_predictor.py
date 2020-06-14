@@ -310,7 +310,7 @@ def go():
 
    
     api = API()
-    apiexperiment : APIExperiment = api.get_experiment("electric-turtle", "deepracingbezierpredictor", experiment_key)
+    apiexperiment : APIExperiment = api.get_experiment("electric-turtle", "deepracingbezierpredictor", experiment_id)
     assetlist = apiexperiment.get_asset_list()
     assetdict = {d['fileName']: d['assetId'] for d in assetlist}
     #get network weights
