@@ -314,8 +314,8 @@ def go():
     assetlist = apiexperiment.get_asset_list()
     assetdict = {d['fileName']: d['assetId'] for d in assetlist}
     #get network weights
-    weightfilename = os.path.join(output_directory,"epoch_%d_params.pt" %(epochstart,))
-    optimizerfilename = os.path.join(output_directory,"epoch_%d_optimizer.pt" %(epochstart,))
+    weightfilename = "epoch_%d_params.pt" %(epochstart,)
+    optimizerfilename = "epoch_%d_optimizer.pt" %(epochstart,)
     print("Getting network weights from comet")
     params_binary = apiexperiment.get_asset(assetdict[weightfilename])
     with io.BytesIO(params_binary) as f:
