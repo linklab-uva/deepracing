@@ -391,7 +391,7 @@ def go():
             #dset.clearReaders()
             try:
                 tick = time.time()
-                run_epoch(experiment, net, fix_first_point, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, postfix, debug=debug, use_tqdm=args.tqdm )
+                run_epoch(experiment, net, fix_first_point, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, postfix, debug=False, use_tqdm=args.tqdm )
                 tock = time.time()
                 print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
                 experiment.log_epoch_end(postfix)
