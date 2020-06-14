@@ -204,7 +204,7 @@ def go():
     experiment_config_file = os.path.join(output_directory,"experiment_config.yaml")
     with open(experiment_config_file) as f:
         experiment_config = yaml.load(f, Loader = yaml.SafeLoader)
-    experiment_id = experiment_config_file["experiment_key"]
+    experiment_id = experiment_config["experiment_key"]
     print(dataset_config)
     image_size = dataset_config["image_size"]
     input_channels = config["input_channels"]
