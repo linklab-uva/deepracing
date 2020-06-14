@@ -294,6 +294,19 @@ def go():
         timewise_weights = None
     params_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss(time_reduction=loss_reduction)
     kinematic_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss(time_reduction=loss_reduction)
+
+   
+    weightfilename = os.path.join(output_directory,"epoch_%d_params.pt" %(epochstart,))
+    optimizerfilename = os.path.join(output_directory,"epoch_%d_optimizer.pt" %(epochstart,))
+    #get network weights
+    with open(weightfilename,"rb") as f:
+        net.load_state_dict(torch.load(f, map_location=torch.device("cpu")))
+    #get optimizer weights
+    if gpu>=0:
+        print("moving stuff to GPU")
+        net = net.cuda(gpu)
+        params_loss = params_loss.cuda(gpu)
+        kinematic_loss = kinematic_loss.cuda(gpu)
     optimizer = config["optimizer"]
     if optimizer=="Adam":
         optimizer = optim.Adam(net.parameters(), lr = learning_rate, betas=(0.9, 0.9))
@@ -307,14 +320,6 @@ def go():
         optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=dampening_, nesterov=nesterov_)
     else:
         raise ValueError("Uknown optimizer " + optimizer)
-
-   
-    weightfilename = os.path.join(output_directory,"epoch_%d_params.pt" %(epochstart,))
-    optimizerfilename = os.path.join(output_directory,"epoch_%d_optimizer.pt" %(epochstart,))
-    #get network weights
-    with open(weightfilename,"rb") as f:
-        net.load_state_dict(torch.load(f, map_location=torch.device("cpu")))
-    #get optimizer weights
     with open(optimizerfilename,"rb") as f:
         optimizer.load_state_dict(torch.load(f, map_location=torch.device("cpu")))
     
@@ -329,11 +334,6 @@ def go():
         net = net.double()
         params_loss = params_loss.double()
         kinematic_loss = kinematic_loss.float()
-    if gpu>=0:
-        print("moving stuff to GPU")
-        net = net.cuda(gpu)
-        params_loss = params_loss.cuda(gpu)
-        kinematic_loss = kinematic_loss.cuda(gpu)
     
         
     if num_workers == 0:
