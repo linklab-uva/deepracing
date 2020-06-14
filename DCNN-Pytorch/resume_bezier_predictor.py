@@ -321,7 +321,7 @@ def go():
     else:
         raise ValueError("Uknown optimizer " + optimizer)
     with open(optimizerfilename,"rb") as f:
-        optimizer.load_state_dict(torch.load(f, map_location=torch.device("cpu")))
+        optimizer.load_state_dict(torch.load(f, map_location=net.device()))
     
     
     if use_float:
