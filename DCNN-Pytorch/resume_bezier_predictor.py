@@ -309,13 +309,12 @@ def go():
         raise ValueError("Uknown optimizer " + optimizer)
 
    
-    #get network weights
     weightfilename = os.path.join(output_directory,"epoch_%d_params.pt" %(epochstart,))
     optimizerfilename = os.path.join(output_directory,"epoch_%d_optimizer.pt" %(epochstart,))
+    #get network weights
     with open(weightfilename,"rb") as f:
         net.load_state_dict(torch.load(f, map_location=torch.device("cpu")))
     #get optimizer weights
-    optimizer_binary = apiexperiment.get_asset(assetdict[optimizerfilename])
     with open(optimizerfilename,"rb") as f:
         optimizer.load_state_dict(torch.load(f, map_location=torch.device("cpu")))
     
