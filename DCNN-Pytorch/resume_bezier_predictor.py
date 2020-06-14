@@ -1,5 +1,4 @@
 import comet_ml
-from comet_ml import Experiment, ExistingExperiment, APIExperiment
 import torch
 import torch.nn as NN
 import torch.utils.data as data_utils
@@ -27,11 +26,12 @@ import matplotlib.animation as animation
 import time
 import deepracing_models.math_utils.bezier
 import socket
-import io
-from io import BytesIO
 import json
+from comet_ml.api import API, APIExperiment
+import io
+
 #torch.backends.cudnn.enabled = False
-def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, epoch_number, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True):
+def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, epoch_number, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True):
     cum_loss = 0.0
     cum_param_loss = 0.0
     cum_position_loss = 0.0
@@ -55,7 +55,9 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
     s_torch = torch.linspace(0.0,1.0,steps=sample_session_times.shape[0]).unsqueeze(0).repeat(batch_size,1).double()
     if gpu>=0:
         s_torch = s_torch.cuda(gpu)
-    bezier_order = network.params_per_dimension-1
+    bezier_order = network.params_per_dimension-1+int(fix_first_point)
+    if not debug:
+        experiment.set_epoch(epoch_number)
     for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
         if network.input_channels==5:
             image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
@@ -65,7 +67,14 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
             session_times_torch = session_times_torch.cuda(gpu)
             linear_velocities_torch = linear_velocities_torch.cuda(gpu)
         predictions = network(image_torch)
-        predictions_reshape = predictions.transpose(1,2)
+        if fix_first_point:
+            initial_zeros = torch.zeros(image_torch.shape[0],1,2).double()
+            if gpu>=0:
+                initial_zeros = initial_zeros.cuda(gpu)
+            network_output_reshape = predictions.transpose(1,2)
+            predictions_reshape = torch.cat((initial_zeros,network_output_reshape),dim=1)
+        else:
+            predictions_reshape = predictions.transpose(1,2)
         dt = session_times_torch[:,-1]-session_times_torch[:,0]
         current_batch_size=session_times_torch.shape[0]
         current_timesteps=session_times_torch.shape[1]
@@ -83,6 +92,7 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
         
 
         pred_points = torch.matmul(Mpos, predictions_reshape)
+        
         _, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape, t = s_torch_cur, order=1)
         pred_vels_scaled = pred_vels/dt[:,None,None]
         
@@ -103,15 +113,21 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
 
             gt_points_np = gt_points[0,:].detach().cpu().numpy().copy()
             fit_points_np = fit_points[0].cpu().numpy().copy()
+            fit_control_points_np = controlpoints_fit[0].cpu().numpy().copy()
+            
 
 
             gt_vels_np = gt_vels[0].cpu().numpy().copy()
             fit_vels_np = fit_vels_scaled[0].cpu().numpy().copy()
 
 
-            plt.plot(gt_points_np[:,0],gt_points_np[:,1],'r+')
-            plt.plot(fit_points_np[:,0],fit_points_np[:,1],'b-')
-
+            plt.plot(gt_points_np[:,0],gt_points_np[:,1],'g+', label="Ground Truth Waypoints")
+            plt.plot(fit_points_np[:,0],fit_points_np[:,1],'b-', label="Best-fit Bézier Curve")
+            plt.scatter(fit_control_points_np[:,0],fit_control_points_np[:,1],c="r", label="Bézier Curve's Control Points")
+            plt.legend()
+            plt.xlabel("X position (meters)")
+            plt.ylabel("Z position (meters)")
+            #plt.title
             #plt.quiver(gt_points_np[:,0],gt_points_np[:,1], gt_vels_np[:,0], gt_vels_np[:,1], color='g')
             # xmin, xmax = np.min(gt_points_np[:,0]), np.max(gt_points_np[:,0])
             # deltax = xmax-xmin
@@ -120,7 +136,7 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
             # deltaratio = deltaz/deltax
 
             #plt.quiver(fit_points_np[:,0],fit_points_np[:,1], deltaratio*fit_vels_np[:,0], fit_vels_np[:,1], color='r')
-            plt.quiver(gt_points_np[:,0],gt_points_np[:,1], gt_vels_np[:,0], gt_vels_np[:,1], color='g', angles='xy')
+           # plt.quiver(gt_points_np[:,0],gt_points_np[:,1], gt_vels_np[:,0], gt_vels_np[:,1], color='g', angles='xy')
 
             velocity_err = kinematic_loss(fit_vels_scaled, gt_vels).item()
             print("\nMean velocity error: %f\n" % (velocity_err))
@@ -155,78 +171,162 @@ def run_epoch(experiment, network, optimizer, trainLoader, gpu, params_loss, kin
             t.set_postfix({"cum_loss" : cum_loss/num_samples,"cum_param_loss" : cum_param_loss/num_samples,"cum_position_loss" : cum_position_loss/num_samples,"cum_velocity_loss" : cum_velocity_loss/num_samples})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
-    parser.add_argument("experiment_key", type=str,  help="Dataset Configuration file to load")
-    parser.add_argument("epochstart", type=int,  help="Restart training from the given epoch number")
-    parser.add_argument("output_directory", type=str,  help="Where to put output files")
+    parser.add_argument("model_directory", type=str,  help="Where to put the resulting model files")
+    parser.add_argument("epochstart", type=int, default=None,  help="Restart training from the given epoch number")
 
-    parser.add_argument("--rest_api_key",  type=str, default=None,  help="Manually set the REST Api Key from Comet")
-    parser.add_argument("--api_key",  type=str, default=None,  help="Manually set the Api Key from Comet")
+    parser.add_argument("--context_length",  type=int, default=None,  help="Override the context length specified in the config file")
+    parser.add_argument("--epochstart", type=int, default=None,  help="Restart training from the given epoch number")
+    parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
+    parser.add_argument("--override", action="store_true",  help="Delete output directory and replace with new data")
     parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
-    parser.add_argument("--gpu", type=int, default=-1,  help="Select GPU to use")
-    parser.add_argument("--batch_size", type=int, default=None,  help="Select GPU to use")
-    parser.add_argument("--dataset_config",  type=str, default=None,  help="Override the dataset file in Comet")
-    parser.add_argument("--debug",  action="store_true",  help="Just debug locally")
+    parser.add_argument("--batch_size", type=int, default=None,  help="Override the order of the batch size specified in the config file")
+    parser.add_argument("--gpu", type=int, default=None,  help="Override the GPU index specified in the config file")
+    parser.add_argument("--learning_rate", type=float, default=None,  help="Override the learning rate specified in the config file")
+    parser.add_argument("--momentum", type=float, default=None,  help="Override the momentum specified in the config file")
+    parser.add_argument("--dampening", type=float, default=None,  help="Override the dampening specified in the config file")
+    parser.add_argument("--nesterov", action="store_true",  help="Override the nesterov specified in the config file")
+    parser.add_argument("--bezier_order", type=int, default=None,  help="Override the order of the bezier curve specified in the config file")
+    parser.add_argument("--optimizer", type=str, default="SGD",  help="Optimizer to use")
+    parser.add_argument("--velocity_loss", type=float, default=None,  help="Override velocity loss weight in config file")
+    parser.add_argument("--position_loss", type=float, default=None,  help="Override position loss weight in config file")
+    parser.add_argument("--control_point_loss", type=float, default=None,  help="Override control point loss weight in config file")
+    parser.add_argument("--fix_first_point",type=bool,default=False, help="Override fix_first_point in the config file")
     
-
     args = parser.parse_args()
-
-    experiment_key = args.experiment_key
+    output_directory = args.model_directory
     epochstart = args.epochstart
-    api_key = args.api_key
-    tqdm = args.tqdm
-    api_key = args.api_key
-    rest_api_key = args.rest_api_key
-    gpu = args.gpu
-    dataset_config = args.dataset_config
-    debug = args.debug
-
-
-    weightfilename = "epoch_%d_params.pt" %(epochstart,)
-    optimizerfilename = "epoch_%d_optimizer.pt" %(epochstart,)
-
-    experiment_grab = APIExperiment(rest_api_key=rest_api_key, previous_experiment=experiment_key)
-    assets = experiment_grab.get_asset_list()
-    asset_filename_dict = {asset['fileName'] : asset for asset in assets}
-    model_config_yaml = experiment_grab.get_asset(asset_filename_dict['model_config.yaml']['assetId'], return_type="text")
-    print(model_config_yaml)
-    config = yaml.load(model_config_yaml, Loader=yaml.SafeLoader)
-    print(config)
-    if(args.batch_size is not None):
-        batch_size = args.batch_size
-        config["batch_size"] = batch_size
-    else:
-        batch_size=config["batch_size"]
-
+    dataset_config_file = os.path.join(output_directory,"dataset_config.yaml")
+    with open(dataset_config_file) as f:
+        dataset_config = yaml.load(f, Loader = yaml.SafeLoader)
+    config_file = os.path.join(output_directory,"model_config.yaml")
+    with open(config_file) as f:
+        config = yaml.load(f, Loader = yaml.SafeLoader)
+    experiment_config_file = os.path.join(output_directory,"experiment_config.yaml")
+    with open(experiment_config_file) as f:
+        experiment_config = yaml.load(f, Loader = yaml.SafeLoader)
+    experiment_id = experiment_config_file["experiment_key"]
+    print(dataset_config)
+    image_size = dataset_config["image_size"]
+    input_channels = config["input_channels"]
     
+    if args.context_length is not None:
+        context_length = args.context_length
+        config["context_length"]  = context_length
+    else:
+        context_length = config["context_length"]
+    if args.bezier_order is not None:
+        bezier_order = args.bezier_order
+        config["bezier_order"]  = bezier_order
+    else:
+        bezier_order = config["bezier_order"]
+    #num_recurrent_layers = config["num_recurrent_layers"]
+    if args.gpu is not None:
+        gpu = args.gpu
+        config["gpu"]  = gpu
+    else:
+        gpu = config["gpu"] 
+    torch.cuda.set_device(gpu)
+    if args.batch_size is not None:
+        batch_size = args.batch_size
+        config["batch_size"]  = batch_size
+    else:
+        batch_size = config["batch_size"]
+    if args.learning_rate is not None:
+        learning_rate = args.learning_rate
+        config["learning_rate"] = learning_rate
+    else:
+        learning_rate = config["learning_rate"]
+    if args.momentum is not None:
+        momentum = args.momentum
+        config["momentum"] = momentum
+    else:
+        momentum = config["momentum"]
+    if args.dampening is not None:
+        dampening = args.dampening
+        config["dampening"] = dampening
+    else:
+        dampening = config["dampening"]
+    if args.nesterov:
+        nesterov = True
+        config["nesterov"] = nesterov
+    else:
+        nesterov = config["nesterov"]
+    if args.fix_first_point:
+        fix_first_point = True
+        config["fix_first_point"] = fix_first_point
+    else:
+        fix_first_point = config["fix_first_point"]
+    loss_weights = config["loss_weights"]
+    if args.control_point_loss is not None:
+        loss_weights[0] = args.control_point_loss
+        config["loss_weights"] = loss_weights
+    if args.position_loss is not None:
+        loss_weights[1] = args.position_loss
+        config["loss_weights"] = loss_weights
+    if args.velocity_loss is not None:
+        loss_weights[2] = args.velocity_loss
+        config["loss_weights"] = loss_weights
     num_epochs = config["num_epochs"]
     num_workers = config["num_workers"]
     use_float = config["use_float"]
     hidden_dim = config["hidden_dimension"]
-    context_length = config["context_length"]
-    input_channels = config["input_channels"]
-    bezier_order = config["bezier_order"]
-    loss_weights = config["loss_weights"]
-    sequence_length = config["sequence_length"]
     loss_reduction = config["loss_reduction"]
+    use_3dconv = config["use_3dconv"]
     num_recurrent_layers = config.get("num_recurrent_layers",1)
-    optimizer_str = config["optimizer"]
     config["hostname"] = socket.gethostname()
 
-
-    learning_rate = config["learning_rate"]
-    momentum = config["momentum"]
-    nesterov = config["nesterov"]
-    dampening = config["dampening"]
-    
-    
     print("Using config:\n%s" % (str(config)))
-    net = deepracing_models.nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dim, num_recurrent_layers=num_recurrent_layers, params_per_dimension=bezier_order+1 ) 
+    net = deepracing_models.nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dim, num_recurrent_layers=num_recurrent_layers, params_per_dimension=bezier_order + 1 - int(fix_first_point), use_3dconv = use_3dconv) 
     print("net:\n%s" % (str(net)))
     
+    
+
+    
+
+
+    
+    ppd = net.params_per_dimension
+    numones = int(ppd/2)
+    if weighted_loss:
+        timewise_weights = torch.from_numpy( np.hstack( ( np.ones(numones), np.linspace(1,3, ppd - numones ) ) ) )
+    else:
+        timewise_weights = None
     params_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss(time_reduction=loss_reduction)
-    kinematic_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss(time_reduction=loss_reduction)    
+    kinematic_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss(time_reduction=loss_reduction)
+    optimizer = config["optimizer"]
+    if optimizer=="Adam":
+        optimizer = optim.Adam(net.parameters(), lr = learning_rate, betas=(0.9, 0.9))
+    elif optimizer=="RMSprop":
+        optimizer = optim.RMSprop(net.parameters(), lr = learning_rate, momentum = momentum)
+    elif optimizer=="ASGD":
+        optimizer = optim.ASGD(net.parameters(), lr = learning_rate)
+    elif optimizer=="SGD":
+        nesterov_ = momentum>0.0 and nesterov
+        dampening_=dampening*float(not nesterov_)
+        optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=dampening_, nesterov=nesterov_)
+    else:
+        raise ValueError("Uknown optimizer " + optimizer)
 
-
+   
+    api = API()
+    apiexperiment : APIExperiment = api.get_experiment("electric-turtle", "deepracingbezierpredictor", experiment_key)
+    assetlist = apiexperiment.get_asset_list()
+    assetdict = {d['fileName']: d['assetId'] for d in assetlist}
+    #get network weights
+    weightfilename = "epoch_%d_params.pt" %(epochstart,)
+    optimizerfilename = "epoch_%d_optimizer.pt" %(epochstart,)
+    print("Getting network weights from comet")
+    params_binary = apiexperiment.get_asset(assetdict[weightfilename])
+    with io.BytesIO(params_binary) as f:
+        net.load_state_dict(torch.load(f, map_location=torch.device("cpu")))
+    #get optimizer weights
+    print("Getting optimizer weights from comet")
+    optimizer_binary = apiexperiment.get_asset(assetdict[optimizerfilename])
+    with io.BytesIO(optimizer_binary) as f:
+        net.load_state_dict(torch.load(f, map_location=torch.device("cpu")))
+    del apiexperiment
+    
+    
     if use_float:
         print("casting stuff to float")
         net = net.float()
@@ -237,52 +337,19 @@ def go():
         net = net.double()
         params_loss = params_loss.double()
         kinematic_loss = kinematic_loss.float()
-    print("Grabbing model weights from Comet")
-    model_weights = experiment_grab.get_asset(asset_filename_dict[weightfilename]['assetId'], return_type="binary")
-    net.load_state_dict(torch.load(BytesIO(model_weights), map_location=torch.device("cpu")))
     if gpu>=0:
         print("moving stuff to GPU")
         net = net.cuda(gpu)
         params_loss = params_loss.cuda(gpu)
         kinematic_loss = kinematic_loss.cuda(gpu)
-    net.linear_rnn.flatten_parameters()
-    if optimizer_str=="Adam":
-        optimizer = optim.Adam(net.parameters(), lr = learning_rate, betas=(0.9, 0.9))
-    elif optimizer_str=="RMSprop":
-        optimizer = optim.RMSprop(net.parameters(), lr = learning_rate, momentum = momentum)
-    elif optimizer_str=="ASGD":
-        optimizer = optim.ASGD(net.parameters(), lr = learning_rate)
-    elif optimizer_str=="SGD":
-        nesterov_ = momentum>0.0 and nesterov
-        if nesterov_:
-            dampening_=0.0
-        else:
-            dampening_=dampening
-        optimizer = optim.SGD( net.parameters(), lr = learning_rate , momentum = momentum , dampening = dampening_ , nesterov = nesterov_ )
-    else:
-        raise ValueError("Uknown optimizer " + optimizer)
-    print("Grabbing optimizer weights from Comet")
-    optimizer_weights = experiment_grab.get_asset(asset_filename_dict[optimizerfilename]['assetId'], return_type="binary")
-    optimizer.load_state_dict(torch.load(BytesIO(optimizer_weights), map_location=torch.device("cpu")))
     
-    
-    
-    num_workers=0
+        
     if num_workers == 0:
         max_spare_txns = 50
     else:
         max_spare_txns = num_workers
 
-    if args.dataset_config is None:
-        dataset_config_yaml = experiment_grab.get_asset(asset_filename_dict['datasets.yaml']['assetId'], return_type="text")
-        dataset_config = yaml.load(dataset_config_yaml, Loader=yaml.SafeLoader)
-    else:
-        with open(args.dataset_config,'r') as f:
-            dataset_config = yaml.load(f, Loader=yaml.SafeLoader)
-
-    print(dataset_config)
-    image_size = np.array(dataset_config["image_size"])
-    print(image_size)
+    #image_wrapper = deepracing.backend.ImageFolderWrapper(os.path.dirname(image_db))
     
     dsets=[]
     use_optflow = net.input_channels==5
@@ -297,11 +364,11 @@ def go():
         apply_color_jitter = dataset.get("apply_color_jitter",False)
         erasing_probability = dataset.get("erasing_probability",0.0)
         label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
-        label_wrapper.readDatabase(os.path.join(label_folder,"lmdb"), max_spare_txns=max_spare_txns )
+        label_wrapper.readDatabase(os.path.join(label_folder,"lmdb") )
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
 
         image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
-        image_wrapper.readDatabase(os.path.join(image_folder,"image_lmdb"), max_spare_txns=max_spare_txns, mapsize=image_mapsize )
+        image_wrapper.readDatabase(os.path.join(image_folder,"image_lmdb"), mapsize=image_mapsize )
 
 
         curent_dset = PD.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length,\
@@ -318,65 +385,43 @@ def go():
     print("Dataloader of of length %d" %(len(dataloader)))
     netpostfix = "epoch_%d_params.pt"
     optimizerpostfix = "epoch_%d_optimizer.pt"
-    #experiment_grab = APIExperiment(rest_api_key=rest_api_key, previous_experiment=experiment_key)
-    del experiment_grab
-    main_dir = args.output_directory
-    if not debug:
-        experiment = ExistingExperiment(api_key=api_key, previous_experiment=experiment_key, workspace="electric-turtle", project_name="deepracingbezierpredictor")
-        output_directory = os.path.join(main_dir, experiment.get_key())
-        
-        os.makedirs(output_directory, exist_ok=True)
-        experiment.log_parameter("batch_size", batch_size)
-        
-        experiment.add_tag("bezierpredictor")
-        experiment_config = {"experiment_key": experiment.get_key()}
-        yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
-        yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
-        yaml.dump(config, stream=open(os.path.join(output_directory,"model_config.yaml"), "w"), Dumper = yaml.SafeDumper)
-    else:
-        output_directory = os.path.join(main_dir, "debug")
-        os.makedirs(output_directory, exist_ok=True)
+    
+    experiment = comet_ml.ExistingExperiment(workspace="electric-turtle", project_name="deepracingbezierpredictor", \
+        previous_experiment=experiment_id)
+    
+    
     i = epochstart
-    if debug:
-        run_epoch(None, net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, 1, debug=debug, use_tqdm=args.tqdm )
-    else:
-        with experiment.train():
-            while i < num_epochs:
-                time.sleep(2.0)
-                postfix = i + 1
-                print("Running Epoch Number %d" %(postfix))
-                #dset.clearReaders()
-                try:
-                    tick = time.time()
-                    run_epoch(experiment, net, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, postfix, debug=debug, use_tqdm=args.tqdm )
-                    tock = time.time()
-                    print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
-                    experiment.log_epoch_end(postfix)
-                except KeyboardInterrupt as e:
-                    exit(0)
-                except FileNotFoundError as e:
+    with experiment.train():
+        while i < num_epochs:
+            time.sleep(2.0)
+            postfix = i + 1
+            print("Running Epoch Number %d" %(postfix))
+            #dset.clearReaders()
+            try:
+                tick = time.time()
+                run_epoch(experiment, net, fix_first_point, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, postfix, debug=debug, use_tqdm=args.tqdm )
+                tock = time.time()
+                print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
+                experiment.log_epoch_end(postfix)
+            except Exception as e:
+                if isinstance(e, FileExistsError):
                     print(e)
                     exit(-1)
-                except FileExistsError as e:
-                    print(e)
-                    exit(-1)
-                except Exception as e:
-                    print("Restarting epoch %d because %s"%(postfix, str(e)))
-                    modelin = os.path.join(output_directory, netpostfix %(postfix-1))
-                    optimizerin = os.path.join(output_directory,optimizerpostfix %(postfix-1))
-                    net.load_state_dict(torch.load(modelin))
-                    optimizer.load_state_dict(torch.load(optimizerin))
-                    continue
-                modelout = os.path.join(output_directory,netpostfix %(postfix))
-                torch.save(net.state_dict(), modelout)
-                with open(modelout,'rb') as modelfile:
-                    experiment.log_asset(modelfile,file_name=netpostfix %(postfix))
-                optimizerout = os.path.join(output_directory,optimizerpostfix %(postfix))
-                torch.save(optimizer.state_dict(), optimizerout)
-                with open(optimizerout,'rb') as optimizerfile:
-                    experiment.log_asset(optimizerfile,file_name=optimizerpostfix %(postfix))
-                i = i + 1
-    exit(0)
+                print("Restarting epoch %d because %s"%(postfix, str(e)))
+                modelin = os.path.join(output_directory, netpostfix %(postfix-1))
+                optimizerin = os.path.join(output_directory,optimizerpostfix %(postfix-1))
+                net.load_state_dict(torch.load(modelin))
+                optimizer.load_state_dict(torch.load(optimizerin))
+                continue
+            modelout = os.path.join(output_directory,netpostfix %(postfix))
+            torch.save(net.state_dict(), modelout)
+            with open(modelout,'rb') as modelfile:
+                experiment.log_asset(modelfile,file_name=netpostfix %(postfix))
+            optimizerout = os.path.join(output_directory,optimizerpostfix %(postfix))
+            torch.save(optimizer.state_dict(), optimizerout)
+            with open(optimizerout,'rb') as optimizerfile:
+                experiment.log_asset(optimizerfile,file_name=optimizerpostfix %(postfix))
+            i = i + 1
 import logging
 if __name__ == '__main__':
     logging.basicConfig()
