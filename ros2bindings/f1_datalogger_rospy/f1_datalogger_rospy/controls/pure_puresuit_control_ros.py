@@ -28,13 +28,14 @@ import torch.nn as NN
 import torch.utils.data as data_utils
 import deepracing_models.nn_models.Models
 import matplotlib.pyplot as plt
-from f1_datalogger_msgs.msg import TimestampedPacketCarStatusData, TimestampedPacketCarTelemetryData, TimestampedPacketMotionData, PacketCarTelemetryData, PacketMotionData, CarMotionData, CarStatusData, CarTelemetryData
+from f1_datalogger_msgs.msg import TimestampedPacketCarStatusData, TimestampedPacketCarTelemetryData, TimestampedPacketMotionData, PacketCarTelemetryData, PacketMotionData, CarMotionData, CarStatusData, CarTelemetryData, PacketHeader
 from geometry_msgs.msg import Vector3Stamped, Vector3
 from std_msgs.msg import Float64
 import rclpy
 from rclpy.node import Node
 from rclpy import Parameter
 from copy import deepcopy
+
 import timeit
 class PurePursuitControllerROS(Node):
     def __init__(self, lookahead_gain = 0.35, L = 3.617,\
@@ -110,19 +111,13 @@ class PurePursuitControllerROS(Node):
         self.current_status_data = msg.udp_packet.car_status_data[0]
 
     def velocityControl(self, msg : TimestampedPacketMotionData):
-        #print("got some motion data")
-        # ierr_max = 50.0
-        # prev_err = 0.0
-        # dt=0.01
-        # pgain = self.pgain
-        # igain = self.igain
-        # dgain = self.dgain
         self.current_motion_packet = deepcopy(msg)
         packet : PacketMotionData = self.current_motion_packet.udp_packet
+        header : PacketHeader = packet.header
         motion_data_vec : list = packet.car_motion_data
         if len(motion_data_vec)==0:
             return
-        self.current_motion_data = motion_data_vec[0]
+        self.current_motion_data = motion_data_vec[header.player_car_index]
         velrosstamped : Vector3Stamped = self.current_motion_data.world_velocity
         if (velrosstamped.header.frame_id == ""):
            return
@@ -166,8 +161,8 @@ class PurePursuitControllerROS(Node):
             self.controller.setControl(delta,1.0,0.0)
         else:
             self.controller.setControl(delta,0.0,1.0)
-        if self.use_drs and self.current_status_data.m_drs_allowed==1 and self.current_telemetry_data.drs==0:
-            self.controller.pushDRS()
+        # if self.use_drs and self.current_status_data.m_drs_allowed==1 and self.current_telemetry_data.drs==0:
+        #     self.controller.pushDRS()
     def lateralControl(self):
         timer = timeit.Timer(stmt=self.setControl, timer=timeit.default_timer)
         while self.running:
