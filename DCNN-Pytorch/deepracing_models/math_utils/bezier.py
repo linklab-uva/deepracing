@@ -25,18 +25,19 @@ def evalBezier(M,control_points):
     return torch.matmul(M,control_points)
     
 def bezierDerivative(control_points, t = None, M = None, order = 1 ):
-    if ((t is None) and (M is None)) or ((t is not None) and (M is not None)):
-        raise ValueError("One of t or M must be set, but not both")
-    n = control_points.shape[1]-1
-    if t is not None:
-        Mderiv = bezierM(t,n-order)
+    if (bool(t is not None) ^ bool(M is not None)):
+        n = control_points.shape[1]-1
+        if t is not None:
+            Mderiv = bezierM(t,n-order)
+        else:
+            Mderiv = M
+        pdiff =  control_points[:,1:] - control_points[:,:-1]
+        for i in range(1,order):
+            pdiff =  pdiff[:,1:] - pdiff[:,:-1]
+        factor = torch.prod(torch.linspace(n,n-order+1,order))
+        return Mderiv, factor*torch.matmul(Mderiv, pdiff)
     else:
-        Mderiv = M
-    pdiff =  control_points[:,1:] - control_points[:,:-1]
-    for i in range(1,order):
-        pdiff =  pdiff[:,1:] - pdiff[:,:-1]
-    factor = torch.prod(torch.linspace(n,n-order+1,order))
-    return Mderiv, factor*torch.matmul(Mderiv, pdiff)
+        raise ValueError("One of t or M must be set, but not both")
 
 def bezierLsqfit(points, n, t = None, M = None, built_in_lstq=False):
     if ((t is None) and (M is None)) or ((t is not None) and (M is not None)):
