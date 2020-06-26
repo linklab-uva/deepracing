@@ -176,20 +176,23 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         self.get_logger().info('Loading model file: %s' % (model_file) )
         self.net.load_state_dict(torch.load(model_file,map_location=torch.device("cpu")))
         self.get_logger().info('Loaded model file: %s' % (model_file) )
-        self.get_logger().info('Moving model params to GPU')
-        self.net.cuda(gpu)
-        self.get_logger().info('Moved model params to GPU')
-        self.net.eval()
+        self.get_logger().info('Moving model params to GPU %d' % (self.gpu,))
+        self.net = self.net.cuda(gpu)
+        self.net = self.net.eval()
+
+        self.get_logger().info('Moved model params to GPU %d' % (self.gpu,))
         self.image_buffer = RB(self.net.context_length,dtype=(float,(3,66,200)))
-        self.s_torch = torch.linspace(0,1,self.num_sample_points).unsqueeze(0).double().cuda(self.gpu)
+        self.s_torch = torch.linspace(0,1,self.num_sample_points, requires_grad=False).unsqueeze(0).double().cuda(self.gpu)
         self.bezier_order = self.net.params_per_dimension-1+int(self.fix_first_point)
-        self.bezierM = mu.bezierM(self.s_torch,self.bezier_order)
+        self.bezierM = mu.bezierM(self.s_torch,self.bezier_order).double().cuda(self.gpu)
         self.bezierMderiv = mu.bezierM(self.s_torch,self.bezier_order-1)
         self.buffertimer = timeit.Timer(stmt=self.addToBuffer)
         if self.fix_first_point:
             self.initial_zeros = torch.zeros(1,1,2).double()
             if self.gpu>=0:
                 self.initial_zeros = self.initial_zeros.cuda(self.gpu) 
+        self.bezierM.requires_grad = False
+        self.bezierMderiv.requires_grad = False
         if use_compressed_images_param.get_parameter_value().bool_value:
             self.image_sub = self.create_subscription( CompressedImage, '/f1_screencaps/cropped/compressed', self.compressedImageCallback, 10)
         else:
@@ -220,26 +223,28 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         stamp = self.rosclock.now().to_msg()
         imnp = np.array(self.image_buffer).astype(np.float64).copy()
         imtorch = torch.from_numpy(imnp.copy())
+        imtorch.required_grad = False
         if ( not imtorch.shape[0] == self.net.context_length ):
             return None, None, None
-        inputtorch = imtorch
-        if self.fix_first_point:  
-            bezier_control_points = torch.cat((self.initial_zeros,self.net(inputtorch.unsqueeze(0).cuda(self.gpu)).transpose(1,2)),dim=1)    
-        else:
-            bezier_control_points = self.net(inputtorch.unsqueeze(0).cuda(self.gpu)).transpose(1,2)
-       # print(self.bezierM.shape)
-       # print(bezier_control_points.shape)
-        evalpoints = torch.matmul(self.bezierM, bezier_control_points)
-        x_samp = evalpoints[0].cpu().detach().numpy()
-        x_samp[:,0]*=self.xscale_factor
-        _, evalvel = mu.bezierDerivative(bezier_control_points, M = self.bezierMderiv)
-        v_samp = self.velocity_scale_factor*(1.0/self.deltaT)*(evalvel[0].cpu().detach().numpy())
+        inputtorch : torch.Tensor = imtorch.unsqueeze(0).double().cuda(self.gpu)
+        self.get_logger().debug("inputtorch is on device %s" % (str(inputtorch.get_device())))
+        with torch.no_grad():
+            network_predictions = self.net(inputtorch)
+            if self.fix_first_point:  
+                bezier_control_points = torch.cat((self.initial_zeros,network_predictions.transpose(1,2)),dim=1)    
+            else:
+                bezier_control_points = network_predictions.transpose(1,2)
+            evalpoints = torch.matmul(self.bezierM, bezier_control_points)
+            x_samp = evalpoints[0].cpu().detach().numpy()
+            x_samp[:,0]*=self.xscale_factor
+            _, evalvel = mu.bezierDerivative(bezier_control_points, M = self.bezierMderiv)
+            v_samp = self.velocity_scale_factor*(1.0/self.deltaT)*(evalvel[0].cpu().numpy())
         
         x_samp[:,1]-=self.z_offset
         #print(x_samp)
         distances_samp = la.norm(x_samp, axis=1)
         if self.plot:
-            bezier_control_points_np = bezier_control_points[0].cpu().detach().numpy()
+            bezier_control_points_np = bezier_control_points[0].cpu().numpy()
             plotmsg : BCMessage = BCMessage(header = Header(stamp=stamp,frame_id="car"), control_points_x = bezier_control_points_np[:,0], control_points_z = bezier_control_points_np[:,1] )
             self.path_publisher.publish(plotmsg)
         return x_samp, v_samp, distances_samp
