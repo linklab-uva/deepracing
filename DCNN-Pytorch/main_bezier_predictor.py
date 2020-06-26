@@ -27,9 +27,10 @@ import time
 import deepracing_models.math_utils.bezier
 import socket
 import json
+from comet_ml.api import API, APIExperiment
 
 #torch.backends.cudnn.enabled = False
-def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, epoch_number, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True):
+def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, epoch_number, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True, position_indices=[0,2]):
     cum_loss = 0.0
     cum_param_loss = 0.0
     cum_position_loss = 0.0
@@ -80,8 +81,8 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu,
         s_torch_cur = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
         
         
-        gt_points = positions_torch[:,:,[0,2]]
-        gt_vels = linear_velocities_torch[:,:,[0,2]]
+        gt_points = positions_torch[:,:,position_indices]
+        gt_vels = linear_velocities_torch[:,:,position_indices]
         Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(gt_points, bezier_order, t = s_torch_cur)
         fit_points = torch.matmul(Mpos, controlpoints_fit)
 
@@ -174,7 +175,6 @@ def go():
     parser.add_argument("output_directory", type=str,  help="Where to put the resulting model files")
 
     parser.add_argument("--context_length",  type=int, default=None,  help="Override the context length specified in the config file")
-    parser.add_argument("--epochstart", type=int, default=1,  help="Restart training from the given epoch number")
     parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
     parser.add_argument("--override", action="store_true",  help="Delete output directory and replace with new data")
     parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
@@ -195,15 +195,14 @@ def go():
     args = parser.parse_args()
 
     dataset_config_file = args.dataset_config_file
-    config_file = args.model_config_file
     debug = args.debug
-    epochstart = args.epochstart
     weighted_loss = args.weighted_loss
-    with open(config_file) as f:
-        config = yaml.load(f, Loader = yaml.SafeLoader)
 
     with open(dataset_config_file) as f:
         dataset_config = yaml.load(f, Loader = yaml.SafeLoader)
+    config_file = args.model_config_file
+    with open(config_file) as f:
+        config = yaml.load(f, Loader = yaml.SafeLoader)
     print(dataset_config)
     image_size = dataset_config["image_size"]
     input_channels = config["input_channels"]
@@ -334,6 +333,8 @@ def go():
     dsets=[]
     use_optflow = net.input_channels==5
     dsetfolders = []
+    position_indices = dataset_config.get("position_indices",[0,2])
+    print("Extracting position indices: %s" %(str(position_indices)))
     for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
         root_folder = dataset["root_folder"]
@@ -345,8 +346,8 @@ def go():
         erasing_probability = dataset.get("erasing_probability",0.0)
         label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
         label_wrapper.readDatabase(os.path.join(label_folder,"lmdb") )
-        image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
 
+        image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
         image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
         image_wrapper.readDatabase(os.path.join(image_folder,"image_lmdb"), mapsize=image_mapsize )
 
@@ -367,7 +368,10 @@ def go():
     optimizerpostfix = "epoch_%d_optimizer.pt"
     
     main_dir = args.output_directory
-    if not debug:
+    if debug:
+        output_directory = os.path.join(main_dir, "debug")
+        os.makedirs(output_directory, exist_ok=True)
+    else:
         experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingbezierpredictor")
         output_directory = os.path.join(main_dir, experiment.get_key())
         if os.path.isdir(output_directory) :
@@ -386,12 +390,9 @@ def go():
         experiment.log_asset(os.path.join(output_directory,"dataset_config.yaml"),file_name="datasets.yaml")
         experiment.log_asset(os.path.join(output_directory,"experiment_config.yaml"),file_name="experiment_config.yaml")
         experiment.log_asset(os.path.join(output_directory,"model_config.yaml"),file_name="model_config.yaml")
-    else:
-        output_directory = os.path.join(main_dir, "debug")
-        os.makedirs(output_directory, exist_ok=True)
-    i = 0
+        i = 0
     if debug:
-        run_epoch(None, net, fix_first_point , optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, 1, debug=debug, use_tqdm=args.tqdm )
+        run_epoch(None, net, fix_first_point , optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, 1, debug=debug, use_tqdm=args.tqdm, position_indices=position_indices)
     else:
         with experiment.train():
             while i < num_epochs:
@@ -419,6 +420,7 @@ def go():
                 torch.save(net.state_dict(), modelout)
                 with open(modelout,'rb') as modelfile:
                     experiment.log_asset(modelfile,file_name=netpostfix %(postfix))
+                    #experiment.log_model("epoch_%d" %(postfix), modelfile,file_name=netpostfix %(postfix))
                 optimizerout = os.path.join(output_directory,optimizerpostfix %(postfix))
                 torch.save(optimizer.state_dict(), optimizerout)
                 with open(optimizerout,'rb') as optimizerfile:
