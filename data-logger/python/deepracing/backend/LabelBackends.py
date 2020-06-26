@@ -113,7 +113,7 @@ class PoseSequenceLabelLMDBWrapper():
                     write_txn.put(key.encode(self.encoding), label.SerializeToString())
         env.close()
     def clearStaleReaders(self):
-        self.env.reader_check()
+        return self.env.reader_check()
     def resetEnv(self):
         if self.env is not None:
             path = self.env.path()
@@ -137,7 +137,7 @@ class PoseSequenceLabelLMDBWrapper():
         with self.env.begin(write=False) as txn:
             entry_in = txn.get( key.encode( self.encoding ) )#.tobytes()
             if (entry_in is None):
-                raise ValueError("Invalid key on label database: %s" %(key))
+                raise ValueError("Key %s does not exist in lmdb at path %s." %(key,self.env.path()))
             rtn.ParseFromString(entry_in)
         return rtn
     def getNumLabels(self):
