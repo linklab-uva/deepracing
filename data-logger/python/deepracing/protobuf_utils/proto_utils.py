@@ -201,21 +201,19 @@ def getAllImageFilePackets(image_data_folder: str, use_json: bool):
             print(ex)
             continue
    return image_packets
-def quaternionFromScipy(quaternion : Rot):
-   return quaternionFromNumpy(quaternion.as_quat())
-def quaternionFromNumpy(quaternionnp : np.ndarray):
-   rtn = Quaterniond_pb2.Quaterniond()
-   rtn.x = quaternionnp[0]
-   rtn.y = quaternionnp[1]
-   rtn.z = quaternionnp[2]
-   rtn.w = quaternionnp[3]
-   return rtn
-def vectorFromNumpy(vectornp : np.ndarray):
-   rtn =  Vector3d_pb2.Vector3d()
-   rtn.x = vectornp[0]
-   rtn.y = vectornp[1]
-   rtn.z = vectornp[2]
-   return rtn
+def quaternionFromScipy(quaternion : Rot, quaternionpb = Quaterniond_pb2.Quaterniond()):
+   return quaternionFromNumpy(quaternion.as_quat(), quaternionpb = quaternionpb)
+def quaternionFromNumpy(quaternionnp : np.ndarray, quaternionpb = Quaterniond_pb2.Quaterniond()):
+   quaternionpb.x = quaternionnp[0]
+   quaternionpb.y = quaternionnp[1]
+   quaternionpb.z = quaternionnp[2]
+   quaternionpb.w = quaternionnp[3]
+   return quaternionpb
+def vectorFromNumpy(vectornp : np.ndarray, vectorpb =  Vector3d_pb2.Vector3d()):
+   vectorpb.x = vectornp[0]
+   vectorpb.y = vectornp[1]
+   vectorpb.z = vectornp[2]
+   return vectorpb
 
 
 def extractAngularVelocity(packet):
