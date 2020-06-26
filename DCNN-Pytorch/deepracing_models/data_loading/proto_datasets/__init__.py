@@ -1,6 +1,7 @@
 from .PoseSequenceDataset import PoseSequenceDataset
 from .ControlOutputDataset import ControlOutputDataset
 from .ControlOutputSequenceDataset import ControlOutputSequenceDataset
+from .MultiAgentDataset import MultiAgentDataset
 import os
 import deepracing.backend
 import numpy as np
