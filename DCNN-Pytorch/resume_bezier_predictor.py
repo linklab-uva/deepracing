@@ -346,6 +346,7 @@ def go():
     dsets=[]
     use_optflow = net.input_channels==5
     dsetfolders = []
+    apply_color_jitter = dataset_config.get("apply_color_jitter",False)
     for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
         root_folder = dataset["root_folder"]
@@ -353,7 +354,6 @@ def go():
         label_folder = os.path.join(root_folder,"pose_sequence_labels")
         image_folder = os.path.join(root_folder,"images")
         key_file = os.path.join(root_folder,"goodkeys.txt")
-        apply_color_jitter = dataset.get("apply_color_jitter",False)
         erasing_probability = dataset.get("erasing_probability",0.0)
         label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
         label_wrapper.readDatabase(os.path.join(label_folder,"lmdb") )
