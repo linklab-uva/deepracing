@@ -1,0 +1,13 @@
+#datasets definition
+image_size: [66, 200]
+position_indices: [0, 1]
+datasets:
+  -
+    root_folder: /p/DeepRacing/rosbags/racetrack_center_train
+    key_file: goodkeys.txt
+  -
+    root_folder: /p/DeepRacing/rosbags/racetrack_inner_train
+    key_file: goodkeys.txt
+  -
+    root_folder: /p/DeepRacing/rosbags/racetrack_outer_train
+    key_file: goodkeys.txt
