@@ -60,7 +60,7 @@ imagetimes = []
 
 odomsunsorted = []
 imagemsgsunsorted = []
-for topic, msg, t in tqdm(iterable=bag.read_messages(topics=topics), desc="Loading messages from bag file"):
+for topic, msg, t in tqdm(iterable=bag.read_messages(topics=topics), desc="Loading messages from bag file", total=bag.get_message_count()):
     if topic==topicdict["images"]:
         stamp = msg.header.stamp
         imagemsgsunsorted.append(msg)
