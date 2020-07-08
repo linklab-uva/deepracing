@@ -39,7 +39,7 @@ def LabelPacketSortKey(packet):
 class PoseSequenceDataset(Dataset):
     def __init__(self, image_db_wrapper, label_db_wrapper, keyfile, context_length, \
         image_size = np.array((66,200)), return_optflow=False, use_float32=False,\
-            erasing_probability=0.0, apply_color_jitter = False, geometric_variants = True):
+            erasing_probability=0.0, apply_color_jitter = False, geometric_variants = True, lateral_dimension=0):
         super(PoseSequenceDataset, self).__init__()
         self.image_db_wrapper = image_db_wrapper
         self.label_db_wrapper = label_db_wrapper
@@ -49,6 +49,7 @@ class PoseSequenceDataset(Dataset):
         self.totensor = transforms.ToTensor()
         self.topil = transforms.ToPILImage()
         self.geometric_variants = geometric_variants
+        self.lateral_dimension = lateral_dimension
         self.use_float32 = use_float32
         if erasing_probability>0.0:
             self.erasing = transforms.RandomErasing(p=erasing_probability)
@@ -88,8 +89,8 @@ class PoseSequenceDataset(Dataset):
         packetrange_optflow = range(images_start-1, images_end)
         keys_optflow = [self.db_keys[i] for i in packetrange_optflow]
 
-        packets = [self.label_db_wrapper.getPoseSequenceLabel(keys[i]) for i in range(len(keys))]
-        label_packet = packets[-1]
+       # packets = [self.label_db_wrapper.getPoseSequenceLabel(keys[i]) for i in range(len(keys))]
+        label_packet = self.label_db_wrapper.getPoseSequenceLabel(keys[-1])
 
 
         session_times = np.array([p.session_time for p in label_packet.subsequent_poses ])
@@ -118,8 +119,8 @@ class PoseSequenceDataset(Dataset):
         imagesnp = [ resizeImage(self.image_db_wrapper.getImage(keys_optflow[i]), self.image_size) for i in range(len(keys_optflow)) ]
         if self.geometric_variants and random.choice([True,False]):
             pilimages = [transforms.functional.hflip(self.topil(img)) for img in imagesnp]
-            positions_torch[:,0]*=-1.0
-            linear_velocities_torch[:,0]*=-1.0
+            positions_torch[:,self.self.lateral_dimension]*=-1.0
+            linear_velocities_torch[:,self.self.lateral_dimension]*=-1.0
             angular_velocities_torch[:,[1,2]]*=-1.0
         else:
             pilimages = [self.topil(img) for img in imagesnp]
