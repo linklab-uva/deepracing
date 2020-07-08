@@ -1,4 +1,5 @@
 import torch
+torch.backends.cudnn.enabled = False
 from deepracing_models.nn_models.Models import AdmiralNetCurvePredictor as AdmiralNetCurvePredictor
 import time
 print("Building the network")
