@@ -60,6 +60,10 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu,
     for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
         if network.input_channels==5:
             image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
+        image_torch = image_torch.double()
+        positions_torch = positions_torch.double()
+        session_times_torch = session_times_torch.double()
+        linear_velocities_torch = linear_velocities_torch.double()
         if gpu>=0:
             image_torch = image_torch.cuda(gpu)
             positions_torch = positions_torch.cuda(gpu)
