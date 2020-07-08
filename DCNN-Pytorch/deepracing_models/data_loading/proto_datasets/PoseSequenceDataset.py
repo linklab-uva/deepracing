@@ -83,7 +83,7 @@ class PoseSequenceDataset(Dataset):
     def __getitem__(self, index):
         images_start = index + 1
         images_end = images_start + self.context_length
-        packetrange = range(images_start, images_end)
+        packetrange = range(images_start-1, images_end)
         keys = [self.db_keys[i] for i in packetrange]
 
        # packets = [self.label_db_wrapper.getPoseSequenceLabel(keys[i]) for i in range(len(keys))]
