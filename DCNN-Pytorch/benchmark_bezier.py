@@ -10,7 +10,10 @@ print("Running the network in a loop")
 while running:
   try:
       inp = torch.randn(1,5,3,66,200, device=torch.device("cuda:0"), dtype=torch.float64)
+      tick = time.time()
       output = network(inp)
+      tock = time.time()
+      print( "Ran the network in %f seconds" % ( tock - tick ) )
       time.sleep(0.1)
   except KeyboardInterrupt as e:
       running = False
