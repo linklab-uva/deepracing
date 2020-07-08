@@ -107,8 +107,8 @@ class PoseSequenceDataset(Dataset):
         imagesnp = [ resizeImage(self.image_db_wrapper.getImage(keys[i]), self.image_size) for i in range(len(keys)) ]
         if self.geometric_variants and random.choice([True,False]):
             pilimages = [transforms.functional.hflip(self.topil(img)) for img in imagesnp]
-            positions_torch[:,self.self.lateral_dimension]*=-1.0
-            linear_velocities_torch[:,self.self.lateral_dimension]*=-1.0
+            positions_torch[:,self.lateral_dimension]*=-1.0
+            linear_velocities_torch[:,self.lateral_dimension]*=-1.0
             angular_velocities_torch[:,[1,2]]*=-1.0
         else:
             pilimages = [self.topil(img) for img in imagesnp]
