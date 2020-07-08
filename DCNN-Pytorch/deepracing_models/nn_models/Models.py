@@ -141,7 +141,7 @@ class CNNLSTM(nn.Module):
 
         return torch.clamp(predictions, -1.0, 1.0)
 
-def generate3DConv(input_channels: int, relu, tanh):
+def generate3DConv(input_channels, relu, tanh):
     conv3d1 = nn.Conv3d(input_channels, 10, kernel_size=(5,3,3), stride = (1,2,2), padding=(2,0,0) )
     Norm3d_1 = nn.BatchNorm3d(10)
     conv3d2 = nn.Conv3d(10, 20, kernel_size=(5,3,3), stride = (1,2,2), padding=(2,0,0) )
@@ -312,7 +312,7 @@ class AdmiralNetCurvePredictor(nn.Module):
         self.params_per_dimension = params_per_dimension
         self.context_length = context_length
         self.num_recurrent_layers = num_recurrent_layers
-        self.output_dimension=output_dimension
+        self.output_dimension = output_dimension
         #activations
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
