@@ -86,37 +86,25 @@ class PoseSequenceDataset(Dataset):
         packetrange = range(images_start, images_end)
         keys = [self.db_keys[i] for i in packetrange]
 
-        packetrange_optflow = range(images_start-1, images_end)
-        keys_optflow = [self.db_keys[i] for i in packetrange_optflow]
-
        # packets = [self.label_db_wrapper.getPoseSequenceLabel(keys[i]) for i in range(len(keys))]
         label_packet = self.label_db_wrapper.getPoseSequenceLabel(keys[-1])
 
 
-        session_times = np.array([p.session_time for p in label_packet.subsequent_poses ])
-        positions, quats, linear_velocities, angular_velocities = deepracing.protobuf_utils.labelPacketToNumpy(label_packet)
+        session_times_np = np.array([p.session_time for p in label_packet.subsequent_poses ])
+        positions_np, quats_np, linear_velocities_np, angular_velocities_np = deepracing.protobuf_utils.labelPacketToNumpy(label_packet)
         
-        
-        positions_np = positions
-        linear_velocities_np = linear_velocities
-        angular_velocities_np = angular_velocities
-        quats_np = quats
-        session_times_np = session_times
-
-            
-      
        # tick = time.clock()
         #tock = time.clock()
        # print("loaded images in %f seconds." %(tock-tick))
-        positions_torch = torch.from_numpy(positions_np)
-        quats_torch = torch.from_numpy(quats_np)
-        linear_velocities_torch = torch.from_numpy(linear_velocities_np)
-        angular_velocities_torch = torch.from_numpy(angular_velocities_np)
-        session_times_torch = torch.from_numpy(session_times_np)
+        positions_torch = torch.from_numpy(positions_np).double()
+        quats_torch = torch.from_numpy(quats_np).double()
+        linear_velocities_torch = torch.from_numpy(linear_velocities_np).double()
+        angular_velocities_torch = torch.from_numpy(angular_velocities_np).double()
+        session_times_torch = torch.from_numpy(session_times_np).double()
         #pos_spline_params = torch.from_numpy(np.vstack((np.array(label_packet.position_spline.XParams),np.array(label_packet.position_spline.ZParams))))
        # vel_spline_params = torch.from_numpy(np.vstack((np.array(label_packet.velocity_spline.XParams),np.array(label_packet.velocity_spline.ZParams))))
        # knots = torch.from_numpy(np.array(label_packet.position_spline.knots))
-        imagesnp = [ resizeImage(self.image_db_wrapper.getImage(keys_optflow[i]), self.image_size) for i in range(len(keys_optflow)) ]
+        imagesnp = [ resizeImage(self.image_db_wrapper.getImage(keys[i]), self.image_size) for i in range(len(keys)) ]
         if self.geometric_variants and random.choice([True,False]):
             pilimages = [transforms.functional.hflip(self.topil(img)) for img in imagesnp]
             positions_torch[:,self.self.lateral_dimension]*=-1.0
@@ -128,27 +116,6 @@ class PoseSequenceDataset(Dataset):
             pilimages = [self.colorjitter(img) for img in pilimages]
        # pilimages = [self.erasing(img) for img in pilimages]    
         images_torch = torch.stack( [ self.erasing(self.totensor(img)) for img in pilimages[1:] ])
-        if self.return_optflow:
-            imagesnp_grey = [ cv2.cvtColor(np.array(impil.copy()),cv2.COLOR_RGB2GRAY) for impil in pilimages ]
-            opt_flow_np = np.array([cv2.calcOpticalFlowFarneback(imagesnp_grey[i-1], imagesnp_grey[i], None, 0.5, 3, 15, 3, 5, 1.2, 0).transpose(2,0,1) for i in range(1,len(imagesnp_grey))])
-            opt_flow_torch = torch.from_numpy( opt_flow_np ).type_as(images_torch)
-        else:
-            opt_flow_torch = torch.tensor(np.nan)
-        if self.use_float32:
-            images_torch = images_torch.float()
-            opt_flow_torch = opt_flow_torch.float()
-            positions_torch = positions_torch.float()
-            quats_torch = quats_torch.float()
-            linear_velocities_torch = linear_velocities_torch.float()
-            angular_velocities_torch = angular_velocities_torch.float()
-            session_times_torch = session_times_torch.float()
-        else:
-            images_torch = images_torch.double()
-            opt_flow_torch = opt_flow_torch.double()
-            positions_torch = positions_torch.double()
-            quats_torch = quats_torch.double()
-            linear_velocities_torch = linear_velocities_torch.double()
-            angular_velocities_torch = angular_velocities_torch.double()
-            session_times_torch = session_times_torch.double()
+       
 
-        return images_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch#, pos_spline_params, vel_spline_params, knots
+        return images_torch, torch.tensor(np.nan), positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch#, pos_spline_params, vel_spline_params, knots
