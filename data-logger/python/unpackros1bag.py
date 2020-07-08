@@ -222,10 +222,20 @@ for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
 
     labelposesglobal = np.array([np.eye(4).astype(np.float64) for i in range(lookahead_indices)])
     # labelposesglobal[:,0:3,0:3] = odom[i:imax]
-    labelposesglobal[:,0:3,0:3] = rotation_samples_matrices
+    #labelposesglobal[:,0:3,0:3] = rotation_samples_matrices
+    for j in range(lookahead_indices):
+        forward = np.hstack((velocity_samples[j],np.array([0.0]))).copy()
+        forward = forward/np.linalg.norm(forward)
+        up = np.array((0.0,0.0,1.0))
+        left = np.cross(up,forward)
+        left = left/np.linalg.norm(left)
+        labelposesglobal[j,0:3,0] = forward
+        labelposesglobal[j,0:3,1] = left
+        labelposesglobal[j,0:3,2] = up
     
     #labelposesglobal[:,0:3,3] = positionslocal[localsplinedelta:-localsplinedelta]
     labelposesglobal[:,0:2,3] = position_samples
+    
 
     # labelvelsglobal = imagevelocities[i:imax].transpose()
     labelvelsglobal = velocity_samples.transpose()
