@@ -333,7 +333,7 @@ def go():
     dsets=[]
     use_optflow = net.input_channels==5
     dsetfolders = []
-    position_indices = dataset_config.get("position_indices",[0,2])
+    position_indices = dataset_config["position_indices"]
     print("Extracting position indices: %s" %(str(position_indices)))
     for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
@@ -392,7 +392,7 @@ def go():
         experiment.log_asset(os.path.join(output_directory,"model_config.yaml"),file_name="model_config.yaml")
         i = 0
     if debug:
-        run_epoch(None, net, fix_first_point , optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, 1, debug=debug, use_tqdm=args.tqdm, position_indices=position_indices)
+        run_epoch(None, net, fix_first_point , optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, 1, debug=True, use_tqdm=args.tqdm, position_indices=position_indices)
     else:
         with experiment.train():
             while i < num_epochs:
@@ -402,7 +402,7 @@ def go():
                 #dset.clearReaders()
                 try:
                     tick = time.time()
-                    run_epoch(experiment, net, fix_first_point, optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, postfix, debug=debug, use_tqdm=args.tqdm )
+                    run_epoch(experiment, net, fix_first_point , optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, postfix, debug=False, use_tqdm=args.tqdm, position_indices=position_indices)
                     tock = time.time()
                     print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
                     experiment.log_epoch_end(postfix)
