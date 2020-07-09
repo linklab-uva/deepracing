@@ -5,20 +5,20 @@ import torch.utils.data as data
 import numpy as np
 import torch
 import torch.nn.utils.rnn as RNNUtils
-import torchvision.models as visionmodels
-import torchvision.models.vgg
 import sys
-class ResNetAdapter(nn.Module):
-    def __init__(self, pretrained = True):
-        super(ResNetAdapter, self).__init__()
-        resnet_model = visionmodels.resnet152(pretrained = pretrained)
-        self.activation = nn.Tanh()
-        self.features = nn.Sequential(*list(resnet_model.children())[:-2])
-    def forward(self, x):
-        batch_size = x.shape[0]
-        x = self.features(x)
-        x = x.view(batch_size, -1)
-        return x
+# import torchvision.models as visionmodels
+# import torchvision.models.vgg
+# class ResNetAdapter(nn.Module):
+#     def __init__(self, pretrained = True):
+#         super(ResNetAdapter, self).__init__()
+#         resnet_model = visionmodels.resnet152(pretrained = pretrained)
+#         self.activation = nn.Tanh()
+#         self.features = nn.Sequential(*list(resnet_model.children())[:-2])
+#     def forward(self, x):
+#         batch_size = x.shape[0]
+#         x = self.features(x)
+#         x = x.view(batch_size, -1)
+#         return x
 
 class PilotNet(nn.Module):
     """PyTorch Implementation of NVIDIA's PilotNet"""
