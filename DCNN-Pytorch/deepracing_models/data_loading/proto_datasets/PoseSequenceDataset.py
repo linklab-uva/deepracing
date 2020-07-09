@@ -104,13 +104,12 @@ class PoseSequenceDataset(Dataset):
        # vel_spline_params = torch.from_numpy(np.vstack((np.array(label_packet.velocity_spline.XParams),np.array(label_packet.velocity_spline.ZParams))))
        # knots = torch.from_numpy(np.array(label_packet.position_spline.knots))
         imagesnp = [ resizeImage(self.image_db_wrapper.getImage(keys[i]), self.image_size) for i in range(len(keys)) ]
+        pilimages = [self.topil(img) for img in imagesnp]
         if self.geometric_variants and random.choice([True,False]):
-            pilimages = [transforms.functional.hflip(self.topil(img)) for img in imagesnp]
+            pilimages = [transforms.functional.hflip(img) for img in pilimages]
             positions_torch[:,self.lateral_dimension]*=-1.0
             linear_velocities_torch[:,self.lateral_dimension]*=-1.0
             angular_velocities_torch[:,[i for i in range(3) if i!=self.lateral_dimension]]*=-1.0
-        else:
-            pilimages = [self.topil(img) for img in imagesnp]
         if (not isinstance(self.colorjitter,IdentifyTransform)) and random.choice([True,False]):
             pilimages = [self.colorjitter(img) for img in pilimages]
        # pilimages = [self.erasing(img) for img in pilimages]    

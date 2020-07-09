@@ -342,6 +342,7 @@ def go():
     use_optflow = net.input_channels==5
     dsetfolders = []
     position_indices = dataset_config["position_indices"]
+    lateral_dimension = dataset_config["lateral_dimension"]
     print("Extracting position indices: %s" %(str(position_indices)))
     for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
@@ -361,7 +362,7 @@ def go():
 
 
         curent_dset = PD.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length,\
-                     image_size = image_size, apply_color_jitter=apply_color_jitter, erasing_probability=erasing_probability, geometric_variants = True, lateral_dimension=position_indices[1])
+                     image_size = image_size, apply_color_jitter=apply_color_jitter, erasing_probability=erasing_probability, geometric_variants = True, lateral_dimension=lateral_dimension)
         dsets.append(curent_dset)
         print("\n")
     if len(dsets)==1:
