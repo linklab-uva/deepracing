@@ -38,12 +38,11 @@ def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
 class PoseSequenceDataset(Dataset):
     def __init__(self, image_db_wrapper, label_db_wrapper, keyfile, context_length, \
-        image_size = np.array((66,200)), return_optflow=False, use_float32=False,\
-            erasing_probability=0.0, apply_color_jitter = False, geometric_variants = True, lateral_dimension=0):
+        image_size = np.array((66,200)), use_float32=False,\
+            erasing_probability=0.0, apply_color_jitter = False, geometric_variants = True, lateral_dimension = 1):
         super(PoseSequenceDataset, self).__init__()
         self.image_db_wrapper = image_db_wrapper
         self.label_db_wrapper = label_db_wrapper
-        self.return_optflow=return_optflow
         self.image_size = image_size
         self.context_length = context_length
         self.totensor = transforms.ToTensor()
@@ -109,7 +108,7 @@ class PoseSequenceDataset(Dataset):
             pilimages = [transforms.functional.hflip(self.topil(img)) for img in imagesnp]
             positions_torch[:,self.lateral_dimension]*=-1.0
             linear_velocities_torch[:,self.lateral_dimension]*=-1.0
-            angular_velocities_torch[:,[1,2]]*=-1.0
+            angular_velocities_torch[:,[i for i in range(3) if i!=self.lateral_dimension]]*=-1.0
         else:
             pilimages = [self.topil(img) for img in imagesnp]
         if (not isinstance(self.colorjitter,IdentifyTransform)) and random.choice([True,False]):

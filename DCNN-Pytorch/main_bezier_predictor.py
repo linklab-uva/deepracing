@@ -28,6 +28,7 @@ import deepracing_models.math_utils.bezier
 import socket
 import json
 from comet_ml.api import API, APIExperiment
+import cv2
 
 #torch.backends.cudnn.enabled = False
 def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, epoch_number, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True, position_indices=[0,2]):
@@ -100,21 +101,21 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu,
         pred_vels_scaled = pred_vels/dt[:,None,None]
         
         if debug:
-            # fig = plt.figure()
-            # images_np = image_torch[0].detach().cpu().numpy().copy()
-            # num_images = images_np.shape[0]
-            # print(num_images)
-            # images_np_transpose = np.zeros((num_images, images_np.shape[2], images_np.shape[3], images_np.shape[1]), dtype=np.uint8)
+            fig, (ax1, ax2) = plt.subplots(1, 2, sharey=False)
+            images_np = image_torch[0].detach().cpu().numpy().copy()
+            image_np_transpose=skimage.util.img_as_ubyte(images_np[-1].transpose(1,2,0))
             # ims = []
-            # for i in range(num_images):
-            #     images_np_transpose[i]=skimage.util.img_as_ubyte(images_np[i].transpose(1,2,0))
-            #     im = plt.imshow(images_np_transpose[i], animated=True)
+            # for i in range(images_np.shape[0]):
+            #     image_np_transpose=skimage.util.img_as_ubyte(images_np[i].transpose(1,2,0))
+            #     #im = plt.imshow(image_np_transpose, animated=True)
             #     ims.append([im])
-            # ani = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat_delay=2000)
-            fig2 = plt.figure()
+            # ani = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat=False)
+            # fig2 = plt.figure()
+            ax1.imshow(image_np_transpose)
 
 
-            gt_points_np = gt_points[0,:].detach().cpu().numpy().copy()
+            gt_points_np = gt_points[0].detach().cpu().numpy().copy()
+            print(gt_points_np)
             fit_points_np = fit_points[0].cpu().numpy().copy()
             fit_control_points_np = controlpoints_fit[0].cpu().numpy().copy()
             
@@ -124,12 +125,16 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu,
             fit_vels_np = fit_vels_scaled[0].cpu().numpy().copy()
 
 
-            plt.plot(gt_points_np[:,0],gt_points_np[:,1],'g+', label="Ground Truth Waypoints")
-            plt.plot(fit_points_np[:,0],fit_points_np[:,1],'b-', label="Best-fit Bézier Curve")
-            plt.scatter(fit_control_points_np[:,0],fit_control_points_np[:,1],c="r", label="Bézier Curve's Control Points")
-            plt.legend()
-            plt.xlabel("X position (meters)")
-            plt.ylabel("Z position (meters)")
+            ax2.plot(-gt_points_np[:,1],gt_points_np[:,0],'g+', label="Ground Truth Waypoints")
+            ax2.plot(-fit_points_np[:,1],fit_points_np[:,0],'b-', label="Best-fit Bézier Curve")
+            ax2.scatter(-fit_control_points_np[0,1],fit_control_points_np[0,0],c="g", label="(0,0)")
+            ax2.scatter(-fit_control_points_np[1:,1],fit_control_points_np[1:,0],c="r", label="Bézier Curve's Control Points")
+           # axarr[0,1].legend()
+           # axarr[0,1].xlabel("X position (meters)")
+            #axarr[0,1].ylabel("Z position (meters)")
+
+
+            
             #plt.title
             #plt.quiver(gt_points_np[:,0],gt_points_np[:,1], gt_vels_np[:,0], gt_vels_np[:,1], color='g')
             # xmin, xmax = np.min(gt_points_np[:,0]), np.max(gt_points_np[:,0])
@@ -146,7 +151,6 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu,
             print(session_times_torch)
             print(dt)
             print(s_torch_cur)
-            
             plt.show()
 
         current_position_loss = kinematic_loss(pred_points, gt_points)
@@ -357,7 +361,7 @@ def go():
 
 
         curent_dset = PD.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length,\
-                     image_size = image_size, return_optflow=use_optflow, apply_color_jitter=apply_color_jitter, erasing_probability=erasing_probability)
+                     image_size = image_size, apply_color_jitter=apply_color_jitter, erasing_probability=erasing_probability, geometric_variants = True, lateral_dimension=position_indices[1])
         dsets.append(curent_dset)
         print("\n")
     if len(dsets)==1:
