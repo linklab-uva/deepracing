@@ -344,6 +344,7 @@ def go():
     position_indices = dataset_config["position_indices"]
     lateral_dimension = dataset_config["lateral_dimension"]
     geometric_variants = dataset_config["geometric_variants"]    
+    dataset_tags = dataset_config.get("tags", [])
     print("Extracting position indices: %s" %(str(position_indices)))
     for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
@@ -393,6 +394,7 @@ def go():
         experiment.log_parameter("datasets",dsetsjson)
         experiment.log_text(dsetsjson)
         experiment.add_tag("bezierpredictor")
+        experiment.add_tags(dataset_tags)
         experiment_config = {"experiment_key": experiment.get_key()}
         yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
         yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
