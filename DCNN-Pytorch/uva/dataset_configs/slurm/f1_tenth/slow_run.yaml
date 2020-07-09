@@ -1,6 +1,7 @@
 #datasets definition
 image_size: [66, 200]
 position_indices: [0, 1]
+lateral_dimension: 1
 datasets:
   -
     root_folder: /p/DeepRacing/rosbags/racetrack_center_train
