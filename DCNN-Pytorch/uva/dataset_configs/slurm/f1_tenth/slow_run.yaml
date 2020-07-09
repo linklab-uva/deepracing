@@ -2,6 +2,7 @@
 image_size: [66, 200]
 position_indices: [0, 1]
 lateral_dimension: 1
+geometric_variants: False
 datasets:
   -
     root_folder: /p/DeepRacing/rosbags/racetrack_center_train
