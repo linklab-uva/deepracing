@@ -30,12 +30,14 @@ import bisect
 parser = argparse.ArgumentParser("Unpack a bag file into a dataset")
 parser.add_argument('bagfile', type=str,  help='The bagfile to unpack')
 parser.add_argument('--config', type=str, required=True , help="Config file specifying the rostopics to unpack")
-parser.add_argument('--lookahead_indices', type=int, default=60, help="Number of indices to look forward")
+parser.add_argument('--lookahead_indices', type=int, default=30, help="Number of indices to look forward")
 parser.add_argument('--debug', action="store_true", help="Display some debug plots")
+parser.add_argument('--mintime', type=float, default=5.0, help="Ignore this many seconds of data at the beginning of the bag file")
 args = parser.parse_args()
 argdict = vars(args)
 lookahead_indices = argdict["lookahead_indices"]
 configfile = argdict["config"]
+mintime = argdict["mintime"]
 with open(configfile,'r') as f:
     topicdict : dict =yaml.load(f, Loader=yaml.SafeLoader)
 bagpath = argdict["bagfile"]
@@ -158,19 +160,28 @@ os.makedirs(lmdb_dir)
 db = deepracing.backend.PoseSequenceLabelLMDBWrapper()
 db.readDatabase( lmdb_dir, mapsize=int(round(9996*len(images)*1.25)), max_spare_txns=16, readonly=False, lock=True )
 keys = ["image_%d" % (i+1,) for i in range(len(images))]
-lstsquare_spline_degree = 7
+lstsquare_spline_degree = 3
 localsplinedelta = 10
 for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
     key = keys[i]
     keyfile = key + ".jpg" 
-    filename = os.path.join(imagedir, keyfile)
-    cv2.imwrite(filename,images[i])
-    imax = i+lookahead_indices
-    if imax>=len(images):
-        continue
+
     label_tag : PoseSequenceLabel_pb2.PoseSequenceLabel = PoseSequenceLabel_pb2.PoseSequenceLabel()
     label_tag.image_tag.timestamp = imagetimes[i]
     label_tag.image_tag.image_file = keyfile
+
+    filename = os.path.join(imagedir, label_tag.image_tag.image_file)
+    cv2.imwrite(filename,images[i])
+    image_tag_file_path = os.path.join(imagedir, key + ".json")
+    with open(image_tag_file_path,'w') as f:
+        f.write(google.protobuf.json_format.MessageToJson(label_tag.image_tag, including_default_value_fields=True))
+    image_tag_file_path_binary = os.path.join(imagedir, key + ".pb")
+    with open(image_tag_file_path_binary,'wb') as f:
+        f.write( label_tag.image_tag.SerializeToString() )
+
+    imax = i+lookahead_indices
+    if imax>=len(images) or label_tag.image_tag.timestamp<=mintime:
+        continue
     label_tag.car_pose.frame = FrameId_pb2.GLOBAL
     label_tag.car_velocity.frame = FrameId_pb2.GLOBAL
     label_tag.car_angular_velocity.frame = FrameId_pb2.GLOBAL
@@ -180,28 +191,32 @@ for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
     odomidxmax = iclosest + lookahead_indices + localsplinedelta
     if odomidxmin<0 or odomidxmax>=len(odomtimes):
         continue
-    positionslocal = np.array(positions[odomidxmin:odomidxmax])
-    rotationslocal = rotations[odomidxmin:odomidxmax]
-    odomtimeslocal = np.array(odomtimes[odomidxmin:odomidxmax])
+    positionsglobal = np.array(positions[odomidxmin:odomidxmax])
+    rotationsglobal = rotations[odomidxmin:odomidxmax]
+    odomtimesglobal = np.array(odomtimes[odomidxmin:odomidxmax])
    # odomtimeslocal = (odomtimeslocal - odomtimeslocal[0])/(odomtimeslocal[-1]-odomtimeslocal[0])
-    numsamples = odomtimeslocal.shape[0]
-    t = [ odomtimeslocal[int(numsamples/4)], odomtimeslocal[int(numsamples/2)], odomtimeslocal[int(3*numsamples/4)] ]
-    t = np.r_[(odomtimeslocal[0],)*(lstsquare_spline_degree+1),  t,  (odomtimeslocal[-1],)*(lstsquare_spline_degree+1)]
+    numsamples = odomtimesglobal.shape[0]
+    t = [ odomtimesglobal[int(numsamples/4)], odomtimesglobal[int(numsamples/2)], odomtimesglobal[int(3*numsamples/4)] ]
+    t = np.r_[(odomtimesglobal[0],)*(lstsquare_spline_degree+1),  t,  (odomtimesglobal[-1],)*(lstsquare_spline_degree+1)]
     # print(odomtimeslocal)
     # print(t)
-    positionsplinelocal : scipy.interpolate.BSpline = scipy.interpolate.make_lsq_spline(odomtimeslocal, positionslocal[:,[0,1]], t, k = lstsquare_spline_degree)
-    velocitysplinelocal : scipy.interpolate.BSpline = positionsplinelocal.derivative()
-    rotationsplinelocal : RotSpline = RotSpline(odomtimeslocal, rotationslocal)
-    tsamp = np.linspace(label_tag.image_tag.timestamp, odomtimeslocal[-localsplinedelta], num=lookahead_indices)
-    position_samples = positionsplinelocal(tsamp)
-    velocity_samples = velocitysplinelocal(tsamp)
-    rotation_samples = rotationsplinelocal(tsamp)
-    angvel_samples = rotationsplinelocal(tsamp, order=1)
+    positionsplineglobal : scipy.interpolate.BSpline = scipy.interpolate.make_lsq_spline(odomtimesglobal, positionsglobal[:,[0,1]], t, k = lstsquare_spline_degree)
+    velocitysplineglobal : scipy.interpolate.BSpline = positionsplineglobal.derivative()
+    rotationsplineglobal : RotSpline = RotSpline(odomtimesglobal, rotationsglobal)
+    tsamp = np.linspace(label_tag.image_tag.timestamp, odomtimesglobal[-localsplinedelta], num=lookahead_indices)
+    position_samples = positionsplineglobal(tsamp)
+    velocity_samples = velocitysplineglobal(tsamp)
+    rotation_samples = rotationsplineglobal(tsamp)
+    angvel_samples = rotationsplineglobal(tsamp, order=1)
     rotation_samples_matrices = rotation_samples.as_matrix()
 
    # print("velocity_samples.shape: " + str(velocity_samples.shape))
-    forward = np.hstack((velocity_samples[0],np.array([0]))).copy()
+    v0list = list(velocity_samples[0])
+    v0list.append(0)
+    forward = np.array(v0list)
     forward = forward/np.linalg.norm(forward)
+    # if forward[0]<=0:
+    #     forward = -forward
     up = np.array((0.0,0.0,1.0))
     left = np.cross(up,forward)
     left = left/np.linalg.norm(left)
@@ -216,24 +231,29 @@ for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
     carpose[0:3,1] = left
     carpose[0:3,2] = up
     carquat = Rot.from_matrix(carpose[0:3,0:3]).as_quat()
-    carquat[np.abs(carquat)<1E-12]=0.0
+    #carquat[np.abs(carquat)<1E-12]=0.0
     carposeinv = np.linalg.inv(carpose)
     carposeinvrotmat = carposeinv[0:3,0:3]
 
     labelposesglobal = np.array([np.eye(4).astype(np.float64) for i in range(lookahead_indices)])
+    positionsglobalaug = np.zeros((4,positionsglobal.shape[0])).astype(np.float64)
+    positionsglobalaug[3,:] = 1.0
+    positionsglobalaug[0,:] = positionsglobal[:,0]
+    positionsglobalaug[1,:] = positionsglobal[:,1]
     # labelposesglobal[:,0:3,0:3] = odom[i:imax]
     #labelposesglobal[:,0:3,0:3] = rotation_samples_matrices
     for j in range(lookahead_indices):
-        forward = np.hstack((velocity_samples[j],np.array([0.0]))).copy()
+        vlist = list(velocity_samples[j])
+        vlist.append(0)
+        forward = np.array(vlist)
         forward = forward/np.linalg.norm(forward)
-        up = np.array((0.0,0.0,1.0))
         left = np.cross(up,forward)
         left = left/np.linalg.norm(left)
         labelposesglobal[j,0:3,0] = forward
         labelposesglobal[j,0:3,1] = left
         labelposesglobal[j,0:3,2] = up
     
-    #labelposesglobal[:,0:3,3] = positionslocal[localsplinedelta:-localsplinedelta]
+    #pfpositionsglobal[:,0:3,3] = positionslocal[localsplinedelta:-localsplinedelta]
     labelposesglobal[:,0:2,3] = position_samples
     
 
@@ -246,6 +266,7 @@ for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
     # print("carposeinv.shape: " + str(carposeinv.shape))
     # print(labelangvelsglobal.shape)
     # print(carposeinvrotmat.shape)
+    positionslocal = np.matmul(carposeinv,positionsglobalaug)[0:3,:].transpose()
     labelposes = np.matmul(carposeinv,labelposesglobal)
     labelpositions = labelposes[:,0:3,3]
     labelrotmats = labelposes[:,0:3,0:3]
@@ -254,32 +275,54 @@ for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
     labelquats[np.abs(labelquats)<1E-12]=0.0
 
     #labelvels = np.matmul(carposeinvrotmat,labelvelsglobal)
-    labelvelsglobalaug = np.vstack((labelvelsglobal[0], labelvelsglobal[1] ,np.zeros_like(labelvelsglobal[0])))
+    labelvelsglobal = np.zeros((lookahead_indices,3))
+    labelvelsglobal[:,[0,1]] = velocity_samples
     #print("labelvelsglobalaug.shape: " + str(labelvelsglobalaug.shape))
-    labelvels = np.matmul(carposeinvrotmat,labelvelsglobalaug)
-    labelangvels = np.matmul(carposeinvrotmat,labelangvelsglobal)
-    label_tag = PoseSequenceLabel_pb2.PoseSequenceLabel()
-    t_interp = imagetimes[i]
-    label_tag.car_pose.session_time = t_interp
-    label_tag.car_velocity.session_time = t_interp
-    label_tag.car_angular_velocity.session_time = t_interp
+    labelvels = np.matmul(carposeinvrotmat,labelvelsglobal.transpose()).transpose()
+    labelangvels = np.matmul(carposeinvrotmat,labelangvelsglobal).transpose()
+    label_tag.car_pose.session_time = label_tag.image_tag.timestamp
+    label_tag.car_velocity.session_time = label_tag.image_tag.timestamp
+    label_tag.car_angular_velocity.session_time = label_tag.image_tag.timestamp
 
     label_tag.car_pose.translation.CopyFrom(proto_utils.vectorFromNumpy(carpose[:,3]))
     label_tag.car_pose.rotation.CopyFrom(proto_utils.quaternionFromNumpy(carquat))
-    label_tag.car_velocity.vector.CopyFrom(proto_utils.vectorFromNumpy(labelvelsglobalaug[:,0]))
+    label_tag.car_velocity.vector.CopyFrom(proto_utils.vectorFromNumpy(labelvelsglobal[0]))
     label_tag.car_angular_velocity.vector.CopyFrom(proto_utils.vectorFromNumpy(labelangvelsglobal[:,0]))
-    if debug:
-        plt.scatter(positionslocal[:,0], positionslocal[:,1], label='measured data', facecolors='none', edgecolors='b', s=8)
+    transformnorms = np.linalg.norm(carpose,axis=0)
+    if debug and (i%10)==0:
+        print(carpose)
+        print(transformnorms[0:3])
+        mngr = plt.get_current_fig_manager()
+        # to put it into the upper left corner for example:
+        mngr.window.wm_geometry("+600+400")
+        xmax = 0.25
+        xmin = -xmax
+        fig1 = plt.subplot(1, 3, 1)
+        plt.imshow(cv2.cvtColor(images[i], cv2.COLOR_BGR2RGB))
+
+
+        fig2 = plt.subplot(1, 3, 2)
+        plt.title("Global Coordinates")
+        plt.scatter(positionsglobal[:,0], positionsglobal[:,1], label='measured data', facecolors='none', edgecolors='b', s=8)
         plt.plot(labelposesglobal[:,0,3], labelposesglobal[:,1,3], label='samples from spline fit', c='r')
         plt.plot(carpose[0,3], carpose[1,3], 'g*', label='current car position')
+
         
         plt.arrow(carpose[0,3], carpose[1,3], 0.25*carpose[0,0], 0.25*carpose[1,0])
+        fig3 = plt.subplot(1, 3, 3)
+        plt.title("Local Coordinates")
+        plt.scatter(-positionslocal[:,1], positionslocal[:,0], label='measured data', facecolors='none', edgecolors='b', s=8)
+        plt.plot(-labelpositions[:,1], labelpositions[:,0], label='samples from spline fit', c='r')
+        plt.plot(labelposes[0,1,3], labelposes[0,0,3], 'g*', label='current car position')
+        fig3.set_xlim(xmin,xmax)
        # plt.arrow(carpose[0,3], carpose[1,3], 0.25*carpose[0,1], 0.25*carpose[1,1])
         #WX = np.
         #plt.quiver(X, Y, dX, dY, color='r')
         #plt.quiver([], [], [], [])
         plt.show()
-
+        print(label_tag)
+    
+    assert(np.allclose(transformnorms[0:3],np.ones(3)))
     for j in range(lookahead_indices):
         pose_forward_pb = Pose3d_pb2.Pose3d()
         newpose = label_tag.subsequent_poses.add()
@@ -288,13 +331,14 @@ for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
         newpose.frame = FrameId_pb2.LOCAL
         newvel.frame = FrameId_pb2.LOCAL
         newangvel.frame = FrameId_pb2.LOCAL
-
+        if(labelpositions[j,0]<-0.005):
+            raise ValueError("Somehow got a negative forward value on image %d. ")
         newpose.translation.CopyFrom(proto_utils.vectorFromNumpy(labelpositions[j]))
         newpose.rotation.CopyFrom(proto_utils.quaternionFromNumpy(labelquats[j]))
 
-        newvel.vector.CopyFrom(proto_utils.vectorFromNumpy(labelvels[:,j]))
+        newvel.vector.CopyFrom(proto_utils.vectorFromNumpy(labelvels[j]))
 
-        newangvel.vector.CopyFrom(proto_utils.vectorFromNumpy(labelangvels[:,j]))
+        newangvel.vector.CopyFrom(proto_utils.vectorFromNumpy(labelangvels[j]))
 
         #labeltime = imagetimes[i+j]
         #labeltime = odomtimes[iclosest+j]
@@ -310,12 +354,7 @@ for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
     with open(label_tag_file_path_binary,'wb') as f:
         f.write( label_tag.SerializeToString() )
     
-    image_tag_file_path = os.path.join(imagedir, key + ".json")
-    with open(image_tag_file_path,'w') as f:
-        f.write(google.protobuf.json_format.MessageToJson(label_tag.image_tag, including_default_value_fields=True))
-    image_tag_file_path_binary = os.path.join(imagedir, key + ".pb")
-    with open(image_tag_file_path_binary,'wb') as f:
-        f.write( label_tag.image_tag.SerializeToString() )
+    
     
     db.writePoseSequenceLabel(key, label_tag)
 
