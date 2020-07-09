@@ -1,5 +1,10 @@
 import torch
-torch.backends.cudnn.enabled = False
+import argparse
+parser = argparse.ArgumentParser(description="Benchmark the bezier predictor on the gpu")
+parser.add_argument("--cudnn", action="store_true")
+args = parser.parse_args() 
+argdict = vars(args)
+torch.backends.cudnn.enabled = argdict["cudnn"]
 from deepracing_models.nn_models.Models import AdmiralNetCurvePredictor as AdmiralNetCurvePredictor
 import time
 print("Building the network")
@@ -13,7 +18,7 @@ while running:
       tick = time.time()
       output = network(inp)
       tock = time.time()
-      print( "Ran the network in %f seconds" % ( tock - tick ) )
+      print( "Ran the network in %f seconds" % ( tock - tick, ) )
       time.sleep(0.1)
   except KeyboardInterrupt as e:
       running = False
