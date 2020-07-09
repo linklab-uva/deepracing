@@ -394,7 +394,7 @@ def go():
         experiment.log_parameter("datasets",dsetsjson)
         experiment.log_text(dsetsjson)
         experiment.add_tag("bezierpredictor")
-        if len(dataset_tags)>=0:
+        if len(dataset_tags)>0:
             experiment.add_tags(dataset_tags)
         experiment_config = {"experiment_key": experiment.get_key()}
         yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
