@@ -29,7 +29,7 @@ import bisect
 # /car_1/scan                  9870 msgs    : sensor_msgs/LaserScan
 parser = argparse.ArgumentParser("Unpack a bag file into a dataset")
 parser.add_argument('bagfile', type=str,  help='The bagfile to unpack')
-parser.add_argument('--config', type=str, required=True , help="Config file specifying the rostopics to unpack")
+parser.add_argument('--config', type=str, required=False, default=None , help="Config file specifying the rostopics to unpack, defaults to a file named \"topicconfig.yaml\" in the same directory as the bagfile")
 parser.add_argument('--lookahead_indices', type=int, default=30, help="Number of indices to look forward")
 parser.add_argument('--debug', action="store_true", help="Display some debug plots")
 parser.add_argument('--mintime', type=float, default=5.0, help="Ignore this many seconds of data at the beginning of the bag file")
@@ -37,11 +37,14 @@ args = parser.parse_args()
 argdict = vars(args)
 lookahead_indices = argdict["lookahead_indices"]
 configfile = argdict["config"]
+bagpath = argdict["bagfile"]
 mintime = argdict["mintime"]
+debug = argdict["debug"]
+bagdir = os.path.dirname(bagpath)
+if configfile is None:
+    configfile = os.path.join(bagdir,"topicconfig.yaml")
 with open(configfile,'r') as f:
     topicdict : dict =yaml.load(f, Loader=yaml.SafeLoader)
-bagpath = argdict["bagfile"]
-debug = argdict["debug"]
 bag = rosbag.Bag(bagpath)
 msg_types, typedict = bag.get_type_and_topic_info()
 print(typedict)
@@ -59,18 +62,32 @@ topics = list(topicdict.values())
 
 odomtimes = []
 imagetimes = []
-
-odomsunsorted = []
 imagemsgsunsorted = []
+positionsmsg_unsorted = []
+rotationsmsg_unsorted = []
 for topic, msg, t in tqdm(iterable=bag.read_messages(topics=topics), desc="Loading messages from bag file", total=bag.get_message_count()):
     if topic==topicdict["images"]:
         stamp = msg.header.stamp
         imagemsgsunsorted.append(msg)
         imagetimes.append(Time(secs = stamp.secs, nsecs=stamp.nsecs).to_sec())
-    elif topic==topicdict["odom"]:
+    elif topic==topicdict.get("odom", None):
         stamp = msg.header.stamp
-        odomsunsorted.append(msg)
+        positionsmsg_unsorted.append(msg.pose.pose.position)
+        rotationsmsg_unsorted.append(msg.pose.pose.orientation)
         odomtimes.append(Time(secs = stamp.secs, nsecs=stamp.nsecs).to_sec())
+    elif topic==topicdict.get("tf", None):
+        transform = None
+       # print(msg)
+        transforms = msg.transforms
+        for i in range(len(transforms)):
+            if transforms[i].header.frame_id=="/map" and transforms[i].child_frame_id=="/car_1_base_link":
+                transform = transforms[i]
+                break
+        if transform is not None:
+            stamp = transform.header.stamp
+            odomtimes.append(Time(secs = stamp.secs, nsecs = stamp.nsecs).to_sec())
+            positionsmsg_unsorted.append(transform.transform.translation)
+            rotationsmsg_unsorted.append(transform.transform.rotation)
 bag.close()
 imagetimes = np.array(imagetimes).astype(np.float64)
 odomtimes = np.array(odomtimes).astype(np.float64)
@@ -82,7 +99,8 @@ print(Iimagetimes)
 imagemsgs = [imagemsgsunsorted[Iimagetimes[i]] for i in range(len(Iimagetimes))]
 imagetimes = imagetimes[Iimagetimes]
 
-odoms = [odomsunsorted[Iodomtimes[i]] for i in range(len(Iodomtimes))]
+positionsmsg = [positionsmsg_unsorted[Iodomtimes[i]] for i in range(len(Iodomtimes))]
+rotationsmsg = [rotationsmsg_unsorted[Iodomtimes[i]] for i in range(len(Iodomtimes))]
 odomtimes = odomtimes[Iodomtimes]
 
 Iclip = (imagetimes>odomtimes[0]) * (imagetimes<odomtimes[-1])
@@ -95,11 +113,6 @@ imagetimes = imagetimes - t0
 
 odomtimes01 = odomtimes/odomtimes[-1]
 imagetimes01 = imagetimes/odomtimes[-1]
-
-poses = [odom.pose.pose for odom in odoms]
-print(poses[0])
-positionsmsg = [pose.position for pose in poses]
-rotationsmsg = [pose.orientation for pose in poses]
 
 positions = np.array([[p.x,p.y,0.0] for p in positionsmsg]).astype(np.float64)
 quaternions = np.array([[q.x,q.y,q.z,q.w] for q in rotationsmsg]).astype(np.float64)
@@ -142,7 +155,6 @@ for i in tqdm(iterable=range(len(imagemsgs)), desc="Converting images to numpy a
         images.append(bridge.imgmsg_to_cv2(imagemsgs[i],desired_encoding="bgr8"))
 
 #images = np.array(images)
-bagdir = os.path.dirname(bagpath)
 rootdir = os.path.join(bagdir, os.path.splitext(os.path.basename(bagpath))[0])
 
 imagedir = os.path.join(rootdir,"images")
