@@ -139,6 +139,7 @@ except:
     pass
 
 
+rootdir = os.path.join(bagdir, os.path.splitext(os.path.basename(bagpath))[0])
 
 print(positions[0])
 print(quaternions[0])
@@ -147,15 +148,22 @@ print(imagequaternions.shape)
 print(imageangularvelocities)
 bridge : cv_bridge.CvBridge = cv_bridge.CvBridge()
 images = []
+imgfreq = typedict[topicdict["images"]].frequency
+fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+videowriter = None 
 for i in tqdm(iterable=range(len(imagemsgs)), desc="Converting images to numpy arrays"):
     imgmsg = imagemsgs[i]
     if compressed:
-        images.append(bridge.compressed_imgmsg_to_cv2(imagemsgs[i],desired_encoding="bgr8"))
+        imcv = bridge.compressed_imgmsg_to_cv2(imagemsgs[i],desired_encoding="bgr8")
     else:
-        images.append(bridge.imgmsg_to_cv2(imagemsgs[i],desired_encoding="bgr8"))
+        imcv = bridge.imgmsg_to_cv2(imagemsgs[i],desired_encoding="bgr8")
+    if videowriter is None:
+        videowriter = cv2.VideoWriter(os.path.join(rootdir, "video.avi"), fourcc, int(round(imgfreq)), (imcv.shape[1], imcv.shape[0]), True)
+    images.append(imcv)
+    videowriter.write(imcv)
+videowriter.release()
 
 #images = np.array(images)
-rootdir = os.path.join(bagdir, os.path.splitext(os.path.basename(bagpath))[0])
 
 imagedir = os.path.join(rootdir,"images")
 os.makedirs(imagedir,exist_ok=True)
@@ -192,7 +200,7 @@ for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
         f.write( label_tag.image_tag.SerializeToString() )
 
     imax = i+lookahead_indices
-    if imax>=len(images) or label_tag.image_tag.timestamp<=mintime:
+    if imax>=len(images) or label_tag.image_tag.timestamp<=mintime or label_tag.image_tag.timestamp>=odomtimes[-1]-mintime:
         continue
     label_tag.car_pose.frame = FrameId_pb2.GLOBAL
     label_tag.car_velocity.frame = FrameId_pb2.GLOBAL
@@ -335,6 +343,7 @@ for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
         print(label_tag)
     
     assert(np.allclose(transformnorms[0:3],np.ones(3)))
+    pointsgood=True
     for j in range(lookahead_indices):
         pose_forward_pb = Pose3d_pb2.Pose3d()
         newpose = label_tag.subsequent_poses.add()
@@ -344,7 +353,10 @@ for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
         newvel.frame = FrameId_pb2.LOCAL
         newangvel.frame = FrameId_pb2.LOCAL
         if(labelpositions[j,0]<-0.005):
-            raise ValueError("Somehow got a negative forward value on image %d. ")
+            #raise ValueError("Somehow got a negative forward value on image %d. " %(i,))
+            print("Somehow got a negative forward value on image %d. Skipping that image" %(i,))
+            pointsgood=False
+            break
         newpose.translation.CopyFrom(proto_utils.vectorFromNumpy(labelpositions[j]))
         newpose.rotation.CopyFrom(proto_utils.quaternionFromNumpy(labelquats[j]))
 
@@ -359,6 +371,8 @@ for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
         newpose.session_time = labeltime
         newvel.session_time = labeltime
         newangvel.session_time = labeltime
+    if not pointsgood:
+        continue
     label_tag_file_path = os.path.join(labeldir, key + "_sequence_label.json")
     with open(label_tag_file_path,'w') as f:
         f.write(google.protobuf.json_format.MessageToJson(label_tag, including_default_value_fields=True))
