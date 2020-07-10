@@ -23,6 +23,8 @@ import time
 import deepracing, deepracing.backend, deepracing.protobuf_utils as proto_utils
 import google.protobuf.json_format
 import bisect
+import PIL
+from PIL import Image, ImageFilter, ImageDraw
 # /car_1/camera/image_raw      8263 msgs    : sensor_msgs/Image
 # /car_1/multiplexer/command   7495 msgs    : ackermann_msgs/AckermannDrive
 # /car_1/odom_filtered         6950 msgs    : nav_msgs/Odometry
@@ -159,8 +161,11 @@ for i in tqdm(iterable=range(len(imagemsgs)), desc="Converting images to numpy a
         imcv = bridge.imgmsg_to_cv2(imagemsgs[i],desired_encoding="bgr8")
     if videowriter is None:
         videowriter = cv2.VideoWriter(os.path.join(rootdir, "video.avi"), fourcc, int(round(imgfreq)), (imcv.shape[1], imcv.shape[0]), True)
+    imgpil = Image.fromarray(imcv.copy())
+    imdraw = ImageDraw.ImageDraw(imgpil)
+    imdraw.text((imcv.shape[1]/2, imcv.shape[0]/2),"image_%d"%(i,), fill=(0,0,0))
     images.append(imcv)
-    videowriter.write(imcv)
+    videowriter.write(np.asarray(imgpil))
 videowriter.release()
 
 #images = np.array(images)
