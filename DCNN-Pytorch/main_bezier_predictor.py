@@ -342,12 +342,13 @@ def go():
     use_optflow = net.input_channels==5
     dsetfolders = []
     position_indices = dataset_config["position_indices"]
-    lateral_dimension = dataset_config["lateral_dimension"]
-    geometric_variants = dataset_config["geometric_variants"]    
-    dataset_tags = dataset_config.get("tags", [])
     print("Extracting position indices: %s" %(str(position_indices)))
     for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
+        lateral_dimension = dataset["lateral_dimension"]
+        geometric_variants = dataset["geometric_variants"]   
+        gaussian_blur_radius = dataset["gaussian_blur_radius"]    
+        dataset_tags = dataset.get("tags", [])
         root_folder = dataset["root_folder"]
         dsetfolders.append(root_folder)
         label_folder = os.path.join(root_folder,"pose_sequence_labels")
@@ -364,7 +365,8 @@ def go():
 
 
         curent_dset = PD.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length,\
-                     image_size = image_size, apply_color_jitter=apply_color_jitter, erasing_probability=erasing_probability, geometric_variants = geometric_variants, lateral_dimension=lateral_dimension)
+                     image_size = image_size, apply_color_jitter=apply_color_jitter, erasing_probability=erasing_probability,\
+                     geometric_variants = geometric_variants, lateral_dimension=lateral_dimension, gaussian_blur_radius=gaussian_blur_radius)
         dsets.append(curent_dset)
         print("\n")
     if len(dsets)==1:

@@ -4,6 +4,8 @@ import scipy.linalg as la
 import skimage
 import PIL
 from PIL import Image as PILImage
+from PIL.ImageFilter import GaussianBlur
+import PIL.ImageFilter
 import TimestampedPacketMotionData_pb2
 import PoseSequenceLabel_pb2
 import TimestampedImage_pb2
@@ -39,7 +41,7 @@ def LabelPacketSortKey(packet):
 class PoseSequenceDataset(Dataset):
     def __init__(self, image_db_wrapper, label_db_wrapper, keyfile, context_length, \
         image_size = np.array((66,200)), use_float32=False,\
-            erasing_probability=0.0, apply_color_jitter = False, geometric_variants = True, lateral_dimension = 1):
+            erasing_probability=0.0, apply_color_jitter = False, geometric_variants = True, lateral_dimension = 1, gaussian_blur_radius=-1):
         super(PoseSequenceDataset, self).__init__()
         self.image_db_wrapper = image_db_wrapper
         self.label_db_wrapper = label_db_wrapper
@@ -62,6 +64,11 @@ class PoseSequenceDataset(Dataset):
             keystrings = filehandle.readlines()
             self.db_keys = [keystring.replace('\n','') for keystring in keystrings]
         num_labels = self.label_db_wrapper.getNumLabels()
+       # PIL.ImageFilter.BLUR
+        if gaussian_blur_radius>0:
+            self.gaussian_blur = GaussianBlur(radius=gaussian_blur_radius)
+        else:
+            self.gaussian_blur = None
         # print("Preloading database labels.")
         # for i,key in tqdm(enumerate(self.db_keys), total=len(self.db_keys)):
         #     #print(key)
@@ -105,6 +112,8 @@ class PoseSequenceDataset(Dataset):
        # knots = torch.from_numpy(np.array(label_packet.position_spline.knots))
         imagesnp = [ resizeImage(self.image_db_wrapper.getImage(keys[i]), self.image_size) for i in range(len(keys)) ]
         pilimages = [self.topil(img) for img in imagesnp]
+        if (self.gaussian_blur is not None) and random.choice([True,False]):
+            pilimages = [img.filter(self.gaussian_blur) for img in pilimages]
         if self.geometric_variants and random.choice([True,False]):
             pilimages = [transforms.functional.hflip(img) for img in pilimages]
             positions_torch[:,self.lateral_dimension]*=-1.0
