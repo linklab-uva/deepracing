@@ -343,12 +343,14 @@ def go():
     dsetfolders = []
     position_indices = dataset_config["position_indices"]
     print("Extracting position indices: %s" %(str(position_indices)))
+    alltags = {}
     for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
         lateral_dimension = dataset["lateral_dimension"]
         geometric_variants = dataset["geometric_variants"]   
         gaussian_blur_radius = dataset["gaussian_blur_radius"]    
         dataset_tags = dataset.get("tags", [])
+        alltags = alltags.union(set(dataset_tags))
         root_folder = dataset["root_folder"]
         dsetfolders.append(root_folder)
         label_folder = os.path.join(root_folder,"pose_sequence_labels")
@@ -396,8 +398,8 @@ def go():
         experiment.log_parameter("datasets",dsetsjson)
         experiment.log_text(dsetsjson)
         experiment.add_tag("bezierpredictor")
-        if len(dataset_tags)>0:
-            experiment.add_tags(dataset_tags)
+        if len(alltags)>0:
+            experiment.add_tags(list(alltags))
         experiment_config = {"experiment_key": experiment.get_key()}
         yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
         yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
