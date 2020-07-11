@@ -344,6 +344,7 @@ def go():
     position_indices = dataset_config["position_indices"]
     print("Extracting position indices: %s" %(str(position_indices)))
     alltags = set([])
+    dset_output_lengths=[]
     for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
         lateral_dimension = dataset["lateral_dimension"]
@@ -370,6 +371,8 @@ def go():
                      image_size = image_size, apply_color_jitter=apply_color_jitter, erasing_probability=erasing_probability,\
                      geometric_variants = geometric_variants, lateral_dimension=lateral_dimension, gaussian_blur_radius=gaussian_blur_radius)
         dsets.append(curent_dset)
+        _, _, positions_test, _, _, _, session_times_test = curent_dset[0]
+        dset_output_lengths.append(positions_test.shape[0])
         print("\n")
     if len(dsets)==1:
         dset = dsets[0]
@@ -396,6 +399,7 @@ def go():
         experiment.log_parameters(dataset_config)
         dsetsjson = json.dumps(dataset_config, indent=1)
         experiment.log_parameter("datasets",dsetsjson)
+        experiment.log_parameter("dset_output_lengths",dset_output_lengths)
         experiment.log_text(dsetsjson)
         experiment.add_tag("bezierpredictor")
         if len(alltags)>0:
