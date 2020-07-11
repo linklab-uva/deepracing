@@ -343,7 +343,7 @@ def go():
     dsetfolders = []
     position_indices = dataset_config["position_indices"]
     print("Extracting position indices: %s" %(str(position_indices)))
-    alltags = {}
+    alltags = set([])
     for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
         lateral_dimension = dataset["lateral_dimension"]
