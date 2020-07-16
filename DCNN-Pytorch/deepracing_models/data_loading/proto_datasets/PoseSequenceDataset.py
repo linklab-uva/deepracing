@@ -93,7 +93,7 @@ class PoseSequenceDataset(Dataset):
         images_end = label_key_idx + 1
         packetrange = range(images_start, images_end)
         keys = ["image_%d" % (i,) for i in packetrange]
-        print(keys)
+        assert(keys[-1]==label_key)
 
        # packets = [self.label_db_wrapper.getPoseSequenceLabel(keys[i]) for i in range(len(keys))]
         label_packet = self.label_db_wrapper.getPoseSequenceLabel(keys[-1])
@@ -102,17 +102,12 @@ class PoseSequenceDataset(Dataset):
         session_times_np = np.array([p.session_time for p in label_packet.subsequent_poses ])
         positions_np, quats_np, linear_velocities_np, angular_velocities_np = deepracing.protobuf_utils.labelPacketToNumpy(label_packet)
         
-       # tick = time.clock()
-        #tock = time.clock()
-       # print("loaded images in %f seconds." %(tock-tick))
         positions_torch = torch.from_numpy(positions_np).double()
         quats_torch = torch.from_numpy(quats_np).double()
         linear_velocities_torch = torch.from_numpy(linear_velocities_np).double()
         angular_velocities_torch = torch.from_numpy(angular_velocities_np).double()
         session_times_torch = torch.from_numpy(session_times_np).double()
-        #pos_spline_params = torch.from_numpy(np.vstack((np.array(label_packet.position_spline.XParams),np.array(label_packet.position_spline.ZParams))))
-       # vel_spline_params = torch.from_numpy(np.vstack((np.array(label_packet.velocity_spline.XParams),np.array(label_packet.velocity_spline.ZParams))))
-       # knots = torch.from_numpy(np.array(label_packet.position_spline.knots))
+
         imagesnp = [ resizeImage(self.image_db_wrapper.getImage(keys[i]), self.image_size) for i in range(len(keys)) ]
         pilimages = [self.topil(img) for img in imagesnp]
         if (self.gaussian_blur is not None) and random.choice([True,False]):
@@ -122,7 +117,7 @@ class PoseSequenceDataset(Dataset):
             positions_torch[:,self.lateral_dimension]*=-1.0
             linear_velocities_torch[:,self.lateral_dimension]*=-1.0
             angular_velocities_torch[:,[i for i in range(3) if i!=self.lateral_dimension]]*=-1.0
-        if (not isinstance(self.colorjitter,IdentifyTransform)) and random.choice([True,False]):
+        if random.choice([True,False]):
             pilimages = [self.colorjitter(img) for img in pilimages]
        # pilimages = [self.erasing(img) for img in pilimages]    
         images_torch = torch.stack( [ self.erasing(self.totensor(img)) for img in pilimages ] )
