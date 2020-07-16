@@ -93,6 +93,7 @@ class PoseSequenceDataset(Dataset):
         images_end = label_key_idx + 1
         packetrange = range(images_start, images_end)
         keys = ["image_%d" % (i,) for i in packetrange]
+        print(keys)
 
        # packets = [self.label_db_wrapper.getPoseSequenceLabel(keys[i]) for i in range(len(keys))]
         label_packet = self.label_db_wrapper.getPoseSequenceLabel(keys[-1])
@@ -124,7 +125,7 @@ class PoseSequenceDataset(Dataset):
         if (not isinstance(self.colorjitter,IdentifyTransform)) and random.choice([True,False]):
             pilimages = [self.colorjitter(img) for img in pilimages]
        # pilimages = [self.erasing(img) for img in pilimages]    
-        images_torch = torch.stack( [ self.erasing(self.totensor(img)) for img in pilimages[1:] ])
+        images_torch = torch.stack( [ self.erasing(self.totensor(img)) for img in pilimages ] )
        
 
         return images_torch, torch.tensor(np.nan), positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch#, pos_spline_params, vel_spline_params, knots
