@@ -115,7 +115,8 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu,
 
 
             gt_points_np = gt_points[0].detach().cpu().numpy().copy()
-            print(gt_points_np)
+            pred_points_np = pred_points[0].detach().cpu().numpy().copy()
+            #print(gt_points_np)
             fit_points_np = fit_points[0].cpu().numpy().copy()
             fit_control_points_np = controlpoints_fit[0].cpu().numpy().copy()
             
@@ -127,8 +128,10 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu,
 
             ax2.plot(-gt_points_np[:,1],gt_points_np[:,0],'g+', label="Ground Truth Waypoints")
             ax2.plot(-fit_points_np[:,1],fit_points_np[:,0],'b-', label="Best-fit Bézier Curve")
-            ax2.scatter(-fit_control_points_np[0,1],fit_control_points_np[0,0],c="g", label="(0,0)")
-            ax2.scatter(-fit_control_points_np[1:,1],fit_control_points_np[1:,0],c="r", label="Bézier Curve's Control Points")
+            ax2.scatter(-fit_control_points_np[1:,1],fit_control_points_np[1:,0],c="b", label="Bézier Curve's Control Points")
+            ax2.scatter(-fit_control_points_np[0,1],fit_control_points_np[0,0],c="g", label="This should be (0,0)")
+
+            ax2.plot(-pred_points_np[:,1],pred_points_np[:,0],'r-', label="Predicted Bézier Curve")
            # axarr[0,1].legend()
            # axarr[0,1].xlabel("X position (meters)")
             #axarr[0,1].ylabel("Z position (meters)")
@@ -184,6 +187,7 @@ def go():
 
     parser.add_argument("--context_length",  type=int, default=None,  help="Override the context length specified in the config file")
     parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
+    parser.add_argument("--model_load",  type=str, default=None,  help="Load this model file prior to running. usually in conjunction with debug")
     parser.add_argument("--override", action="store_true",  help="Delete output directory and replace with new data")
     parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
     parser.add_argument("--batch_size", type=int, default=None,  help="Override the order of the batch size specified in the config file")
@@ -205,6 +209,7 @@ def go():
     dataset_config_file = args.dataset_config_file
     debug = args.debug
     weighted_loss = args.weighted_loss
+    model_load = args.model_load
 
     with open(dataset_config_file) as f:
         dataset_config = yaml.load(f, Loader = yaml.SafeLoader)
@@ -303,6 +308,8 @@ def go():
         net = net.double()
         params_loss = params_loss.double()
         kinematic_loss = kinematic_loss.float()
+    if model_load is not None:
+        net.load_state_dict(torch.load(model_load, map_location=torch.device("cpu")))
     if gpu>=0:
         print("moving stuff to GPU")
         net = net.cuda(gpu)
@@ -350,15 +357,16 @@ def go():
         lateral_dimension = dataset["lateral_dimension"]
         geometric_variants = dataset["geometric_variants"]   
         gaussian_blur_radius = dataset["gaussian_blur_radius"]    
+        key_file = dataset["key_file"]
         dataset_tags = dataset.get("tags", [])
         alltags = alltags.union(set(dataset_tags))
         root_folder = dataset["root_folder"]
+        apply_color_jitter = dataset.get("apply_color_jitter",False)
+        erasing_probability = dataset.get("erasing_probability",0.0)
         dsetfolders.append(root_folder)
         label_folder = os.path.join(root_folder,"pose_sequence_labels")
         image_folder = os.path.join(root_folder,"images")
-        key_file = os.path.join(root_folder,"goodkeys.txt")
-        apply_color_jitter = dataset.get("apply_color_jitter",False)
-        erasing_probability = dataset.get("erasing_probability",0.0)
+        key_file = os.path.join(root_folder,key_file)
         label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
         label_wrapper.readDatabase(os.path.join(label_folder,"lmdb") )
 
@@ -427,10 +435,9 @@ def go():
                     tock = time.time()
                     print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
                     experiment.log_epoch_end(postfix)
+                except FileExistsError as e:
+                    raise e
                 except Exception as e:
-                    if isinstance(e, FileExistsError):
-                        print(e)
-                        exit(-1)
                     print("Restarting epoch %d because %s"%(postfix, str(e)))
                     modelin = os.path.join(output_directory, netpostfix %(postfix-1))
                     optimizerin = os.path.join(output_directory,optimizerpostfix %(postfix-1))
