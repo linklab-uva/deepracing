@@ -40,8 +40,9 @@ def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
 class PoseSequenceDataset(Dataset):
     def __init__(self, image_db_wrapper, label_db_wrapper, keyfile, context_length, \
-        image_size = np.array((66,200)), use_float32=False,\
-            erasing_probability=0.0, apply_color_jitter = False, geometric_variants = True, lateral_dimension = 1, gaussian_blur_radius=-1):
+        image_size = np.array((66,200)), lookahead_indices = -1,\
+            erasing_probability=0.0, apply_color_jitter = False, geometric_variants = True,\
+                 lateral_dimension = 1, gaussian_blur_radius=-1):
         super(PoseSequenceDataset, self).__init__()
         self.image_db_wrapper = image_db_wrapper
         self.label_db_wrapper = label_db_wrapper
@@ -51,7 +52,7 @@ class PoseSequenceDataset(Dataset):
         self.topil = transforms.ToPILImage()
         self.geometric_variants = geometric_variants
         self.lateral_dimension = lateral_dimension
-        self.use_float32 = use_float32
+        self.lookahead_indices = lookahead_indices
         if erasing_probability>0.0:
             self.erasing = transforms.RandomErasing(p=erasing_probability)
         else:
@@ -107,6 +108,13 @@ class PoseSequenceDataset(Dataset):
         linear_velocities_torch = torch.from_numpy(linear_velocities_np).double()
         angular_velocities_torch = torch.from_numpy(angular_velocities_np).double()
         session_times_torch = torch.from_numpy(session_times_np).double()
+
+        if self.lookahead_indices>0:
+            positions_torch = positions_torch[0:self.lookahead_indices]
+            quats_torch = quats_torch[0:self.lookahead_indices]
+            linear_velocities_torch = linear_velocities_torch[0:self.lookahead_indices]
+            angular_velocities_torch = angular_velocities_torch[0:self.lookahead_indices]
+            session_times_torch = session_times_torch[0:self.lookahead_indices]
 
         imagesnp = [ resizeImage(self.image_db_wrapper.getImage(keys[i]), self.image_size) for i in range(len(keys)) ]
         pilimages = [self.topil(img) for img in imagesnp]
