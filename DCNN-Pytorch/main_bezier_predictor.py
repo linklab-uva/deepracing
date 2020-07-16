@@ -102,16 +102,14 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu,
         
         if debug:
             fig, (ax1, ax2) = plt.subplots(1, 2, sharey=False)
-            images_np = image_torch[0].detach().cpu().numpy().copy()
-            image_np_transpose=skimage.util.img_as_ubyte(images_np[-1].transpose(1,2,0))
-            # ims = []
-            # for i in range(images_np.shape[0]):
-            #     image_np_transpose=skimage.util.img_as_ubyte(images_np[i].transpose(1,2,0))
-            #     #im = plt.imshow(image_np_transpose, animated=True)
-            #     ims.append([im])
-            # ani = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat=False)
+            images_np = np.round(255.0*image_torch[0].detach().cpu().numpy().copy().transpose(0,2,3,1)).astype(np.uint8)
+            #image_np_transpose=skimage.util.img_as_ubyte(images_np[-1].transpose(1,2,0))
+            ims = []
+            for i in range(images_np.shape[0]):
+                ims.append([ax1.imshow(images_np[i])])
+            ani = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat=True)
             # fig2 = plt.figure()
-            ax1.imshow(image_np_transpose)
+           # ax1.imshow(ani)
 
 
             gt_points_np = gt_points[0].detach().cpu().numpy().copy()
