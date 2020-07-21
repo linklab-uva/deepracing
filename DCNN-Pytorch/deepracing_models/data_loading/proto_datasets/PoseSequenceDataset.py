@@ -26,7 +26,8 @@ import torch
 from torch.utils.data import Dataset
 import skimage
 import skimage.io
-import torchvision.transforms as transforms
+import torchvision.transforms as transforms 
+import torchvision.transforms.functional as F
 from skimage.transform import resize
 import time
 import shutil
@@ -35,14 +36,20 @@ from deepracing.imutils import resizeImage as resizeImage
 from deepracing.imutils import readImage as readImage
 import cv2
 import random
-from .image_transforms import IdentifyTransform
+from itertools import chain, combinations
+
+def powerset(iterable):
+    "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
+    s = list(iterable)
+    return [list(elem) for elem in list(chain.from_iterable(combinations(s, r) for r in range(len(s)+1))) if elem!=tuple([]) ]
+
+
 def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
 class PoseSequenceDataset(Dataset):
     def __init__(self, image_db_wrapper, label_db_wrapper, keyfile, context_length, \
-        image_size = np.array((66,200)), lookahead_indices = -1,\
-            erasing_probability=0.0, apply_color_jitter = False, geometric_variants = True,\
-                 lateral_dimension = 1, gaussian_blur_radius=-1):
+        image_size = np.array((66,200)), lookahead_indices = -1, lateral_dimension = 1,\
+            gaussian_blur = None, color_jitter = None, geometric_variants = False):
         super(PoseSequenceDataset, self).__init__()
         self.image_db_wrapper = image_db_wrapper
         self.label_db_wrapper = label_db_wrapper
@@ -50,34 +57,45 @@ class PoseSequenceDataset(Dataset):
         self.context_length = context_length
         self.totensor = transforms.ToTensor()
         self.topil = transforms.ToPILImage()
-        self.geometric_variants = geometric_variants
         self.lateral_dimension = lateral_dimension
         self.lookahead_indices = lookahead_indices
-        if erasing_probability>0.0:
-            self.erasing = transforms.RandomErasing(p=erasing_probability)
+        if bool(gaussian_blur) and gaussian_blur>0:
+            self.gaussian_blur_PIL = GaussianBlur(radius=gaussian_blur)
+            self.gaussian_blur = transforms.Lambda(lambda img : img.filter(self.gaussian_blur_PIL))
         else:
-            self.erasing = IdentifyTransform()
-        if apply_color_jitter:
-            self.colorjitter = transforms.ColorJitter(brightness=(0.75,1.25), contrast=0.2)
+            self.gaussian_blur = None
+        if bool(color_jitter):
+            self.color_jitter = transforms.ColorJitter( brightness=(color_jitter[0],color_jitter[0]), contrast=(color_jitter[1],color_jitter[1]) )
         else:
-            self.colorjitter = IdentifyTransform()
+            self.color_jitter = None
+        if geometric_variants:
+            self.hflip = transforms.Lambda(lambda img : transforms.functional.hflip(img))
+        else:
+            self.hflip = None
         with open(keyfile,'r') as filehandle:
             keystrings = filehandle.readlines()
             self.db_keys = [keystring.replace('\n','') for keystring in keystrings]
-        num_labels = self.label_db_wrapper.getNumLabels()
-       # PIL.ImageFilter.BLUR
-        if gaussian_blur_radius>0:
-            self.gaussian_blur = GaussianBlur(radius=gaussian_blur_radius)
-        else:
-            self.gaussian_blur = None
-        # print("Preloading database labels.")
-        # for i,key in tqdm(enumerate(self.db_keys), total=len(self.db_keys)):
-        #     #print(key)
-        #     self.label_pb_tags.append(self.label_db_wrapper.getPoseSequenceLabel(key))
-        #     if(not (self.label_pb_tags[-1].image_tag.image_file == self.db_keys[i]+".jpg")):
-        #         raise AttributeError("Mismatch between database key: %s and associated image file: %s" %(self.db_keys[i], self.label_pb_tags.image_tag.image_file))
-        # self.label_pb_tags = sorted(self.label_pb_tags, key=LabelPacketSortKey)
-        self.length = len(self.db_keys) - 5 - context_length
+        
+        self.num_images = len(self.db_keys)# - 5 - context_length
+        self.transform_dict = {0: lambda img : img}
+        overflowidx = 1
+        possible_transforms = [ tf for tf in [self.gaussian_blur, self.color_jitter , self.hflip ] if bool(tf) ]
+        self.transform_powerset = powerset(possible_transforms)
+        self.transform_powerset.append([transforms.Lambda(lambda img : img)])
+        self.length = self.num_images*len(self.transform_powerset)
+        # if bool(self.gaussian_blur):
+        #     self.transform_dict[overflowidx] = 
+        #     overflowidx+=1
+        #     self.length += self.num_images
+        # if bool(self.color_jitter):
+        #     self.transform_dict[overflowidx] = self.color_jitter
+        #     overflowidx+=1
+        #     self.length += self.num_images
+        # if geometric_variants:
+        #     self.transform_dict[overflowidx] = "flip_images"
+        #     overflowidx+=1
+        #     self.length += self.num_images
+
     def resetEnvs(self):
         #pass
         self.image_db_wrapper.resetEnv()
@@ -87,7 +105,8 @@ class PoseSequenceDataset(Dataset):
         self.label_db_wrapper.clearStaleReaders()
     def __len__(self):
         return self.length
-    def __getitem__(self, index):
+    def __getitem__(self, input_index):
+        index = int(input_index%self.num_images)
         label_key = self.db_keys[index]
         label_key_idx = int(label_key.split("_")[1])
         images_start = label_key_idx - self.context_length + 1
@@ -116,19 +135,19 @@ class PoseSequenceDataset(Dataset):
             angular_velocities_torch = angular_velocities_torch[0:self.lookahead_indices]
             session_times_torch = session_times_torch[0:self.lookahead_indices]
 
-        imagesnp = [ resizeImage(self.image_db_wrapper.getImage(keys[i]), self.image_size) for i in range(len(keys)) ]
-        pilimages = [self.topil(img) for img in imagesnp]
-        if (self.gaussian_blur is not None) and random.choice([True,False]):
-            pilimages = [img.filter(self.gaussian_blur) for img in pilimages]
-        if self.geometric_variants and random.choice([True,False]):
-            pilimages = [transforms.functional.hflip(img) for img in pilimages]
+        pilimages = [ self.topil(resizeImage(self.image_db_wrapper.getImage(keys[i]), self.image_size)) for i in range(len(keys)) ]
+
+        quotient = int(input_index/self.num_images)
+        transform_list = self.transform_powerset[quotient]
+        transform = transforms.Compose(transform_list)
+        pilimages = [transform(img) for img in pilimages] 
+        if self.hflip in transform_list:
             positions_torch[:,self.lateral_dimension]*=-1.0
             linear_velocities_torch[:,self.lateral_dimension]*=-1.0
             angular_velocities_torch[:,[i for i in range(3) if i!=self.lateral_dimension]]*=-1.0
-        if random.choice([True,False]):
-            pilimages = [self.colorjitter(img) for img in pilimages]
-       # pilimages = [self.erasing(img) for img in pilimages]    
-        images_torch = torch.stack( [ self.erasing(self.totensor(img)) for img in pilimages ] )
+        # else:
+        #     tf = self.transform_dict[quotient]
+        images_torch = torch.stack( [ self.totensor(img) for img in pilimages ] ).double()
        
 
-        return images_torch, torch.tensor(np.nan), positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch#, pos_spline_params, vel_spline_params, knots
+        return images_torch, torch.tensor(np.nan).double(), positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch

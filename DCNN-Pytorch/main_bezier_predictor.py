@@ -128,25 +128,8 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu,
             ax2.plot(-fit_points_np[:,1],fit_points_np[:,0],'b-', label="Best-fit Bézier Curve")
             ax2.scatter(-fit_control_points_np[1:,1],fit_control_points_np[1:,0],c="b", label="Bézier Curve's Control Points")
             ax2.scatter(-fit_control_points_np[0,1],fit_control_points_np[0,0],c="g", label="This should be (0,0)")
-
             ax2.plot(-pred_points_np[:,1],pred_points_np[:,0],'r-', label="Predicted Bézier Curve")
-           # axarr[0,1].legend()
-           # axarr[0,1].xlabel("X position (meters)")
-            #axarr[0,1].ylabel("Z position (meters)")
-
-
-            
-            #plt.title
-            #plt.quiver(gt_points_np[:,0],gt_points_np[:,1], gt_vels_np[:,0], gt_vels_np[:,1], color='g')
-            # xmin, xmax = np.min(gt_points_np[:,0]), np.max(gt_points_np[:,0])
-            # deltax = xmax-xmin
-            # zmin, zmax = np.min(gt_points_np[:,1]), np.max(gt_points_np[:,1])
-            # deltaz = zmax-zmin
-            # deltaratio = deltaz/deltax
-
-            #plt.quiver(fit_points_np[:,0],fit_points_np[:,1], deltaratio*fit_vels_np[:,0], fit_vels_np[:,1], color='r')
-           # plt.quiver(gt_points_np[:,0],gt_points_np[:,1], gt_vels_np[:,0], gt_vels_np[:,1], color='g', angles='xy')
-
+           
             velocity_err = kinematic_loss(fit_vels_scaled, gt_vels).item()
             print("\nMean velocity error: %f\n" % (velocity_err))
             print(session_times_torch)
@@ -354,14 +337,13 @@ def go():
     for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
         lateral_dimension = dataset["lateral_dimension"]
-        geometric_variants = dataset["geometric_variants"]   
-        gaussian_blur_radius = dataset["gaussian_blur_radius"]    
+        geometric_variants = dataset.get("geometric_variants",False)   
+        gaussian_blur_radius = dataset.get("gaussian_blur_radius",None)
+        color_jitter = dataset.get("color_jitter", None)
         key_file = dataset["key_file"]
         dataset_tags = dataset.get("tags", [])
         alltags = alltags.union(set(dataset_tags))
         root_folder = dataset["root_folder"]
-        apply_color_jitter = dataset.get("apply_color_jitter",False)
-        erasing_probability = dataset.get("erasing_probability",0.0)
         dsetfolders.append(root_folder)
         label_folder = os.path.join(root_folder,"pose_sequence_labels")
         image_folder = os.path.join(root_folder,"images")
@@ -375,8 +357,8 @@ def go():
 
 
         curent_dset = PD.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length,\
-                     image_size = image_size, apply_color_jitter=apply_color_jitter, erasing_probability=erasing_probability, lookahead_indices = lookahead_indices,\
-                     geometric_variants = geometric_variants, lateral_dimension=lateral_dimension, gaussian_blur_radius=gaussian_blur_radius)
+                     image_size = image_size, lookahead_indices = lookahead_indices, lateral_dimension=lateral_dimension, \
+                     geometric_variants = geometric_variants, gaussian_blur=gaussian_blur_radius, color_jitter = color_jitter)
         dsets.append(curent_dset)
         _, _, positions_test, _, _, _, session_times_test = curent_dset[0]
         dset_output_lengths.append(positions_test.shape[0])
