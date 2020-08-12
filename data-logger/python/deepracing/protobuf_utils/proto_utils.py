@@ -179,9 +179,12 @@ def getAllMotionPackets(motion_data_folder: str, use_json: bool):
 def getAllImageFilePackets(image_data_folder: str, use_json: bool):
    image_packets = []
    if use_json:
+      print("Attempting to read json files in : %s" %(image_data_folder))
       filepaths = [os.path.join(image_data_folder, f) for f in os.listdir(image_data_folder) if os.path.isfile(os.path.join(image_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".json"]
-      jsonstrings = [(open(path, 'r')).read() for path in filepaths]
-      for jsonstring in tqdm(jsonstrings):
+     # jsonstrings = [(open(path, 'r')).read() for path in filepaths]
+      for fp in tqdm(filepaths):
+         with open(fp,"r") as f:
+            jsonstring = f.read()
          data = TimestampedImage_pb2.TimestampedImage()
          google.protobuf.json_format.Parse(jsonstring, data)
          image_packets.append(data)
