@@ -11,6 +11,9 @@ import cv2
 import time
 import google.protobuf.empty_pb2 as Empty_pb2
 import yaml
+import PIL, PIL.Image as PILImage
+import torchvision, torchvision.transforms.functional as F
+import torchvision.transforms as TF
 def pbImageToNpImage(im_pb : Image_pb2.Image):
     im = None
     if im_pb.channel_order == ChannelOrder_pb2.BGR:
@@ -78,15 +81,22 @@ class ImageLMDBWrapper():
             yaml.dump(cfgout,open(os.path.join(db_path,"config.yaml"),"w"),Dumper=yaml.SafeDumper)
         env = lmdb.open(db_path, map_size=mapsize)
         print("Loading image data")
+       # topil = TF.ToPILImage()
+        cropped_images_dir = os.path.join(os.path.dirname(db_path),"cropped_images")
+        os.makedirs(cropped_images_dir,exist_ok=True)
         for i, key in tqdm(enumerate(keys), total=len(keys)):
             imgin = deepracing.imutils.readImage(image_files[i])
-            if ROI is not None:
+            impil = F.to_pil_image(imgin)
+            if bool(ROI):
                 x = ROI[0]
                 y = ROI[1]
                 w = ROI[2]
                 h = ROI[3]
-                imgin = imgin[y:y+h, x:x+w]
-            im = deepracing.imutils.resizeImage( imgin , im_size[0:2] )
+                impilresize = F.resized_crop(impil,y,x,h,w,im_size[0:2],interpolation=PILImage.LANCZOS)
+            else:
+                impilresize = F.resize(impil,im_size[0:2], interpolation=PILImage.LANCZOS)
+            impilresize.save(os.path.join(cropped_images_dir, "image_%d.jpg" % (i,)))
+            im = np.asarray(impilresize)
             entry = Image_pb2.Image( rows=im.shape[0] , cols=im.shape[1] , channel_order=ChannelOrder_pb2.RGB , image_data=im.flatten().tobytes() )
             with env.begin(write=True) as write_txn:
                 write_txn.put(key.encode(self.encoding), entry.SerializeToString())

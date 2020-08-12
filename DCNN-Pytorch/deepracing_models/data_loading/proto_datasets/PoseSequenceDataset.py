@@ -128,12 +128,13 @@ class PoseSequenceDataset(Dataset):
         angular_velocities_torch = torch.from_numpy(angular_velocities_np).double()
         session_times_torch = torch.from_numpy(session_times_np).double()
 
+        max_i = min(self.lookahead_indices, positions_torch.shape[0])
         if self.lookahead_indices>0:
-            positions_torch = positions_torch[0:self.lookahead_indices]
-            quats_torch = quats_torch[0:self.lookahead_indices]
-            linear_velocities_torch = linear_velocities_torch[0:self.lookahead_indices]
-            angular_velocities_torch = angular_velocities_torch[0:self.lookahead_indices]
-            session_times_torch = session_times_torch[0:self.lookahead_indices]
+            positions_torch = positions_torch[0:max_i]
+            quats_torch = quats_torch[0:max_i]
+            linear_velocities_torch = linear_velocities_torch[0:max_i]
+            angular_velocities_torch = angular_velocities_torch[0:max_i]
+            session_times_torch = session_times_torch[0:max_i]
 
         pilimages = [ self.topil(resizeImage(self.image_db_wrapper.getImage(keys[i]), self.image_size)) for i in range(len(keys)) ]
 
