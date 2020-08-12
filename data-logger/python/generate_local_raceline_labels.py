@@ -257,7 +257,11 @@ for idx in tqdm(range(len(image_tags))):
                 im = cv2.cvtColor(cv2.imread(os.path.join(image_folder,label_tag.image_tag.image_file)), cv2.COLOR_BGR2RGB)
                 imax.imshow(im)
                 plotax.plot(-local_points[:,0], local_points[:,2])
-                plt.show()
+                try:
+                    plt.show()
+                except Exception as e:
+                    print("Skipping visualization")
+                  #  plt.close('all')
             #continue
 
         label_tag.car_pose.translation.x = car_position[0]
