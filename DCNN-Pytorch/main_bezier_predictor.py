@@ -337,15 +337,16 @@ def go():
     for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
         lateral_dimension = dataset["lateral_dimension"]
-        geometric_variants = dataset.get("geometric_variants",False)   
-        gaussian_blur_radius = dataset.get("gaussian_blur_radius",None)
+        geometric_variants = dataset.get("geometric_variants", False)   
+        gaussian_blur_radius = dataset.get("gaussian_blur_radius", None)
+        label_subfolder = dataset.get("label_subfolder", "pose_sequence_labels")
         color_jitter = dataset.get("color_jitter", None)
         key_file = dataset["key_file"]
         dataset_tags = dataset.get("tags", [])
         alltags = alltags.union(set(dataset_tags))
         root_folder = dataset["root_folder"]
         dsetfolders.append(root_folder)
-        label_folder = os.path.join(root_folder,"pose_sequence_labels")
+        label_folder = os.path.join(root_folder,label_subfolder)
         image_folder = os.path.join(root_folder,"images")
         key_file = os.path.join(root_folder,key_file)
         label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
