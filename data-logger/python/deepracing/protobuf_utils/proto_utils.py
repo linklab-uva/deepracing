@@ -180,14 +180,15 @@ def getAllImageFilePackets(image_data_folder: str, use_json: bool):
    image_packets = []
    if use_json:
       print("Attempting to read json files in : %s" %(image_data_folder))
-      filepaths = [os.path.join(image_data_folder, f) for f in os.listdir(image_data_folder) if os.path.isfile(os.path.join(image_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".json"]
+      filepaths = [os.path.join(image_data_folder, f) for f in os.listdir(image_data_folder)]
      # jsonstrings = [(open(path, 'r')).read() for path in filepaths]
       for fp in tqdm(filepaths):
-         with open(fp,"r") as f:
-            jsonstring = f.read()
-         data = TimestampedImage_pb2.TimestampedImage()
-         google.protobuf.json_format.Parse(jsonstring, data)
-         image_packets.append(data)
+         if os.path.isfile(fp) and str.lower(os.path.splitext(os.path.basename(fp))[1])==".json":
+            with open(fp,"r") as f:
+               jsonstring = f.read()
+            data = TimestampedImage_pb2.TimestampedImage()
+            google.protobuf.json_format.Parse(jsonstring, data)
+            image_packets.append(data)
    else:
       print("Attempting to read pb files in : %s" %(image_data_folder))
       filepaths = [os.path.join(image_data_folder, f) for f in os.listdir(image_data_folder) if os.path.isfile(os.path.join(image_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".pb"]
