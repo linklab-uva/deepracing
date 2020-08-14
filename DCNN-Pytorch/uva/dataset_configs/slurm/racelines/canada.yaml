@@ -1,6 +1,7 @@
 #datasets definition
 image_size: [66, 200]
 position_indices: [0,2]
+lookahead_indices: 100
 datasets:
   -
     root_folder: /p/DeepRacing/datasets/beast_solo_captures/canada_run1
