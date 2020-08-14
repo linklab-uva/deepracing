@@ -1,0 +1,39 @@
+#datasets definition
+image_size: [66, 200]
+position_indices: [0, 1]
+datasets:
+  -
+    root_folder: /p/DeepRacing/rosbags/racetrack_center_train
+    key_file: goodkeys.txt
+    lateral_dimension: 1
+    geometric_variants: True
+    color_jitter: [1.3, 1.125]
+    tags: ["f1_tenth"]
+  -
+    root_folder: /p/DeepRacing/rosbags/racetrack_inner_train
+    key_file: goodkeys.txt
+    lateral_dimension: 1
+    geometric_variants: True
+    color_jitter: [1.3, 1.125]
+    tags: ["f1_tenth"]
+  -
+    root_folder: /p/DeepRacing/rosbags/racetrack_outer_train
+    key_file: goodkeys.txt
+    lateral_dimension: 1
+    geometric_variants: True
+    color_jitter: [1.3, 1.125]
+    tags: ["f1_tenth"]
+  -
+    root_folder: /p/DeepRacing/rosbags/deepracing_train_1
+    key_file: goodkeys.txt
+    lateral_dimension: 1
+    geometric_variants: True
+    color_jitter: [1.3, 1.125]
+    tags: ["f1_tenth"]
+  -
+    root_folder: /p/DeepRacing/rosbags/new_train
+    key_file: goodkeys.txt
+    lateral_dimension: 1
+    geometric_variants: True
+    color_jitter: [1.3, 1.125]
+    tags: ["f1_tenth"]
