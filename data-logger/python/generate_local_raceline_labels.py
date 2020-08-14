@@ -39,12 +39,18 @@ def poseSequenceLabelKey(label):
 parser = argparse.ArgumentParser()
 parser.add_argument("db_path", help="Path to root directory of DB",  type=str)
 parser.add_argument("raceline", help="Path to the json file containing the raceline",  type=str)
-parser.add_argument("lookahead_distance", help="Distance to look ahead on the raceline. This means the labels can have variable length",  type=float)
+parser.add_argument("--lookahead_distance", help="Distance to look ahead on the raceline. This means the labels can have variable length. Mutually exclusive with --lookahead_indices",  type=float, default=None)
+parser.add_argument("--lookahead_indices", help="Number of indices to look ahead in the raceline. Mutually exclusive with --lookahead_distance",  type=int, default=None)
 parser.add_argument("--debug", help="Display debug plots", action="store_true", required=False)
 parser.add_argument("--output_dir", help="Output directory for the labels. relative to the database images folder",  default="raceline_labels", required=False)
 
 args = parser.parse_args()
 lookahead_distance = args.lookahead_distance
+lookahead_indices = args.lookahead_indices
+
+if not ( bool(lookahead_distance is not None) ^ bool(lookahead_indices is not None) ):
+    raise ValueError("Either lookahead_distance or lookahead_indices (but NOT both) must be specified")
+
 root_dir = args.db_path
 racelinepath = args.raceline
 with open(os.path.join(root_dir,"f1_dataset_config.yaml"),"r") as f:
@@ -204,12 +210,21 @@ if os.path.isdir(lmdb_dir):
 os.makedirs(lmdb_dir)
 print("Generating raceline labels")
 config_dict = {"lookahead_distance": lookahead_distance}
+config_dict = {"lookahead_indices": lookahead_indices}
 with open(os.path.join(output_dir,'config.yaml'), 'w') as yaml_file:
     yaml.dump(config_dict, yaml_file, Dumper=yaml.SafeDumper)
 #exit(0)
 db = deepracing.backend.PoseSequenceLabelLMDBWrapper()
 db.readDatabase( lmdb_dir, mapsize=int(round(9996*len(image_tags)*1.25)), max_spare_txns=16, readonly=False )
-debug = False
+debug = True
+raceline_diffs = racelinedist[1:] - racelinedist[0:-1]
+#raceline_diffs = np.linalg.norm(racelineaug[0:3,1:] - racelineaug[0:3,0:-1] , ord=2, axis=0 )
+average_diff = np.mean(raceline_diffs)
+if lookahead_indices is None:
+    li = int(round(lookahead_distance/average_diff))
+else:
+    li = lookahead_indices
+kdtree : KDTree = KDTree(racelineaug[0:3].transpose())
 for idx in tqdm(range(len(image_tags))):
     try:
         imagetag = image_tags[idx]
@@ -233,34 +248,36 @@ for idx in tqdm(range(len(image_tags))):
         car_affine_pose[0:3,0:3] = car_rotation.as_matrix()
         car_affine_pose[0:3,3] = car_position
         car_affine_pose_inv = la.inv(car_affine_pose)
-        raceline_local = np.matmul(car_affine_pose_inv,racelineaug)[0:3,:].transpose()
-        Izpos = raceline_local[:,2]>=0.0
-        raceline_geodesic_distances = racelinedist[Izpos]
-        raceline_local = raceline_local[Izpos]
-        raceline_distances = np.linalg.norm(raceline_local,axis=1)
-        I1 = np.argmin(raceline_distances)
-        d1 = raceline_geodesic_distances[I1]
-        d2 = d1 + lookahead_distance
-        I2 = bisect.bisect_left(raceline_geodesic_distances, d2)
-        if d2 < raceline_geodesic_distances[-1]:
-          #  print("Normal label.")# I1: %d. I2: %d" % (I1, I2))
-           # print(raceline_local[I1:I2])
-            local_points = raceline_local[I1:I2].copy()
-            local_geodesic_distances = raceline_geodesic_distances[I1:I2].copy()
-        else:
-            I2 = bisect.bisect_left(raceline_geodesic_distances,  d2 - raceline_geodesic_distances[-1]) 
-            local_points = np.vstack( ( raceline_local[I1:],  raceline_local[0:I2])  )
-            local_geodesic_distances = np.hstack( ( raceline_geodesic_distances[I1:],  raceline_geodesic_distances[0:I2] + raceline_geodesic_distances[-1] ) )
-            
-            if debug:# and (idx%10==0):
-                f, (imax, plotax) = plt.subplots(nrows=1 , ncols=2)
-                im = cv2.cvtColor(cv2.imread(os.path.join(image_folder,label_tag.image_tag.image_file)), cv2.COLOR_BGR2RGB)
-                imax.imshow(im)
-                plotax.plot(-local_points[:,0], local_points[:,2])
-                try:
-                    plt.show()
-                except Exception as e:
-                    print("Skipping visualization")
+        # Izpos = raceline_local[:,2]>=0.0
+        # raceline_geodesic_distances = racelinedist[Izpos]
+        # raceline_local = raceline_local[Izpos]
+        # raceline_distances = np.linalg.norm(raceline_local,axis=1)
+        (d, I1) = kdtree.query(car_position)
+       # I1 = int(I1)
+        I2 = I1 + li - 1
+        sample_idx = (np.linspace(I1,I2,num=(I2-I1+1)) % racelineaug.shape[1]).astype(np.int32)
+      #  print(sample_idx)
+        local_points = np.matmul(car_affine_pose_inv,racelineaug[:,sample_idx])[0:3].transpose()
+        local_geodesic_distances = racelinedist[sample_idx]
+        # if I2 > raceline_local.shape[0]:
+        #     I2 = (I2 % raceline_local.shape[0])# + 1
+        #     local_points = np.vstack((raceline_local[I1:], raceline_local[0:I2]))
+        # else:   
+        #     local_points = raceline_local[I1:I2].copy()
+        #     local_geodesic_distances = raceline_geodesic_distances[I1:I2].copy()
+        if not local_points.shape[0] == li:
+            raise ValueError("Local raceline is supposed to have %d samples, but has %d instead." % (li, local_points.shape[0]))
+        if debug and (idx%15==0):
+            print("local_points has shape: %s" % ( str(local_points.shape), ) )
+            f, (imax, plotax) = plt.subplots(nrows=1 , ncols=2)
+            im = cv2.cvtColor(cv2.imread(os.path.join(image_folder,label_tag.image_tag.image_file)), cv2.COLOR_BGR2RGB)
+            imax.imshow(im)
+           # plotax.set_xlim(-40,40)
+            plotax.scatter(-local_points[:,0], local_points[:,2])
+            try:
+                plt.show()
+            except Exception as e:
+                print("Skipping visualization")
                   #  plt.close('all')
             #continue
 

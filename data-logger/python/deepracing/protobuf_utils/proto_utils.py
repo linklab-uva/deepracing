@@ -155,9 +155,11 @@ def getAllMotionPackets(motion_data_folder: str, use_json: bool):
    motion_packets = []
    if use_json:
       filepaths = [os.path.join(motion_data_folder, f) for f in os.listdir(motion_data_folder) if os.path.isfile(os.path.join(motion_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".json"]
-      jsonstrings = [(open(path, 'r')).read() for path in filepaths]
+      #jsonstrings = [(open(path, 'r')).read() for path in filepaths]
       print("Loading json files for motion packets")
-      for jsonstring in tqdm(jsonstrings):
+      for fp in tqdm(filepaths):
+         with open(fp,"r") as f:
+            jsonstring = f.read()
          data = TimestampedPacketMotionData_pb2.TimestampedPacketMotionData()
          google.protobuf.json_format.Parse(jsonstring, data)
          motion_packets.append(data)
@@ -191,14 +193,14 @@ def getAllImageFilePackets(image_data_folder: str, use_json: bool):
             image_packets.append(data)
    else:
       print("Attempting to read pb files in : %s" %(image_data_folder))
-      filepaths = [os.path.join(image_data_folder, f) for f in os.listdir(image_data_folder) if os.path.isfile(os.path.join(image_data_folder, f)) and str.lower(os.path.splitext(f)[1])==".pb"]
-      for filepath in tqdm(filepaths):
+      filepaths = [os.path.join(image_data_folder, f) for f in os.listdir(image_data_folder)]
+      for fp in tqdm(filepaths):
          try:
-            data = TimestampedImage_pb2.TimestampedImage()
-            f = open(filepath,'rb')
-            data.ParseFromString(f.read())
-            f.close()
-            image_packets.append(data)
+            if os.path.isfile(fp) and str.lower(os.path.splitext(os.path.basename(fp))[1])==".pb":
+               with open(fp,'rb') as f: 
+                  data = TimestampedImage_pb2.TimestampedImage()
+                  data.ParseFromString(f.read())
+                  image_packets.append(data)
          except Exception as ex:
             #f.close()
             print("Could not read image data file %s." %(filepath))
