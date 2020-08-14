@@ -47,6 +47,7 @@ parser.add_argument("--output_dir", help="Output directory for the labels. relat
 args = parser.parse_args()
 lookahead_distance = args.lookahead_distance
 lookahead_indices = args.lookahead_indices
+debug = args.debug
 
 if not ( bool(lookahead_distance is not None) ^ bool(lookahead_indices is not None) ):
     raise ValueError("Either lookahead_distance or lookahead_indices (but NOT both) must be specified")
@@ -216,7 +217,6 @@ with open(os.path.join(output_dir,'config.yaml'), 'w') as yaml_file:
 #exit(0)
 db = deepracing.backend.PoseSequenceLabelLMDBWrapper()
 db.readDatabase( lmdb_dir, mapsize=int(round(9996*len(image_tags)*1.25)), max_spare_txns=16, readonly=False )
-debug = True
 raceline_diffs = racelinedist[1:] - racelinedist[0:-1]
 #raceline_diffs = np.linalg.norm(racelineaug[0:3,1:] - racelineaug[0:3,0:-1] , ord=2, axis=0 )
 average_diff = np.mean(raceline_diffs)
