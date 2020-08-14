@@ -33,11 +33,13 @@ parser = argparse.ArgumentParser("Unpack a bag file into a dataset")
 parser.add_argument('bagfile', type=str,  help='The bagfile to unpack')
 parser.add_argument('--config', type=str, required=False, default=None , help="Config file specifying the rostopics to unpack, defaults to a file named \"topicconfig.yaml\" in the same directory as the bagfile")
 parser.add_argument('--lookahead_indices', type=int, default=30, help="Number of indices to look forward")
+parser.add_argument('--sample_indices', type=int, default=60, help="Number of points to sample for the label")
 parser.add_argument('--debug', action="store_true", help="Display some debug plots")
 parser.add_argument('--mintime', type=float, default=5.0, help="Ignore this many seconds of data at the beginning of the bag file")
 args = parser.parse_args()
 argdict = vars(args)
 lookahead_indices = argdict["lookahead_indices"]
+sample_indices = argdict["sample_indices"]
 configfile = argdict["config"]
 bagpath = argdict["bagfile"]
 mintime = argdict["mintime"]
@@ -148,25 +150,6 @@ print(quaternions[0])
 print(imagepositions.shape)
 print(imagequaternions.shape)
 print(imageangularvelocities)
-bridge : cv_bridge.CvBridge = cv_bridge.CvBridge()
-images = []
-imgfreq = typedict[topicdict["images"]].frequency
-fourcc = cv2.VideoWriter_fourcc(*"MJPG")
-videowriter = None 
-for i in tqdm(iterable=range(len(imagemsgs)), desc="Converting images to numpy arrays"):
-    imgmsg = imagemsgs[i]
-    if compressed:
-        imcv = bridge.compressed_imgmsg_to_cv2(imagemsgs[i],desired_encoding="bgr8")
-    else:
-        imcv = bridge.imgmsg_to_cv2(imagemsgs[i],desired_encoding="bgr8")
-    if videowriter is None:
-        videowriter = cv2.VideoWriter(os.path.join(rootdir, "video.avi"), fourcc, int(round(imgfreq)), (imcv.shape[1], imcv.shape[0]), True)
-    imgpil = Image.fromarray(imcv.copy())
-    imdraw = ImageDraw.ImageDraw(imgpil)
-    imdraw.text((imcv.shape[1]/2, imcv.shape[0]/2),"image_%d"%(i,), fill=(0,0,0))
-    images.append(imcv)
-    videowriter.write(np.asarray(imgpil))
-videowriter.release()
 
 #images = np.array(images)
 
@@ -182,21 +165,32 @@ if os.path.isdir(lmdb_dir):
 time.sleep(0.5)
 os.makedirs(lmdb_dir)
 #cv2.namedWindow("image", flags=cv2.WINDOW_AUTOSIZE)
+keys = ["image_%d" % (i+1,) for i in range(len(imagemsgs))]
 db = deepracing.backend.PoseSequenceLabelLMDBWrapper()
-db.readDatabase( lmdb_dir, mapsize=int(round(9996*len(images)*1.25)), max_spare_txns=16, readonly=False, lock=True )
-keys = ["image_%d" % (i+1,) for i in range(len(images))]
-lstsquare_spline_degree = 3
+db.readDatabase( lmdb_dir, mapsize=int(round(9996*len(imagemsgs)*1.25)), max_spare_txns=16, readonly=False, lock=True )
+lstsquare_spline_degree = 5
 localsplinedelta = 10
-for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
-    key = keys[i]
-    keyfile = key + ".jpg" 
-
+bridge : cv_bridge.CvBridge = cv_bridge.CvBridge()
+imgfreq = typedict[topicdict["images"]].frequency
+fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+videowriter = None 
+for (i,key) in tqdm(iterable=enumerate(keys), desc="Writing images to file", total=len(keys)):
     label_tag : PoseSequenceLabel_pb2.PoseSequenceLabel = PoseSequenceLabel_pb2.PoseSequenceLabel()
     label_tag.image_tag.timestamp = imagetimes[i]
-    label_tag.image_tag.image_file = keyfile
-
+    label_tag.image_tag.image_file = key + ".jpg" 
+    if compressed:
+        imcv = bridge.compressed_imgmsg_to_cv2(imagemsgs[i],desired_encoding="bgr8")
+    else:
+        imcv = bridge.imgmsg_to_cv2(imagemsgs[i],desired_encoding="bgr8")
+    if videowriter is None:
+        videowriter = cv2.VideoWriter(os.path.join(rootdir, "video.avi"), fourcc, int(round(imgfreq)), (imcv.shape[1], imcv.shape[0]), True)
+    imgpil = Image.fromarray(imcv.copy())
+    imdraw = ImageDraw.ImageDraw(imgpil)
+    imdraw.text((imcv.shape[1]/2, imcv.shape[0]/2),"image_%d"%(i,), fill=(0,0,0))
+    videowriter.write(np.asarray(imgpil))
     filename = os.path.join(imagedir, label_tag.image_tag.image_file)
-    cv2.imwrite(filename,images[i])
+    cv2.imwrite(filename,imcv)
+
     image_tag_file_path = os.path.join(imagedir, key + ".json")
     with open(image_tag_file_path,'w') as f:
         f.write(google.protobuf.json_format.MessageToJson(label_tag.image_tag, including_default_value_fields=True))
@@ -205,7 +199,7 @@ for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
         f.write( label_tag.image_tag.SerializeToString() )
 
     imax = i+lookahead_indices
-    if imax>=len(images) or label_tag.image_tag.timestamp<=mintime or label_tag.image_tag.timestamp>=odomtimes[-1]-mintime:
+    if imax>=len(imagemsgs) or label_tag.image_tag.timestamp<=mintime or label_tag.image_tag.timestamp>=odomtimes[-1]-mintime:
         continue
     label_tag.car_pose.frame = FrameId_pb2.GLOBAL
     label_tag.car_velocity.frame = FrameId_pb2.GLOBAL
@@ -228,7 +222,7 @@ for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
     positionsplineglobal : scipy.interpolate.BSpline = scipy.interpolate.make_lsq_spline(odomtimesglobal, positionsglobal[:,[0,1]], t, k = lstsquare_spline_degree)
     velocitysplineglobal : scipy.interpolate.BSpline = positionsplineglobal.derivative()
     rotationsplineglobal : RotSpline = RotSpline(odomtimesglobal, rotationsglobal)
-    tsamp = np.linspace(label_tag.image_tag.timestamp, odomtimesglobal[-localsplinedelta], num=lookahead_indices)
+    tsamp = np.linspace(label_tag.image_tag.timestamp, odomtimesglobal[-localsplinedelta], num=sample_indices)
     position_samples = positionsplineglobal(tsamp)
     velocity_samples = velocitysplineglobal(tsamp)
     rotation_samples = rotationsplineglobal(tsamp)
@@ -260,14 +254,14 @@ for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
     carposeinv = np.linalg.inv(carpose)
     carposeinvrotmat = carposeinv[0:3,0:3]
 
-    labelposesglobal = np.array([np.eye(4).astype(np.float64) for i in range(lookahead_indices)])
+    labelposesglobal = np.array([np.eye(4).astype(np.float64) for i in range(sample_indices)])
     positionsglobalaug = np.zeros((4,positionsglobal.shape[0])).astype(np.float64)
     positionsglobalaug[3,:] = 1.0
     positionsglobalaug[0,:] = positionsglobal[:,0]
     positionsglobalaug[1,:] = positionsglobal[:,1]
     # labelposesglobal[:,0:3,0:3] = odom[i:imax]
     #labelposesglobal[:,0:3,0:3] = rotation_samples_matrices
-    for j in range(lookahead_indices):
+    for j in range(labelposesglobal.shape[0]):
         vlist = list(velocity_samples[j])
         vlist.append(0)
         forward = np.array(vlist)
@@ -300,7 +294,7 @@ for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
     labelquats[np.abs(labelquats)<1E-12]=0.0
 
     #labelvels = np.matmul(carposeinvrotmat,labelvelsglobal)
-    labelvelsglobal = np.zeros((lookahead_indices,3))
+    labelvelsglobal = np.zeros((sample_indices,3))
     labelvelsglobal[:,[0,1]] = velocity_samples
     #print("labelvelsglobalaug.shape: " + str(labelvelsglobalaug.shape))
     labelvels = np.matmul(carposeinvrotmat,labelvelsglobal.transpose()).transpose()
@@ -320,10 +314,10 @@ for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
         mngr = plt.get_current_fig_manager()
         # to put it into the upper left corner for example:
         mngr.window.wm_geometry("+600+400")
-        xmax = 0.25
+        xmax = 0.75
         xmin = -xmax
         fig1 = plt.subplot(1, 3, 1)
-        plt.imshow(cv2.cvtColor(images[i], cv2.COLOR_BGR2RGB))
+        plt.imshow(cv2.cvtColor(imcv, cv2.COLOR_BGR2RGB))
 
 
         fig2 = plt.subplot(1, 3, 2)
@@ -388,7 +382,7 @@ for i in tqdm(iterable=range(len(images)), desc="Writing images to file"):
     
     
     db.writePoseSequenceLabel(key, label_tag)
-
+videowriter.release()
 with open(os.path.join(rootdir,"goodkeys.txt"),"w") as f:
     for i in tqdm(iterable=range(len(keys) - lookahead_indices), desc="Checking for invalid keys"):
         key = keys[i]
