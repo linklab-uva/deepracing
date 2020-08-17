@@ -314,7 +314,7 @@ for (i,key) in tqdm(iterable=enumerate(keys), desc="Writing images to file", tot
         mngr = plt.get_current_fig_manager()
         # to put it into the upper left corner for example:
         mngr.window.wm_geometry("+600+400")
-        xmax = 0.75
+        xmax = 0.25
         xmin = -xmax
         fig1 = plt.subplot(1, 3, 1)
         plt.imshow(cv2.cvtColor(imcv, cv2.COLOR_BGR2RGB))
@@ -343,7 +343,7 @@ for (i,key) in tqdm(iterable=enumerate(keys), desc="Writing images to file", tot
     
     assert(np.allclose(transformnorms[0:3],np.ones(3)))
     pointsgood=True
-    for j in range(lookahead_indices):
+    for j in range(sample_indices):
         pose_forward_pb = Pose3d_pb2.Pose3d()
         newpose = label_tag.subsequent_poses.add()
         newvel = label_tag.subsequent_linear_velocities.add()
