@@ -343,7 +343,7 @@ for (i,key) in tqdm(iterable=enumerate(keys), desc="Writing images to file", tot
     
     assert(np.allclose(transformnorms[0:3],np.ones(3)))
     pointsgood=True
-    for j in range(sample_indices):
+    for j in range(labelpositions.shape[0]):
         pose_forward_pb = Pose3d_pb2.Pose3d()
         newpose = label_tag.subsequent_poses.add()
         newvel = label_tag.subsequent_linear_velocities.add()
