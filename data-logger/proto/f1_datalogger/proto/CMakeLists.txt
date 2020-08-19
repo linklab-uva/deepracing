@@ -41,9 +41,9 @@ set(install_targets
 ${PROJECT_NAME}_proto 
 )
 install(TARGETS ${install_targets}
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
 )
 install(FILES ${PROTOFILES} DESTINATION share/${PROJECT_NAME}/proto)
 if(ament_cmake_FOUND)

@@ -16,5 +16,5 @@ message PoseSequenceLabel {
 		repeated deepf1.protobuf.eigen.Vector3dStamped subsequent_angular_accelerations = 9;
 		deepf1.protobuf.Spline2DParams position_spline = 10;
 		deepf1.protobuf.Spline2DParams velocity_spline = 11;
-		
+		string metadata = 12;		
 }
