@@ -58,13 +58,12 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu,
     bezier_order = network.params_per_dimension-1+int(fix_first_point)
     if not debug:
         experiment.set_epoch(epoch_number)
-    for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
-        if network.input_channels==5:
-            image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
+    for (i, (image_torch, key_indices_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
         image_torch = image_torch.double()
         positions_torch = positions_torch.double()
         session_times_torch = session_times_torch.double()
         linear_velocities_torch = linear_velocities_torch.double()
+        image_keys = ["image_%d" % (key_indices_torch[j],) for j in key_indices_torch.shape[0]]
         if gpu>=0:
             image_torch = image_torch.cuda(gpu)
             positions_torch = positions_torch.cuda(gpu)
@@ -139,8 +138,18 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu,
 
         current_position_loss = kinematic_loss(pred_points, gt_points)
         current_velocity_loss = kinematic_loss(pred_vels_scaled, gt_vels)
+        final_point_loss = kinematic_loss(pred_points[:,-1].unsqueeze(1), gt_points[:,-1].unsqueeze(1))
         current_param_loss = params_loss(predictions_reshape,controlpoints_fit)
-        loss = loss_weights[0]*current_param_loss + loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
+
+        param_weight = loss_weights[0]
+        position_weight = loss_weights[1]
+        velocity_weight = loss_weights[2]
+        if len(loss_weights)>3:
+            final_point_weight = loss_weights[3]
+        else:
+            final_point_weight = 0.0
+
+        loss = param_weight*current_param_loss + position_weight*current_position_loss + velocity_weight*current_velocity_loss + final_point_weight*final_point_loss
   
        # loss = loss_weights[0]*current_param_loss + loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
         
@@ -169,6 +178,7 @@ def go():
     parser.add_argument("--context_length",  type=int, default=None,  help="Override the context length specified in the config file")
     parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
     parser.add_argument("--model_load",  type=str, default=None,  help="Load this model file prior to running. usually in conjunction with debug")
+    parser.add_argument("--models_to_disk", action="store_true",  help="Save the model files to disk in addition to comet.ml")
     parser.add_argument("--override", action="store_true",  help="Delete output directory and replace with new data")
     parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
     parser.add_argument("--batch_size", type=int, default=None,  help="Override the order of the batch size specified in the config file")
@@ -191,6 +201,7 @@ def go():
     debug = args.debug
     weighted_loss = args.weighted_loss
     model_load = args.model_load
+    models_to_disk = args.models_to_disk
 
     with open(dataset_config_file) as f:
         dataset_config = yaml.load(f, Loader = yaml.SafeLoader)
@@ -372,8 +383,7 @@ def go():
     dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
                         shuffle=True, num_workers=num_workers, pin_memory=gpu>=0)
     print("Dataloader of of length %d" %(len(dataloader)))
-    netpostfix = "epoch_%d_params.pt"
-    optimizerpostfix = "epoch_%d_optimizer.pt"
+
     
     main_dir = args.output_directory
     if debug:
@@ -405,10 +415,18 @@ def go():
     if debug:
         run_epoch(None, net, fix_first_point , optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, 1, debug=True, use_tqdm=args.tqdm, position_indices=position_indices)
     else:
+        netpostfix = "epoch_%d_params.pt"
+        optimizerpostfix = "epoch_%d_optimizer.pt"
         with experiment.train():
             while i < num_epochs:
                 time.sleep(2.0)
                 postfix = i + 1
+                if models_to_disk:
+                    modelfile = netpostfix % (postfix-1)
+                    optimizerfile = optimizerpostfix % (postfix-1)
+                else:
+                    modelfile = "params.pt"
+                    optimizerfile = "optimizer.pt"
                 print("Running Epoch Number %d" %(postfix))
                 #dset.clearReaders()
                 try:
@@ -421,20 +439,23 @@ def go():
                     raise e
                 except Exception as e:
                     print("Restarting epoch %d because %s"%(postfix, str(e)))
-                    modelin = os.path.join(output_directory, netpostfix %(postfix-1))
-                    optimizerin = os.path.join(output_directory,optimizerpostfix %(postfix-1))
+                    modelin = os.path.join(output_directory, modelfile)
+                    optimizerin = os.path.join(output_directory,optimizerfile)
                     net.load_state_dict(torch.load(modelin))
                     optimizer.load_state_dict(torch.load(optimizerin))
                     continue
-                modelout = os.path.join(output_directory,netpostfix %(postfix))
-                torch.save(net.state_dict(), modelout)
-                with open(modelout,'rb') as modelfile:
-                    experiment.log_asset(modelfile,file_name=netpostfix %(postfix))
-                    #experiment.log_model("epoch_%d" %(postfix), modelfile,file_name=netpostfix %(postfix))
-                optimizerout = os.path.join(output_directory,optimizerpostfix %(postfix))
-                torch.save(optimizer.state_dict(), optimizerout)
-                with open(optimizerout,'rb') as optimizerfile:
-                    experiment.log_asset(optimizerfile,file_name=optimizerpostfix %(postfix))
+
+                modelout = os.path.join(output_directory,modelfile)
+                with open(modelout,'wb') as f:
+                    torch.save(net.state_dict(), f)
+                with open(modelout,'rb') as f:
+                    experiment.log_asset(f,file_name=netpostfix %(postfix,) )
+
+                optimizerout = os.path.join(output_directory, optimizerfile)
+                with open(optimizerout,'wb') as f:
+                    torch.save(optimizer.state_dict(), f)
+                with open(optimizerout,'rb') as f:
+                    experiment.log_asset(f,file_name=optimizerpostfix %(postfix,) )
                 i = i + 1
 import logging
 if __name__ == '__main__':
