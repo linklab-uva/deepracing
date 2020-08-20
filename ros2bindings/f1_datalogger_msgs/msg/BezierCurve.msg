@@ -1,3 +1,3 @@
-float64[] control_points_x
-float64[] control_points_z
+float64[] control_points_lateral
+float64[] control_points_forward
 std_msgs/Header header

@@ -146,7 +146,7 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         z_offset_param : Parameter = self.get_parameter_or("z_offset",Parameter("z_offset", value=L/2.0))
         print("z_offset_param: " + str(z_offset_param.get_parameter_value()))
 
-        gpu_param = self.get_parameter_or("gpu",Parameter("gpu", value=gpu))
+        gpu_param : Parameter = self.get_parameter_or("gpu",Parameter("gpu", value=gpu))
         print("gpu_param: " + str(gpu_param.get_parameter_value()))
 
         
@@ -227,7 +227,7 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         if ( not imtorch.shape[0] == self.net.context_length ):
             return None, None, None
         inputtorch : torch.Tensor = imtorch.unsqueeze(0).double().cuda(self.gpu)
-        self.get_logger().debug("inputtorch is on device %s" % (str(inputtorch.get_device())))
+       # self.get_logger().debug("inputtorch is on device %s" % (str(inputtorch.get_device())))
         with torch.no_grad():
             network_predictions = self.net(inputtorch)
             if self.fix_first_point:  
@@ -245,7 +245,7 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         distances_samp = la.norm(x_samp, axis=1)
         if self.plot:
             bezier_control_points_np = bezier_control_points[0].cpu().numpy()
-            plotmsg : BCMessage = BCMessage(header = Header(stamp=stamp,frame_id="car"), control_points_x = bezier_control_points_np[:,0], control_points_z = bezier_control_points_np[:,1] )
+            plotmsg : BCMessage = BCMessage(header = Header(stamp=stamp,frame_id="car"), control_points_lateral = bezier_control_points_np[:,0], control_points_forward = bezier_control_points_np[:,1] )
             self.path_publisher.publish(plotmsg)
         return x_samp, v_samp, distances_samp
         

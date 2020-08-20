@@ -157,6 +157,7 @@ class PurePursuitControllerROS(Node):
         else:
             delta = self.right_steer_factor*physical_angle# + 0.01094534
         #delta = 0.0
+        #self.get_logger().info("Setting steering angle %d: " % delta)
         if self.velsetpoint>self.current_speed:
             self.controller.setControl(delta,1.0,0.0)
         else:

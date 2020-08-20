@@ -163,10 +163,10 @@ int main(int argc, char** argv)
         bezier_curve_session_times.push_back(session_timestamp);
         RCLCPP_DEBUG(node->get_logger(), "Session timestamp for Bezier Curve %d: %f", i, session_timestamp);
         deepf1::twenty_eighteen::protobuf::BezierCurve bezier_curve_proto;
-        for(unsigned int j = 0; j < bezier_curve_msg->control_points_x.size();++j)
+        for(unsigned int j = 0; j < bezier_curve_msg->control_points_lateral.size();++j)
         {
-            bezier_curve_proto.add_control_points_x(bezier_curve_msg->control_points_x.at(j));
-            bezier_curve_proto.add_control_points_z(bezier_curve_msg->control_points_z.at(j));
+            bezier_curve_proto.add_control_points_x(bezier_curve_msg->control_points_lateral.at(j));
+            bezier_curve_proto.add_control_points_z(bezier_curve_msg->control_points_forward.at(j));
         }
         bezier_curve_proto.set_m_sessiontime(session_timestamp);
         fs::path filepath = output_directory / fs::path("bezier_curve_" + std::to_string(i+1) + ".json");
