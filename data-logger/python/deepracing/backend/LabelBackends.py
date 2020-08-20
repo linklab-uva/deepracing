@@ -47,10 +47,28 @@ class ControlLabelLMDBWrapper():
         return keys
 
 class MultiAgentLabelLMDBWrapper():
-    def __init__(self):
+    def __init__(self, encoding = "ascii"):
         self.env = None
-        self.encoding = "ascii"
+        self.encoding = encoding
         self.spare_txns=1
+
+    @staticmethod
+    def readFromFile(filepath):
+        extension = str.lower(os.path.splitext(os.path.basename(filepath))[1])
+        rtn = MultiAgentLabel_pb2.MultiAgentLabel()
+        if extension == ".pb":
+            with open(filepath, "rb") as f:
+                rtn.ParseFromString(f.read())
+            return rtn
+        elif extension == ".json":
+            with open(filepath, "r") as f:
+                jsonstring = f.read()
+                google.protobuf.json_format.Parse(jsonstring, rtn)
+            return rtn
+        else:
+            raise ValueError("Unknown extension: %s" % (extension,))
+
+
     def clearStaleReaders(self):
         self.env.reader_check()
     def resetEnv(self):
@@ -61,6 +79,10 @@ class MultiAgentLabelLMDBWrapper():
             del self.env
             time.sleep(1)
             self.readDatabase(path, mapsize=mapsize, max_spare_txns=self.spare_txns)
+    def closeDatabase(self):
+        if self.env is None:
+            return
+        self.env.close()
     def openDatabase(self, db_path : str, mapsize=1e10, max_spare_txns=125, readonly=True, lock=False):
         if not os.path.isdir(db_path):
             raise IOError("Path " + db_path + " is not a directory")

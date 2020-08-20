@@ -89,17 +89,15 @@ def fromHomogenousTransform(transform):
     pos = transform[0:3,3].copy()
     quat = Rot.from_dcm(transform[0:3,0:3]).as_quat()
     return pos,quat
-def toHomogenousTransformArray(positions, quats):
-    length = positions.shape[0]
-    assert(quats.shape[0]==length)
-    rtn = np.array([np.eye(4) for i in range(length)])
-    rtn[:,0:3,3] = positions.copy()
-    rtn[:,0:3,0:3] = Rot.from_quat(quats).as_dcm()
-    return rtn
 def toHomogenousTransform(position, quat):
     rtn = np.eye(4)
     rtn[0:3,3] = position.copy()
     rtn[0:3,0:3] = Rot.from_quat(quat).as_dcm()
+    return rtn
+def toHomogenousTransformArray(positions, quats):
+    length = positions.shape[0]
+    assert(quats.shape[0]==length)
+    rtn = np.array([toHomogenousTransform(positions[i], quats[i]) for i in range(length)])
     return rtn
 def interpolateVectors(p1, t1, p2, t2, t_interp):
     tau = (t_interp - t1)/(t2 - t1)

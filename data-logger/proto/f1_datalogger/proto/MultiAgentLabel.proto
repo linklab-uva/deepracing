@@ -5,10 +5,10 @@ import "TimestampedImage.proto";
 import "Vector3dStamped.proto";
 import "Trajectory.proto";
 message MultiAgentLabel {
-		TimestampedImage image_tag = 1;
-		deepf1.protobuf.eigen.Pose3d ego_vehicle_pose = 2;
-		deepf1.protobuf.eigen.Vector3dStamped ego_vehicle_linear_velocity = 3;
-		deepf1.protobuf.eigen.Vector3dStamped ego_vehicle_angular_velocity = 4;
-		deepf1.protobuf.Trajectory ego_vehicle_path = 5;
-		repeated deepf1.protobuf.Trajectory external_agent_paths = 6;		
+	TimestampedImage image_tag = 1;
+	deepf1.protobuf.eigen.Pose3d ego_agent_pose = 2;
+	deepf1.protobuf.eigen.Vector3dStamped ego_agent_linear_velocity = 3;
+	deepf1.protobuf.eigen.Vector3dStamped ego_agent_angular_velocity = 4;
+	deepf1.protobuf.Trajectory ego_agent_trajectory = 5;
+	repeated deepf1.protobuf.Trajectory other_agent_trajectories = 6;		
 }
