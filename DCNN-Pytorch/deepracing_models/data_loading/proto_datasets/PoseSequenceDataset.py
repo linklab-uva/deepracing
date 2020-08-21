@@ -151,4 +151,4 @@ class PoseSequenceDataset(Dataset):
         images_torch = torch.stack( [ self.totensor(img) for img in pilimages ] ).double()
        
 
-        return images_torch, torch.tensor(np.nan).double(), positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch
+        return images_torch, torch.as_tensor(packetrange[-1], dtype=torch.int32), positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch

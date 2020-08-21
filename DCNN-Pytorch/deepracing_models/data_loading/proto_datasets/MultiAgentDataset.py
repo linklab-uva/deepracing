@@ -58,34 +58,54 @@ class MultiAgentDataset(Dataset):
         with open(keyfile,'r') as filehandle:
             keystrings = filehandle.readlines()
             self.db_keys = [keystring.replace('\n','') for keystring in keystrings]
-        num_labels = self.label_db_wrapper.getNumLabels()
-        self.length = len(self.db_keys) - 2 - context_length
+        self.num_images = len(self.db_keys)
+        self.length = self.num_images - 2 - context_length
 
     def __len__(self):
         return self.length
     def __getitem__(self, index):
-        images_start = index + 1
-        images_end = images_start + self.context_length
-        labelsrange = range(images_start, images_end)
-        keys = [self.db_keys[i] for i in labelsrange]
+        index = int(input_index%self.num_images)
+        label_key = self.db_keys[index]
+        label_key_idx = int(label_key.split("_")[1])
+        images_start = label_key_idx - self.context_length + 1
+        images_end = label_key_idx + 1
+        packetrange = range(images_start, images_end)
+        #key_indices = np.array([i for i in packetrange], dtype=np.int32)
+        keys = ["image_%d" % (i,) for i in packetrange]
+        assert(keys[-1]==label_key)
+
         label = self.label_db_wrapper.getMultiAgentLabel(keys[-1])
-        ego_states = label.ego_vehicle_path.pose_and_velocities
-        ego_poses_pb = [pv.pose for pv in ego_states]
-        print(len(ego_poses_pb))
-        ego_poses = np.zeros((len(ego_poses_pb),4,4), dtype=np.float64)
-        ego_poses[:,3,3]=1.0
-        print(ego_poses.shape)
-        for i in range(ego_poses.shape[0]):
-            ego_position_pb = ego_poses_pb[i].translation
-            ego_rotation_pb = ego_poses_pb[i].rotation
-            ego_poses[i,0:3,0:3] = Rot.from_quat( np.array([ego_rotation_pb.x,ego_rotation_pb.y,ego_rotation_pb.z,ego_rotation_pb.w], dtype=np.float64 ) ).as_matrix()
-            ego_poses[i,0:3,3] =  np.array( [ego_position_pb.x, ego_position_pb.y, ego_position_pb.z], dtype=np.float64 )
+        ego_traj_pb = label.ego_agent_trajectory
+        session_times = np.array([p.session_time for p in ego_traj_pb.poses ])
+
+        sizes = np.array( [len(ego_traj_pb.poses), len(ego_traj_pb.linear_velocities), len(ego_traj_pb.angular_velocities)] )
+        assert(np.all(sizes == sizes[0]))
+        num_points = sizes[0]
+        #print(len(ego_traj_pb))
+        ego_traj_poses = np.tile(np.eye(4, dtype=np.float64),(num_points,1,1))
+        ego_traj_linear_vels = np.zeros((num_points,3), dtype=np.float64)
+        ego_traj_angular_vels = np.zeros((num_points,3), dtype=np.float64)
+        for i in range(ego_traj_poses.shape[0]):
+
+            ego_pose_pb = ego_traj_pb.poses[i]
+            ego_position_pb = ego_pose_pb.translation
+            ego_rotation_pb = ego_pose_pb.rotation
+
+            ego_linear_vel_pb = ego_traj_pb.linear_velocities[i]
+            ego_traj_linear_vels[i] = np.array( [ego_linear_vel_pb.vector.x, ego_linear_vel_pb.vector.y, ego_linear_vel_pb.vector.z], dtype=np.float64 )
+
+            ego_angular_vel_pb = ego_traj_pb.angular_velocities[i]
+            ego_traj_angular_vels[i] = np.array( [ego_angular_vel_pb.vector.x, ego_angular_vel_pb.vector.y, ego_angular_vel_pb.vector.z], dtype=np.float64 )
 
 
+            q = np.array([ego_rotation_pb.x,ego_rotation_pb.y,ego_rotation_pb.z,ego_rotation_pb.w], dtype=np.float64 )
+            ego_traj_poses[i,0:3,0:3] = Rot.from_quat( q/np.linalg.norm(q) ).as_matrix()
+            ego_traj_poses[i,0:3,3] =  np.array( [ego_position_pb.x, ego_position_pb.y, ego_position_pb.z], dtype=np.float64 )
 
-        session_times = np.array([p.session_time for p in ego_poses_pb ])
+
+        
                 
         imagesnp = [ resizeImage(self.image_db_wrapper.getImage(key), self.image_size) for key in keys ]
-        images_torch = torch.stack( [ self.totensor(img.copy()) for img in imagesnp ]).double()
+        images_torch = torch.stack( [ self.totensor(img) for img in imagesnp ] )
         #images_torch = images_torch.double()
-        return images_torch, torch.from_numpy(ego_poses), torch.from_numpy(session_times)#, agent_positions, agent_velocities
+        return images_torch, torch.as_tensor(packetrange[-1],dtype=torch.int32), session_times, ego_traj_poses, ego_traj_linear_vels, ego_traj_angular_vels
