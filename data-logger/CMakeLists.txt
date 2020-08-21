@@ -1,4 +1,4 @@
-set(_required_cmake 3.12)
+set(_required_cmake 3.15)
 cmake_minimum_required (VERSION ${_required_cmake} FATAL_ERROR)
 cmake_policy(VERSION ${_required_cmake})
 # if(COMMAND cmake_policy)

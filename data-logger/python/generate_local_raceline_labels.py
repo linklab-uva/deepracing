@@ -247,7 +247,10 @@ for idx in tqdm(range(len(image_tags))):
         car_affine_pose = np.eye(4)
         car_affine_pose[0:3,0:3] = car_rotation.as_matrix()
         car_affine_pose[0:3,3] = car_position
-        car_affine_pose_inv = la.inv(car_affine_pose)
+       # car_affine_pose_inv = la.inv(car_affine_pose)
+        car_affine_pose_inv = np.eye(4)
+        car_affine_pose_inv[0:3,0:3] = car_affine_pose[0:3,0:3].transpose()
+        car_affine_pose_inv[0:3,3] = np.matmul(car_affine_pose_inv[0:3,0:3], -car_affine_pose[0:3,3]) 
         # Izpos = raceline_local[:,2]>=0.0
         # raceline_geodesic_distances = racelinedist[Izpos]
         # raceline_local = raceline_local[Izpos]
