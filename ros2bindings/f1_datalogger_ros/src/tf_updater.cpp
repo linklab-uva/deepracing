@@ -8,6 +8,8 @@
 #include "tf2_ros/static_transform_broadcaster.h"
 #include <tf2/LinearMath/Quaternion.h>
 #include <boost/math/constants/constants.hpp>
+#include <tf2/convert.h>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 
 class NodeWrapperTfUpdater_ 
 {
@@ -35,11 +37,13 @@ class NodeWrapperTfUpdater_
      worldToTrack.transform.rotation.z = quat.z();
      worldToTrack.transform.rotation.w = quat.w();
      this->statictfbroadcaster->sendTransform(worldToTrack);
-     this->listener = this->node->create_subscription<f1_datalogger_msgs::msg::TimestampedPacketMotionData>("/motion_data", 10, std::bind(&NodeWrapperTfUpdater_::packetCallback, this, std::placeholders::_1));
+     this->listener = this->node->create_subscription<f1_datalogger_msgs::msg::TimestampedPacketMotionData>("/motion_data", 1, std::bind(&NodeWrapperTfUpdater_::packetCallback, this, std::placeholders::_1));
+     this->pose_publisher = this->node->create_publisher<geometry_msgs::msg::PoseStamped>("/car_pose", 1);
      
      
     }  
     rclcpp::Subscription<f1_datalogger_msgs::msg::TimestampedPacketMotionData>::SharedPtr listener;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_publisher;
     std::shared_ptr<rclcpp::Node> node;
     std::shared_ptr<tf2_ros::TransformBroadcaster> tfbroadcaster;
     std::shared_ptr<tf2_ros::StaticTransformBroadcaster> statictfbroadcaster;
@@ -49,7 +53,17 @@ class NodeWrapperTfUpdater_
     {
      // std::cout << "Got some data" << std::endl;
      // RCLCPP_INFO(node->get_logger(), "Got some data");
-      const f1_datalogger_msgs::msg::CarMotionData &motion_data = motion_data_packet->udp_packet.car_motion_data[0];
+      uint8_t idx;
+      if( motion_data_packet->udp_packet.header.player_car_index<20 )
+      {
+        idx = motion_data_packet->udp_packet.header.player_car_index;
+      }
+      else
+      {
+        idx = 0;
+      }
+
+      const f1_datalogger_msgs::msg::CarMotionData &motion_data = motion_data_packet->udp_packet.car_motion_data[idx];
       const geometry_msgs::msg::Vector3Stamped &velocityROS = motion_data.world_velocity;
       const geometry_msgs::msg::Vector3Stamped &upROS = motion_data.world_up_dir;
       const geometry_msgs::msg::Vector3Stamped &forwardROS = motion_data.world_forward_dir;
@@ -80,6 +94,16 @@ class NodeWrapperTfUpdater_
       transformMsg.transform.translation.z = positionROS.point.z;
       this->tfbroadcaster->sendTransform(transformMsg);
       this->statictfbroadcaster->sendTransform(worldToTrack);
+
+      geometry_msgs::msg::PoseStamped pose;
+      pose.set__header(transformMsg.header);
+      pose.pose.position.set__x(transformMsg.transform.translation.x);
+      pose.pose.position.set__y(transformMsg.transform.translation.y);
+      pose.pose.position.set__z(transformMsg.transform.translation.z);
+      pose.pose.set__orientation(transformMsg.transform.rotation);
+
+      this->pose_publisher->publish(pose);
+      
 
 
     }

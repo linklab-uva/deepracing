@@ -95,10 +95,10 @@ public:
   void init(const std::string& host, unsigned int port, const deepf1::TimePoint& begin) override
   {
 
-    this->motion_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketMotionData>("motion_data", 10);
-    this->telemetry_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketCarTelemetryData>("telemetry_data", 10);
-    this->session_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketSessionData>("session_data", 10);
-    this->status_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketCarStatusData>("status_data", 10);
+    this->motion_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketMotionData>("motion_data", 1);
+    this->telemetry_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketCarTelemetryData>("telemetry_data", 1);
+    this->session_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketSessionData>("session_data", 1);
+    this->status_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketCarStatusData>("status_data", 1);
     ready_ = true;
     this->begin_ = begin;
     this->host_ = host;

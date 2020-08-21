@@ -9,17 +9,17 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>rclcpp</depend>
-  <depend>rosidl_default_runtime</depend>
   <depend>f1_datalogger</depend>
   <depend>f1_datalogger_msgs</depend>
+  <depend>geometry_msgs</depend>
   <depend>image_tools</depend>
   <depend>image_transport</depend>
   <depend>laser_geometry</depend>
-  <depend>std_msgs</depend>
-  <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
+  <depend>rclcpp</depend>
+  <depend>rosidl_default_runtime</depend>
   <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

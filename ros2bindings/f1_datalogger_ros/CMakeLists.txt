@@ -18,6 +18,7 @@ endif()
 # find dependencies
 
 find_package(ament_cmake REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(f1_datalogger_msgs REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(laser_geometry REQUIRED)
@@ -56,7 +57,7 @@ target_include_directories(f1_msg_utils
 )
 
 add_executable(tf_updater src/tf_updater.cpp)
-ament_target_dependencies(tf_updater rclcpp f1_datalogger_msgs tf2_ros tf2)
+ament_target_dependencies(tf_updater f1_datalogger_msgs geometry_msgs rclcpp tf2 tf2_ros )
 target_link_libraries(tf_updater
  f1_msg_utils
  Eigen3::Eigen
