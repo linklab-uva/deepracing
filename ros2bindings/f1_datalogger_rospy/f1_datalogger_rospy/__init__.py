@@ -15,9 +15,8 @@ def open_bagfile(filepath: str):
     reader.open(storage_options, converter_options)
 
     topic_types = reader.get_all_topics_and_types()
-
     # Create a map for quicker lookup
     type_map = {topic_types[i].name: topic_types[i].type for i in range(len(topic_types))}
-    return type_map, reader
+    return topic_types, type_map, reader
 
     

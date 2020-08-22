@@ -30,6 +30,7 @@ setup(
     tests_require=['pytest'],
     packages=list(set(find_packages(exclude=['test'])+[
                 os.path.join(package_name,"controls"),
+                os.path.join(package_name,"convert"),
               ])),
 
     entry_points={
