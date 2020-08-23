@@ -47,126 +47,6 @@
 #include <exception>
 #define BOOST_ENDIAN_DEPRECATED_NAMES
 #include <boost/endian/endian.hpp>
-namespace enc = sensor_msgs::image_encodings;
-int f1_datalogger_ros::F1MsgUtils::getCvType(const std::string & encoding)
-{
-  // Check for the most common encodings first
-  if (encoding == enc::BGR8) {return CV_8UC3;}
-  if (encoding == enc::MONO8) {return CV_8UC1;}
-  if (encoding == enc::RGB8) {return CV_8UC3;}
-  if (encoding == enc::MONO16) {return CV_16UC1;}
-  if (encoding == enc::BGR16) {return CV_16UC3;}
-  if (encoding == enc::RGB16) {return CV_16UC3;}
-  if (encoding == enc::BGRA8) {return CV_8UC4;}
-  if (encoding == enc::RGBA8) {return CV_8UC4;}
-  if (encoding == enc::BGRA16) {return CV_16UC4;}
-  if (encoding == enc::RGBA16) {return CV_16UC4;}
-
-  // For bayer, return one-channel
-  if (encoding == enc::BAYER_RGGB8) {return CV_8UC1;}
-  if (encoding == enc::BAYER_BGGR8) {return CV_8UC1;}
-  if (encoding == enc::BAYER_GBRG8) {return CV_8UC1;}
-  if (encoding == enc::BAYER_GRBG8) {return CV_8UC1;}
-  if (encoding == enc::BAYER_RGGB16) {return CV_16UC1;}
-  if (encoding == enc::BAYER_BGGR16) {return CV_16UC1;}
-  if (encoding == enc::BAYER_GBRG16) {return CV_16UC1;}
-  if (encoding == enc::BAYER_GRBG16) {return CV_16UC1;}
-
-  // Miscellaneous
-  if (encoding == enc::YUV422) {return CV_8UC2;}
-
-  // Check all the generic content encodings
-  std::cmatch m;
-
-  if (std::regex_match(encoding.c_str(), m,
-    std::regex("(8U|8S|16U|16S|32S|32F|64F)C([0-9]+)")))
-  {
-    return CV_MAKETYPE(depthStrToInt(m[1].str()), atoi(m[2].str().c_str()));
-  }
-
-  if (std::regex_match(encoding.c_str(), m,
-    std::regex("(8U|8S|16U|16S|32S|32F|64F)")))
-  {
-    return CV_MAKETYPE(depthStrToInt(m[1].str()), 1);
-  }
-
-  throw std::runtime_error("Unrecognized image encoding [" + encoding + "]");
-}
-int f1_datalogger_ros::F1MsgUtils::depthStrToInt(const std::string& depth)
-{
-  if (depth == "8U") {
-    return 0;
-  } else if (depth == "8S") {
-    return 1;
-  } else if (depth == "16U") {
-    return 2;
-  } else if (depth == "16S") {
-    return 3;
-  } else if (depth == "32S") {
-    return 4;
-  } else if (depth == "32F") {
-    return 5;
-  }
-  return 6;
-}
-enum Encoding { INVALID = -1, GRAY = 0, RGB, BGR, RGBA, BGRA, YUV422, BAYER_RGGB, BAYER_BGGR, BAYER_GBRG, BAYER_GRBG};
-Encoding getEncoding(const std::string & encoding)
-{
-  if ((encoding == enc::MONO8) || (encoding == enc::MONO16)) {return Encoding::GRAY;}
-  if ((encoding == enc::BGR8) || (encoding == enc::BGR16)) {return Encoding::BGR;}
-  if ((encoding == enc::RGB8) || (encoding == enc::RGB16)) {return Encoding::RGB;}
-  if ((encoding == enc::BGRA8) || (encoding == enc::BGRA16)) {return Encoding::BGRA;}
-  if ((encoding == enc::RGBA8) || (encoding == enc::RGBA16)) {return Encoding::RGBA;}
-  if (encoding == enc::YUV422) {return Encoding::YUV422;}
-
-  if ((encoding == enc::BAYER_RGGB8) || (encoding == enc::BAYER_RGGB16)) {return Encoding::BAYER_RGGB;}
-  if ((encoding == enc::BAYER_BGGR8) || (encoding == enc::BAYER_BGGR16)) {return Encoding::BAYER_BGGR;}
-  if ((encoding == enc::BAYER_GBRG8) || (encoding == enc::BAYER_GBRG16)) {return Encoding::BAYER_GBRG;}
-  if ((encoding == enc::BAYER_GRBG8) || (encoding == enc::BAYER_GRBG16)) {return Encoding::BAYER_GRBG;}
-
-  // We don't support conversions to/from other types
-  return Encoding::INVALID;
-}
-sensor_msgs::msg::Image f1_datalogger_ros::F1MsgUtils::toImageMsg(const cv::Mat & image, std_msgs::msg::Header header)
-{
-  sensor_msgs::msg::Image ros_image;
-  ros_image.header = header;
-  ros_image.height = image.rows;
-  ros_image.width = image.cols;
-  
-  if(image.type()==CV_8UC3)
-  {
-    ros_image.encoding = "bgr8";
-  }
-  else if(image.type()==CV_8UC4)
-  {
-    ros_image.encoding = "bgra8";
-  }
-  else
-  {
-    throw std::runtime_error("Unsupported CV image type: " + std::to_string(image.type()));
-  }
-  
-  ros_image.is_bigendian = (boost::endian::order::native == boost::endian::order::big);
-  ros_image.step = image.cols * image.elemSize();
-  size_t size = ros_image.step * image.rows;
-  ros_image.data.resize(size);
-
-  if (image.isContinuous()) {
-    memcpy(reinterpret_cast<char *>(&ros_image.data[0]), image.data, size);
-  } else {
-    // Copy by row by row
-    uchar * ros_data_ptr = reinterpret_cast<uchar *>(&ros_image.data[0]);
-    uchar * cv_data_ptr = image.data;
-    for (int i = 0; i < image.rows; ++i) {
-      memcpy(ros_data_ptr, cv_data_ptr, ros_image.step);
-      ros_data_ptr += ros_image.step;
-      cv_data_ptr += image.step;
-    }
-  }
-
-  return ros_image;
-}
 
 f1_datalogger_msgs::msg::MarshalZone f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::MarshalZone& marshal_zone)
 {
@@ -175,6 +55,106 @@ f1_datalogger_msgs::msg::MarshalZone f1_datalogger_ros::F1MsgUtils::toROS(const 
   rtn.zone_start = marshal_zone.m_zoneStart;
   return rtn;
 }
+
+
+f1_datalogger_msgs::msg::CarStatusData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::CarStatusData& status_data)
+{
+  f1_datalogger_msgs::msg::CarStatusData rtn;
+  rtn.anti_lock_brakes = status_data.m_antiLockBrakes;
+  rtn.drs_allowed = status_data.m_drsAllowed;
+  rtn.engine_damage = status_data.m_engineDamage;
+  rtn.engine_damage = status_data.m_engineDamage;
+  rtn.ers_deploy_mode = status_data.m_ersDeployMode;
+  rtn.ers_deployed_this_lap = status_data.m_ersDeployedThisLap;
+  rtn.ers_harvested_this_lap_mguh = status_data.m_ersHarvestedThisLapMGUH;
+  rtn.ers_harvested_this_lap_mguk = status_data.m_ersHarvestedThisLapMGUK;
+  rtn.ers_store_energy = status_data.m_ersStoreEnergy;
+  rtn.exhaust_damage = status_data.m_exhaustDamage;
+  rtn.front_brake_bias = status_data.m_frontBrakeBias;
+  rtn.front_left_wing_damage = status_data.m_frontLeftWingDamage;
+  rtn.front_right_wing_damage = status_data.m_frontRightWingDamage;
+  rtn.fuel_capacity = status_data.m_fuelCapacity;
+  rtn.fuel_in_tank = status_data.m_fuelInTank;
+  rtn.fuel_mix = status_data.m_fuelMix;
+  rtn.gear_box_damage = status_data.m_gearBoxDamage;
+  rtn.idle_rpm = status_data.m_idleRPM;
+  rtn.max_gears = status_data.m_maxGears;
+  rtn.max_rpm = status_data.m_maxRPM;
+  rtn.pit_limiter_status = status_data.m_pitLimiterStatus;
+  rtn.rear_wing_damage = status_data.m_rearWingDamage;
+  rtn.traction_control = status_data.m_tractionControl;
+  rtn.vehicle_fia_flags = status_data.m_vehicleFiaFlags;
+  rtn.tyre_compound = status_data.m_tyreCompound;
+  std::copy(status_data.m_tyresDamage, status_data.m_tyresDamage+4, rtn.tyres_damage.begin());
+  std::copy(status_data.m_tyresWear, status_data.m_tyresWear+4, rtn.tyres_wear.begin());
+  return rtn;
+}
+f1_datalogger_msgs::msg::PacketCarStatusData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::PacketCarStatusData& packet_status_data, bool copy_all_cars)
+{
+
+  f1_datalogger_msgs::msg::PacketCarStatusData rtn;
+  rtn.header = f1_datalogger_ros::F1MsgUtils::toROS(packet_status_data.m_header);
+  if (packet_status_data.m_header.m_playerCarIndex<20)
+  {
+    rtn.car_status_data[rtn.header.player_car_index] = f1_datalogger_ros::F1MsgUtils::toROS(packet_status_data.m_carStatusData[rtn.header.player_car_index]);
+  }
+  if(copy_all_cars)
+  {
+    for(unsigned int i =0; i < 20; i++)
+    {
+      if (i!=rtn.header.player_car_index)
+      {
+        rtn.car_status_data[i] = f1_datalogger_ros::F1MsgUtils::toROS(packet_status_data.m_carStatusData[i]);
+      }
+    }
+  }
+  return rtn;
+}
+
+
+f1_datalogger_msgs::msg::PacketLapData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::PacketLapData& lap_data, bool copy_all_cars)
+{
+  f1_datalogger_msgs::msg::PacketLapData rtn;
+  rtn.header = f1_datalogger_ros::F1MsgUtils::toROS(lap_data.m_header);
+  if (lap_data.m_header.m_playerCarIndex<20)
+  {
+    rtn.lap_data[rtn.header.player_car_index] = f1_datalogger_ros::F1MsgUtils::toROS(lap_data.m_lapData[rtn.header.player_car_index]);
+  }
+  if(copy_all_cars)
+  {
+    for(unsigned int i =0; i < 20; i++)
+    {
+      if (i!=rtn.header.player_car_index)
+      {
+        rtn.lap_data[i] = f1_datalogger_ros::F1MsgUtils::toROS(lap_data.m_lapData[i]);
+      }
+    }
+  }
+  return rtn;
+}
+f1_datalogger_msgs::msg::LapData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::LapData& lap_data)
+{
+  f1_datalogger_msgs::msg::LapData rtn;
+  rtn.best_lap_time = lap_data.m_bestLapTime;
+  rtn.car_position = lap_data.m_carPosition;
+  rtn.current_lap_invalid = lap_data.m_currentLapInvalid;
+  rtn.current_lap_num = lap_data.m_currentLapNum;
+  rtn.current_lap_time = lap_data.m_currentLapTime;
+  rtn.driver_status = lap_data.m_driverStatus;
+  rtn.grid_position = lap_data.m_gridPosition;
+  rtn.lap_distance = lap_data.m_lapDistance;
+  rtn.last_lap_time = lap_data.m_lastLapTime;
+  rtn.penalties = lap_data.m_penalties;
+  rtn.pit_status = lap_data.m_pitStatus;
+  rtn.result_status = lap_data.m_resultStatus;
+  rtn.safety_car_delta = lap_data.m_safetyCarDelta;
+  rtn.sector1_time = lap_data.m_sector1Time;
+  rtn.sector2_time = lap_data.m_sector2Time;
+  rtn.sector = lap_data.m_sector;
+  rtn.total_distance = lap_data.m_totalDistance;
+  return rtn;
+}
+
 f1_datalogger_msgs::msg::PacketSessionData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::PacketSessionData& session_data)
 {
   f1_datalogger_msgs::msg::PacketSessionData rtn;
@@ -194,6 +174,9 @@ f1_datalogger_msgs::msg::PacketSessionData f1_datalogger_ros::F1MsgUtils::toROS(
   rtn.game_paused  = session_data.m_gamePaused;
   rtn.era = session_data.m_era;
   rtn.air_temperature = session_data.m_airTemperature;
+  rtn.track_id = session_data.m_trackId;
+  rtn.track_length = session_data.m_trackLength;
+  rtn.track_temperature = session_data.m_trackTemperature;
   return rtn;
 }
 f1_datalogger_msgs::msg::CarTelemetryData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::CarTelemetryData& telemetry_data)

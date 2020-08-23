@@ -123,5 +123,6 @@ install(DIRECTORY
   launch/
   DESTINATION share/${PROJECT_NAME}/
 )
+ament_export_dependencies(f1_datalogger)
 ament_export_targets(${PROJECT_NAME})
 ament_package()

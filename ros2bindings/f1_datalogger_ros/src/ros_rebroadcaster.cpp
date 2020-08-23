@@ -12,6 +12,7 @@
 #include "f1_datalogger_msgs/msg/timestamped_packet_motion_data.hpp"
 #include "f1_datalogger_msgs/msg/timestamped_packet_car_status_data.hpp"
 #include "f1_datalogger_msgs/msg/timestamped_packet_car_telemetry_data.hpp"
+#include "f1_datalogger_msgs/msg/timestamped_packet_lap_data.hpp"
 #include "f1_datalogger_msgs/msg/timestamped_packet_session_data.hpp"
 
 #include <cv_bridge/cv_bridge.h>
@@ -43,12 +44,9 @@ public:
     rclcpp::Time now = this->node_->now();
     f1_datalogger_msgs::msg::TimestampedPacketCarStatusData rosdata;
     rosdata.header.stamp = now;
-    rosdata.udp_packet.car_status_data[0].m_drs_allowed = data.data.m_carStatusData[0].m_drsAllowed;
-    //rosdata.udp_packet = f1_datalogger_ros::F1MsgUtils::toROS(data.data);
+    rosdata.udp_packet = f1_datalogger_ros::F1MsgUtils::toROS(data.data, all_cars_param_);
     rosdata.timestamp = std::chrono::duration<double>(data.timestamp - begin_).count();
     status_publisher_->publish(rosdata);
-    
-
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData& data) override
   {
@@ -64,6 +62,12 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketLapData& data) override
   {
+    rclcpp::Time now = this->node_->now();
+    f1_datalogger_msgs::msg::TimestampedPacketLapData rosdata;
+    rosdata.header.stamp = now;
+    rosdata.udp_packet = f1_datalogger_ros::F1MsgUtils::toROS(data.data, all_cars_param_);
+    rosdata.timestamp = std::chrono::duration<double>(data.timestamp - begin_).count();
+    lap_data_publisher_->publish(rosdata);
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketMotionData& data) override
   {
@@ -95,10 +99,11 @@ public:
   void init(const std::string& host, unsigned int port, const deepf1::TimePoint& begin) override
   {
 
+    this->lap_data_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketLapData>("lap_data", 1);
     this->motion_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketMotionData>("motion_data", 1);
-    this->telemetry_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketCarTelemetryData>("telemetry_data", 1);
     this->session_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketSessionData>("session_data", 1);
     this->status_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketCarStatusData>("status_data", 1);
+    this->telemetry_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketCarTelemetryData>("telemetry_data", 1);
     ready_ = true;
     this->begin_ = begin;
     this->host_ = host;
@@ -112,10 +117,11 @@ private:
   bool all_cars_param_;
 public:
   std::shared_ptr<rclcpp::Node> node_;
+  std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketLapData> > lap_data_publisher_;
   std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketMotionData> > motion_publisher_;
-  std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketCarTelemetryData> > telemetry_publisher_;
   std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketSessionData> > session_publisher_;
   std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketCarStatusData> > status_publisher_;
+  std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketCarTelemetryData> > telemetry_publisher_;
 };
 class ROSRebroadcaster_FrameGrabHandler : public deepf1::IF1FrameGrabHandler
 {
