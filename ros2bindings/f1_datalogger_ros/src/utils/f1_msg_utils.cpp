@@ -164,6 +164,9 @@ f1_datalogger_msgs::msg::PacketSessionData f1_datalogger_ros::F1MsgUtils::toROS(
   {
     rtn.marshal_zones[i] = toROS(session_data.m_marshalZones[i]);
   }
+  rtn.air_temperature = session_data.m_airTemperature;
+  rtn.era = session_data.m_era;
+  rtn.game_paused  = session_data.m_gamePaused;
   rtn.network_game = session_data.m_networkGame;
   rtn.num_marshal_zones = session_data.m_numMarshalZones;
   rtn.pit_speed_limit = session_data.m_pitSpeedLimit;
@@ -171,9 +174,7 @@ f1_datalogger_msgs::msg::PacketSessionData f1_datalogger_ros::F1MsgUtils::toROS(
   rtn.session_duration = session_data.m_sessionDuration;
   rtn.session_type = session_data.m_sessionType;
   rtn.session_time_left = session_data.m_sessionTimeLeft;
-  rtn.game_paused  = session_data.m_gamePaused;
-  rtn.era = session_data.m_era;
-  rtn.air_temperature = session_data.m_airTemperature;
+  rtn.spectator_car_index = session_data.m_spectatorCarIndex;
   rtn.track_id = session_data.m_trackId;
   rtn.track_length = session_data.m_trackLength;
   rtn.track_temperature = session_data.m_trackTemperature;

@@ -152,9 +152,7 @@ public:
     crop_width_ =  crop_width_p.get<int>();
 
     this->node_ = node;
-    //this->publisher_ = this->node_->create_publisher<sensor_msgs::msg::Image>("f1_screencaps", qos_settings);
-  //  this->timestamped_publisher_ = this->node_->create_publisher<f1_datalogger_msgs::msg::TimestampedImage>("timestamped_f1_screencaps", qos_settings);
-    
+        
     this->it_cropped_publisher_ = it.advertise("/f1_screencaps/cropped", 1, true);
 
   }
