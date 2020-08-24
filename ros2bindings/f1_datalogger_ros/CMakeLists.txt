@@ -21,8 +21,12 @@ find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(f1_datalogger_msgs REQUIRED)
 find_package(image_transport REQUIRED)
+find_package(jsoncpp CONFIG REQUIRED)
 find_package(laser_geometry REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(PCL CONFIG REQUIRED QUIET COMPONENTS core features filters io segmentation surface)
+find_package(pcl_conversions REQUIRED)
+find_package(pcl_ros REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 find_package(rosbag2_storage REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -84,6 +88,19 @@ target_link_libraries(extract_bezier_curves
 )
 #target_include_directories(ros_rebroadcaster PRIVATE ${cv_bridge_INCLUDE_DIRS})
 
+add_executable(boundary_publisher src/boundary_publisher.cpp)
+ament_target_dependencies(boundary_publisher rclcpp pcl_conversions pcl_msgs pcl_ros sensor_msgs std_msgs)
+target_include_directories(boundary_publisher
+ PUBLIC
+ ${PCL_COMMON_INCLUDE_DIRS}
+)
+target_link_libraries(boundary_publisher
+#  ${PCL_COMMON_LIBRARIES}
+#  ${PCL_KDTREE_LIBRARIES}
+#  ${PCL_SEARCH_LIBRARIES}
+  ${PCL_LIBRARIES}
+  jsoncpp_lib
+)
 
  ament_export_dependencies(ament_cmake)
  ament_export_dependencies(rclcpp)
@@ -106,6 +123,7 @@ install(TARGETS
     tf_updater
     path_converter
     extract_bezier_curves
+    boundary_publisher
     DESTINATION lib/${PROJECT_NAME}
 )
 install(TARGETS
