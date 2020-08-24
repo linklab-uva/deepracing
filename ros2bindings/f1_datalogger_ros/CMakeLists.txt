@@ -89,7 +89,7 @@ target_link_libraries(extract_bezier_curves
 #target_include_directories(ros_rebroadcaster PRIVATE ${cv_bridge_INCLUDE_DIRS})
 
 add_executable(boundary_publisher src/boundary_publisher.cpp)
-ament_target_dependencies(boundary_publisher rclcpp pcl_conversions pcl_msgs pcl_ros sensor_msgs std_msgs)
+ament_target_dependencies(boundary_publisher f1_datalogger_msgs rclcpp pcl_conversions pcl_msgs pcl_ros sensor_msgs std_msgs)
 target_include_directories(boundary_publisher
  PUBLIC
  ${PCL_COMMON_INCLUDE_DIRS}
@@ -99,6 +99,7 @@ target_link_libraries(boundary_publisher
 #  ${PCL_KDTREE_LIBRARIES}
 #  ${PCL_SEARCH_LIBRARIES}
   ${PCL_LIBRARIES}
+  f1_msg_utils
   jsoncpp_lib
 )
 

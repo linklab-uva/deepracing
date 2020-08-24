@@ -11,6 +11,7 @@
 #include <std_msgs/msg/header.hpp>
 #include <opencv2/core.hpp>
 #include <vector>
+#include <array>
 
 #ifndef F1_DATALOGGER_ROS_PUBLIC
     #define F1_DATALOGGER_ROS_PUBLIC
@@ -37,13 +38,13 @@ namespace f1_datalogger_ros
 
         static F1_DATALOGGER_ROS_PUBLIC f1_datalogger_msgs::msg::MarshalZone toROS(const deepf1::twenty_eighteen::MarshalZone& marshal_zone);
         static F1_DATALOGGER_ROS_PUBLIC f1_datalogger_msgs::msg::PacketSessionData toROS(const deepf1::twenty_eighteen::PacketSessionData& session_data);
-        static inline F1_DATALOGGER_ROS_PUBLIC const std::vector<std::string> wheel_order()
+        static inline F1_DATALOGGER_ROS_PUBLIC const std::array<std::string, 4> wheel_order()
         {
-            return std::vector<std::string>({"RearLeft, RearRight, FrontLeft, FrontRight"});
+            return std::array<std::string, 4>({"RearLeft, RearRight, FrontLeft, FrontRight"});
         }
-        static inline F1_DATALOGGER_ROS_PUBLIC const std::vector<std::string> track_names()
+        static inline F1_DATALOGGER_ROS_PUBLIC const std::array<std::string, 25> track_names()
         {
-            return std::vector<std::string>({"Australia", "France", "China", "Bahrain", "Spain", "Monaco",
+            return std::array<std::string, 25>({"Australia", "France", "China", "Bahrain", "Spain", "Monaco",
                                               "Canada", "Britain", "Germany", "Hungary", "Belgium", "Italy",
                                                "Singapore", "Japan", "Abu_Dhabi", "USA", "Brazil", "Austria",
                                                "Russia", "Mexico", "Azerbaijan", "Bahrain_short", "Britan_short",
