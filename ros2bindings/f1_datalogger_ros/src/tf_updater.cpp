@@ -88,7 +88,7 @@ class NodeWrapperTfUpdater_
       transformMsg.transform.rotation.z = rotationEigen.z();
       transformMsg.transform.rotation.w = rotationEigen.w();
 
-      geometry_msgs::msg::PointStamped positionROS = motion_data.world_position;
+      const geometry_msgs::msg::PointStamped& positionROS = motion_data.world_position;
       transformMsg.transform.translation.x = positionROS.point.x;
       transformMsg.transform.translation.y = positionROS.point.y;
       transformMsg.transform.translation.z = positionROS.point.z;

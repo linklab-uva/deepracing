@@ -50,8 +50,8 @@ namespace f1_datalogger_ros
                                                "Russia", "Mexico", "Azerbaijan", "Bahrain_short", "Britan_short",
                                                "USA_short", "Japan_short"});
         }
-    private:
         static F1_DATALOGGER_ROS_PUBLIC constexpr char* world_coordinate_name = "track";
+    private:
 
     };
 }

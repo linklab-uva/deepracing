@@ -153,9 +153,9 @@ int main(int argc, char** argv)
             pcl_conversions::moveFromPCL(innercloudPC2, innercloudMSG);
             pcl_conversions::moveFromPCL(outercloudPC2, outercloudMSG);
             pcl_conversions::moveFromPCL(racelinecloudPC2, racelinecloudMSG);
-            innercloudMSG.header.frame_id = "track"; 
-            outercloudMSG.header.frame_id = "track"; 
-            racelinecloudMSG.header.frame_id = "track"; 
+            innercloudMSG.header.frame_id = f1_datalogger_ros::F1MsgUtils::world_coordinate_name; 
+            outercloudMSG.header.frame_id = f1_datalogger_ros::F1MsgUtils::world_coordinate_name; 
+            racelinecloudMSG.header.frame_id = f1_datalogger_ros::F1MsgUtils::world_coordinate_name; 
 
         }
         innercloudMSG.header.stamp = node->now();
