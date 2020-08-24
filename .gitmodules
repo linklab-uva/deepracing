@@ -16,3 +16,6 @@
 [submodule "vJoy"]
 	path = vJoy
 	url = https://github.com/linklab-uva/vJoy.git
+[submodule "ros2bindings/rosbag2"]
+	path = ros2bindings/rosbag2
+	url = https://github.com/linklab-uva/rosbag2.git
