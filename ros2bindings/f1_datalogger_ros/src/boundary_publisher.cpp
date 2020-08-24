@@ -113,8 +113,8 @@ int main(int argc, char** argv)
         {
             active_track=track_name_array[track_index];
         }
-        RCLCPP_INFO(node->get_logger(), "current_track: %s", track_name.c_str());
-        RCLCPP_INFO(node->get_logger(), "active_track: %s", active_track.c_str());
+        RCLCPP_DEBUG(node->get_logger(), "current_track: %s", track_name.c_str());
+        RCLCPP_DEBUG(node->get_logger(), "active_track: %s", active_track.c_str());
         if(!active_track.empty() && track_name.compare(active_track)!=0)
         {            
             track_name = active_track;
