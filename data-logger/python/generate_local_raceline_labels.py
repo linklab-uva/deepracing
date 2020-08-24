@@ -28,7 +28,8 @@ from scipy.spatial.transform import RotationSpline as RotSpline
 from scipy.spatial.transform import Slerp
 import json 
 from scipy.spatial import KDTree as KDTree
-
+import matplotlib.pyplot as plt
+import time
 
 def imageDataKey(data):
     return data.timestamp
@@ -43,22 +44,23 @@ parser.add_argument("--lookahead_distance", help="Distance to look ahead on the 
 parser.add_argument("--lookahead_indices", help="Number of indices to look ahead in the raceline. Mutually exclusive with --lookahead_distance",  type=int, default=None)
 parser.add_argument("--debug", help="Display debug plots", action="store_true", required=False)
 parser.add_argument("--output_dir", help="Output directory for the labels. relative to the database images folder",  default="raceline_labels", required=False)
+parser.add_argument("--max_speed", help="maximum speed (m/s) to apply to the raceline",  default=90, required=False, type=float)
+parser.add_argument("--max_accel", help="maximum centripetal acceleration (m/s^2) to allow in the raceline",  default=22.5, required=False, type=float)
 
 args = parser.parse_args()
 lookahead_distance = args.lookahead_distance
 lookahead_indices = args.lookahead_indices
 debug = args.debug
+max_accel = args.max_accel
+max_speed = args.max_speed
 
 if not ( bool(lookahead_distance is not None) ^ bool(lookahead_indices is not None) ):
     raise ValueError("Either lookahead_distance or lookahead_indices (but NOT both) must be specified")
 
 root_dir = args.db_path
-racelinepath = args.raceline
 with open(os.path.join(root_dir,"f1_dataset_config.yaml"),"r") as f:
     config = yaml.load(f,Loader=yaml.SafeLoader)
     use_json = config["use_json"]
-
-
 motion_data_folder = os.path.join(root_dir,"udp_data","motion_packets")
 image_folder = os.path.join(root_dir,"images")
 session_folder = os.path.join(root_dir,"udp_data","session_packets")
@@ -66,19 +68,114 @@ session_packets = getAllSessionPackets(session_folder,use_json)
 output_dir = os.path.join(root_dir, args.output_dir)
 if os.path.isdir(output_dir):
     shutil.rmtree(output_dir)
+time.sleep(1.0)
 os.makedirs(output_dir)
+
+
+
+racelinepath = args.raceline
 with open(racelinepath,"r") as f:
     racelinedict = json.load(f)
-racelinedist = np.array(racelinedict["dist"])
-racelineaug = np.row_stack((racelinedict["x"],racelinedict["y"],racelinedict["z"],np.ones_like(racelinedict["x"])))
+racelinein = np.row_stack((racelinedict["x"],racelinedict["y"],racelinedict["z"])).astype(np.float64)
+firstpoint = racelinein[:,0]
+lastpoint = racelinein[:,-1]
+finalstretch = lastpoint - firstpoint
+finaldistance = np.linalg.norm(finalstretch)
+
+racelinein = np.hstack( ( racelinein , np.array([ racelinein[:,0]  ]).transpose() ) )
+
+
+racelinedist = np.array(racelinedict["dist"] + [racelinedict["dist"][-1]+np.linalg.norm(finalstretch)], dtype=np.float64)
+racelinedist = racelinedist - racelinedist[0]
+
+
+plt.figure()
+plt.plot(racelinein[0], racelinein[2], label="Input raceline")
+plt.plot(racelinein[0,0], racelinein[2,0], 'g*', label='Raceline Start')
+plt.plot(racelinein[0,-1], racelinein[2,-1], 'r*', label='Raceline End')
+plt.legend()
+try:
+    plt.savefig(os.path.join(output_dir, "input_raceline.pdf"), format="pdf")
+    plt.savefig(os.path.join(output_dir, "input_raceline.png"), format="png")
+    plt.close()
+except Exception as e:
+    plt.close()
+
+
+raceline_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(racelinedist, racelinein.transpose(), k=3)
+raceline_tangent : scipy.interpolate.BSpline = raceline_spline.derivative(nu=1)
+raceline_normal : scipy.interpolate.BSpline = raceline_spline.derivative(nu=2)
+
+racelineparam = np.linspace(racelinedist[0],racelinedist[-1], num=9000)
+racelinesamp = raceline_spline(racelineparam)
+racelineaug = np.row_stack( ( racelinesamp[:,0] , racelinesamp[:,1], racelinesamp[:,2], np.ones_like(racelineparam) ) ).astype(np.float64)
+
+
+plt.figure()
+plt.plot(racelineaug[0], racelineaug[2], label="Sampled raceline")
+plt.plot(racelineaug[0,0], racelineaug[2,0], 'g*', label='Raceline Start')
+plt.plot(racelineaug[0,-1], racelineaug[2,-1], 'r*', label='Raceline End')
+plt.legend()
+try:
+    plt.savefig(os.path.join(output_dir, "sampled_raceline.pdf"), format="pdf")
+    plt.savefig(os.path.join(output_dir, "sampled_raceline.png"), format="png")
+    plt.close()
+except Exception as e:
+    plt.close()
+
+
+raceline_tangents = raceline_tangent(racelineparam)
+tangent_norms = np.linalg.norm(raceline_tangents, axis=1)
+print(tangent_norms)
+raceline_unit_tangents = raceline_tangents/tangent_norms[:,np.newaxis]
+print(np.linalg.norm(raceline_unit_tangents,axis=1))
+
+raceline_normals = raceline_normal(racelineparam)
+crossprods = np.cross(raceline_tangents, raceline_normals)
+crossprodnorms = np.linalg.norm(crossprods, axis=1)
+curvatures = crossprodnorms/np.power(tangent_norms, 3.0)
+radii = 1/curvatures
+print("Min Radius: %f. Max Radius: %f" % (np.min(radii), np.max(radii)) )
+
+
+
+speeds = max_speed*np.ones_like(radii, dtype=np.float64)
+max_allowable_speed = np.sqrt(max_accel*radii)
+print("Min Allowable Speed: %f. Max Allowable Speed: %f" % (np.min(max_allowable_speed), np.max(max_allowable_speed)) )
+centripetal_accelerations = np.power(speeds,2.0)/radii
+speeds[centripetal_accelerations>max_accel] = max_allowable_speed[centripetal_accelerations>max_accel]
+print("Min Speed: %f. Max Speed: %f" % (np.min(speeds), np.max(speeds)) )
+raceline_velocities = speeds[:,np.newaxis]*raceline_unit_tangents
+times = [0]
+for i in range(0, racelineaug.shape[1]-1):
+    delta_s = racelineparam[i+1] - racelineparam[i]
+    dt = delta_s/speeds[i]
+    times.append(times[-1]+dt)
+times = np.array(times)
+print(times)
+print(times.shape)
+
+
+ismallest = np.argsort(speeds)
+plt.figure()
+plt.plot(racelineaug[0], racelineaug[2])
+plt.plot(racelineaug[0,ismallest[0:int(ismallest.shape[0]/3)]], racelineaug[2,ismallest[0:int(ismallest.shape[0]/3)]], 'g*', label='%d Points of slowest speed' % (int(ismallest.shape[0]/3),) )
+plt.legend()
+try:
+    plt.savefig(os.path.join(output_dir, "slowest_speeds.pdf"), format="pdf")
+    plt.savefig(os.path.join(output_dir, "slowest_speeds.png"), format="png")
+    plt.close()
+except Exception as e:
+    plt.close()
+
 
 print(racelineaug)
 spectating_flags = [bool(packet.udp_packet.m_isSpectating) for packet in session_packets]
 spectating = any(spectating_flags)
 car_indices = [int(packet.udp_packet.m_spectatorCarIndex) for packet in session_packets]
-print(spectating_flags)
-print(car_indices)
-print(spectating)
+# print(spectating_flags)
+# print(car_indices)
+# print(spectating)
 car_indices_set = set(car_indices)
 if spectating:
     if len(car_indices_set)>1:
@@ -217,7 +314,7 @@ with open(os.path.join(output_dir,'config.yaml'), 'w') as yaml_file:
 #exit(0)
 db = deepracing.backend.PoseSequenceLabelLMDBWrapper()
 db.readDatabase( lmdb_dir, mapsize=int(round(9996*len(image_tags)*1.25)), max_spare_txns=16, readonly=False )
-raceline_diffs = racelinedist[1:] - racelinedist[0:-1]
+raceline_diffs = racelineparam[1:] - racelineparam[0:-1]
 #raceline_diffs = np.linalg.norm(racelineaug[0:3,1:] - racelineaug[0:3,0:-1] , ord=2, axis=0 )
 average_diff = np.mean(raceline_diffs)
 if lookahead_indices is None:
@@ -225,7 +322,7 @@ if lookahead_indices is None:
 else:
     li = lookahead_indices
 kdtree : KDTree = KDTree(racelineaug[0:3].transpose())
-for idx in tqdm(range(len(image_tags))):
+for (idx,imagetag)  in tqdm(enumerate(image_tags)):
     try:
         imagetag = image_tags[idx]
         label_tag = PoseSequenceLabel_pb2.PoseSequenceLabel()
@@ -255,23 +352,53 @@ for idx in tqdm(range(len(image_tags))):
         # raceline_geodesic_distances = racelinedist[Izpos]
         # raceline_local = raceline_local[Izpos]
         # raceline_distances = np.linalg.norm(raceline_local,axis=1)
+
         (d, I1) = kdtree.query(car_position)
        # I1 = int(I1)
-        I2 = I1 + li - 1
-        sample_idx = (np.linspace(I1,I2,num=(I2-I1+1)) % racelineaug.shape[1]).astype(np.int32)
+        I2 = I1 + li
       #  print(sample_idx)
+        if I2 < racelineaug.shape[1]:
+            sample_idx = np.arange(I1,I2,step=1).astype(np.int32)
+            local_distances = racelineparam[sample_idx]
+        else:
+            sample_idx1 = np.arange(I1,racelineaug.shape[1],step=1).astype(np.int32)
+            sample_idx2 = np.arange(1,I2-racelineaug.shape[1] + 1,step=1).astype(np.int32)
+            sample_idx = np.hstack((sample_idx1,sample_idx2))
+            local_distances1 = racelineparam[sample_idx1]
+            local_distances2 = racelineparam[sample_idx2] + local_distances1[-1]
+            local_distances = np.hstack((local_distances1,local_distances2))
         local_points = np.matmul(car_affine_pose_inv,racelineaug[:,sample_idx])[0:3].transpose()
-        local_geodesic_distances = racelinedist[sample_idx]
+        local_speeds = speeds[sample_idx]
+        local_velocities = raceline_velocities[sample_idx]
+
+        local_times = [0.0]
+        for i in range(local_distances.shape[0]-1):
+            ds = local_distances[i+1] - local_distances[i]
+            dt = ds/local_speeds[i]
+            local_times.append(local_times[-1] + dt)
+        local_times = np.array(local_times)
+
         # if I2 > raceline_local.shape[0]:
         #     I2 = (I2 % raceline_local.shape[0])# + 1
         #     local_points = np.vstack((raceline_local[I1:], raceline_local[0:I2]))
         # else:   
         #     local_points = raceline_local[I1:I2].copy()
         #     local_geodesic_distances = raceline_geodesic_distances[I1:I2].copy()
+        if not local_times.shape[0] == li:
+            raise ValueError("Local times is supposed to have %d samples, but has %d instead." % (li, local_times.shape[0]))
+        if not np.all((local_times[1:]-local_times[0:-1])>0):
+            raise ValueError("Local times is should be always increasing.")
+        if not local_speeds.shape[0] == li:
+            raise ValueError("Local speeds is supposed to have %d samples, but has %d instead." % (li, local_speeds.shape[0]))
+        if not local_velocities.shape[0] == li:
+            raise ValueError("Local velocities is supposed to have %d samples, but has %d instead." % (li, local_velocities.shape[0]))
+        if not local_distances.shape[0] == li:
+            raise ValueError("Local distances is supposed to have %d samples, but has %d instead." % (li, local_distances.shape[0]))
         if not local_points.shape[0] == li:
-            raise ValueError("Local raceline is supposed to have %d samples, but has %d instead." % (li, local_points.shape[0]))
-        if debug and (idx%15==0):
+            raise ValueError("Local points is supposed to have %d samples, but has %d instead." % (li, local_points.shape[0]))
+        if debug and np.max(local_speeds)<80:#(idx%40==0):
             print("local_points has shape: %s" % ( str(local_points.shape), ) )
+            print("Total time diff %f" % ( local_times[-1] - local_times[0], ) )
             f, (imax, plotax) = plt.subplots(nrows=1 , ncols=2)
             im = cv2.cvtColor(cv2.imread(os.path.join(image_folder,label_tag.image_tag.image_file)), cv2.COLOR_BGR2RGB)
             imax.imshow(im)
@@ -310,21 +437,21 @@ for idx in tqdm(range(len(image_tags))):
             newpose.rotation.y = 0.0
             newpose.rotation.z = 0.0
             newpose.rotation.w = 1.0
-            newpose.session_time = j/(local_points.shape[0]-1)
+            newpose.session_time = local_times[j]
             newpose.frame = FrameId_pb2.LOCAL
             
             newvel = label_tag.subsequent_linear_velocities.add()
-            newvel.vector.x = 0.0
-            newvel.vector.y = 0.0
-            newvel.vector.z = 0.0
-            newvel.session_time = j/(local_points.shape[0]-1)
+            newvel.vector.x = local_velocities[j,0]
+            newvel.vector.y = local_velocities[j,1]
+            newvel.vector.z = local_velocities[j,2]
+            newvel.session_time = local_times[j]
             newvel.frame = FrameId_pb2.LOCAL
 
             newangvel = label_tag.subsequent_angular_velocities.add()
             newangvel.vector.x = 0.0
             newangvel.vector.y = 0.0
             newangvel.vector.z = 0.0
-            newangvel.session_time = j/(local_points.shape[0]-1)
+            newangvel.session_time = local_times[j]
             newangvel.frame = FrameId_pb2.LOCAL
 
 
@@ -348,6 +475,8 @@ for idx in tqdm(range(len(image_tags))):
     f.close()
     key = image_file_base
     db.writePoseSequenceLabel( key , label_tag )
+
+    
 print("Loading database labels.")
 db_keys = db.getKeys()
 label_pb_tags = []
