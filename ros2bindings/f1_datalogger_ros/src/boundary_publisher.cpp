@@ -62,8 +62,8 @@ int main(int argc, char** argv)
     std::shared_ptr<rclcpp::Node> node = rclcpp::Node::make_shared("f1_boundary_publisher","");
     std::shared_ptr< rclcpp::Publisher<sensor_msgs::msg::PointCloud2> > innerpub = node->create_publisher<sensor_msgs::msg::PointCloud2>("/inner_track_boundary",1);
     std::shared_ptr< rclcpp::Publisher<sensor_msgs::msg::PointCloud2> > outerpub = node->create_publisher<sensor_msgs::msg::PointCloud2>("/outer_track_boundary",1);
+    std::shared_ptr< rclcpp::Publisher<sensor_msgs::msg::PointCloud2> > racelinepub = node->create_publisher<sensor_msgs::msg::PointCloud2>("/optimal_raceline",1);
 
-    RCLCPP_INFO(node->get_logger(), "Hello JSON!");
     rclcpp::ParameterValue track_dir_param = node->declare_parameter("track_dir",rclcpp::ParameterValue(""));
     std::string track_dir = track_dir_param.get<std::string>();
     rclcpp::ParameterValue track_name_param = node->declare_parameter("track_name",rclcpp::ParameterValue(""));
@@ -112,7 +112,7 @@ int main(int argc, char** argv)
         rclcpp::sleep_for(std::chrono::nanoseconds(1000000000));
         rclcpp::spin_some(node);
         
-        RCLCPP_INFO(node->get_logger(), "Ran a spin.");
+        RCLCPP_DEBUG(node->get_logger(), "Ran a spin.");
     }
 
 

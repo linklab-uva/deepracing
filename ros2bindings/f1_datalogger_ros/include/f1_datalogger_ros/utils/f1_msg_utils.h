@@ -37,12 +37,20 @@ namespace f1_datalogger_ros
 
         static F1_DATALOGGER_ROS_PUBLIC f1_datalogger_msgs::msg::MarshalZone toROS(const deepf1::twenty_eighteen::MarshalZone& marshal_zone);
         static F1_DATALOGGER_ROS_PUBLIC f1_datalogger_msgs::msg::PacketSessionData toROS(const deepf1::twenty_eighteen::PacketSessionData& session_data);
-    private:
-        static F1_DATALOGGER_ROS_PUBLIC constexpr char* world_coordinate_name = "track";
         static inline F1_DATALOGGER_ROS_PUBLIC const std::vector<std::string> wheel_order()
         {
             return std::vector<std::string>({"RearLeft, RearRight, FrontLeft, FrontRight"});
         }
+        static inline F1_DATALOGGER_ROS_PUBLIC const std::vector<std::string> track_names()
+        {
+            return std::vector<std::string>({"Australia", "France", "China", "Bahrain", "Spain", "Monaco",
+                                              "Canada", "Britain", "Germany", "Hungary", "Belgium", "Italy",
+                                               "Singapore", "Japan", "Abu_Dhabi", "USA", "Brazil", "Austria",
+                                               "Russia", "Mexico", "Azerbaijan", "Bahrain_short", "Britan_short",
+                                               "USA_short", "Japan_short"});
+        }
+    private:
+        static F1_DATALOGGER_ROS_PUBLIC constexpr char* world_coordinate_name = "track";
 
     };
 }
