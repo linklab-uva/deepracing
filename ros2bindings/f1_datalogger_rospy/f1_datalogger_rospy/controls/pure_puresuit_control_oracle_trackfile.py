@@ -43,117 +43,92 @@ from rclpy.time import Time
 from rclpy.clock import Clock, ROSClock
 import deepracing_models.nn_models.Models as M
 from scipy.spatial.transform import Rotation as Rot
+from scipy.spatial.kdtree import KDTree
 import cv_bridge, cv2, numpy as np
-import deepracing.pose_utils
-import deepracing.protobuf_utils
-from deepracing.protobuf_utils import loadTrackfile
 from scipy.spatial import KDTree
 from copy import deepcopy
+import json
+import torch
+
 class OraclePurePursuitControllerROS(PPC):
-    def __init__(self, forward_indices : int = 60, lookahead_gain : float = 0.4, L : float= 3.617, pgain: float=0.5, igain : float=0.0125, dgain : float=0.0125, plot : bool =True, gpu : int=0, deltaT : float = 1.415):
-        super(OraclePurePursuitControllerROS, self).__init__(lookahead_gain = lookahead_gain, L = L ,\
-                                                    pgain=pgain, igain=igain, dgain=dgain)
-        trackfileparam : Parameter = self.get_parameter_or("trackfile", Parameter("trackfile") )
-        if trackfileparam.type_==Parameter.Type.NOT_SET:
-            raise ValueError("\"trackfile\" parameter not set")
-        r  , X  = loadTrackfile(trackfileparam.get_parameter_value().string_value)
-        self.r : np.ndarray = r.copy()
-        self.X : np.ndarray = X.copy()
-        self.kdtree = KDTree(self.X)
+    def __init__(self):
+        super(OraclePurePursuitControllerROS, self).__init__()
+        raceline_file_param : Parameter = self.get_parameter_or("raceline_file", Parameter("raceline_file") )
+        if raceline_file_param.type_==Parameter.Type.NOT_SET:
+            raise ValueError("\"raceline_file\" parameter not set")
+        self.raceline_file = raceline_file_param.get_parameter_value().string_value
+        with open(self.raceline_file,"r") as f:
+            self.raceline_dictionary = json.load(f)
+        self.raceline = torch.cat( [ torch.tensor(self.raceline_dictionary["x"]).unsqueeze(0),\
+                                     torch.tensor(self.raceline_dictionary["y"]).unsqueeze(0),\
+                                     torch.tensor(self.raceline_dictionary["z"]).unsqueeze(0),\
+                                     torch.ones_like(torch.tensor(self.raceline_dictionary["z"])).unsqueeze(0)], dim=0 ).double()
+
+        self.kdtree = KDTree(self.raceline[0:3].numpy().copy().transpose())
+
+        self.raceline_dists = torch.tensor(self.raceline_dictionary["dist"]).double().cuda(0)
+        #self.raceline = self.raceline[:,0:-1].cuda(0)
+        self.raceline = self.raceline.cuda(0)
         
-        self.path_publisher = self.create_publisher(ImageWithPath, "/predicted_path", 10)
         self.cvbridge : cv_bridge.CvBridge = cv_bridge.CvBridge()
 
 
-        L_param : Parameter = self.get_parameter_or("wheelbase",Parameter("wheelbase", value=L))
-        print("L_param: " + str(L_param))
 
-        pgain_param : Parameter = self.get_parameter_or("pgain",Parameter("pgain", value=pgain))
-        print("pgain_param: " + str(pgain_param))
-
-        igain_param : Parameter = self.get_parameter_or("igain",Parameter("igain", value=igain))
-        print("igain_param: " + str(igain_param))
-
-        dgain_param : Parameter = self.get_parameter_or("dgain",Parameter("dgain", value=dgain))
-        print("dgain_param: " + str(dgain_param))
-
-        lookahead_gain_param : Parameter = self.get_parameter_or("lookahead_gain",Parameter("lookahead_gain", value=lookahead_gain))
-        print("lookahead_gain_param: " + str(lookahead_gain_param))
-
-        plot_param : Parameter = self.get_parameter_or("plot",Parameter("plot", value=plot))
-        print("plot_param: " + str(plot_param))
-
-        forward_indices_param : Parameter = self.get_parameter_or("forward_indices",Parameter("forward_indices", value=forward_indices))
-        print("forward_indices_param: " + str(forward_indices_param))
-
-        x_scale_factor_param : Parameter = self.get_parameter_or("x_scale_factor",Parameter("x_scale_factor", value=1.0))
-        print("xscale_factor_param: " + str(x_scale_factor_param))
-
-        z_offset_param : Parameter = self.get_parameter_or("z_offset",Parameter("z_offset", value=L/2.0))
-        print("z_offset_param: " + str(z_offset_param))
-
-        velocity_scale_param : Parameter = self.get_parameter_or("velocity_scale_factor",Parameter("velocity_scale_factor", value=1.0))
-        print("velocity_scale_param: " + str(velocity_scale_param))
-        
-        num_sample_points_param : Parameter = self.get_parameter_or("num_sample_points",Parameter("num_sample_points", value=60))
-        print("num_sample_points_param: " + str(num_sample_points_param))
-
-        self.pgain : float = pgain_param.get_parameter_value().double_value
-        self.igain : float = igain_param.get_parameter_value().double_value
-        self.dgain : float = dgain_param.get_parameter_value().double_value
-        self.lookahead_gain : float = lookahead_gain_param.get_parameter_value().double_value
-        self.L = L_param.get_parameter_value().double_value
-        self.z_offset : float = z_offset_param.get_parameter_value().double_value
-        self.xscale_factor : float = x_scale_factor_param.get_parameter_value().double_value
+        plot_param : Parameter = self.get_parameter_or("plot",Parameter("plot", value=False))
         self.plot : bool = plot_param.get_parameter_value().bool_value
-        self.velocity_scale_factor : float = velocity_scale_param.get_parameter_value().double_value
+
+        forward_indices_param : Parameter = self.get_parameter_or("forward_indices",Parameter("forward_indices", value=120))
         self.forward_indices : int = forward_indices_param.get_parameter_value().integer_value
-        
-        
-        self.image_sub = self.create_subscription( Image, '/f1_screencaps/cropped', self.imageCallback, 10)
-        self.pos_sub = self.create_subscription( PoseStamped, '/car_pose', self.poseCallback, 1)
+
+        sample_indices_param : Parameter = self.get_parameter_or("sample_indices",Parameter("sample_indices", value=120))
+        self.sample_indices : int = sample_indices_param.get_parameter_value().integer_value
+
+        bezier_order_param : Parameter = self.get_parameter_or("bezier_order",Parameter("bezier_order", value=7))
+        self.bezier_order : int = bezier_order_param.get_parameter_value().integer_value
+
+        #self.image_sub = self.create_subscription( Image, '/f1_screencaps/cropped', self.imageCallback, 10)
         self.current_pose : PoseStamped = PoseStamped()
+        self.current_pose_mat : torch.DoubleTensor = torch.zeros([4,4],dtype=torch.float64)
+
+        self.pose_sub = self.create_subscription( PoseStamped, '/car_pose', self.poseCallback, 1)
+
+        self.s_torch_lstsq = torch.linspace(0,1,self.forward_indices, dtype=torch.float64).unsqueeze(0).cuda(0)
+        self.bezierMlstsq = mu.bezierM(self.s_torch_lstsq, self.bezier_order)
+        
+        self.s_torch_sample = torch.linspace(0,1,self.sample_indices, dtype=torch.float64).unsqueeze(0).cuda(0)
+        self.bezierM = mu.bezierM(self.s_torch_sample, self.bezier_order)
+        self.bezierMdot = mu.bezierM(self.s_torch_sample, self.bezier_order-1)
+        self.bezierMdotdot = mu.bezierM(self.s_torch_sample, self.bezier_order-2)
+
+
+        
+
     def poseCallback(self, pose_msg : PoseStamped):
         self.current_pose = pose_msg
+        R = torch.from_numpy(Rot.from_quat( [pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z, pose_msg.pose.orientation.w] ).as_matrix().copy()).double()
+        v = torch.tensor( [pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z, 1.0] ).double()
+        self.current_pose_mat = torch.cat( [torch.cat([R,torch.zeros(3, dtype=torch.float64).unsqueeze(0)], dim=0), v.unsqueeze(1)  ], dim=1 )
+        
+
     def imageCallback(self, img_msg : Image):
         if img_msg.height<=0 or img_msg.width<=0:
             return
         imnp = self.cvbridge.imgmsg_to_cv2(img_msg, desired_encoding="rgb8") 
         self.current_image = imnp.copy()
     def getTrajectory(self):
-        if self.current_pose.header.frame_id == "":
-            return None, None, None
-        current_pose = deepcopy(self.current_pose)
-        currentposition_msg = current_pose.pose.position
-        currentposition = np.array( (currentposition_msg.x,currentposition_msg.y,currentposition_msg.z) )
-        currentrotation_msg = current_pose.pose.orientation
-        currentquat = Rot.from_quat(np.array( (currentrotation_msg.x,currentrotation_msg.y,currentrotation_msg.z,currentrotation_msg.w) ) ) 
-        currentpose = np.eye(4)
-        currentpose[0:3,3] = currentposition
-        currentpose[0:3,0:3] = currentquat.as_dcm()
-        d,startindex = self.kdtree.query(currentposition)
-        endindex = (startindex + self.forward_indices) % (self.X.shape[0])
-        if endindex<startindex:
-            a = self.X[ startindex : , : ]
-            b = self.X[ 0 : endindex , : ]
-            segment = np.vstack((a,b))
-        else:
-            segment = self.X[ startindex : endindex , : ]
-        segmentaugmented = np.vstack( ( segment.transpose(), np.ones(self.forward_indices) ) )
-        x_samp = np.matmul( la.inv(currentpose), segmentaugmented )[ [0,2] , : ].transpose()
-        x_samp[:,1]-=self.z_offset
-        t_samp = np.linspace(0,1,self.forward_indices)
-        spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline( t_samp, x_samp, k = 3 )
-        splinederiv = spline.derivative()
+        if not torch.any(self.current_pose_mat.bool()).item():
+            return super().getTrajectory()
+        current_pose_mat = self.current_pose_mat.clone()
+        current_pose_inv = torch.inverse(current_pose_mat)
+
+        (d, Iclosest) = self.kdtree.query(current_pose_mat[0:3,3].numpy())
+        
+        print("Didn't crash")
+        return super().getTrajectory()
+
+
+
+        
         #print(x_samp)
-        distances_samp = la.norm(x_samp, axis=1)
-        vectors = splinederiv(t_samp)
-        norms = la.norm(vectors, axis=1)
-        tangentvectors = vectors/norms[:,None]
-        angles = np.arctan2( tangentvectors[:,0], tangentvectors[:,1] )
-        angles_scaled = np.abs(angles/(np.pi/2))
-        scale_factors = 1.0 - np.polyval(np.array((0.25,0,1.25,0,0.5,0,0)), angles_scaled)
-        v_samp = self.velocity_scale_factor*scale_factors[:,None]*tangentvectors
-        #print(x_samp)
-        return x_samp, v_samp, distances_samp
+        # return x_samp, v_samp, distances_samp, radii
         
