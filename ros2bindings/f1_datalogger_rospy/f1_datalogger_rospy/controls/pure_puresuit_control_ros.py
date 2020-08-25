@@ -29,7 +29,8 @@ import torch.utils.data as data_utils
 import deepracing_models.nn_models.Models
 import matplotlib.pyplot as plt
 from f1_datalogger_msgs.msg import TimestampedPacketCarStatusData, TimestampedPacketCarTelemetryData, TimestampedPacketMotionData, PacketCarTelemetryData, PacketMotionData, CarMotionData, CarStatusData, CarTelemetryData, PacketHeader
-from geometry_msgs.msg import Vector3Stamped, Vector3
+from geometry_msgs.msg import Vector3Stamped, Vector3, PointStamped, Point, PoseStamped, Pose, Quaternion
+from scipy.spatial.transform import Rotation as Rot
 from std_msgs.msg import Float64
 import rclpy
 from rclpy.node import Node
@@ -53,6 +54,13 @@ class PurePursuitControllerROS(Node):
         self.throttle_out = 0.0
         self.controller = py_f1_interface.F1Interface(1)
         self.controller.setControl(0.0,0.0,0.0)
+
+        
+        self.current_pose : PoseStamped = PoseStamped()
+        self.current_pose_mat : torch.DoubleTensor = torch.zeros([4,4],dtype=torch.float64)
+        self.pose_sub = self.create_subscription( PoseStamped, '/car_pose', self.poseCallback, 1)
+
+
 
         max_speed_param : Parameter = self.get_parameter_or("max_speed", Parameter("max_speed",value=200.0))
         self.max_speed : float = max_speed_param.get_parameter_value().double_value
@@ -99,6 +107,13 @@ class PurePursuitControllerROS(Node):
             self.telemetryUpdate,
             1)
         self.control_thread = threading.Thread(target=self.lateralControl)
+        
+    def poseCallback(self, pose_msg : PoseStamped):
+        self.current_pose = pose_msg
+        R = torch.from_numpy(Rot.from_quat( [pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z, pose_msg.pose.orientation.w] ).as_matrix().copy()).double()
+        v = torch.tensor( [pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z, 1.0] ).double()
+        self.current_pose_mat = torch.cat( [torch.cat([R,torch.zeros(3, dtype=torch.float64).unsqueeze(0)], dim=0), v.unsqueeze(1)  ], dim=1 )
+        
     def start(self):
         self.control_thread.start()
     def stop(self):
@@ -128,16 +143,33 @@ class PurePursuitControllerROS(Node):
         self.current_speed = speed
         
     def getTrajectory(self):
-        return None, None, None, None
+        return None, None, None
     def setControl(self):
-        lookahead_positions, v_local_forward, distances_forward_, radii = self.getTrajectory()
+        lookahead_positions, v_local_forward_, distances_forward_, = self.getTrajectory()
         if lookahead_positions is None:
             return
         if distances_forward_ is None:
             distances_forward = la.norm(lookahead_positions, axis=1)
         else:
             distances_forward = distances_forward_
-        forward_vels = v_local_forward.shape[0]
+        if v_local_forward_ is None:
+            s = np.linspace(0.0,1.0,num=lookahead_positions.shape[0])
+            posspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(s, lookahead_positions, k=3)
+            tangentspline : scipy.interpolate.BSpline = posspline.derivative(nu=1)
+            tangents = tangentspline(s)
+            tangentnorms = np.linalg.norm(tangents,axis=1)
+            normalspline : scipy.interpolate.BSpline = posspline.derivative(nu=2)
+            normals = normalspline(s)
+            crossproductnorms = tangents[:,0]*normals[:,1] - tangents[:,1]*normals[:,0]
+            curvatures = crossproductnorms/np.power(tangentnorms, 3)
+            radii = np.abs(1.0/(curvatures+1E-12))
+            speeds = self.max_speed*np.ones(lookahead_positions.shape[0])
+            centripetal_accelerations = np.power(speeds,2.0)/radii
+            max_allowable_speeds = np.sqrt(self.max_centripetal_acceleration*radii)
+            idx = centripetal_accelerations>self.max_centripetal_acceleration
+            speeds[idx] = max_allowable_speeds[idx]
+        else:
+            speeds = np.linalg.norm(v_local_forward_, ord=2, axis=1)
         lookahead_angles = np.arctan2(lookahead_positions[:,1], lookahead_positions[:,0])
         # velrosstamped : Vector3Stamped = deepcopy(self.current_motion_data.world_velocity)
         # if (velrosstamped.header.frame_id == ""):
@@ -162,23 +194,7 @@ class PurePursuitControllerROS(Node):
             delta = self.left_steer_factor*physical_angle# + 0.01004506
         else:
             delta = self.right_steer_factor*physical_angle# + 0.01094534
-        if radii is None:
-            s = np.linspace(0.0,1.0,num=lookahead_positions.shape[0])
-            posspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(s, lookahead_positions, k=3)
-            tangentspline : scipy.interpolate.BSpline = posspline.derivative(nu=1)
-            tangents = tangentspline(s)
-            tangentnorms = np.linalg.norm(tangents,axis=1)
-            normalspline : scipy.interpolate.BSpline = posspline.derivative(nu=2)
-            normals = normalspline(s)
-            crossproductnorms = tangents[:,0]*normals[:,1] - tangents[:,1]*normals[:,0]
-            curvatures = crossproductnorms/np.power(tangentnorms, 3)
-            radii = np.abs(1.0/(curvatures+1E-12))
-        speeds_curvature = self.max_speed*np.ones(lookahead_positions.shape[0])
-        centripetal_accelerations = np.power(speeds_curvature,2.0)/radii
-        max_allowable_speeds = np.sqrt(self.max_centripetal_acceleration*radii)
-        idx = centripetal_accelerations>self.max_centripetal_acceleration
-        speeds_curvature[idx] = max_allowable_speeds[idx]
-        self.velsetpoint = speeds_curvature[lookahead_index_vel]
+        self.velsetpoint = speeds[lookahead_index_vel]
        # self.setpoint_publisher.publish(Float64(data=self.velsetpoint))
 
 

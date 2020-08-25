@@ -157,6 +157,7 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
                 self.initial_zeros = self.initial_zeros.cuda(self.gpu) 
         self.bezierM.requires_grad = False
         self.bezierMderiv.requires_grad = False
+        self.bezierM2ndderiv.requires_grad = False
         if use_compressed_images_param.get_parameter_value().bool_value:
             self.image_sub = self.create_subscription( CompressedImage, '/f1_screencaps/cropped/compressed', self.compressedImageCallback, 10)
         else:
@@ -199,25 +200,32 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
             else:
                 bezier_control_points = network_predictions.transpose(1,2)
             evalpoints = torch.matmul(self.bezierM, bezier_control_points)
-            x_samp = evalpoints[0].cpu().detach().numpy()
+            x_samp = evalpoints[0]
             x_samp[:,0]*=self.xscale_factor
-            _, v_storch = mu.bezierDerivative(bezier_control_points, M = self.bezierMderiv)
-            v_storch=v_storch[0]
-            _, a_storch = mu.bezierDerivative(bezier_control_points, M = self.bezierM2ndderiv, order=2)
-            a_storch=a_storch[0]
-            crossproduct_norms = v_storch[:,0]*a_storch[:,1] - v_storch[:,1]*a_storch[:,0]
-            v_storch_norms = torch.norm(v_storch,dim=1)
-            radii_torch = torch.abs(torch.pow(v_storch_norms,3)/(crossproduct_norms+1E-12))
-            radii = radii_torch.cpu().numpy()
-            v_s = v_storch.cpu().numpy()
-            v_t = self.velocity_scale_factor*(1.0/self.deltaT)*v_s
+
+            _, predicted_tangents = mu.bezierDerivative(bezier_control_points, M = self.bezierMderiv, order=1)
+            predicted_tangents = predicted_tangents[0]
+            predicted_tangent_norms = torch.norm(predicted_tangents, p=2, dim=1)
+            v_t = self.velocity_scale_factor*(1.0/self.deltaT)*predicted_tangents
+
+            _, predicted_normals = mu.bezierDerivative(bezier_control_points, M = self.bezierM2ndderiv, order=2)
+            predicted_normals = predicted_normals[0]
+
+            cross_prod_norms = torch.abs(predicted_tangents[:,0]*predicted_normals[:,1] - predicted_tangents[:,1]*predicted_normals[:,0])
+            radii = torch.pow(predicted_tangent_norms,3) / cross_prod_norms
+            speeds = self.max_speed*(torch.ones_like(radii)).double().cuda(0)
+            centripetal_accelerations = torch.square(speeds)/radii
+            max_allowable_speeds = torch.sqrt(self.max_centripetal_acceleration*radii)
+            idx = centripetal_accelerations>self.max_centripetal_acceleration
+            speeds[idx] = max_allowable_speeds[idx]
+            vels = speeds[:,None]*(predicted_tangents/predicted_tangent_norms[:,None])
         
         x_samp[:,1]-=self.z_offset
         #print(x_samp)
-        distances_samp = la.norm(x_samp, axis=1)
+        distances_samp = torch.norm(x_samp,p=2,dim=1)
         if self.plot:
             bezier_control_points_np = bezier_control_points[0].cpu().numpy()
             plotmsg : BCMessage = BCMessage(header = Header(stamp=stamp,frame_id="car"), control_points_lateral = bezier_control_points_np[:,0], control_points_forward = bezier_control_points_np[:,1] )
             self.path_publisher.publish(plotmsg)
-        return x_samp, v_t, distances_samp, radii/self.velocity_scale_factor
+        return x_samp.cpu().numpy(), vels.cpu().numpy(), distances_samp.cpu().numpy()
         

@@ -86,12 +86,6 @@ class OraclePurePursuitControllerROS(PPC):
         bezier_order_param : Parameter = self.get_parameter_or("bezier_order",Parameter("bezier_order", value=7))
         self.bezier_order : int = bezier_order_param.get_parameter_value().integer_value
 
-        #self.image_sub = self.create_subscription( Image, '/f1_screencaps/cropped', self.imageCallback, 10)
-        self.current_pose : PoseStamped = PoseStamped()
-        self.current_pose_mat : torch.DoubleTensor = torch.zeros([4,4],dtype=torch.float64)
-
-        self.pose_sub = self.create_subscription( PoseStamped, '/car_pose', self.poseCallback, 1)
-
         self.s_torch_lstsq = torch.linspace(0,1,self.forward_indices, dtype=torch.float64).unsqueeze(0).cuda(0)
         self.bezierMlstsq = mu.bezierM(self.s_torch_lstsq, self.bezier_order)
         
@@ -103,11 +97,6 @@ class OraclePurePursuitControllerROS(PPC):
 
         
 
-    def poseCallback(self, pose_msg : PoseStamped):
-        self.current_pose = pose_msg
-        R = torch.from_numpy(Rot.from_quat( [pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z, pose_msg.pose.orientation.w] ).as_matrix().copy()).double()
-        v = torch.tensor( [pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z, 1.0] ).double()
-        self.current_pose_mat = torch.cat( [torch.cat([R,torch.zeros(3, dtype=torch.float64).unsqueeze(0)], dim=0), v.unsqueeze(1)  ], dim=1 )
         
 
     def imageCallback(self, img_msg : Image):
@@ -137,22 +126,29 @@ class OraclePurePursuitControllerROS(PPC):
 
         least_squares_positions = torch.matmul(self.bezierM, least_squares_bezier)
         least_squares_positions = least_squares_positions[0]
-        distances_forward = torch.norm(least_squares_positions,dim=1)
+        distances_forward = torch.norm(least_squares_positions, p=2, dim=1)
 
         _, least_squares_tangents = mu.bezierDerivative(least_squares_bezier, M = self.bezierMdot, order=1)
         least_squares_tangents = least_squares_tangents[0]
-        least_squares_tangent_norms = torch.norm(least_squares_tangents,dim=1)
+        least_squares_tangent_norms = torch.norm(least_squares_tangents, p=2, dim=1)
 
         _, least_squares_normals = mu.bezierDerivative(least_squares_bezier, M = self.bezierMdotdot, order=2)
         least_squares_normals = least_squares_normals[0]
 
-        radii = torch.pow(torch.norm(least_squares_tangents,dim=1),3) / torch.norm(torch.cross(least_squares_tangents, least_squares_normals, dim=1), dim=1)
+        radii = torch.pow(torch.norm(least_squares_tangents, p=2, dim=1),3) / torch.norm(torch.cross(least_squares_tangents, least_squares_normals), p=2, dim=1)
 
         xz_idx = torch.tensor( [0,2] , dtype=torch.int64).cuda(0)
+
+        speeds = self.max_speed*(torch.ones_like(radii)).double().cuda(0)
+        centripetal_accelerations = torch.square(speeds)/radii
+        max_allowable_speeds = torch.sqrt(self.max_centripetal_acceleration*radii)
+        idx = centripetal_accelerations>self.max_centripetal_acceleration
+        speeds[idx] = max_allowable_speeds[idx]
+        vels = speeds[:,None]*(least_squares_tangents[:,xz_idx]/(torch.norm(least_squares_tangents[:,xz_idx],p=2,dim=1)[:,None]))
         
         #print( radii.shape )
         #print(least_squares_positions.shape,least_squares_tangents.shape,least_squares_normals.shape)
-        return least_squares_positions[:,xz_idx].cpu().numpy(), least_squares_tangents[:,xz_idx].cpu().numpy(), distances_forward.cpu().numpy(), radii.cpu().numpy()
+        return least_squares_positions[:,xz_idx].cpu().numpy(), vels.cpu().numpy(), distances_forward.cpu().numpy()#, radii.cpu().numpy()
 
 
 
