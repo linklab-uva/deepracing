@@ -79,15 +79,9 @@ def npTrajectoryToROS(trajectory : np.ndarray, velocities : np.ndarray, frame_id
         rtn.poses.append(posestamped)
     return rtn
 class AdmiralNetBezierPurePursuitControllerROS(PPC):
-    def __init__(self, trackfile=None, forward_indices : int = 60, lookahead_gain : float = 0.4, L : float= 3.617, pgain: float=0.5, igain : float=0.0125, dgain : float=0.0125, plot : bool =True, gpu : int=0, deltaT : float = 1.415):
-        super(AdmiralNetBezierPurePursuitControllerROS, self).__init__(lookahead_gain = lookahead_gain, L = L ,\
-                                                    pgain=pgain, igain=igain, dgain=dgain)
-        trackfile = self.get_parameter_or("trackfile", trackfile)
-        # if (trackfile is not None) and ( not trackfile.type_==Parameter.Type.NOT_SET  ):
-        #     t, x, xdot = deepracing.loadArmaFile(trackfile)
-        #     self.xgt = np.vstack((x.copy().transpose(),np.ones(x.shape[0])))
-        #     self.xdotgt = xdot.copy().transpose()
-        #     self.tgt = t.copy()    
+    def __init__(self):
+        super(AdmiralNetBezierPurePursuitControllerROS, self).__init__()
+
         self.path_publisher = self.create_publisher(BCMessage, "/predicted_path", 1)
         model_file_param = self.get_parameter("model_file")
         if (model_file_param.type_==Parameter.Type.NOT_SET):
@@ -113,62 +107,31 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         #self.rosclock._set_ros_time_is_active(True)
 
 
-        L_param : Parameter = self.get_parameter_or("wheelbase",Parameter("wheelbase", value=L))
-        print("L_param: " + str(L_param.get_parameter_value()))
 
-        pgain_param : Parameter = self.get_parameter_or("pgain",Parameter("pgain", value=pgain))
-        print("pgain_param: " + str(pgain_param.get_parameter_value()))
-
-        igain_param : Parameter = self.get_parameter_or("igain",Parameter("igain", value=igain))
-        print("igain_param: " + str(igain_param.get_parameter_value()))
-
-        dgain_param : Parameter = self.get_parameter_or("dgain",Parameter("dgain", value=dgain))
-        print("dgain_param: " + str(dgain_param.get_parameter_value()))
-
-        lookahead_gain_param : Parameter = self.get_parameter_or("lookahead_gain",Parameter("lookahead_gain", value=lookahead_gain))
-        print("lookahead_gain_param: " + str(lookahead_gain_param.get_parameter_value()))
-
-        plot_param : Parameter = self.get_parameter_or("plot",Parameter("plot", value=plot))
-        print("plot_param: " + str(plot_param.get_parameter_value()))
+        plot_param : Parameter = self.get_parameter_or("plot",Parameter("plot", value=False))
+        self.plot : bool = plot_param.get_parameter_value().bool_value
 
         use_compressed_images_param : Parameter = self.get_parameter_or("use_compressed_images",Parameter("use_compressed_images", value=False))
-        print("use_compressed_images_param: " + str(use_compressed_images_param.get_parameter_value()))
 
-        deltaT_param : Parameter = self.get_parameter_or("deltaT",Parameter("deltaT", value=deltaT))
-        print("deltaT_param: " + str(deltaT_param.get_parameter_value()))
-
-        forward_indices_param : Parameter = self.get_parameter_or("forward_indices",Parameter("forward_indices", value=forward_indices))
-        print("forward_indices_param: " + str(forward_indices_param.get_parameter_value()))
+        deltaT_param : Parameter = self.get_parameter_or("deltaT",Parameter("deltaT", value=1.414))
+        self.deltaT : float = deltaT_param.get_parameter_value().double_value
 
         x_scale_factor_param : Parameter = self.get_parameter_or("x_scale_factor",Parameter("x_scale_factor", value=1.0))
-        print("xscale_factor_param: " + str(x_scale_factor_param.get_parameter_value()))
+        self.xscale_factor : float = x_scale_factor_param.get_parameter_value().double_value
 
-        z_offset_param : Parameter = self.get_parameter_or("z_offset",Parameter("z_offset", value=L/2.0))
-        print("z_offset_param: " + str(z_offset_param.get_parameter_value()))
+        z_offset_param : Parameter = self.get_parameter_or("z_offset",Parameter("z_offset", value=self.L/2.0))
+        self.z_offset : float = z_offset_param.get_parameter_value().double_value
 
-        gpu_param : Parameter = self.get_parameter_or("gpu",Parameter("gpu", value=gpu))
-        print("gpu_param: " + str(gpu_param.get_parameter_value()))
+        gpu_param : Parameter = self.get_parameter_or("gpu",Parameter("gpu", value=0))
+        self.gpu : int = gpu_param.get_parameter_value().integer_value
 
-        
         velocity_scale_param : Parameter = self.get_parameter_or("velocity_scale_factor",Parameter("velocity_scale_factor", value=1.0))
-        print("velocity_scale_param: " + str(velocity_scale_param.get_parameter_value()))
+        self.velocity_scale_factor : float = velocity_scale_param.get_parameter_value().double_value
         
         num_sample_points_param : Parameter = self.get_parameter_or("num_sample_points",Parameter("num_sample_points", value=60))
-        print("num_sample_points_param: " + str(num_sample_points_param.get_parameter_value()))
-
-        self.pgain : float = pgain_param.get_parameter_value().double_value
-        self.igain : float = igain_param.get_parameter_value().double_value
-        self.dgain : float = dgain_param.get_parameter_value().double_value
-        self.lookahead_gain : float = lookahead_gain_param.get_parameter_value().double_value
-        self.L = L_param.get_parameter_value().double_value
-        self.z_offset : float = z_offset_param.get_parameter_value().double_value
-        self.gpu : int = gpu_param.get_parameter_value().integer_value
-        self.xscale_factor : float = x_scale_factor_param.get_parameter_value().double_value
-        self.plot : bool = plot_param.get_parameter_value().bool_value
-        self.velocity_scale_factor : float = velocity_scale_param.get_parameter_value().double_value
         self.num_sample_points : int = num_sample_points_param.get_parameter_value().integer_value
-        self.deltaT : float = deltaT_param.get_parameter_value().double_value
-        self.forward_indices : int = forward_indices_param.get_parameter_value().integer_value
+
+       
         
         
         self.net : NN.Module = M.AdmiralNetCurvePredictor(context_length= context_length, input_channels=input_channels, params_per_dimension=bezier_order+1-int(self.fix_first_point), use_3dconv=use_3dconv) 
@@ -177,7 +140,7 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         self.net.load_state_dict(torch.load(model_file,map_location=torch.device("cpu")))
         self.get_logger().info('Loaded model file: %s' % (model_file) )
         self.get_logger().info('Moving model params to GPU %d' % (self.gpu,))
-        self.net = self.net.cuda(gpu)
+        self.net = self.net.cuda(self.gpu)
         self.net = self.net.eval()
 
         self.get_logger().info('Moved model params to GPU %d' % (self.gpu,))
@@ -186,6 +149,7 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         self.bezier_order = self.net.params_per_dimension-1+int(self.fix_first_point)
         self.bezierM = mu.bezierM(self.s_torch,self.bezier_order).double().cuda(self.gpu)
         self.bezierMderiv = mu.bezierM(self.s_torch,self.bezier_order-1)
+        self.bezierM2ndderiv = mu.bezierM(self.s_torch,self.bezier_order-2)
         self.buffertimer = timeit.Timer(stmt=self.addToBuffer)
         if self.fix_first_point:
             self.initial_zeros = torch.zeros(1,1,2).double()
@@ -219,13 +183,13 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         self.image_buffer.append(imnpdouble)
     def getTrajectory(self):
         if self.current_motion_data.world_velocity.header.frame_id == "":
-            return None, None, None
+            return super().getTrajectory()
         stamp = self.rosclock.now().to_msg()
         imnp = np.array(self.image_buffer).astype(np.float64).copy()
         imtorch = torch.from_numpy(imnp.copy())
         imtorch.required_grad = False
         if ( not imtorch.shape[0] == self.net.context_length ):
-            return None, None, None
+            return super().getTrajectory()
         inputtorch : torch.Tensor = imtorch.unsqueeze(0).double().cuda(self.gpu)
        # self.get_logger().debug("inputtorch is on device %s" % (str(inputtorch.get_device())))
         with torch.no_grad():
@@ -237,8 +201,16 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
             evalpoints = torch.matmul(self.bezierM, bezier_control_points)
             x_samp = evalpoints[0].cpu().detach().numpy()
             x_samp[:,0]*=self.xscale_factor
-            _, evalvel = mu.bezierDerivative(bezier_control_points, M = self.bezierMderiv)
-            v_samp = self.velocity_scale_factor*(1.0/self.deltaT)*(evalvel[0].cpu().numpy())
+            _, v_storch = mu.bezierDerivative(bezier_control_points, M = self.bezierMderiv)
+            v_storch=v_storch[0]
+            _, a_storch = mu.bezierDerivative(bezier_control_points, M = self.bezierM2ndderiv, order=2)
+            a_storch=a_storch[0]
+            crossproduct_norms = v_storch[:,0]*a_storch[:,1] - v_storch[:,1]*a_storch[:,0]
+            v_storch_norms = torch.norm(v_storch,dim=1)
+            radii_torch = torch.abs(torch.pow(v_storch_norms,3)/(crossproduct_norms+1E-12))
+            radii = radii_torch.cpu().numpy()
+            v_s = v_storch.cpu().numpy()
+            v_t = self.velocity_scale_factor*(1.0/self.deltaT)*v_s
         
         x_samp[:,1]-=self.z_offset
         #print(x_samp)
@@ -247,5 +219,5 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
             bezier_control_points_np = bezier_control_points[0].cpu().numpy()
             plotmsg : BCMessage = BCMessage(header = Header(stamp=stamp,frame_id="car"), control_points_lateral = bezier_control_points_np[:,0], control_points_forward = bezier_control_points_np[:,1] )
             self.path_publisher.publish(plotmsg)
-        return x_samp, v_samp, distances_samp
+        return x_samp, v_t, distances_samp, radii/self.velocity_scale_factor
         

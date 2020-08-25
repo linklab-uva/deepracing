@@ -119,12 +119,40 @@ class OraclePurePursuitControllerROS(PPC):
         if not torch.any(self.current_pose_mat.bool()).item():
             return super().getTrajectory()
         current_pose_mat = self.current_pose_mat.clone()
-        current_pose_inv = torch.inverse(current_pose_mat)
 
-        (d, Iclosest) = self.kdtree.query(current_pose_mat[0:3,3].numpy())
+        (d, I1) = self.kdtree.query(current_pose_mat[0:3,3].numpy())
+        current_pose_inv = torch.inverse(current_pose_mat).cuda(0)
+
+        raceline_local = torch.matmul(current_pose_inv,self.raceline)
+
+        I2 = I1 + self.forward_indices
+
+        sample_idx = torch.arange(I1, I2, step=1, dtype=torch.int64).cuda(0) % raceline_local.shape[1]
+
+        raceline_points_local = raceline_local[0:3,sample_idx]
+
+        raceline_points_local = raceline_points_local.transpose(0,1).unsqueeze(0)
+
+        _, least_squares_bezier = mu.bezierLsqfit(raceline_points_local, self.bezier_order, M=self.bezierMlstsq)
+
+        least_squares_positions = torch.matmul(self.bezierM, least_squares_bezier)
+        least_squares_positions = least_squares_positions[0]
+        distances_forward = torch.norm(least_squares_positions,dim=1)
+
+        _, least_squares_tangents = mu.bezierDerivative(least_squares_bezier, M = self.bezierMdot, order=1)
+        least_squares_tangents = least_squares_tangents[0]
+        least_squares_tangent_norms = torch.norm(least_squares_tangents,dim=1)
+
+        _, least_squares_normals = mu.bezierDerivative(least_squares_bezier, M = self.bezierMdotdot, order=2)
+        least_squares_normals = least_squares_normals[0]
+
+        radii = torch.pow(torch.norm(least_squares_tangents,dim=1),3) / torch.norm(torch.cross(least_squares_tangents, least_squares_normals, dim=1), dim=1)
+
+        xz_idx = torch.tensor( [0,2] , dtype=torch.int64).cuda(0)
         
-        print("Didn't crash")
-        return super().getTrajectory()
+        #print( radii.shape )
+        #print(least_squares_positions.shape,least_squares_tangents.shape,least_squares_normals.shape)
+        return least_squares_positions[:,xz_idx].cpu().numpy(), least_squares_tangents[:,xz_idx].cpu().numpy(), distances_forward.cpu().numpy(), radii.cpu().numpy()
 
 
 
