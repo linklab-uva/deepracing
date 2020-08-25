@@ -1,7 +1,7 @@
 pure_pursuit_control:
     ros__parameters:
       use_compressed_images: True
-      lookahead_gain : 0.4
+      lookahead_gain : 0.3
       velocity_lookahead_gain: 0.3
       plot : True
       gpu : 0

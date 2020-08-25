@@ -18,6 +18,10 @@ pure_pursuit_control:
         #model_file : 'D:/f1_model_files/raceline_predictor/068981ebdf9b48e8b7f10456cd19ec76/epoch_150_params.pt'
         model_file : 'D:/f1_model_files/raceline_predictor/068981ebdf9b48e8b7f10456cd19ec76/epoch_200_params.pt'
 
+        #model_file : 'D:/f1_model_files/raceline_predictor/2afaae224c2b443fb4d76a20f2c4da93/epoch_160_params.pt'
+
+        
+
         ### End Canada Raceline Prediction ###
 
 
@@ -39,13 +43,13 @@ pure_pursuit_control:
         publish_all_cars: False
         use_compressed_images: True
         lookahead_gain : 0.6
-        velocity_lookahead_gain: 0.15
+        velocity_lookahead_gain: 0.1
         plot : True
         gpu : 0
         x_scale_factor : 1.0
         velocity_scale_factor: 1.0
-        num_sample_points : 500
-        left_steer_factor: 3.6
-        right_steer_factor: 3.3
-        max_speed: 85.0
-        max_centripetal_acceleration: 15.0
+        num_sample_points : 300
+        left_steer_factor: 3.375
+        right_steer_factor: 3.375
+        max_speed: 90.0
+        max_centripetal_acceleration: 17.5
