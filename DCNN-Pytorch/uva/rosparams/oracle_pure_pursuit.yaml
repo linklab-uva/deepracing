@@ -1,0 +1,16 @@
+pure_pursuit_control:
+    ros__parameters:
+      use_compressed_images: True
+      lookahead_gain : 0.4
+      velocity_lookahead_gain: 0.3
+      plot : True
+      gpu : 0
+      x_scale_factor : 1.0
+      velocity_scale_factor: 1.2
+      forward_indices : 30
+      sample_indices : 60
+      left_steer_factor: 3.75
+      right_steer_factor: 3.4
+      max_speed: 90.0
+      max_centripetal_acceleration: 20.0
+      raceline_file: "D:/deepracing/data-logger/tracks/Canada_racingline.json"
