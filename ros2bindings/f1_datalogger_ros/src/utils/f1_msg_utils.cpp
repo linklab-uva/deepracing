@@ -57,6 +57,53 @@ f1_datalogger_msgs::msg::MarshalZone f1_datalogger_ros::F1MsgUtils::toROS(const 
 }
 
 
+f1_datalogger_msgs::msg::CarSetupData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::CarSetupData& setup_data)
+{
+  f1_datalogger_msgs::msg::CarSetupData rtn;
+  rtn.ballast = setup_data.m_ballast;
+  rtn.brake_bias = setup_data.m_brakeBias;
+  rtn.brake_pressure = setup_data.m_brakePressure;
+  rtn.front_anti_roll_bar = setup_data.m_frontAntiRollBar;
+  rtn.front_camber = setup_data.m_frontCamber;
+  rtn.front_suspension = setup_data.m_frontSuspension;
+  rtn.front_suspension_height = setup_data.m_frontSuspensionHeight;
+  rtn.front_toe = setup_data.m_frontToe;
+  rtn.front_tyre_pressure = setup_data.m_frontTyrePressure;
+  rtn.front_wing = setup_data.m_frontWing;
+  rtn.fuel_load = setup_data.m_fuelLoad;
+  rtn.off_throttle = setup_data.m_offThrottle;
+  rtn.on_throttle = setup_data.m_onThrottle;
+  rtn.rear_anti_roll_bar = setup_data.m_rearAntiRollBar;
+  rtn.rear_camber = setup_data.m_rearCamber;
+  rtn.rear_suspension = setup_data.m_rearSuspension;
+  rtn.rear_suspension_height = setup_data.m_rearSuspensionHeight;
+  rtn.rear_toe = setup_data.m_rearToe;
+  rtn.rear_tyre_pressure = setup_data.m_rearTyrePressure;
+  rtn.rear_wing = setup_data.m_rearWing;
+  return rtn;
+}
+f1_datalogger_msgs::msg::PacketCarSetupData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::PacketCarSetupData& packet_setup_data, bool copy_all_cars)
+{
+  f1_datalogger_msgs::msg::PacketCarSetupData rtn;
+  rtn.header = f1_datalogger_ros::F1MsgUtils::toROS(packet_setup_data.m_header);
+  if (rtn.header.player_car_index<20)
+  {
+    rtn.car_setup_data[rtn.header.player_car_index] = f1_datalogger_ros::F1MsgUtils::toROS(packet_setup_data.m_carSetups[rtn.header.player_car_index]);
+  }
+  if(copy_all_cars)
+  {
+    for(unsigned int i =0; i < 20; i++)
+    {
+      if (i!=rtn.header.player_car_index)
+      {
+        rtn.car_setup_data[i] = f1_datalogger_ros::F1MsgUtils::toROS(packet_setup_data.m_carSetups[i]);
+      }
+    }
+  }
+  return rtn;
+}
+
+
 f1_datalogger_msgs::msg::CarStatusData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::CarStatusData& status_data)
 {
   f1_datalogger_msgs::msg::CarStatusData rtn;
@@ -94,7 +141,7 @@ f1_datalogger_msgs::msg::PacketCarStatusData f1_datalogger_ros::F1MsgUtils::toRO
 
   f1_datalogger_msgs::msg::PacketCarStatusData rtn;
   rtn.header = f1_datalogger_ros::F1MsgUtils::toROS(packet_status_data.m_header);
-  if (packet_status_data.m_header.m_playerCarIndex<20)
+  if (rtn.header.player_car_index<20)
   {
     rtn.car_status_data[rtn.header.player_car_index] = f1_datalogger_ros::F1MsgUtils::toROS(packet_status_data.m_carStatusData[rtn.header.player_car_index]);
   }
@@ -116,7 +163,7 @@ f1_datalogger_msgs::msg::PacketLapData f1_datalogger_ros::F1MsgUtils::toROS(cons
 {
   f1_datalogger_msgs::msg::PacketLapData rtn;
   rtn.header = f1_datalogger_ros::F1MsgUtils::toROS(lap_data.m_header);
-  if (lap_data.m_header.m_playerCarIndex<20)
+  if (rtn.header.player_car_index<20)
   {
     rtn.lap_data[rtn.header.player_car_index] = f1_datalogger_ros::F1MsgUtils::toROS(lap_data.m_lapData[rtn.header.player_car_index]);
   }
@@ -159,7 +206,6 @@ f1_datalogger_msgs::msg::PacketSessionData f1_datalogger_ros::F1MsgUtils::toROS(
 {
   f1_datalogger_msgs::msg::PacketSessionData rtn;
   rtn.header=toROS(session_data.m_header);
-  rtn.is_spectating = session_data.m_isSpectating;
   for (unsigned int i = 0; i < 21; i++)
   {
     rtn.marshal_zones[i] = toROS(session_data.m_marshalZones[i]);
@@ -167,6 +213,7 @@ f1_datalogger_msgs::msg::PacketSessionData f1_datalogger_ros::F1MsgUtils::toROS(
   rtn.air_temperature = session_data.m_airTemperature;
   rtn.era = session_data.m_era;
   rtn.game_paused  = session_data.m_gamePaused;
+  rtn.is_spectating = session_data.m_isSpectating;
   rtn.network_game = session_data.m_networkGame;
   rtn.num_marshal_zones = session_data.m_numMarshalZones;
   rtn.pit_speed_limit = session_data.m_pitSpeedLimit;
@@ -203,12 +250,20 @@ f1_datalogger_msgs::msg::CarTelemetryData f1_datalogger_ros::F1MsgUtils::toROS(c
 f1_datalogger_msgs::msg::PacketCarTelemetryData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::PacketCarTelemetryData& telemetry_data, bool copy_all_cars)
 {
   f1_datalogger_msgs::msg::PacketCarTelemetryData rtn;
-  rtn.button_status = telemetry_data.m_buttonStatus;
-  rtn.header = toROS(telemetry_data.m_header);
-  unsigned int imax = (copy_all_cars) ? 20 : 1;
-  for (unsigned int i = 0; i < imax; i++)
+  rtn.header = f1_datalogger_ros::F1MsgUtils::toROS(telemetry_data.m_header);
+  if (rtn.header.player_car_index<20)
   {
-    rtn.car_telemetry_data[i] = toROS(telemetry_data.m_carTelemetryData[i]);
+    rtn.car_telemetry_data[rtn.header.player_car_index] = f1_datalogger_ros::F1MsgUtils::toROS(telemetry_data.m_carTelemetryData[rtn.header.player_car_index]);
+  }
+  if(copy_all_cars)
+  {
+    for(unsigned int i =0; i < 20; i++)
+    {
+      if (i!=rtn.header.player_car_index)
+      {
+        rtn.car_telemetry_data[i] = f1_datalogger_ros::F1MsgUtils::toROS(telemetry_data.m_carTelemetryData[i]);
+      }
+    }
   }
   return rtn;
 }
@@ -228,7 +283,7 @@ f1_datalogger_msgs::msg::PacketHeader f1_datalogger_ros::F1MsgUtils::toROS(const
 f1_datalogger_msgs::msg::PacketMotionData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::PacketMotionData& motion_data, bool copy_all_cars)
 {
     f1_datalogger_msgs::msg::PacketMotionData rtn;
-    rtn.header = toROS(motion_data.m_header);
+    rtn.header = f1_datalogger_ros::F1MsgUtils::toROS(motion_data.m_header);
     rtn.angular_acceleration.x = motion_data.m_angularAccelerationX;
     rtn.angular_acceleration.y = motion_data.m_angularAccelerationY;
     rtn.angular_acceleration.z = motion_data.m_angularAccelerationZ;
@@ -244,10 +299,19 @@ f1_datalogger_msgs::msg::PacketMotionData f1_datalogger_ros::F1MsgUtils::toROS(c
     std::copy(motion_data.m_suspensionAcceleration,motion_data.m_suspensionAcceleration+4, rtn.suspension_acceleration.begin());
     std::copy(motion_data.m_suspensionVelocity,motion_data.m_suspensionVelocity+4, rtn.suspension_velocity.begin());
     std::copy(motion_data.m_suspensionPosition,motion_data.m_suspensionPosition+4, rtn.suspension_position.begin());
-    unsigned int imax = (copy_all_cars) ? 20 : 1;
-    for (unsigned int i = 0; i < imax; i++)
+    if (rtn.header.player_car_index<20)
     {
-        rtn.car_motion_data[i] = toROS(motion_data.m_carMotionData[i]);
+      rtn.car_motion_data[rtn.header.player_car_index] = f1_datalogger_ros::F1MsgUtils::toROS(motion_data.m_carMotionData[rtn.header.player_car_index]);
+    }
+    if(copy_all_cars)
+    {
+      for(unsigned int i =0; i < 20; i++)
+      {
+        if (i!=rtn.header.player_car_index)
+        {
+          rtn.car_motion_data[i] = f1_datalogger_ros::F1MsgUtils::toROS(motion_data.m_carMotionData[i]);
+        }
+      }
     }
     return rtn;
 }

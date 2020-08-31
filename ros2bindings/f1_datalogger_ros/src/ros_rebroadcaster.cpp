@@ -10,6 +10,7 @@
 #include "f1_datalogger_ros/utils/f1_msg_utils.h"
 #include "f1_datalogger_msgs/msg/timestamped_image.hpp"
 #include "f1_datalogger_msgs/msg/timestamped_packet_motion_data.hpp"
+#include "f1_datalogger_msgs/msg/timestamped_packet_car_setup_data.hpp"
 #include "f1_datalogger_msgs/msg/timestamped_packet_car_status_data.hpp"
 #include "f1_datalogger_msgs/msg/timestamped_packet_car_telemetry_data.hpp"
 #include "f1_datalogger_msgs/msg/timestamped_packet_lap_data.hpp"
@@ -24,13 +25,13 @@ class ROSRebroadcaster_2018DataGrabHandler : public deepf1::IF12018DataGrabHandl
 public:
   ROSRebroadcaster_2018DataGrabHandler(std::shared_ptr<rclcpp::Node> node)
   {
-    this->node_ = node;
+    node_ = node;
     rcl_interfaces::msg::ParameterDescriptor all_cars_description;
     all_cars_description.name = "publish_all_cars";
     all_cars_description.type = rcl_interfaces::msg::ParameterType::PARAMETER_BOOL;
     all_cars_description.description = "Whether to publish information about all 20 cars in the session, or just the ego vehicle. True means publish information about all cars";
     all_cars_description.read_only = false;
-    all_cars_param_ = node->declare_parameter<bool>("publish_all_cars", true, all_cars_description);
+    all_cars_param_ = node_->declare_parameter<bool>("publish_all_cars", true, all_cars_description);
   }
   bool isReady() override
   {
@@ -38,6 +39,12 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarSetupData& data) override
   {
+    rclcpp::Time now = this->node_->now();
+    f1_datalogger_msgs::msg::TimestampedPacketCarSetupData rosdata;
+    rosdata.header.stamp = now;
+    rosdata.udp_packet = f1_datalogger_ros::F1MsgUtils::toROS(data.data, all_cars_param_);
+    rosdata.timestamp = std::chrono::duration<double>(data.timestamp - begin_).count();
+    setup_data_publisher_->publish(rosdata);
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarStatusData& data) override
   {
@@ -99,15 +106,17 @@ public:
   void init(const std::string& host, unsigned int port, const deepf1::TimePoint& begin) override
   {
 
-    this->lap_data_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketLapData>("lap_data", 1);
-    this->motion_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketMotionData>("motion_data", 1);
-    this->session_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketSessionData>("session_data", 1);
-    this->status_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketCarStatusData>("status_data", 1);
-    this->telemetry_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketCarTelemetryData>("telemetry_data", 1);
+    lap_data_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketLapData>("lap_data", 1);
+    motion_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketMotionData>("motion_data", 1);
+    session_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketSessionData>("session_data", 1);
+    setup_data_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketCarSetupData>("setup_data", 1);
+    status_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketCarStatusData>("status_data", 1);
+    telemetry_publisher_ = node_->create_publisher<f1_datalogger_msgs::msg::TimestampedPacketCarTelemetryData>("telemetry_data", 1);
+
     ready_ = true;
-    this->begin_ = begin;
-    this->host_ = host;
-    this->port_ = port;
+    begin_ = begin;
+    host_ = host;
+    port_ = port;
   }
 private:
   bool ready_;
@@ -120,6 +129,7 @@ public:
   std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketLapData> > lap_data_publisher_;
   std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketMotionData> > motion_publisher_;
   std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketSessionData> > session_publisher_;
+  std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketCarSetupData> > setup_data_publisher_;
   std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketCarStatusData> > status_publisher_;
   std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedPacketCarTelemetryData> > telemetry_publisher_;
 };
@@ -196,7 +206,7 @@ public:
 
 
     cv::cvtColor(bgraimage,rgbimage,cv::COLOR_BGRA2RGB);
-    cv_bridge::CvImage bridge_image(header, "rgb8", rgbimage);
+    cv_bridge::CvImage bridge_image = cv_bridge::CvImage(header, "rgb8", rgbimage);
     this->it_cropped_publisher_.publish( bridge_image.toImageMsg() );
   }
   void init(const deepf1::TimePoint& begin, const cv::Size& window_size) override
@@ -266,14 +276,14 @@ int main(int argc, char *argv[]) {
   
   if(rebroadcast_p.get<bool>())
   {
-    printf("Rebroadcasting on port: %ld\n", port_p.get<int>()+1);
+    RCLCPP_INFO(datagrab_node->get_logger(),"Rebroadcasting on port: %lld\n", port_p.get<int>()+1);
   }
   RCLCPP_INFO(imagegrab_node->get_logger(),
               "Listening for data from the game. \n"
-              "Cropping an area (HxW)  (%u, %u)\n"
-              "Resizing cropped area to (HxW)  (%u, %u)\n"
+              "Cropping an area (HxW)  (%d, %d)\n"
+              "Resizing cropped area to (HxW)  (%d, %d)\n"
               ,nw.image_handler->crop_height_, nw.image_handler->crop_width_, nw.image_handler->resize_height_, nw.image_handler->resize_width_);
-  rclcpp::executors::MultiThreadedExecutor exec(rclcpp::executor::ExecutorArgs(),4);
+  rclcpp::executors::MultiThreadedExecutor exec(rclcpp::executor::ExecutorArgs(),5);
   exec.add_node(datagrab_node);
   exec.add_node(imagegrab_node);
   dl.start(capture_frequency_p.get<double>(), nw.datagrab_handler, nw.image_handler);

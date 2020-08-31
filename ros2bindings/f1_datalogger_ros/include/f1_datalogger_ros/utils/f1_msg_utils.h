@@ -3,6 +3,7 @@
 #include "f1_datalogger/car_data/timestamped_car_data.h"
 #include "f1_datalogger_msgs/msg/packet_header.hpp"
 #include "f1_datalogger_msgs/msg/packet_motion_data.hpp"
+#include "f1_datalogger_msgs/msg/packet_car_setup_data.hpp"
 #include "f1_datalogger_msgs/msg/packet_car_status_data.hpp"
 #include "f1_datalogger_msgs/msg/packet_car_telemetry_data.hpp"
 #include "f1_datalogger_msgs/msg/packet_lap_data.hpp"
@@ -24,6 +25,9 @@ namespace f1_datalogger_ros
         F1_DATALOGGER_ROS_PUBLIC F1MsgUtils() = default;
         static F1_DATALOGGER_ROS_PUBLIC f1_datalogger_msgs::msg::PacketHeader toROS(const deepf1::twenty_eighteen::PacketHeader& header_data);
         
+        static F1_DATALOGGER_ROS_PUBLIC f1_datalogger_msgs::msg::CarSetupData toROS(const deepf1::twenty_eighteen::CarSetupData& setup_data);
+        static F1_DATALOGGER_ROS_PUBLIC f1_datalogger_msgs::msg::PacketCarSetupData toROS(const deepf1::twenty_eighteen::PacketCarSetupData& packet_setup_data, bool copy_all_cars);
+
         static F1_DATALOGGER_ROS_PUBLIC f1_datalogger_msgs::msg::LapData toROS(const deepf1::twenty_eighteen::LapData& lap_data);
         static F1_DATALOGGER_ROS_PUBLIC f1_datalogger_msgs::msg::PacketLapData toROS(const deepf1::twenty_eighteen::PacketLapData& lap_data, bool copy_all_cars);
 
