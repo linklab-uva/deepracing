@@ -68,7 +68,7 @@ def npTrajectoryToROS(trajectory : np.ndarray, velocities : np.ndarray, frame_id
         pose.position.z = point[1]
        # pose.position.y = 0
        # pose.position.z = 0
-        r = Rot.from_dcm(np.vstack((left, trueup, forward)).transpose())
+        r = Rot.from_matrix(np.vstack((left, trueup, forward)).transpose())
         quat = r.as_quat()
         pose.orientation = Quaternion()
         pose.orientation.x = quat[0]
@@ -113,7 +113,7 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
 
         use_compressed_images_param : Parameter = self.get_parameter_or("use_compressed_images",Parameter("use_compressed_images", value=False))
 
-        deltaT_param : Parameter = self.get_parameter_or("deltaT",Parameter("deltaT", value=1.414))
+        deltaT_param : Parameter = self.get_parameter_or("deltaT",Parameter("deltaT", value=1.54))
         self.deltaT : float = deltaT_param.get_parameter_value().double_value
 
         x_scale_factor_param : Parameter = self.get_parameter_or("x_scale_factor",Parameter("x_scale_factor", value=1.0))
@@ -187,13 +187,12 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
             return super().getTrajectory()
         stamp = self.rosclock.now().to_msg()
         imnp = np.array(self.image_buffer).astype(np.float64).copy()
-        imtorch = torch.from_numpy(imnp.copy())
-        imtorch.required_grad = False
-        if ( not imtorch.shape[0] == self.net.context_length ):
-            return super().getTrajectory()
-        inputtorch : torch.Tensor = imtorch.unsqueeze(0).double().cuda(self.gpu)
-       # self.get_logger().debug("inputtorch is on device %s" % (str(inputtorch.get_device())))
         with torch.no_grad():
+            imtorch = torch.from_numpy(imnp.copy())
+            imtorch.required_grad = False
+            if ( not imtorch.shape[0] == self.net.context_length ):
+                return super().getTrajectory()
+            inputtorch : torch.Tensor = imtorch.unsqueeze(0).double().cuda(self.gpu)
             network_predictions = self.net(inputtorch)
             if self.fix_first_point:  
                 bezier_control_points = torch.cat((self.initial_zeros,network_predictions.transpose(1,2)),dim=1)    
@@ -227,5 +226,5 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
             bezier_control_points_np = bezier_control_points[0].cpu().numpy()
             plotmsg : BCMessage = BCMessage(header = Header(stamp=stamp,frame_id="car"), control_points_lateral = bezier_control_points_np[:,0], control_points_forward = bezier_control_points_np[:,1] )
             self.path_publisher.publish(plotmsg)
-        return x_samp.cpu().numpy(), vels.cpu().numpy(), distances_samp.cpu().numpy()
+        return x_samp.cpu().numpy(), v_t.cpu().numpy(), distances_samp.cpu().numpy()
         
