@@ -45,7 +45,11 @@ parser.add_argument("--lookahead_indices", help="Number of indices to look ahead
 parser.add_argument("--debug", help="Display debug plots", action="store_true", required=False)
 parser.add_argument("--output_dir", help="Output directory for the labels. relative to the database images folder",  default="raceline_labels", required=False)
 parser.add_argument("--max_speed", help="maximum speed (m/s) to apply to the raceline",  default=90, required=False, type=float)
+parser.add_argument("--min_speed", help="minimum speed (m/s) to apply to the raceline",  default=15, required=False, type=float)
 parser.add_argument("--max_accel", help="maximum centripetal acceleration (m/s^2) to allow in the raceline",  default=22.5, required=False, type=float)
+parser.add_argument("--num_samples", help="Number of points to sample from the racing spline",  default=9000, required=False, type=int)
+
+
 
 args = parser.parse_args()
 lookahead_distance = args.lookahead_distance
@@ -53,6 +57,8 @@ lookahead_indices = args.lookahead_indices
 debug = args.debug
 max_accel = args.max_accel
 max_speed = args.max_speed
+min_speed = args.min_speed
+num_samples = args.num_samples
 
 if not ( bool(lookahead_distance is not None) ^ bool(lookahead_indices is not None) ):
     raise ValueError("Either lookahead_distance or lookahead_indices (but NOT both) must be specified")
@@ -77,16 +83,26 @@ racelinepath = args.raceline
 with open(racelinepath,"r") as f:
     racelinedict = json.load(f)
 racelinein = np.row_stack((racelinedict["x"],racelinedict["y"],racelinedict["z"])).astype(np.float64)
+
+# racelinein = np.hstack( ( racelinein , np.array([ racelinein[:,0]  ]).transpose() ) ).transpose()
+
+dlist = racelinedict["dist"] 
+# dlist.append(dlist[-1] + np.linalg.norm(finalstretch))
+racelinedist = np.array(dlist, dtype=np.float64)
+racelinedist = racelinedist - racelinedist[0]
+
+
+# racelinein = racelinein[:,0:-1]
+# racelinedist = racelinedist[0:-1]
+print("Race distance: %f" % racelinedist[-1])
 firstpoint = racelinein[:,0]
 lastpoint = racelinein[:,-1]
+# print("First Point: %s" % str(firstpoint))
+# print("Las Point: %s" % str(lastpoint))
 finalstretch = lastpoint - firstpoint
 finaldistance = np.linalg.norm(finalstretch)
+print("Distance between end and start: %s" % str(finaldistance))
 
-racelinein = np.hstack( ( racelinein , np.array([ racelinein[:,0]  ]).transpose() ) )
-
-
-racelinedist = np.array(racelinedict["dist"] + [racelinedict["dist"][-1]+np.linalg.norm(finalstretch)], dtype=np.float64)
-racelinedist = racelinedist - racelinedist[0]
 
 
 plt.figure()
@@ -106,7 +122,7 @@ raceline_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spli
 raceline_tangent : scipy.interpolate.BSpline = raceline_spline.derivative(nu=1)
 raceline_normal : scipy.interpolate.BSpline = raceline_spline.derivative(nu=2)
 
-racelineparam = np.linspace(racelinedist[0],racelinedist[-1], num=9000)
+racelineparam = np.linspace(racelinedist[0],racelinedist[-1], num=num_samples)
 racelinesamp = raceline_spline(racelineparam)
 racelineaug = np.row_stack( ( racelinesamp[:,0] , racelinesamp[:,1], racelinesamp[:,2], np.ones_like(racelineparam) ) ).astype(np.float64)
 
@@ -144,26 +160,44 @@ max_allowable_speed = np.sqrt(max_accel*radii)
 print("Min Allowable Speed: %f. Max Allowable Speed: %f" % (np.min(max_allowable_speed), np.max(max_allowable_speed)) )
 centripetal_accelerations = np.power(speeds,2.0)/radii
 speeds[centripetal_accelerations>max_accel] = max_allowable_speed[centripetal_accelerations>max_accel]
+speeds[speeds<min_speed] = min_speed
 print("Min Speed: %f. Max Speed: %f" % (np.min(speeds), np.max(speeds)) )
 raceline_velocities = speeds[:,np.newaxis]*raceline_unit_tangents
-times = [0]
-for i in range(0, racelineaug.shape[1]-1):
-    delta_s = racelineparam[i+1] - racelineparam[i]
-    dt = delta_s/speeds[i]
-    times.append(times[-1]+dt)
-times = np.array(times)
-print(times)
-print(times.shape)
+
+
+# speedspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(racelineparam, speeds, k=1)
+# dvds : scipy.interpolate.BSpline = speedspline.derivative()
+# accelerations = speeds*dvds(racelineparam)
+
+# times = [0]
+# for i in range(0, racelineaug.shape[1]-1):
+#     delta_s = racelineparam[i+1] - racelineparam[i]
+#     dt = delta_s/speeds[i]
+#     times.append(times[-1]+dt)
+# times = np.array(times)
+# print(times)
+# print(times.shape)
 
 
 ismallest = np.argsort(speeds)
 plt.figure()
 plt.plot(racelineaug[0], racelineaug[2])
-plt.plot(racelineaug[0,ismallest[0:int(ismallest.shape[0]/3)]], racelineaug[2,ismallest[0:int(ismallest.shape[0]/3)]], 'g*', label='%d Points of slowest speed' % (int(ismallest.shape[0]/3),) )
+den = 10
+plt.plot(racelineaug[0,ismallest[0:int(ismallest.shape[0]/den)]], racelineaug[2,ismallest[0:int(ismallest.shape[0]/den)]], 'g*', label='%d Points of slowest speed' % (int(ismallest.shape[0]/den),) )
 plt.legend()
 try:
     plt.savefig(os.path.join(output_dir, "slowest_speeds.pdf"), format="pdf")
     plt.savefig(os.path.join(output_dir, "slowest_speeds.png"), format="png")
+    plt.close()
+except Exception as e:
+    plt.close()
+
+plt.figure()
+plt.hist(speeds, bins=25, label="Speeds")
+plt.title("Speed Histogram")
+try:
+    plt.savefig(os.path.join(output_dir, "speed_histogram.pdf"), format="pdf")
+    plt.savefig(os.path.join(output_dir, "speed_histogram.png"), format="png")
     plt.close()
 except Exception as e:
     plt.close()
@@ -300,6 +334,7 @@ except KeyboardInterrupt:
 except Exception as e:
   print("Skipping visualiation")
   print(e)
+  plt.close()
   #text = input("Could not import matplotlib, skipping visualization. Enter anything to continue.")
 #scipy.interpolate.interp1d
 lmdb_dir = os.path.join(output_dir,"lmdb")
@@ -312,8 +347,6 @@ config_dict = {"lookahead_indices": lookahead_indices}
 with open(os.path.join(output_dir,'config.yaml'), 'w') as yaml_file:
     yaml.dump(config_dict, yaml_file, Dumper=yaml.SafeDumper)
 #exit(0)
-db = deepracing.backend.PoseSequenceLabelLMDBWrapper()
-db.readDatabase( lmdb_dir, mapsize=int(round(9996*len(image_tags)*1.25)), max_spare_txns=16, readonly=False )
 raceline_diffs = racelineparam[1:] - racelineparam[0:-1]
 #raceline_diffs = np.linalg.norm(racelineaug[0:3,1:] - racelineaug[0:3,0:-1] , ord=2, axis=0 )
 average_diff = np.mean(raceline_diffs)
@@ -322,6 +355,8 @@ if lookahead_indices is None:
 else:
     li = lookahead_indices
 kdtree : KDTree = KDTree(racelineaug[0:3].transpose())
+db = deepracing.backend.PoseSequenceLabelLMDBWrapper()
+db.readDatabase( lmdb_dir, mapsize=int(round(166*li*len(image_tags)*1.25)), max_spare_txns=16, readonly=False )
 for (idx,imagetag)  in tqdm(enumerate(image_tags)):
     try:
         imagetag = image_tags[idx]
@@ -396,13 +431,13 @@ for (idx,imagetag)  in tqdm(enumerate(image_tags)):
             raise ValueError("Local distances is supposed to have %d samples, but has %d instead." % (li, local_distances.shape[0]))
         if not local_points.shape[0] == li:
             raise ValueError("Local points is supposed to have %d samples, but has %d instead." % (li, local_points.shape[0]))
-        if debug and np.max(local_speeds)<80:#(idx%40==0):
+        if debug and np.max(local_speeds)<90 and (idx%5==0):
             print("local_points has shape: %s" % ( str(local_points.shape), ) )
             print("Total time diff %f" % ( local_times[-1] - local_times[0], ) )
             f, (imax, plotax) = plt.subplots(nrows=1 , ncols=2)
             im = cv2.cvtColor(cv2.imread(os.path.join(image_folder,label_tag.image_tag.image_file)), cv2.COLOR_BGR2RGB)
             imax.imshow(im)
-           # plotax.set_xlim(-40,40)
+            plotax.set_xlim(-40,40)
             plotax.scatter(-local_points[:,0], local_points[:,2])
             try:
                 plt.show()
