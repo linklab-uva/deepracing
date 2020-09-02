@@ -402,7 +402,7 @@ for (idx,imagetag)  in tqdm(enumerate(image_tags)):
             local_distances = racelineparam[sample_idx]
         else:
             sample_idx1 = np.arange(I1,racelineaug.shape[1],step=1).astype(np.int32)
-            sample_idx2 = np.arange(1,I2-racelineaug.shape[1] + 1,step=1).astype(np.int32)
+            sample_idx2 = np.arange(,I2-racelineaug.shape[1],step=1).astype(np.int32)
             sample_idx = np.hstack((sample_idx1,sample_idx2))
             local_distances1 = racelineparam[sample_idx1]
             local_distances2 = racelineparam[sample_idx2] + local_distances1[-1]
