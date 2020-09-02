@@ -120,7 +120,7 @@ except Exception as e:
 
 raceline_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(racelinedist, racelinein.transpose(), k=3)
 raceline_tangent : scipy.interpolate.BSpline = raceline_spline.derivative(nu=1)
-raceline_normal : scipy.interpolate.BSpline = raceline_spline.derivative(nu=2)
+raceline_lateral : scipy.interpolate.BSpline = raceline_spline.derivative(nu=2)
 
 racelineparam = np.linspace(racelinedist[0],racelinedist[-1], num=num_samples)
 racelinesamp = raceline_spline(racelineparam)
@@ -146,11 +146,12 @@ print(tangent_norms)
 raceline_unit_tangents = raceline_tangents/tangent_norms[:,np.newaxis]
 print(np.linalg.norm(raceline_unit_tangents,axis=1))
 
-raceline_normals = raceline_normal(racelineparam)
-crossprods = np.cross(raceline_tangents, raceline_normals)
+raceline_laterals = raceline_lateral(racelineparam)
+raceline_unit_laterals = raceline_laterals/(np.linalg.norm(raceline_laterals,axis=1)[:,np.newaxis])
+crossprods = np.cross(raceline_tangents, raceline_laterals)
 crossprodnorms = np.linalg.norm(crossprods, axis=1)
-curvatures = crossprodnorms/np.power(tangent_norms, 3.0)
-radii = 1/curvatures
+radii = np.power(tangent_norms, 3.0)/crossprodnorms
+curvatures = 1.0/radii
 print("Min Radius: %f. Max Radius: %f" % (np.min(radii), np.max(radii)) )
 
 
@@ -163,6 +164,10 @@ speeds[centripetal_accelerations>max_accel] = max_allowable_speed[centripetal_ac
 speeds[speeds<min_speed] = min_speed
 print("Min Speed: %f. Max Speed: %f" % (np.min(speeds), np.max(speeds)) )
 raceline_velocities = speeds[:,np.newaxis]*raceline_unit_tangents
+raceline_angular_velocity_mags = speeds/radii
+raceline_angular_velocity_directions = np.cross(raceline_unit_tangents, raceline_unit_normals)
+raceline_angular_velocity_directions = raceline_angular_velocity_directions/(np.linalg.norm(raceline_angular_velocity_directions,axis=1)[:,np.newaxis])
+raceline_angular_velocities = raceline_angular_velocity_mags[:,np.newaxis]*raceline_angular_velocity_directions
 
 
 # speedspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(racelineparam, speeds, k=1)
@@ -274,7 +279,7 @@ print( "r^2 value of session time vs system time: %f" % ( rvalue**2 ) )
 image_session_timestamps = slope*image_timestamps + intercept
 print("Range of image session times before clipping: [%f,%f]" %(image_session_timestamps[0], image_session_timestamps[-1]))
 
-Iclip = (image_session_timestamps>np.min(session_times)) * (image_session_timestamps<np.max(session_times))
+Iclip = (image_session_timestamps>(np.min(session_times) + 1.5)) * (image_session_timestamps<(np.max(session_times) - 1.5 ))
 image_tags = [image_tags[i] for i in range(len(image_session_timestamps)) if Iclip[i]]
 image_session_timestamps = image_session_timestamps[Iclip]
 print("Range of image session times after clipping: [%f,%f]" %(image_session_timestamps[0], image_session_timestamps[-1]))
@@ -403,12 +408,15 @@ for (idx,imagetag)  in tqdm(enumerate(image_tags)):
             local_distances2 = racelineparam[sample_idx2] + local_distances1[-1]
             local_distances = np.hstack((local_distances1,local_distances2))
         local_points = np.matmul(car_affine_pose_inv,racelineaug[:,sample_idx])[0:3].transpose()
+        local_velocities = np.matmul(car_affine_pose_inv[0:3,0:3],raceline_velocities[sample_idx].transpose()).transpose()
         local_speeds = speeds[sample_idx]
-        local_velocities = raceline_velocities[sample_idx]
+        local_radii = radii[sample_idx]
+        local_angular_velocities = np.matmul(car_affine_pose_inv[0:3,0:3],raceline_angular_velocities[sample_idx].transpose()).transpose()
 
         local_times = [0.0]
         for i in range(local_distances.shape[0]-1):
-            ds = local_distances[i+1] - local_distances[i]
+            #ds = local_distances[i+1] - local_distances[i]
+            ds = np.linalg.norm(local_points[i+1] - local_points[i])
             dt = ds/local_speeds[i]
             local_times.append(local_times[-1] + dt)
         local_times = np.array(local_times)
@@ -439,6 +447,7 @@ for (idx,imagetag)  in tqdm(enumerate(image_tags)):
             imax.imshow(im)
             plotax.set_xlim(-40,40)
             plotax.scatter(-local_points[:,0], local_points[:,2])
+            plotax.quiver(-local_points[:,0], local_points[:,2], -local_velocities[:,0], local_velocities[:,2], angles='xy', scale=None)
             try:
                 plt.show()
             except Exception as e:
@@ -483,9 +492,9 @@ for (idx,imagetag)  in tqdm(enumerate(image_tags)):
             newvel.frame = FrameId_pb2.LOCAL
 
             newangvel = label_tag.subsequent_angular_velocities.add()
-            newangvel.vector.x = 0.0
-            newangvel.vector.y = 0.0
-            newangvel.vector.z = 0.0
+            newangvel.vector.x = local_angular_velocities[j,0]
+            newangvel.vector.y = local_angular_velocities[j,1]
+            newangvel.vector.z = local_angular_velocities[j,2]
             newangvel.session_time = local_times[j]
             newangvel.frame = FrameId_pb2.LOCAL
 
