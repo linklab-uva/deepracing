@@ -4,19 +4,18 @@ input_channels: 3
 sequence_length: 10
 context_length: 5
 temporal_conv_feature_factor: 1
-bezier_order: 7
-use_float: False
+bezier_order: 5
 use_3dconv: True
-fix_first_point: True
+fix_first_point: False
 
 #training hyperparameters
 gpu: 0
-batch_size: 128
+batch_size: 64
 learning_rate: 0.0001
 momentum: 0.0001
 nesterov: False
 dampening: 0.0
-loss_weights: [0.01, 1.0, 0.001]
+loss_weights: [0.0, 1.0, 0.0]
 num_epochs: 200
 num_workers: 0
 loss_reduction: "mean"

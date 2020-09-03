@@ -9,3 +9,4 @@ f1_data_publisher:
     hostname : "127.0.0.1"
     port: 20777
     rebroadcast: False
+    publish_all_cars: True

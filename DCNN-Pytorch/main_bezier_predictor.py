@@ -31,7 +31,7 @@ from comet_ml.api import API, APIExperiment
 import cv2
 
 #torch.backends.cudnn.enabled = False
-def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu, params_loss, kinematic_loss, loss_weights, epoch_number, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True, position_indices=[0,2]):
+def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, params_loss, kinematic_loss, loss_weights, epoch_number, use_label_times = True, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True, position_indices=[0,2]):
     cum_loss = 0.0
     cum_param_loss = 0.0
     cum_position_loss = 0.0
@@ -44,45 +44,36 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu,
         t = enumerate(trainLoader)
     network.train()  # This is important to call before training!
     dataloaderlen = len(trainLoader)
-    # loss_weights_torch = torch.tensor(loss_weights)
-    # if use_float:
-    #     loss_weights_torch = session_times_torch.loss_weights_torch()
-    # else:
-    #     loss_weights_torch = loss_weights_torch.double()
-    # if gpu>=0:
-    #     loss_weights_torch = loss_weights_torch.cuda(gpu)
+    dev = next(network.parameters()).device
+
     _, _, _, _, _, _, sample_session_times = trainLoader.dataset[0]
-    s_torch = torch.linspace(0.0,1.0,steps=sample_session_times.shape[0]).unsqueeze(0).repeat(batch_size,1).double()
-    if gpu>=0:
-        s_torch = s_torch.cuda(gpu)
+    s_torch = torch.linspace(0.0,1.0,steps=sample_session_times.shape[0],dtype=torch.float64,device=dev).unsqueeze(0).repeat(batch_size,1)
     bezier_order = network.params_per_dimension-1+int(fix_first_point)
     if not debug:
         experiment.set_epoch(epoch_number)
     for (i, (image_torch, key_indices_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
-        image_torch = image_torch.double()
-        positions_torch = positions_torch.double()
-        session_times_torch = session_times_torch.double()
-        linear_velocities_torch = linear_velocities_torch.double()
-        image_keys = ["image_%d" % (key_indices_torch[j],) for j in key_indices_torch.shape[0]]
-        if gpu>=0:
-            image_torch = image_torch.cuda(gpu)
-            positions_torch = positions_torch.cuda(gpu)
-            session_times_torch = session_times_torch.cuda(gpu)
-            linear_velocities_torch = linear_velocities_torch.cuda(gpu)
+        image_torch = image_torch.double().to(device=dev)
+        positions_torch = positions_torch.double().to(device=dev)
+        session_times_torch = session_times_torch.double().to(device=dev)
+        linear_velocities_torch = linear_velocities_torch.double().to(device=dev)
+        image_keys = ["image_%d" % (key_indices_torch[j],) for j in range(key_indices_torch.shape[0])]
+        
         predictions = network(image_torch)
         if fix_first_point:
-            initial_zeros = torch.zeros(image_torch.shape[0],1,2).double()
-            if gpu>=0:
-                initial_zeros = initial_zeros.cuda(gpu)
+            initial_zeros = torch.zeros(image_torch.shape[0],1,2,dtype=torch.float64,device=image_torch.device)
             network_output_reshape = predictions.transpose(1,2)
             predictions_reshape = torch.cat((initial_zeros,network_output_reshape),dim=1)
         else:
             predictions_reshape = predictions.transpose(1,2)
-        dt = session_times_torch[:,-1]-session_times_torch[:,0]
         current_batch_size=session_times_torch.shape[0]
         current_timesteps=session_times_torch.shape[1]
+        if use_label_times:
+            s_torch_cur = (session_times_torch - session_times_torch[:,0,None])
+        else:
+            s_torch_cur = torch.stack([torch.linspace(0.0,1.0,steps=current_timesteps,dtype=positions_torch.dtype,device=positions_torch.device)  for i in range(current_batch_size)], dim=0)
+        dt = s_torch_cur[:,-1]-s_torch_cur[:,0]
+        s_torch_cur = s_torch_cur/dt[:,None]
 
-        s_torch_cur = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
         
         
         gt_points = positions_torch[:,:,position_indices]
@@ -123,17 +114,17 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, gpu,
             fit_vels_np = fit_vels_scaled[0].cpu().numpy().copy()
 
 
-            ax2.plot(-gt_points_np[:,1],gt_points_np[:,0],'g+', label="Ground Truth Waypoints")
-            ax2.plot(-fit_points_np[:,1],fit_points_np[:,0],'b-', label="Best-fit Bézier Curve")
-            ax2.scatter(-fit_control_points_np[1:,1],fit_control_points_np[1:,0],c="b", label="Bézier Curve's Control Points")
-            ax2.scatter(-fit_control_points_np[0,1],fit_control_points_np[0,0],c="g", label="This should be (0,0)")
-            ax2.plot(-pred_points_np[:,1],pred_points_np[:,0],'r-', label="Predicted Bézier Curve")
+            ax2.plot(-gt_points_np[:,0],gt_points_np[:,1],'g+', label="Ground Truth Waypoints")
+            ax2.plot(-fit_points_np[:,0],fit_points_np[:,1],'b-', label="Best-fit Bézier Curve")
+            ax2.scatter(-fit_control_points_np[1:,0],fit_control_points_np[1:,1],c="b", label="Bézier Curve's Control Points")
+            ax2.scatter(-fit_control_points_np[0,0],fit_control_points_np[0,1],c="g", label="This should be (0,0)")
+            ax2.plot(-pred_points_np[:,0],pred_points_np[:,1],'r-', label="Predicted Bézier Curve")
            
             velocity_err = kinematic_loss(fit_vels_scaled, gt_vels).item()
             print("\nMean velocity error: %f\n" % (velocity_err))
             print(session_times_torch)
-            print(dt)
             print(s_torch_cur)
+            print(dt)
             plt.show()
 
         current_position_loss = kinematic_loss(pred_points, gt_points)
@@ -271,7 +262,6 @@ def go():
         config["loss_weights"] = loss_weights
     num_epochs = config["num_epochs"]
     num_workers = config["num_workers"]
-    use_float = config["use_float"]
     hidden_dim = config["hidden_dimension"]
     loss_reduction = config["loss_reduction"]
     use_3dconv = config["use_3dconv"]
@@ -290,16 +280,10 @@ def go():
         timewise_weights = None
     params_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss(time_reduction=loss_reduction)
     kinematic_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss(time_reduction=loss_reduction)
-    if use_float:
-        print("casting stuff to float")
-        net = net.float()
-        params_loss = params_loss.float()
-        kinematic_loss = kinematic_loss.float()
-    else:
-        print("casting stuff to double")
-        net = net.double()
-        params_loss = params_loss.double()
-        kinematic_loss = kinematic_loss.float()
+    print("casting stuff to double")
+    net = net.double()
+    params_loss = params_loss.double()
+    kinematic_loss = kinematic_loss.double()
     if model_load is not None:
         net.load_state_dict(torch.load(model_load, map_location=torch.device("cpu")))
     if gpu>=0:
@@ -345,6 +329,7 @@ def go():
     alltags = set([])
     dset_output_lengths=[]
     lookahead_indices = dataset_config["lookahead_indices"]   
+    use_label_times = dataset_config["use_label_times"]
     for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
         lateral_dimension = dataset["lateral_dimension"]
@@ -413,7 +398,7 @@ def go():
         experiment.log_asset(os.path.join(output_directory,"model_config.yaml"),file_name="model_config.yaml")
         i = 0
     if debug:
-        run_epoch(None, net, fix_first_point , optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, 1, debug=True, use_tqdm=args.tqdm, position_indices=position_indices)
+        run_epoch(None, net, fix_first_point , optimizer, dataloader, params_loss, kinematic_loss, loss_weights, 1, use_label_times=use_label_times, debug=True, use_tqdm=args.tqdm, position_indices=position_indices)
     else:
         netpostfix = "epoch_%d_params.pt"
         optimizerpostfix = "epoch_%d_optimizer.pt"
@@ -431,7 +416,7 @@ def go():
                 #dset.clearReaders()
                 try:
                     tick = time.time()
-                    run_epoch(experiment, net, fix_first_point , optimizer, dataloader, gpu, params_loss, kinematic_loss, loss_weights, postfix, debug=False, use_tqdm=args.tqdm, position_indices=position_indices)
+                    run_epoch(experiment, net, fix_first_point , optimizer, dataloader, params_loss, kinematic_loss, loss_weights, postfix, use_label_times=use_label_times, debug=False, use_tqdm=args.tqdm, position_indices=position_indices)
                     tock = time.time()
                     print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
                     experiment.log_epoch_end(postfix)

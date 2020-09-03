@@ -129,7 +129,7 @@ class PoseSequenceDataset(Dataset):
         session_times_torch = torch.from_numpy(session_times_np).double()
 
         max_i = min(self.lookahead_indices, positions_torch.shape[0])
-        if self.lookahead_indices>0:
+        if max_i>0:
             positions_torch = positions_torch[0:max_i]
             quats_torch = quats_torch[0:max_i]
             linear_velocities_torch = linear_velocities_torch[0:max_i]
