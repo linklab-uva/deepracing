@@ -21,7 +21,7 @@ def main(args):
     img_folder = args.image_dir
     cropped_dir = os.path.join(img_folder, "cropped_images")
     if os.path.isdir(cropped_dir):
-        shutil.rmtree(cropped_dir)
+        shutil.rmtree(cropped_dir, ignore_errors=True)
     print("Getting image files from disk")
     packets = sorted(getAllImageFilePackets(img_folder, args.json), key=packetSortKey)
     img_files = [os.path.join(img_folder,packet.image_file) for packet in packets]
