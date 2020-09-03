@@ -30,7 +30,8 @@ import json
 from scipy.spatial import KDTree as KDTree
 import matplotlib.pyplot as plt
 import time
-
+from deepracing import trackNames
+import json
 def imageDataKey(data):
     return data.timestamp
 
@@ -39,7 +40,7 @@ def poseSequenceLabelKey(label):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("db_path", help="Path to root directory of DB",  type=str)
-parser.add_argument("raceline", help="Path to the json file containing the raceline",  type=str)
+parser.add_argument("--trackfiledir", help="Path to the directory containing the raceline json files. Default is environment variable F1_TRACK_DIR",  type=str, default=os.environ.get("F1_TRACK_DIR",default=None))
 parser.add_argument("--lookahead_distance", help="Distance to look ahead on the raceline. This means the labels can have variable length. Mutually exclusive with --lookahead_indices",  type=float, default=None)
 parser.add_argument("--lookahead_indices", help="Number of indices to look ahead in the raceline. Mutually exclusive with --lookahead_distance",  type=int, default=None)
 parser.add_argument("--debug", help="Display debug plots", action="store_true", required=False)
@@ -71,6 +72,10 @@ motion_data_folder = os.path.join(root_dir,"udp_data","motion_packets")
 image_folder = os.path.join(root_dir,"images")
 session_folder = os.path.join(root_dir,"udp_data","session_packets")
 session_packets = getAllSessionPackets(session_folder,use_json)
+track_ids = [packet.udp_packet.m_trackId for packet in session_packets]
+if(len(list(set(track_ids))) > 1):
+    raise ValueError("This script only works on sessions where the whole session was done on the same track.")
+track_id = track_ids[0]
 output_dir = os.path.join(root_dir, args.output_dir)
 if os.path.isdir(output_dir):
     shutil.rmtree(output_dir)
@@ -78,8 +83,11 @@ time.sleep(1.0)
 os.makedirs(output_dir)
 
 
+trackfiledir = args.trackfiledir
+if trackfiledir is None:
+    raise ValueError("Must either specify --trackfiledir or set environment variable F1_TRACK_DIR")
 
-racelinepath = args.raceline
+racelinepath = os.path.join(trackfiledir,trackNames[track_id] + "_racingline.json")
 with open(racelinepath,"r") as f:
     racelinedict = json.load(f)
 racelinein = np.row_stack((racelinedict["x"],racelinedict["y"],racelinedict["z"])).astype(np.float64)
@@ -92,15 +100,18 @@ racelinedist = np.array(dlist, dtype=np.float64)
 racelinedist = racelinedist - racelinedist[0]
 
 
-# racelinein = racelinein[:,0:-1]
-# racelinedist = racelinedist[0:-1]
 print("Race distance: %f" % racelinedist[-1])
 firstpoint = racelinein[:,0]
 lastpoint = racelinein[:,-1]
-# print("First Point: %s" % str(firstpoint))
-# print("Las Point: %s" % str(lastpoint))
 finalstretch = lastpoint - firstpoint
 finaldistance = np.linalg.norm(finalstretch)
+while finaldistance==0.0:
+    racelinein = racelinein[:,0:-1]
+    racelinedist = racelinedist[0:-1]
+    firstpoint = racelinein[:,0]
+    lastpoint = racelinein[:,-1]
+    finalstretch = lastpoint - firstpoint
+    finaldistance = np.linalg.norm(finalstretch)
 print("Distance between end and start: %s" % str(finaldistance))
 
 
@@ -147,7 +158,8 @@ raceline_unit_tangents = raceline_tangents/tangent_norms[:,np.newaxis]
 print(np.linalg.norm(raceline_unit_tangents,axis=1))
 
 raceline_laterals = raceline_lateral(racelineparam)
-raceline_unit_laterals = raceline_laterals/(np.linalg.norm(raceline_laterals,axis=1)[:,np.newaxis])
+raceline_lateral_norms = np.linalg.norm(raceline_laterals,axis=1)
+raceline_unit_laterals = raceline_laterals/(raceline_lateral_norms[:,np.newaxis])
 crossprods = np.cross(raceline_tangents, raceline_laterals)
 crossprodnorms = np.linalg.norm(crossprods, axis=1)
 radii = np.power(tangent_norms, 3.0)/crossprodnorms
@@ -165,14 +177,17 @@ speeds[speeds<min_speed] = min_speed
 print("Min Speed: %f. Max Speed: %f" % (np.min(speeds), np.max(speeds)) )
 raceline_velocities = speeds[:,np.newaxis]*raceline_unit_tangents
 raceline_angular_velocity_mags = speeds/radii
-raceline_angular_velocity_directions = np.cross(raceline_unit_tangents, raceline_unit_normals)
+raceline_angular_velocity_directions = np.cross(raceline_unit_tangents, raceline_laterals)
 raceline_angular_velocity_directions = raceline_angular_velocity_directions/(np.linalg.norm(raceline_angular_velocity_directions,axis=1)[:,np.newaxis])
 raceline_angular_velocities = raceline_angular_velocity_mags[:,np.newaxis]*raceline_angular_velocity_directions
 
+#accelerations = raceline_lateral_norms*speeds
 
-# speedspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(racelineparam, speeds, k=1)
+
+# speedspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(racelineparam, speeds, k=3)
 # dvds : scipy.interpolate.BSpline = speedspline.derivative()
 # accelerations = speeds*dvds(racelineparam)
+# print("Min acceleration: %f. Max acceleration: %f" % (np.min(accelerations), np.max(accelerations)))
 
 # times = [0]
 # for i in range(0, racelineaug.shape[1]-1):
@@ -398,14 +413,16 @@ for (idx,imagetag)  in tqdm(enumerate(image_tags)):
         I2 = I1 + li
       #  print(sample_idx)
         if I2 < racelineaug.shape[1]:
-            sample_idx = np.arange(I1,I2,step=1).astype(np.int32)
+            sample_idx = np.arange(I1,I2,step=1,dtype=np.int32)
             local_distances = racelineparam[sample_idx]
+            crossover = False
         else:
-            sample_idx1 = np.arange(I1,racelineaug.shape[1],step=1).astype(np.int32)
-            sample_idx2 = np.arange(0,I2-racelineaug.shape[1],step=1).astype(np.int32)
+            crossover = True
+            sample_idx1 = np.arange(I1,racelineaug.shape[1],step=1,dtype=np.int32)
+            sample_idx2 = np.arange(0,I2-racelineaug.shape[1],step=1,dtype=np.int32)
             sample_idx = np.hstack((sample_idx1,sample_idx2))
             local_distances1 = racelineparam[sample_idx1]
-            local_distances2 = racelineparam[sample_idx2] + local_distances1[-1]
+            local_distances2 = racelineparam[sample_idx2] + (local_distances1[-1] + finaldistance)
             local_distances = np.hstack((local_distances1,local_distances2))
         local_points = np.matmul(car_affine_pose_inv,racelineaug[:,sample_idx])[0:3].transpose()
         local_velocities = np.matmul(car_affine_pose_inv[0:3,0:3],raceline_velocities[sample_idx].transpose()).transpose()
@@ -415,21 +432,15 @@ for (idx,imagetag)  in tqdm(enumerate(image_tags)):
 
         local_times = [0.0]
         for i in range(local_distances.shape[0]-1):
-            #ds = local_distances[i+1] - local_distances[i]
-            ds = np.linalg.norm(local_points[i+1] - local_points[i])
+            ds = local_distances[i+1] - local_distances[i]
+            #ds = np.linalg.norm(local_points[i+1] - local_points[i])
             dt = ds/local_speeds[i]
             local_times.append(local_times[-1] + dt)
         local_times = np.array(local_times)
-
-        # if I2 > raceline_local.shape[0]:
-        #     I2 = (I2 % raceline_local.shape[0])# + 1
-        #     local_points = np.vstack((raceline_local[I1:], raceline_local[0:I2]))
-        # else:   
-        #     local_points = raceline_local[I1:I2].copy()
-        #     local_geodesic_distances = raceline_geodesic_distances[I1:I2].copy()
+       
         if not local_times.shape[0] == li:
             raise ValueError("Local times is supposed to have %d samples, but has %d instead." % (li, local_times.shape[0]))
-        if not np.all((local_times[1:]-local_times[0:-1])>0):
+        if np.any((local_times[1:]-local_times[0:-1])<=0):
             raise ValueError("Local times is should be always increasing.")
         if not local_speeds.shape[0] == li:
             raise ValueError("Local speeds is supposed to have %d samples, but has %d instead." % (li, local_speeds.shape[0]))
@@ -439,7 +450,7 @@ for (idx,imagetag)  in tqdm(enumerate(image_tags)):
             raise ValueError("Local distances is supposed to have %d samples, but has %d instead." % (li, local_distances.shape[0]))
         if not local_points.shape[0] == li:
             raise ValueError("Local points is supposed to have %d samples, but has %d instead." % (li, local_points.shape[0]))
-        if debug and np.max(local_speeds)<90 and (idx%5==0):
+        if debug and (crossover or np.min(local_speeds)<40) and idx%10==0:
             print("local_points has shape: %s" % ( str(local_points.shape), ) )
             print("Total time diff %f" % ( local_times[-1] - local_times[0], ) )
             f, (imax, plotax) = plt.subplots(nrows=1 , ncols=2)
@@ -506,7 +517,8 @@ for (idx,imagetag)  in tqdm(enumerate(image_tags)):
         print("Could not generate label for %s" %(label_tag.image_tag.image_file))
         print("Exception message: %s"%(str(e)))
         #continue    
-        raise e      
+        raise e  
+
     label_tag_JSON = google.protobuf.json_format.MessageToJson(label_tag, including_default_value_fields=True)
     image_file_base = os.path.splitext(os.path.split(label_tag.image_tag.image_file)[1])[0]
     label_tag_file_path = os.path.join(output_dir, image_file_base + "_sequence_label.json")
