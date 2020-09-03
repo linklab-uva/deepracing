@@ -44,7 +44,7 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, para
         t = enumerate(trainLoader)
     network.train()  # This is important to call before training!
     dataloaderlen = len(trainLoader)
-    dev = next(network.parameters()).device
+    dev = next(network.parameters()).device  # we are only doing single-device training for now, so this works fine.
 
     _, _, _, _, _, _, sample_session_times = trainLoader.dataset[0]
     s_torch = torch.linspace(0.0,1.0,steps=sample_session_times.shape[0],dtype=torch.float64,device=dev).unsqueeze(0).repeat(batch_size,1)
@@ -68,11 +68,11 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, para
         current_batch_size=session_times_torch.shape[0]
         current_timesteps=session_times_torch.shape[1]
         if use_label_times:
-            s_torch_cur = (session_times_torch - session_times_torch[:,0,None])
+            dt = session_times_torch[:,-1]-session_times_torch[:,0]
+            s_torch_cur = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
         else:
+            dt = torch.ones(current_batch_size,dtype=positions_torch.dtype,device=positions_torch.device)
             s_torch_cur = torch.stack([torch.linspace(0.0,1.0,steps=current_timesteps,dtype=positions_torch.dtype,device=positions_torch.device)  for i in range(current_batch_size)], dim=0)
-        dt = s_torch_cur[:,-1]-s_torch_cur[:,0]
-        s_torch_cur = s_torch_cur/dt[:,None]
 
         
         
