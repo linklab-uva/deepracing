@@ -379,13 +379,15 @@ db = deepracing.backend.PoseSequenceLabelLMDBWrapper()
 db.readDatabase( lmdb_dir, mapsize=int(round(166*li*len(image_tags)*1.25)), max_spare_txns=16, readonly=False )
 for (idx,imagetag)  in tqdm(enumerate(image_tags)):
     try:
+        t_interp = image_session_timestamps[idx]
+        if (t_interp<(session_times[0]+2.0)) or (t_interp>(session_times[-1]-2.0)):
+            continue
         imagetag = image_tags[idx]
         label_tag = PoseSequenceLabel_pb2.PoseSequenceLabel()
         label_tag.car_pose.frame = FrameId_pb2.GLOBAL
         label_tag.car_velocity.frame = FrameId_pb2.GLOBAL
         label_tag.car_angular_velocity.frame = FrameId_pb2.GLOBAL
         label_tag.image_tag.CopyFrom(imagetag)
-        t_interp = image_session_timestamps[idx]
         label_tag.car_pose.session_time = t_interp
         label_tag.car_velocity.session_time = t_interp
         label_tag.car_angular_velocity.session_time = t_interp
