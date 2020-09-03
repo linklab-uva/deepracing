@@ -32,6 +32,7 @@ def main(args):
     if(os.path.isdir(dbpath)):
         if args.override:
             shutil.rmtree(dbpath)
+            overwrite_images = True
         else:
             s=""
             while not (s=='n' or s=='y'):
