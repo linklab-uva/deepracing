@@ -226,5 +226,5 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
             bezier_control_points_np = bezier_control_points[0].cpu().numpy()
             plotmsg : BCMessage = BCMessage(header = Header(stamp=stamp,frame_id="car"), control_points_lateral = bezier_control_points_np[:,0], control_points_forward = bezier_control_points_np[:,1] )
             self.path_publisher.publish(plotmsg)
-        return x_samp.cpu().numpy(), v_t.cpu().numpy(), distances_samp.cpu().numpy()
+        return x_samp.cpu().numpy(), vels.cpu().numpy(), distances_samp.cpu().numpy()
         
