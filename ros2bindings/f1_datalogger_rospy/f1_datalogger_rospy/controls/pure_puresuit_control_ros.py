@@ -81,8 +81,14 @@ class PurePursuitControllerROS(Node):
         left_steer_factor_param : Parameter = self.get_parameter_or("left_steer_factor", Parameter("left_steer_factor",value=3.39814))
         self.left_steer_factor : float = left_steer_factor_param.get_parameter_value().double_value
         
+        left_steer_offset_param : Parameter = self.get_parameter_or("left_steer_offset", Parameter("left_steer_offset",value=0.0))
+        self.left_steer_offset : float = left_steer_offset_param.get_parameter_value().double_value
+        
         right_steer_factor_param : Parameter = self.get_parameter_or("right_steer_factor", Parameter("right_steer_factor",value=3.72814))
         self.right_steer_factor : float = right_steer_factor_param.get_parameter_value().double_value
+        
+        right_steer_offset_param : Parameter = self.get_parameter_or("right_steer_offset", Parameter("right_steer_offset",value=0.0))
+        self.right_steer_offset : float = right_steer_offset_param.get_parameter_value().double_value
         
         use_drs_param : Parameter = self.get_parameter_or("use_drs", Parameter("use_drs",value=False))
         self.use_drs : bool = use_drs_param.get_parameter_value().bool_value
@@ -191,9 +197,9 @@ class PurePursuitControllerROS(Node):
         alpha = np.arctan2(lookaheadDirection[0],lookaheadDirection[1])
         physical_angle = np.arctan((2 * self.L*np.sin(alpha)) / D)
         if (physical_angle > 0) :
-            delta = self.left_steer_factor*physical_angle# + 0.01004506
+            delta = self.left_steer_factor*physical_angle + self.left_steer_offset
         else:
-            delta = self.right_steer_factor*physical_angle# + 0.01094534
+            delta = self.right_steer_factor*physical_angle + self.right_steer_offset
         self.velsetpoint = speeds[lookahead_index_vel]
        # self.setpoint_publisher.publish(Float64(data=self.velsetpoint))
 
