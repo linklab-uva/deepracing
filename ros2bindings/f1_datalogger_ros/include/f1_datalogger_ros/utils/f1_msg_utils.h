@@ -37,7 +37,7 @@ namespace f1_datalogger_ros
         static F1_DATALOGGER_ROS_PUBLIC f1_datalogger_msgs::msg::CarStatusData toROS(const deepf1::twenty_eighteen::CarStatusData& status_data);
         static F1_DATALOGGER_ROS_PUBLIC f1_datalogger_msgs::msg::PacketCarStatusData toROS(const deepf1::twenty_eighteen::PacketCarStatusData& packet_status_data, bool copy_all_cars);
 
-        static F1_DATALOGGER_ROS_PUBLIC f1_datalogger_msgs::msg::CarMotionData toROS(const deepf1::twenty_eighteen::CarMotionData& motion_data);
+        static F1_DATALOGGER_ROS_PUBLIC f1_datalogger_msgs::msg::CarMotionData toROSMotionData(const deepf1::twenty_eighteen::CarMotionData& motion_data);
         static F1_DATALOGGER_ROS_PUBLIC f1_datalogger_msgs::msg::PacketMotionData toROS(const deepf1::twenty_eighteen::PacketMotionData& motion_data, bool copy_all_cars);
 
         static F1_DATALOGGER_ROS_PUBLIC f1_datalogger_msgs::msg::MarshalZone toROS(const deepf1::twenty_eighteen::MarshalZone& marshal_zone);

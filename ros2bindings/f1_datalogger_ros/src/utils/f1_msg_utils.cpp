@@ -44,7 +44,9 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <execution>
 #include <exception>
+#include <algorithm>
 #define BOOST_ENDIAN_DEPRECATED_NAMES
 #include <boost/endian/endian.hpp>
 
@@ -132,8 +134,8 @@ f1_datalogger_msgs::msg::CarStatusData f1_datalogger_ros::F1MsgUtils::toROS(cons
   rtn.traction_control = status_data.m_tractionControl;
   rtn.vehicle_fia_flags = status_data.m_vehicleFiaFlags;
   rtn.tyre_compound = status_data.m_tyreCompound;
-  std::copy(status_data.m_tyresDamage, status_data.m_tyresDamage+4, rtn.tyres_damage.begin());
-  std::copy(status_data.m_tyresWear, status_data.m_tyresWear+4, rtn.tyres_wear.begin());
+  std::copy_n(&(status_data.m_tyresDamage[0]), 4, rtn.tyres_damage.begin());
+  std::copy_n(&(status_data.m_tyresWear[0]), 4, rtn.tyres_wear.begin());
   return rtn;
 }
 f1_datalogger_msgs::msg::PacketCarStatusData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::PacketCarStatusData& packet_status_data, bool copy_all_cars)
@@ -241,10 +243,10 @@ f1_datalogger_msgs::msg::CarTelemetryData f1_datalogger_ros::F1MsgUtils::toROS(c
   rtn.speed = telemetry_data.m_speed;
   rtn.steer = telemetry_data.m_steer;
   rtn.throttle = telemetry_data.m_throttle;
-  std::copy(telemetry_data.m_brakesTemperature, telemetry_data.m_brakesTemperature+4, rtn.brakes_temperature.begin());
-  std::copy(telemetry_data.m_tyresInnerTemperature, telemetry_data.m_tyresInnerTemperature+4, rtn.tyres_inner_temperature.begin());
-  std::copy(telemetry_data.m_tyresPressure, telemetry_data.m_tyresPressure+4, rtn.tyres_pressure.begin());
-  std::copy(telemetry_data.m_tyresSurfaceTemperature, telemetry_data.m_tyresSurfaceTemperature+4, rtn.tyres_surface_temperature.begin());
+  std::copy_n(&(telemetry_data.m_brakesTemperature[0]), 4, rtn.brakes_temperature.begin());
+  std::copy_n(&(telemetry_data.m_tyresInnerTemperature[0]), 4, rtn.tyres_inner_temperature.begin());
+  std::copy_n(&(telemetry_data.m_tyresPressure[0]), 4, rtn.tyres_pressure.begin());
+  std::copy_n(&(telemetry_data.m_tyresSurfaceTemperature[0]), 4, rtn.tyres_surface_temperature.begin());
   return rtn;
 }
 f1_datalogger_msgs::msg::PacketCarTelemetryData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::PacketCarTelemetryData& telemetry_data, bool copy_all_cars)
@@ -294,28 +296,26 @@ f1_datalogger_msgs::msg::PacketMotionData f1_datalogger_ros::F1MsgUtils::toROS(c
     rtn.local_velocity.y = motion_data.m_localVelocityY;
     rtn.local_velocity.z = motion_data.m_localVelocityZ;
     rtn.front_wheels_angle = motion_data.m_frontWheelsAngle;
-    std::copy(motion_data.m_wheelSlip,motion_data.m_wheelSlip+4, rtn.wheel_slip.begin());
-    std::copy(motion_data.m_wheelSpeed,motion_data.m_wheelSpeed+4, rtn.wheel_speed.begin());
-    std::copy(motion_data.m_suspensionAcceleration,motion_data.m_suspensionAcceleration+4, rtn.suspension_acceleration.begin());
-    std::copy(motion_data.m_suspensionVelocity,motion_data.m_suspensionVelocity+4, rtn.suspension_velocity.begin());
-    std::copy(motion_data.m_suspensionPosition,motion_data.m_suspensionPosition+4, rtn.suspension_position.begin());
-    if (rtn.header.player_car_index<20)
-    {
-      rtn.car_motion_data[rtn.header.player_car_index] = f1_datalogger_ros::F1MsgUtils::toROS(motion_data.m_carMotionData[rtn.header.player_car_index]);
-    }
+    std::copy_n(std::cbegin(motion_data.m_wheelSlip), 4, rtn.wheel_slip.begin());
+    std::copy_n(std::cbegin(motion_data.m_wheelSpeed), 4, rtn.wheel_speed.begin());
+    std::copy_n(std::cbegin(motion_data.m_suspensionAcceleration), 4, rtn.suspension_acceleration.begin());
+    std::copy_n(std::cbegin(motion_data.m_suspensionVelocity), 4, rtn.suspension_velocity.begin());
+    std::copy_n(std::cbegin(motion_data.m_suspensionPosition), 4, rtn.suspension_position.begin());
+    
     if(copy_all_cars)
     {
-      for(unsigned int i =0; i < 20; i++)
-      {
-        if (i!=rtn.header.player_car_index)
-        {
-          rtn.car_motion_data[i] = f1_datalogger_ros::F1MsgUtils::toROS(motion_data.m_carMotionData[i]);
-        }
-      }
+      auto beg = std::cbegin<deepf1::twenty_eighteen::CarMotionData [20]>(motion_data.m_carMotionData);
+      auto end = std::cend<deepf1::twenty_eighteen::CarMotionData [20]>(motion_data.m_carMotionData);
+      std::function<f1_datalogger_msgs::msg::CarMotionData (const deepf1::twenty_eighteen::CarMotionData&)> f = &f1_datalogger_ros::F1MsgUtils::toROSMotionData;
+      std::transform(beg, end, rtn.car_motion_data.begin(), f);
+    }
+    else if(rtn.header.player_car_index<20)
+    {
+      rtn.car_motion_data[rtn.header.player_car_index] = f1_datalogger_ros::F1MsgUtils::toROSMotionData(motion_data.m_carMotionData[rtn.header.player_car_index]);
     }
     return rtn;
 }
-f1_datalogger_msgs::msg::CarMotionData f1_datalogger_ros::F1MsgUtils::toROS(const deepf1::twenty_eighteen::CarMotionData& motion_data)
+f1_datalogger_msgs::msg::CarMotionData f1_datalogger_ros::F1MsgUtils::toROSMotionData(const deepf1::twenty_eighteen::CarMotionData& motion_data)
 {
     f1_datalogger_msgs::msg::CarMotionData rtn;
     Eigen::Vector3d forwardVec( (double)motion_data.m_worldForwardDirX, (double)motion_data.m_worldForwardDirY, (double)motion_data.m_worldForwardDirZ );
