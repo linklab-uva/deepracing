@@ -37,25 +37,82 @@ from shapely.geometry import LinearRing
 import shutil
 import time
 import cv2
+import yaml 
+
 def extractPosition(vectormsg):
     return np.array( [ msg.x, msg.y, msg.z ] )
-def msgKey(msg):
+def imgKey(msg):
     return rclpy.time.Time.from_msg(msg.header.stamp).nanoseconds
+def bezierKey(msg):
+    return rclpy.time.Time.from_msg(msg.header.stamp).nanoseconds
+def msgKey(msg):
+    return msg.udp_packet.header.session_time
 
 parser = argparse.ArgumentParser(description="Look for bad predictions in a run of the bezier curve predictor")
 parser.add_argument("bag_dir", type=str,  help="Bag to load")
-parser.add_argument("inner_boundary_json", type=str,  help="JSON file for the inner boundary")
-parser.add_argument("outer_boundary_json", type=str,  help="JSON file for the outer boundary")
+parser.add_argument("--trackfiledir", help="Path to the directory containing the raceline json files. Default is environment variable F1_TRACK_DIR",  type=str, default=os.environ.get("F1_TRACK_DIR",default=None))
 parser.add_argument("--save_all_figures", action="store_true",  help="Save a plot for every bezier curve. Even ones with no track violation.")
 
 args = parser.parse_args()
 
 argdict = dict(vars(args))
 save_all_figures = argdict["save_all_figures"]
+trackfiledir = argdict["trackfiledir"]
+if trackfiledir is None:
+    raise ValueError("Must either specify --trackfiledir or set environment variable F1_TRACK_DIR")
 
 bag_dir = argdict["bag_dir"]
+if bag_dir[-2:] in {"\\\\","//"}:
+    bag_dir = bag_dir[0:-2]
+elif bag_dir[-1] in {"\\","/"}:
+    bag_dir = bag_dir[0:-1]
+topic_types, type_map, reader = f1_datalogger_rospy.open_bagfile(bag_dir)
+with open(os.path.join(bag_dir,"metadata.yaml"),"r") as f:
+    metadata_dict = yaml.load(f,Loader=yaml.SafeLoader)["rosbag2_bagfile_information"]
+topic_count_dict = {entry["topic_metadata"]["name"] : entry["message_count"] for entry in metadata_dict["topics_with_message_count"]}
+topic_counts = np.array( list(topic_count_dict.values()) ) 
 
-inner_boundary_json = argdict["inner_boundary_json"]
+idx = 0
+total_msgs = np.sum( topic_counts )
+msg_dict = {key : [] for key in topic_count_dict.keys()}
+#{'/f1_screencaps/cropped/compressed': 'sensor_msgs/msg/CompressedImage', '/motion_data': 'f1_datalogger_msgs/msg/TimestampedPacketMotionData', '/predicted_path': 'f1_datalogger_msgs/msg/BezierCurve'}
+print("Loading data from bag")
+msg_dict = {key : [] for key in topic_count_dict.keys()}
+for idx in tqdm(iterable=range(total_msgs)):
+   # print("Reading message: %d" % (idx,) )
+    if(reader.has_next()):
+        (topic, data, t) = reader.read_next()
+        msg_type = type_map[topic]
+        msg_type_full = get_message(msg_type)
+        msg = deserialize_message(data, msg_type_full)
+        msg_dict[topic].append(msg)
+session_packet_msgs = sorted(msg_dict["/session_data"], key=msgKey)
+motion_packet_msgs = sorted(msg_dict["/motion_data"], key=msgKey)
+image_msgs = sorted(msg_dict["/f1_screencaps/full/compressed"], key=imgKey)
+bezier_curve_msgs = sorted(msg_dict["/predicted_path"], key=bezierKey)
+image_header_timestamps = [rclpy.time.Time.from_msg(msg.header.stamp) for msg in image_msgs]
+image_timestamps = np.array([t.nanoseconds/1E9 for t in image_header_timestamps])
+bc_header_timestamps = [rclpy.time.Time.from_msg(msg.header.stamp) for msg in bezier_curve_msgs]
+bc_timestamps = np.array([t.nanoseconds/1E9 for t in bc_header_timestamps])
+
+
+motion_timestamps = np.array([rclpy.time.Time.from_msg(msg.header.stamp).nanoseconds/1E9 for msg in motion_packet_msgs])
+motion_packet_msgs : List[PacketMotionData] = [msg.udp_packet for msg in motion_packet_msgs]
+player_motion_data : List[CarMotionData] = [msg.car_motion_data[msg.header.player_car_index] for msg in motion_packet_msgs]
+
+t0 = bc_timestamps[0]
+bc_timestamps = bc_timestamps  - t0
+motion_timestamps = motion_timestamps  - t0
+image_timestamps = image_timestamps  - t0
+
+print("Extracted %d bezier curves" % ( len(bezier_curve_msgs), ) )
+print("Extracted %d motion packets" % ( len(motion_packet_msgs), ) )
+tracknum = session_packet_msgs[0].udp_packet.track_id
+trackname = deepracing.trackNames[tracknum]
+
+
+
+inner_boundary_json = os.path.join(trackfiledir, trackname + "_innerlimit.json")
 with open(inner_boundary_json,"r") as f:
     inner_boundary_dict = json.load(f)
 inner_boundary  = np.column_stack((inner_boundary_dict["x"], inner_boundary_dict["y"], inner_boundary_dict["z"], np.ones_like(inner_boundary_dict["z"]))).transpose()
@@ -70,7 +127,7 @@ inner_boundary_kdtree = KDTree(inner_boundary[0:3].transpose())
 #inner_boundary_polygon : SPPolygon = SPPolygon([SPPoint(inner_boundary[0,i], inner_boundary[2,i]) for i in reversed(range(inner_boundary.shape[1]))])
 
 
-outer_boundary_json = argdict["outer_boundary_json"]
+outer_boundary_json = os.path.join(trackfiledir, trackname + "_outerlimit.json")
 with open(outer_boundary_json,"r") as f:
     outer_boundary_dict = json.load(f)
 outer_boundary  = np.column_stack((outer_boundary_dict["x"], outer_boundary_dict["y"], outer_boundary_dict["z"], np.ones_like(outer_boundary_dict["z"]))).transpose()
@@ -99,6 +156,15 @@ print("Outer boundary area: %d" % (outer_boundary_polygon.area, ) )
 # ptest = ShapelyPoint(298.902, 724.09)
 # assert(not ptest.within(outer_boundary_polygon))
 
+
+optimal_raceline_json = os.path.join(trackfiledir, trackname + "_racingline.json")
+with open(optimal_raceline_json,"r") as f:
+    optimal_raceline_dict = json.load(f)
+optimal_raceline  = np.column_stack((optimal_raceline_dict["x"], optimal_raceline_dict["y"], optimal_raceline_dict["z"], np.ones_like(optimal_raceline_dict["z"]))).transpose()
+optimal_raceline_kdtree = KDTree(optimal_raceline[0:3].transpose())
+
+
+
 fig = plt.figure()
 
 ib_recon = np.array(inner_boundary_polygon.exterior.xy).transpose()
@@ -110,52 +176,6 @@ plt.show()
 
 
 bridge = cv_bridge.CvBridge()
-
-topic_types, type_map, reader = f1_datalogger_rospy.open_bagfile(bag_dir)
-topic_count_dict = reader.get_topic_counts()
-topic_counts = np.array( list(topic_count_dict.values()) ) 
-motion_packet_msgs = []
-bezier_curve_msgs = []
-image_msgs = []
-images_np = []
-idx = 0
-total_msgs = np.sum( topic_counts )
-#{'/f1_screencaps/cropped/compressed': 'sensor_msgs/msg/CompressedImage', '/motion_data': 'f1_datalogger_msgs/msg/TimestampedPacketMotionData', '/predicted_path': 'f1_datalogger_msgs/msg/BezierCurve'}
-print("Loading data from bag")
-for idx in tqdm(iterable=range(total_msgs)):
-   # print("Reading message: %d" % (idx,) )
-    (topic, data, t) = reader.read_next()
-    msg_type = type_map[topic]
-    msg_type_full = get_message(msg_type)
-    msg = deserialize_message(data, msg_type_full)
-    if topic=="/f1_screencaps/cropped/compressed":
-        #print(msg.header)
-        img_cv = bridge.compressed_imgmsg_to_cv2(msg,desired_encoding="rgb8")
-        images_np.append((img_cv, rclpy.time.Time.from_msg(msg.header.stamp) ))
-        image_msgs.append(msg)
-    elif topic=="/motion_data":
-        md : TimestampedPacketMotionData = msg
-        motion_packet_msgs.append(md)
-    elif topic=="/predicted_path":
-        bc : BezierCurve = msg
-        bezier_curve_msgs.append(bc)
-print("Extracted %d bezier curves" % ( len(bezier_curve_msgs), ) )
-print("Extracted %d motion packets" % ( len(motion_packet_msgs), ) )
-print("Extracted %d images" % ( len(images_np), ) )
-
-
-image_timestamps = np.array([t[1].nanoseconds/1E9 for t in images_np])
-image_sort = np.argsort(image_timestamps)
-image_timestamps = image_timestamps[image_sort]
-images_np = np.array([images_np[ image_sort[i] ][0] for i in range(image_sort.shape[0])])
-
-bezier_curve_msgs = sorted(bezier_curve_msgs, key=msgKey)
-bezier_curve_timestamps = np.array([rclpy.time.Time.from_msg(msg.header.stamp).nanoseconds/1E9 for msg in bezier_curve_msgs])
-
-timestamped_packet_msgs = sorted(motion_packet_msgs, key=msgKey)
-motion_timestamps = np.array([rclpy.time.Time.from_msg(msg.header.stamp).nanoseconds/1E9 for msg in timestamped_packet_msgs])
-motion_packet_msgs : List[PacketMotionData] = [msg.udp_packet for msg in timestamped_packet_msgs]
-player_motion_data : List[CarMotionData] = [msg.car_motion_data[msg.header.player_car_index] for msg in motion_packet_msgs]
 poses = [f1_datalogger_rospy.convert.extractPose(msg) for msg in motion_packet_msgs]
 
 positions = np.array( [ pose[0] for pose in poses ] )
@@ -184,11 +204,18 @@ if os.path.isdir(figure_dir):
 time.sleep(1.0)
 os.makedirs(figure_dir)
 
+boundary_viz_delta = 20
 imwriter = None
 print("Analyzing bezier curves")
+imnp0 = bridge.compressed_imgmsg_to_cv2(image_msgs[0],desired_encoding="rgb8")
+writershape = (imnp0.shape[1], imnp0.shape[0])
+if save_all_figures:
+    fourccformat = "MJPG"
+    fourcc = cv2.VideoWriter_fourcc(*fourccformat)
+    imwriter = cv2.VideoWriter(os.path.join(figure_dir,"pathvideo.avi"), fourcc, 7, writershape, True)
 try:
     for i in tqdm(range(bcvals.shape[0])):
-        t = bezier_curve_timestamps[i]
+        t = bc_timestamps[i]
         bezier_curve = bezier_curves_torch[i]
         carposition : np.ndarray = position_spline(t)
         carrotation : Rotation = rotation_spline(t)
@@ -214,33 +241,43 @@ try:
 
 
         image_idx = bisect.bisect(image_timestamps, t)
-        imnp = images_np[image_idx]
+        imnp = bridge.compressed_imgmsg_to_cv2(image_msgs[image_idx],desired_encoding="rgb8")
 
         _, innerboundary_idx = inner_boundary_kdtree.query(carposition)
-        innerboundary_sample_idx = np.flip(np.linspace(innerboundary_idx, innerboundary_idx+Nsamp, num=Nsamp, endpoint=False, dtype=np.int32)%inner_boundary.shape[1])
+        innerboundary_sample_idx = np.flip(np.arange(innerboundary_idx-int(round(Nsamp/4)), innerboundary_idx+Nsamp, step=1, dtype=np.int32)%inner_boundary.shape[1])
         innerboundary_sample = inner_boundary[:,innerboundary_sample_idx]
         innerboundary_sample_local = np.matmul(homogenous_transform_inv,innerboundary_sample)
         #(ibdiffs, ibdiffidx) = inner_boundary_kdtree.query(bcvalsglobal[0:3].transpose())
 
 
         _, outerboundary_idx = outer_boundary_kdtree.query(carposition)
-        outerboundary_sample_idx = np.flip(np.linspace(outerboundary_idx, outerboundary_idx+Nsamp, num=Nsamp, endpoint=False, dtype=np.int32)%outer_boundary.shape[1])
+        outerboundary_sample_idx = np.flip(np.arange(outerboundary_idx-int(round(Nsamp/4)), outerboundary_idx+Nsamp, step=1, dtype=np.int32)%outer_boundary.shape[1])
         outerboundary_sample = outer_boundary[:,outerboundary_sample_idx]
         outerboundary_sample_local = np.matmul(homogenous_transform_inv,outerboundary_sample)
+
+        _, optimal_raceline_idx = optimal_raceline_kdtree.query(carposition)
+        optimal_raceline_idx = np.flip(np.arange(optimal_raceline_idx, optimal_raceline_idx+Nsamp-10, step=1, dtype=np.int32)%optimal_raceline.shape[1])
+        optimal_raceline_sample = optimal_raceline[:,optimal_raceline_idx]
+        optimal_raceline_sample_local = np.matmul(homogenous_transform_inv,optimal_raceline_sample)
+
+
+        
         #(obdiffs, obdiffidx) = outer_boundary_kdtree.query(bcvalsglobal[0:3].transpose())
-        anyviolation = insideviolation or outsideviolation or np.max(np.abs(ibdiffs))<0.1 or np.max(np.abs(obdiffs))<0.1
+        anyviolation = insideviolation or outsideviolation# or np.max(np.abs(ibdiffs))<0.1 or np.max(np.abs(obdiffs))<0.1
         if save_all_figures or anyviolation:# or True:
             fig, (axim, axplot) = plt.subplots(1, 2)
             axim.imshow(imnp)
             axplot.plot(-innerboundary_sample_local[0], innerboundary_sample_local[2], label="Inner Boundary", c="blue")
             axplot.plot(-outerboundary_sample_local[0], outerboundary_sample_local[2], label="Outer Boundary", c="orange")
-            #axplot.scatter(bcvalsglobal[0,:], bcvalsglobal[2,:], label="Predicted Path", facecolors='none', edgecolors='r')
-            axplot.plot(-bcvalslocal[0], bcvalslocal[2], label="Predicted Path", c="green")
-            axplot.legend()
+            axplot.plot(-optimal_raceline_sample_local[0], optimal_raceline_sample_local[2], label="Optimal Raceline", c="green")
+            axplot.plot(-bcvalslocal[0], bcvalslocal[2], label="Predicted Path", c="red")
+            axplot.plot([0], [0], 'r*', label='Current Position')
+            axplot.legend(loc='center left', bbox_to_anchor=(1, 0.5))
             if anyviolation:
                 figurepath = os.path.join(figure_dir,("curve_%d" % (i,)).upper())
             else:
                 figurepath = os.path.join(figure_dir,"curve_%d" % (i,))
+            
             fig.savefig(figurepath+".pdf", format="pdf")
             fig.savefig(figurepath+".png", format="png")
             if save_all_figures:
@@ -252,8 +289,19 @@ try:
                     fourcc = cv2.VideoWriter_fourcc(*fourccformat)
                     imwriter = cv2.VideoWriter(os.path.join(figure_dir,"pathvideo.avi"), fourcc, 7, (figure_img.shape[1], figure_img.shape[0]), True)
                 imwriter.write(figure_img)
-
             plt.close(fig=fig)
+            figure_metadata_path = figurepath+"_details.json"
+            figure_metadata_dict = {"inside_violation" : int(insideviolation), "outside_violation": int(outsideviolation)}
+            if insideviolation:
+                figure_metadata_dict["distance_to_boundary"] = np.max(ibdiffs[inside])
+            elif outsideviolation:
+                figure_metadata_dict["distance_to_boundary"] = np.max(obdiffs[outside])
+            else:
+                figure_metadata_dict["distance_to_boundary"] = "none"
+            
+            
+            with open(figure_metadata_path, "w") as f:
+                json.dump(figure_metadata_dict, f, indent=2, skipkeys=False)
             # if anyviolation:
             #     print()
             #     print("insideviolation: " + str(insideviolation))

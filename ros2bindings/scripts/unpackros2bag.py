@@ -125,32 +125,34 @@ os.makedirs(telemetry_data_dir,exist_ok=True)
 
 print("Writing lap data to json files")
 for (i,msg) in tqdm(enumerate(lap_data_msgs), total=len(lap_data_msgs)):
-    with open(os.path.join(lap_data_dir, "lap_data_%d.json" % (i,) ), "w") as f:
+    with open(os.path.join(lap_data_dir, "lap_data_%d.json" % (i+1,) ), "w") as f:
         json.dump(message_to_ordereddict(msg),f,sort_keys=False, indent=2)
 
 print("Writing motion data to json files")
 for (i,msg) in tqdm(enumerate(motion_data_msgs), total=len(motion_data_msgs)):
-    with open(os.path.join(motion_data_dir, "motion_data_%d.json" % (i,) ), "w") as f:
+    with open(os.path.join(motion_data_dir, "motion_data_%d.json" % (i+1,) ), "w") as f:
         json.dump(message_to_ordereddict(msg),f,sort_keys=False, indent=2)
 
 print("Writing session data to json files")
 for (i,msg) in tqdm(enumerate(session_data_msgs), total=len(session_data_msgs)):
-    with open(os.path.join(session_data_dir, "session_data_%d.json" % (i,) ), "w") as f:
+    with open(os.path.join(session_data_dir, "session_data_%d.json" % (i+1,) ), "w") as f:
         json.dump(message_to_ordereddict(msg),f,sort_keys=False, indent=2)
 
 print("Writing status data to json files")
 for (i,msg) in tqdm(enumerate(status_data_msgs), total=len(status_data_msgs)):
-    with open(os.path.join(status_data_dir, "status_data_%d.json" % (i,) ), "w") as f:
+    with open(os.path.join(status_data_dir, "status_data_%d.json" % (i+1,) ), "w") as f:
         json.dump(message_to_ordereddict(msg),f,sort_keys=False, indent=2)
 
 print("Writing telemetry data to json files")
 for (i,msg) in tqdm(enumerate(telemetry_data_msgs), total=len(telemetry_data_msgs)):
-    with open(os.path.join(telemetry_data_dir, "telemetry_data_%d.json" % (i,) ), "w") as f:
+    with open(os.path.join(telemetry_data_dir, "telemetry_data_%d.json" % (i+1,) ), "w") as f:
         json.dump(message_to_ordereddict(msg),f,sort_keys=False, indent=2)
 
 
 print("Generating linear map from ROS time to session time")
 motion_packet_ros_times = np.array([float(imgKey(msg))/1E9 for msg in motion_data_msgs])
+t0 = motion_packet_ros_times[0]
+motion_packet_ros_times = motion_packet_ros_times - t0
 motion_packet_session_times = np.array([msgKey(msg) for msg in motion_data_msgs])
 
 slope, intercept, rval, pvalue, stderr = scipy.stats.linregress(motion_packet_ros_times, motion_packet_session_times)
@@ -158,6 +160,7 @@ rsquare = rval**2
 print("Slope of linear regression line: %f" % (slope,) )
 print("Intercept of linear regression line: %f" % (intercept,) )
 print("R^2 of linear regression line: %f" % (rsquare,) )
+image_session_times = slope*(np.array([(float(imgKey(msg))/1E9) for msg in image_msgs]).astype(np.float64) - t0 ) + intercept
 
 
 print("Writing images data to jpg files")
@@ -173,7 +176,8 @@ for (i,msg) in tqdm(enumerate(image_msgs)):
    # dt = int((rclpy.time.Time.from_msg(msg2.header.stamp).nanoseconds -  rclpy.time.Time.from_msg(msg.header.stamp).nanoseconds)/1E6)
     file_prefix = "image_%d" % (i+1,)
     cv2.imwrite(os.path.join(image_dir,file_prefix+".jpg"), imbgr)
-    im_session_time = slope*(float(imgKey(msg))/1E9) + intercept
+   # im_session_time = slope*(float(imgKey(msg))/1E9) + intercept
+    im_session_time = image_session_times[i]
     imdict = {"ros_timestamp" : message_to_ordereddict(msg.header), "session_time" : im_session_time}
     with open(os.path.join(image_dir,file_prefix+".json"),"w") as f:
         json.dump(imdict,f,sort_keys=False, indent=2)
