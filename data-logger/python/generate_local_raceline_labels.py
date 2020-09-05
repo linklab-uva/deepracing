@@ -63,6 +63,9 @@ num_samples = args.num_samples
 
 if not ( bool(lookahead_distance is not None) ^ bool(lookahead_indices is not None) ):
     raise ValueError("Either lookahead_distance or lookahead_indices (but NOT both) must be specified")
+trackfiledir = args.trackfiledir
+if trackfiledir is None:
+    raise ValueError("Must either specify --trackfiledir or set environment variable F1_TRACK_DIR")
 
 root_dir = args.db_path
 with open(os.path.join(root_dir,"f1_dataset_config.yaml"),"r") as f:
@@ -83,9 +86,6 @@ time.sleep(1.0)
 os.makedirs(output_dir)
 
 
-trackfiledir = args.trackfiledir
-if trackfiledir is None:
-    raise ValueError("Must either specify --trackfiledir or set environment variable F1_TRACK_DIR")
 
 racelinepath = os.path.join(trackfiledir,trackNames[track_id] + "_racingline.json")
 with open(racelinepath,"r") as f:
@@ -401,19 +401,15 @@ for (idx,imagetag)  in tqdm(enumerate(image_tags)):
         car_affine_pose = np.eye(4)
         car_affine_pose[0:3,0:3] = car_rotation.as_matrix()
         car_affine_pose[0:3,3] = car_position
-       # car_affine_pose_inv = la.inv(car_affine_pose)
+
         car_affine_pose_inv = np.eye(4)
         car_affine_pose_inv[0:3,0:3] = car_affine_pose[0:3,0:3].transpose()
         car_affine_pose_inv[0:3,3] = np.matmul(car_affine_pose_inv[0:3,0:3], -car_affine_pose[0:3,3]) 
-        # Izpos = raceline_local[:,2]>=0.0
-        # raceline_geodesic_distances = racelinedist[Izpos]
-        # raceline_local = raceline_local[Izpos]
-        # raceline_distances = np.linalg.norm(raceline_local,axis=1)
+        
 
         (d, I1) = kdtree.query(car_position)
-       # I1 = int(I1)
         I2 = I1 + li
-      #  print(sample_idx)
+
         if I2 < racelineaug.shape[1]:
             sample_idx = np.arange(I1,I2,step=1,dtype=np.int32)
             local_distances = racelineparam[sample_idx]
@@ -452,7 +448,7 @@ for (idx,imagetag)  in tqdm(enumerate(image_tags)):
             raise ValueError("Local distances is supposed to have %d samples, but has %d instead." % (li, local_distances.shape[0]))
         if not local_points.shape[0] == li:
             raise ValueError("Local points is supposed to have %d samples, but has %d instead." % (li, local_points.shape[0]))
-        if debug and (crossover or np.min(local_speeds)<40) and idx%10==0:
+        if debug and (crossover or (np.min(local_speeds)<40 and idx%3==0)):
             print("local_points has shape: %s" % ( str(local_points.shape), ) )
             print("Total time diff %f" % ( local_times[-1] - local_times[0], ) )
             f, (imax, plotax) = plt.subplots(nrows=1 , ncols=2)
