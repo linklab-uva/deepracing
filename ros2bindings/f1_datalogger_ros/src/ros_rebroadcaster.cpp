@@ -143,10 +143,10 @@ public:
     {
       std::cout<<s<<std::endl;
     }
-    rclcpp::ParameterValue resize_height_p = node->declare_parameter("resize_height",rclcpp::ParameterValue(66));
+    rclcpp::ParameterValue resize_height_p = node->declare_parameter("resize_height",rclcpp::ParameterValue(0));
     resize_height_ =  resize_height_p.get<int>();
 
-    rclcpp::ParameterValue resize_width_p = node->declare_parameter("resize_width",rclcpp::ParameterValue(200));
+    rclcpp::ParameterValue resize_width_p = node->declare_parameter("resize_width",rclcpp::ParameterValue(0));
     resize_width_ =  resize_width_p.get<int>();
 
     rclcpp::ParameterValue top_left_row_p = node->declare_parameter("top_left_row",rclcpp::ParameterValue(32));
@@ -161,9 +161,13 @@ public:
     rclcpp::ParameterValue crop_width_p = node->declare_parameter("crop_width",rclcpp::ParameterValue(0));
     crop_width_ =  crop_width_p.get<int>();
 
+    rclcpp::ParameterValue full_image_resize_factor_p = node->declare_parameter("full_image_resize_factor",rclcpp::ParameterValue(0.0));
+    full_image_resize_factor_ = full_image_resize_factor_p.get<double>();
+
     this->node_ = node;
         
     this->it_cropped_publisher_ = it.advertise("/f1_screencaps/cropped", 1, true);
+    this->it_full_publisher_ = it.advertise("/f1_screencaps/full", 1, true);
 
   }
   virtual ~ROSRebroadcaster_FrameGrabHandler()
@@ -180,6 +184,13 @@ public:
     header.stamp=stamp;
     header.frame_id="car";
     const cv::Mat& imin = data.image;
+    if (full_image_resize_factor_>0.0)
+    {
+      cv::Mat imfull;
+      cv::cvtColor(imin(cv::Range(top_left_row_, imin.rows-1), cv::Range(top_left_col_, imin.cols-1)),imfull,cv::COLOR_BGRA2BGR);
+      cv::resize(imfull, imfull, cv::Size(), full_image_resize_factor_, full_image_resize_factor_, cv::INTER_AREA);
+      this->it_full_publisher_.publish(  cv_bridge::CvImage(header, "bgr8", imfull).toImageMsg() );
+    }
 
     
     cv::Mat bgraimage, rgbimage;
@@ -206,8 +217,7 @@ public:
 
 
     cv::cvtColor(bgraimage,rgbimage,cv::COLOR_BGRA2RGB);
-    cv_bridge::CvImage bridge_image = cv_bridge::CvImage(header, "rgb8", rgbimage);
-    this->it_cropped_publisher_.publish( bridge_image.toImageMsg() );
+    this->it_cropped_publisher_.publish( cv_bridge::CvImage(header, "rgb8", rgbimage).toImageMsg() );
   }
   void init(const deepf1::TimePoint& begin, const cv::Size& window_size) override
   {
@@ -221,10 +231,11 @@ public:
   int top_left_row_;
   int top_left_col_;
 private:
+  double full_image_resize_factor_;
   bool ready;
   std::shared_ptr<rclcpp::Node> node_;
   image_transport::ImageTransport it;
-  image_transport::Publisher it_cropped_publisher_;
+  image_transport::Publisher it_cropped_publisher_, it_full_publisher_;
   std::shared_ptr<rclcpp::Publisher <sensor_msgs::msg::Image> > publisher_;
   std::shared_ptr<rclcpp::Publisher <f1_datalogger_msgs::msg::TimestampedImage> > timestamped_publisher_;
   deepf1::TimePoint begin_;
