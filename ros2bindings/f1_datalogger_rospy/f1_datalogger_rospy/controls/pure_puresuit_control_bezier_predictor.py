@@ -45,6 +45,7 @@ import deepracing_models.nn_models.Models as M
 from scipy.spatial.transform import Rotation as Rot
 import cv_bridge, cv2, numpy as np
 import timeit
+import array
 
 from copy import deepcopy
 
@@ -122,14 +123,20 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         z_offset_param : Parameter = self.get_parameter_or("z_offset",Parameter("z_offset", value=self.L/2.0))
         self.z_offset : float = z_offset_param.get_parameter_value().double_value
 
-        gpu_param : Parameter = self.get_parameter_or("gpu",Parameter("gpu", value=0))
-        self.gpu : int = gpu_param.get_parameter_value().integer_value
 
         velocity_scale_param : Parameter = self.get_parameter_or("velocity_scale_factor",Parameter("velocity_scale_factor", value=1.0))
         self.velocity_scale_factor : float = velocity_scale_param.get_parameter_value().double_value
         
         num_sample_points_param : Parameter = self.get_parameter_or("num_sample_points",Parameter("num_sample_points", value=60))
         self.num_sample_points : int = num_sample_points_param.get_parameter_value().integer_value
+
+        
+        crop_origin_param : Parameter = self.get_parameter_or("crop_origin",Parameter("crop_origin", value=[-1, -1]))
+        self.crop_origin = list(crop_origin_param.get_parameter_value().integer_array_value)
+
+        crop_size_param : Parameter = self.get_parameter_or("crop_size",Parameter("crop_size", value=[-1, -1]))
+        self.crop_size  = list(crop_size_param.get_parameter_value().integer_array_value)
+
 
        
         
@@ -145,7 +152,8 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
 
         self.get_logger().info('Moved model params to GPU %d' % (self.gpu,))
         self.image_buffer = RB(self.net.context_length,dtype=(float,(3,66,200)))
-        self.s_torch = torch.linspace(0,1,self.num_sample_points, requires_grad=False).unsqueeze(0).double().cuda(self.gpu)
+        self.s_np = np.linspace(0,1,self.num_sample_points)
+        self.s_torch = torch.from_numpy(self.s_np.copy()).unsqueeze(0).double().cuda(self.gpu)
         self.bezier_order = self.net.params_per_dimension-1+int(self.fix_first_point)
         self.bezierM = mu.bezierM(self.s_torch,self.bezier_order).double().cuda(self.gpu)
         self.bezierMderiv = mu.bezierM(self.s_torch,self.bezier_order-1)
@@ -156,36 +164,47 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
             if self.gpu>=0:
                 self.initial_zeros = self.initial_zeros.cuda(self.gpu) 
         self.bezierM.requires_grad = False
-        self.bezierMderiv.requires_grad = False
+      #  self.bezierMderiv.requires_grad = False
         self.bezierM2ndderiv.requires_grad = False
         if use_compressed_images_param.get_parameter_value().bool_value:
-            self.image_sub = self.create_subscription( CompressedImage, '/f1_screencaps/cropped/compressed', self.compressedImageCallback, 10)
+            self.image_sub = self.create_subscription( CompressedImage, '/f1_screencaps/cropped/compressed', self.addToBuffer, 10)
         else:
-            self.image_sub = self.create_subscription( Image, '/f1_screencaps/cropped', self.imageCallback, 10)
-    def addToBuffer(self, img_msg : CompressedImage):
+            self.image_sub = self.create_subscription( Image, '/f1_screencaps/cropped', self.addToBuffer, 10)
+    def addToBuffer(self, img_msg):
         try:
-            imnp = self.cvbridge.compressed_imgmsg_to_cv2(img_msg, desired_encoding="rgb8") 
-        except:
+            if isinstance(img_msg,CompressedImage):
+                imnp = self.cvbridge.compressed_imgmsg_to_cv2(img_msg, desired_encoding="bgr8") 
+            elif isinstance(img_msg,Image):
+                imnp = self.cvbridge.imgmsg_to_cv2(img_msg, desired_encoding="bgr8") 
+            else:
+                raise ValueError( "Invalid type %s passed to addToBuffer" % (str(type(img_msg)),) )
+        except ValueError as e:
+            raise e
+        except Exception as e:
             return
         if imnp.shape[0]<=0 or imnp.shape[1]<=0 or (not imnp.shape[2]==3) :
             return
-        imnpdouble = tf.functional.to_tensor(deepracing.imutils.resizeImage( imnp, (66,200) ) ).double().numpy().copy()
+        if self.crop_origin[0]>=0 and self.crop_origin[1]>=0:
+            imcrop1 = imnp[self.crop_origin[1]:,self.crop_origin[0]:,:]
+        else:
+            imcrop1 = imnp
+        if self.crop_size[0]>0 and self.crop_size[1]>0:
+            # imcrop2 = imcrop1[0:self.crop_size[1],0:self.crop_size[0],:]
+            imcrop2 = imcrop1[0:self.crop_size[1]]
+        else:
+            imcrop2 = imcrop1
+        imnpdouble = tf.functional.to_tensor(cv2.cvtColor(deepracing.imutils.resizeImage( imcrop2.copy(), (66,200) ), cv2.COLOR_BGR2RGB ) ).double().numpy()
+       # imnpdouble = tf.functional.to_tensor(cv2.cvtColor(deepracing.imutils.resizeImage( imnp.copy(), (66,200) ), cv2.COLOR_BGR2RGB ) ).double().numpy()
         self.image_buffer.append(imnpdouble)
-    def compressedImageCallback(self, img_msg : CompressedImage):
-        #t1 = timeit.default_timer()
-        self.addToBuffer(img_msg)
-        #t2 = timeit.default_timer()
-        #self.bufferdtpub.publish(Float64(data=(t2-t1)))
-    def imageCallback(self, img_msg : Image):
-        if img_msg.height<=0 or img_msg.width<=0:
-            return
-        imnp = self.cvbridge.imgmsg_to_cv2(img_msg, desired_encoding="rgb8") 
-        imnpdouble = tf.functional.to_tensor(deepracing.imutils.resizeImage( imnp, (66,200) ) ).double().numpy().copy()
-        self.image_buffer.append(imnpdouble)
+    # def compressedImageCallback(self, img_msg : CompressedImage):
+    #     self.addToBuffer(img_msg)
+    # def imageCallback(self, img_msg : Image):
+    #     self.addToBuffer(img_msg)
     def getTrajectory(self):
         if self.current_motion_data.world_velocity.header.frame_id == "":
             return super().getTrajectory()
-        stamp = self.rosclock.now().to_msg()
+        stamp = self.rosclock.now()
+        current_pose_mat = self.current_pose_mat.cuda(self.gpu)
         imnp = np.array(self.image_buffer).astype(np.float64).copy()
         with torch.no_grad():
             imtorch = torch.from_numpy(imnp.copy())
@@ -202,29 +221,44 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
             x_samp = evalpoints[0]
             x_samp[:,0]*=self.xscale_factor
 
+            # bezierMdot, tsamprdot, predicted_tangents, predicted_tangent_norms, distances_forward = mu.bezierArcLength(bezier_control_points, N=self.num_sample_points-1,simpsonintervals=4)
+            # predicted_tangents = predicted_tangents[0]
+            # predicted_tangent_norms = predicted_tangent_norms[0]
+            # distances_forward = distances_forward[0]
+            # v_t = self.velocity_scale_factor*(1.0/self.deltaT)*predicted_tangents
+
+
             _, predicted_tangents = mu.bezierDerivative(bezier_control_points, M = self.bezierMderiv, order=1)
-            predicted_tangents = predicted_tangents[0]
-            predicted_tangent_norms = torch.norm(predicted_tangents, p=2, dim=1)
-            v_t = self.velocity_scale_factor*(1.0/self.deltaT)*predicted_tangents
+            predicted_tangents = predicted_tangents
+            predicted_tangent_norms = torch.norm(predicted_tangents, p=2, dim=2)
+            v_t = self.velocity_scale_factor*(1.0/self.deltaT)*predicted_tangents[0]
+            # print(x_samp)
+            # print(x_samp.shape)
+           # diff = 
+            #distances_forward = torch.norm(x_samp,p=2,dim=1)
+           # print(distances_forward.shape)
 
             _, predicted_normals = mu.bezierDerivative(bezier_control_points, M = self.bezierM2ndderiv, order=2)
             predicted_normals = predicted_normals[0]
 
-            cross_prod_norms = torch.abs(predicted_tangents[:,0]*predicted_normals[:,1] - predicted_tangents[:,1]*predicted_normals[:,0])
-            radii = torch.pow(predicted_tangent_norms,3) / cross_prod_norms
+            cross_prod_norms = torch.abs(predicted_tangents[0,:,0]*predicted_normals[:,1] - predicted_tangents[0,:,1]*predicted_normals[:,0])
+            radii = torch.pow(predicted_tangent_norms[0],3) / cross_prod_norms
             speeds = self.max_speed*(torch.ones_like(radii)).double().cuda(0)
             centripetal_accelerations = torch.square(speeds)/radii
             max_allowable_speeds = torch.sqrt(self.max_centripetal_acceleration*radii)
             idx = centripetal_accelerations>self.max_centripetal_acceleration
             speeds[idx] = max_allowable_speeds[idx]
-            vels = speeds[:,None]*(predicted_tangents/predicted_tangent_norms[:,None])
+            vels = speeds[:,None]*(predicted_tangents[0]/predicted_tangent_norms[0,:,None])
+            #distances_forward = torch.cat((torch.zeros(1, dtype=x_samp.dtype, device=x_samp.device), torch.cumsum(torch.norm(x_samp[1:]-x_samp[:-1],p=2,dim=1), 0)), dim=0)
+            distances_forward = mu.integrate.cumtrapz(predicted_tangent_norms, self.s_torch, initial=torch.zeros(1,1,dtype=speeds.dtype,device=speeds.device))[0]
         
         x_samp[:,1]-=self.z_offset
         #print(x_samp)
-        distances_samp = torch.norm(x_samp,p=2,dim=1)
         if self.plot:
             bezier_control_points_np = bezier_control_points[0].cpu().numpy()
-            plotmsg : BCMessage = BCMessage(header = Header(stamp=stamp,frame_id="car"), control_points_lateral = bezier_control_points_np[:,0], control_points_forward = bezier_control_points_np[:,1] )
+            plotmsg : BCMessage = BCMessage(header = Header(stamp=stamp.to_msg(),frame_id="car"), \
+                                            control_points_lateral = bezier_control_points_np[:,0], control_points_forward = bezier_control_points_np[:,1],\
+                                            s = self.s_np, speeds=speeds.cpu().numpy() )
             self.path_publisher.publish(plotmsg)
-        return x_samp.cpu().numpy(), vels.cpu().numpy(), distances_samp.cpu().numpy()
+        return x_samp, vels, distances_forward
         

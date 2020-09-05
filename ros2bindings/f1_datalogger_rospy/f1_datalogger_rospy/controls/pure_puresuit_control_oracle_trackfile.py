@@ -91,7 +91,7 @@ class OraclePurePursuitControllerROS(PPC):
         
         self.s_torch_sample = torch.linspace(0,1,self.sample_indices, dtype=torch.float64).unsqueeze(0).cuda(0)
         self.bezierM = mu.bezierM(self.s_torch_sample, self.bezier_order)
-        self.bezierMdot = mu.bezierM(self.s_torch_sample, self.bezier_order-1)
+        # self.bezierMdot = mu.bezierM(self.s_torch_sample, self.bezier_order-1)
         self.bezierMdotdot = mu.bezierM(self.s_torch_sample, self.bezier_order-2)
 
 
@@ -105,12 +105,12 @@ class OraclePurePursuitControllerROS(PPC):
         imnp = self.cvbridge.imgmsg_to_cv2(img_msg, desired_encoding="rgb8") 
         self.current_image = imnp.copy()
     def getTrajectory(self):
-        if not torch.any(self.current_pose_mat.bool()).item():
+        if not torch.any(self.current_pose_mat[0:3,0:3].bool()).item():
             return super().getTrajectory()
         current_pose_mat = self.current_pose_mat.clone()
 
         (d, I1) = self.kdtree.query(current_pose_mat[0:3,3].numpy())
-        current_pose_inv = torch.inverse(current_pose_mat).cuda(0)
+        current_pose_inv = torch.inverse(current_pose_mat.cuda(self.gpu))
 
         raceline_local = torch.matmul(current_pose_inv,self.raceline)
 
@@ -126,11 +126,16 @@ class OraclePurePursuitControllerROS(PPC):
 
         least_squares_positions = torch.matmul(self.bezierM, least_squares_bezier)
         least_squares_positions = least_squares_positions[0]
-        distances_forward = torch.norm(least_squares_positions, p=2, dim=1)
+        #distances_forward = torch.norm(least_squares_positions, p=2, dim=1)
 
-        _, least_squares_tangents = mu.bezierDerivative(least_squares_bezier, M = self.bezierMdot, order=1)
+        bezierMdot, tsamprdot, least_squares_tangents, least_squares_tangent_norms, distances_forward = mu.bezierArcLength(least_squares_bezier, N=self.sample_indices-1,simpsonintervals=4)
         least_squares_tangents = least_squares_tangents[0]
-        least_squares_tangent_norms = torch.norm(least_squares_tangents, p=2, dim=1)
+        least_squares_tangent_norms = least_squares_tangent_norms[0]
+        distances_forward = distances_forward[0]
+
+        # _, least_squares_tangents = mu.bezierDerivative(least_squares_bezier, M = bezierMdot, order=1)
+        # least_squares_tangents = least_squares_tangents[0]
+        # least_squares_tangent_norms = torch.norm(least_squares_tangents, p=2, dim=1)
 
         _, least_squares_normals = mu.bezierDerivative(least_squares_bezier, M = self.bezierMdotdot, order=2)
         least_squares_normals = least_squares_normals[0]
@@ -144,9 +149,9 @@ class OraclePurePursuitControllerROS(PPC):
         max_allowable_speeds = torch.sqrt(self.max_centripetal_acceleration*radii)
         idx = centripetal_accelerations>self.max_centripetal_acceleration
         speeds[idx] = max_allowable_speeds[idx]
-        vels = speeds[:,None]*(least_squares_tangents[:,xz_idx]/(torch.norm(least_squares_tangents[:,xz_idx],p=2,dim=1)[:,None]))
+        vels = speeds[:,None]*(least_squares_tangents[:,xz_idx]/(least_squares_tangent_norms[:,None]))
         
-        return least_squares_positions[:,xz_idx].cpu().numpy(), vels.cpu().numpy(), distances_forward.cpu().numpy()
+        return least_squares_positions[:,xz_idx], vels, distances_forward
 
 
 

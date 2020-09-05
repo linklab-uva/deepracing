@@ -36,6 +36,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy import Parameter
 from copy import deepcopy
+import sensor_msgs
 
 import timeit
 class PurePursuitControllerROS(Node):
@@ -56,11 +57,10 @@ class PurePursuitControllerROS(Node):
         self.controller.setControl(0.0,0.0,0.0)
 
         
-        self.current_pose : PoseStamped = PoseStamped()
-        self.current_pose_mat : torch.DoubleTensor = torch.zeros([4,4],dtype=torch.float64)
-        self.pose_sub = self.create_subscription( PoseStamped, '/car_pose', self.poseCallback, 1)
 
 
+        gpu_param : Parameter = self.get_parameter_or("gpu",Parameter("gpu", value=0))
+        self.gpu : int = gpu_param.get_parameter_value().integer_value
 
         max_speed_param : Parameter = self.get_parameter_or("max_speed", Parameter("max_speed",value=200.0))
         self.max_speed : float = max_speed_param.get_parameter_value().double_value
@@ -96,7 +96,16 @@ class PurePursuitControllerROS(Node):
             print("Using DRS")
         else:
             print("Not using DRS")
+
+        self.inner_boundary = None
+        self.outer_boundary = None
         
+
+        self.current_pose : PoseStamped = PoseStamped()
+        self.current_pose_mat = torch.zeros([4,4],dtype=torch.float64)#.cuda(self.gpu)
+        self.current_pose_mat[3,3]=1.0
+        self.pose_sub = self.create_subscription( PoseStamped, '/car_pose', self.poseCallback, 1)
+
         self.motion_data_sub = self.create_subscription(
             TimestampedPacketMotionData,
             '/motion_data',
@@ -116,9 +125,9 @@ class PurePursuitControllerROS(Node):
         
     def poseCallback(self, pose_msg : PoseStamped):
         self.current_pose = pose_msg
-        R = torch.from_numpy(Rot.from_quat( [pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z, pose_msg.pose.orientation.w] ).as_matrix().copy()).double()
-        v = torch.tensor( [pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z, 1.0] ).double()
-        self.current_pose_mat = torch.cat( [torch.cat([R,torch.zeros(3, dtype=torch.float64).unsqueeze(0)], dim=0), v.unsqueeze(1)  ], dim=1 )
+        R = torch.from_numpy(Rot.from_quat( np.array([pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z, pose_msg.pose.orientation.w], dtype=np.float64) ).as_matrix())
+        v = torch.from_numpy(np.array([pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z], dtype=np.float64 ) )
+        self.current_pose_mat[0:3] = torch.cat([R, v.unsqueeze(1)], dim=1 )#.cuda(self.gpu)
         
     def start(self):
         self.control_thread.start()
@@ -160,7 +169,7 @@ class PurePursuitControllerROS(Node):
             distances_forward = distances_forward_
         if v_local_forward_ is None:
             s = np.linspace(0.0,1.0,num=lookahead_positions.shape[0])
-            posspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(s, lookahead_positions, k=3)
+            posspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(s, lookahead_positions.cpu().numpy(), k=3)
             tangentspline : scipy.interpolate.BSpline = posspline.derivative(nu=1)
             tangents = tangentspline(s)
             tangentnorms = np.linalg.norm(tangents,axis=1)
@@ -175,38 +184,35 @@ class PurePursuitControllerROS(Node):
             idx = centripetal_accelerations>self.max_centripetal_acceleration
             speeds[idx] = max_allowable_speeds[idx]
         else:
-            speeds = np.linalg.norm(v_local_forward_, ord=2, axis=1)
-        lookahead_angles = np.arctan2(lookahead_positions[:,1], lookahead_positions[:,0])
+            speeds = torch.norm(v_local_forward_, p=2, dim=1)
+        #lookahead_angles = np.arctan2(lookahead_positions[:,1], lookahead_positions[:,0])
         # velrosstamped : Vector3Stamped = deepcopy(self.current_motion_data.world_velocity)
         # if (velrosstamped.header.frame_id == ""):
         #     return
         # velros : Vector3 = velrosstamped.vector
         # vel = np.array( (velros.x, velros.y, velros.z), dtype=np.float64)
         # speed = la.norm(vel)
-        lookahead_distance = self.lookahead_gain*self.current_speed
+        lookahead_distance = max(self.lookahead_gain*self.current_speed, 5.0)
         lookahead_distance_vel = self.velocity_lookahead_gain*self.current_speed
-        lookahead_index = np.argmin(np.abs(distances_forward-lookahead_distance))
-        lookahead_index_vel = np.argmin(np.abs(distances_forward-lookahead_distance_vel))
+
+        lookahead_index = torch.argmin(torch.abs(distances_forward-lookahead_distance))
+        lookahead_index_vel = torch.argmin(torch.abs(distances_forward-lookahead_distance_vel))
+
         lookaheadVector = lookahead_positions[lookahead_index]
-
         lookaheadVectorVel = lookahead_positions[lookahead_index_vel]
-        alphaVel = np.arctan2(lookaheadVectorVel[0],lookaheadVectorVel[1])
 
-        D = la.norm(lookaheadVector)
+
+        D = torch.norm(lookaheadVector, p=2)
         lookaheadDirection = lookaheadVector/D
-        alpha = np.arctan2(lookaheadDirection[0],lookaheadDirection[1])
-        physical_angle = np.arctan((2 * self.L*np.sin(alpha)) / D)
+        alpha = torch.atan2(lookaheadDirection[0],lookaheadDirection[1])
+        physical_angle = (torch.atan((2 * self.L*torch.sin(alpha)) / D)).item()
         if (physical_angle > 0) :
             delta = self.left_steer_factor*physical_angle + self.left_steer_offset
         else:
             delta = self.right_steer_factor*physical_angle + self.right_steer_offset
-        self.velsetpoint = speeds[lookahead_index_vel]
-       # self.setpoint_publisher.publish(Float64(data=self.velsetpoint))
+        self.velsetpoint = speeds[lookahead_index_vel].item()
+        self.setpoint_publisher.publish(Float64(data=self.velsetpoint))
 
-
-        #self.setpoint_publisher.publish(Float64(data=3.6*self.velsetpoint))
-        #delta = 0.0
-        #self.get_logger().info("Setting steering angle %d: " % delta)
         if self.velsetpoint>self.current_speed:
             self.controller.setControl(delta,1.0,0.0)
         else:
