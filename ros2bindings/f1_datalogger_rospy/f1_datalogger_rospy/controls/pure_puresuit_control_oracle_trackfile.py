@@ -107,10 +107,10 @@ class OraclePurePursuitControllerROS(PPC):
     def getTrajectory(self):
         if not torch.any(self.current_pose_mat[0:3,0:3].bool()).item():
             return super().getTrajectory()
-        current_pose_mat = self.current_pose_mat.clone()
+        current_pose_mat = self.current_pose_mat.cuda(self.gpu)
 
-        (d, I1) = self.kdtree.query(current_pose_mat[0:3,3].numpy())
-        current_pose_inv = torch.inverse(current_pose_mat.cuda(self.gpu))
+        (d, I1) = self.kdtree.query(np.array([self.current_pose.pose.position.x, self.current_pose.pose.position.y, self.current_pose.pose.position.z], dtype=np.float64))
+        current_pose_inv = torch.inverse(current_pose_mat)
 
         raceline_local = torch.matmul(current_pose_inv,self.raceline)
 

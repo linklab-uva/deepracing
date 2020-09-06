@@ -28,7 +28,7 @@ import torch.nn as NN
 import torch.utils.data as data_utils
 import deepracing_models.nn_models.Models
 import matplotlib.pyplot as plt
-from f1_datalogger_msgs.msg import TimestampedPacketCarStatusData, TimestampedPacketCarTelemetryData, TimestampedPacketMotionData, PacketCarTelemetryData, PacketMotionData, CarMotionData, CarStatusData, CarTelemetryData, PacketHeader
+from f1_datalogger_msgs.msg import BoundaryLine, TimestampedPacketCarStatusData, TimestampedPacketCarTelemetryData, TimestampedPacketMotionData, PacketCarTelemetryData, PacketMotionData, CarMotionData, CarStatusData, CarTelemetryData, PacketHeader
 from geometry_msgs.msg import Vector3Stamped, Vector3, PointStamped, Point, PoseStamped, Pose, Quaternion
 from scipy.spatial.transform import Rotation as Rot
 from std_msgs.msg import Float64
@@ -37,6 +37,10 @@ from rclpy.node import Node
 from rclpy import Parameter
 from copy import deepcopy
 import sensor_msgs
+from scipy.spatial.kdtree import KDTree
+from shapely.geometry import Point as ShapelyPoint, MultiPoint#, Point2d as ShapelyPoint2d
+from shapely.geometry.polygon import Polygon
+from shapely.geometry import LinearRing
 
 import timeit
 class PurePursuitControllerROS(Node):
@@ -92,18 +96,32 @@ class PurePursuitControllerROS(Node):
         
         use_drs_param : Parameter = self.get_parameter_or("use_drs", Parameter("use_drs",value=False))
         self.use_drs : bool = use_drs_param.get_parameter_value().bool_value
+
+        boundary_check_param : Parameter = self.get_parameter_or("boundary_check", Parameter("boundary_check",value=False))
+        self.boundary_check : bool = boundary_check_param.get_parameter_value().bool_value
+
+        
         if self.use_drs:
             print("Using DRS")
         else:
             print("Not using DRS")
 
         self.inner_boundary = None
+        self.inner_boundary_tangents = None
+        self.inner_boundary_normals = None
+
         self.outer_boundary = None
+        self.outer_boundary_tangents = None
+        self.outer_boundary_normals = None
+
+
+
         
 
         self.current_pose : PoseStamped = PoseStamped()
         self.current_pose_mat = torch.zeros([4,4],dtype=torch.float64)#.cuda(self.gpu)
         self.current_pose_mat[3,3]=1.0
+        self.current_pose_inv_mat = self.current_pose_mat.clone()
         self.pose_sub = self.create_subscription( PoseStamped, '/car_pose', self.poseCallback, 1)
 
         self.motion_data_sub = self.create_subscription(
@@ -121,13 +139,64 @@ class PurePursuitControllerROS(Node):
             '/telemetry_data',
             self.telemetryUpdate,
             1)
+        self.inner_boundary_sub = self.create_subscription(
+            BoundaryLine,
+            '/inner_track_boundary',
+            self.innerBoundaryCB,
+            1)
+        self.outer_boundary_sub = self.create_subscription(
+            BoundaryLine,
+            '/outer_track_boundary',
+            self.outerBoundaryCB,
+            1)
+        self.racingline_sub = self.create_subscription(
+            BoundaryLine,
+            '/optimal_raceline',
+            self.racelineCB,
+            1)
         self.control_thread = threading.Thread(target=self.lateralControl)
         
+    def innerBoundaryCB(self, boundary_msg: BoundaryLine ):
+        if self.boundary_check and (self.inner_boundary is None):
+            inner_boundary = np.row_stack([np.array(boundary_msg.x), np.array(boundary_msg.y), np.array(boundary_msg.z), np.ones(len(list(boundary_msg.x)))]).astype(np.float64)
+            inner_boundary_tangents = np.row_stack([np.array(boundary_msg.xtangent), np.array(boundary_msg.ytangent), np.array(boundary_msg.ztangent)]).astype(np.float64)
+            down=torch.zeros(3, inner_boundary_tangents.shape[1], dtype=torch.float64, device=torch.device("cuda:%d" %self.gpu))
+            down[1,:] = -1.0
+           # inner_boundary = inner_boundary[:,0::3]
+            self.inner_boundary_kdtree = KDTree(inner_boundary[0:3].copy().transpose())
+            self.inner_boundary = torch.from_numpy(inner_boundary).cuda(self.gpu)
+            self.inner_boundary_tangents = torch.from_numpy(inner_boundary_tangents).cuda(self.gpu)
+            inner_boundary_normals = torch.cross(down, self.inner_boundary_tangents, dim=0)
+            self.inner_boundary_normals = inner_boundary_normals/(torch.norm(inner_boundary_normals,p=2,dim=0)[None,:])
+            print("inner_boundary shape: " + str(self.inner_boundary.shape))
+            print("inner_boundary_normals shape: " + str(self.inner_boundary_normals.shape))
+    def outerBoundaryCB(self, boundary_msg: BoundaryLine ):
+        if self.boundary_check and (self.outer_boundary is None):
+            outer_boundary = np.row_stack([np.array(boundary_msg.x), np.array(boundary_msg.y), np.array(boundary_msg.z), np.ones(len(list(boundary_msg.x)))]).astype(np.float64)
+            outer_boundary_tangents = np.row_stack([np.array(boundary_msg.xtangent), np.array(boundary_msg.ytangent), np.array(boundary_msg.ztangent)]).astype(np.float64)
+
+            up=torch.zeros(3, outer_boundary_tangents.shape[1], dtype=torch.float64, device=torch.device("cuda:%d" %self.gpu))
+            up[1,:] = 1.0
+           # outer_boundary = outer_boundary[:,0::3]
+            self.outer_boundary_kdtree = KDTree(outer_boundary[0:3].copy().transpose())
+            self.outer_boundary = torch.from_numpy(outer_boundary).cuda(self.gpu)
+            self.outer_boundary_tangents = torch.from_numpy(outer_boundary_tangents).cuda(self.gpu)
+            outer_boundary_normals = torch.cross(up, self.outer_boundary_tangents , dim=0)
+            self.outer_boundary_normals = outer_boundary_normals/(torch.norm(outer_boundary_normals,p=2,dim=0)[None,:])
+            print("outer_boundary shape: " + str(self.outer_boundary.shape))
+            print("outer_boundary_normals shape: " + str(self.outer_boundary_normals.shape))
+            
+    def racelineCB(self, boundary_msg: BoundaryLine ):
+        pass
+
     def poseCallback(self, pose_msg : PoseStamped):
         self.current_pose = pose_msg
         R = torch.from_numpy(Rot.from_quat( np.array([pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z, pose_msg.pose.orientation.w], dtype=np.float64) ).as_matrix())
         v = torch.from_numpy(np.array([pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z], dtype=np.float64 ) )
-        self.current_pose_mat[0:3] = torch.cat([R, v.unsqueeze(1)], dim=1 )#.cuda(self.gpu)
+        p = torch.cat([R, v.unsqueeze(1)], dim=1 )
+        pinv = torch.cat([R.transpose(0,1), -torch.matmul(R.transpose(0,1),v).unsqueeze(1)], dim=1 )
+        self.current_pose_mat[0:3], self.current_pose_inv_mat[0:3] = (p, pinv)#.cuda(self.gpu)
+        #self.current_pose_inv_mat = torch.inverse(self.current_pose_mat)
         
     def start(self):
         self.control_thread.start()
