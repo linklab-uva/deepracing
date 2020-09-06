@@ -75,7 +75,6 @@ topic_counts = np.array( list(topic_count_dict.values()) )
 idx = 0
 total_msgs = np.sum( topic_counts )
 msg_dict = {key : [] for key in topic_count_dict.keys()}
-#{'/f1_screencaps/cropped/compressed': 'sensor_msgs/msg/CompressedImage', '/motion_data': 'f1_datalogger_msgs/msg/TimestampedPacketMotionData', '/predicted_path': 'f1_datalogger_msgs/msg/BezierCurve'}
 print("Loading data from bag")
 msg_dict = {key : [] for key in topic_count_dict.keys()}
 for idx in tqdm(iterable=range(total_msgs)):
@@ -109,6 +108,8 @@ print("Extracted %d bezier curves" % ( len(bezier_curve_msgs), ) )
 print("Extracted %d motion packets" % ( len(motion_packet_msgs), ) )
 tracknum = session_packet_msgs[0].udp_packet.track_id
 trackname = deepracing.trackNames[tracknum]
+#trackname = "Australia"
+
 
 
 
@@ -120,6 +121,8 @@ ib_xz = inner_boundary[[0,2],:]#.transpose()
 ib_atan2 = np.arctan2(ib_xz[1,:], ib_xz[0,:]) + 2.0*np.pi
 ib_atan2[ib_atan2>=2*np.pi]-=2.0*np.pi
 ib_clocksort = np.flip(np.argsort(ib_atan2))
+#ib_poly = inner_boundary[:,ib_clocksort]
+ib_poly = inner_boundary
 #inner_boundary = inner_boundary[:,ib_clocksort]
 print("Inner boundary shape: " + str(inner_boundary.shape))
 inner_boundary_kdtree = KDTree(inner_boundary[0:3].transpose())
@@ -136,6 +139,8 @@ ob_xz = outer_boundary[[0,2]]#.transpose()
 ob_atan2 = np.arctan2(ob_xz[1], ob_xz[0]) + 2.0*np.pi
 ob_atan2[ob_atan2>=2*np.pi]-=2.0*np.pi
 ob_clocksort = np.flip(np.argsort(ob_atan2))
+#ob_poly = outer_boundary[:,ob_clocksort]
+ob_poly = outer_boundary
 #outer_boundary = outer_boundary[:,ob_clocksort]
 
 print("Outer boundary shape: " + str(outer_boundary.shape))
@@ -143,13 +148,13 @@ outer_boundary_kdtree = KDTree(outer_boundary[0:3].transpose())
 #outer_boundary_polygon : Polygon = Polygon(reversed(outer_boundary[[0,2],:].transpose().tolist()))
 #outer_boundary_polygon : SPPolygon = SPPolygon([SPPoint(outer_boundary[0,i], outer_boundary[2,i]) for i in reversed(range(outer_boundary.shape[1]))])
 
-ib_tuples =  LinearRing([(inner_boundary[0,i], inner_boundary[2,i]) for i in range(ib_clocksort.shape[0])])
+ib_tuples =  LinearRing([(ib_poly[0,i], ib_poly[2,i]) for i in range(ib_poly.shape[1])])
 inner_boundary_polygon : Polygon = Polygon(ib_tuples)
 assert(inner_boundary_polygon.is_valid)
 print("Inner boundary area: %d" % (inner_boundary_polygon.area, ) )
 
 
-ob_tuples =  LinearRing([(outer_boundary[0,i], outer_boundary[2,i]) for i in range(ob_clocksort.shape[0])])
+ob_tuples =  LinearRing([(ob_poly[0,i], ob_poly[2,i]) for i in range(ob_poly.shape[1])])
 outer_boundary_polygon : Polygon =  Polygon(ob_tuples)
 assert(outer_boundary_polygon.is_valid)
 print("Outer boundary area: %d" % (outer_boundary_polygon.area, ) )
@@ -168,10 +173,13 @@ optimal_raceline_kdtree = KDTree(optimal_raceline[0:3].transpose())
 fig = plt.figure()
 
 ib_recon = np.array(inner_boundary_polygon.exterior.xy).transpose()
+# plt.plot(inner_boundary[0],inner_boundary[2], label="Inner Boundary of Track")
 plt.plot(ib_recon[:,0],ib_recon[:,1], label="Inner Boundary of Track")
 
 ob_recon = np.array(outer_boundary_polygon.exterior.xy).transpose()
+# plt.plot(outer_boundary[0],outer_boundary[2], label="Outer Boundary of Track")
 plt.plot(ob_recon[:,0],ob_recon[:,1], label="Outer Boundary of Track")
+plt.legend()
 plt.show()
 
 
@@ -272,7 +280,7 @@ try:
             axplot.plot(-optimal_raceline_sample_local[0], optimal_raceline_sample_local[2], label="Optimal Raceline", c="green")
             axplot.plot(-bcvalslocal[0], bcvalslocal[2], label="Predicted Path", c="red")
             axplot.plot([0], [0], 'r*', label='Current Position')
-            axplot.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+            axplot.legend()#loc='center left', bbox_to_anchor=(1, 0.5))
             if anyviolation:
                 figurepath = os.path.join(figure_dir,("curve_%d" % (i,)).upper())
             else:
@@ -284,10 +292,6 @@ try:
                 figure_img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)#, sep='')
                 figure_img = figure_img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
                 figure_img = cv2.cvtColor(figure_img,cv2.COLOR_RGB2BGR)
-                if imwriter is None:
-                    fourccformat = "MJPG"
-                    fourcc = cv2.VideoWriter_fourcc(*fourccformat)
-                    imwriter = cv2.VideoWriter(os.path.join(figure_dir,"pathvideo.avi"), fourcc, 7, (figure_img.shape[1], figure_img.shape[0]), True)
                 imwriter.write(figure_img)
             plt.close(fig=fig)
             figure_metadata_path = figurepath+"_details.json"
