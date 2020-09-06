@@ -100,7 +100,6 @@ racelinedist = np.array(dlist, dtype=np.float64)
 racelinedist = racelinedist - racelinedist[0]
 
 
-print("Race distance: %f" % racelinedist[-1])
 firstpoint = racelinein[:,0]
 lastpoint = racelinein[:,-1]
 finalstretch = lastpoint - firstpoint
@@ -112,6 +111,7 @@ while finaldistance==0.0:
     lastpoint = racelinein[:,-1]
     finalstretch = lastpoint - firstpoint
     finaldistance = np.linalg.norm(finalstretch)
+print("Race distance: %f" % racelinedist[-1])
 print("Distance between end and start: %s" % str(finaldistance))
 
 
