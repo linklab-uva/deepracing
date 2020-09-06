@@ -21,23 +21,31 @@ import scipy.interpolate
 import deepracing.arma_utils
 import yaml
 import json
+from functools import reduce
+import operator
+import math
 
 parser = argparse.ArgumentParser()
 parser.add_argument("trackfile", help="Path to trackfile to convert",  type=str)
 parser.add_argument("--num_samples", default=0, type=int, help="Number of values to sample from the spline. Default (0) means no sampling and just copy the data as is")
 parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
+parser.add_argument("--negate_tangents", action="store_true", help="Flip the sign all all of the tangent vectors")
 args = parser.parse_args()
 argdict = vars(args)
+negate_tangents = argdict["negate_tangents"]
 trackfilein = argdict["trackfile"]
 trackdir = os.path.dirname(trackfilein)
 num_samples = argdict["num_samples"]
 k = argdict["k"]
 trackin = np.loadtxt(trackfilein,delimiter=",",skiprows=2)
-print(trackin)
-print(trackin.shape)
+# print(trackin)
+# print(trackin.shape)
 I = np.argsort(trackin[:,0])
 track = trackin[I].copy()
 r = track[:,0].copy()
+# coords = [(0, 1), (1, 0), (1, 1), (0, 0)]
+# center = tuple(map(operator.truediv, reduce(lambda x, y: map(operator.add, x, y), coords), [len(coords)] * 2))
+# print(sorted(coords, key=lambda coord: (-135 - math.degrees(math.atan2(*tuple(map(operator.sub, coord, center))[::-1]))) % 360))
 
 
 
@@ -48,61 +56,77 @@ Xin[:,1] = track[:,1]
 Xin[:,2] = track[:,3]
 Xin[:,3] = track[:,2]
 
-N_close_gap = 8
-if num_samples>0:
-    Xspline = np.zeros((Xin.shape[0]+N_close_gap,4))
-    Xspline[0:-N_close_gap] = Xin
-    tclosegap = np.linspace(0,1,N_close_gap+1)
-    gap = Xin[0,1:] - Xin[-1,1:]
-    closegapline = np.array([gap*tclosegap[i] for i in range(tclosegap.shape[0])]) +  Xin[-1,1:]
-    Xspline[-N_close_gap:,1:] = closegapline[1:]
+final_vector = Xin[0,1:] - Xin[-1,1:]
+final_distance = np.linalg.norm(final_vector)
+final_unit_vector = final_vector/final_distance
+nstretch = 6
+rstretch =  np.linspace(final_distance/nstretch,final_distance,nstretch)
+final_stretch = np.row_stack([Xin[-1,1:] + rstretch[i]*final_unit_vector for i in range(rstretch.shape[0])])
+final_r =  rstretch + Xin[-1,0]
+Xin = np.row_stack((Xin, np.column_stack((final_r,final_stretch))))
 
-    closegapline_diffs = tclosegap*la.norm(gap)
-    Xspline[-N_close_gap:,0] = Xin[-1,0] + closegapline_diffs[1:]
-    #Xspline[-1,0] = Xin[-1,0] + np.linalg.norm(gap)
+# rnormalized = Xin[:,0] - Xin[0,0]
+# rnormalized = rnormalized/rnormalized[-1]
+spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(Xin[:,0], Xin[:,1:], k = k)
+tangentspline : scipy.interpolate.BSpline = spline.derivative()
+rsamp = np.linspace(Xin[0,0], Xin[-1,0], num = num_samples)
+splinevals=spline(rsamp)
+tangents=tangentspline(rsamp)
+tangent_norms = np.linalg.norm(tangents,axis=1)
 
-    rnormalized = Xspline[:,0] - Xspline[0,0]
-    rnormalized = rnormalized/rnormalized[-1]
-    spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(rnormalized, Xspline[:,1:], k = k)
-    tsamp = np.linspace(0, 1, num = num_samples)
-    splinevals=spline(tsamp)
-    rout = Xspline[0,0] + tsamp*(Xspline[-1,0] - Xspline[0,0])
-    X = np.column_stack((rout,splinevals))
-    X = X[0:-1]
-else:
-    X = Xin.copy()
-    X[:,0] = r.copy()
+
+unit_tangents=tangents/tangent_norms[:,np.newaxis]
+
+if negate_tangents:
+    unit_tangents = -unit_tangents
+
+print(unit_tangents[0:10])
+up = np.column_stack((np.zeros_like(rsamp), np.ones_like(rsamp), np.zeros_like(rsamp)))
+normals = np.cross(up,unit_tangents)
+normals = normals/np.linalg.norm(normals, axis=1)[:,np.newaxis]
+# rout = Xin[0,0] + tsamp*(Xin[-1,0] - Xin[0,0])
+rout = rsamp# - rsamp[0]
+X = np.column_stack((rout,splinevals))
+
 
 
 x = X[:,1]
 y = X[:,2]
 z = X[:,3]
+x_tangent = unit_tangents[:,0]
+y_tangent = unit_tangents[:,1]
+z_tangent = unit_tangents[:,2]
 diffs = X[1:,1:] - X[0:-1,1:]
 diffnorms = np.linalg.norm(diffs,axis=1)
 
 
 fig = plt.figure()
 #ax = fig.add_subplot(111, projection='3d')
-plt.scatter(Xspline[:,1], Xspline[:,3], c='b', marker='o', s = 6.0*np.ones_like(Xspline[:,1]))
-plt.scatter(x, z, c='r', marker='o', s = 0.5*np.ones_like(x))
+plt.xlim(np.max(x)+10, np.min(x)-10)
+plt.scatter(Xin[:,1], Xin[:,3], c='b', marker='o', s = 6.0*np.ones_like(Xin[:,1]))
+plt.scatter(x, z, c='r', marker='o', s =2.0*np.ones_like(x))
+#plt.quiver(x, z, x_tangent, z_tangent , angles="xy", units="width")#, scale=0.0000001)
 #plt.plot(x, z, c='b')#, marker='o', s = np.ones_like(x))
 # ax.set_xlabel('X Label')
 # ax.set_ylabel('Y Label')
 # ax.set_zlabel('Z Label')
 plt.show()
 
-armaout = os.path.join(trackdir,os.path.splitext(trackfilein)[0] + ".arma.txt")
-#matout = np.hstack((np.array([r]).transpose(),X,Xdot,Xdotdot))
-headerstring = "ARMA_MAT_TXT_FN008\n" + \
-                str(X.shape[0]) + " " + str(X.shape[1])
-np.savetxt(armaout, X, delimiter="\t", header=headerstring, comments="")
+# armaout = os.path.join(trackdir,os.path.splitext(trackfilein)[0] + ".arma.txt")
+# matout = np.hstack((np.array([r]).transpose(),X,Xdot,Xdotdot))
+# headerstring = "ARMA_MAT_TXT_FN008\n" + \
+#                 str(X.shape[0]) + " " + str(X.shape[1])
+# np.savetxt(armaout, X, delimiter="\t", header=headerstring, comments="")
 jsonout = os.path.join(trackdir,os.path.splitext(trackfilein)[0] + ".json")
+jsondict : dict = {}
+jsondict["dist"] = X[:,0].tolist()
+jsondict["x"] = x.tolist()
+jsondict["y"] = y.tolist()
+jsondict["z"] = z.tolist()
+jsondict["x_tangent"] = x_tangent.tolist()
+jsondict["y_tangent"] = y_tangent.tolist()
+jsondict["z_tangent"] = z_tangent.tolist()
 with open(jsonout,"w") as f:
-    jsondict : dict = {}
-    jsondict["dist"] = X[:,0].tolist()
-    jsondict["x"] = x.tolist()
-    jsondict["y"] = y.tolist()
-    jsondict["z"] = z.tolist()
     json.dump( jsondict , f , indent=1 )
 print("First point: " + str(X[0,:]))
 print("Last point: " + str(X[-1,:]))
