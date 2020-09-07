@@ -45,6 +45,7 @@ setup(
             'cnnlstm = %s.scripts.cnnlstm_script:main' % (package_name),
             'admiralnet_e2e = %s.scripts.admiralnet_e2e_script:main' % (package_name),
             'generate_steering_calibration = %s.scripts.generate_steering_calibration:main' % (package_name),
+            'point_cloud_display = %s.scripts.point_cloud_display:main' % (package_name),
             
         ],
     },
