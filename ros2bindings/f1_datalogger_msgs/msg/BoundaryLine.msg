@@ -1,5 +1,9 @@
-float64[] x
-float64[] y
-float64[] z
-float64[] dist
+float32[] x
+float32[] y
+float32[] z
+float32[] xtangent
+float32[] ytangent
+float32[] ztangent
+float32[] dist
+string track_name
 std_msgs/Header header
