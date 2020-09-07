@@ -33,36 +33,23 @@ else:
 experiment : APIExperiment = api.get_experiment("electric-turtle", "deepracingbezierpredictor", experiment_key)
 assetlist = experiment.get_asset_list()
 assetdict = {d['fileName']: d['assetId'] for d in assetlist}
+lookahead_indices = int(experiment.get_parameters_summary(parameter="lookahead_indices")["valueCurrent"])
 
 
 print("Getting hyperparameters from comet")
+experiment_file_name = "experiment_config.yaml"
 config_file_name = "model_config.yaml"
 config_yaml = experiment.get_asset(assetdict[config_file_name], return_type="text")
 outputconfigfile = os.path.join(output_directory,config_file_name)
+outputexperimentfile = os.path.join(output_directory,experiment_file_name)
 with open(outputconfigfile, 'w') as f:
     f.write(config_yaml)
+with open(outputexperimentfile, 'w') as f:
+    yaml.dump({"experiment_key" : experiment_key, "lookahead_indices": lookahead_indices}, f, Dumper=yaml.SafeDumper)
 with open(outputconfigfile, 'r') as f:
     config = yaml.load(f,Loader=yaml.SafeLoader)
 print("Got config from comet")
 print(config)
-
-# parameters_summary = experiment.get_parameters_summary()
-# configin = {d["name"] : d["valueCurrent"] for d in parameters_summary}
-# config = {}
-# config["image_size"] = np.fromstring( configin["image_size"].replace(" ","").replace("[","").replace("]",""), sep=',', dtype=np.int32 ).tolist()
-# # try:
-# #     config["image_size"] = np.fromstring( configin["image_size"].replace(" ","").replace("[","").replace("]",""), sep=',', dtype=np.int32 ).tolist()
-# # except:
-# #     config["image_size"] = [66,200]
-# config["input_channels"] = int( configin["input_channels"] )
-# config["hidden_dimension"] = int( configin["hidden_dimension"] )
-# config["sequence_length"] = int( configin["sequence_length"] )
-# config["context_length"] = int( configin["context_length"] )
-# config["bezier_order"] = int( configin["bezier_order"] )
-# print(config)
-# outputconfigfile = os.path.join(output_directory,"config.yaml")
-# with open(outputconfigfile, 'w') as f:
-#     yaml.dump(config,stream=f,Dumper=yaml.SafeDumper)
 
 
 #get network weight file
