@@ -1,7 +1,8 @@
 pure_pursuit_control:
     ros__parameters:
+      boundary_check: True
       use_compressed_images: True
-      lookahead_gain : 0.325
+      lookahead_gain : 0.65
       velocity_lookahead_gain: 0.4
       plot : True
       gpu : 0
@@ -9,11 +10,11 @@ pure_pursuit_control:
       x_scale_factor : 1.0
       velocity_scale_factor: 1.0
       forward_indices : 30
-      sample_indices : 60
+      sample_indices : 57
       left_steer_factor: 3.346597
       left_steer_offset: 0.010415
       right_steer_factor: 3.796129
       right_steer_offset: 0.009932
       max_speed: 90.0
-      max_centripetal_acceleration: 25.0
+      max_centripetal_acceleration: 20.0
       raceline_file: "D:/deepracing/data-logger/tracks/Australia_racingline.json"
