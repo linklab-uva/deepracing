@@ -117,6 +117,7 @@ inner_boundary_json = os.path.join(trackfiledir, trackname + "_innerlimit.json")
 with open(inner_boundary_json,"r") as f:
     inner_boundary_dict = json.load(f)
 inner_boundary  = np.column_stack((inner_boundary_dict["x"], inner_boundary_dict["y"], inner_boundary_dict["z"], np.ones_like(inner_boundary_dict["z"]))).transpose()
+inner_boundary_dist = inner_boundary_dict["dist"]
 ib_xz = inner_boundary[[0,2],:]#.transpose()
 ib_atan2 = np.arctan2(ib_xz[1,:], ib_xz[0,:]) + 2.0*np.pi
 ib_atan2[ib_atan2>=2*np.pi]-=2.0*np.pi
@@ -134,6 +135,7 @@ outer_boundary_json = os.path.join(trackfiledir, trackname + "_outerlimit.json")
 with open(outer_boundary_json,"r") as f:
     outer_boundary_dict = json.load(f)
 outer_boundary  = np.column_stack((outer_boundary_dict["x"], outer_boundary_dict["y"], outer_boundary_dict["z"], np.ones_like(outer_boundary_dict["z"]))).transpose()
+outer_boundary_dist = outer_boundary_dict["dist"]
 #print(outer_boundary)
 ob_xz = outer_boundary[[0,2]]#.transpose()
 ob_atan2 = np.arctan2(ob_xz[1], ob_xz[0]) + 2.0*np.pi
@@ -167,6 +169,7 @@ with open(optimal_raceline_json,"r") as f:
     optimal_raceline_dict = json.load(f)
 optimal_raceline  = np.column_stack((optimal_raceline_dict["x"], optimal_raceline_dict["y"], optimal_raceline_dict["z"], np.ones_like(optimal_raceline_dict["z"]))).transpose()
 optimal_raceline_kdtree = KDTree(optimal_raceline[0:3].transpose())
+optimal_raceline_dist = optimal_raceline_dict["dist"]
 
 
 
@@ -215,12 +218,7 @@ os.makedirs(figure_dir)
 boundary_viz_delta = 20
 imwriter = None
 print("Analyzing bezier curves")
-imnp0 = bridge.compressed_imgmsg_to_cv2(image_msgs[0],desired_encoding="rgb8")
-writershape = (imnp0.shape[1], imnp0.shape[0])
-if save_all_figures:
-    fourccformat = "MJPG"
-    fourcc = cv2.VideoWriter_fourcc(*fourccformat)
-    imwriter = cv2.VideoWriter(os.path.join(figure_dir,"pathvideo.avi"), fourcc, 7, writershape, True)
+imwriter = None
 try:
     for i in tqdm(range(bcvals.shape[0])):
         t = bc_timestamps[i]
@@ -240,11 +238,13 @@ try:
         ibdiffs = np.array([inner_boundary_polygon.exterior.distance(bcvalsglobal_shapely[i]) for i in range(len(bcvalsglobal_shapely))])
         ibdiffs[inside]*=-1.0
         insideviolation = np.any(inside)
+        insidepoints = bcvalslocal[:, inside]
 
         outside = np.array([ not p.within(outer_boundary_polygon) for p in bcvalsglobal_shapely])
         obdiffs = np.array([outer_boundary_polygon.exterior.distance(bcvalsglobal_shapely[i]) for i in range(len(bcvalsglobal_shapely))])
         obdiffs[~outside]*=-1.0
         outsideviolation =  np.any(outside)
+        outsidepoints = bcvalslocal[:, outside]
 
 
 
@@ -264,23 +264,47 @@ try:
         outerboundary_sample_local = np.matmul(homogenous_transform_inv,outerboundary_sample)
 
         _, optimal_raceline_idx = optimal_raceline_kdtree.query(carposition)
-        optimal_raceline_idx = np.flip(np.arange(optimal_raceline_idx, optimal_raceline_idx+Nsamp-10, step=1, dtype=np.int32)%optimal_raceline.shape[1])
-        optimal_raceline_sample = optimal_raceline[:,optimal_raceline_idx]
+        r_orl = optimal_raceline_dist[optimal_raceline_idx]
+        optimal_raceline_upperlim = bisect.bisect_left(optimal_raceline_dist, (r_orl+75.0)%optimal_raceline_dist[-1])
+        #optimal_raceline_sample_idx = np.flip(np.arange(optimal_raceline_idx, optimal_raceline_upperlim, step=1, dtype=np.int32)%optimal_raceline.shape[1])
+        if optimal_raceline_idx<optimal_raceline_upperlim:
+            optimal_raceline_sample_idx = np.flip(np.arange(optimal_raceline_idx, optimal_raceline_upperlim, step=1, dtype=np.int32))#%optimal_raceline.shape[1])
+        else:
+            optimal_raceline_sample_idx = np.flip(np.hstack([np.arange(optimal_raceline_idx, optimal_raceline.shape[1], step=1, dtype=np.int32), np.arange(0, optimal_raceline_upperlim, step=1, dtype=np.int32)]))
+        optimal_raceline_sample = optimal_raceline[:,optimal_raceline_sample_idx]
         optimal_raceline_sample_local = np.matmul(homogenous_transform_inv,optimal_raceline_sample)
 
 
         
         #(obdiffs, obdiffidx) = outer_boundary_kdtree.query(bcvalsglobal[0:3].transpose())
         anyviolation = insideviolation or outsideviolation# or np.max(np.abs(ibdiffs))<0.1 or np.max(np.abs(obdiffs))<0.1
+        allxs = np.hstack([innerboundary_sample_local[0], outerboundary_sample_local[0], optimal_raceline_sample_local[0], bcvalslocal[0] ])
+        largestx = np.max(allxs)
+        smallestx = np.min(allxs)
         if save_all_figures or anyviolation:# or True:
             fig, (axim, axplot) = plt.subplots(1, 2)
+            if save_all_figures:
+                axim.set_title("Image Seen By Network at\nCurve %d" % (i,) )
+            else:
+                axim.set_title("Image Seen By Network.")
             axim.imshow(imnp)
-            axplot.plot(-innerboundary_sample_local[0], innerboundary_sample_local[2], label="Inner Boundary", c="blue")
-            axplot.plot(-outerboundary_sample_local[0], outerboundary_sample_local[2], label="Outer Boundary", c="orange")
-            axplot.plot(-optimal_raceline_sample_local[0], optimal_raceline_sample_local[2], label="Optimal Raceline", c="green")
-            axplot.plot(-bcvalslocal[0], bcvalslocal[2], label="Predicted Path", c="red")
-            axplot.plot([0], [0], 'r*', label='Current Position')
-            axplot.legend()#loc='center left', bbox_to_anchor=(1, 0.5))
+            axplot.set_xlim(largestx+3.0, smallestx-3.0)
+            axplot.set_title("Predictions and Track Boundaries")
+            ibplot = axplot.plot(innerboundary_sample_local[0], innerboundary_sample_local[2], label="Inner Boundary", c="blue")
+            obplot = axplot.plot(outerboundary_sample_local[0], outerboundary_sample_local[2], label="Outer Boundary", c="orange")
+            rlplot = axplot.plot(optimal_raceline_sample_local[0], optimal_raceline_sample_local[2], label="Optimal Raceline", c="black")
+            predplot = axplot.plot(bcvalslocal[0], bcvalslocal[2], label="Predicted Path", c="green")
+            plots = [ibplot, obplot, rlplot, predplot]
+            if insideviolation:
+                ivplot=axplot.plot(insidepoints[0], insidepoints[2], 'r*')
+            if outsideviolation:
+                ovplot=axplot.plot(outsidepoints[0], outsidepoints[2], 'r*')
+            axplot.plot([0], [0], 'g*', label='Current Position')
+            #plt.legend()#loc='center left', bbox_to_anchor=(1, 0.5))
+            fig.legend([p[0] for p in plots],\
+                        [str(p[0].get_label()) for p in plots],\
+                        loc=[0.2,0.1])#\
+                        #loc="lower left")#
             if anyviolation:
                 figurepath = os.path.join(figure_dir,("curve_%d" % (i,)).upper())
             else:
@@ -292,7 +316,14 @@ try:
                 figure_img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)#, sep='')
                 figure_img = figure_img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
                 figure_img = cv2.cvtColor(figure_img,cv2.COLOR_RGB2BGR)
+                if imwriter is None:
+                    fourccformat = "MJPG"
+                    fourcc = cv2.VideoWriter_fourcc(*fourccformat)
+                    writershape = (figure_img.shape[1], figure_img.shape[0])
+                    imwriter = cv2.VideoWriter(os.path.join(figure_dir,"pathvideo.avi"), fourcc, 2, writershape, True)
                 imwriter.write(figure_img)
+            # else:
+            #     axim.set_title("Image Seen By Network")
             plt.close(fig=fig)
             figure_metadata_path = figurepath+"_details.json"
             figure_metadata_dict = {"inside_violation" : int(insideviolation), "outside_violation": int(outsideviolation)}
@@ -318,7 +349,7 @@ try:
         # plt.savefig(os.path.join(figure_dir,"curve_%d.svg" % (i,)), format="svg")
 except KeyboardInterrupt as e:
     print("Okie Dokie")
-
+    #imwriter.release()
 # rotationmats = np.array( [ Rotation.as_matrix(r) for r in rotations] )
 # homogenous_transforms = np.tile(np.eye(4), (len(rotations),1,1) )
 # homogenous_transforms[:,0:3,0:3] = rotationmats
