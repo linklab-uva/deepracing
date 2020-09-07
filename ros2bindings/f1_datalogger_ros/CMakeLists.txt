@@ -24,7 +24,7 @@ find_package(image_transport REQUIRED)
 find_package(jsoncpp CONFIG REQUIRED)
 find_package(laser_geometry REQUIRED)
 find_package(nav_msgs REQUIRED)
-find_package(PCL CONFIG REQUIRED QUIET COMPONENTS core features filters io segmentation surface)
+find_package(PCL CONFIG REQUIRED QUIET COMPONENTS common core features geometry filters io keypoints segmentation surface)
 find_package(pcl_conversions REQUIRED)
 find_package(pcl_ros REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
@@ -95,9 +95,14 @@ target_include_directories(boundary_publisher
  ${PCL_COMMON_INCLUDE_DIRS}
 )
 target_link_libraries(boundary_publisher
-#  ${PCL_COMMON_LIBRARIES}
 #  ${PCL_KDTREE_LIBRARIES}
 #  ${PCL_SEARCH_LIBRARIES}
+  ${PCL_COMMON_LIBRARIES}
+  ${PCL_FEATURES_LIBRARIES}
+  ${PCL_FILTERS_LIBRARIES}
+  ${PCL_GEOMETRY_LIBRARIES}
+  ${PCL_KEYPOINTS_LIBRARIES}
+  ${PCL_SURFACE_LIBRARIES}
   ${PCL_LIBRARIES}
   f1_msg_utils
   jsoncpp_lib
