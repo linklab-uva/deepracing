@@ -45,7 +45,7 @@ int main(int argc, char** argv)
   std::string search_string, image_folder, image_extension, udp_folder, config_file, root_directory, driver_name;
   unsigned int image_threads, udp_port, udp_thread_sleeptime;
   float image_capture_frequency, initial_delay_time;
-  bool spectating, use_json, init_paused, log_images;
+  bool spectating, use_json, init_paused, log_images, rebroadcast;
   double capture_region_ratio;
   std::map<std::string, unsigned int> udp_thread_dict;
 
@@ -94,6 +94,7 @@ int main(int argc, char** argv)
   init_paused = config_node["init_paused"].as<bool>(false);
   use_json = config_node["use_json"].as<bool>(true);
   log_images = config_node["log_images"].as<bool>(true);
+  rebroadcast = config_node["rebroadcast"].as<bool>(false);
   capture_region_ratio = config_node["capture_region_ratio"].as<double>(1.0);
   udp_thread_dict = config_node["udp_threads"].as<std::map<std::string,unsigned int>>(std::map<std::string,unsigned int>());
   
@@ -158,7 +159,7 @@ int main(int argc, char** argv)
 
 
   std::cout<<"Creating DataLogger" <<std::endl;
-  std::shared_ptr<deepf1::F1DataLogger> dl( new deepf1::F1DataLogger( search_string, "127.0.0.1", udp_port) );
+  std::shared_ptr<deepf1::F1DataLogger> dl( new deepf1::F1DataLogger( search_string, "127.0.0.1", udp_port, rebroadcast) );
   std::cout<<"Created DataLogger" <<std::endl;
 
 
