@@ -183,14 +183,14 @@ def getAllImageFilePackets(image_data_folder: str, use_json: bool):
    if use_json:
       print("Attempting to read json files in : %s" %(image_data_folder))
       filepaths = [os.path.join(image_data_folder, f) for f in os.listdir(image_data_folder)]
+      filepaths = [fp for fp in filepaths if (os.path.isfile(fp) and str.lower(os.path.splitext(os.path.basename(fp))[1])==".json")]
      # jsonstrings = [(open(path, 'r')).read() for path in filepaths]
       for fp in tqdm(filepaths):
-         if os.path.isfile(fp) and str.lower(os.path.splitext(os.path.basename(fp))[1])==".json":
-            with open(fp,"r") as f:
-               jsonstring = f.read()
-            data = TimestampedImage_pb2.TimestampedImage()
-            google.protobuf.json_format.Parse(jsonstring, data)
-            image_packets.append(data)
+         with open(fp,"r") as f:
+            jsonstring = f.read()
+         data = TimestampedImage_pb2.TimestampedImage()
+         google.protobuf.json_format.Parse(jsonstring, data)
+         image_packets.append(data)
    else:
       print("Attempting to read pb files in : %s" %(image_data_folder))
       filepaths = [os.path.join(image_data_folder, f) for f in os.listdir(image_data_folder)]
