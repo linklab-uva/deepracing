@@ -29,7 +29,7 @@ import torch.utils.data as data_utils
 import deepracing_models.nn_models.Models
 import matplotlib.pyplot as plt
 from f1_datalogger_msgs.msg import BoundaryLine, TimestampedPacketCarStatusData, TimestampedPacketCarTelemetryData, TimestampedPacketMotionData, PacketCarTelemetryData, PacketMotionData, CarMotionData, CarStatusData, CarTelemetryData, PacketHeader
-from geometry_msgs.msg import Vector3Stamped, Vector3, PointStamped, Point, PoseStamped, Pose, Quaternion
+from geometry_msgs.msg import Vector3Stamped, Vector3, PointStamped, Point, PoseStamped, Pose, Quaternion, PoseArray
 from scipy.spatial.transform import Rotation as Rot
 from std_msgs.msg import Float64
 import rclpy
@@ -107,12 +107,16 @@ class PurePursuitControllerROS(Node):
             print("Not using DRS")
 
         self.inner_boundary = None
-        self.inner_boundary_tangents = None
-        self.inner_boundary_normals = None
+        self.inner_boundary_inv = None
+        self.inner_boundary_kdtree = None
+        # self.inner_boundary_normals = None
 
         self.outer_boundary = None
-        self.outer_boundary_tangents = None
-        self.outer_boundary_normals = None
+        self.outer_boundary_inv = None
+        self.outer_boundary_kdtree = None
+        # self.outer_boundary_tangents = None
+        # self.outer_boundary_normals = None
+        self.track_distance = 5303.0
 
 
 
@@ -139,52 +143,54 @@ class PurePursuitControllerROS(Node):
             '/telemetry_data',
             self.telemetryUpdate,
             1)
-        self.inner_boundary_sub = self.create_subscription(
-            BoundaryLine,
-            '/inner_track_boundary',
-            self.innerBoundaryCB,
-            1)
-        self.outer_boundary_sub = self.create_subscription(
-            BoundaryLine,
-            '/outer_track_boundary',
-            self.outerBoundaryCB,
-            1)
-        self.racingline_sub = self.create_subscription(
-            BoundaryLine,
-            '/optimal_raceline',
-            self.racelineCB,
-            1)
+        if self.boundary_check:
+            self.inner_boundary_sub = self.create_subscription(
+                PoseArray,
+                '/inner_track_boundary/pose_array',
+                self.innerBoundaryCB,
+                1)
+            self.outer_boundary_sub = self.create_subscription(
+                PoseArray,
+                '/outer_track_boundary/pose_array',
+                self.outerBoundaryCB,
+                1)
+        # self.racingline_sub = self.create_subscription(
+        #     PoseArray,
+        #     '/optimal_raceline/pose_array',
+        #     self.racelineCB,
+        #     1)
         self.control_thread = threading.Thread(target=self.lateralControl)
         
-    def innerBoundaryCB(self, boundary_msg: BoundaryLine ):
+    def innerBoundaryCB(self, boundary_msg: PoseArray ):
         if self.boundary_check and (self.inner_boundary is None):
-            inner_boundary = np.row_stack([np.array(boundary_msg.x), np.array(boundary_msg.y), np.array(boundary_msg.z), np.ones(len(list(boundary_msg.x)))]).astype(np.float64)
-            inner_boundary_tangents = np.row_stack([np.array(boundary_msg.xtangent), np.array(boundary_msg.ytangent), np.array(boundary_msg.ztangent)]).astype(np.float64)
-            down=torch.zeros(3, inner_boundary_tangents.shape[1], dtype=torch.float64, device=torch.device("cuda:%d" %self.gpu))
-            down[1,:] = -1.0
-           # inner_boundary = inner_boundary[:,0::3]
-            self.inner_boundary_kdtree = KDTree(inner_boundary[0:3].copy().transpose())
-            self.inner_boundary = torch.from_numpy(inner_boundary).cuda(self.gpu)
-            self.inner_boundary_tangents = torch.from_numpy(inner_boundary_tangents).cuda(self.gpu)
-            inner_boundary_normals = torch.cross(down, self.inner_boundary_tangents, dim=0)
-            self.inner_boundary_normals = inner_boundary_normals/(torch.norm(inner_boundary_normals,p=2,dim=0)[None,:])
-            print("inner_boundary shape: " + str(self.inner_boundary.shape))
-            print("inner_boundary_normals shape: " + str(self.inner_boundary_normals.shape))
-    def outerBoundaryCB(self, boundary_msg: BoundaryLine ):
+            positions = np.row_stack([np.array([p.position.x, p.position.y, p.position.z]) for p in boundary_msg.poses])
+            self.inner_boundary_kdtree = KDTree(positions)
+            quaternions = np.row_stack([np.array([p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w]) for p in boundary_msg.poses])
+            rotations = Rot.from_quat(quaternions)
+            rotmats = rotations.as_matrix()
+            inner_boundary = torch.zeros(positions.shape[0], 4, 4, dtype=torch.float64, device=torch.device("cuda:%d"%self.gpu))
+            inner_boundary[:,0:3,0:3] = torch.from_numpy(rotmats).double().cuda(self.gpu)
+            inner_boundary[:,0:3,3] = torch.from_numpy(positions).double().cuda(self.gpu)
+            inner_boundary[:,3,3]=1.0
+            inner_boundary_inv = torch.inverse(inner_boundary)
+          #  print(inner_boundary[0:10])
+            self.inner_boundary, self.inner_boundary_inv = (inner_boundary, inner_boundary_inv)
+            self.inner_boundary_sub.destroy()
+            
+    def outerBoundaryCB(self, boundary_msg: PoseArray ):
         if self.boundary_check and (self.outer_boundary is None):
-            outer_boundary = np.row_stack([np.array(boundary_msg.x), np.array(boundary_msg.y), np.array(boundary_msg.z), np.ones(len(list(boundary_msg.x)))]).astype(np.float64)
-            outer_boundary_tangents = np.row_stack([np.array(boundary_msg.xtangent), np.array(boundary_msg.ytangent), np.array(boundary_msg.ztangent)]).astype(np.float64)
-
-            up=torch.zeros(3, outer_boundary_tangents.shape[1], dtype=torch.float64, device=torch.device("cuda:%d" %self.gpu))
-            up[1,:] = 1.0
-           # outer_boundary = outer_boundary[:,0::3]
-            self.outer_boundary_kdtree = KDTree(outer_boundary[0:3].copy().transpose())
-            self.outer_boundary = torch.from_numpy(outer_boundary).cuda(self.gpu)
-            self.outer_boundary_tangents = torch.from_numpy(outer_boundary_tangents).cuda(self.gpu)
-            outer_boundary_normals = torch.cross(up, self.outer_boundary_tangents , dim=0)
-            self.outer_boundary_normals = outer_boundary_normals/(torch.norm(outer_boundary_normals,p=2,dim=0)[None,:])
-            print("outer_boundary shape: " + str(self.outer_boundary.shape))
-            print("outer_boundary_normals shape: " + str(self.outer_boundary_normals.shape))
+            positions = np.row_stack([np.array([p.position.x, p.position.y, p.position.z]) for p in boundary_msg.poses])
+            self.outer_boundary_kdtree = KDTree(positions)
+            quaternions = np.row_stack([np.array([p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w]) for p in boundary_msg.poses])
+            rotations = Rot.from_quat(quaternions)
+            rotmats = rotations.as_matrix()
+            outer_boundary = torch.zeros(positions.shape[0], 4, 4, dtype=torch.float64, device=torch.device("cuda:%d"%self.gpu))
+            outer_boundary[:,0:3,0:3] = torch.from_numpy(rotmats).double().cuda(self.gpu)
+            outer_boundary[:,0:3,3] = torch.from_numpy(positions).double().cuda(self.gpu)
+            outer_boundary[:,3,3]=1.0
+            outer_boundary_inv = torch.inverse(outer_boundary)
+            self.outer_boundary, self.outer_boundary_inv = (outer_boundary, outer_boundary_inv)
+            self.outer_boundary_sub.destroy()
             
     def racelineCB(self, boundary_msg: BoundaryLine ):
         pass
