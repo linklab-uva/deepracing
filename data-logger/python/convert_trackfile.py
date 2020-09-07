@@ -24,6 +24,8 @@ import json
 from functools import reduce
 import operator
 import math
+import open3d
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("trackfile", help="Path to trackfile to convert",  type=str)
@@ -59,8 +61,8 @@ Xin[:,3] = track[:,2]
 final_vector = Xin[0,1:] - Xin[-1,1:]
 final_distance = np.linalg.norm(final_vector)
 final_unit_vector = final_vector/final_distance
-nstretch = 6
-rstretch =  np.linspace(final_distance/nstretch,final_distance,nstretch)
+nstretch = 3
+rstretch =  np.linspace(final_distance/nstretch,final_distance*(nstretch-1)/nstretch,nstretch)
 final_stretch = np.row_stack([Xin[-1,1:] + rstretch[i]*final_unit_vector for i in range(rstretch.shape[0])])
 final_r =  rstretch + Xin[-1,0]
 Xin = np.row_stack((Xin, np.column_stack((final_r,final_stretch))))
@@ -68,22 +70,37 @@ Xin = np.row_stack((Xin, np.column_stack((final_r,final_stretch))))
 # rnormalized = Xin[:,0] - Xin[0,0]
 # rnormalized = rnormalized/rnormalized[-1]
 spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(Xin[:,0], Xin[:,1:], k = k)
-tangentspline : scipy.interpolate.BSpline = spline.derivative()
+xfornormals = np.column_stack([Xin[:,1], np.zeros_like(Xin[:,1]), Xin[:,3]])
 rsamp = np.linspace(Xin[0,0], Xin[-1,0], num = num_samples)
 splinevals=spline(rsamp)
+tangentspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(Xin[:,0], xfornormals, k = 3).derivative()
 tangents=tangentspline(rsamp)
 tangent_norms = np.linalg.norm(tangents,axis=1)
-
-
 unit_tangents=tangents/tangent_norms[:,np.newaxis]
+# #print(unit_tangents[0:20])
 
-if negate_tangents:
-    unit_tangents = -unit_tangents
+# unit_tangents = np.column_stack([np.zeros_like(rsamp), np.zeros_like(rsamp), np.zeros_like(rsamp)])
+# for i in range(0,unit_tangents.shape[0]):
+#     p0 = splinevals[(i-1)%splinevals.shape[0]]
+#     p1 = splinevals[i]
+#     p2 = splinevals[(i+1)%splinevals.shape[0]]
+#     d1 = p1-p0
+#     d1 = d1/np.linalg.norm(d1)
+#     d2 = p2-p1
+#     d2 = d2/np.linalg.norm(d2)
+#     unit_tangents[i] = 0.5*(d1+d2)
 
-print(unit_tangents[0:10])
-up = np.column_stack((np.zeros_like(rsamp), np.ones_like(rsamp), np.zeros_like(rsamp)))
-normals = np.cross(up,unit_tangents)
-normals = normals/np.linalg.norm(normals, axis=1)[:,np.newaxis]
+
+
+
+
+# if negate_tangents:
+#     unit_tangents = -unit_tangents
+
+# up = np.column_stack((np.zeros_like(rsamp), np.ones_like(rsamp), np.zeros_like(rsamp)))
+# normals = np.cross(up,unit_tangents)
+# normals = normals/np.linalg.norm(normals, axis=1)[:,np.newaxis]
+# print(normals[0:20])
 # rout = Xin[0,0] + tsamp*(Xin[-1,0] - Xin[0,0])
 rout = rsamp# - rsamp[0]
 X = np.column_stack((rout,splinevals))
