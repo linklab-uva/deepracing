@@ -25,28 +25,24 @@ class F1_DATALOGGER_PUBLIC F1DataGrabManager
 {
   friend class F1DataLogger;
 public:
-  F1DataGrabManager(const deepf1::TimePoint& begin, const std::string host = "127.0.0.1", const unsigned int port = 20777, bool rebroadcast = false);
+  F1DataGrabManager(const deepf1::TimePoint& begin, const std::string host = "127.0.0.1", const unsigned int port = 20777);
   virtual ~F1DataGrabManager();
-   const std::map<uint8_t, std::string> packetIdMap = { {0,"MOTION"}, {1,"SESSION"}, {2,"LAPDATA"}, {3,"EVENT"}, {4,"PARTICIPANTS"}, {5,"CARSETUPS"}, {6,"CARTELEMETRY"}, {7,"CARSTATUS"} };
+   const std::map<deepf1::uint8, std::string> packetIdMap = { {0,"MOTION"}, {1,"SESSION"}, {2,"LAPDATA"}, {3,"EVENT"}, {4,"PARTICIPANTS"}, {5,"CARSETUPS"}, {6,"CARTELEMETRY"}, {7,"CARSTATUS"}, {8,"FINAL_CLASSIFICATION"}, {9,"LOBBY_INFO"} };
 private:
-  void run2017(std::shared_ptr<IF1DatagrabHandler> data_handler);
-  void run2018(std::shared_ptr<IF12018DataGrabHandler> data_handler);
-  void start(std::shared_ptr<IF1DatagrabHandler> data_handler);
-  void start(std::shared_ptr<IF12018DataGrabHandler> data_handler);
+  void run();
+  void start();
   void stop();
 
   static constexpr unsigned int BUFFER_SIZE = sizeof(deepf1::twenty_eighteen::PacketMotionData);
   boost::asio::io_service io_service_;
-  boost::asio::io_context rebroadcast_io_context_;
   boost::asio::ip::udp::socket socket_;
-  boost::asio::ip::udp::socket rebroadcast_socket_;
-  boost::asio::ip::udp::endpoint rebroadcast_remote_endpoint_;
   boost::asio::ip::udp::endpoint remote_endpoint_;
   std::thread run_thread_;
   bool running_;
-  bool rebroadcast_;
 
   deepf1::TimePoint begin_;
+  std::vector< std::shared_ptr<IF12018DataGrabHandler> > handlers2018;
+  std::vector< std::shared_ptr<IF12020DataGrabHandler> > handlers2020;
 };
 
 } /* namespace deepf1 */

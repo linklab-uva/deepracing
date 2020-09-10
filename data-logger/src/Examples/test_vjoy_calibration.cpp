@@ -67,7 +67,8 @@ int main(int argc, char** argv)
 	std::shared_ptr<VJoyCalibration_FrameGrabHandler> image_handler(new VJoyCalibration_FrameGrabHandler());
 	std::shared_ptr<deepf1::MeasurementHandler2018> udp_handler(new deepf1::MeasurementHandler2018());
 	deepf1::F1DataLogger dl(search);
-	dl.start(60.0, udp_handler, image_handler);
+	dl.add2018UDPHandler(udp_handler);
+	dl.start(60.0, image_handler);
 	std::unique_ptr<deepf1::VJoyInterface> vjoyInterface(new deepf1::VJoyInterface);
 	unsigned int min = vjoy_plusplus::vJoy::minAxisvalue(), max = vjoy_plusplus::vJoy::maxAxisvalue();
 	unsigned int middle = (min + max) / 2;

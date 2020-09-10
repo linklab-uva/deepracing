@@ -8,6 +8,7 @@
 #include "f1_datalogger/image_logging/common/multi_threaded_framegrab_handler.h"
 #include "f1_datalogger/udp_logging/common/multi_threaded_udp_handler.h"
 #include "f1_datalogger/udp_logging/common/multi_threaded_udp_handler_2018.h"
+#include "f1_datalogger/udp_logging/common/rebroadcast_handler_2018.h"
 #include <iostream>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -159,16 +160,24 @@ int main(int argc, char** argv)
 
 
   std::cout<<"Creating DataLogger" <<std::endl;
-  std::shared_ptr<deepf1::F1DataLogger> dl( new deepf1::F1DataLogger( search_string, "127.0.0.1", udp_port, rebroadcast) );
+  std::shared_ptr<deepf1::F1DataLogger> dl( new deepf1::F1DataLogger( search_string, "127.0.0.1", udp_port) );
   std::cout<<"Created DataLogger" <<std::endl;
+  
 
 
   std::string inp;
   std::cout<<"Enter anything to start capture" << std::endl;
   std::cin >> inp;
 	std::cout << "Starting capture in " << initial_delay_time << " seconds." << std::endl;
+  std::shared_ptr<deepf1::RebroadcastHandler2018> rbh;
+  if(rebroadcast)
+  {
+    rbh.reset(new deepf1::RebroadcastHandler2018());
+    dl->add2018UDPHandler(rbh);
+  }
 	std::this_thread::sleep_for(std::chrono::microseconds((long)std::round(initial_delay_time*1E6)));
-	dl->start(image_capture_frequency, udp_handler  , frame_handler );
+  dl->add2018UDPHandler(udp_handler);
+	dl->start(image_capture_frequency , frame_handler );
   
   std::cout<<"Started recording. Enter anything to stop"<<std::endl;
   std::string lol;

@@ -18,14 +18,13 @@ namespace deepf1
 class F1_DATALOGGER_PUBLIC F1DataLogger
 {
 public:
-  F1DataLogger(const std::string& search_string, std::string host="127.0.0.1", unsigned int port= 20777, bool rebroadcast = false);
+  F1DataLogger(const std::string& search_string, std::string host="127.0.0.1", unsigned int port= 20777);
   virtual ~F1DataLogger();
 
   static void countdown(unsigned int seconds, std::string txt="");
-  void start(double capture_frequency, std::shared_ptr<IF1DatagrabHandler> udp_handler, std::shared_ptr<IF1FrameGrabHandler> image_handler);
-  void start(double capture_frequency, std::shared_ptr<IF12018DataGrabHandler> udp_handler, std::shared_ptr<IF1FrameGrabHandler> image_handler);
-
-
+  void start(double capture_frequency, std::shared_ptr<IF1FrameGrabHandler> image_handler);
+  void add2018UDPHandler(std::shared_ptr<IF12018DataGrabHandler> udp_handler);
+  void add2020UDPHandler(std::shared_ptr<IF12020DataGrabHandler> udp_handler);
   void stop();
 
   const deepf1::TimePoint getStart() const;

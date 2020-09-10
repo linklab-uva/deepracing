@@ -11,6 +11,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <sstream>
+#include "f1_datalogger/udp_logging/common/rebroadcast_handler_2018.h"
 #include "f1_datalogger/udp_logging/common/measurement_handler.h"
 #include <filesystem>
 #include <boost/program_options.hpp>
@@ -58,8 +59,11 @@ int main(int argc, char** argv)
 	std::shared_ptr<deepf1::MeasurementHandler2018> udp_handler(new deepf1::MeasurementHandler2018());
 	std::shared_ptr<deepf1::IF1FrameGrabHandler> image_handler;
 
-	deepf1::F1DataLogger dl(search_string, "127.0.0.1", 20777U, true);
-	dl.start(30.0, udp_handler, image_handler);
+	deepf1::F1DataLogger dl(search_string, "127.0.0.1", 20777U);
+	std::shared_ptr<deepf1::RebroadcastHandler2018> rbh(new deepf1::RebroadcastHandler2018());
+	dl.add2018UDPHandler(rbh);
+	dl.add2018UDPHandler(udp_handler);
+	dl.start(30.0, image_handler);
 	deepf1::PurePursuitController control(udp_handler,lookahead_gain, 3.629597, .27, velocity);
 	deepf1::F1DataLogger::countdown(3, "Running pure pursuit in ");
 	control.run(trackfile, kp, ki, kd, velocity_lookahead_gain);

@@ -184,7 +184,8 @@ int main(int argc, char** argv)
   std::shared_ptr<ProtoRebroadcaster_2018DataGrabHandler> udp_handler(new ProtoRebroadcaster_2018DataGrabHandler("127.0.0.1", 50052));
   std::string inp;
   deepf1::F1DataLogger dl(search);  
-  dl.start(60.0, udp_handler, image_handler);
+  dl.add2018UDPHandler(udp_handler);
+  dl.start(60.0, image_handler);
   std::cout<<"Ctl-c to exit."<<std::endl;
   while (true)
   {

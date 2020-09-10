@@ -46,6 +46,7 @@ common/multi_threaded_udp_handler.cpp
 common/multi_threaded_udp_handler_2018.cpp
 common/measurement_handler.cpp
 common/measurement_handler_2018.cpp
+common/rebroadcast_handler_2018.cpp
 )
 add_library( ${PROJECT_NAME}_udp_logging_common ${${PROJECT_NAME}_udp_logging_common_src} )
 set(udp_logging_common_libs

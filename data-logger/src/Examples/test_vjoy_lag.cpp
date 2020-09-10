@@ -184,7 +184,8 @@ int main(int argc, char** argv)
   std::string asdf;
   std::cin >> asdf;
   std::cout<<"Starting test in 3 seconds."<<std::endl;
-  dl.start(35.0, udp_handler, image_handler);
+  dl.add2018UDPHandler(udp_handler);
+  dl.start(35.0, image_handler);
   udp_handler->run();
   std::this_thread::sleep_for(std::chrono::seconds(3));
   std::chrono::duration<double, std::milli> starttime = (std::chrono::high_resolution_clock::now() - udp_handler->begin);

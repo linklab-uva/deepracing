@@ -11,7 +11,7 @@
 namespace deepf1
 {
 
-F1DataLogger::F1DataLogger(const std::string& search_string, std::string host, unsigned int port, bool rebroadcast) :
+F1DataLogger::F1DataLogger(const std::string& search_string, std::string host, unsigned int port) :
     host_(host), port_(port), clock_(new std::chrono::high_resolution_clock()) 
 
 {
@@ -20,7 +20,7 @@ F1DataLogger::F1DataLogger(const std::string& search_string, std::string host, u
   std::cout<<"Creating managers"<<std::endl;
 	
   std::cout << "Creating Data Grab Manager" << std::endl;
-  data_grab_manager_.reset(new F1DataGrabManager(begin_, host, port, rebroadcast));
+  data_grab_manager_.reset(new F1DataGrabManager(begin_, host, port));
   std::cout << "Created Data Grab Manager" << std::endl;
   
 	
@@ -59,9 +59,16 @@ void F1DataLogger::stop()
 		data_grab_manager_->stop();
 	}
 }
+void F1DataLogger::add2018UDPHandler(std::shared_ptr<IF12018DataGrabHandler> udp_handler)
+{
+	data_grab_manager_->handlers2018.push_back(udp_handler);
+}
+void F1DataLogger::add2020UDPHandler(std::shared_ptr<IF12020DataGrabHandler> udp_handler)
+{
+	data_grab_manager_->handlers2020.push_back(udp_handler);
+}
 
 void F1DataLogger::start(double capture_frequency, 
-std::shared_ptr<IF12018DataGrabHandler> udp_handler, 
 std::shared_ptr<IF1FrameGrabHandler> image_handler)
 {
 	if (bool(image_handler))
@@ -74,31 +81,11 @@ std::shared_ptr<IF1FrameGrabHandler> image_handler)
 	  image_handler->init(begin_, size);
 		frame_grab_manager_->start(capture_frequency, image_handler);
 	}
-	if (bool(udp_handler))
+	if (!data_grab_manager_->handlers2018.empty())
 	{
-		udp_handler->init(host_, port_, begin_);
-	  	data_grab_manager_->start(udp_handler);
-	}
-}
-
-void F1DataLogger::start(double capture_frequency, 
-std::shared_ptr<IF1DatagrabHandler> udp_handler, 
-std::shared_ptr<IF1FrameGrabHandler> image_handler)
-{
-	if (bool(udp_handler))
-	{
-			udp_handler->init(host_, port_, begin_);
-	  	data_grab_manager_->start(udp_handler);
-	}
-	if (bool(image_handler))
-	{
-	  const scl::Window& window = frame_grab_manager_->window_;
-	  cv::Size size;
-	  size.height = window.Size.y;
-	  size.width = window.Size.x;
-	  std::cout << "Got a Window of Size (W x H): " << std::endl << size << std::endl;
-	  image_handler->init(begin_, size);
-		frame_grab_manager_->start(capture_frequency, image_handler);
+		std::for_each(data_grab_manager_->handlers2018.begin(), data_grab_manager_->handlers2018.end(), 
+		[this](std::shared_ptr<IF12018DataGrabHandler> data_handler){ if(bool(data_handler)){data_handler->init(host_,port_,begin_);}});
+		data_grab_manager_->start();
 	}
 }
 

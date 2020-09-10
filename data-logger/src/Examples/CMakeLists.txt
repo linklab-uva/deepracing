@@ -1,7 +1,6 @@
 
 set(${PROJECT_NAME}_generate_vjoy_calibration_srcfile generate_vjoy_calibration.cpp)
 set(${PROJECT_NAME}_test_vjoy_calibration_srcfile test_vjoy_calibration.cpp)
-set(${PROJECT_NAME}_go_in_circle_srcfile go_in_circle.cpp)
 
 
 add_executable(${PROJECT_NAME}_cv_viewer_example

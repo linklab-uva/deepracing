@@ -178,7 +178,8 @@ int main(int argc, char** argv)
   std::shared_ptr<OpenCV_Viewer_Example_2018DataGrabHandler> udp_handler(new OpenCV_Viewer_Example_2018DataGrabHandler());
   std::string inp;
   deepf1::F1DataLogger dl(search);  
-  dl.start((double)OpenCV_Viewer_Example_FrameGrabHandler::captureFreq, udp_handler, image_handler);
+  dl.add2018UDPHandler(udp_handler);
+  dl.start((double)OpenCV_Viewer_Example_FrameGrabHandler::captureFreq, image_handler);
   std::cout<<"Enter anything to exit."<<std::endl;
   std::string asdf;
   std::cin >> asdf;
