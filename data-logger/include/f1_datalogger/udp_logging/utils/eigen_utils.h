@@ -1,11 +1,12 @@
 #ifndef F1_DATALOGGER_EIGEN_UTILS_H
 #define F1_DATALOGGER_EIGEN_UTILS_H
+#include <f1_datalogger/visibility_control.h>
 #include <vector>
 #include <Eigen/Geometry>
 #include "f1_datalogger/proto/CarMotionData.pb.h"
-#include "f1_datalogger/car_data/car_data.h"
+#include "f1_datalogger/car_data/f1_2018/car_data.h"
+#include "f1_datalogger/car_data/f1_2020/car_data.h"
 #include "f1_datalogger/proto/Pose3d.pb.h"
-#include <f1_datalogger/visibility_control.h>
 
 
 namespace deepf1

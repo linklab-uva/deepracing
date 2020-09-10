@@ -5,7 +5,6 @@
  *      Author: ttw2xk
  */
 #include "f1_datalogger/f1_datalogger.h"
-//#include "image_logging/utils/screencapture_lite_utils.h"
 #include <iostream>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -31,12 +30,12 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData& data) override
   {
-    const int8_t& steer_value = data.data.m_carTelemetryData[car_index].m_steer;
-    const int8_t& throttle_value = data.data.m_carTelemetryData[car_index].m_throttle;
-    const int8_t& brake_value = data.data.m_carTelemetryData[car_index].m_brake;
-	  std::printf("Got a telemetry packet. Steering Ratio: %f\n", ((double)steer_value)/100.0);
-	  std::printf("Got a telemetry packet. Throttle Ratio: %f\n", ((double)throttle_value)/100.0);
-	  std::printf("Got a telemetry packet. Brake Ratio: %f\n", ((double)brake_value)/100.0);
+    // const int8_t& steer_value = data.data.m_carTelemetryData[car_index].m_steer;
+    // const int8_t& throttle_value = data.data.m_carTelemetryData[car_index].m_throttle;
+    // const int8_t& brake_value = data.data.m_carTelemetryData[car_index].m_brake;
+	  // std::printf("Got a telemetry packet. Steering Ratio: %f\n", ((double)steer_value)/100.0);
+	  // std::printf("Got a telemetry packet. Throttle Ratio: %f\n", ((double)throttle_value)/100.0);
+	  // std::printf("Got a telemetry packet. Brake Ratio: %f\n", ((double)brake_value)/100.0);
 	 // std::printf("Got a telemetry packet. Steering Ratio: %f\n", data.data.m_carTelemetryData[car_index].m_steer);
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketEventData& data) override
@@ -48,8 +47,8 @@ public:
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketMotionData& data) override
   {
-    
-	  //std::printf("Got a motion packet. Front wheel angle: %f\n", data.data.m_frontWheelsAngle);
+    const deepf1::twenty_eighteen::CarMotionData& car_data = data.data.m_carMotionData[car_index];
+	  std::printf("Car position (X,Y,Z): (%f,%f,%f)\n", car_data.m_worldPositionX, car_data.m_worldPositionY, car_data.m_worldPositionZ);
     
   }
   virtual inline void handleData(const deepf1::twenty_eighteen::TimestampedPacketParticipantsData& data) override
@@ -173,11 +172,12 @@ int main(int argc, char** argv)
   {
     scale_factor = std::stod(std::string(argv[2]));
   }
-  std::shared_ptr<OpenCV_Viewer_Example_FrameGrabHandler> image_handler(new OpenCV_Viewer_Example_FrameGrabHandler());
+  //std::shared_ptr<OpenCV_Viewer_Example_FrameGrabHandler> image_handler(new OpenCV_Viewer_Example_FrameGrabHandler());
+  //image_handler->scale_factor=scale_factor;
+  std::shared_ptr<deepf1::IF1FrameGrabHandler> image_handler;
   std::shared_ptr<OpenCV_Viewer_Example_2018DataGrabHandler> udp_handler(new OpenCV_Viewer_Example_2018DataGrabHandler());
   std::string inp;
   deepf1::F1DataLogger dl(search);  
-  image_handler->scale_factor=scale_factor;
   dl.start((double)OpenCV_Viewer_Example_FrameGrabHandler::captureFreq, udp_handler, image_handler);
   std::cout<<"Enter anything to exit."<<std::endl;
   std::string asdf;

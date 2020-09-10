@@ -1,6 +1,7 @@
 #ifndef F1_DATALOGGER_ROS_F1_MSG_UTILS_H
 #define F1_DATALOGGER_ROS_F1_MSG_UTILS_H
-#include "f1_datalogger/car_data/timestamped_car_data.h"
+#include "f1_datalogger/car_data/f1_2018/car_data.h"
+#include "f1_datalogger/car_data/f1_2020/car_data.h"
 #include "f1_datalogger_msgs/msg/packet_header.hpp"
 #include "f1_datalogger_msgs/msg/packet_motion_data.hpp"
 #include "f1_datalogger_msgs/msg/packet_car_setup_data.hpp"

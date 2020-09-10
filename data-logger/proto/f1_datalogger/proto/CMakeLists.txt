@@ -3,7 +3,7 @@ file(GLOB PROTOFILES
 )
 # protobuf_generate(OUT_VAR ${PROJECT_NAME}_PROTO_SRC ${PROJECT_NAME}_PROTO_HEADER EXPORT_MACRO F1_DATALOGGER_PROTO_DLL_MACRO LANGUAGE cpp ${PROTOFILES}  )
 
-if(BUILD_SHARED_LIBS AND WIN32)
+if(BUILD_SHARED_LIBS)
   protobuf_generate(OUT_VAR ${PROJECT_NAME}_PROTO_CPP_SOURCES EXPORT_MACRO F1_DATALOGGER_PROTO_DLL_MACRO LANGUAGE cpp PROTOS ${PROTOFILES}  )
 else()
   protobuf_generate(OUT_VAR ${PROJECT_NAME}_PROTO_CPP_SOURCES LANGUAGE cpp PROTOS ${PROTOFILES}  )
@@ -30,11 +30,14 @@ target_include_directories(${PROJECT_NAME}_proto
   $<INSTALL_INTERFACE:include> 
 )
 target_link_libraries(${PROJECT_NAME}_proto PUBLIC ${PROTO_LIBS})
-if(BUILD_SHARED_LIBS AND WIN32)
-  target_compile_definitions(${PROJECT_NAME}_proto PRIVATE "F1_DATALOGGER_PROTO_DLL_MACRO=__declspec(dllexport)")
-  target_compile_definitions(${PROJECT_NAME}_proto INTERFACE "F1_DATALOGGER_PROTO_DLL_MACRO=__declspec(dllimport)")
-else()
-  target_compile_definitions(${PROJECT_NAME}_proto PUBLIC "F1_DATALOGGER_PROTO_DLL_MACRO")
+if(BUILD_SHARED_LIBS)
+  if(MSVC)
+    target_compile_definitions(${PROJECT_NAME}_proto PRIVATE "F1_DATALOGGER_PROTO_DLL_MACRO=__declspec(dllexport)")
+  elseif(CYGWIN)
+    target_compile_definitions(${PROJECT_NAME}_proto PRIVATE "F1_DATALOGGER_PROTO_DLL_MACRO=__attribute__((dllexport))")
+  else()
+    target_compile_definitions(${PROJECT_NAME}_proto PRIVATE "F1_DATALOGGER_PROTO_DLL_MACRO=__attribute__((visibility(\"default\")))")
+  endif()
 endif()
 set(install_targets
 #libraries

@@ -2,7 +2,7 @@
 #include <string>
 #include <utility>
 #include <vector>
-
+#include <f1_datalogger/visibility_control.h>
 #include "rosbag2_cpp/reader.hpp"
 #include "rosbag2_cpp/readers/sequential_reader.hpp"
 #include "rosbag2_cpp/typesupport_helpers.hpp"
@@ -13,7 +13,6 @@
 #include "rosbag2_storage/topic_metadata.hpp"
 #include "rosbag2_storage/storage_factory.hpp"
 #include <rclcpp/rclcpp.hpp>
-#include <f1_datalogger_msgs/msg/bezier_curve.h>
 #include <filesystem>
 #include <unordered_map>
 #include <sstream>

@@ -1,30 +1,36 @@
 
 
-#ifndef PACK
-#ifdef _MSC_VER
-#define PACK( __Declaration__ ) __pragma( pack(push, 1) ) __Declaration__ __pragma( pack(pop) )
-#else
-#define PACK( __Declaration__ ) __Declaration__ __attribute__((__packed__))
-#endif
-#endif
 
 
-#ifndef F1_DATALOGGER_CAR_DATA_H
-#define F1_DATALOGGER_CAR_DATA_H
-#include <cstdint>
+#ifndef INCLUDE_F1_2018_CAR_DATA_H
+#define INCLUDE_F1_2018_CAR_DATA_H
+#include <f1_datalogger/car_data/typedefs.h>
 
 namespace deepf1{
 namespace twenty_eighteen{
+
+	enum PacketID
+	{
+		MOTION=0,
+		SESSION=1,
+		LAPDATA=2,
+		EVENT=3,
+		PARTICIPANTS=4,
+		CARSETUPS=5,
+		CARTELEMETRY=6,
+		CARSTATUS=7
+	};
+
 	PACK(
 	struct PacketHeader
 	{
-		uint16_t    m_packetFormat;         // 2018
-		uint8_t     m_packetVersion;        // Version of this packet type, all start from 1
-		uint8_t     m_packetId;             // Identifier for the packet type, see below
-		uint64_t    m_sessionUID;           // Unique identifier for the session
+		uint16    m_packetFormat;         // 2018
+		uint8      m_packetVersion;        // Version of this packet type, all start from 1
+		uint8      m_packetId;             // Identifier for the packet type, see below
+		uint64     m_sessionUID;           // Unique identifier for the session
 		float       m_sessionTime;          // Session timestamp
-		uint32_t    m_frameIdentifier;      // Identifier for the frame the data was retrieved on
-		uint8_t     m_playerCarIndex;       // Index of player's car in the array
+		uint     m_frameIdentifier;      // Identifier for the frame the data was retrieved on
+		uint8     m_playerCarIndex;       // Index of player's car in the array
 	}
 	);
 	PACK(

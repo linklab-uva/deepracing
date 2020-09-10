@@ -1,7 +1,6 @@
 
 set(${PROJECT_NAME}_generate_vjoy_calibration_srcfile generate_vjoy_calibration.cpp)
 set(${PROJECT_NAME}_test_vjoy_calibration_srcfile test_vjoy_calibration.cpp)
-set(${PROJECT_NAME}_replay_dataset_srcfile replay_dataset.cpp)
 set(${PROJECT_NAME}_go_in_circle_srcfile go_in_circle.cpp)
 
 
@@ -83,22 +82,6 @@ if(MSVC)
 		vjoy::vJoy_plusplus
 	)
 		
-	add_executable(${PROJECT_NAME}_replay_dataset
-	${${PROJECT_NAME}_replay_dataset_srcfile}
-	)
-	target_link_libraries(${PROJECT_NAME}_replay_dataset
-		${PROJECT_NAME}
-		${PROJECT_NAME}_image_logging
-		${PROJECT_NAME}_image_logging_common
-		${PROJECT_NAME}_image_utils
-		${PROJECT_NAME}_proto
-		${PROJECT_NAME}_udp_logging
-		${PROJECT_NAME}_udp_logging_common
-		${Boost_TARGETS}
-		${screen_capture_lite_LIBRARIES}
-		${screen_capture_lite_PLATFORM_LIBS}
-		vjoy::vJoy_plusplus
-	)
 	add_executable(${PROJECT_NAME}_test_vjoy_lag
 	  test_vjoy_lag.cpp
 	)
@@ -121,7 +104,7 @@ if(MSVC)
 	if(YAML_CPP_DLL)
 		target_compile_definitions(${PROJECT_NAME}_test_vjoy_lag PRIVATE "YAML_CPP_DLL")
 	endif()
-	list(APPEND install_targets ${PROJECT_NAME}_replay_dataset ${PROJECT_NAME}_test_vjoy_calibration ${PROJECT_NAME}_generate_vjoy_calibration ${PROJECT_NAME}_test_vjoy_lag)
+	list(APPEND install_targets ${PROJECT_NAME}_test_vjoy_calibration ${PROJECT_NAME}_generate_vjoy_calibration ${PROJECT_NAME}_test_vjoy_lag)
 endif()
 
 	

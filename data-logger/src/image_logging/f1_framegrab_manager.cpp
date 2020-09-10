@@ -81,10 +81,9 @@ std::vector<scl::Monitor> monitorCB_()
   }
   return rtn;
 }
-F1FrameGrabManager::F1FrameGrabManager(ClockPtr clock,
-                                       const std::string& search_string)
+F1FrameGrabManager::F1FrameGrabManager(const deepf1::TimePoint& begin, const std::string& search_string)
 {
-  clock_ = clock;
+  begin_ = deepf1::TimePoint(begin);
   std::cout << "Looking for an application with the search string " << search_string << std::endl;
   window_ = findWindow(search_string);
   capture_config_ = scl::CreateCaptureConfiguration( (scl::WindowCallback)std::bind(&F1FrameGrabManager::get_windows_, this));
@@ -113,21 +112,19 @@ std::vector<scl::Window> F1FrameGrabManager::get_windows_()
 }
 void F1FrameGrabManager::onNewFrame_(const scl::Image &img, const scl::Window &monitor, std::shared_ptr<IF1FrameGrabHandler> capture_handler)
 {
-  TimestampedImageData timestamped_image;
-  timestamped_image.timestamp = clock_->now();
+  deepf1::TimePoint ts = deepf1::Clock::now();
   if (capture_handler->isReady())
   {
-    timestamped_image.image = deepf1::OpenCVUtils::toCV(img, monitor.Size);
+    TimestampedImageData timestamped_image(ts, deepf1::OpenCVUtils::toCV(img, monitor.Size));
     capture_handler->handleData(timestamped_image);
   }
 }
 void F1FrameGrabManager::onNewScreenFrame_(const scl::Image &img, const scl::Monitor &monitor, std::shared_ptr<IF1FrameGrabHandler> capture_handler)
 {
-  TimestampedImageData timestamped_image;
-  timestamped_image.timestamp = clock_->now();
+  deepf1::TimePoint ts = deepf1::Clock::now();
   if (capture_handler->isReady())
   {
-    deepf1::OpenCVUtils::toCV(img, scl::Point({monitor.Width, monitor.Height}), timestamped_image.image);
+    TimestampedImageData timestamped_image(ts, deepf1::OpenCVUtils::toCV(img, scl::Point({monitor.Width, monitor.Height})));
     capture_handler->handleData(timestamped_image);
   }
 }

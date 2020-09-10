@@ -12,10 +12,11 @@
 namespace deepf1
 {
 
-F1DataGrabManager::F1DataGrabManager(std::shared_ptr<std::chrono::high_resolution_clock> clock,const std::string host,
+F1DataGrabManager::F1DataGrabManager(const deepf1::TimePoint& begin,const std::string host,
                                      const unsigned int port, bool rebroadcast) :
     socket_(io_service_), rebroadcast_socket_(rebroadcast_io_context_), running_(true), rebroadcast_(rebroadcast)
 {
+  begin_ = deepf1::TimePoint(begin);
   //socket_.set_option(boost::asio::ip::udp::socket::reuse_address(true));
   socket_.open(boost::asio::ip::udp::v4());
 
@@ -37,7 +38,6 @@ F1DataGrabManager::F1DataGrabManager(std::shared_ptr<std::chrono::high_resolutio
 	  socket_.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(host), port));
     std::cout << "Bound socket " << std::endl;
   }
-  clock_ = clock;
 }
 F1DataGrabManager::~F1DataGrabManager()
 {
@@ -54,7 +54,7 @@ void F1DataGrabManager::run2017(std::shared_ptr<IF1DatagrabHandler> data_handler
     std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(&(data.data), BUFFER_SIZE), remote_endpoint_, 0, error);
     if (bool(data_handler) && data_handler->isReady())
     {
-	  data.timestamp = clock_->now();
+	    data.timestamp = deepf1::Clock::now();//clock_->now();
       data_handler->handleData(data);
     }
   }
@@ -93,7 +93,7 @@ void F1DataGrabManager::run2018(std::shared_ptr<IF12018DataGrabHandler> data_han
   while (running_)
   {
     std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(buffer, BUFFER_SIZE), remote_endpoint_, 0, error);
-    timestamp = clock_->now();
+    timestamp = deepf1::Clock::now();
    // std::printf("Received %lu bytes\n", received_bytes);
     header = reinterpret_cast<deepf1::twenty_eighteen::PacketHeader*>(buffer);
     if (rebroadcast_)
@@ -115,20 +115,6 @@ void F1DataGrabManager::run2018(std::shared_ptr<IF12018DataGrabHandler> data_han
     if (bool(data_handler) && data_handler->isReady())
     {
 
-      /*
-	    std::printf("Packet Type: %s. Number of bytes: %zu \n", packetIdMap.at(header->m_packetId).c_str(), received_bytes);
-       *enum PacketID
-        {
-          MOTION=0,
-          SESSION=1,
-          LAPDATA=2,
-          EVENT=3,
-          PARTICIPANTS=4,
-          CARSETUPS=5,
-          CARTELEMETRY=6,
-          CARSTATUS=7
-        };
-      */
       switch(header->m_packetId)
       {
         case deepf1::twenty_eighteen::PacketID::MOTION:

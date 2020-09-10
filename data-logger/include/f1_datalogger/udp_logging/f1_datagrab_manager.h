@@ -13,6 +13,7 @@
 #include <memory>
 #include "f1_datalogger/udp_logging/f1_datagrab_handler.h"
 #include "f1_datalogger/udp_logging/f1_2018_datagrab_handler.h"
+#include "f1_datalogger/udp_logging/f1_2020_datagrab_handler.h"
 #include "f1_datalogger/udp_logging/f1_protocol_versions.h"
 #include <chrono>
 #include <map>
@@ -24,7 +25,7 @@ class F1_DATALOGGER_PUBLIC F1DataGrabManager
 {
   friend class F1DataLogger;
 public:
-  F1DataGrabManager(std::shared_ptr<std::chrono::high_resolution_clock> clock, const std::string host = "127.0.0.1", const unsigned int port = 20777, bool rebroadcast = false);
+  F1DataGrabManager(const deepf1::TimePoint& begin, const std::string host = "127.0.0.1", const unsigned int port = 20777, bool rebroadcast = false);
   virtual ~F1DataGrabManager();
    const std::map<uint8_t, std::string> packetIdMap = { {0,"MOTION"}, {1,"SESSION"}, {2,"LAPDATA"}, {3,"EVENT"}, {4,"PARTICIPANTS"}, {5,"CARSETUPS"}, {6,"CARTELEMETRY"}, {7,"CARSTATUS"} };
 private:
@@ -45,8 +46,7 @@ private:
   bool running_;
   bool rebroadcast_;
 
-
-  ClockPtr clock_;
+  deepf1::TimePoint begin_;
 };
 
 } /* namespace deepf1 */

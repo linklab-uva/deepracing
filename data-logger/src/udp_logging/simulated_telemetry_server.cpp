@@ -7,7 +7,8 @@
 
 
 
-#include "f1_datalogger/car_data/timestamped_car_data.h"
+#include "f1_datalogger/car_data/f1_2018/car_data.h"
+#include "f1_datalogger/car_data/f1_2020/car_data.h"
 #include <boost/program_options.hpp>
 #include <iostream>
 #include <boost/asio.hpp>

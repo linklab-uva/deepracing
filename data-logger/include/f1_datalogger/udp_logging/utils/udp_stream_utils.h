@@ -1,7 +1,9 @@
 #ifndef F1_DATALOGGER_UDP_STREAM_UTILS_H
 #define F1_DATALOGGER_UDP_STREAM_UTILS_H
+#include <f1_datalogger/visibility_control.h>
 #include "f1_datalogger/proto/UDPData.pb.h"
-#include "f1_datalogger/car_data/car_data.h"
+#include "f1_datalogger/car_data/f1_2018/car_data.h"
+#include "f1_datalogger/car_data/f1_2020/car_data.h"
 #include "f1_datalogger/proto/PacketHeader.pb.h"
 #include "f1_datalogger/proto/PacketCarStatusData.pb.h"
 #include "f1_datalogger/proto/PacketCarSetupData.pb.h"
@@ -11,7 +13,6 @@
 #include "f1_datalogger/proto/PacketMotionData.pb.h"
 #include "f1_datalogger/proto/PacketParticipantsData.pb.h"
 #include "f1_datalogger/proto/PacketSessionData.pb.h"
-#include <f1_datalogger/visibility_control.h>
 
 namespace deepf1
 {

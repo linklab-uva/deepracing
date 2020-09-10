@@ -12,25 +12,23 @@ namespace deepf1
 {
 
 F1DataLogger::F1DataLogger(const std::string& search_string, std::string host, unsigned int port, bool rebroadcast) :
-    clock_(new std::chrono::high_resolution_clock()), host_(host), port_(port)
+    host_(host), port_(port), clock_(new std::chrono::high_resolution_clock()) 
 
 {
-  begin_ = deepf1::Clock::time_point(clock_->now());
+
+  begin_ = deepf1::TimePoint(deepf1::Clock::now());//(clock_->now());
   std::cout<<"Creating managers"<<std::endl;
 	
   std::cout << "Creating Data Grab Manager" << std::endl;
-  data_grab_manager_.reset(new F1DataGrabManager(clock_, host, port, rebroadcast));
+  data_grab_manager_.reset(new F1DataGrabManager(begin_, host, port, rebroadcast));
   std::cout << "Created Data Grab Manager" << std::endl;
   
 	
-	std::cout << "Creating Frame Grab Manager" << std::endl;
-	frame_grab_manager_.reset(new F1FrameGrabManager(clock_, search_string));
-	std::cout << "Created Frame Grab Manager" << std::endl;
+  std::cout << "Creating Frame Grab Manager" << std::endl;
+  frame_grab_manager_.reset(new F1FrameGrabManager(begin_, search_string));
+  std::cout << "Created Frame Grab Manager" << std::endl;
   
   std::cout<<"Created managers"<<std::endl;
-  
- 
-
 
 }
 F1DataLogger::~F1DataLogger()

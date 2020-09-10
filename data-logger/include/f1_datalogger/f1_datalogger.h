@@ -7,9 +7,11 @@
 
 #ifndef INCLUDE_F1_DATALOGGER_H_ 
 #define INCLUDE_F1_DATALOGGER_H_
+#include <f1_datalogger/visibility_control.h>
+#ifdef F1_DATALOGGER_PROTO_DLL_MACRO
+#endif
 #include "image_logging/f1_framegrab_manager.h"
 #include "udp_logging/f1_datagrab_manager.h"
-#include <f1_datalogger/visibility_control.h>
 namespace deepf1
 {
 
@@ -31,12 +33,13 @@ private:
   std::shared_ptr<F1FrameGrabManager> frame_grab_manager_;
   std::shared_ptr<F1DataGrabManager> data_grab_manager_;
 
-  ClockPtr clock_;
 
   deepf1::TimePoint begin_;
 
   std::string host_;
   unsigned int port_;
+  
+  ClockPtr clock_;
 
 };
 

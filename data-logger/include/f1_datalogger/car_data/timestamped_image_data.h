@@ -7,8 +7,15 @@
 namespace deepf1
 {
 	struct timestamped_image_data {
-		cv::Mat image;
-		TimePoint timestamp;
+		public:
+			struct timestamped_image_data() = default;
+			struct timestamped_image_data(const TimePoint& timestamp, const cv::Mat& image)
+			{
+				this->image = image;
+				this->timestamp = timestamp;
+			}
+			cv::Mat image;
+			TimePoint timestamp;
 	};typedef struct timestamped_image_data TimestampedImageData;
 }
 

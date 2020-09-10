@@ -4,10 +4,9 @@
  *  Created on: Dec 5, 2018
  *      Author: ttw2xk
  */
-
 #ifndef INCLUDE_UDP_LOGGING_F1_2018_DATAGRAB_HANDLER_H_
 #define INCLUDE_UDP_LOGGING_F1_2018_DATAGRAB_HANDLER_H_
-#include "f1_datalogger/car_data/timestamped_car_data.h"
+#include "f1_datalogger/car_data/f1_2018/timestamped_car_data.h"
 #include <string>
 #include <f1_datalogger/visibility_control.h>
 

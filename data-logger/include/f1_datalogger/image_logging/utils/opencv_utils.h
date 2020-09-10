@@ -7,10 +7,10 @@
 
 #ifndef INCLUDE_OPENCV_UTILS_H_
 #define INCLUDE_OPENCV_UTILS_H_
+#include <f1_datalogger/visibility_control.h>
 #include "ScreenCapture.h"
 #include "opencv2/core.hpp"
 #include "f1_datalogger/proto/Image.pb.h"
-#include <f1_datalogger/visibility_control.h>
 
 namespace deepf1
 {

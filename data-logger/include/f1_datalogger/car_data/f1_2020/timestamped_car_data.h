@@ -1,39 +1,14 @@
-#ifndef TIMESTAMPED_CAR_DATA_H
-#define TIMESTAMPED_CAR_DATA_H
+#ifndef INCLUDE_F1_2020_TIMESTAMPED_CAR_DATA_H
+#define INCLUDE_F1_2020_TIMESTAMPED_CAR_DATA_H
 
 
-#include "f1_datalogger/car_data/car_data.h"
+#include "f1_datalogger/car_data/f1_2020/car_data.h"
 #include "f1_datalogger/car_data/time_point.h"
 namespace deepf1
 {
-	struct timestamped_udp_data {
-		UDPPacket2017 data;
-		TimePoint timestamp;
-	}; 
-	typedef struct timestamped_udp_data TimestampedUDPData;
-/*
-  virtual void handleData(const deepf1::twenty_eighteen::PacketCarSetupData& data) = 0;
-  virtual void handleData(const deepf1::twenty_eighteen::PacketCarStatusData& data) = 0;
-  virtual void handleData(const deepf1::twenty_eighteen::PacketCarTelemetryData& data) = 0;
-  virtual void handleData(const deepf1::twenty_eighteen::PacketEventData& data) = 0;
-  virtual void handleData(const deepf1::twenty_eighteen::PacketLapData& data) = 0;
-  virtual void handleData(const deepf1::twenty_eighteen::PacketMotionData& data) = 0;
-  virtual void handleData(const deepf1::twenty_eighteen::PacketParticipantsData& data) = 0;
-  virtual void handleData(const deepf1::twenty_eighteen::PacketSessionData& data) = 0;
-*/
-namespace twenty_eighteen
+
+namespace twenty_twenty
 {
-	enum PacketID
-	{
-		MOTION=0,
-		SESSION=1,
-		LAPDATA=2,
-		EVENT=3,
-		PARTICIPANTS=4,
-		CARSETUPS=5,
-		CARTELEMETRY=6,
-		CARSTATUS=7
-	};
 	struct TimestampedPacketCarSetupData{
 		TimestampedPacketCarSetupData(const PacketCarSetupData& data, const TimePoint& timestamp)
 		{
@@ -41,7 +16,7 @@ namespace twenty_eighteen
 			this->timestamp=timestamp;	
 		}
 		TimestampedPacketCarSetupData() = default;
-		deepf1::twenty_eighteen::PacketCarSetupData data;
+		deepf1::twenty_twenty::PacketCarSetupData data;
 		TimePoint timestamp;
 	};
 	struct TimestampedPacketCarStatusData{
@@ -51,7 +26,7 @@ namespace twenty_eighteen
 			this->timestamp=timestamp;	
 		}
 		TimestampedPacketCarStatusData() = default;
-		deepf1::twenty_eighteen::PacketCarStatusData data;
+		deepf1::twenty_twenty::PacketCarStatusData data;
 		TimePoint timestamp;
 	};
 	struct TimestampedPacketCarTelemetryData{
@@ -61,7 +36,7 @@ namespace twenty_eighteen
 			this->timestamp=timestamp;	
 		}
 		TimestampedPacketCarTelemetryData() = default;
-		deepf1::twenty_eighteen::PacketCarTelemetryData data;
+		deepf1::twenty_twenty::PacketCarTelemetryData data;
 		TimePoint timestamp;
 	};
 	struct TimestampedPacketEventData{
@@ -71,7 +46,7 @@ namespace twenty_eighteen
 			this->timestamp=timestamp;	
 		}
 		TimestampedPacketEventData() = default;
-		deepf1::twenty_eighteen::PacketEventData data;
+		deepf1::twenty_twenty::PacketEventData data;
 		TimePoint timestamp;
 	};
 	struct TimestampedPacketLapData{
@@ -81,7 +56,7 @@ namespace twenty_eighteen
 			this->timestamp=timestamp;	
 		}
 		TimestampedPacketLapData() = default;
-		deepf1::twenty_eighteen::PacketLapData data;
+		deepf1::twenty_twenty::PacketLapData data;
 		TimePoint timestamp;
 	};
 	struct TimestampedPacketMotionData{
@@ -91,7 +66,7 @@ namespace twenty_eighteen
 			this->timestamp=timestamp;	
 		}
 		TimestampedPacketMotionData() = default;
-		deepf1::twenty_eighteen::PacketMotionData data;
+		deepf1::twenty_twenty::PacketMotionData data;
 		TimePoint timestamp;
 	};
 	struct TimestampedPacketParticipantsData{
@@ -101,7 +76,7 @@ namespace twenty_eighteen
 			this->timestamp=timestamp;	
 		}
 		TimestampedPacketParticipantsData() = default;
-		deepf1::twenty_eighteen::PacketParticipantsData data;
+		deepf1::twenty_twenty::PacketParticipantsData data;
 		TimePoint timestamp;
 	};
 	struct TimestampedPacketSessionData{
@@ -111,7 +86,29 @@ namespace twenty_eighteen
 			this->timestamp=timestamp;	
 		}
 		TimestampedPacketSessionData () = default;
-		deepf1::twenty_eighteen::PacketSessionData data;
+		deepf1::twenty_twenty::PacketSessionData data;
+		TimePoint timestamp;
+	};
+	
+	struct TimestampedPacketFinalClassificationData{
+		TimestampedPacketFinalClassificationData(const PacketFinalClassificationData& data, const TimePoint& timestamp)
+		{
+			this->data=data;
+			this->timestamp=timestamp;	
+		}
+		TimestampedPacketFinalClassificationData () = default;
+		deepf1::twenty_twenty::PacketFinalClassificationData data;
+		TimePoint timestamp;
+	};
+	
+	struct TimestampedPacketLobbyInfoData{
+		TimestampedPacketLobbyInfoData(const PacketLobbyInfoData& data, const TimePoint& timestamp)
+		{
+			this->data=data;
+			this->timestamp=timestamp;	
+		}
+		TimestampedPacketLobbyInfoData () = default;
+		deepf1::twenty_twenty::PacketLobbyInfoData data;
 		TimePoint timestamp;
 	};
 }

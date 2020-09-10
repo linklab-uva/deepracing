@@ -20,8 +20,7 @@ class F1_DATALOGGER_PUBLIC F1FrameGrabManager
 
   friend class F1DataLogger;
 public:
-  F1FrameGrabManager(ClockPtr clock,
-                     const std::string& search_string = "F1");
+  F1FrameGrabManager(const deepf1::TimePoint& begin, const std::string& search_string = "F1");
   virtual ~F1FrameGrabManager();
 private:
   void stop();
@@ -29,8 +28,7 @@ private:
                     std::shared_ptr<IF1FrameGrabHandler> capture_handler);
 
 
-
-  ClockPtr clock_;
+  deepf1::TimePoint begin_;
 
   scl::Window window_;
 
