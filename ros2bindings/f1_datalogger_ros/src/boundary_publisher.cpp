@@ -5,6 +5,8 @@
 #include <filesystem>
 #include <fstream>
 #include <streambuf>
+#include <iostream>
+#include <cstdlib>
 #include "rclcpp/rclcpp.hpp"
 #include <pcl_conversions/pcl_conversions.h>
 #include <json/json.h>
@@ -206,7 +208,7 @@ int main(int argc, char** argv)
     f1_datalogger_msgs::msg::BoundaryLine innerBL, outerBL, racelineBL;
     geometry_msgs::msg::PoseArray innerPA, outerPA, racelinePA;
 
-    rclcpp::ParameterValue track_dir_param = node->declare_parameter("track_dir",rclcpp::ParameterValue(""));
+    rclcpp::ParameterValue track_dir_param = node->declare_parameter("track_dir",rclcpp::ParameterValue(std::string(std::getenv("F1_TRACK_DIR"))));
     std::string track_dir = track_dir_param.get<std::string>();
     std::string track_name = "";
     std::array<std::string,25> track_name_array = f1_datalogger_ros::F1MsgUtils::track_names();
