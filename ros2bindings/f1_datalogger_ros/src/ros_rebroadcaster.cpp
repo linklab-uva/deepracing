@@ -6,6 +6,7 @@
 #include <opencv2/imgproc.hpp>
 #include <sstream>
 #include "f1_datalogger/udp_logging/utils/eigen_utils.h"
+#include "f1_datalogger/udp_logging/common/rebroadcast_handler_2018.h"
 #include "f1_datalogger/image_logging/utils/opencv_utils.h"
 #include "f1_datalogger_ros/utils/f1_msg_utils.h"
 #include "f1_datalogger_msgs/msg/timestamped_image.hpp"
@@ -281,13 +282,15 @@ int main(int argc, char *argv[]) {
 
   rclcpp::ParameterValue port_p = datagrab_node->declare_parameter("port",rclcpp::ParameterValue(20777), port_description);
   rclcpp::ParameterValue rebroadcast_p = datagrab_node->declare_parameter("rebroadcast",rclcpp::ParameterValue(false));
-
-  deepf1::F1DataLogger dl(search_string_p.get<std::string>(), hostname_p.get<std::string>(),
-                          port_p.get<int>(), rebroadcast_p.get<bool>());  
-  
+  deepf1::F1DataLogger dl(search_string_p.get<std::string>(), hostname_p.get<std::string>(), port_p.get<int>()); 
+  std::shared_ptr<deepf1::RebroadcastHandler2018> rbh; 
   if(rebroadcast_p.get<bool>())
   {
     RCLCPP_INFO(datagrab_node->get_logger(),"Rebroadcasting on port: %lld\n", port_p.get<int>()+1);
+    rbh.reset(new deepf1::RebroadcastHandler2018());
+    RCLCPP_INFO(datagrab_node->get_logger(),"Created rebroadcast socket\n");
+    dl.add2018UDPHandler(rbh);
+    RCLCPP_INFO(datagrab_node->get_logger(),"Added rebroadcast socket\n");
   }
   RCLCPP_INFO(imagegrab_node->get_logger(),
               "Listening for data from the game. \n"
@@ -297,7 +300,8 @@ int main(int argc, char *argv[]) {
   rclcpp::executors::MultiThreadedExecutor exec(rclcpp::executor::ExecutorArgs(),5);
   exec.add_node(datagrab_node);
   exec.add_node(imagegrab_node);
-  dl.start(capture_frequency_p.get<double>(), nw.datagrab_handler, nw.image_handler);
+  dl.add2018UDPHandler(nw.datagrab_handler);
+  dl.start(capture_frequency_p.get<double>(), nw.image_handler);
   exec.spin();
   rclcpp::shutdown();
   return 0;
