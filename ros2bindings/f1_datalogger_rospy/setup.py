@@ -1,6 +1,7 @@
 from setuptools import find_packages
 from setuptools import setup
 import os
+from glob import glob
 package_name = 'f1_datalogger_rospy'
 
 setup(
@@ -32,11 +33,17 @@ setup(
                 os.path.join(package_name,"controls"),
                 os.path.join(package_name,"convert"),
               ])),
-
+   # data_files=[
+       # ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
+        # Include our package.xml file
+       # (os.path.join('share', package_name), ['package.xml']),
+        # Include all launch files.
+      #  (os.path.join('share', package_name, 'launch'), glob('*.launch.py'))
+    #],
     entry_points={
         'console_scripts': [
             'pose_publisher = %s.scripts.pose_publisher:main' % (package_name),
-            'bezier_plot_recorder = %s.scripts.record_plots_bezier:main' % (package_name),
+            'bezier_rviz = %s.scripts.bezier_rviz:main' % (package_name),
             'waypoint_plot_recorder = %s.scripts.record_plots_waypoint:main' % (package_name),
             'pure_pursuit_bezier = %s.scripts.admiralnet_bezier_script:main' % (package_name),
             'pure_pursuit_waypoint = %s.scripts.admiralnet_waypoint_script:main' % (package_name),
