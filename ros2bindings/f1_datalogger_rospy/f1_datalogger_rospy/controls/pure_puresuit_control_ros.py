@@ -175,7 +175,7 @@ class PurePursuitControllerROS(Node):
             inner_boundary_inv = torch.inverse(inner_boundary)
           #  print(inner_boundary[0:10])
             self.inner_boundary, self.inner_boundary_inv = (inner_boundary, inner_boundary_inv)
-            self.inner_boundary_sub.destroy()
+            del self.inner_boundary_sub
             
     def outerBoundaryCB(self, boundary_msg: PoseArray ):
         if self.boundary_check and (self.outer_boundary is None):
@@ -190,7 +190,7 @@ class PurePursuitControllerROS(Node):
             outer_boundary[:,3,3]=1.0
             outer_boundary_inv = torch.inverse(outer_boundary)
             self.outer_boundary, self.outer_boundary_inv = (outer_boundary, outer_boundary_inv)
-            self.outer_boundary_sub.destroy()
+            del self.outer_boundary_sub
             
     def racelineCB(self, boundary_msg: BoundaryLine ):
         pass

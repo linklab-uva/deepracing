@@ -5,7 +5,6 @@ import os
 import time
 from concurrent import futures
 import logging
-import argparse
 import lmdb
 import deepracing.backend
 from numpy_ringbuffer import RingBuffer as RB
@@ -13,6 +12,8 @@ import yaml
 import torch
 import torchvision
 import torchvision.transforms as tf
+import torch.nn as NN
+import torch.utils.data as data_utils
 import deepracing.imutils
 import scipy
 import scipy.interpolate
@@ -27,9 +28,6 @@ import scipy.spatial
 import queue
 from f1_datalogger_rospy.controls.pure_puresuit_control_ros import PurePursuitControllerROS as PPC
 import deepracing_models.math_utils as mu
-import torch
-import torch.nn as NN
-import torch.utils.data as data_utils
 import matplotlib.pyplot as plt
 from sensor_msgs.msg import Image, CompressedImage
 from f1_datalogger_msgs.msg import PathRaw, ImageWithPath, BezierCurve as BCMessage
@@ -90,6 +88,7 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         super(AdmiralNetBezierPurePursuitControllerROS, self).__init__()
 
         self.path_publisher = self.create_publisher(BCMessage, "/predicted_path", 1)
+        self.global_path_publisher = self.create_publisher(BCMessage, "/predicted_path_global", 1)
         model_file_param = self.get_parameter("model_file")
         if (model_file_param.type_==Parameter.Type.NOT_SET):
             raise ValueError("The parameter \"model_file\" must be set for this rosnode")
@@ -243,8 +242,9 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
             _, predicted_normals = mu.bezierDerivative(bezier_control_points, M = self.bezierM2ndderiv, order=2)
             predicted_normals = predicted_normals[0]
             predicted_normal_norms = torch.norm(predicted_normals, p=2, dim=1)
-            if self.boundary_check and torch.any(self.current_pose_mat[0:3,0:3]>0.0) and (self.inner_boundary is not None) and (self.inner_boundary is not None) and (self.inner_boundary_inv is not None) and (self.outer_boundary_inv is not None):  
+            if self.boundary_check or self.plot:
                 current_pm = self.current_pose_mat.clone()
+            if self.boundary_check and torch.any(current_pm[0:3,0:3]>0.0) and (self.inner_boundary is not None) and (self.inner_boundary is not None) and (self.inner_boundary_inv is not None) and (self.outer_boundary_inv is not None):  
                 x_samp_aug = torch.stack([x_samp[:,0], torch.zeros_like(x_samp[:,0]), x_samp[:,1], torch.ones_like(x_samp[:,0])], dim=0)
                 # ib_distances = torch.cdist(current_pm[0:3,3].view(1,1,-1), self.inner_boundary[:,0:3,3].view(1,self.inner_boundary.shape[0],-1))[0,0]
                 # ib_closest_idx = torch.argmin(ib_distances)
@@ -317,10 +317,16 @@ class AdmiralNetBezierPurePursuitControllerROS(PPC):
         x_samp[:,1]-=self.z_offset
         #print(x_samp)
         if self.plot:
-            bezier_control_points_np = bezier_control_points[0].cpu().numpy()
-            plotmsg : BCMessage = BCMessage(header = Header(stamp=stamp.to_msg(),frame_id="car"), \
-                                            control_points_lateral = bezier_control_points_np[:,0], control_points_forward = bezier_control_points_np[:,1],\
-                                            s = self.s_np, speeds=speeds.cpu().numpy() )
+            bezier_control_points_cpu = bezier_control_points[0].cpu()
+            bezier_control_points_cpu_aug = torch.stack([bezier_control_points_cpu[:,0], torch.zeros_like(bezier_control_points_cpu[:,0]), bezier_control_points_cpu[:,1], torch.ones_like(bezier_control_points_cpu[:,1])],dim=0)
+            bezier_control_points_global = torch.matmul(current_pm,bezier_control_points_cpu_aug)
+            bezier_control_points_global_np = bezier_control_points_global[[0,2]].numpy()
+            bezier_control_points_np = bezier_control_points_cpu.numpy()
+            plotmsg : BCMessage = BCMessage(header = Header(stamp=stamp.to_msg(),frame_id="car"), yoffset=0.0,\
+                                            control_points_lateral = bezier_control_points_np[:,0], control_points_forward = bezier_control_points_np[:,1])#, s = self.s_np, speeds=speeds.cpu().numpy() )
+            plotmsgglobal : BCMessage = BCMessage(header = Header(stamp=plotmsg.header.stamp,frame_id="track"), yoffset=current_pm[1,3].item(),\
+                                                  control_points_lateral = bezier_control_points_global_np[0], control_points_forward = bezier_control_points_global_np[1])#,s = plotmsg.s, speeds=plotmsg.speeds )
             self.path_publisher.publish(plotmsg)
+            self.global_path_publisher.publish(plotmsgglobal)
         return x_samp, vels, distances_forward
         
