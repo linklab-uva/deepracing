@@ -83,9 +83,13 @@ void F1DataGrabManager::run2018(std::shared_ptr<IF12018DataGrabHandler> data_han
 {
   boost::system::error_code error;
   char buffer[ F1DataGrabManager::BUFFER_SIZE ];
+  deepf1::uint16 packet_format_2018 = 2018;
+  deepf1::uint16 packet_format_2019 = 2019;
+  deepf1::uint16 packet_format_2020 = 2020;
   deepf1::TimePoint timestamp;
   deepf1::twenty_eighteen::PacketHeader* header;
   boost::asio::ip::udp::endpoint rebroadcastendpoint;
+
   if(rebroadcast_)
   {
     rebroadcastendpoint = boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(socket_.local_endpoint().address().to_string()), socket_.local_endpoint().port() + 1);
@@ -94,80 +98,82 @@ void F1DataGrabManager::run2018(std::shared_ptr<IF12018DataGrabHandler> data_han
   {
     std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(buffer, BUFFER_SIZE), remote_endpoint_, 0, error);
     timestamp = deepf1::Clock::now();
-   // std::printf("Received %lu bytes\n", received_bytes);
-    header = reinterpret_cast<deepf1::twenty_eighteen::PacketHeader*>(buffer);
-    if (rebroadcast_)
+    if(memcmp(buffer,(char *)&packet_format_2018, 2)==0)
     {
-      std::string metadata=
-      "Frame id: " + std::to_string(header->m_frameIdentifier) +"\n"
-      "Packet Format: " + std::to_string(header->m_packetFormat) +"\n"
-      "Packet id: " + std::to_string(header->m_packetId) +"\n"
-      "Packet version: " + std::to_string(header->m_packetVersion) +"\n"
-      "Player Car Index: " + std::to_string(header->m_playerCarIndex) +"\n"
-      "Session Time: " + std::to_string(header->m_sessionTime) +"\n"
-      "Session UID: " + std::to_string(header->m_sessionUID) +"\n";
-      rebroadcast_socket_.async_send_to(boost::asio::buffer(buffer, received_bytes), rebroadcastendpoint, 0,
-      boost::bind(&handle_send, metadata,
-        boost::asio::placeholders::error,
-        boost::asio::placeholders::bytes_transferred));
-      rebroadcast_io_context_.run_one();
-    }
-    if (bool(data_handler) && data_handler->isReady())
-    {
-
-      switch(header->m_packetId)
+      header = reinterpret_cast<deepf1::twenty_eighteen::PacketHeader*>(buffer);
+      if (rebroadcast_)
       {
-        case deepf1::twenty_eighteen::PacketID::MOTION:
+        std::string metadata=
+        "Frame id: " + std::to_string(header->m_frameIdentifier) +"\n"
+        "Packet Format: " + std::to_string(header->m_packetFormat) +"\n"
+        "Packet id: " + std::to_string(header->m_packetId) +"\n"
+        "Packet version: " + std::to_string(header->m_packetVersion) +"\n"
+        "Player Car Index: " + std::to_string(header->m_playerCarIndex) +"\n"
+        "Session Time: " + std::to_string(header->m_sessionTime) +"\n"
+        "Session UID: " + std::to_string(header->m_sessionUID) +"\n";
+        rebroadcast_socket_.async_send_to(boost::asio::buffer(buffer, received_bytes), rebroadcastendpoint, 0,
+        boost::bind(&handle_send, metadata,
+          boost::asio::placeholders::error,
+          boost::asio::placeholders::bytes_transferred));
+        rebroadcast_io_context_.run_one();
+      }
+      if (bool(data_handler) && data_handler->isReady())
+      {
+
+        switch(header->m_packetId)
         {
-          deepf1::twenty_eighteen::TimestampedPacketMotionData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketMotionData*>(buffer)), timestamp);
-          data_handler->handleData(data);
-          break;
-        }
-		    case deepf1::twenty_eighteen::PacketID::EVENT:
-		    {
-			    deepf1::twenty_eighteen::TimestampedPacketEventData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketEventData*>(buffer)), timestamp);
-			    data_handler->handleData(data);
-			    break;
-		    }
-        case deepf1::twenty_eighteen::PacketID::SESSION:
-        {
-          deepf1::twenty_eighteen::TimestampedPacketSessionData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketSessionData*>(buffer)), timestamp);
-          data_handler->handleData(data);
-          break;
-        }
-        case deepf1::twenty_eighteen::PacketID::LAPDATA:
-        {
-          deepf1::twenty_eighteen::TimestampedPacketLapData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketLapData*>(buffer)), timestamp);
-          data_handler->handleData(data);
-          break;
-        }
-        case deepf1::twenty_eighteen::PacketID::PARTICIPANTS:
-        {
-          deepf1::twenty_eighteen::TimestampedPacketParticipantsData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketParticipantsData*>(buffer)), timestamp);
-          data_handler->handleData(data);
-          break;
-        }
-        case deepf1::twenty_eighteen::PacketID::CARSETUPS:
-        {
-          deepf1::twenty_eighteen::TimestampedPacketCarSetupData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketCarSetupData*>(buffer)), timestamp);
-          data_handler->handleData(data);
-          break;
-        }
-        case deepf1::twenty_eighteen::PacketID::CARTELEMETRY:
-        {
-          deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketCarTelemetryData*>(buffer)), timestamp);
-          data_handler->handleData(data);
-          break;
-        }
-        case deepf1::twenty_eighteen::PacketID::CARSTATUS:
-        {
-          deepf1::twenty_eighteen::TimestampedPacketCarStatusData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketCarStatusData*>(buffer)), timestamp);
-          data_handler->handleData(data);
-          break;
-        }
-        default:
-        {
-          break;
+          case deepf1::twenty_eighteen::PacketID::MOTION:
+          {
+            deepf1::twenty_eighteen::TimestampedPacketMotionData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketMotionData*>(buffer)), timestamp);
+            data_handler->handleData(data);
+            break;
+          }
+          case deepf1::twenty_eighteen::PacketID::EVENT:
+          {
+            deepf1::twenty_eighteen::TimestampedPacketEventData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketEventData*>(buffer)), timestamp);
+            data_handler->handleData(data);
+            break;
+          }
+          case deepf1::twenty_eighteen::PacketID::SESSION:
+          {
+            deepf1::twenty_eighteen::TimestampedPacketSessionData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketSessionData*>(buffer)), timestamp);
+            data_handler->handleData(data);
+            break;
+          }
+          case deepf1::twenty_eighteen::PacketID::LAPDATA:
+          {
+            deepf1::twenty_eighteen::TimestampedPacketLapData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketLapData*>(buffer)), timestamp);
+            data_handler->handleData(data);
+            break;
+          }
+          case deepf1::twenty_eighteen::PacketID::PARTICIPANTS:
+          {
+            deepf1::twenty_eighteen::TimestampedPacketParticipantsData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketParticipantsData*>(buffer)), timestamp);
+            data_handler->handleData(data);
+            break;
+          }
+          case deepf1::twenty_eighteen::PacketID::CARSETUPS:
+          {
+            deepf1::twenty_eighteen::TimestampedPacketCarSetupData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketCarSetupData*>(buffer)), timestamp);
+            data_handler->handleData(data);
+            break;
+          }
+          case deepf1::twenty_eighteen::PacketID::CARTELEMETRY:
+          {
+            deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketCarTelemetryData*>(buffer)), timestamp);
+            data_handler->handleData(data);
+            break;
+          }
+          case deepf1::twenty_eighteen::PacketID::CARSTATUS:
+          {
+            deepf1::twenty_eighteen::TimestampedPacketCarStatusData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketCarStatusData*>(buffer)), timestamp);
+            data_handler->handleData(data);
+            break;
+          }
+          default:
+          {
+            break;
+          }
         }
       }
     }
