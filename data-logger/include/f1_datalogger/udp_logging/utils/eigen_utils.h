@@ -1,6 +1,7 @@
 #ifndef F1_DATALOGGER_EIGEN_UTILS_H
 #define F1_DATALOGGER_EIGEN_UTILS_H
-#include <f1_datalogger/visibility_control.h>
+#include "f1_datalogger/udp_logging/visibility_control.h"
+#include "f1_datalogger/proto_dll_macro.h"
 #include <vector>
 #include <Eigen/Geometry>
 #include "f1_datalogger/proto/CarMotionData.pb.h"
@@ -11,7 +12,7 @@
 
 namespace deepf1
 {
-	class F1_DATALOGGER_PUBLIC EigenUtils
+	class F1_DATALOGGER_UDP_LOGGING_PUBLIC EigenUtils
 	{
 	public:
 		EigenUtils();

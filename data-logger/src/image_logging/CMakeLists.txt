@@ -8,6 +8,7 @@ target_include_directories(${PROJECT_NAME}_image_utils
 PRIVATE
 ${PROTO_INCLUDE_DIR}
 )
+target_compile_definitions(${PROJECT_NAME}_image_utils PRIVATE F1_DATALOGGER_IMAGE_LOGGING_BUILDING_DLL)
 
 
 
@@ -20,6 +21,7 @@ target_include_directories(${PROJECT_NAME}_image_logging
 PRIVATE
 ${PROTO_INCLUDE_DIR}
 )
+target_compile_definitions(${PROJECT_NAME}_image_logging PRIVATE F1_DATALOGGER_IMAGE_LOGGING_BUILDING_DLL)
 
 
 
@@ -42,6 +44,7 @@ target_include_directories(${PROJECT_NAME}_image_logging_common
 PRIVATE
 ${PROTO_INCLUDE_DIR}
 )
+target_compile_definitions(${PROJECT_NAME}_image_logging_common PRIVATE F1_DATALOGGER_IMAGE_LOGGING_BUILDING_DLL)
 
 
 set(install_targets

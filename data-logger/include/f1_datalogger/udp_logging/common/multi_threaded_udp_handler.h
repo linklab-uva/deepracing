@@ -16,7 +16,7 @@
 namespace deepf1
 {
 
-class F1_DATALOGGER_PUBLIC MultiThreadedUDPHandler : public IF1DatagrabHandler
+class F1_DATALOGGER_UDP_LOGGING_PUBLIC MultiThreadedUDPHandler : public IF1DatagrabHandler
 {
 public:
   MultiThreadedUDPHandler(std::string data_folder = "udp_data", unsigned int thread_count = 5, bool write_json = false);

@@ -8,6 +8,7 @@
 #ifndef INCLUDE_UDP_LOGGING_COMMON_MULTI_THREADED_UDP_HANDLER_2018_H_
 #define INCLUDE_UDP_LOGGING_COMMON_MULTI_THREADED_UDP_HANDLER_2018_H_
 
+#include "f1_datalogger/udp_logging/visibility_control.h"
 #include "f1_datalogger/udp_logging/f1_2018_datagrab_handler.h"
 #include <tbb/concurrent_queue.h>
 #include <tbb/task_group.h>
@@ -18,7 +19,7 @@
 #include <functional>
 namespace deepf1
 {
-struct MultiThreadedUDPHandler2018Settings
+struct F1_DATALOGGER_UDP_LOGGING_PUBLIC MultiThreadedUDPHandler2018Settings
 {
 public:
   MultiThreadedUDPHandler2018Settings()
@@ -51,7 +52,7 @@ public:
   unsigned int sleeptime;
   std::string udp_directory;
 };
-class F1_DATALOGGER_PUBLIC MultiThreadedUDPHandler2018 : public IF12018DataGrabHandler
+class F1_DATALOGGER_UDP_LOGGING_PUBLIC MultiThreadedUDPHandler2018 : public IF12018DataGrabHandler
 {
   using timeunit = std::milli;
 public:

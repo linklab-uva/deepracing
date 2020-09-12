@@ -13,6 +13,7 @@ f1_datagrab_manager.cpp
 )
 add_library(${PROJECT_NAME}_udp_logging ${${PROJECT_NAME}_udp_logging_src})
 target_link_libraries(${PROJECT_NAME}_udp_logging ${Boost_TARGETS} )
+target_compile_definitions(${PROJECT_NAME}_udp_logging PRIVATE F1_DATALOGGER_UDP_LOGGING_BUILDING_DLL)
 
 set(${PROJECT_NAME}_udp_utils_src
 utils/udp_stream_utils.cpp
@@ -23,6 +24,7 @@ ${PROJECT_NAME}_udp_logging
 ${PROJECT_NAME}_proto 
 ${Boost_TARGETS}
 )
+target_compile_definitions(${PROJECT_NAME}_udp_utils PRIVATE F1_DATALOGGER_UDP_LOGGING_BUILDING_DLL)
 
 
 
@@ -37,6 +39,7 @@ if(WITH_ARMA)
 endif()
 target_link_libraries( ${PROJECT_NAME}_eigen_utils Eigen3::Eigen ${Boost_TARGETS} ${PROJECT_NAME}_proto ${PROJECT_NAME}_udp_utils )
 target_include_directories(${PROJECT_NAME}_eigen_utils PRIVATE ${ProtobufIncludePath} ${Protobuf_INCLUDE_DIR})
+target_compile_definitions(${PROJECT_NAME}_eigen_utils PRIVATE F1_DATALOGGER_UDP_LOGGING_BUILDING_DLL)
 
 
 get_target_property(protoincludes ${PROJECT_NAME}_proto INTERFACE_INCLUDE_DIRECTORIES)
@@ -63,6 +66,7 @@ target_link_libraries( ${PROJECT_NAME}_udp_logging_common
 PUBLIC
 ${udp_logging_common_libs}
 )
+target_compile_definitions(${PROJECT_NAME}_udp_logging_common PRIVATE F1_DATALOGGER_UDP_LOGGING_BUILDING_DLL)
 
 set(install_targets
 #executables.

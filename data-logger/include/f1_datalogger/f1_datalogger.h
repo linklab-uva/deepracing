@@ -8,8 +8,7 @@
 #ifndef INCLUDE_F1_DATALOGGER_H_ 
 #define INCLUDE_F1_DATALOGGER_H_
 #include <f1_datalogger/visibility_control.h>
-#ifdef F1_DATALOGGER_PROTO_DLL_MACRO
-#endif
+
 #include "image_logging/f1_framegrab_manager.h"
 #include "udp_logging/f1_datagrab_manager.h"
 namespace deepf1

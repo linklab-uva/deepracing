@@ -5,6 +5,7 @@
  *      Author: ttw2xk
  */
 
+#include "f1_datalogger/proto_dll_macro.h"
 #include "f1_datalogger/udp_logging/common/multi_threaded_udp_handler.h"
 #include "f1_datalogger/proto/TimestampedUDPData.pb.h"
 #include "f1_datalogger/udp_logging/utils/udp_stream_utils.h"

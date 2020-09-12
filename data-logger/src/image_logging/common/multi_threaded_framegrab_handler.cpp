@@ -5,6 +5,7 @@
  *      Author: ttw2xk
  */
 
+#include "f1_datalogger/proto_dll_macro.h"
 #include "f1_datalogger/image_logging/common/multi_threaded_framegrab_handler.h"
 #include "f1_datalogger/proto/TimestampedImage.pb.h"
 #include <opencv2/imgcodecs.hpp>

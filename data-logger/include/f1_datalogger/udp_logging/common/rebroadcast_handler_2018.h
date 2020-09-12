@@ -1,13 +1,15 @@
 
 #ifndef INCLUDE_UDP_LOGGING_COMMON_2018_REBROADCAST_HANDLER_H_
 #define INCLUDE_UDP_LOGGING_COMMON_2018_REBROADCAST_HANDLER_H_
+#include "f1_datalogger/proto_dll_macro.h"
+#include "f1_datalogger/udp_logging/visibility_control.h"
 #include "f1_datalogger/udp_logging/f1_2018_datagrab_handler.h"
 #include <boost/asio.hpp>
 #include <thread>
 #include <memory>
 namespace deepf1
 {
-		class F1_DATALOGGER_PUBLIC RebroadcastHandler2018 : public IF12018DataGrabHandler
+		class F1_DATALOGGER_UDP_LOGGING_PUBLIC RebroadcastHandler2018 : public IF12018DataGrabHandler
 		{
 		public:
 			RebroadcastHandler2018();

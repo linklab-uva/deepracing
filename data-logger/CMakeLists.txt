@@ -26,9 +26,6 @@ if(WIN32)
       add_definitions(-D_WIN32_WINNT=${win32_ver})
       set(BUILD_XAUDIO_WIN10 ON CACHE BOOL "Build for XAudio 2.9" FORCE)
     endif()
-    if(BUILD_SHARED_LIBS)
-      add_definitions(-DF1_DATALOGGER_BUILDING_DLL)
-    endif()
     add_compile_options(-w)
 endif(WIN32)
 
@@ -126,6 +123,7 @@ if(BUILD_DATALOGGER)
     INTERFACE
     ${screen_capture_lite_PLATFORM_LIBS}
     )
+    target_compile_definitions(${PROJECT_NAME} PRIVATE F1_DATALOGGER_BUILDING_DLL)
     add_subdirectory( src/Examples )
 
     set(install_targets
@@ -173,7 +171,6 @@ else()
     DESTINATION
         cmake
     )
-
     configure_file(${PROJECT_NAME}-config.cmake.in ${PROJECT_NAME}-config.cmake @ONLY)
 
     install(FILES ${CMAKE_BINARY_DIR}/${PROJECT_NAME}-config.cmake DESTINATION cmake/)

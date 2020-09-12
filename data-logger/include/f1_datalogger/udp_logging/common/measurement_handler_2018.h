@@ -1,10 +1,11 @@
 
 #ifndef INCLUDE_UDP_LOGGING_COMMON_2018_MEASUREMENT_HANDLER_H_
 #define INCLUDE_UDP_LOGGING_COMMON_2018_MEASUREMENT_HANDLER_H_
+#include "f1_datalogger/udp_logging/visibility_control.h"
 #include "f1_datalogger/udp_logging/f1_2018_datagrab_handler.h"
 namespace deepf1
 {
-		class F1_DATALOGGER_PUBLIC MeasurementHandler2018 : public IF12018DataGrabHandler
+		class F1_DATALOGGER_UDP_LOGGING_PUBLIC MeasurementHandler2018 : public IF12018DataGrabHandler
 		{
 		public:
 			MeasurementHandler2018();

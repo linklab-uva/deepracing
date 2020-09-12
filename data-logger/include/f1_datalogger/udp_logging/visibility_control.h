@@ -27,38 +27,38 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef F1_DATALOGGER__VISIBILITY_CONTROL_H_
-#define F1_DATALOGGER__VISIBILITY_CONTROL_H_
+#ifndef F1_DATALOGGER_UDP_LOGGING__VISIBILITY_CONTROL_H_
+#define F1_DATALOGGER_UDP_LOGGING__VISIBILITY_CONTROL_H_
 
 // This logic was borrowed (then namespaced) from the examples on the gcc wiki:
 //     https://gcc.gnu.org/wiki/Visibility
 
 #if defined _WIN32 || defined __CYGWIN__
   #ifdef __GNUC__
-    #define F1_DATALOGGER_EXPORT __attribute__ ((dllexport))
-    #define F1_DATALOGGER_IMPORT __attribute__ ((dllimport))
+    #define F1_DATALOGGER_UDP_LOGGING_EXPORT __attribute__ ((dllexport))
+    #define F1_DATALOGGER_UDP_LOGGING_IMPORT __attribute__ ((dllimport))
   #else
-    #define F1_DATALOGGER_EXPORT __declspec(dllexport)
-    #define F1_DATALOGGER_IMPORT __declspec(dllimport)
+    #define F1_DATALOGGER_UDP_LOGGING_EXPORT __declspec(dllexport)
+    #define F1_DATALOGGER_UDP_LOGGING_IMPORT __declspec(dllimport)
   #endif
-  #ifdef F1_DATALOGGER_BUILDING_DLL
-    #define F1_DATALOGGER_PUBLIC F1_DATALOGGER_EXPORT
+  #ifdef F1_DATALOGGER_UDP_LOGGING_BUILDING_DLL
+    #define F1_DATALOGGER_UDP_LOGGING_PUBLIC F1_DATALOGGER_UDP_LOGGING_EXPORT
   #else
-    #define F1_DATALOGGER_PUBLIC F1_DATALOGGER_IMPORT
+    #define F1_DATALOGGER_UDP_LOGGING_PUBLIC F1_DATALOGGER_UDP_LOGGING_IMPORT
   #endif
-  #define F1_DATALOGGER_PUBLIC_TYPE F1_DATALOGGER_PUBLIC
-  #define F1_DATALOGGER_LOCAL
+  #define F1_DATALOGGER_UDP_LOGGING_PUBLIC_TYPE F1_DATALOGGER_UDP_LOGGING_PUBLIC
+  #define F1_DATALOGGER_UDP_LOGGING_LOCAL
 #else
-  #define F1_DATALOGGER_EXPORT __attribute__ ((visibility("default")))
-  #define F1_DATALOGGER_IMPORT
+  #define F1_DATALOGGER_UDP_LOGGING_EXPORT __attribute__ ((visibility("default")))
+  #define F1_DATALOGGER_UDP_LOGGING_IMPORT
   #if __GNUC__ >= 4
-    #define F1_DATALOGGER_PUBLIC __attribute__ ((visibility("default")))
-    #define F1_DATALOGGER_LOCAL  __attribute__ ((visibility("hidden")))
+    #define F1_DATALOGGER_UDP_LOGGING_PUBLIC __attribute__ ((visibility("default")))
+    #define F1_DATALOGGER_UDP_LOGGING_LOCAL  __attribute__ ((visibility("hidden")))
   #else
-    #define F1_DATALOGGER_PUBLIC
-    #define F1_DATALOGGER_LOCAL
+    #define F1_DATALOGGER_UDP_LOGGING_PUBLIC
+    #define F1_DATALOGGER_UDP_LOGGING_LOCAL
   #endif
-  #define F1_DATALOGGER_PUBLIC_TYPE
+  #define F1_DATALOGGER_UDP_LOGGING_PUBLIC_TYPE
 #endif
 
-#endif  // F1_DATALOGGER__VISIBILITY_CONTROL_H_
+#endif  // F1_DATALOGGER_UDP_LOGGING__VISIBILITY_CONTROL_H_

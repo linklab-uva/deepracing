@@ -1,10 +1,11 @@
 
 #ifndef INCLUDE_UDP_LOGGING_COMMON_MEASUREMENT_HANDLER_H_
 #define INCLUDE_UDP_LOGGING_COMMON_MEASUREMENT_HANDLER_H_
+#include "f1_datalogger/udp_logging/visibility_control.h"
 #include "f1_datalogger/udp_logging/f1_datagrab_handler.h"
 namespace deepf1
 {
-	class F1_DATALOGGER_PUBLIC MeasurementHandler : public IF1DatagrabHandler
+	class F1_DATALOGGER_UDP_LOGGING_PUBLIC MeasurementHandler : public IF1DatagrabHandler
 	{
 	public:
 		MeasurementHandler(unsigned int buffer_capacity=10);

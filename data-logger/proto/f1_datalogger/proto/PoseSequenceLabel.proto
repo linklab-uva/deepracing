@@ -3,7 +3,7 @@ package deepf1.protobuf;
 import "Vector3dStamped.proto";
 import "Pose3d.proto";
 import "TimestampedImage.proto";
-import "Spline2DParams.proto";
+import "Spline3D.proto";
 message PoseSequenceLabel {
 		TimestampedImage image_tag = 1;
 		deepf1.protobuf.eigen.Pose3d car_pose = 2;
@@ -14,7 +14,7 @@ message PoseSequenceLabel {
 		repeated deepf1.protobuf.eigen.Vector3dStamped subsequent_angular_velocities = 7;
 		repeated deepf1.protobuf.eigen.Vector3dStamped subsequent_linear_accelerations = 8;
 		repeated deepf1.protobuf.eigen.Vector3dStamped subsequent_angular_accelerations = 9;
-		deepf1.protobuf.Spline2DParams position_spline = 10;
-		deepf1.protobuf.Spline2DParams velocity_spline = 11;
+		deepf1.protobuf.Spline3D position_spline = 10;
+		deepf1.protobuf.Spline3D velocity_spline = 11;
 		string metadata = 12;		
 }

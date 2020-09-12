@@ -8,12 +8,12 @@
 #ifndef INCLUDE_IMAGE_LOGGING_FRAMEGRAB_HANDLER_H_
 #define INCLUDE_IMAGE_LOGGING_FRAMEGRAB_HANDLER_H_
 #include "f1_datalogger/car_data/timestamped_image_data.h"
-#include <f1_datalogger/visibility_control.h>
+#include "f1_datalogger/image_logging/visibility_control.h"
 
 namespace deepf1
 {
 
-class F1_DATALOGGER_PUBLIC IF1FrameGrabHandler
+class F1_DATALOGGER_IMAGE_LOGGING_PUBLIC IF1FrameGrabHandler
 {
 public:
   IF1FrameGrabHandler() = default;

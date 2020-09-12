@@ -93,8 +93,9 @@ F1FrameGrabManager::F1FrameGrabManager(const deepf1::TimePoint& begin, const std
             std::vector<scl::Monitor> rtn; 
             for(const scl::Monitor& monitor : allMonitors)
             {
-              if(monitor.Index==1)
+              if(monitor.Index==0)
               {
+                std::cout<<"Got a new monitor"<<std::endl;
                 rtn.push_back(monitor);
               }
             }
@@ -115,12 +116,13 @@ void F1FrameGrabManager::onNewFrame_(const scl::Image &img, const scl::Window &m
   deepf1::TimePoint ts = deepf1::Clock::now();
   if (capture_handler->isReady())
   {
-    TimestampedImageData timestamped_image(ts, deepf1::OpenCVUtils::toCV(img, monitor.Size));
+    TimestampedImageData timestamped_image(ts, deepf1::OpenCVUtils::toCV(img, monitor.Size, 32));
     capture_handler->handleData(timestamped_image);
   }
 }
 void F1FrameGrabManager::onNewScreenFrame_(const scl::Image &img, const scl::Monitor &monitor, std::shared_ptr<IF1FrameGrabHandler> capture_handler)
 {
+ // std::cout<<"Got a new screenshot"<<std::endl;
   deepf1::TimePoint ts = deepf1::Clock::now();
   if (capture_handler->isReady())
   {
@@ -140,9 +142,11 @@ void F1FrameGrabManager::start(double capture_frequency,
   unsigned int ms = (unsigned int)(std::round(((double)1E3)/capture_frequency)); 
   capture_config_->onNewFrame((scl::WindowCaptureCallback)std::bind(&F1FrameGrabManager::onNewFrame_, this, std::placeholders::_1, std::placeholders::_2, capture_handler));
   capture_manager_ = capture_config_->start_capturing();
-  //capture_config_monitor_->onNewFrame((scl::ScreenCaptureCallback)std::bind(&F1FrameGrabManager::onNewScreenFrame_, this, std::placeholders::_1, std::placeholders::_2, capture_handler));
-  //capture_manager_ = capture_config_monitor_->start_capturing();
   capture_manager_->setFrameChangeInterval(std::chrono::milliseconds(ms));
+  // capture_config_monitor_->onNewFrame((scl::ScreenCaptureCallback)std::bind(&F1FrameGrabManager::onNewScreenFrame_, this, std::placeholders::_1, std::placeholders::_2, capture_handler));
+  // capture_manager_ = capture_config_monitor_->start_capturing();;
+  // capture_manager_->setFrameChangeInterval(std::chrono::milliseconds(ms));
+  
   
   
 }

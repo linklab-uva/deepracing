@@ -14,7 +14,7 @@
 namespace deepf1
 {
 
-class F1_DATALOGGER_PUBLIC IF12020DataGrabHandler
+class F1_DATALOGGER_UDP_LOGGING_PUBLIC IF12020DataGrabHandler
 {
 public:
   IF12020DataGrabHandler() = default;

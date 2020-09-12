@@ -1,6 +1,7 @@
 #ifndef F1_DATALOGGER_UDP_STREAM_UTILS_H
 #define F1_DATALOGGER_UDP_STREAM_UTILS_H
-#include <f1_datalogger/visibility_control.h>
+#include "f1_datalogger/udp_logging/visibility_control.h"
+#include "f1_datalogger/proto_dll_macro.h"
 #include "f1_datalogger/proto/UDPData.pb.h"
 #include "f1_datalogger/car_data/f1_2018/car_data.h"
 #include "f1_datalogger/car_data/f1_2020/car_data.h"
@@ -16,7 +17,7 @@
 
 namespace deepf1
 {
-	class F1_DATALOGGER_PUBLIC UDPStreamUtils
+	class F1_DATALOGGER_UDP_LOGGING_PUBLIC UDPStreamUtils
 	{
 	public:
 		UDPStreamUtils();
@@ -26,7 +27,7 @@ namespace deepf1
 	};
 	namespace twenty_eighteen
 	{
-		class F1_DATALOGGER_PUBLIC TwentyEighteenUDPStreamUtils
+		class F1_DATALOGGER_UDP_LOGGING_PUBLIC TwentyEighteenUDPStreamUtils
 		{
 		public:
 			TwentyEighteenUDPStreamUtils();

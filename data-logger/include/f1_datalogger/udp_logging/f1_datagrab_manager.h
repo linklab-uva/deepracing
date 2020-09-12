@@ -7,6 +7,7 @@
 
 #ifndef INCLUDE_UDP_LOGGING_F1_DATAGRAB_MANAGER_H_
 #define INCLUDE_UDP_LOGGING_F1_DATAGRAB_MANAGER_H_
+#include <f1_datalogger/udp_logging/visibility_control.h>
 #include <boost/asio.hpp>
 #include <boost/shared_ptr.hpp>
 #include <thread>
@@ -17,11 +18,10 @@
 #include "f1_datalogger/udp_logging/f1_protocol_versions.h"
 #include <chrono>
 #include <map>
-#include <f1_datalogger/visibility_control.h>
 
 namespace deepf1
 {
-class F1_DATALOGGER_PUBLIC F1DataGrabManager
+class F1_DATALOGGER_UDP_LOGGING_PUBLIC F1DataGrabManager
 {
   friend class F1DataLogger;
 public:

@@ -10,12 +10,12 @@
 #include "f1_datalogger/image_logging/framegrab_handler.h"
 #include <ScreenCapture.h>
 #include <chrono>
-#include <f1_datalogger/visibility_control.h>
+#include <f1_datalogger/image_logging/visibility_control.h>
 
 namespace deepf1
 {
 namespace scl = SL::Screen_Capture;
-class F1_DATALOGGER_PUBLIC F1FrameGrabManager
+class F1_DATALOGGER_IMAGE_LOGGING_PUBLIC F1FrameGrabManager
 {
 
   friend class F1DataLogger;
@@ -24,10 +24,10 @@ public:
   virtual ~F1FrameGrabManager();
 private:
   void stop();
-  void start(double capture_frequency, 
-                    std::shared_ptr<IF1FrameGrabHandler> capture_handler);
+  void start(double capture_frequency, std::shared_ptr<IF1FrameGrabHandler> capture_handler);
 
 
+  cv::Mat curr_image;
   deepf1::TimePoint begin_;
 
   scl::Window window_;
