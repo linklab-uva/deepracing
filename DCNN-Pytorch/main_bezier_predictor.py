@@ -71,16 +71,17 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, kine
     dataloaderlen = len(trainLoader)
     dev = next(network.parameters()).device  # we are only doing single-device training for now, so this works fine.
 
-    _, _, _, _, _, _, sample_session_times,_ = trainLoader.dataset[0]
+    _, _, _, _, _, _, sample_session_times,_,_ = trainLoader.dataset[0]
     s_torch = torch.linspace(0.0,1.0,steps=sample_session_times.shape[0],dtype=torch.float64,device=dev).unsqueeze(0).repeat(batch_size,1)
     bezier_order = network.params_per_dimension-1+int(fix_first_point)
     if not debug:
         experiment.set_epoch(epoch_number)
-    for (i, (image_torch, key_indices_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch, track_ids) ) in t:
+    for (i, (image_torch, key_indices_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch, car_poses, track_ids) ) in t:
         image_torch = image_torch.double().to(device=dev)
         positions_torch = positions_torch.double().to(device=dev)
         session_times_torch = session_times_torch.double().to(device=dev)
         linear_velocities_torch = linear_velocities_torch.double().to(device=dev)
+        car_poses = car_poses.double().to(device=dev)
         image_keys = ["image_%d" % (key_indices_torch[j],) for j in range(key_indices_torch.shape[0])]
         
         predictions = network(image_torch)
@@ -171,8 +172,11 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, kine
             ob = torch.stack([ob_dict[track_ids[i].item()] for i in range(track_ids.shape[0])], dim=0)
             ib_normal = torch.stack([ib_normal_dict[track_ids[i].item()] for i in range(track_ids.shape[0])], dim=0)
             ob_normal = torch.stack([ob_normal_dict[track_ids[i].item()] for i in range(track_ids.shape[0])], dim=0)
-            ibloss = boundary_loss(pred_points, ib, ib_normal)
-            obloss = boundary_loss(pred_points, ob, ob_normal)
+
+            pred_points_aug = torch.stack([pred_points[:,:,0], torch.zeros_like(pred_points[:,:,0]) , pred_points[:,:,1], torch.ones_like(pred_points[:,:,0])], dim=1)
+            pred_points_global = torch.matmul(car_poses, pred_points_aug)[:,[0,2],:].transpose(1,2)
+            ibloss = boundary_loss(pred_points_global, ib, ib_normal)
+            obloss = boundary_loss(pred_points_global, ob, ob_normal)
             loss = kinematic_losses + lossdict["boundary"]["inner_weight"]*ibloss + lossdict["boundary"]["outer_weight"]*obloss
             iblossfloat = float(ibloss.item())
             oblossfloat = float(obloss.item())
@@ -404,7 +408,7 @@ def go():
                      image_size = image_size, lookahead_indices = lookahead_indices, lateral_dimension=lateral_dimension, \
                      geometric_variants = geometric_variants, gaussian_blur=gaussian_blur_radius, color_jitter = color_jitter)
         dsets.append(curent_dset)
-        _, _, positions_test, _, _, _, session_times_test, _ = curent_dset[0]
+        _, _, positions_test, _, _, _, session_times_test ,_ , _ = curent_dset[0]
         dset_output_lengths.append(positions_test.shape[0])
         print("\n")
     if len(dsets)==1:

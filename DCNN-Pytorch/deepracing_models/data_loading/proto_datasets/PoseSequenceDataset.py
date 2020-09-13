@@ -37,6 +37,7 @@ from deepracing.imutils import readImage as readImage
 import cv2
 import random
 from itertools import chain, combinations
+from scipy.spatial.transform import Rotation as Rot
 
 def powerset(iterable):
     "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
@@ -122,6 +123,10 @@ class PoseSequenceDataset(Dataset):
 
         session_times_np = np.array([p.session_time for p in label_packet.subsequent_poses ])
         positions_np, quats_np, linear_velocities_np, angular_velocities_np = deepracing.protobuf_utils.labelPacketToNumpy(label_packet)
+        car_pose_proto = label_packet.car_pose
+        car_pose_np = np.eye(4, dtype=np.float64)
+        car_pose_np[0:3,3] =  np.array([car_pose_proto.translation.x, car_pose_proto.translation.y, car_pose_proto.translation.z], dtype=np.float64)
+        car_pose_np[0:3,0:3] = Rot.from_quat(np.array([car_pose_proto.rotation.x, car_pose_proto.rotation.y, car_pose_proto.rotation.z, car_pose_proto.rotation.w], dtype=np.float64)).as_matrix()
         
         positions_torch = torch.from_numpy(positions_np).double()
         quats_torch = torch.from_numpy(quats_np).double()
@@ -152,4 +157,4 @@ class PoseSequenceDataset(Dataset):
         images_torch = torch.stack( [ self.totensor(img) for img in pilimages ] ).double()
        
 
-        return images_torch, torch.as_tensor(packetrange[-1], dtype=torch.int32), positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch, self.track_id
+        return images_torch, torch.as_tensor(packetrange[-1], dtype=torch.int32), positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch, car_pose_np, self.track_id
