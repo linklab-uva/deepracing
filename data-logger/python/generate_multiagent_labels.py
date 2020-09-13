@@ -25,7 +25,7 @@ from deepracing.protobuf_utils import getAllSessionPackets, getAllImageFilePacke
 from tqdm import tqdm as tqdm
 import yaml
 import shutil
-import Spline2DParams_pb2
+import Spline3D_pb2
 from scipy.spatial.transform import Rotation as Rot
 from scipy.spatial.transform import RotationSpline as RotSpline
 from scipy.spatial.transform import Slerp

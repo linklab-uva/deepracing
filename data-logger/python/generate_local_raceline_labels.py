@@ -22,7 +22,7 @@ from deepracing.protobuf_utils import getAllSessionPackets, getAllImageFilePacke
 from tqdm import tqdm as tqdm
 import yaml
 import shutil
-import Spline2DParams_pb2
+import Spline3D_pb2
 from scipy.spatial.transform import Rotation as Rot
 from scipy.spatial.transform import RotationSpline as RotSpline
 from scipy.spatial.transform import Slerp
@@ -48,7 +48,7 @@ parser.add_argument("--output_dir", help="Output directory for the labels. relat
 parser.add_argument("--max_speed", help="maximum speed (m/s) to apply to the raceline",  default=90, required=False, type=float)
 parser.add_argument("--min_speed", help="minimum speed (m/s) to apply to the raceline",  default=15, required=False, type=float)
 parser.add_argument("--max_accel", help="maximum centripetal acceleration (m/s^2) to allow in the raceline",  default=22.5, required=False, type=float)
-parser.add_argument("--num_samples", help="Number of points to sample from the racing spline",  default=9000, required=False, type=int)
+parser.add_argument("--num_samples", help="Number of points to downsample from the racing spline on each label",  default=90, required=False, type=int)
 
 
 
@@ -90,36 +90,18 @@ os.makedirs(output_dir)
 racelinepath = os.path.join(trackfiledir,trackNames[track_id] + "_racingline.json")
 with open(racelinepath,"r") as f:
     racelinedict = json.load(f)
-racelinein = np.row_stack((racelinedict["x"],racelinedict["y"],racelinedict["z"])).astype(np.float64)
+racelineaug = np.row_stack( [ racelinedict["x"],racelinedict["y"],racelinedict["z"], np.ones_like(racelinedict["z"]) ] ).astype(np.float64)
+racelinedist = np.array( racelinedict["dist"] ) 
 
-# racelinein = np.hstack( ( racelinein , np.array([ racelinein[:,0]  ]).transpose() ) ).transpose()
-
-dlist = racelinedict["dist"] 
-# dlist.append(dlist[-1] + np.linalg.norm(finalstretch))
-racelinedist = np.array(dlist, dtype=np.float64)
-racelinedist = racelinedist - racelinedist[0]
-
-
-firstpoint = racelinein[:,0]
-lastpoint = racelinein[:,-1]
-finalstretch = lastpoint - firstpoint
-finaldistance = np.linalg.norm(finalstretch)
-while finaldistance==0.0:
-    racelinein = racelinein[:,0:-1]
-    racelinedist = racelinedist[0:-1]
-    firstpoint = racelinein[:,0]
-    lastpoint = racelinein[:,-1]
-    finalstretch = lastpoint - firstpoint
-    finaldistance = np.linalg.norm(finalstretch)
-print("Race distance: %f" % racelinedist[-1])
-print("Distance between end and start: %s" % str(finaldistance))
-
+finalstretch = racelineaug[0:3,0] - racelineaug[0:3,-1]
+finaldistance = np.linalg.norm(finalstretch, ord=2)
 
 
 plt.figure()
-plt.plot(racelinein[0], racelinein[2], label="Input raceline")
-plt.plot(racelinein[0,0], racelinein[2,0], 'g*', label='Raceline Start')
-plt.plot(racelinein[0,-1], racelinein[2,-1], 'r*', label='Raceline End')
+plt.xlim(np.max(racelineaug[0]) + 10, np.min(racelineaug[0])-10)
+plt.plot(racelineaug[0], racelineaug[2], label="Input raceline")
+plt.plot(racelineaug[0,0], racelineaug[2,0], 'g*', label='Raceline Start')
+plt.plot(racelineaug[0,-1], racelineaug[2,-1], 'r*', label='Raceline End')
 plt.legend()
 try:
     plt.savefig(os.path.join(output_dir, "input_raceline.pdf"), format="pdf")
@@ -129,37 +111,24 @@ except Exception as e:
     plt.close()
 
 
-raceline_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(racelinedist, racelinein.transpose(), k=3)
-raceline_tangent : scipy.interpolate.BSpline = raceline_spline.derivative(nu=1)
-raceline_lateral : scipy.interpolate.BSpline = raceline_spline.derivative(nu=2)
+raceline_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(racelinedist, racelineaug[0:3].transpose(), k=3)
+tangent_spline : scipy.interpolate.BSpline = raceline_spline.derivative(nu=1)
+lateral_spline : scipy.interpolate.BSpline = raceline_spline.derivative(nu=2)
 
-racelineparam = np.linspace(racelinedist[0],racelinedist[-1], num=num_samples)
-racelinesamp = raceline_spline(racelineparam)
-racelineaug = np.row_stack( ( racelinesamp[:,0] , racelinesamp[:,1], racelinesamp[:,2], np.ones_like(racelineparam) ) ).astype(np.float64)
-
-
-plt.figure()
-plt.plot(racelineaug[0], racelineaug[2], label="Sampled raceline")
-plt.plot(racelineaug[0,0], racelineaug[2,0], 'g*', label='Raceline Start')
-plt.plot(racelineaug[0,-1], racelineaug[2,-1], 'r*', label='Raceline End')
-plt.legend()
-try:
-    plt.savefig(os.path.join(output_dir, "sampled_raceline.pdf"), format="pdf")
-    plt.savefig(os.path.join(output_dir, "sampled_raceline.png"), format="png")
-    plt.close()
-except Exception as e:
-    plt.close()
-
-
-raceline_tangents = raceline_tangent(racelineparam)
-tangent_norms = np.linalg.norm(raceline_tangents, axis=1)
-print(tangent_norms)
+raceline_tangents = tangent_spline(racelinedist)
+tangent_norms = np.linalg.norm(raceline_tangents,ord=2,axis=1)
 raceline_unit_tangents = raceline_tangents/tangent_norms[:,np.newaxis]
-print(np.linalg.norm(raceline_unit_tangents,axis=1))
 
-raceline_laterals = raceline_lateral(racelineparam)
-raceline_lateral_norms = np.linalg.norm(raceline_laterals,axis=1)
-raceline_unit_laterals = raceline_laterals/(raceline_lateral_norms[:,np.newaxis])
+raceline_laterals = lateral_spline(racelinedist)
+lateral_norms = np.linalg.norm(raceline_laterals,ord=2,axis=1)
+raceline_unit_laterals = raceline_laterals/lateral_norms[:,np.newaxis]
+
+# raceline_unit_tangents = np.column_stack( [ racelinedict["x_tangent"], np.zeros_like(racelinedict["x_tangent"]), racelinedict["z_tangent"] ] ).astype(np.float64)
+# raceline_unit_tangents = raceline_unit_tangents/np.linalg.norm(raceline_unit_tangents,ord=2,axis=1)[:,np.newaxis]
+# raceline_unit_laterals = np.column_stack( [ racelinedict["x_normal"], np.zeros_like(racelinedict["x_normal"]),  racelinedict["z_normal"] ] ).astype(np.float64)
+# raceline_unit_laterals = raceline_unit_laterals/np.linalg.norm(raceline_unit_laterals,ord=2,axis=1)[:,np.newaxis]
+
+
 crossprods = np.cross(raceline_tangents, raceline_laterals)
 crossprodnorms = np.linalg.norm(crossprods, axis=1)
 radii = np.power(tangent_norms, 3.0)/crossprodnorms
@@ -321,40 +290,40 @@ print()
 print("Linear map from system time to session time: session_time = %f*system_time + %f" %(slope,intercept))
 print("Standard error: %f" %(std_err))
 print("R^2: %f" %(r_value**2))
-try:
-  import matplotlib.pyplot as plt
-  from mpl_toolkits.mplot3d import Axes3D
-  fig = plt.figure("F1 Session Time vs System Time")
-  skipn=100
-  plt.scatter(system_times[::skipn], session_times[::skipn], label='measured data',facecolors='none', edgecolors='b', s=8)
-  if intercept>=0:
-      plotlabel = 'fitted line:\n y=%f*x+%f' % (slope, intercept)
-  else:
-      plotlabel = 'fitted line:\n y=%f*x-%f' % (slope, -intercept)
-  plt.plot(system_times, slope*system_times + intercept, label=plotlabel,color='black')
-  plt.title("F1 Session Time vs System Time", fontsize=20)
-  plt.xlabel("OS-tagged System Time", fontsize=20)
-  plt.ylabel("F1 Session Time", fontsize=20)
-  #plt.rcParams.update({'font.size': 12})
-  #plt.rcParams.update({'font.size': 12})
+# try:
+#   import matplotlib.pyplot as plt
+#   from mpl_toolkits.mplot3d import Axes3D
+#   fig = plt.figure("F1 Session Time vs System Time")
+#   skipn=100
+#   plt.scatter(system_times[::skipn], session_times[::skipn], label='measured data',facecolors='none', edgecolors='b', s=8)
+#   if intercept>=0:
+#       plotlabel = 'fitted line:\n y=%f*x+%f' % (slope, intercept)
+#   else:
+#       plotlabel = 'fitted line:\n y=%f*x-%f' % (slope, -intercept)
+#   plt.plot(system_times, slope*system_times + intercept, label=plotlabel,color='black')
+#   plt.title("F1 Session Time vs System Time", fontsize=20)
+#   plt.xlabel("OS-tagged System Time", fontsize=20)
+#   plt.ylabel("F1 Session Time", fontsize=20)
+#   #plt.rcParams.update({'font.size': 12})
+#   #plt.rcParams.update({'font.size': 12})
   
-  #plt.plot(image_timestamps, label='image tag times')
-  fig.legend(loc='center right')#,fontsize=20)
+#   #plt.plot(image_timestamps, label='image tag times')
+#   fig.legend(loc='center right')#,fontsize=20)
 
-  fig.savefig( os.path.join( output_dir, "datalogger_remap_plot.png" ), bbox_inches='tight')
-  fig.savefig( os.path.join( output_dir, "datalogger_remap_plot.eps" ), format='eps', bbox_inches='tight')
-  fig.savefig( os.path.join( output_dir, "datalogger_remap_plot.pdf" ), format='pdf', bbox_inches='tight')
-  fig.savefig( os.path.join( output_dir, "datalogger_remap_plot.svg" ), format='svg', bbox_inches='tight')
+#   fig.savefig( os.path.join( output_dir, "datalogger_remap_plot.png" ), bbox_inches='tight')
+#   fig.savefig( os.path.join( output_dir, "datalogger_remap_plot.eps" ), format='eps', bbox_inches='tight')
+#   fig.savefig( os.path.join( output_dir, "datalogger_remap_plot.pdf" ), format='pdf', bbox_inches='tight')
+#   fig.savefig( os.path.join( output_dir, "datalogger_remap_plot.svg" ), format='svg', bbox_inches='tight')
 
 
 
-  plt.show()
-except KeyboardInterrupt:
-  exit(0)
-except Exception as e:
-  print("Skipping visualiation")
-  print(e)
-  plt.close()
+#   plt.show()
+# except KeyboardInterrupt:
+#   exit(0)
+# except Exception as e:
+#   print("Skipping visualiation")
+#   print(e)
+#   plt.close()
   #text = input("Could not import matplotlib, skipping visualization. Enter anything to continue.")
 #scipy.interpolate.interp1d
 lmdb_dir = os.path.join(output_dir,"lmdb")
@@ -362,12 +331,11 @@ if os.path.isdir(lmdb_dir):
     shutil.rmtree(lmdb_dir)
 os.makedirs(lmdb_dir)
 print("Generating raceline labels")
-config_dict = {"lookahead_distance": lookahead_distance}
-config_dict = {"lookahead_indices": lookahead_indices}
+config_dict = {"lookahead_distance": lookahead_distance, "lookahead_indices": lookahead_indices, "track_id": track_id, "track_name" : trackNames[track_id]}
 with open(os.path.join(output_dir,'config.yaml'), 'w') as yaml_file:
     yaml.dump(config_dict, yaml_file, Dumper=yaml.SafeDumper)
 #exit(0)
-raceline_diffs = racelineparam[1:] - racelineparam[0:-1]
+raceline_diffs = racelinedist[1:] - racelinedist[0:-1]
 #raceline_diffs = np.linalg.norm(racelineaug[0:3,1:] - racelineaug[0:3,0:-1] , ord=2, axis=0 )
 average_diff = np.mean(raceline_diffs)
 if lookahead_indices is None:
@@ -377,7 +345,7 @@ else:
 kdtree : KDTree = KDTree(racelineaug[0:3].transpose())
 db = deepracing.backend.PoseSequenceLabelLMDBWrapper()
 db.readDatabase( lmdb_dir, mapsize=int(round(166*li*len(image_tags)*1.25)), max_spare_txns=16, readonly=False )
-for (idx,imagetag)  in tqdm(enumerate(image_tags)):
+for (idx,imagetag) in tqdm(enumerate(image_tags), total=len(image_tags)):
     try:
         t_interp = image_session_timestamps[idx]
         if (t_interp<(session_times[0]+2.0)) or (t_interp>(session_times[-1]-2.0)):
@@ -412,16 +380,17 @@ for (idx,imagetag)  in tqdm(enumerate(image_tags)):
 
         if I2 < racelineaug.shape[1]:
             sample_idx = np.arange(I1,I2,step=1,dtype=np.int32)
-            local_distances = racelineparam[sample_idx]
+            local_distances = racelinedist[sample_idx]
             crossover = False
         else:
             crossover = True
             sample_idx1 = np.arange(I1,racelineaug.shape[1],step=1,dtype=np.int32)
             sample_idx2 = np.arange(0,I2-racelineaug.shape[1],step=1,dtype=np.int32)
             sample_idx = np.hstack((sample_idx1,sample_idx2))
-            local_distances1 = racelineparam[sample_idx1]
-            local_distances2 = racelineparam[sample_idx2] + (local_distances1[-1] + finaldistance)
+            local_distances1 = racelinedist[sample_idx1]
+            local_distances2 = racelinedist[sample_idx2] + (local_distances1[-1] + finaldistance)
             local_distances = np.hstack((local_distances1,local_distances2))
+        dsamp = np.linspace(local_distances[0], local_distances[-1], num = num_samples)
         local_points = np.matmul(car_affine_pose_inv,racelineaug[:,sample_idx])[0:3].transpose()
         local_velocities = np.matmul(car_affine_pose_inv[0:3,0:3],raceline_velocities[sample_idx].transpose()).transpose()
         local_speeds = speeds[sample_idx]
@@ -448,15 +417,15 @@ for (idx,imagetag)  in tqdm(enumerate(image_tags)):
             raise ValueError("Local distances is supposed to have %d samples, but has %d instead." % (li, local_distances.shape[0]))
         if not local_points.shape[0] == li:
             raise ValueError("Local points is supposed to have %d samples, but has %d instead." % (li, local_points.shape[0]))
-        if debug and (crossover or (np.min(local_speeds)<40 and idx%3==0)):
+        if debug and ((np.min(local_speeds)<40 and idx%6==0) or (crossover and False)):
             print("local_points has shape: %s" % ( str(local_points.shape), ) )
             print("Total time diff %f" % ( local_times[-1] - local_times[0], ) )
             f, (imax, plotax) = plt.subplots(nrows=1 , ncols=2)
             im = cv2.cvtColor(cv2.imread(os.path.join(image_folder,label_tag.image_tag.image_file)), cv2.COLOR_BGR2RGB)
             imax.imshow(im)
-            plotax.set_xlim(-40,40)
-            plotax.scatter(-local_points[:,0], local_points[:,2])
-            plotax.quiver(-local_points[:,0], local_points[:,2], -local_velocities[:,0], local_velocities[:,2], angles='xy', scale=None)
+            plotax.set_xlim(40,-40)
+            plotax.scatter(local_points[:,0], local_points[:,2])
+            plotax.quiver(local_points[:,0], local_points[:,2], local_velocities[:,0], local_velocities[:,2], angles='xy', scale=None)
             try:
                 plt.show()
             except Exception as e:
