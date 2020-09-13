@@ -1,6 +1,17 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+def signedDistances(waypoints, boundarypoints, boundarynormals):
+    batch_dimension = waypoints.shape[0]
+    num_waypoints = waypoints.shape[1]
+    num_boundary_points = boundarypoints.shape[1]
+    point_dimension = waypoints.shape[2]
+    distance_matrix = torch.cdist(waypoints, boundarypoints)
+    closest_point_idx = torch.argmin(distance_matrix,dim=2)
+    closest_boundary_points = torch.stack( [boundarypoints[i,closest_point_idx[i]] for i in range(batch_dimension)], dim=0)
+    closest_boundary_normals = torch.stack( [boundarynormals[i,closest_point_idx[i]] for i in range(batch_dimension)], dim=0)
+    delta_vecs = waypoints - closest_boundary_points
+    return closest_point_idx, torch.sum(delta_vecs*closest_boundary_normals, dim=2)
 class QuaternionDistance(nn.Module):
     def __init__(self):
         super(QuaternionDistance, self).__init__()
@@ -16,6 +27,49 @@ class QuaternionDistance(nn.Module):
         acos = torch.acos(dotabsthresh)
         batched_sum = torch.sum(acos, dim = 1)
         return torch.sum( batched_sum )
+class ExpRelu(nn.Module):
+    def __init__(self, alpha=1.0, beta=0.1):
+        super(ExpRelu, self).__init__()
+        self.alpha = alpha
+        self.beta = beta
+    def forward(self, inp):
+        return torch.where(inp>0.0, self.alpha*inp, torch.exp(self.beta*inp)-1.0)
+
+class BoundaryLoss(nn.Module):
+    def __init__( self, time_reduction="mean", batch_reduction="mean", alpha = 1.0, beta = 0.5 ):
+        super(BoundaryLoss, self).__init__()
+        self.time_reduction = time_reduction
+        self.batch_reduction = batch_reduction
+        self.alpha = alpha
+        self.beta = beta
+        self.relu = ExpRelu(alpha = self.alpha, beta = self.beta)
+    
+    def forward(self, waypoints, boundarypoints, boundarynormals):
+        _, dot_prods = signedDistances(waypoints, boundarypoints, boundarynormals)
+        dot_prods_relu = self.relu(dot_prods)
+
+        if self.time_reduction=="mean":
+            dot_prod_redux = torch.mean(dot_prods_relu,dim=1)
+        elif self.time_reduction=="sum":
+            dot_prod_redux = torch.sum(dot_prods_relu,dim=1)
+        elif self.time_reduction=="max":
+            dot_prod_redux = torch.max(dot_prods_relu,dim=1)
+        else:
+            raise ValueError("Unsupported time-wise reduction: %s" % (self.time_reduction,) )
+
+        if self.batch_reduction=="mean":
+            return torch.mean(dot_prod_redux)
+        elif self.batch_reduction=="sum":
+            return torch.sum(dot_prod_redux)
+        elif self.batch_reduction=="max":
+            return torch.max(dot_prod_redux)
+        else:
+            raise ValueError("Unsupported batch-wise reduction: %s" % (self.batch_reduction,) )
+
+
+
+
+
 class SquaredLpNormLoss(nn.Module):
     '''
     Computes the squared Lp norm between predictions and target along a time axis .

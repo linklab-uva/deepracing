@@ -47,7 +47,7 @@ def powerset(iterable):
 def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
 class PoseSequenceDataset(Dataset):
-    def __init__(self, image_db_wrapper, label_db_wrapper, keyfile, context_length, \
+    def __init__(self, image_db_wrapper, label_db_wrapper, keyfile, context_length, track_id,\
         image_size = np.array((66,200)), lookahead_indices = -1, lateral_dimension = 1,\
             gaussian_blur = None, color_jitter = None, geometric_variants = False):
         super(PoseSequenceDataset, self).__init__()
@@ -59,6 +59,7 @@ class PoseSequenceDataset(Dataset):
         self.topil = transforms.ToPILImage()
         self.lateral_dimension = lateral_dimension
         self.lookahead_indices = lookahead_indices
+        self.track_id = track_id
         if bool(gaussian_blur) and gaussian_blur>0:
             self.gaussian_blur_PIL = GaussianBlur(radius=gaussian_blur)
             self.gaussian_blur = transforms.Lambda(lambda img : img.filter(self.gaussian_blur_PIL))
@@ -151,4 +152,4 @@ class PoseSequenceDataset(Dataset):
         images_torch = torch.stack( [ self.totensor(img) for img in pilimages ] ).double()
        
 
-        return images_torch, torch.as_tensor(packetrange[-1], dtype=torch.int32), positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch
+        return images_torch, torch.as_tensor(packetrange[-1], dtype=torch.int32), positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch, self.track_id

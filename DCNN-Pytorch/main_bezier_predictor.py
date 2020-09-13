@@ -1,6 +1,7 @@
 import comet_ml
 import torch
 import torch.nn as NN
+import torch.nn.functional as F
 import torch.utils.data as data_utils
 import deepracing_models.data_loading.proto_datasets as PD
 from tqdm import tqdm as tqdm
@@ -19,6 +20,8 @@ import yaml
 import shutil
 import skimage
 import skimage.io
+import deepracing
+from deepracing import trackNames
 import deepracing.backend
 import imageio
 import matplotlib.pyplot as plt
@@ -30,8 +33,30 @@ import json
 from comet_ml.api import API, APIExperiment
 import cv2
 
+
+ob_normal_dict = {}
+ob_dict = {}
+ib_normal_dict = {}
+ib_dict = {}
+def loadTracks(track_id, track_file_dir, device):
+    global ob_dict, ob_normal_dict, ib_dict, ib_normal_dict
+    trackName = trackNames[track_id]
+    print("Loading Track: " + trackName)
+    with open(os.path.join(track_file_dir, trackName + "_innerlimit.json"), "r") as f:
+        d = json.load(f)
+        ib_dict[track_id] = torch.stack([torch.tensor(d["x"], dtype=torch.float64, device=device), torch.tensor(d["z"], dtype=torch.float64, device=device)], dim=1)
+        ib_normal_dict[track_id] = F.normalize(torch.stack([torch.tensor(d["x_normal"], dtype=torch.float64, device=device), torch.tensor(d["z_normal"], dtype=torch.float64, device=device)], dim=1), dim=1)
+    with open(os.path.join(track_file_dir, trackName + "_outerlimit.json"), "r") as f:
+        d = json.load(f)
+        ob_dict[track_id] = torch.stack([torch.tensor(d["x"], dtype=torch.float64, device=device), torch.tensor(d["z"], dtype=torch.float64, device=device)], dim=1)
+        ob_normal_dict[track_id] = F.normalize(torch.stack([torch.tensor(d["x_normal"], dtype=torch.float64, device=device), torch.tensor(d["z_normal"], dtype=torch.float64, device=device)], dim=1), dim=1)
+    print("Loaded Track: " + trackName)
+
+
+
 #torch.backends.cudnn.enabled = False
-def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, params_loss, kinematic_loss, loss_weights, epoch_number, use_label_times = True, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True, position_indices=[0,2]):
+def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, kinematic_loss, boundary_loss, lossdict, epoch_number, use_label_times = True, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True, position_indices=[0,2]):
+    global ob_dict, ob_normal_dict, ib_dict, ib_normal_dict
     cum_loss = 0.0
     cum_param_loss = 0.0
     cum_position_loss = 0.0
@@ -46,12 +71,12 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, para
     dataloaderlen = len(trainLoader)
     dev = next(network.parameters()).device  # we are only doing single-device training for now, so this works fine.
 
-    _, _, _, _, _, _, sample_session_times = trainLoader.dataset[0]
+    _, _, _, _, _, _, sample_session_times,_ = trainLoader.dataset[0]
     s_torch = torch.linspace(0.0,1.0,steps=sample_session_times.shape[0],dtype=torch.float64,device=dev).unsqueeze(0).repeat(batch_size,1)
     bezier_order = network.params_per_dimension-1+int(fix_first_point)
     if not debug:
         experiment.set_epoch(epoch_number)
-    for (i, (image_torch, key_indices_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
+    for (i, (image_torch, key_indices_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch, track_ids) ) in t:
         image_torch = image_torch.double().to(device=dev)
         positions_torch = positions_torch.double().to(device=dev)
         session_times_torch = session_times_torch.double().to(device=dev)
@@ -90,6 +115,7 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, para
         _, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape, t = s_torch_cur, order=1)
         pred_vels_scaled = pred_vels/dt[:,None,None]
         
+        use_boundaries = not torch.any(torch.isnan(track_ids))
         if debug:
             fig, (ax1, ax2) = plt.subplots(1, 2, sharey=False)
             images_np = np.round(255.0*image_torch[0].detach().cpu().numpy().copy().transpose(0,2,3,1)).astype(np.uint8)
@@ -104,6 +130,7 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, para
 
             gt_points_np = gt_points[0].detach().cpu().numpy().copy()
             pred_points_np = pred_points[0].detach().cpu().numpy().copy()
+            pred_control_points_np = predictions_reshape[0].detach().cpu().numpy().copy()
             #print(gt_points_np)
             fit_points_np = fit_points[0].cpu().numpy().copy()
             fit_control_points_np = controlpoints_fit[0].cpu().numpy().copy()
@@ -119,48 +146,60 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, para
             ax2.scatter(-fit_control_points_np[1:,0],fit_control_points_np[1:,1],c="b", label="Bézier Curve's Control Points")
             ax2.scatter(-fit_control_points_np[0,0],fit_control_points_np[0,1],c="g", label="This should be (0,0)")
             ax2.plot(-pred_points_np[:,0],pred_points_np[:,1],'r-', label="Predicted Bézier Curve")
+            ax2.scatter(-pred_control_points_np[:,0],pred_control_points_np[:,1], c='r', label="Predicted Bézier Curve's Control Points")
            
             velocity_err = kinematic_loss(fit_vels_scaled, gt_vels).item()
-            print("\nMean velocity error: %f\n" % (velocity_err))
-            print(session_times_torch)
-            print(s_torch_cur)
-            print(dt)
+            # print("\nMean velocity error: %f\n" % (velocity_err))
+            # print(session_times_torch)
+            # print(s_torch_cur)
+            # print(dt)
             plt.show()
 
         current_position_loss = kinematic_loss(pred_points, gt_points)
         current_velocity_loss = kinematic_loss(pred_vels_scaled, gt_vels)
-        final_point_loss = kinematic_loss(pred_points[:,-1].unsqueeze(1), gt_points[:,-1].unsqueeze(1))
-        current_param_loss = params_loss(predictions_reshape,controlpoints_fit)
+        current_param_loss = kinematic_loss(predictions_reshape,controlpoints_fit)
 
-        param_weight = loss_weights[0]
-        position_weight = loss_weights[1]
-        velocity_weight = loss_weights[2]
-        if len(loss_weights)>3:
-            final_point_weight = loss_weights[3]
-        else:
-            final_point_weight = 0.0
-
-        loss = param_weight*current_param_loss + position_weight*current_position_loss + velocity_weight*current_velocity_loss + final_point_weight*final_point_loss
-  
-       # loss = loss_weights[0]*current_param_loss + loss_weights[1]*current_position_loss + loss_weights[2]*current_velocity_loss
+        position_weight = lossdict["position"]
+        velocity_weight = lossdict["velocity"]
+        param_weight = lossdict["control_point"]
         
+       # print(track_ids)
+        kinematic_losses = position_weight*current_position_loss + velocity_weight*current_velocity_loss
+
+        if use_boundaries:
+            ib = torch.stack([ib_dict[track_ids[i].item()] for i in range(track_ids.shape[0])], dim=0)
+            ob = torch.stack([ob_dict[track_ids[i].item()] for i in range(track_ids.shape[0])], dim=0)
+            ib_normal = torch.stack([ib_normal_dict[track_ids[i].item()] for i in range(track_ids.shape[0])], dim=0)
+            ob_normal = torch.stack([ob_normal_dict[track_ids[i].item()] for i in range(track_ids.shape[0])], dim=0)
+            ibloss = boundary_loss(pred_points, ib, ib_normal)
+            obloss = boundary_loss(pred_points, ob, ob_normal)
+            loss = kinematic_losses + lossdict["boundary"]["inner_weight"]*ibloss + lossdict["boundary"]["outer_weight"]*obloss
+            iblossfloat = float(ibloss.item())
+            oblossfloat = float(obloss.item())
+        else:
+            loss = kinematic_losses
+            iblossfloat = 0.0
+            oblossfloat = 0.0
         # Backward pass:
         optimizer.zero_grad()
         loss.backward() 
         # Weight and bias updates.
         optimizer.step()
         # logging information
-        cum_loss += float(loss.item())
-        cum_param_loss += float(current_param_loss.item())
-        cum_position_loss += float(current_position_loss.item())
-        cum_velocity_loss += float(current_velocity_loss.item())
+        cum_loss = float(loss.item())
+        cum_param_loss = float(current_param_loss.item())
+        cum_position_loss = float(current_position_loss.item())
+        cum_velocity_loss = float(current_velocity_loss.item())
         num_samples += 1.0
         if not debug:
-            experiment.log_metric("cumulative_position_error", cum_position_loss/num_samples, step=(epoch_number-1)*dataloaderlen + i)
-            experiment.log_metric("cumulative_velocity_error", cum_velocity_loss/num_samples, step=(epoch_number-1)*dataloaderlen + i)
+            experiment.log_metric("position_error", cum_position_loss, step=(epoch_number-1)*dataloaderlen + i)
+            experiment.log_metric("velocity_error", cum_velocity_loss, step=(epoch_number-1)*dataloaderlen + i)
+            experiment.log_metric("inner_boundary_loss", iblossfloat, step=(epoch_number-1)*dataloaderlen + i)
+            experiment.log_metric("outer_boundary_loss", oblossfloat, step=(epoch_number-1)*dataloaderlen + i)
         if use_tqdm:
-            t.set_postfix({"cum_loss" : cum_loss/num_samples,"cum_param_loss" : cum_param_loss/num_samples,"cum_position_loss" : cum_position_loss/num_samples,"cum_velocity_loss" : cum_velocity_loss/num_samples})
+            t.set_postfix({"position_loss" : cum_position_loss, "velocity_loss" : cum_velocity_loss, "inner_boundary_loss" : iblossfloat, "outer_boundary_loss" : oblossfloat})
 def go():
+    global ob_dict, ob_normal_dict, ib_dict, ib_normal_dict
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
     parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuration file to load")
     parser.add_argument("model_config_file", type=str,  help="Model Configuration file to load")
@@ -250,23 +289,17 @@ def go():
         config["fix_first_point"] = fix_first_point
     else:
         fix_first_point = config["fix_first_point"]
-    loss_weights = config["loss_weights"]
-    if args.control_point_loss is not None:
-        loss_weights[0] = args.control_point_loss
-        config["loss_weights"] = loss_weights
-    if args.position_loss is not None:
-        loss_weights[1] = args.position_loss
-        config["loss_weights"] = loss_weights
-    if args.velocity_loss is not None:
-        loss_weights[2] = args.velocity_loss
-        config["loss_weights"] = loss_weights
+   
     num_epochs = config["num_epochs"]
     num_workers = config["num_workers"]
     hidden_dim = config["hidden_dimension"]
-    loss_reduction = config["loss_reduction"]
     use_3dconv = config["use_3dconv"]
     num_recurrent_layers = config.get("num_recurrent_layers",1)
     config["hostname"] = socket.gethostname()
+    lossdict = config["loss"]
+    track_file_dir = config.get("track_file_dir", os.environ.get("F1_TRACK_DIR", None))
+    if track_file_dir is None:
+        raise ValueError("Must either set track_file_dir in the training config or set the F1_TRACK_DIR environment variable")
     
     
     print("Using config:\n%s" % (str(config)))
@@ -274,23 +307,24 @@ def go():
     print("net:\n%s" % (str(net)))
     ppd = net.params_per_dimension
     numones = int(ppd/2)
-    if weighted_loss:
-        timewise_weights = torch.from_numpy( np.hstack( ( np.ones(numones), np.linspace(1,3, ppd - numones ) ) ) )
-    else:
-        timewise_weights = None
-    params_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss(time_reduction=loss_reduction)
-    kinematic_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss(time_reduction=loss_reduction)
+    
+    kinematic_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss()
+    boundary_loss = deepracing_models.nn_models.LossFunctions.BoundaryLoss(alpha = lossdict["boundary"]["alpha"], beta=lossdict["boundary"]["beta"])
+
     print("casting stuff to double")
     net = net.double()
-    params_loss = params_loss.double()
     kinematic_loss = kinematic_loss.double()
+    boundary_loss = boundary_loss.double()
     if model_load is not None:
         net.load_state_dict(torch.load(model_load, map_location=torch.device("cpu")))
     if gpu>=0:
         print("moving stuff to GPU")
+        device = torch.device("cuda:%d" % gpu)
         net = net.cuda(gpu)
-        params_loss = params_loss.cuda(gpu)
         kinematic_loss = kinematic_loss.cuda(gpu)
+        boundary_loss = boundary_loss.cuda(gpu)
+    else:
+        device = torch.device("cpu")
     optimizer = args.optimizer
     
 
@@ -330,9 +364,10 @@ def go():
     dset_output_lengths=[]
     lookahead_indices = dataset_config["lookahead_indices"]   
     use_label_times = dataset_config["use_label_times"]
+    use_boundary_loss = dataset_config.get("boundary_loss", False) 
     for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
-        lateral_dimension = dataset["lateral_dimension"]
+        lateral_dimension = dataset["lateral_dimension"]  
         geometric_variants = dataset.get("geometric_variants", False)   
         gaussian_blur_radius = dataset.get("gaussian_blur_radius", None)
         label_subfolder = dataset.get("label_subfolder", "pose_sequence_labels")
@@ -350,14 +385,26 @@ def go():
 
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
         image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
-        image_wrapper.readDatabase(os.path.join(image_folder,"image_lmdb"), mapsize=image_mapsize )
+        image_wrapper.readDatabase( os.path.join(image_folder,"image_lmdb"), mapsize=image_mapsize )
+        if use_boundary_loss:
+            try:
+                with open(os.path.join(label_folder,"config.yaml"),"r") as f:
+                    metadata = yaml.load(f, Loader=yaml.SafeLoader)
+                    print("Openned metadata: %s" %(str(metadata),))
+                    track_id = metadata["track_id"]
+                    if not track_id in ib_dict:
+                        loadTracks(track_id, track_file_dir, device)
+            except Exception as e:
+                track_id = np.nan
+        else:
+            track_id = np.nan
 
 
-        curent_dset = PD.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length,\
+        curent_dset = PD.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, track_id,\
                      image_size = image_size, lookahead_indices = lookahead_indices, lateral_dimension=lateral_dimension, \
                      geometric_variants = geometric_variants, gaussian_blur=gaussian_blur_radius, color_jitter = color_jitter)
         dsets.append(curent_dset)
-        _, _, positions_test, _, _, _, session_times_test = curent_dset[0]
+        _, _, positions_test, _, _, _, session_times_test, _ = curent_dset[0]
         dset_output_lengths.append(positions_test.shape[0])
         print("\n")
     if len(dsets)==1:
@@ -397,8 +444,9 @@ def go():
         experiment.log_asset(os.path.join(output_directory,"experiment_config.yaml"),file_name="experiment_config.yaml")
         experiment.log_asset(os.path.join(output_directory,"model_config.yaml"),file_name="model_config.yaml")
         i = 0
+        #def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, kinematic_loss, boundary_loss, lossdict, epoch_number, 
     if debug:
-        run_epoch(None, net, fix_first_point , optimizer, dataloader, params_loss, kinematic_loss, loss_weights, 1, use_label_times=use_label_times, debug=True, use_tqdm=args.tqdm, position_indices=position_indices)
+        run_epoch(None, net, fix_first_point , optimizer, dataloader, kinematic_loss, boundary_loss, lossdict, 1, use_label_times=use_label_times, debug=True, use_tqdm=args.tqdm, position_indices=position_indices)
     else:
         netpostfix = "epoch_%d_params.pt"
         optimizerpostfix = "epoch_%d_optimizer.pt"
@@ -416,7 +464,7 @@ def go():
                 #dset.clearReaders()
                 try:
                     tick = time.time()
-                    run_epoch(experiment, net, fix_first_point , optimizer, dataloader, params_loss, kinematic_loss, loss_weights, postfix, use_label_times=use_label_times, debug=False, use_tqdm=args.tqdm, position_indices=position_indices)
+                    run_epoch(experiment, net, fix_first_point , optimizer, dataloader, kinematic_loss, boundary_loss, lossdict, postfix, use_label_times=use_label_times, debug=False, use_tqdm=args.tqdm, position_indices=position_indices)
                     tock = time.time()
                     print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
                     experiment.log_epoch_end(postfix)
