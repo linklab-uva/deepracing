@@ -5,8 +5,10 @@
 #include <filesystem>
 #include <fstream>
 #include <streambuf>
+#include <sstream>
 #include <iostream>
 #include <cstdlib>
+#include <algorithm>
 #include "rclcpp/rclcpp.hpp"
 #include <pcl_conversions/pcl_conversions.h>
 #include <json/json.h>
@@ -54,20 +56,9 @@ Json::Value readJsonFile(std::shared_ptr<rclcpp::Node> node, std::string filepat
     {
         RCLCPP_FATAL(node->get_logger(), "no \"z\" key found in the json dictionary");
     }
-    
-    std::array<uint32_t,3> sizes = {(uint32_t)xarray.size(), (uint32_t)yarray.size(), (uint32_t)zarray.size()};
-    if (! std::all_of(sizes.begin(), sizes.end(), [xarray, yarray, zarray](uint32_t i){return i==xarray.size();}) )
-    {
-       RCLCPP_FATAL(node->get_logger(), "All three arrays are not the same size. Size of x array: %lu. Size of y array: %lu. Size of z array: %lu",sizes[0], sizes[1], sizes[2]); 
-    }
-    return rootval;
-}
-
-void unpackDictionary(std::shared_ptr<rclcpp::Node> node, const Json::Value& boundary_dict, pcl::PointCloud<pcl::PointXYZINormal>& cloudpcl, f1_datalogger_msgs::msg::BoundaryLine& blmsg, geometry_msgs::msg::PoseArray& pose_array, Eigen::Vector3d ref = Eigen::Vector3d::UnitY() )
-{
-    Json::Value boundary_x = boundary_dict["x"];Json::Value boundary_y = boundary_dict["y"];Json::Value boundary_z = boundary_dict["z"];
-    Json::Value boundary_xtangent = boundary_dict["x_tangent"];Json::Value boundary_ytangent = boundary_dict["y_tangent"];Json::Value boundary_ztangent = boundary_dict["z_tangent"];
-    Json::Value boundary_dist = boundary_dict["dist"];
+    Json::Value boundary_xtangent = rootval["x_tangent"];Json::Value boundary_ytangent = rootval["y_tangent"];Json::Value boundary_ztangent = rootval["z_tangent"];
+    Json::Value boundary_xnormal = rootval["x_normal"];Json::Value boundary_ynormal = rootval["y_normal"];Json::Value boundary_znormal = rootval["z_normal"];
+    Json::Value boundary_dist = rootval["dist"];
     if(  boundary_xtangent.isNull() )
     {
         RCLCPP_FATAL(node->get_logger(), "no \"x_tangent\" key found in the json dictionary");
@@ -80,57 +71,64 @@ void unpackDictionary(std::shared_ptr<rclcpp::Node> node, const Json::Value& bou
     {
         RCLCPP_FATAL(node->get_logger(), "no \"z_tangent\" key found in the json dictionary");
     }
+    if(  boundary_xnormal.isNull() )
+    {
+        RCLCPP_FATAL(node->get_logger(), "no \"x_normal\" key found in the json dictionary");
+    }
+    if(  boundary_ynormal.isNull() )
+    {
+        RCLCPP_FATAL(node->get_logger(), "no \"y_normal\" key found in the json dictionary");
+    }
+    if(  boundary_znormal.isNull() )
+    {
+        RCLCPP_FATAL(node->get_logger(), "no \"z_normal\" key found in the json dictionary");
+    }
     if(  boundary_dist.isNull() )
     {
         RCLCPP_FATAL(node->get_logger(), "no \"dist\" key found in the json dictionary");
     }
+    
+    std::array<uint32_t,10> sizes = {(uint32_t)xarray.size(), (uint32_t)yarray.size(), (uint32_t)zarray.size(),
+                                    (uint32_t)xarray.size(), (uint32_t)yarray.size(), (uint32_t)zarray.size(),
+                                    (uint32_t)xarray.size(), (uint32_t)yarray.size(), (uint32_t)zarray.size(), (uint32_t)boundary_dist.size()};
+    if (! std::all_of(sizes.begin(), sizes.end(), [xarray](uint32_t i){return i==xarray.size();}) )
+    {
+       std::stringstream ss;
+       std::for_each(sizes.begin(), sizes.end(), [&ss](uint32_t i){ss<<i<<std::endl;});
+       RCLCPP_FATAL(node->get_logger(), "All arrays are not the same size. Sizes: %s", ss.str().c_str()); 
+    }
+    return rootval;
+}
+
+void unpackDictionary(std::shared_ptr<rclcpp::Node> node, const Json::Value& boundary_dict, pcl::PointCloud<pcl::PointXYZINormal>& cloudpcl, geometry_msgs::msg::PoseArray& pose_array, Eigen::Vector3d ref = Eigen::Vector3d::UnitY() )
+{
+    Json::Value boundary_x = boundary_dict["x"];Json::Value boundary_y = boundary_dict["y"];Json::Value boundary_z = boundary_dict["z"];
+    Json::Value boundary_xtangent = boundary_dict["x_tangent"];Json::Value boundary_ytangent = boundary_dict["y_tangent"];Json::Value boundary_ztangent = boundary_dict["z_tangent"];
+    Json::Value boundary_xnormal = boundary_dict["x_normal"];Json::Value boundary_ynormal = boundary_dict["y_normal"];Json::Value boundary_znormal = boundary_dict["z_normal"];
+    Json::Value boundary_dist = boundary_dict["dist"];
     cloudpcl.clear();
-    blmsg.x.clear();
-    blmsg.y.clear();
-    blmsg.z.clear();
-    blmsg.xtangent.clear();
-    blmsg.ytangent.clear();
-    blmsg.ztangent.clear();
-    blmsg.dist.clear();
     pose_array.poses.clear();
     unsigned int imax = boundary_x.size();
     for (unsigned int i =0; i < imax; i++)
     {
         double dist = boundary_dist[i].asDouble();
         Eigen::Vector3d tangent(boundary_xtangent[i].asDouble(), boundary_ytangent[i].asDouble(), boundary_ztangent[i].asDouble());
-       // tangent.normalize();
-        Eigen::Vector3d normal = ref.cross(tangent);
+        tangent.normalize();
+        Eigen::Vector3d normal(boundary_xnormal[i].asDouble(), boundary_ynormal[i].asDouble(), boundary_znormal[i].asDouble());
         normal.normalize();
+       
         pcl::PointXYZ point(boundary_x[i].asDouble(), boundary_y[i].asDouble(), boundary_z[i].asDouble());
-        Eigen::Vector3d pointeig(point.x,point.y,point.z);
-        unsigned int iforward = (i+5)%imax;
-        Eigen::Vector3d pointforward(boundary_x[iforward].asDouble(), boundary_y[iforward].asDouble(), boundary_z[iforward].asDouble());
-        Eigen::Vector3d delta = pointforward - pointeig;
-        delta.normalize();
-        Eigen::Vector3d refcomp = normal.cross(delta);
-        if (refcomp.dot(ref)>0.0)
-        {
-            RCLCPP_INFO(node->get_logger(), "Flipping point %d: (%f, %f, %f)", i, point.x, point.y, point.z);
-            normal *=-1.0;
-        }
-
-
         pcl::PointXYZINormal pointnormal(point.x, point.y, point.z, dist, normal.x(), normal.y(), normal.z());
         cloudpcl.push_back(pointnormal);
-        blmsg.x.push_back(point.x);
-        blmsg.y.push_back(point.y);
-        blmsg.z.push_back(point.z);
-        blmsg.xtangent.push_back(tangent.x());
-        blmsg.ytangent.push_back(tangent.y());
-        blmsg.ztangent.push_back(tangent.z());
-        blmsg.dist.push_back(dist);
 
         Eigen::Matrix3d rotmat;
         rotmat.col(0) = normal;
-        rotmat.col(1) = normal.cross(ref);
-        rotmat.col(2) = rotmat.col(0).cross(rotmat.col(1));
-
+        rotmat.col(2) = tangent;
+        Eigen::Vector3d yvec = rotmat.col(2).cross(rotmat.col(0));
+        yvec.normalize();
+        rotmat.col(1)=yvec;
         Eigen::Quaterniond quat(rotmat);
+
 
         geometry_msgs::msg::Pose pose;
         pose.position.x = point.x;
@@ -141,19 +139,6 @@ void unpackDictionary(std::shared_ptr<rclcpp::Node> node, const Json::Value& bou
         pose.orientation.z = quat.z();
         pose.orientation.w = quat.w();
         pose_array.poses.push_back(pose);
-
-        // if(i>0)
-        // {
-        //     Eigen::Vector3d delta = Eigen::Vector3d(cloudpcl.at(i).x, cloudpcl.at(i).y, cloudpcl.at(i).z) - Eigen::Vector3d(cloudpcl.at(i-1).x, cloudpcl.at(i-1).y, cloudpcl.at(i-1).z);
-        //     Eigen::Vector3d nprev = Eigen::Vector3d(cloudpcl.at(i-1).normal_x, cloudpcl.at(i-1).normal_y, cloudpcl.at(i-1).normal_z);
-        //     Eigen::Vector3d ncurr = Eigen::Vector3d(cloudpcl.at(i).normal_x, cloudpcl.at(i).normal_y, cloudpcl.at(i).normal_z);
-        //     double dot = ncurr.dot(nprev);
-        //     RCLCPP_DEBUG(node->get_logger(), "Dot product between point %d and point %d: %f", i-1, i, dot);
-        //     if (dot < 0.0)
-        //     {
-        //         RCLCPP_ERROR(node->get_logger(), "Abrubt change in normal vector detected at point (X,Y,Z): (%f,%f,%f)", point.x, point.y, point.z);
-        //     }
-        // }
     }
 }
 class NodeWrapper_
@@ -191,10 +176,6 @@ int main(int argc, char** argv)
     std::shared_ptr< rclcpp::Publisher<sensor_msgs::msg::PointCloud2> > innerpub = node->create_publisher<sensor_msgs::msg::PointCloud2>("/inner_track_boundary/pcl",1);
     std::shared_ptr< rclcpp::Publisher<sensor_msgs::msg::PointCloud2> > outerpub = node->create_publisher<sensor_msgs::msg::PointCloud2>("/outer_track_boundary/pcl",1);
     std::shared_ptr< rclcpp::Publisher<sensor_msgs::msg::PointCloud2> > racelinepub = node->create_publisher<sensor_msgs::msg::PointCloud2>("/optimal_raceline/pcl",1);
-    
-    std::shared_ptr< rclcpp::Publisher<f1_datalogger_msgs::msg::BoundaryLine> > innerpubbl = node->create_publisher<f1_datalogger_msgs::msg::BoundaryLine>("/inner_track_boundary",1);
-    std::shared_ptr< rclcpp::Publisher<f1_datalogger_msgs::msg::BoundaryLine> > outerpubbl = node->create_publisher<f1_datalogger_msgs::msg::BoundaryLine>("/outer_track_boundary",1);
-    std::shared_ptr< rclcpp::Publisher<f1_datalogger_msgs::msg::BoundaryLine> > racelinepubbl = node->create_publisher<f1_datalogger_msgs::msg::BoundaryLine>("/optimal_raceline",1);
 
     
     std::shared_ptr< rclcpp::Publisher<geometry_msgs::msg::PoseArray> > innerpubpa = node->create_publisher<geometry_msgs::msg::PoseArray>("/inner_track_boundary/pose_array",1);
@@ -205,7 +186,6 @@ int main(int argc, char** argv)
     pcl::PointCloud<pcl::PointXYZINormal> innercloudPCL, outercloudPCL, racelinecloudPCL;
     sensor_msgs::msg::PointCloud2 innercloudMSG, outercloudMSG, racelinecloudMSG;
     Json::Value innerDict, outerDict, racelineDict;
-    f1_datalogger_msgs::msg::BoundaryLine innerBL, outerBL, racelineBL;
     geometry_msgs::msg::PoseArray innerPA, outerPA, racelinePA;
 
     rclcpp::ParameterValue track_dir_param = node->declare_parameter("track_dir",rclcpp::ParameterValue(std::string(std::getenv("F1_TRACK_DIR"))));
@@ -217,6 +197,7 @@ int main(int argc, char** argv)
     {
         rclcpp::sleep_for(std::chrono::nanoseconds(int(1E9)));
         rclcpp::spin_some(node);
+        innercloudMSG.header.stamp = node->now();
         RCLCPP_DEBUG(node->get_logger(), "Ran a spin.");
         std::string active_track="";
         int8_t track_index = nw.current_session_data->udp_packet.track_id;
@@ -230,26 +211,23 @@ int main(int argc, char** argv)
         {            
             track_name = active_track;
             RCLCPP_INFO(node->get_logger(), "Detected new track  %s.", track_name.c_str());
-            innerBL.track_name = track_name;
-            outerBL.track_name = track_name;
-            racelineBL.track_name = track_name;
 
             std::string inner_filename = track_name + "_innerlimit.json";
             RCLCPP_INFO(node->get_logger(), "Openning file %s in directory %s.", inner_filename.c_str(), track_dir.c_str());
             innerDict = readJsonFile(node,(fs::path(track_dir) / fs::path(inner_filename)).string());
-            unpackDictionary(node,innerDict, innercloudPCL, innerBL, innerPA, -Eigen::Vector3d::UnitY());
+            unpackDictionary(node,innerDict, innercloudPCL, innerPA, -Eigen::Vector3d::UnitY());
             RCLCPP_INFO(node->get_logger(), "Got %d points for the inner boundary.", innercloudPCL.size());
 
             std::string outer_filename = track_name + "_outerlimit.json";
             RCLCPP_INFO(node->get_logger(), "Openning file %s in directory %s.", outer_filename.c_str(), track_dir.c_str());
             outerDict = readJsonFile(node,(fs::path(track_dir) / fs::path(outer_filename)).string());
-            unpackDictionary(node,outerDict,outercloudPCL,outerBL,outerPA);
+            unpackDictionary(node,outerDict,outercloudPCL,outerPA);
             RCLCPP_INFO(node->get_logger(), "Got %d points for the outer boundary.", outercloudPCL.size());
 
             std::string raceline_filename = track_name + "_racingline.json";
             RCLCPP_INFO(node->get_logger(), "Openning file %s in directory %s.", raceline_filename.c_str(), track_dir.c_str());
             racelineDict = readJsonFile(node,(fs::path(track_dir) / fs::path(raceline_filename)).string());
-            unpackDictionary(node,racelineDict,racelinecloudPCL,racelineBL,racelinePA);
+            unpackDictionary(node,racelineDict,racelinecloudPCL,racelinePA);
             RCLCPP_INFO(node->get_logger(), "Got %d points for the optimal raceline.", racelinecloudPCL.size());
 
             pcl::PCLPointCloud2 innercloudPC2, outercloudPC2, racelinecloudPC2;
@@ -259,32 +237,17 @@ int main(int argc, char** argv)
             pcl_conversions::moveFromPCL(innercloudPC2, innercloudMSG);
             pcl_conversions::moveFromPCL(outercloudPC2, outercloudMSG);
             pcl_conversions::moveFromPCL(racelinecloudPC2, racelinecloudMSG);
-            // outercloudMSG.header.frame_id = f1_datalogger_ros::F1MsgUtils::world_coordinate_name; 
-            // racelinecloudMSG.header.frame_id = f1_datalogger_ros::F1MsgUtils::world_coordinate_name; 
-            // innerBL.header.frame_id = f1_datalogger_ros::F1MsgUtils::world_coordinate_name; 
-            // outerBL.header.frame_id = f1_datalogger_ros::F1MsgUtils::world_coordinate_name; 
-            // racelineBL.header.frame_id = f1_datalogger_ros::F1MsgUtils::world_coordinate_name; 
-
-
         }
         innercloudMSG.header.frame_id = f1_datalogger_ros::F1MsgUtils::world_coordinate_name; 
-        innercloudMSG.header.stamp = node->now();
-        outercloudMSG.header = innercloudMSG.header;
-        racelinecloudMSG.header = innercloudMSG.header;
-        innerBL.header = innercloudMSG.header;
-        outerBL.header = innercloudMSG.header;
-        racelineBL.header = innercloudMSG.header;
-        innerPA.header = innercloudMSG.header;
-        outerPA.header = innercloudMSG.header;
-        racelinePA.header = innercloudMSG.header;
+        outercloudMSG.set__header( innercloudMSG.header );
+        racelinecloudMSG.set__header( innercloudMSG.header );
+        innerPA.set__header( innercloudMSG.header );
+        outerPA.set__header( innercloudMSG.header );
+        racelinePA.set__header( innercloudMSG.header );
 
         innerpub->publish(innercloudMSG);
         outerpub->publish(outercloudMSG);
         racelinepub->publish(racelinecloudMSG);
-        
-        innerpubbl->publish(innerBL);
-        outerpubbl->publish(outerBL);
-        racelinepubbl->publish(racelineBL);
         
         innerpubpa->publish(innerPA);
         outerpubpa->publish(outerPA);
