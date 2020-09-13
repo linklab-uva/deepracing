@@ -173,8 +173,11 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, kine
             ib_normal = torch.stack([ib_normal_dict[track_ids[i].item()] for i in range(track_ids.shape[0])], dim=0)
             ob_normal = torch.stack([ob_normal_dict[track_ids[i].item()] for i in range(track_ids.shape[0])], dim=0)
 
-            pred_points_aug = torch.stack([pred_points[:,:,0], torch.zeros_like(pred_points[:,:,0]) , pred_points[:,:,1], torch.ones_like(pred_points[:,:,0])], dim=1)
-            pred_points_global = torch.matmul(car_poses, pred_points_aug)[:,[0,2],:].transpose(1,2)
+            #pred_points_aug = torch.stack([pred_points[:,:,0], torch.zeros_like(pred_points[:,:,0]) , pred_points[:,:,1], torch.ones_like(pred_points[:,:,0])], dim=1)
+            pred_points_aug = torch.zeros(pred_points.shape[0], 4, pred_points.shape[1], dtype=pred_points.dtype, device=pred_points.device)
+            pred_points_aug[:,position_indices,:]= torch.stack([pred_points[:,:,0], pred_points[:,:,1]], dim=1)
+            pred_points_aug[:,3,:]=1.0
+            pred_points_global = torch.matmul(car_poses, pred_points_aug)[:,position_indices,:].transpose(1,2)
             ibloss = boundary_loss(pred_points_global, ib, ib_normal)
             obloss = boundary_loss(pred_points_global, ob, ob_normal)
             loss = kinematic_losses + lossdict["boundary"]["inner_weight"]*ibloss + lossdict["boundary"]["outer_weight"]*obloss
