@@ -11,6 +11,8 @@ from .proto_utils import extractPose as extractPose
 from .proto_utils import extractVelocity as extractVelocity
 from .proto_utils import extractAngularVelocity as extractAngularVelocity
 from .proto_utils import extractPosition as extractPosition
+from .proto_utils import extractRotation as extractRotation
+
 from .proto_utils import loadTrackfile as loadTrackfile
 from .proto_utils import labelPacketToNumpy as labelPacketToNumpy
 from .proto_utils import vectorFromNumpy as vectorFromNumpy

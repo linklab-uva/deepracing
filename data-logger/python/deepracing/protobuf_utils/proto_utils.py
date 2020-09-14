@@ -5,7 +5,7 @@ import TimestampedPacketLapData_pb2
 import TimestampedImage_pb2
 import PacketMotionData_pb2
 import CarTelemetryData_pb2
-import Spline2DParams_pb2
+import Spline3D_pb2
 import Vector3d_pb2
 import Quaterniond_pb2
 import os
@@ -17,11 +17,11 @@ from scipy.spatial.transform import Rotation as Rot
 from tqdm import tqdm as tqdm
 import BezierCurve_pb2
 
-def splineSciPyToPB(splineSciPy : scipy.interpolate.BSpline, tmin,tmax,Xmin,Xmax,Zmin,Zmax):
-   return Spline2DParams_pb2.Spline2DParams(XParams = splineSciPy.c[:,0], ZParams = splineSciPy.c[:,1],degree=splineSciPy.k, knots=splineSciPy.t,\
-                                                           tmin=tmin,tmax=tmax,Xmin=Xmin,Xmax=Xmax,Zmin=Zmin,Zmax=Zmax)
+def splineSciPyToPB(splineSciPy : scipy.interpolate.BSpline, tmin,tmax,Xmin,Xmax,Ymin,Ymax,Zmin,Zmax):
+   return Spline3D_pb2.Spline3D(XParams = splineSciPy.c[:,0], ZParams = splineSciPy.c[:,1],degree=splineSciPy.k, knots=splineSciPy.t,\
+                                                           tmin=tmin,tmax=tmax,Xmin=Xmin,Xmax=Xmax,Ymin=Ymin,Ymax=Ymax,Zmin=Zmin,Zmax=Zmax)
 
-def splinePBToSciPy(splinePB: Spline2DParams_pb2.Spline2DParams):
+def splinePBToSciPy(splinePB: Spline3D_pb2.Spline3D):
    return scipy.interpolate.BSpline(splinePB.knots, np.array([splinePB.XParams, splinePB.ZParams]).transpose(), splinePB.degree)
    
 def getAllTelemetryPackets(telemetry_folder: str, use_json: bool):
@@ -244,12 +244,11 @@ def extractPosition(packet , car_index = None):
    position = np.array((motion_data.m_worldPositionX, motion_data.m_worldPositionY, motion_data.m_worldPositionZ), dtype=np.float64)
    return position 
 
-def extractPose(packet : PacketMotionData_pb2.PacketMotionData, car_index = None):
+def extractRotation(packet : PacketMotionData_pb2.PacketMotionData, car_index = None):
    if car_index is None:
       idx = packet.m_header.m_playerCarIndex
    else:
       idx = car_index
-   position = extractPosition(packet, car_index=idx)
    motion_data = packet.m_carMotionData[idx]
    rightvector = np.array((motion_data.m_worldRightDirX, motion_data.m_worldRightDirY, motion_data.m_worldRightDirZ), dtype=np.float64)
    rightvector = rightvector/la.norm(rightvector)
@@ -259,7 +258,17 @@ def extractPose(packet : PacketMotionData_pb2.PacketMotionData, car_index = None
    upvector = upvector/la.norm(upvector)
    rotationmat = np.column_stack((-rightvector,upvector,forwardvector))
    quat = Rot.from_matrix(rotationmat).as_quat()
+   return quat
+
+def extractPose(packet : PacketMotionData_pb2.PacketMotionData, car_index = None):
+   if car_index is None:
+      idx = packet.m_header.m_playerCarIndex
+   else:
+      idx = car_index
+   position = extractPosition(packet, car_index=idx)
+   quat = extractRotation(packet, car_index=idx)
    return position, quat 
+
 def loadTrackfile(filepath : str):
    trackin = np.loadtxt(filepath,delimiter=",",skiprows=2)
    I = np.argsort(trackin[:,0])
