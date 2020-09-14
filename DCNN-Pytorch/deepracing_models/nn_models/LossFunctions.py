@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn import LeakyReLU
 def signedDistances(waypoints, boundarypoints, boundarynormals):
     batch_dimension = waypoints.shape[0]
     num_waypoints = waypoints.shape[1]
@@ -27,26 +28,41 @@ class QuaternionDistance(nn.Module):
         acos = torch.acos(dotabsthresh)
         batched_sum = torch.sum(acos, dim = 1)
         return torch.sum( batched_sum )
+class ScaledLeakyRelu(nn.Module):
+    def __init__(self, alpha=1.0, beta=0.1):
+        super(ScaledLeakyRelu, self).__init__()
+        self.alpha = alpha
+        self.beta = beta
+    def forward(self, inp):
+        return torch.where(inp>0.0, self.alpha*inp, self.beta*inp)
 class ExpRelu(nn.Module):
     def __init__(self, alpha=1.0, beta=0.1):
         super(ExpRelu, self).__init__()
         self.alpha = alpha
         self.beta = beta
     def forward(self, inp):
-        return torch.where(inp>0.0, self.alpha*inp, torch.exp(self.beta*inp)-1.0)
+        return torch.where(inp>0.0, self.alpha*inp+1.0, torch.exp(self.beta*inp))
 
 class BoundaryLoss(nn.Module):
-    def __init__( self, time_reduction="mean", batch_reduction="mean", alpha = 1.0, beta = 0.5 ):
+    def __init__( self, time_reduction="mean", batch_reduction="mean", alpha = 1.0, beta = 0.5, p = None, relu_type="Exp" ):
         super(BoundaryLoss, self).__init__()
         self.time_reduction = time_reduction
         self.batch_reduction = batch_reduction
-        self.alpha = alpha
-        self.beta = beta
-        self.relu = ExpRelu(alpha = self.alpha, beta = self.beta)
+        self.p = p
+        if relu_type =="Exp":
+            self.relu = ExpRelu(alpha = alpha, beta = beta)
+        elif relu_type =="Leaky":
+            self.relu = ScaledLeakyRelu(alpha = alpha, beta = beta)
     
     def forward(self, waypoints, boundarypoints, boundarynormals):
         _, dot_prods = signedDistances(waypoints, boundarypoints, boundarynormals)
-        dot_prods_relu = self.relu(dot_prods)
+        if self.p is None:
+            dot_prods_relu = self.relu(dot_prods)
+        elif self.p==2:
+            dot_prods_relu = self.relu(torch.sign(dot_prods) * torch.square(dot_prods))
+        else:
+            dot_prods_relu = self.relu(torch.sign(dot_prods) * torch.pow(torch.abs(dot_prods),self.p))
+
 
         if self.time_reduction=="mean":
             dot_prod_redux = torch.mean(dot_prods_relu,dim=1)
