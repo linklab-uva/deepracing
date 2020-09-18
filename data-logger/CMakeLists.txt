@@ -47,11 +47,11 @@ find_package(Protobuf REQUIRED)
 add_subdirectory( proto/${PROJECT_NAME}/proto )
 set(PROTO_INCLUDE_DIR ${CMAKE_BINARY_DIR}/proto)
 
-add_library(includes INTERFACE)
-target_include_directories(includes
+add_library(headers INTERFACE)
+target_include_directories(headers
 INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/>
+    $<INSTALL_INTERFACE:include/>
 )
 option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to interact with existing protobuf datasets" ON)
 if(BUILD_DATALOGGER)
@@ -143,7 +143,7 @@ if(BUILD_DATALOGGER)
         ${PROJECT_NAME}_eigen_utils
         ${PROJECT_NAME}_image_utils
         ${PROJECT_NAME}_controllers
-        includes
+        headers
         screen_capture_lite
     )
     
@@ -154,10 +154,10 @@ if(BUILD_DATALOGGER)
 else()
     set(install_targets
             ${PROJECT_NAME}_proto 
-            includes
+            headers
         )
     install(DIRECTORY include/${PROJECT_NAME}/car_data
-        DESTINATION include
+        DESTINATION include/${PROJECT_NAME}
         FILES_MATCHING PATTERN "*.h"
     )
 endif()
