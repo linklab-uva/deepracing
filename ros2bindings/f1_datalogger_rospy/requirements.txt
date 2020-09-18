@@ -1,8 +1,0 @@
-numpy_ringbuffer
-numpy
-cv2
-scipy
-scikit-image
-scikit-learn
-pyyaml
-argparse
