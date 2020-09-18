@@ -91,26 +91,26 @@ deepf1::protobuf::images::Image OpenCVUtils::cvimageToProto(const cv::Mat& cv_im
   memcpy((void *) proto_image.mutable_image_data()->data(), (void *) cv_image.data, totalsize);
   return proto_image;
 }
-void OpenCVUtils::toCV(const scl::Image& image_scl, const scl::Point& size, cv::Mat& out, size_t row_start)
+void OpenCVUtils::toCV(const scl::Image& image_scl, const scl::Point& size, cv::Mat& out)
 {
   size_t h,w;
   if(size.x>0 && size.y>0)
   {  
-    h = size.y-row_start;
+    h = size.y;
     w = size.x;
   }
   else
   {
-    h = scl::Height(image_scl)-row_start;
+    h = scl::Height(image_scl);
     w = scl::Width(image_scl);
   }
   out.create( h, w, CV_8UC4);
-  scl::Extract(image_scl, out.data, out.cols*out.rows*out.channels()*out.elemSize1(), row_start);
+  scl::Extract(image_scl, out.data, out.cols*out.rows*out.channels()*out.elemSize1());
 }
-cv::Mat OpenCVUtils::toCV(const scl::Image& image_scl, const scl::Point& size, size_t row_start)
+cv::Mat OpenCVUtils::toCV(const scl::Image& image_scl, const scl::Point& size)
 {
   cv::Mat out;
-  OpenCVUtils::toCV(image_scl, size, out, row_start);
+  OpenCVUtils::toCV(image_scl, size, out);
   return out;
 }
 } /* namespace deepf1 */

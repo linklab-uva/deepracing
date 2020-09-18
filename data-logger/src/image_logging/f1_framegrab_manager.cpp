@@ -116,7 +116,7 @@ void F1FrameGrabManager::onNewFrame_(const scl::Image &img, const scl::Window &m
   deepf1::TimePoint ts = deepf1::Clock::now();
   if (capture_handler->isReady())
   {
-    TimestampedImageData timestamped_image(ts, deepf1::OpenCVUtils::toCV(img, monitor.Size, 32));
+    TimestampedImageData timestamped_image(ts, deepf1::OpenCVUtils::toCV(img, monitor.Size));
     capture_handler->handleData(timestamped_image);
   }
 }
