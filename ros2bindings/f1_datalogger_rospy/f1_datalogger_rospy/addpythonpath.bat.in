@@ -1,1 +1,0 @@
-set PYTHONPATH=@f1_python_directory_@;%PYTHONPATH%

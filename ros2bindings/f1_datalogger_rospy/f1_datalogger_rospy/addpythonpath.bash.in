@@ -1,2 +1,0 @@
-#!/bin/bash
-export PYTHONPATH=@f1_python_directory_@:${PYTHONPATH}
