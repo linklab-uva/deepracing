@@ -160,6 +160,12 @@ else()
         DESTINATION include/${PROJECT_NAME}
         FILES_MATCHING PATTERN "*.h"
     )
+    install(FILES 
+        include/${PROJECT_NAME}/filesystem_helper.h
+        include/${PROJECT_NAME}/proto_dll_macro.h
+        include/${PROJECT_NAME}/visibility_control.h
+    DESTINATION include/${PROJECT_NAME} 
+    )
 endif()
 
 
