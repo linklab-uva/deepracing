@@ -47,6 +47,12 @@ find_package(Protobuf REQUIRED)
 add_subdirectory( proto/${PROJECT_NAME}/proto )
 set(PROTO_INCLUDE_DIR ${CMAKE_BINARY_DIR}/proto)
 
+add_library(includes INTERFACE)
+target_include_directories(includes
+INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
 option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to interact with existing protobuf datasets" ON)
 if(BUILD_DATALOGGER)
     option(YAML_CPP_DLL "Set this if YAML CPP was compiled as a DLL" ON)
@@ -137,12 +143,23 @@ if(BUILD_DATALOGGER)
         ${PROJECT_NAME}_eigen_utils
         ${PROJECT_NAME}_image_utils
         ${PROJECT_NAME}_controllers
+        includes
         screen_capture_lite
+    )
+    
+    install(DIRECTORY include/${PROJECT_NAME}
+        DESTINATION include
+        FILES_MATCHING PATTERN "*.h"
     )
 else()
     set(install_targets
             ${PROJECT_NAME}_proto 
+            includes
         )
+    install(DIRECTORY include/${PROJECT_NAME}/car_data
+        DESTINATION include
+        FILES_MATCHING PATTERN "*.h"
+    )
 endif()
 
 
@@ -153,10 +170,6 @@ install(TARGETS ${install_targets}
     ARCHIVE DESTINATION lib
 )
 
-install(DIRECTORY include/${PROJECT_NAME}
-DESTINATION include
-FILES_MATCHING PATTERN "*.h"
-)
 if(ament_cmake_FOUND)
     message(STATUS "Ament was found. Building a ROS2-style cmake package")
     ament_export_targets(${PROJECT_NAME}-export)
