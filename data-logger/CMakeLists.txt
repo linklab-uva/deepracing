@@ -180,6 +180,9 @@ if(ament_cmake_FOUND)
     message(STATUS "Ament was found. Building a ROS2-style cmake package")
     ament_export_targets(${PROJECT_NAME}-export)
     add_subdirectory(python)
+    if (NOT USING_VJOY)
+        set(USING_VJOY OFF)
+    endif()
     ament_package(CONFIG_EXTRAS cmake/find_deps.cmake.in)
 else()
     install(EXPORT ${PROJECT_NAME}-export
@@ -190,6 +193,9 @@ else()
     DESTINATION
         cmake
     )
+    if (NOT USING_VJOY)
+        set(USING_VJOY OFF)
+    endif()
     configure_file(${PROJECT_NAME}-config.cmake.in ${PROJECT_NAME}-config.cmake @ONLY)
 
     install(FILES ${CMAKE_BINARY_DIR}/${PROJECT_NAME}-config.cmake DESTINATION cmake/)
