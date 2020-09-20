@@ -49,8 +49,17 @@ install(TARGETS ${install_targets}
   ARCHIVE DESTINATION lib
 )
 install(FILES ${PROTOFILES} DESTINATION share/${PROJECT_NAME}/proto)
+
+
+endif()
+
 if(ament_cmake_FOUND)
-  install(FILES ${${PROJECT_NAME}_PY_SOURCES} DESTINATION lib/site-packages)
+  if(WIN32)
+    install(FILES ${${PROJECT_NAME}_PY_SOURCES} DESTINATION lib/site-packages)
+  else()
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    install(FILES ${${PROJECT_NAME}_PY_SOURCES} DESTINATION lib/python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}/site-packages)
+  endif()
 else()
   install(FILES ${${PROJECT_NAME}_PY_SOURCES} DESTINATION lib/python)
 endif()
