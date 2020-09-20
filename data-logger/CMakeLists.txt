@@ -216,13 +216,6 @@ else()
         configure_file(scripts/bash/addpythonpath.build.bash.in ${CMAKE_BINARY_DIR}/addpythonpathbuild.bash @ONLY NEWLINE_STYLE UNIX)
         configure_file(scripts/bash/addpythonpath.install.bash.in ${CMAKE_BINARY_DIR}/addpythonpath.bash @ONLY NEWLINE_STYLE UNIX)
         install(FILES ${CMAKE_BINARY_DIR}/addpythonpath.bash DESTINATION share/${PROJECT_NAME})
-
-        add_custom_target(
-        chmodaddpythonpath ALL
-        DEPENDS ${CMAKE_BINARY_DIR}/addpythonpath.bash
-        COMMAND dos2unix ${CMAKE_BINARY_DIR}/addpythonpath.bash && chmod a+x ${CMAKE_BINARY_DIR}/addpythonpath.bash
-        VERBATIM
-        )
     endif() 
 
 endif()
