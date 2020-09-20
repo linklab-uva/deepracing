@@ -51,8 +51,6 @@ install(TARGETS ${install_targets}
 install(FILES ${PROTOFILES} DESTINATION share/${PROJECT_NAME}/proto)
 
 
-endif()
-
 if(ament_cmake_FOUND)
   if(WIN32)
     install(FILES ${${PROJECT_NAME}_PY_SOURCES} DESTINATION lib/site-packages)
