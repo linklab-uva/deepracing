@@ -13,6 +13,6 @@ def searchForFile(filename : str, searchdirs : List[str]):
     for searchdir in searchdirs:
         entries = os.scandir(searchdir)
         for entry in entries:
-            if entry.name == filename
+            if entry.name == filename:
                 return entry.path
     return None 
