@@ -11,4 +11,5 @@ message MultiAgentLabel {
 	deepf1.protobuf.eigen.Vector3dStamped ego_agent_angular_velocity = 4;
 	repeated deepf1.protobuf.Trajectory other_agent_trajectories = 5;	
 	repeated uint32 trajectory_car_indices = 6;		
+    uint32 ego_car_index = 7;		
 }

@@ -187,6 +187,7 @@ db = deepracing.backend.MultiAgentLabelLMDBWrapper()
 db.openDatabase( lmdb_dir, mapsize=int(round(76000*len(image_tags)*1.25)) , max_spare_txns=16, readonly=False, lock=True )
 for idx in tqdm(range(len(image_tags))):
     label_tag = MultiAgentLabel_pb2.MultiAgentLabel()
+    label_tag.ego_car_index = ego_vehicle_index
     try:
         label_tag.image_tag.CopyFrom(image_tags[idx])
         tlabel = image_session_timestamps[idx]
@@ -249,38 +250,50 @@ for idx in tqdm(range(len(image_tags))):
                 #continue
             position_interpolant = vehicle_position_interpolants[i]
             velocity_interpolant = vehicle_velocity_interpolants[i]
-            carposition = position_interpolant(tsamp[0])
-            carpositionlocal = np.matmul(ego_pose_matrix_inverse, np.hstack([carposition, np.array([1.0])]))[0:3]
+
+            positions_samp_global = position_interpolant(tsamp)
+            velocities_samp_global = velocity_interpolant(tsamp)
+            rotations_samp_global = rotation_interpolant(tsamp)
+            angvel_samp_global = rotation_interpolant(tsamp,1)
+            poses_global = np.zeros((tsamp.shape[0],4,4), dtype=np.float64)
+            poses_global[:,3,3]=1.0
+            poses_global[:,0:3,0:3] = rotations_samp_global.as_matrix()
+            poses_global[:,0:3,3] = positions_samp_global
+
+            poses_samp = np.matmul(ego_pose_matrix_inverse,poses_global)
+            positions_samp = poses_samp[:,0:3,3]
+            rotations_samp = Rot.from_matrix(poses_samp[:,0:3,0:3])
+            quaternions_samp = rotations_samp.as_quat()
+            velocities_samp = np.matmul(ego_pose_matrix_inverse[0:3,0:3],velocities_samp_global.transpose()).transpose()
+            angvel_samp = np.matmul(ego_pose_matrix_inverse[0:3,0:3],angvel_samp_global.transpose()).transpose()
+
+
+            carpositionlocal = positions_samp[0]
             x = carpositionlocal[0]
             y = carpositionlocal[1]
             z = carpositionlocal[2]
             match_found = (z>-1.5) and (z<65.0) and (abs(x) < 25)
             if match_found:
                 match_positions.append(carpositionlocal)
-                label_tag.trajectory_car_indices.append(i)
-
-                positions_samp = position_interpolant(tsamp)
-                velocities_samp = velocity_interpolant(tsamp)
-                rotations_samp = rotation_interpolant(tsamp)
-                angvels_samp = rotation_interpolant(tsamp, 1)
 
                 new_trajectory_pb = label_tag.other_agent_trajectories.add()
+                label_tag.trajectory_car_indices.append(i)
                 for j in range(tsamp.shape[0]):
                     newpose = new_trajectory_pb.poses.add()
-                    newpose.frame = FrameId_pb2.GLOBAL
+                    newpose.frame = FrameId_pb2.LOCAL
                     newpose.session_time = tsamp[j]
                     newpose.translation.CopyFrom(proto_utils.vectorFromNumpy(positions_samp[j]))
                     newpose.rotation.CopyFrom(proto_utils.quaternionFromScipy(rotations_samp[j]))
 
                     newvel = new_trajectory_pb.linear_velocities.add()
-                    newvel.frame = FrameId_pb2.GLOBAL
+                    newvel.frame = FrameId_pb2.LOCAL
                     newvel.session_time = tsamp[j]
                     newvel.vector.CopyFrom(proto_utils.vectorFromNumpy(velocities_samp[j]))
 
                     newangvel = new_trajectory_pb.angular_velocities.add()
-                    newangvel.frame = FrameId_pb2.GLOBAL
+                    newangvel.frame = FrameId_pb2.LOCAL
                     newangvel.session_time = tsamp[j]
-                    newvel.vector.CopyFrom(proto_utils.vectorFromNumpy(angvels_samp[j]))
+                    newvel.vector.CopyFrom(proto_utils.vectorFromNumpy(angvel_samp[j]))
         if debug and (not len(label_tag.other_agent_trajectories)==0):
             image_file = "image_%d.jpg" % idx
             print("Found a match for %s. Metadata:" %(image_file,))
@@ -325,11 +338,14 @@ for idx in tqdm(range(len(image_tags))):
         # print("Ego position 0: " + str(ego_label_positions[0]))
         # plt.plot(-ego_label_positions[:,0], ego_label_positions[:,2], label="Ego Vehicle Trajectory", c="b")
         # plt.legend()
-        for k in range(len(label_tag.other_agent_trajectories)):
-            agent_trajectory = label_tag.other_agent_trajectories[k]
-            label_positions = np.array([[pose.translation.x, pose.translation.y, pose.translation.z, 1.0]  for pose in agent_trajectory.poses ]).transpose()
-            label_positions_local = np.matmul(ego_pose_matrix_inverse, label_positions)
-            plt.plot(-label_positions_local[0], label_positions_local[2])#, label="Ego Vehicle Trajectory", c="b")
+        label_positions = np.array([ np.array([[pose.translation.x, pose.translation.y, pose.translation.z]  for pose in agent_trajectory.poses ]).transpose() for agent_trajectory in label_tag.other_agent_trajectories])
+        minx = np.min(label_positions[:,0])-5.0
+        maxx = np.max(label_positions[:,0])+5.0
+        plt.xlim(maxx,minx)
+        for k in range(label_positions.shape[0]):
+            agent_trajectory = label_positions[k]
+            #label_positions_local = np.matmul(ego_pose_matrix_inverse, label_positions)
+            plt.plot(agent_trajectory[0], agent_trajectory[2])#, label="Ego Vehicle Trajectory", c="b")
         plt.show()
 
 
