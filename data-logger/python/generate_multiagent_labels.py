@@ -179,7 +179,7 @@ if os.path.isdir(lmdb_dir):
     shutil.rmtree(lmdb_dir)
 os.makedirs(lmdb_dir)
 print("Generating interpolated labels")
-config_dict : dict = {"lookahead_time": lookahead_time, "regression_slope": slope, "regression_intercept": intercept}
+config_dict : dict = {"lookahead_time": lookahead_time, "regression_slope": float(slope), "regression_intercept": float(intercept), "sample_indices":sample_indices}
 
 with open(os.path.join(output_dir,'config.yaml'), 'w') as yaml_file:
     yaml.dump(config_dict, yaml_file)#, Dumper=yaml.SafeDumper)
@@ -255,8 +255,7 @@ for idx in tqdm(range(len(image_tags))):
             velocities_samp_global = velocity_interpolant(tsamp)
             rotations_samp_global = rotation_interpolant(tsamp)
             angvel_samp_global = rotation_interpolant(tsamp,1)
-            poses_global = np.zeros((tsamp.shape[0],4,4), dtype=np.float64)
-            poses_global[:,3,3]=1.0
+            poses_global = np.array([np.eye(4) for asdf in range(tsamp.shape[0])])
             poses_global[:,0:3,0:3] = rotations_samp_global.as_matrix()
             poses_global[:,0:3,3] = positions_samp_global
 
