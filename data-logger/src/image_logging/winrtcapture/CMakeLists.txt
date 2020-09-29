@@ -1,14 +1,15 @@
-add_library(winrt_capture SHARED
-	WinrtCapture.cpp
+add_library(winrt_capture_lib SHARED
+	SimpleCapture.cpp
+	CaptureApp.cpp
 )
-target_include_directories(winrt_capture
+target_include_directories(winrt_capture_lib
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
       #  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<INSTALL_INTERFACE:include>
         $<INSTALL_INTERFACE:include/${PROJECT_NAME}/winrtcapture>
 )
-target_precompile_headers(winrt_capture
+target_precompile_headers(winrt_capture_lib
 PUBLIC
 	<d3d12.h>
 	<Unknwn.h>
@@ -35,29 +36,34 @@ PUBLIC
 	"d3dHelpers.h"
 	"direct3d11.interop.h"
 	"capture.interop.h"
-	"Win32WindowEnumeration.h"
 )
-target_link_libraries(winrt_capture
+target_link_libraries(winrt_capture_lib
 PUBLIC
 	Dwmapi
 	windowsapp
 PRIVATE
 	${OpenCV_LIBRARIES}
 )
-target_compile_definitions(winrt_capture
+target_compile_definitions(winrt_capture_lib
+	PUBLIC _UNICODE UNICODE
 	PRIVATE F1_DATALOGGER_IMAGE_LOGGING_BUILDING_DLL
-	INTERFACE WIN32_LEAN_AND_MEAN NOMINMAX
+	INTERFACE WIN32_LEAN_AND_MEAN NOMINMAX _AFXDLL _BIND_TO_CURRENT_CRT_VERSION _BIND_TO_CURRENT_MFC_VERSION
 )
-set_target_properties(winrt_capture PROPERTIES OUTPUT_NAME ${PROJECT_NAME}_winrtcapture)
+set_target_properties(winrt_capture_lib PROPERTIES OUTPUT_NAME ${PROJECT_NAME}_winrtcapture)
 
-install(TARGETS winrt_capture
+add_executable(winrtcapture main.cpp)
+target_link_libraries(winrtcapture winrt_capture_lib)
+set_target_properties(winrtcapture PROPERTIES OUTPUT_NAME ${PROJECT_NAME}_graphics_capture_example WIN32_EXECUTABLE ON)
+
+install(TARGETS winrt_capture_lib winrtcapture
 	EXPORT ${PROJECT_NAME}-export
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
 )
 install(FILES 
-		"WinrtCapture.h"
+		"CaptureApp.h"
+		"SimpleCapture.h"
 		"Win32WindowEnumeration.h"
 		"composition.interop.h"
 		"d3dHelpers.h"

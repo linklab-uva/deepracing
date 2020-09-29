@@ -10,10 +10,11 @@ ${PROTO_INCLUDE_DIR}
 )
 target_compile_definitions(${PROJECT_NAME}_image_utils PRIVATE F1_DATALOGGER_IMAGE_LOGGING_BUILDING_DLL)
 
-
+if(WIN32)
+    add_subdirectory(winrtcapture)
+endif()
 set(USE_WINRT_GRAPHICS OFF)
 if(USE_WINRT_GRAPHICS)
-    add_subdirectory(winrtcapture)
     add_library(${PROJECT_NAME}_image_logging windowsrt/f1_framegrab_manager.cpp)
     target_link_libraries(${PROJECT_NAME}_image_logging winrt_capture)
     target_compile_definitions(${PROJECT_NAME}_image_logging PUBLIC USE_WINRT_GRAPHICS)

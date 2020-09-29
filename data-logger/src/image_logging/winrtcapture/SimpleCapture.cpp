@@ -2,7 +2,7 @@
 //
 // Copyright (c) Microsoft. All rights reserved.
 // This code is licensed under the MIT License (MIT).
-// THE SOFTWARE IS PROVIDED ï¿½AS ISï¿½, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+// THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
 // INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
 // IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
@@ -12,43 +12,9 @@
 //
 //*********************************************************
 
-#include <Unknwn.h>
-#include <inspectable.h>
+#include "pch.h"
+#include "SimpleCapture.h"
 
-// WinRT
-#include <winrt/Windows.Foundation.h>
-#include <winrt/Windows.System.h>
-#include <winrt/Windows.UI.h>
-#include <winrt/Windows.UI.Composition.h>
-#include <winrt/Windows.UI.Composition.Desktop.h>
-#include <winrt/Windows.UI.Popups.h>
-#include <winrt/Windows.Graphics.Capture.h>
-#include <winrt/Windows.Graphics.DirectX.h>
-#include <winrt/Windows.Graphics.DirectX.Direct3d11.h>
-
-#include <windows.ui.composition.interop.h>
-#include <DispatcherQueue.h>
-
-// STL
-#include <atomic>
-#include <memory>
-
-// D3D
-#include <d3d11_4.h>
-#include <dxgi1_6.h>
-#include <d2d1_3.h>
-#include <wincodec.h>
-
-// Helpers
-#include "composition.interop.h"
-#include "d3dHelpers.h"
-#include "direct3d11.interop.h"
-#include "capture.interop.h"
-
-#include "WinrtCapture.h"
-#include <opencv2/core/directx.hpp>
-#include <opencv2/core.hpp>
-#include <iostream>
 using namespace winrt;
 using namespace Windows;
 using namespace Windows::Foundation;
@@ -61,12 +27,10 @@ using namespace Windows::Foundation::Numerics;
 using namespace Windows::UI;
 using namespace Windows::UI::Composition;
 
-WinrtCapture::WinrtCapture(
+SimpleCapture::SimpleCapture(
     IDirect3DDevice const& device,
-    GraphicsCaptureItem const& item,
-    std::shared_ptr<deepf1::IF1FrameGrabHandler> handler)
+    GraphicsCaptureItem const& item)
 {
-    handler_ = handler;
     m_item = item;
     m_device = device;
 
@@ -90,19 +54,18 @@ WinrtCapture::WinrtCapture(
         2,
 		size);
     m_session = m_framePool.CreateCaptureSession(m_item);
-    
     m_lastSize = size;
-	m_frameArrived = m_framePool.FrameArrived(auto_revoke, { this, &WinrtCapture::OnFrameArrived });
+	m_frameArrived = m_framePool.FrameArrived(auto_revoke, { this, &SimpleCapture::OnFrameArrived });
 }
 
 // Start sending capture frames
-void WinrtCapture::StartCapture()
+void SimpleCapture::StartCapture()
 {
     CheckClosed();
     m_session.StartCapture();
 }
 
-ICompositionSurface WinrtCapture::CreateSurface(
+ICompositionSurface SimpleCapture::CreateSurface(
     Compositor const& compositor)
 {
     CheckClosed();
@@ -110,7 +73,7 @@ ICompositionSurface WinrtCapture::CreateSurface(
 }
 
 // Process captured frames
-void WinrtCapture::Close()
+void SimpleCapture::Close()
 {
     auto expected = false;
     if (m_closed.compare_exchange_strong(expected, true))
@@ -126,35 +89,45 @@ void WinrtCapture::Close()
     }
 }
 
-void WinrtCapture::OnFrameArrived(
+void SimpleCapture::OnFrameArrived(
     Direct3D11CaptureFramePool const& sender,
     winrt::Windows::Foundation::IInspectable const&)
 {
-    std::cout<<"Got an image"<<std::endl;
-   
-    winrt::Windows::Graphics::Capture::Direct3D11CaptureFrame frame = sender.TryGetNextFrame();
-    winrt::Windows::Graphics::SizeInt32 frameContentSize = frame.ContentSize();
-    winrt::com_ptr<ID3D11Texture2D> frameSurface = GetDXGIInterfaceFromObject<ID3D11Texture2D>(frame.Surface());
-    bool newSize=false;
-    if (frameContentSize.Width != m_lastSize.Width ||
-			frameContentSize.Height != m_lastSize.Height)
+    auto newSize = false;
+
     {
-        // The thing we have been capturing has changed size.
-        // We need to resize our swap chain first, then blit the pixels.
-        // After we do that, retire the frame and then recreate our frame pool.
-        newSize = true;
-        m_lastSize = frameContentSize;
-        m_swapChain->ResizeBuffers(
-            2, 
-            static_cast<uint32_t>(m_lastSize.Width),
-            static_cast<uint32_t>(m_lastSize.Height),
-            static_cast<DXGI_FORMAT>(DirectXPixelFormat::B8G8R8A8UIntNormalized), 
-            0);
+        auto frame = sender.TryGetNextFrame();
+		auto frameContentSize = frame.ContentSize();
+
+        if (frameContentSize.Width != m_lastSize.Width ||
+			frameContentSize.Height != m_lastSize.Height)
+        {
+            // The thing we have been capturing has changed size.
+            // We need to resize our swap chain first, then blit the pixels.
+            // After we do that, retire the frame and then recreate our frame pool.
+            newSize = true;
+            m_lastSize = frameContentSize;
+            m_swapChain->ResizeBuffers(
+                2, 
+				static_cast<uint32_t>(m_lastSize.Width),
+				static_cast<uint32_t>(m_lastSize.Height),
+                static_cast<DXGI_FORMAT>(DirectXPixelFormat::B8G8R8A8UIntNormalized), 
+                0);
+        }
+
+        {
+            auto frameSurface = GetDXGIInterfaceFromObject<ID3D11Texture2D>(frame.Surface());
+            
+            com_ptr<ID3D11Texture2D> backBuffer;
+            check_hresult(m_swapChain->GetBuffer(0, guid_of<ID3D11Texture2D>(), backBuffer.put_void()));
+
+            m_d3dContext->CopyResource(backBuffer.get(), frameSurface.get());
+        }
     }
-    deepf1::TimestampedImageData current_image;
-    current_image.timestamp = deepf1::Clock::now();
-    cv::directx::convertFromD3D11Texture2D(frameSurface.get(), current_image.image);
-    handler_->handleData(current_image);
+
+    DXGI_PRESENT_PARAMETERS presentParameters = { 0 };
+    m_swapChain->Present1(1, 0, &presentParameters);
+
     if (newSize)
     {
         m_framePool.Recreate(
@@ -163,6 +136,5 @@ void WinrtCapture::OnFrameArrived(
             2,
             m_lastSize);
     }
-            
 }
 

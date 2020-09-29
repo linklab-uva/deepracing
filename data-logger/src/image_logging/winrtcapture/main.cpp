@@ -2,7 +2,7 @@
 //
 // Copyright (c) Microsoft. All rights reserved.
 // This code is licensed under the MIT License (MIT).
-// THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+// THE SOFTWARE IS PROVIDED ï¿½AS ISï¿½, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
 // INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
 // IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
@@ -13,7 +13,7 @@
 //*********************************************************
 
 #include "pch.h"
-#include "App.h"
+#include "CaptureApp.h"
 #include "SimpleCapture.h"
 #include <ShObjIdl.h>
 #include "Win32WindowEnumeration.h"
@@ -56,7 +56,7 @@ int CALLBACK WinMain(
     LPSTR     cmdLine,
     int       cmdShow);
 
-auto g_app = std::make_shared<App>();
+auto g_app = std::make_shared<CaptureApp>();
 auto g_windows = EnumerateWindows();
 
 LRESULT CALLBACK WndProc(

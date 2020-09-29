@@ -2,7 +2,7 @@
 //
 // Copyright (c) Microsoft. All rights reserved.
 // This code is licensed under the MIT License (MIT).
-// THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+// THE SOFTWARE IS PROVIDED ï¿½AS ISï¿½, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
 // INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
 // IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
@@ -13,7 +13,7 @@
 //*********************************************************
 
 #include "pch.h"
-#include "App.h"
+#include "CaptureApp.h"
 #include "SimpleCapture.h"
 
 using namespace winrt;
@@ -23,7 +23,7 @@ using namespace Windows::UI;
 using namespace Windows::UI::Composition;
 using namespace Windows::Graphics::Capture;
 
-void App::Initialize(
+void CaptureApp::Initialize(
     ContainerVisual const& root)
 {
     auto queue = DispatcherQueue::GetForCurrentThread();
@@ -54,7 +54,7 @@ void App::Initialize(
     m_device = CreateDirect3DDevice(dxgiDevice.get());
 }
 
-void App::StartCapture(HWND hwnd)
+void CaptureApp::StartCapture(HWND hwnd)
 {
 	if (m_capture)
 	{

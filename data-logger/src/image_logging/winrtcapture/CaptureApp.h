@@ -1,12 +1,14 @@
 #pragma once
 
-class SimpleCapture;
+#include <f1_datalogger/image_logging/visibility_control.h>
 
-class App
+class F1_DATALOGGER_IMAGE_LOGGING_PUBLIC SimpleCapture;
+
+class F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CaptureApp
 {
 public:
-    App() {}
-    ~App() {}
+    CaptureApp() {}
+    ~CaptureApp() {}
 
     void Initialize(
         winrt::Windows::UI::Composition::ContainerVisual const& root);
