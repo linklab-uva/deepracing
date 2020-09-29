@@ -91,6 +91,8 @@ F1FrameGrabManager::F1FrameGrabManager(const deepf1::TimePoint& begin, const std
   std::cout << "Looking for an application with the search string " << search_string << std::endl;
   scl::Window window_ = findWindow(search_string);
   capture_config_ = scl::CreateCaptureConfiguration( (scl::WindowCallback)std::bind(&fake_get_windows_, window_));
+  window_rows_ = window_.Size.y;
+  window_cols_ = window_.Size.x;
   capture_config_monitor_ = 
         scl::CreateCaptureConfiguration([]() {
             std::vector<scl::Monitor> allMonitors = scl::GetMonitors();
