@@ -175,6 +175,14 @@ install(TARGETS ${install_targets}
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
 )
+install(DIRECTORY tracks/
+    DESTINATION f1_tracks
+    FILES_MATCHING PATTERN "*.track"
+)
+install(DIRECTORY tracks/
+    DESTINATION f1_tracks
+    FILES_MATCHING PATTERN "*.json"
+)
 
 if(ament_cmake_FOUND)
     message(STATUS "Ament was found. Building a ROS2-style cmake package")

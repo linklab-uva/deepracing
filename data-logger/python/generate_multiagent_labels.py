@@ -32,6 +32,7 @@ from scipy.spatial.transform import Rotation as Rot
 from scipy.spatial.transform import RotationSpline as RotSpline
 from scipy.spatial.transform import Slerp
 from typing import List
+import matplotlib.pyplot as plt
 
 def imageDataKey(data):
     return data.timestamp
@@ -56,7 +57,7 @@ parser.add_argument("--all_agents", help="Store trajectories for all agents, not
 args = parser.parse_args()
 lookahead_time = args.lookahead_time
 sample_indices = args.sample_indices
-spline_degree = args.spline_degree
+splk = args.spline_degree
 root_dir = args.db_path
 debug = args.debug
 max_distance = args.max_distance
@@ -67,7 +68,7 @@ image_folder = os.path.join(root_dir,"images")
 session_folder = os.path.join(root_dir,"udp_data","session_packets")
 
 with open(os.path.join(root_dir,"f1_dataset_config.yaml"),"r") as f:
-    dset_config = yaml.load(f)#, Loader=yaml.SafeLoader)
+    dset_config = yaml.load(f, Loader=yaml.SafeLoader)
 
 use_json = dset_config["use_json"]
 session_packets = getAllSessionPackets(session_folder, use_json)
@@ -114,46 +115,13 @@ else:
         raise ValueError("Got more than 1 player car index in a non-spectated dataset.")
     else:
         ego_vehicle_index = player_car_indices[0]
+
+
 vehicle_positions = np.stack([np.array([extractPosition(packet.udp_packet, car_index=i) for i in range(20) ]) for packet in motion_packets], axis=0).transpose(1,0,2)
-vehicle_position_interpolants : List[scipy.interpolate.BSpline] = [scipy.interpolate.make_interp_spline(motion_packet_session_times, vehicle_positions[i]) for i in range(20)]
-vehicle_kd_trees : List[KDTree] = [KDTree(vehicle_positions[i]) for i in range(20)]
-ego_vehicle_position_interpolant : scipy.interpolate.BSpline = vehicle_position_interpolants[ego_vehicle_index]
 
 vehicle_velocities = np.stack([np.array([extractVelocity(packet.udp_packet, car_index=i) for i in range(20) ]) for packet in motion_packets], axis=0).transpose(1,0,2)
-vehicle_velocity_interpolants : List[scipy.interpolate.BSpline] = [scipy.interpolate.make_interp_spline(motion_packet_session_times, vehicle_velocities[i]) for i in range(20)]
-ego_vehicle_velocity_interpolant : scipy.interpolate.BSpline = vehicle_velocity_interpolants[ego_vehicle_index]
 
 vehicle_quaternions = np.stack([np.array([extractRotation(packet.udp_packet, car_index=i) for i in range(20) ]) for packet in motion_packets], axis=0).transpose(1,0,2)
-ego_vehicle_rotation_interpolant : RotSpline = RotSpline(motion_packet_session_times, Rot.from_quat(vehicle_quaternions[ego_vehicle_index]))
-
-
-try:
-  import matplotlib.pyplot as plt
-  from mpl_toolkits.mplot3d import Axes3D
-  fig = plt.figure("F1 Session Time vs System Time")
-  skipn=100
-  plt.scatter(motion_packet_system_times[::skipn], motion_packet_session_times[::skipn], label='measured data',facecolors='none', edgecolors='b', s=20)
-  if intercept>=0:
-      plotlabel = 'fitted line:\n y=%f*x+%f' % (slope, intercept)
-  else:
-      plotlabel = 'fitted line:\n y=%f*x-%f' % (slope, -intercept)
-  plt.plot(motion_packet_system_times, slope*motion_packet_system_times + intercept, label=plotlabel, color='black')
-  plt.title("F1 Session Time vs System Time", fontsize=20)
-  plt.xlabel("OS-tagged System Time", fontsize=20)
-  plt.ylabel("F1 Session Time", fontsize=20)
-  
-  fig.legend(loc='center right')
-
-  fig.savefig( os.path.join( output_dir, "datalogger_remap_plot.png" ), bbox_inches='tight')
-  fig.savefig( os.path.join( output_dir, "datalogger_remap_plot.eps" ), format='eps', bbox_inches='tight')
-  fig.savefig( os.path.join( output_dir, "datalogger_remap_plot.pdf" ), format='pdf', bbox_inches='tight')
-  fig.savefig( os.path.join( output_dir, "datalogger_remap_plot.svg" ), format='svg', bbox_inches='tight')
-  plt.close()
-except KeyboardInterrupt:
-  exit(0)
-except Exception as e:
-  print("Skipping visualiation")
-  print(e)
 
 try:
     fig = plt.figure()
@@ -162,7 +130,7 @@ try:
     plt.plot(vehicle_positions[ego_vehicle_index,:,0], vehicle_positions[ego_vehicle_index,:,2], label="Ego vehicle path")
     for i in range(20):
         if i!=ego_vehicle_index:
-            plt.plot(vehicle_positions[i,:,0], vehicle_positions[i,:,2])
+            plt.scatter(vehicle_positions[i,:,0], vehicle_positions[i,:,2])
     plt.show()
 except KeyboardInterrupt:
   exit(0)
@@ -170,10 +138,18 @@ except Exception as e:
   raise e
   print("Skipping visualiation")
   print(e)
+print("Fitting position interpolants")
+vehicle_position_interpolants : List[scipy.interpolate.BSpline] = [scipy.interpolate.make_interp_spline(motion_packet_session_times, vehicle_positions[i], k=splk) for i in range(20)]
+ego_vehicle_position_interpolant : scipy.interpolate.BSpline = vehicle_position_interpolants[ego_vehicle_index]
+# print("Fitting position KDTrees")
+# vehicle_kd_trees : List[KDTree] = [KDTree(vehicle_positions[i]) for i in range(20)]
+print("Fitting velocity interpolants")
+vehicle_velocity_interpolants : List[scipy.interpolate.BSpline] = [scipy.interpolate.make_interp_spline(motion_packet_session_times, vehicle_velocities[i], k=splk) for i in range(20)]
+ego_vehicle_velocity_interpolant : scipy.interpolate.BSpline = vehicle_velocity_interpolants[ego_vehicle_index]
+print("Fitting ego vehicle rotation interpolant")
+ego_vehicle_rotation_interpolant : RotSpline = RotSpline(motion_packet_session_times, Rot.from_quat(vehicle_quaternions[ego_vehicle_index]))
 
-
-
-
+print("Creating LMDB")
 lmdb_dir = os.path.join(output_dir,"lmdb")
 if os.path.isdir(lmdb_dir):
     shutil.rmtree(lmdb_dir)
@@ -193,12 +169,7 @@ for idx in tqdm(range(len(image_tags))):
         tlabel = image_session_timestamps[idx]
         if (tlabel < (tmin + 2.0*lookahead_time)) or (tlabel > (tmax - 2.0*lookahead_time)):
             continue
-        # lowerbound = bisect.bisect_left(motion_packet_session_times,tlabel)
-        # if lowerbound <= round(1.25*lookahead_indices,None):
-        #     continue
-        # upperbound = lowerbound+lookahead_indices
-        # if(upperbound >= ( len(motion_packets) - round(1.25*lookahead_indices,None) ) ):
-        #     continue
+        
         label_tag.ego_agent_pose.frame = FrameId_pb2.GLOBAL
         label_tag.ego_agent_linear_velocity.frame = FrameId_pb2.GLOBAL
         label_tag.ego_agent_angular_velocity.frame = FrameId_pb2.GLOBAL
@@ -237,7 +208,7 @@ for idx in tqdm(range(len(image_tags))):
         for i in range(0,20):
             if i==ego_vehicle_index:
                 continue
-            kdtree = vehicle_kd_trees[i]
+           # kdtree = vehicle_kd_trees[i]
             positions = vehicle_positions[i]
             velocities = vehicle_velocities[i]
             quaternions = vehicle_quaternions[i]

@@ -33,7 +33,7 @@ from scipy.spatial.transform import Rotation as Rot
 
 parser = argparse.ArgumentParser()
 parser.add_argument("trackfile", help="Path to trackfile to convert",  type=str)
-parser.add_argument("--num_samples", default=0, type=int, help="Number of values to sample from the spline. Default (0) means no sampling and just copy the data as is")
+parser.add_argument("num_samples", type=int, help="Number of values to sample from the spline. Default (0) means no sampling and just copy the data as is")
 parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
 #parser.add_argument("--negate_normals", action="store_true", help="Flip the sign all all of the computed normal vectors")
 args = parser.parse_args()
@@ -52,18 +52,12 @@ trackdir = os.path.dirname(trackfilein)
 num_samples = argdict["num_samples"]
 k = argdict["k"]
 trackin = np.loadtxt(trackfilein,delimiter=",",skiprows=2)
-# print(trackin)
-# print(trackin.shape)
+
 I = np.argsort(trackin[:,0])
 track = trackin[I].copy()
 r = track[:,0].copy()
-# coords = [(0, 1), (1, 0), (1, 1), (0, 0)]
-# center = tuple(map(operator.truediv, reduce(lambda x, y: map(operator.add, x, y), coords), [len(coords)] * 2))
-# print(sorted(coords, key=lambda coord: (-135 - math.degrees(math.atan2(*tuple(map(operator.sub, coord, center))[::-1]))) % 360))
 
 
-
-#Xin[:,0] = ((r-r[0])/r[-1]).copy()
 if isracingline:
     Xin = np.zeros((track.shape[0]-1,4))
     Xin[:,1] = track[:-1,1]
@@ -107,12 +101,6 @@ lr = LinearRing([(Xin[i,1], Xin[i,3]) for i in range(0,Xin.shape[0],2)])
 polygon : Polygon = Polygon(lr)
 assert(polygon.is_valid)
 
-# xfortangents = Xin[:,1:].copy()
-# xfortangents[:,1]=0.0
-# tangentspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline( Xin[:,0], xfortangents, k = 1).derivative()
-# tangents=tangentspline( np.linspace(Xin[0,0], Xin[-1,0], num_samples + finalextrassamps))[0:finalidx]
-# tangent_norms = np.linalg.norm(tangents, axis=1, ord=2)
-# unit_tangents=tangents/tangent_norms[:,np.newaxis]
 
 deltasamples = (np.arange(0, splinevals.shape[0], step=1, dtype=np.uint64) + 1)%splinevals.shape[0]
 P2 = splinevals[deltasamples].copy()
@@ -130,10 +118,9 @@ unit_tangents=deltas/delta_norms[:,np.newaxis]
 #     rotation = Rot.from_rotvec(np.array([0.0,0.0,np.pi/2]))
 # unit_normals = np.matmul(rotation.as_matrix(), unit_tangents.transpose()).transpose()
 
+ref = np.column_stack([np.zeros_like(unit_tangents.shape[0]), np.ones_like(unit_tangents.shape[0]), np.zeros_like(unit_tangents.shape[0])]).astype(np.float64)
 if innerboundary:
-    ref = np.column_stack([np.zeros_like(unit_tangents.shape[0]), -np.ones_like(unit_tangents.shape[0]), np.zeros_like(unit_tangents.shape[0])])
-else:
-    ref = np.column_stack([np.zeros_like(unit_tangents.shape[0]), np.ones_like(unit_tangents.shape[0]), np.zeros_like(unit_tangents.shape[0])])
+    ref[:,1]*=-1.0
 v1 = np.cross(unit_tangents, ref)
 v1 = v1/np.linalg.norm(v1, axis=1, ord=2)[:,np.newaxis]
 v2 =  np.cross(v1, unit_tangents)
