@@ -176,11 +176,11 @@ install(TARGETS ${install_targets}
     ARCHIVE DESTINATION lib
 )
 install(DIRECTORY tracks/
-    DESTINATION f1_tracks
+    DESTINATION share/${PROJECT_NAME}/f1_tracks
     FILES_MATCHING PATTERN "*.track"
 )
 install(DIRECTORY tracks/
-    DESTINATION f1_tracks
+    DESTINATION share/${PROJECT_NAME}/f1_tracks
     FILES_MATCHING PATTERN "*.json"
 )
 
