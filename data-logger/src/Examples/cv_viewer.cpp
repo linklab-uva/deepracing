@@ -11,7 +11,8 @@
 #include <sstream>
 #include <Eigen/Geometry>
 #include "f1_datalogger/udp_logging/utils/eigen_utils.h"
-namespace scl = SL::Screen_Capture;class OpenCV_Viewer_Example_2018DataGrabHandler : public deepf1::IF12018DataGrabHandler
+
+class OpenCV_Viewer_Example_2018DataGrabHandler : public deepf1::IF12018DataGrabHandler
 {
 public:
   OpenCV_Viewer_Example_2018DataGrabHandler()
@@ -172,9 +173,9 @@ int main(int argc, char** argv)
   {
     scale_factor = std::stod(std::string(argv[2]));
   }
-  //std::shared_ptr<OpenCV_Viewer_Example_FrameGrabHandler> image_handler(new OpenCV_Viewer_Example_FrameGrabHandler());
-  //image_handler->scale_factor=scale_factor;
-  std::shared_ptr<deepf1::IF1FrameGrabHandler> image_handler;
+  // std::shared_ptr<deepf1::IF1FrameGrabHandler> image_handler;
+  std::shared_ptr<OpenCV_Viewer_Example_FrameGrabHandler> image_handler(new OpenCV_Viewer_Example_FrameGrabHandler());
+  image_handler->scale_factor=scale_factor;
   std::shared_ptr<OpenCV_Viewer_Example_2018DataGrabHandler> udp_handler(new OpenCV_Viewer_Example_2018DataGrabHandler());
   std::string inp;
   deepf1::F1DataLogger dl(search);  

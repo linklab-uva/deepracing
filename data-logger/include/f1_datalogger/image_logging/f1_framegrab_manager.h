@@ -8,13 +8,20 @@
 #ifndef INCLUDE_IMAGE_LOGGING_F1_FRAMEGRAB_MANAGER_H_
 #define INCLUDE_IMAGE_LOGGING_F1_FRAMEGRAB_MANAGER_H_
 #include "f1_datalogger/image_logging/framegrab_handler.h"
-#include <ScreenCapture.h>
 #include <chrono>
 #include <f1_datalogger/image_logging/visibility_control.h>
+#ifdef USE_WINRT_GRAPHICS
+  #include <WinrtCapture.h>
+  #include <Win32WindowEnumeration.h>
+#else
+  #include <ScreenCapture.h>
+  namespace scl = SL::Screen_Capture;
+
+#endif
+
 
 namespace deepf1
 {
-namespace scl = SL::Screen_Capture;
 class F1_DATALOGGER_IMAGE_LOGGING_PUBLIC F1FrameGrabManager
 {
 
@@ -26,22 +33,27 @@ private:
   void stop();
   void start(double capture_frequency, std::shared_ptr<IF1FrameGrabHandler> capture_handler);
 
+  uint32_t window_rows_;
+  uint32_t window_cols_;
+
 
   cv::Mat curr_image;
   deepf1::TimePoint begin_;
 
-  scl::Window window_;
-  std::shared_ptr<scl::ICaptureConfiguration<scl::WindowCaptureCallback> > capture_config_;
-  std::shared_ptr<scl::ICaptureConfiguration<scl::ScreenCaptureCallback> > capture_config_monitor_;
-  std::shared_ptr<scl::IScreenCaptureManager> capture_manager_;
+  #ifdef USE_WINRT_GRAPHICS
+    winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DDevice m_device{ nullptr };
+    std::shared_ptr<WinrtCapture> cap;
+    std::shared_ptr<deepf1::winrt_capture::Window> selected_window;
+  #else
+    std::shared_ptr<scl::ICaptureConfiguration<scl::WindowCaptureCallback> > capture_config_;
+    std::shared_ptr<scl::ICaptureConfiguration<scl::ScreenCaptureCallback> > capture_config_monitor_;
+    std::shared_ptr<scl::IScreenCaptureManager> capture_manager_;
+    void onNewFrame_(const scl::Image &img, const scl::Window &monitor, std::shared_ptr<IF1FrameGrabHandler> capture_handler);
+    void onNewScreenFrame_(const scl::Image &img, const scl::Monitor &monitor, std::shared_ptr<IF1FrameGrabHandler> capture_handler);
+  #endif
 
 
-  winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DDevice m_device{ nullptr };
 
-
-
-  void onNewFrame_(const scl::Image &img, const scl::Window &monitor, std::shared_ptr<IF1FrameGrabHandler> capture_handler);
-  void onNewScreenFrame_(const scl::Image &img, const scl::Monitor &monitor, std::shared_ptr<IF1FrameGrabHandler> capture_handler);
 };
 
 } /* namespace deepf1 */

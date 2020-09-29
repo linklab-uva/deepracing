@@ -11,15 +11,17 @@ ${PROTO_INCLUDE_DIR}
 target_compile_definitions(${PROJECT_NAME}_image_utils PRIVATE F1_DATALOGGER_IMAGE_LOGGING_BUILDING_DLL)
 
 
-
-if(WIN32)
+set(USE_WINRT_GRAPHICS OFF)
+if(USE_WINRT_GRAPHICS)
     add_subdirectory(winrtcapture)
-    add_library(${PROJECT_NAME}_image_logging windows/f1_framegrab_manager.cpp)
+    add_library(${PROJECT_NAME}_image_logging windowsrt/f1_framegrab_manager.cpp)
     target_link_libraries(${PROJECT_NAME}_image_logging winrt_capture)
+    target_compile_definitions(${PROJECT_NAME}_image_logging PUBLIC USE_WINRT_GRAPHICS)
 else()
-    add_library(${PROJECT_NAME}_image_logging linux/f1_framegrab_manager.cpp)
+    add_library(${PROJECT_NAME}_image_logging screencapturelite/f1_framegrab_manager.cpp)
+    target_link_libraries(${PROJECT_NAME}_image_logging ${screen_capture_lite_PLATFORM_LIBS})
 endif()
-target_link_libraries(${PROJECT_NAME}_image_logging ${PROJECT_NAME}_image_utils ${screen_capture_lite_PLATFORM_LIBS})
+target_link_libraries(${PROJECT_NAME}_image_logging ${PROJECT_NAME}_image_utils)
 target_include_directories(${PROJECT_NAME}_image_logging 
 PRIVATE
 ${PROTO_INCLUDE_DIR}

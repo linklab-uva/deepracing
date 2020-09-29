@@ -2,13 +2,15 @@
 #define F1_DATALOGGER_WINRT_SIMPLE_CAPTURE_H
 
 #include <f1_datalogger/image_logging/visibility_control.h>
-class F1_DATALOGGER_IMAGE_LOGGING_PUBLIC SimpleCapture
+#include <f1_datalogger/image_logging/framegrab_handler.h>
+class F1_DATALOGGER_IMAGE_LOGGING_PUBLIC WinrtCapture
 {
 public:
-    SimpleCapture(
+    WinrtCapture(
         winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DDevice const& device,
-        winrt::Windows::Graphics::Capture::GraphicsCaptureItem const& item);
-    ~SimpleCapture() { Close(); }
+        winrt::Windows::Graphics::Capture::GraphicsCaptureItem const& item,
+        std::shared_ptr<deepf1::IF1FrameGrabHandler> handler);
+    ~WinrtCapture() { Close(); }
 
     void StartCapture();
     winrt::Windows::UI::Composition::ICompositionSurface CreateSurface(
@@ -28,7 +30,7 @@ private:
             throw winrt::hresult_error(RO_E_CLOSED);
         }
     }
-
+    std::shared_ptr<deepf1::IF1FrameGrabHandler> handler_;
 private:
     winrt::Windows::Graphics::Capture::GraphicsCaptureItem m_item{ nullptr };
     winrt::Windows::Graphics::Capture::Direct3D11CaptureFramePool m_framePool{ nullptr };

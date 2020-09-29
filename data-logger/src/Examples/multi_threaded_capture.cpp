@@ -25,7 +25,6 @@
   #endif
 #endif
 #include "f1_datalogger/filesystem_helper.h"
-namespace scl = SL::Screen_Capture;
 namespace po = boost::program_options;
 void exit_with_help(po::options_description& desc)
 {

@@ -11,7 +11,6 @@
 #include <algorithm>
 #include <iostream>
 #include <opencv2/imgcodecs.hpp>
-#include "Win32WindowEnumeration.h"
 
 namespace scl = SL::Screen_Capture;
 namespace deepf1
@@ -82,7 +81,7 @@ std::vector<scl::Monitor> monitorCB_()
   }
   return rtn;
 }
-std::vector<scl::Window> fake_get_windows_()
+std::vector<scl::Window> fake_get_windows_(const scl::Window& window_)
 {
   return std::vector<scl::Window> {window_};
 }
@@ -91,7 +90,7 @@ F1FrameGrabManager::F1FrameGrabManager(const deepf1::TimePoint& begin, const std
   begin_ = deepf1::TimePoint(begin);
   std::cout << "Looking for an application with the search string " << search_string << std::endl;
   scl::Window window_ = findWindow(search_string);
-  capture_config_ = scl::CreateCaptureConfiguration( (scl::WindowCallback)std::bind(&F1FrameGrabManager::fake_get_windows_, window_));
+  capture_config_ = scl::CreateCaptureConfiguration( (scl::WindowCallback)std::bind(&fake_get_windows_, window_));
   capture_config_monitor_ = 
         scl::CreateCaptureConfiguration([]() {
             std::vector<scl::Monitor> allMonitors = scl::GetMonitors();

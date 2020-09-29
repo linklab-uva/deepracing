@@ -1,9 +1,10 @@
 add_library(winrt_capture SHARED
-    SimpleCapture.cpp
+	WinrtCapture.cpp
 )
 target_include_directories(winrt_capture
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+      #  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<INSTALL_INTERFACE:include>
         $<INSTALL_INTERFACE:include/${PROJECT_NAME}/winrtcapture>
 )
@@ -56,7 +57,8 @@ install(TARGETS winrt_capture
     ARCHIVE DESTINATION lib
 )
 install(FILES 
-		"SimpleCapture.h"
+		"WinrtCapture.h"
+		"Win32WindowEnumeration.h"
 		"composition.interop.h"
 		"d3dHelpers.h"
 		"direct3d11.interop.h"

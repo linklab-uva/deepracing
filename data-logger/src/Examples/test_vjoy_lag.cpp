@@ -24,7 +24,6 @@
 #include <iostream>
 #include <fstream>
 
-namespace scl = SL::Screen_Capture;
 namespace po = boost::program_options;
 namespace fs = std::filesystem;
 void exit_with_help(po::options_description& desc)

@@ -73,8 +73,8 @@ std::shared_ptr<IF1FrameGrabHandler> image_handler)
 {
 	if (bool(image_handler))
 	{
-	  const scl::Window& window = frame_grab_manager_->window_;
-	  cv::Size size(window.Size.x, window.Size.y);
+	  //const scl::Window& window = frame_grab_manager_->window_;
+	  cv::Size size(frame_grab_manager_->window_cols_, frame_grab_manager_->window_rows_);
 	 // size.height = window.Size.y;
 	//  size.width = ;
 	  std::cout << "Got a Window of Size (W x H): " << std::endl << size << std::endl;
