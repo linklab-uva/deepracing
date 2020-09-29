@@ -10,9 +10,11 @@
 #include "f1_datalogger/image_logging/framegrab_handler.h"
 #include <chrono>
 #include <f1_datalogger/image_logging/visibility_control.h>
-#ifdef USE_WINRT_GRAPHICS
-  #include <WinrtCapture.h>
+#include <f1_datalogger/image_logging/graphics_capture_config.h>
+#ifdef WINRT_GRAPHICS_CAPTURE
+  #include <OpencvCapture.h>
   #include <Win32WindowEnumeration.h>
+  #include <winrt_utils.h>
 #else
   #include <ScreenCapture.h>
   namespace scl = SL::Screen_Capture;
@@ -42,8 +44,10 @@ private:
 
   #ifdef USE_WINRT_GRAPHICS
     winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DDevice m_device{ nullptr };
-    std::shared_ptr<WinrtCapture> cap;
+    std::shared_ptr<OpencvCapture> cap;
     std::shared_ptr<deepf1::winrt_capture::Window> selected_window;
+    std::shared_ptr<winrt::Windows::System::DispatcherQueueController> dqcontroller;
+    std::shared_ptr<winrt::Windows::System::DispatcherQueue> dq;
   #else
     std::shared_ptr<scl::ICaptureConfiguration<scl::WindowCaptureCallback> > capture_config_;
     std::shared_ptr<scl::ICaptureConfiguration<scl::ScreenCaptureCallback> > capture_config_monitor_;

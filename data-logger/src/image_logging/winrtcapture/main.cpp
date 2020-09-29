@@ -17,6 +17,7 @@
 #include "SimpleCapture.h"
 #include <ShObjIdl.h>
 #include "Win32WindowEnumeration.h"
+#include <winrt_utils.h>
 
 using namespace winrt;
 using namespace Windows::UI;
@@ -24,22 +25,21 @@ using namespace Windows::UI::Composition;
 using namespace Windows::UI::Composition::Desktop;
 
 // Direct3D11CaptureFramePool requires a DispatcherQueue
-auto CreateDispatcherQueueController()
-{
-    namespace abi = ABI::Windows::System;
+// auto CreateDispatcherQueueController()
+// {
+//     namespace abi = ABI::Windows::System;
 
-    DispatcherQueueOptions options
-    {
-        sizeof(DispatcherQueueOptions),
-        DQTYPE_THREAD_CURRENT,
-        DQTAT_COM_STA
-    };
+//     DispatcherQueueOptions options
+//     {
+//         sizeof(DispatcherQueueOptions),
+//         DQTYPE_THREAD_CURRENT,
+//         DQTAT_COM_STA
+//     };
 
-    Windows::System::DispatcherQueueController controller{ nullptr };
-    check_hresult(CreateDispatcherQueueController(options, reinterpret_cast<abi::IDispatcherQueueController**>(put_abi(controller))));
-    return controller;
-}
-
+//     Windows::System::DispatcherQueueController controller{ nullptr };
+//     check_hresult(CreateDispatcherQueueController(options, reinterpret_cast<abi::IDispatcherQueueController**>(put_abi(controller))));
+//     return controller;
+// }
 DesktopWindowTarget CreateDesktopWindowTarget(Compositor const& compositor, HWND window)
 {
     namespace abi = ABI::Windows::UI::Composition::Desktop;
@@ -143,8 +143,8 @@ int CALLBACK WinMain(
     auto queue = controller.DispatcherQueue();
     auto success = queue.TryEnqueue([=]() -> void
     {
-        g_app->Initialize(root);
     });
+    g_app->Initialize(root);
     WINRT_VERIFY(success);
 
     // Message pump

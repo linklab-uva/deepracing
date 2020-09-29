@@ -20,7 +20,7 @@ deepf1::winrt_capture::Window selectWindow(const std::vector<deepf1::winrt_captu
   for (int i = 0; i < filtereditems.size(); i++)
   {
     deepf1::winrt_capture::Window window = filtereditems[i];
-    std::cout<<"Enter " << i << " for " << window.Title() << std::endl;
+    std::cout<<"Enter " << i << " for " << window.TitleStr() << std::endl;
   }
 
   std::string input;
@@ -63,7 +63,7 @@ F1FrameGrabManager::F1FrameGrabManager(const deepf1::TimePoint& begin, const std
   std::vector<deepf1::winrt_capture::Window> filtered_windows;
   std::for_each(g_windows.begin(), g_windows.end(),[&filtered_windows,search_string](const deepf1::winrt_capture::Window &window)
     {
-      if (window.Title().find(search_string) != std::string::npos)
+      if (window.TitleStr().find(search_string) != std::string::npos)
       {
         filtered_windows.push_back(window);
       }
@@ -82,11 +82,16 @@ F1FrameGrabManager::~F1FrameGrabManager()
 
 void F1FrameGrabManager::start(double capture_frequency, std::shared_ptr<IF1FrameGrabHandler> capture_handler)
 {
-
+  dqcontroller = std::make_shared<winrt::Windows::System::DispatcherQueueController>(CreateDispatcherQueueController());
+  dq = std::make_shared<winrt::Windows::System::DispatcherQueue>(dqcontroller->DispatcherQueue());
+  auto success = dq->TryEnqueue([=]() -> void
+  {
+  });
+  WINRT_VERIFY(success);
   std::cout<<"Entering F1FrameGrabManager::start"<<std::endl;
   auto item = CreateCaptureItemForWindow(selected_window->Hwnd());
   std::cout<<"Creating WinrtCapture"<<std::endl;
-  cap.reset(new WinrtCapture(m_device, item, capture_handler));
+  cap.reset(new OpencvCapture(m_device, item));//, capture_handler));
   std::cout<<"Starting capture"<<std::endl;
   cap->StartCapture();
   std::cout<<"Started capture"<<std::endl;

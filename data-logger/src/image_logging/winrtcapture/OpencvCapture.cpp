@@ -13,8 +13,9 @@
 //*********************************************************
 
 #include "pch.h"
-#include "SimpleCapture.h"
-
+#include "OpencvCapture.h"
+#include <opencv2/core/directx.hpp>
+#include <iostream>
 using namespace winrt;
 using namespace Windows;
 using namespace Windows::Foundation;
@@ -27,7 +28,7 @@ using namespace Windows::Foundation::Numerics;
 using namespace Windows::UI;
 using namespace Windows::UI::Composition;
 
-SimpleCapture::SimpleCapture(
+OpencvCapture::OpencvCapture(
     IDirect3DDevice const& device,
     GraphicsCaptureItem const& item)
 {
@@ -55,18 +56,18 @@ SimpleCapture::SimpleCapture(
 		size);
     m_session = m_framePool.CreateCaptureSession(m_item);
     m_lastSize = size;
-	m_frameArrived = m_framePool.FrameArrived(auto_revoke, { this, &SimpleCapture::OnFrameArrived });
+	m_frameArrived = m_framePool.FrameArrived(auto_revoke, { this, &OpencvCapture::OnFrameArrived });
 }
 
 // Start sending capture frames
-void SimpleCapture::StartCapture()
+void OpencvCapture::StartCapture()
 {
     CheckClosed();
+    m_session.IsCursorCaptureEnabled(false);
     m_session.StartCapture();
-  //  m_session.IsCursorCaptureEnabled(false);
 }
 
-ICompositionSurface SimpleCapture::CreateSurface(
+ICompositionSurface OpencvCapture::CreateSurface(
     Compositor const& compositor)
 {
     CheckClosed();
@@ -74,7 +75,7 @@ ICompositionSurface SimpleCapture::CreateSurface(
 }
 
 // Process captured frames
-void SimpleCapture::Close()
+void OpencvCapture::Close()
 {
     auto expected = false;
     if (m_closed.compare_exchange_strong(expected, true))
@@ -90,44 +91,36 @@ void SimpleCapture::Close()
     }
 }
 
-void SimpleCapture::OnFrameArrived(
+void OpencvCapture::OnFrameArrived(
     Direct3D11CaptureFramePool const& sender,
     winrt::Windows::Foundation::IInspectable const&)
 {
+    std::cerr<<"Got a new frame"<<std::endl;
+    deepf1::TimePoint now = deepf1::Clock::now();
     auto newSize = false;
+    auto frame = sender.TryGetNextFrame();
+    auto frameContentSize = frame.ContentSize();
+    winrt::com_ptr<ID3D11Texture2D> frameSurface = GetDXGIInterfaceFromObject<ID3D11Texture2D>(frame.Surface());
 
+    if (frameContentSize.Width != m_lastSize.Width ||
+        frameContentSize.Height != m_lastSize.Height)
     {
-        auto frame = sender.TryGetNextFrame();
-		auto frameContentSize = frame.ContentSize();
-
-        if (frameContentSize.Width != m_lastSize.Width ||
-			frameContentSize.Height != m_lastSize.Height)
-        {
-            // The thing we have been capturing has changed size.
-            // We need to resize our swap chain first, then blit the pixels.
-            // After we do that, retire the frame and then recreate our frame pool.
-            newSize = true;
-            m_lastSize = frameContentSize;
-            m_swapChain->ResizeBuffers(
-                2, 
-				static_cast<uint32_t>(m_lastSize.Width),
-				static_cast<uint32_t>(m_lastSize.Height),
-                static_cast<DXGI_FORMAT>(DirectXPixelFormat::B8G8R8A8UIntNormalized), 
-                0);
-        }
-
-        {
-            auto frameSurface = GetDXGIInterfaceFromObject<ID3D11Texture2D>(frame.Surface());
-            
-            com_ptr<ID3D11Texture2D> backBuffer;
-            check_hresult(m_swapChain->GetBuffer(0, guid_of<ID3D11Texture2D>(), backBuffer.put_void()));
-
-            m_d3dContext->CopyResource(backBuffer.get(), frameSurface.get());
-        }
+        // The thing we have been capturing has changed size.
+        // We need to resize our swap chain first, then blit the pixels.
+        // After we do that, retire the frame and then recreate our frame pool.
+        newSize = true;
+        m_lastSize = frameContentSize;
+        m_swapChain->ResizeBuffers(
+            2, 
+            static_cast<uint32_t>(m_lastSize.Width),
+            static_cast<uint32_t>(m_lastSize.Height),
+            static_cast<DXGI_FORMAT>(DirectXPixelFormat::B8G8R8A8UIntNormalized), 
+            0);
     }
 
-    DXGI_PRESENT_PARAMETERS presentParameters = { 0 };
-    m_swapChain->Present1(1, 0, &presentParameters);
+    cv::Mat mat;
+    cv::directx::convertFromD3D11Texture2D(frameSurface.get(), mat);
+    current_data = deepf1::TimestampedImageData(now,mat);
 
     if (newSize)
     {

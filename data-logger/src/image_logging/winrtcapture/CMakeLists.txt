@@ -1,4 +1,5 @@
 add_library(winrt_capture_lib SHARED
+	OpencvCapture.cpp
 	SimpleCapture.cpp
 	CaptureApp.cpp
 )
@@ -7,7 +8,8 @@ target_include_directories(winrt_capture_lib
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
       #  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<INSTALL_INTERFACE:include>
-        $<INSTALL_INTERFACE:include/${PROJECT_NAME}/winrtcapture>
+		$<INSTALL_INTERFACE:include/${PROJECT_NAME}/winrtcapture>
+		${Opencv_INCLUDE_DIRS}
 )
 target_precompile_headers(winrt_capture_lib
 PUBLIC
@@ -41,7 +43,7 @@ target_link_libraries(winrt_capture_lib
 PUBLIC
 	Dwmapi
 	windowsapp
-PRIVATE
+#PRIVATE
 	${OpenCV_LIBRARIES}
 )
 target_compile_definitions(winrt_capture_lib
@@ -63,7 +65,9 @@ install(TARGETS winrt_capture_lib winrtcapture
 )
 install(FILES 
 		"CaptureApp.h"
+		"OpencvCapture.h"
 		"SimpleCapture.h"
+		"winrt_utils.h"
 		"Win32WindowEnumeration.h"
 		"composition.interop.h"
 		"d3dHelpers.h"
