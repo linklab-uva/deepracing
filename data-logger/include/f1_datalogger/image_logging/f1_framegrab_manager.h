@@ -31,13 +31,14 @@ private:
   deepf1::TimePoint begin_;
 
   scl::Window window_;
-
   std::shared_ptr<scl::ICaptureConfiguration<scl::WindowCaptureCallback> > capture_config_;
   std::shared_ptr<scl::ICaptureConfiguration<scl::ScreenCaptureCallback> > capture_config_monitor_;
-
   std::shared_ptr<scl::IScreenCaptureManager> capture_manager_;
 
-  std::vector<scl::Window> get_windows_();
+
+  winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DDevice m_device{ nullptr };
+
+
 
   void onNewFrame_(const scl::Image &img, const scl::Window &monitor, std::shared_ptr<IF1FrameGrabHandler> capture_handler);
   void onNewScreenFrame_(const scl::Image &img, const scl::Monitor &monitor, std::shared_ptr<IF1FrameGrabHandler> capture_handler);

@@ -29,15 +29,19 @@ PUBLIC
 	<dxgi1_6.h>
 	<d2d1_3.h>
 	<wincodec.h>
+    <codecvt>
 	"composition.interop.h"
 	"d3dHelpers.h"
 	"direct3d11.interop.h"
 	"capture.interop.h"
+	"Win32WindowEnumeration.h"
 )
 target_link_libraries(winrt_capture
 PUBLIC
 	Dwmapi
-    windowsapp
+	windowsapp
+PRIVATE
+	${OpenCV_LIBRARIES}
 )
 target_compile_definitions(winrt_capture
 	PRIVATE F1_DATALOGGER_IMAGE_LOGGING_BUILDING_DLL

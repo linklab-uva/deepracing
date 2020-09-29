@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <iostream>
 #include <opencv2/imgcodecs.hpp>
+#include "Win32WindowEnumeration.h"
 
 namespace scl = SL::Screen_Capture;
 namespace deepf1
@@ -81,12 +82,16 @@ std::vector<scl::Monitor> monitorCB_()
   }
   return rtn;
 }
+std::vector<scl::Window> fake_get_windows_()
+{
+  return std::vector<scl::Window> {window_};
+}
 F1FrameGrabManager::F1FrameGrabManager(const deepf1::TimePoint& begin, const std::string& search_string)
 {
   begin_ = deepf1::TimePoint(begin);
   std::cout << "Looking for an application with the search string " << search_string << std::endl;
-  window_ = findWindow(search_string);
-  capture_config_ = scl::CreateCaptureConfiguration( (scl::WindowCallback)std::bind(&F1FrameGrabManager::get_windows_, this));
+  scl::Window window_ = findWindow(search_string);
+  capture_config_ = scl::CreateCaptureConfiguration( (scl::WindowCallback)std::bind(&F1FrameGrabManager::fake_get_windows_, window_));
   capture_config_monitor_ = 
         scl::CreateCaptureConfiguration([]() {
             std::vector<scl::Monitor> allMonitors = scl::GetMonitors();
@@ -107,10 +112,6 @@ F1FrameGrabManager::~F1FrameGrabManager()
 	stop();
 }
 
-std::vector<scl::Window> F1FrameGrabManager::get_windows_()
-{
-  return std::vector<scl::Window> {window_};
-}
 void F1FrameGrabManager::onNewFrame_(const scl::Image &img, const scl::Window &monitor, std::shared_ptr<IF1FrameGrabHandler> capture_handler)
 {
   deepf1::TimePoint ts = deepf1::Clock::now();

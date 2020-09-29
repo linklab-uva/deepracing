@@ -12,10 +12,13 @@ target_compile_definitions(${PROJECT_NAME}_image_utils PRIVATE F1_DATALOGGER_IMA
 
 
 
-set(${PROJECT_NAME}_image_logging_src
-f1_framegrab_manager.cpp
-)
-add_library(${PROJECT_NAME}_image_logging ${${PROJECT_NAME}_image_logging_src})
+if(WIN32)
+    add_subdirectory(winrtcapture)
+    add_library(${PROJECT_NAME}_image_logging windows/f1_framegrab_manager.cpp)
+    target_link_libraries(${PROJECT_NAME}_image_logging winrt_capture)
+else()
+    add_library(${PROJECT_NAME}_image_logging linux/f1_framegrab_manager.cpp)
+endif()
 target_link_libraries(${PROJECT_NAME}_image_logging ${PROJECT_NAME}_image_utils ${screen_capture_lite_PLATFORM_LIBS})
 target_include_directories(${PROJECT_NAME}_image_logging 
 PRIVATE
