@@ -13,7 +13,7 @@ target_compile_definitions(${PROJECT_NAME}_image_utils PRIVATE F1_DATALOGGER_IMA
 if(WIN32)
     add_subdirectory(winrtcapture)
 endif()
-set(USE_WINRT_GRAPHICS ON)
+set(USE_WINRT_GRAPHICS OFF)
 configure_file(graphics_capture_config.h.in ${CMAKE_BINARY_DIR}/graphics_config/f1_datalogger/image_logging/graphics_capture_config.h @ONLY)
 if(USE_WINRT_GRAPHICS)
     add_library(${PROJECT_NAME}_image_logging windowsrt/f1_framegrab_manager.cpp)
