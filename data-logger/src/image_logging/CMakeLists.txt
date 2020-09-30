@@ -11,7 +11,8 @@ ${PROTO_INCLUDE_DIR}
 target_compile_definitions(${PROJECT_NAME}_image_utils PRIVATE F1_DATALOGGER_IMAGE_LOGGING_BUILDING_DLL)
 
 if(WIN32)
-    add_subdirectory(winrtcapture)
+   # add_subdirectory(winrtcapture)
+    add_subdirectory(qtcapture)
 endif()
 set(USE_WINRT_GRAPHICS OFF)
 configure_file(graphics_capture_config.h.in ${CMAKE_BINARY_DIR}/graphics_config/f1_datalogger/image_logging/graphics_capture_config.h @ONLY)
