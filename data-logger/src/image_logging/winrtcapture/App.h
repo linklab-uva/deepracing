@@ -5,9 +5,10 @@
 class App
 {
 public:
-    App(winrt::Windows::UI::Composition::ContainerVisual root,
-        winrt::Windows::Graphics::Capture::GraphicsCapturePicker capturePicker,
-        winrt::Windows::Storage::Pickers::FileSavePicker savePicker);
+    App(winrt::Windows::UI::Composition::ContainerVisual root
+        // ,winrt::Windows::Graphics::Capture::GraphicsCapturePicker capturePicker
+        // ,winrt::Windows::Storage::Pickers::FileSavePicker savePicker
+        );
     ~App();
 
     winrt::Windows::Graphics::Capture::GraphicsCaptureItem StartCaptureFromWindowHandle(HWND hwnd);
@@ -39,5 +40,4 @@ private:
     std::unique_ptr<SimpleCapture> m_capture{ nullptr };
     winrt::Windows::Graphics::DirectX::DirectXPixelFormat m_pixelFormat = winrt::Windows::Graphics::DirectX::DirectXPixelFormat::B8G8R8A8UIntNormalized;
 
-    std::unique_ptr<SimpleImageEncoder> m_encoder{ nullptr };
 };

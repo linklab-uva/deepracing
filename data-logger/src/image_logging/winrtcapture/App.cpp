@@ -24,10 +24,10 @@ App::~App()
 {
     StopCapture();
 }
-App::App(winrt::ContainerVisual root, winrt::GraphicsCapturePicker capturePicker, winrt::FileSavePicker savePicker)
+App::App(winrt::ContainerVisual root)//, winrt::GraphicsCapturePicker capturePicker, winrt::FileSavePicker savePicker)
 {
-    m_capturePicker = capturePicker;
-    m_savePicker = savePicker;
+   // m_capturePicker = capturePicker;
+   // m_savePicker = savePicker;
     m_mainThread = winrt::DispatcherQueue::GetForCurrentThread();
     WINRT_VERIFY(m_mainThread != nullptr);
 
@@ -55,8 +55,6 @@ App::App(winrt::ContainerVisual root, winrt::GraphicsCapturePicker capturePicker
     auto d3dDevice = util::CreateD3DDevice();
     auto dxgiDevice = d3dDevice.as<IDXGIDevice>();
     m_device = CreateDirect3DDevice(dxgiDevice.get());
-
-    m_encoder = std::make_unique<SimpleImageEncoder>(m_device);
 }
 
 winrt::GraphicsCaptureItem App::StartCaptureFromWindowHandle(HWND hwnd)

@@ -1,3 +1,3 @@
 {
-    "dependencies" : ["vJoy_plusplus"]
+    "dependencies" : ["vJoy_plusplus", "WIL"]
 }

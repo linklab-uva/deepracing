@@ -46,11 +46,11 @@ int __stdcall WinMain(HINSTANCE instance, HINSTANCE, PSTR cmdLine, int cmdShow)
     root.Offset({ 220.0f, 0.0f, 0.0f });
 
     // Create the pickers
-    auto capturePicker = winrt::GraphicsCapturePicker();
-    auto savePicker = winrt::FileSavePicker();
+    // auto capturePicker = winrt::GraphicsCapturePicker();
+    // auto savePicker = winrt::FileSavePicker();
 
     // Create the app
-    auto app = std::make_shared<App>(root, capturePicker, savePicker);
+    auto app = std::make_shared<App>(root);
 
     auto window = SampleWindow(instance, cmdShow, app);
 

@@ -48,11 +48,12 @@ int main(int argc, char *argv[])
     {
         std::chrono::time_point<std::chrono::high_resolution_clock> tick = std::chrono::high_resolution_clock::now();
         QRect rect = grabwin->geometry();
-        QPixmap pixmap = primaryscreen->grabWindow(0, rect.x(), rect.y()+32, rect.width(), (rect.height()-32)/2);
+        //QPixmap pixmap = primaryscreen->grabWindow(0, rect.x(), rect.y()+32, rect.width(), (rect.height()-32)/2);
+        QPixmap pixmap = primaryscreen->grabWindow(grabwin->winId(), 0, 0, rect.width(), rect.height());
         
         //QPixmap pixmap = grabwidget->grab();
         QImage image = pixmap.toImage();
-        cv::Mat mat(image.height(),image.width(),CV_8UC4,(uchar*)image.bits(),image.bytesPerLine());
+        cv::Mat mat(image.height(), image.width(), CV_8UC4, (uchar*)image.bits(), image.bytesPerLine());
         //QPixmap pixmap = primaryscreen->grabWindow(grabwin->winId());
         std::chrono::time_point<std::chrono::high_resolution_clock> tock = std::chrono::high_resolution_clock::now();
         std::printf("Grabbed a window at (x,y): (%d,%d) of height (width,height): (%d,%d)\n", rect.x(), rect.y(), pixmap.width(), pixmap.height());
