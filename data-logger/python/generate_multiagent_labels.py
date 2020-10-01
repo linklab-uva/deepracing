@@ -118,10 +118,27 @@ else:
 
 
 vehicle_positions = np.stack([np.array([extractPosition(packet.udp_packet, car_index=i) for i in range(20) ]) for packet in motion_packets], axis=0).transpose(1,0,2)
+print("vehicle_positions shape: %s" % (str(vehicle_positions.shape),))
+vehicle_position_diffs = vehicle_positions[:,1:] - vehicle_positions[:,:-1]
+vehicle_position_diff_norms = np.linalg.norm(vehicle_position_diffs,ord=2,axis=2)
+vehicle_position_diff_totals = np.sum(vehicle_position_diff_norms,axis=1)
+dead_cars = vehicle_position_diff_totals<15.0
+print("dead_cars shape: %s" % (str(dead_cars.shape),))
+# print("vehicle_position_diff_norms shape: %s" % (str(vehicle_position_diff_norms.shape),))
+# legit_indices = vehicle_position_diff_norms<10.0
+# first_point_true = np.array([[True for asdf in range(20)]]).transpose()
+# print("first_point_true shape: %s" % (str(first_point_true.shape),))
+# legit_indices = np.concatenate([first_point_true, legit_indices], axis=1)
+# print("legit_indices shape: %s" % (str(legit_indices.shape),))
+# vehicle_positions = vehicle_positions[legit_indices]
+# print("vehicle_positions shape: %s" % (str(vehicle_positions.shape),))
 
 vehicle_velocities = np.stack([np.array([extractVelocity(packet.udp_packet, car_index=i) for i in range(20) ]) for packet in motion_packets], axis=0).transpose(1,0,2)
 
 vehicle_quaternions = np.stack([np.array([extractRotation(packet.udp_packet, car_index=i) for i in range(20) ]) for packet in motion_packets], axis=0).transpose(1,0,2)
+
+# vehicle_velocities = vehicle_velocities[legit_indices]
+# vehicle_quaternions = vehicle_quaternions[legit_indices]
 
 try:
     fig = plt.figure()
@@ -129,7 +146,7 @@ try:
     plt.xlim(np.max(allx)+10.0, np.min(allx)-10.0)
     plt.plot(vehicle_positions[ego_vehicle_index,:,0], vehicle_positions[ego_vehicle_index,:,2], label="Ego vehicle path")
     for i in range(20):
-        if i!=ego_vehicle_index:
+        if i!=ego_vehicle_index and (not dead_cars[i]):
             plt.scatter(vehicle_positions[i,:,0], vehicle_positions[i,:,2])
     plt.show()
 except KeyboardInterrupt:
@@ -163,9 +180,9 @@ db = deepracing.backend.MultiAgentLabelLMDBWrapper()
 db.openDatabase( lmdb_dir, mapsize=int(round(76000*len(image_tags)*1.25)) , max_spare_txns=16, readonly=False, lock=True )
 for idx in tqdm(range(len(image_tags))):
     label_tag = MultiAgentLabel_pb2.MultiAgentLabel()
-    label_tag.ego_car_index = ego_vehicle_index
     try:
         label_tag.image_tag.CopyFrom(image_tags[idx])
+        label_tag.ego_car_index = ego_vehicle_index
         tlabel = image_session_timestamps[idx]
         if (tlabel < (tmin + 2.0*lookahead_time)) or (tlabel > (tmax - 2.0*lookahead_time)):
             continue
@@ -206,12 +223,16 @@ for idx in tqdm(range(len(image_tags))):
         istart = bisect.bisect_left(motion_packet_session_times, tstart-lookahead_time)
         iend = bisect.bisect_left(motion_packet_session_times, tend+lookahead_time)
         for i in range(0,20):
-            if i==ego_vehicle_index:
+            if i==ego_vehicle_index or dead_cars[i]:
                 continue
            # kdtree = vehicle_kd_trees[i]
             positions = vehicle_positions[i]
             velocities = vehicle_velocities[i]
             quaternions = vehicle_quaternions[i]
+            position_interpolant = vehicle_position_interpolants[i]
+            velocity_interpolant = vehicle_velocity_interpolants[i]
+
+
             if np.any(np.linalg.norm(quaternions[istart:iend],ord=2,axis=1)<0.9) or np.all(positions[istart:iend]==0.0) or np.any(np.linalg.norm(positions[istart:iend],ord=2,axis=1)<2.0):
                 continue
             try:
@@ -219,16 +240,15 @@ for idx in tqdm(range(len(image_tags))):
             except Exception as e:
                 raise DeepRacingException("Could not create rotation interpolation for car %d" % i)
                 #continue
-            position_interpolant = vehicle_position_interpolants[i]
-            velocity_interpolant = vehicle_velocity_interpolants[i]
-
             positions_samp_global = position_interpolant(tsamp)
             velocities_samp_global = velocity_interpolant(tsamp)
             rotations_samp_global = rotation_interpolant(tsamp)
+
             angvel_samp_global = rotation_interpolant(tsamp,1)
             poses_global = np.array([np.eye(4) for asdf in range(tsamp.shape[0])])
             poses_global[:,0:3,0:3] = rotations_samp_global.as_matrix()
             poses_global[:,0:3,3] = positions_samp_global
+            rotations_samp_global = rotation_interpolant(tsamp)
 
             poses_samp = np.matmul(ego_pose_matrix_inverse,poses_global)
             positions_samp = poses_samp[:,0:3,3]
@@ -242,7 +262,7 @@ for idx in tqdm(range(len(image_tags))):
             x = carpositionlocal[0]
             y = carpositionlocal[1]
             z = carpositionlocal[2]
-            match_found = (z>-1.5) and (z<65.0) and (abs(x) < 25)
+            match_found = (z>-1.5) and (z<40.0) and (abs(x) < 25)
             if match_found:
                 match_positions.append(carpositionlocal)
 
@@ -268,6 +288,7 @@ for idx in tqdm(range(len(image_tags))):
             image_file = "image_%d.jpg" % idx
             print("Found a match for %s. Metadata:" %(image_file,))
             print("Match positions: " + str(match_positions))
+            print("Closest packet index: " + str(istart))
             print("Car indices: " + str(label_tag.trajectory_car_indices))
             # imagein = cv2.imread(os.path.join(image_folder,image_file))
             # cv2.imshow("Image",imagein)
@@ -311,7 +332,9 @@ for idx in tqdm(range(len(image_tags))):
         label_positions = np.array([ np.array([[pose.translation.x, pose.translation.y, pose.translation.z]  for pose in agent_trajectory.poses ]).transpose() for agent_trajectory in label_tag.other_agent_trajectories])
         minx = np.min(label_positions[:,0])-5.0
         maxx = np.max(label_positions[:,0])+5.0
+        maxz = np.max(label_positions[:,2])+5.0
         plt.xlim(maxx,minx)
+        plt.ylim(0,maxz)
         for k in range(label_positions.shape[0]):
             agent_trajectory = label_positions[k]
             #label_positions_local = np.matmul(ego_pose_matrix_inverse, label_positions)
