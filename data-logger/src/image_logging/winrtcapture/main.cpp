@@ -55,7 +55,7 @@ int __stdcall WinMain(HINSTANCE instance, HINSTANCE, PSTR cmdLine, int cmdShow)
     auto window = SampleWindow(instance, cmdShow, app);
 
     // Provide the window handle to the pickers (explicit HWND initialization)
-    window.InitializeObjectWithWindowHandle(capturePicker);
+   // window.InitializeObjectWithWindowHandle(capturePicker);
    // window.InitializeObjectWithWindowHandle(savePicker);
 
     // Hookup the visual tree to the window

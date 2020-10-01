@@ -25,6 +25,7 @@ public:
     }
 
     void Close();
+    void destroyWindows();
 
 private:
     void OnFrameArrived(

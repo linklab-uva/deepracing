@@ -96,18 +96,19 @@ LRESULT SampleWindow::MessageHandler(UINT const message, WPARAM const wparam, LP
             break;
         case BN_CLICKED:
             {
-                if (hwnd == m_pickerButton)
-                {
-                    OnPickerButtonClicked();
-                }
-                else if (hwnd == m_stopButton)
+                
+                if (hwnd == m_stopButton)
                 {
                     StopCapture();
                 }
-                else if (hwnd == m_snapshotButton)
-                {
-                    OnSnapshotButtonClicked();
-                }
+                // else if (hwnd == m_snapshotButton)
+                // {
+                //     OnSnapshotButtonClicked();
+                // }
+                // else if (hwnd == m_pickerButton)
+                // {
+                //     OnPickerButtonClicked();
+                // }
                 else if (hwnd == m_cursorCheckBox)
                 {
                     auto value = SendMessageW(m_cursorCheckBox, BM_GETCHECK, 0, 0) == BST_CHECKED;
@@ -166,24 +167,24 @@ void SampleWindow::OnCaptureStarted(winrt::GraphicsCaptureItem const& item, Capt
     EnableWindow(m_snapshotButton, true);
 }
 
-winrt::fire_and_forget SampleWindow::OnPickerButtonClicked()
-{
-    auto selectedItem = co_await m_app->StartCaptureWithPickerAsync();
+// winrt::fire_and_forget SampleWindow::OnPickerButtonClicked()
+// {
+//     auto selectedItem = co_await m_app->StartCaptureWithPickerAsync();
 
-    if (selectedItem)
-    {
-        OnCaptureStarted(selectedItem, CaptureType::Picker);
-    }
-}
+//     if (selectedItem)
+//     {
+//         OnCaptureStarted(selectedItem, CaptureType::Picker);
+//     }
+// }
 
-winrt::fire_and_forget SampleWindow::OnSnapshotButtonClicked()
-{
-    auto file = co_await m_app->TakeSnapshotAsync();
-    if (file != nullptr)
-    {
-        co_await winrt::Launcher::LaunchFileAsync(file);
-    }
-}
+// winrt::fire_and_forget SampleWindow::OnSnapshotButtonClicked()
+// {
+//     auto file = co_await m_app->TakeSnapshotAsync();
+//     if (file != nullptr)
+//     {
+//         co_await winrt::Launcher::LaunchFileAsync(file);
+//     }
+// }
 
 // Not DPI aware but could be by multiplying the constants based on the monitor scale factor
 void SampleWindow::CreateControls(HINSTANCE instance)

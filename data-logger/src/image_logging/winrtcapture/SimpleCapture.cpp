@@ -186,3 +186,7 @@ void SimpleCapture::OnFrameArrived(winrt::Direct3D11CaptureFramePool const& send
         m_framePool.Recreate(m_device, m_pixelFormat, 2, m_lastSize);
     }
 }
+void SimpleCapture::destroyWindows()
+{
+    cv::destroyAllWindows();
+}

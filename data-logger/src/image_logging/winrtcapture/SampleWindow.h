@@ -42,8 +42,8 @@ private:
 
     void CreateControls(HINSTANCE instance);
     void SetSubTitle(std::wstring const& text);
-    winrt::fire_and_forget OnPickerButtonClicked();
-    winrt::fire_and_forget OnSnapshotButtonClicked();
+ //   winrt::fire_and_forget OnPickerButtonClicked();
+  //  winrt::fire_and_forget OnSnapshotButtonClicked();
     void StopCapture();
     void OnCaptureItemClosed(winrt::Windows::Graphics::Capture::GraphicsCaptureItem const&, winrt::Windows::Foundation::IInspectable const&);
     void OnCaptureStarted(
