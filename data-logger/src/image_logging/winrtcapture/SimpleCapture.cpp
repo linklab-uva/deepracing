@@ -1,87 +1,73 @@
-//*********************************************************
-//
-// Copyright (c) Microsoft. All rights reserved.
-// This code is licensed under the MIT License (MIT).
-// THE SOFTWARE IS PROVIDED �AS IS�, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
-// INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
-// IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
-// TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH 
-// THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-//
-//*********************************************************
-
 #include "pch.h"
 #include "SimpleCapture.h"
+#include <iostream>
+#include <opencv2/core.hpp>
+#include <opencv2/core/directx.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+namespace winrt
+{
+    using namespace Windows::Foundation;
+    using namespace Windows::System;
+    using namespace Windows::Graphics;
+    using namespace Windows::Graphics::Capture;
+    using namespace Windows::Graphics::DirectX;
+    using namespace Windows::Graphics::DirectX::Direct3D11;
+    using namespace Windows::Foundation::Numerics;
+    using namespace Windows::UI;
+    using namespace Windows::UI::Composition;
+}
 
-using namespace winrt;
-using namespace Windows;
-using namespace Windows::Foundation;
-using namespace Windows::System;
-using namespace Windows::Graphics;
-using namespace Windows::Graphics::Capture;
-using namespace Windows::Graphics::DirectX;
-using namespace Windows::Graphics::DirectX::Direct3D11;
-using namespace Windows::Foundation::Numerics;
-using namespace Windows::UI;
-using namespace Windows::UI::Composition;
+namespace util
+{
+    using namespace uwp;
+}
 
-SimpleCapture::SimpleCapture(
-    IDirect3DDevice const& device,
-    GraphicsCaptureItem const& item)
+SimpleCapture::SimpleCapture(winrt::IDirect3DDevice const& device, winrt::GraphicsCaptureItem const& item, winrt::DirectXPixelFormat pixelFormat) 
 {
     m_item = item;
     m_device = device;
+    m_pixelFormat = pixelFormat;
 
-	// Set up 
     auto d3dDevice = GetDXGIInterfaceFromObject<ID3D11Device>(m_device);
     d3dDevice->GetImmediateContext(m_d3dContext.put());
 
-	auto size = m_item.Size();
+    m_swapChain = util::CreateDXGISwapChain(d3dDevice, static_cast<uint32_t>(m_item.Size().Width), static_cast<uint32_t>(m_item.Size().Height),
+        static_cast<DXGI_FORMAT>(m_pixelFormat), 2);
 
-    m_swapChain = CreateDXGISwapChain(
-        d3dDevice, 
-		static_cast<uint32_t>(size.Width),
-		static_cast<uint32_t>(size.Height),
-        static_cast<DXGI_FORMAT>(DirectXPixelFormat::B8G8R8A8UIntNormalized),
-        2);
-
-	// Create framepool, define pixel format (DXGI_FORMAT_B8G8R8A8_UNORM), and frame size. 
-    m_framePool = Direct3D11CaptureFramePool::Create(
-        m_device,
-        DirectXPixelFormat::B8G8R8A8UIntNormalized,
-        2,
-		size);
+    // Creating our frame pool with 'Create' instead of 'CreateFreeThreaded'
+    // means that the frame pool's FrameArrived event is called on the thread
+    // the frame pool was created on. This also means that the creating thread
+    // must have a DispatcherQueue. If you use this method, it's best not to do
+    // it on the UI thread. 
+    m_framePool = winrt::Direct3D11CaptureFramePool::Create(m_device, m_pixelFormat, 2, m_item.Size());
     m_session = m_framePool.CreateCaptureSession(m_item);
-    m_lastSize = size;
-	m_frameArrived = m_framePool.FrameArrived(auto_revoke, { this, &SimpleCapture::OnFrameArrived });
+    m_lastSize = m_item.Size();
+    m_framePool.FrameArrived({ this, &SimpleCapture::OnFrameArrived });
+
+    WINRT_ASSERT(m_session != nullptr);
 }
 
-// Start sending capture frames
 void SimpleCapture::StartCapture()
 {
     CheckClosed();
     m_session.StartCapture();
-  //  m_session.IsCursorCaptureEnabled(false);
 }
 
-ICompositionSurface SimpleCapture::CreateSurface(
-    Compositor const& compositor)
+winrt::ICompositionSurface SimpleCapture::CreateSurface(winrt::Compositor const& compositor)
 {
     CheckClosed();
-    return CreateCompositionSurfaceForSwapChain(compositor, m_swapChain.get());
+    return util::CreateCompositionSurfaceForSwapChain(compositor, m_swapChain.get());
 }
 
-// Process captured frames
 void SimpleCapture::Close()
 {
     auto expected = false;
     if (m_closed.compare_exchange_strong(expected, true))
     {
-		m_frameArrived.revoke();
-		m_framePool.Close();
         m_session.Close();
+        m_framePool.Close();
 
         m_swapChain = nullptr;
         m_framePool = nullptr;
@@ -90,52 +76,113 @@ void SimpleCapture::Close()
     }
 }
 
-void SimpleCapture::OnFrameArrived(
-    Direct3D11CaptureFramePool const& sender,
-    winrt::Windows::Foundation::IInspectable const&)
+void SimpleCapture::ResizeSwapChain()
 {
-    auto newSize = false;
+    winrt::check_hresult(m_swapChain->ResizeBuffers(2, static_cast<uint32_t>(m_lastSize.Width), static_cast<uint32_t>(m_lastSize.Height),
+        static_cast<DXGI_FORMAT>(m_pixelFormat), 0));
+}
+
+bool SimpleCapture::TryResizeSwapChain(winrt::Direct3D11CaptureFrame const& frame)
+{
+    auto const contentSize = frame.ContentSize();
+    if ((contentSize.Width != m_lastSize.Width) ||
+        (contentSize.Height != m_lastSize.Height))
+    {
+        // The thing we have been capturing has changed size, resize the swap chain to match.
+        m_lastSize = contentSize;
+        ResizeSwapChain();
+        return true;
+    }
+    return false;
+}
+
+bool SimpleCapture::TryUpdatePixelFormat()
+{
+    auto lock = m_lock.lock_exclusive();
+    if (m_pixelFormatUpdate.has_value())
+    {
+        auto pixelFormat = m_pixelFormatUpdate.value();
+        m_pixelFormatUpdate = std::nullopt;
+        if (pixelFormat != m_pixelFormat)
+        {
+            m_pixelFormat = pixelFormat;
+            ResizeSwapChain();
+            return true;
+        }
+    }
+    return false;
+}
+
+void SimpleCapture::OnFrameArrived(winrt::Direct3D11CaptureFramePool const& sender, winrt::IInspectable const&)
+{
+    auto swapChainResizedToFrame = false;
 
     {
         auto frame = sender.TryGetNextFrame();
-		auto frameContentSize = frame.ContentSize();
+        swapChainResizedToFrame = TryResizeSwapChain(frame);
 
-        if (frameContentSize.Width != m_lastSize.Width ||
-			frameContentSize.Height != m_lastSize.Height)
-        {
-            // The thing we have been capturing has changed size.
-            // We need to resize our swap chain first, then blit the pixels.
-            // After we do that, retire the frame and then recreate our frame pool.
-            newSize = true;
-            m_lastSize = frameContentSize;
-            m_swapChain->ResizeBuffers(
-                2, 
-				static_cast<uint32_t>(m_lastSize.Width),
-				static_cast<uint32_t>(m_lastSize.Height),
-                static_cast<DXGI_FORMAT>(DirectXPixelFormat::B8G8R8A8UIntNormalized), 
-                0);
-        }
+        auto surfaceTexture = GetDXGIInterfaceFromObject<ID3D11Texture2D>(frame.Surface());
 
-        {
-            auto frameSurface = GetDXGIInterfaceFromObject<ID3D11Texture2D>(frame.Surface());
-            
-            com_ptr<ID3D11Texture2D> backBuffer;
-            check_hresult(m_swapChain->GetBuffer(0, guid_of<ID3D11Texture2D>(), backBuffer.put_void()));
+        // Make a copy of the texture
+        D3D11_TEXTURE2D_DESC desc = {};
+        surfaceTexture->GetDesc(&desc);
+        // Clear flags that we don't need
+        desc.Usage = D3D11_USAGE_STAGING;;
+        desc.BindFlags = 0;
+        desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+        desc.MiscFlags = 0;
+        desc.MipLevels = 1;
+        desc.ArraySize = 1;
+    //    desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+        desc.SampleDesc.Count = 1;
+        desc.SampleDesc.Quality = 0;
+        winrt::com_ptr<ID3D11Texture2D> textureCopy;
+        auto d3dDevice = GetDXGIInterfaceFromObject<ID3D11Device>(m_device);
+       // winrt::com_ptr<ID3D11DeviceContext> d3dContext;
+       // d3dDevice->GetImmediateContext(d3dContext.put());
+        winrt::check_hresult(d3dDevice->CreateTexture2D(&desc, nullptr, textureCopy.put()));
+        m_d3dContext->CopyResource(textureCopy.get(), surfaceTexture.get());
 
-            m_d3dContext->CopyResource(backBuffer.get(), frameSurface.get());
-        }
+        winrt::com_ptr<ID3D11Texture2D> backBuffer;
+        winrt::check_hresult(m_swapChain->GetBuffer(0, winrt::guid_of<ID3D11Texture2D>(), backBuffer.put_void()));
+        m_d3dContext->CopyResource(backBuffer.get(), surfaceTexture.get());
+      // textureCopy->GetPrivateData()
+
+       // copy surfaceTexture to backBuffer
+
+       D3D11_TEXTURE2D_DESC cpudesc = {};
+       textureCopy->GetDesc(&cpudesc);
+
+       D3D11_MAPPED_SUBRESOURCE mappedResource;
+       m_d3dContext->Map(textureCopy.get(), 0, D3D11_MAP_READ, 0, &mappedResource);
+       char* mappedData = static_cast<char*>(mappedResource.pData);
+
+      // cv::ocl::Context m_oclCtx = cv::directx::ocl::initializeContextFromD3D11Device(d3dDevice.get());
+      // m_oclCtx.
+       cv::Mat mattex(cpudesc.Height, cpudesc.Width, CV_8UC4, mappedData, mappedResource.RowPitch);
+       //cv::Mat matout;
+       cv::cvtColor(mattex, current_mat, cv::COLOR_BGRA2BGR);
+       if (current_mat.isContinuous())
+       {
+           cv::putText(current_mat, "The image is continuous", cv::Point(current_mat.cols / 2-50, current_mat.rows / 2),
+               cv::FONT_HERSHEY_DUPLEX,
+               1.0,
+               cv::Scalar(0, 0, 0));  //font color);
+       }
+      // cv::imwrite("D:/asdf.jpg", matout);
+       cv::imshow("CapWin", current_mat);
+       cv::waitKey(1);
+     //  matout.create(cpudesc.Height, cpudesc.Width, CV_8UC4);
+      // memcpy(matout.data, (void*)((mappedResource.pData) ), matout.total() * 32-100);
     }
 
-    DXGI_PRESENT_PARAMETERS presentParameters = { 0 };
+    DXGI_PRESENT_PARAMETERS presentParameters{};
     m_swapChain->Present1(1, 0, &presentParameters);
 
-    if (newSize)
+    swapChainResizedToFrame = swapChainResizedToFrame || TryUpdatePixelFormat();
+
+    if (swapChainResizedToFrame)
     {
-        m_framePool.Recreate(
-            m_device,
-            DirectXPixelFormat::B8G8R8A8UIntNormalized,
-            2,
-            m_lastSize);
+        m_framePool.Recreate(m_device, m_pixelFormat, 2, m_lastSize);
     }
 }
-
