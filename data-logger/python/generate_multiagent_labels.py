@@ -33,11 +33,15 @@ from scipy.spatial.transform import RotationSpline as RotSpline
 from scipy.spatial.transform import Slerp
 from typing import List
 import matplotlib.pyplot as plt
+from deepracing import trackNames, searchForFile
+from deepracing.raceline_utils import loadRaceline
+import torch
 
 def imageDataKey(data):
     return data.timestamp
 def udpPacketKey(packet):
     return packet.udp_packet.m_header.m_sessionTime
+    #return packet.udp_packet.m_header.m_frameIdentifier
 
 def poseSequenceLabelKey(label):
     return label.car_pose.session_time
@@ -52,6 +56,7 @@ parser.add_argument("--debug", help="Display debug plots", action="store_true", 
 parser.add_argument("--output_dir", help="Output directory for the labels. relative to the database images folder",  default="multi_agent_labels", required=False)
 parser.add_argument("--override", help="Always delete existing directories without prompting the user", action="store_true")
 parser.add_argument("--all_agents", help="Store trajectories for all agents, not just ones near the ego vehicle", action="store_true")
+parser.add_argument("--raceline_distance", help="Distance along the raceline to tag each image with", type=float, default=80.0)
 
 
 args = parser.parse_args()
@@ -86,6 +91,17 @@ if os.path.isdir(output_dir):
             print("Thanks for playing!")
             exit(0)
 os.makedirs(output_dir)
+
+session_tags = getAllSessionPackets(session_folder, use_json)
+trackId = session_tags[0].udp_packet.m_trackId
+trackName = trackNames[trackId]
+searchFile = trackName+"_racingline.json"
+racelineFile = searchForFile(searchFile, os.getenv("F1_TRACK_DIRS").split(os.pathsep))
+if racelineFile is None:
+    raise ValueError("Could not find trackfile %s" % searchFile)
+racelinedists, raceline = loadRaceline(racelineFile)
+racelineoffset = int(torch.round(args.raceline_distance/torch.mean(racelinedists[1:] - racelinedists[:-1])).item())
+print("racelineoffset: %d" % racelineoffset)
 
 image_tags = getAllImageFilePackets(image_folder, use_json)
 motion_packets = getAllMotionPackets(motion_data_folder, use_json)
@@ -124,21 +140,12 @@ vehicle_position_diff_norms = np.linalg.norm(vehicle_position_diffs,ord=2,axis=2
 vehicle_position_diff_totals = np.sum(vehicle_position_diff_norms,axis=1)
 dead_cars = vehicle_position_diff_totals<(10*lookahead_time)
 print("dead_cars shape: %s" % (str(dead_cars.shape),))
-# print("vehicle_position_diff_norms shape: %s" % (str(vehicle_position_diff_norms.shape),))
-# legit_indices = vehicle_position_diff_norms<10.0
-# first_point_true = np.array([[True for asdf in range(20)]]).transpose()
-# print("first_point_true shape: %s" % (str(first_point_true.shape),))
-# legit_indices = np.concatenate([first_point_true, legit_indices], axis=1)
-# print("legit_indices shape: %s" % (str(legit_indices.shape),))
-# vehicle_positions = vehicle_positions[legit_indices]
-# print("vehicle_positions shape: %s" % (str(vehicle_positions.shape),))
+
 
 vehicle_velocities = np.stack([np.array([extractVelocity(packet.udp_packet, car_index=i) for i in range(20) ]) for packet in motion_packets], axis=0).transpose(1,0,2)
 
 vehicle_quaternions = np.stack([np.array([extractRotation(packet.udp_packet, car_index=i) for i in range(20) ]) for packet in motion_packets], axis=0).transpose(1,0,2)
 
-# vehicle_velocities = vehicle_velocities[legit_indices]
-# vehicle_quaternions = vehicle_quaternions[legit_indices]
 
 try:
     fig = plt.figure()
@@ -183,6 +190,7 @@ for idx in tqdm(range(len(image_tags))):
     try:
         label_tag.image_tag.CopyFrom(image_tags[idx])
         label_tag.ego_car_index = ego_vehicle_index
+        label_tag.track_id = trackId
         tlabel = image_session_timestamps[idx]
         if (tlabel < (tmin + 2.0*lookahead_time)) or (tlabel > (tmax - 2.0*lookahead_time)):
             continue
@@ -210,10 +218,23 @@ for idx in tqdm(range(len(image_tags))):
         label_tag.ego_agent_angular_velocity.frame = FrameId_pb2.GLOBAL
         label_tag.ego_agent_angular_velocity.session_time = tlabel
 
-        ego_pose_matrix = np.eye(4)
-        ego_pose_matrix[0:3,0:3] = ego_vehicle_rotation.as_matrix()
-        ego_pose_matrix[0:3,3] = ego_vehicle_position
-        ego_pose_matrix_inverse = np.linalg.inv(ego_pose_matrix)
+        ego_pose_matrix = torch.eye(4, dtype=torch.float64)
+        ego_pose_matrix[0:3,0:3] = torch.from_numpy(ego_vehicle_rotation.as_matrix())
+        ego_pose_matrix[0:3,3] = torch.from_numpy(ego_vehicle_position)
+        ego_pose_matrix = ego_pose_matrix
+        ego_pose_matrix_inverse = torch.inverse(ego_pose_matrix)
+
+        raceline_local=torch.matmul(ego_pose_matrix_inverse, raceline)
+        rlimin = torch.argmin(torch.norm(raceline_local[0:3],p=2,dim=0)).item()
+        rlidx = torch.arange(rlimin, rlimin + racelineoffset, 1)%raceline.shape[1]
+        raceline_local_samp = raceline_local[0:3,rlidx]
+        raceline_dists_samp = racelinedists[rlidx]
+        for i in range(raceline_local_samp.shape[1]):
+            newvec = label_tag.local_raceline.add()
+            newvec.vector.CopyFrom(proto_utils.vectorFromNumpy(raceline_local_samp[:,i]))
+            newvec.frame = FrameId_pb2.LOCAL
+            newvec.session_time = raceline_dists_samp[i]
+
 
         match_found = False
         match_positions = []
@@ -242,28 +263,29 @@ for idx in tqdm(range(len(image_tags))):
             except Exception as e:
                 raise DeepRacingException("Could not create rotation interpolation for car %d" % i)
                 #continue
-            velocities_samp_global = velocity_interpolant(tsamp)
+            velocities_samp_global = torch.from_numpy( velocity_interpolant(tsamp) )
             rotations_samp_global = rotation_interpolant(tsamp)
 
-            angvel_samp_global = rotation_interpolant(tsamp,1)
-            poses_global = np.array([np.eye(4) for asdf in range(tsamp.shape[0])])
-            poses_global[:,0:3,0:3] = rotations_samp_global.as_matrix()
-            poses_global[:,0:3,3] = positions_samp_global
+            angvel_samp_global = torch.from_numpy( rotation_interpolant(tsamp,1) ).double()
+            poses_global = torch.stack([torch.eye(4, dtype=torch.float64) for asdf in range(tsamp.shape[0])], dim=0)
+            poses_global[:,0:3,0:3] = torch.from_numpy(rotations_samp_global.as_matrix())
+            poses_global[:,0:3,3] = torch.from_numpy(positions_samp_global)
             rotations_samp_global = rotation_interpolant(tsamp)
 
-            poses_samp = np.matmul(ego_pose_matrix_inverse,poses_global)
+            poses_samp = torch.matmul(ego_pose_matrix_inverse,poses_global)
             positions_samp = poses_samp[:,0:3,3]
-            rotations_samp = Rot.from_matrix(poses_samp[:,0:3,0:3])
+            rotations_samp = Rot.from_matrix(poses_samp[:,0:3,0:3].numpy())
             quaternions_samp = rotations_samp.as_quat()
-            velocities_samp = np.matmul(ego_pose_matrix_inverse[0:3,0:3],velocities_samp_global.transpose()).transpose()
-            angvel_samp = np.matmul(ego_pose_matrix_inverse[0:3,0:3],angvel_samp_global.transpose()).transpose()
+            velocities_samp = torch.matmul(ego_pose_matrix_inverse[0:3,0:3],velocities_samp_global.transpose(0,1)).transpose(0,1)
+            angvel_samp = torch.matmul(ego_pose_matrix_inverse[0:3,0:3],angvel_samp_global.transpose(0,1)).transpose(0,1)
+
 
 
             carpositionlocal = positions_samp[0]
             x = carpositionlocal[0]
             y = carpositionlocal[1]
             z = carpositionlocal[2]
-            match_found = (z>-1.5) and (z<40.0) and (abs(x) < 25)
+            match_found = (z>-.15) and (z<40.0) and (abs(x) < 25)
             if match_found:
                 match_positions.append(carpositionlocal)
 
