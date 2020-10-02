@@ -322,26 +322,26 @@ for idx in tqdm(range(len(image_tags))):
 
         
         
-            
-            
+           
+        image_file_base = os.path.splitext(os.path.basename(label_tag.image_tag.image_file))[0]
+        key = image_file_base
+
+        label_tag_json_file = os.path.join(output_dir, key + "_multi_agent_label.json")
+        with open(label_tag_json_file,'w') as f: 
+            label_tag_JSON = google.protobuf.json_format.MessageToJson(label_tag, including_default_value_fields=True, indent=2)
+            f.write(label_tag_JSON)
+
+        label_tag_binary_file = os.path.join(output_dir, key + "_multi_agent_label.pb")
+        with open(label_tag_binary_file,'wb') as f: 
+            f.write( label_tag.SerializeToString() )
+        db.writeMultiAgentLabel( key , label_tag )      
     except KeyboardInterrupt as e:
         break
     except DeepRacingException as e: 
         print("Could not generate label for %s" %(label_tag.image_tag.image_file))
         print("Exception message: %s"%(str(e)))
-        continue       
-    image_file_base = os.path.splitext(os.path.basename(label_tag.image_tag.image_file))[0]
-    key = image_file_base
+        continue  
 
-    label_tag_json_file = os.path.join(output_dir, key + "_multi_agent_label.json")
-    with open(label_tag_json_file,'w') as f: 
-        label_tag_JSON = google.protobuf.json_format.MessageToJson(label_tag, including_default_value_fields=True, indent=2)
-        f.write(label_tag_JSON)
-
-    label_tag_binary_file = os.path.join(output_dir, key + "_multi_agent_label.pb")
-    with open(label_tag_binary_file,'wb') as f: 
-        f.write( label_tag.SerializeToString() )
-    db.writeMultiAgentLabel( key , label_tag )
     if debug and len(label_tag.other_agent_trajectories)!=0:# and idx%30==0:
         fig1 = plt.subplot(1, 2, 1)
         imcv = cv2.imread(os.path.join(image_folder, label_tag.image_tag.image_file), cv2.IMREAD_UNCHANGED)
@@ -353,11 +353,14 @@ for idx in tqdm(range(len(image_tags))):
         # plt.plot(-ego_label_positions[:,0], ego_label_positions[:,2], label="Ego Vehicle Trajectory", c="b")
         # plt.legend()
         label_positions = np.array([ np.array([[pose.translation.x, pose.translation.y, pose.translation.z]  for pose in agent_trajectory.poses ]).transpose() for agent_trajectory in label_tag.other_agent_trajectories])
-        minx = np.min(label_positions[:,0])-5.0
-        maxx = np.max(label_positions[:,0])+5.0
-        maxz = np.max(label_positions[:,2])+5.0
+        raceline_labels = np.array([ [vectorpb.vector.x, vectorpb.vector.y, vectorpb.vector.z] for vectorpb in label_tag.local_raceline])
+        minx = min(np.min(label_positions[:,0]), np.min(raceline_labels[:,0]))-5.0
+        maxx = max(np.max(label_positions[:,0]), np.max(raceline_labels[:,0]))+5.0
+        maxz = max(np.max(label_positions[:,2]), np.max(raceline_labels[:,2]))+5.0
         plt.xlim(maxx,minx)
         plt.ylim(0,maxz)
+        plt.plot(raceline_labels[:,0], raceline_labels[:,2], label="Optimal Raceline")
+        plt.legend()
         for k in range(label_positions.shape[0]):
             agent_trajectory = label_positions[k]
             #label_positions_local = np.matmul(ego_pose_matrix_inverse, label_positions)
