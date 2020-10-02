@@ -73,10 +73,45 @@ class MultiAgentLabelLMDBWrapper():
             raise ValueError("Unknown extension: %s" % (extension,))
 
     @staticmethod
+    def rotationsFromLabel(label_pb : MultiAgentLabel):
+        other_agent_trajectories = label_pb.other_agent_trajectories
+        num_trajectories = len(other_agent_trajectories)
+        if num_trajectories==0:
+            return None
+        trajectory_lengths = [len(traj.poses) for traj in other_agent_trajectories]
+        assert(len(set(trajectory_lengths))==1), "All trajectories in a label must be of the same length."
+        rtn = np.zeros([num_trajectories, trajectory_lengths[0], 4], dtype=np.float64)
+        for (i,traj) in enumerate(other_agent_trajectories):
+            quats_pb = [pose_pb.rotation for pose_pb in traj.poses]
+            rtn[i] = np.array([ [q.x, q.y, q.z, q.w]  for q in  quats_pb ], dtype=np.float64)
+        return rtn
+
+    @staticmethod
     def positionsFromLabel(label_pb : MultiAgentLabel):
-        return None
+        other_agent_trajectories = label_pb.other_agent_trajectories
+        num_trajectories = len(other_agent_trajectories)
+        if num_trajectories==0:
+            return None
+        trajectory_lengths = [len(traj.poses) for traj in other_agent_trajectories]
+        assert(len(set(trajectory_lengths))==1), "All trajectories in a label must be of the same length."
+        rtn = np.zeros([num_trajectories, trajectory_lengths[0], 3], dtype=np.float64)
+        for (i,traj) in enumerate(other_agent_trajectories):
+            positions_pb = [pose_pb.translation for pose_pb in traj.poses]
+            rtn[i] = np.array([ [v.x, v.y, v.z]  for v in  positions_pb ], dtype=np.float64)
+        return rtn
 
-
+    @staticmethod
+    def velocitiesFromLabel(label_pb : MultiAgentLabel):
+        other_agent_trajectories = label_pb.other_agent_trajectories
+        num_trajectories = len(other_agent_trajectories)
+        if num_trajectories==0:
+            return None
+        trajectory_velocity_lengths = [len(traj.linear_velocities) for traj in other_agent_trajectories]
+        assert(len(set(trajectory_velocity_lengths))==1), "All trajectories in a label must be of the same length."
+        rtn = np.zeros([num_trajectories, trajectory_velocity_lengths[0], 3], dtype=np.float64)
+        for (i,traj) in enumerate(other_agent_trajectories):
+            rtn[i] = np.array([ [v.x, v.y, v.z]  for v in  traj.linear_velocities ], dtype=np.float64)
+        return rtn
     def clearStaleReaders(self):
         self.env.reader_check()
     def resetEnv(self):

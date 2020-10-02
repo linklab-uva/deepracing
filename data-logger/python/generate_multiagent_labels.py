@@ -303,7 +303,7 @@ for idx in tqdm(range(len(image_tags))):
             
             
     except KeyboardInterrupt as e:
-        raise e
+        break
     except DeepRacingException as e: 
         print("Could not generate label for %s" %(label_tag.image_tag.image_file))
         print("Exception message: %s"%(str(e)))
