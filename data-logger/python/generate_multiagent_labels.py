@@ -224,16 +224,20 @@ for idx in tqdm(range(len(image_tags))):
         ego_pose_matrix = ego_pose_matrix
         ego_pose_matrix_inverse = torch.inverse(ego_pose_matrix)
 
-        raceline_local=torch.matmul(ego_pose_matrix_inverse, raceline)
-        rlimin = torch.argmin(torch.norm(raceline_local[0:3],p=2,dim=0)).item()
+        raceline_local = torch.matmul(ego_pose_matrix_inverse, raceline)[0:3].transpose(0,1)
+        rlimin = torch.argmin(torch.norm(raceline_local,p=2,dim=1)).item()
         rlidx = torch.arange(rlimin, rlimin + racelineoffset, 1)%raceline.shape[1]
-        raceline_local_samp = raceline_local[0:3,rlidx]
-        raceline_dists_samp = racelinedists[rlidx]
-        for i in range(raceline_local_samp.shape[1]):
+        raceline_local = raceline_local[rlidx]
+        raceline_dist_local = torch.cat([torch.tensor([0.0]), torch.cumsum(torch.norm(raceline_local[1:] - raceline_local[0:-1] ,p=2, dim=1), dim=0 )])
+        raceline_spl : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(raceline_dist_local.numpy(), raceline_local.numpy(), k=splk)
+        srl = np.linspace(raceline_dist_local[0], raceline_dist_local[-1], num=sample_indices)
+        raceline_local_samp = raceline_spl(srl)
+
+        for i in range(srl.shape[0]):
             newvec = label_tag.local_raceline.add()
-            newvec.vector.CopyFrom(proto_utils.vectorFromNumpy(raceline_local_samp[:,i]))
+            newvec.vector.CopyFrom(proto_utils.vectorFromNumpy(raceline_local_samp[i]))
             newvec.frame = FrameId_pb2.LOCAL
-            newvec.session_time = raceline_dists_samp[i]
+            newvec.session_time = srl[i]
 
 
         match_found = False
