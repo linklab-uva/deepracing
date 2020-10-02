@@ -7,6 +7,7 @@ from skimage.transform import resize
 import deepracing.imutils
 import PoseSequenceLabel_pb2
 import MultiAgentLabel_pb2
+from MultiAgentLabel_pb2 import MultiAgentLabel
 import ChannelOrder_pb2
 import cv2
 import google.protobuf.json_format
@@ -14,6 +15,9 @@ import google.protobuf.empty_pb2 as Empty_pb2
 import time
 import LabeledImage_pb2
 import ImageLabel_pb2
+from typing import TypeVar, Generic
+T = TypeVar('T')
+
 class ControlLabelLMDBWrapper():
     def __init__(self):
         self.env = None
@@ -55,7 +59,7 @@ class MultiAgentLabelLMDBWrapper():
     @staticmethod
     def readFromFile(filepath):
         extension = str.lower(os.path.splitext(os.path.basename(filepath))[1])
-        rtn = MultiAgentLabel_pb2.MultiAgentLabel()
+        rtn = MultiAgentLabel()
         if extension == ".pb":
             with open(filepath, "rb") as f:
                 rtn.ParseFromString(f.read())
@@ -67,6 +71,10 @@ class MultiAgentLabelLMDBWrapper():
             return rtn
         else:
             raise ValueError("Unknown extension: %s" % (extension,))
+
+    @staticmethod
+    def positionsFromLabel(label_pb : MultiAgentLabel):
+        return None
 
 
     def clearStaleReaders(self):
@@ -94,7 +102,7 @@ class MultiAgentLabelLMDBWrapper():
         with self.env.begin(write=True) as txn:
             txn.put(key.encode( self.encoding ),entry.SerializeToString())
     def getMultiAgentLabel(self, key):
-        rtn = MultiAgentLabel_pb2.MultiAgentLabel()
+        rtn = MultiAgentLabel()
         with self.env.begin(write=False) as txn:
             entry_in = txn.get( key.encode( self.encoding ) )#.tobytes()
             if (entry_in is None):

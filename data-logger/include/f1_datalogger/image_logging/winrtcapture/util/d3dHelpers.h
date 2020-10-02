@@ -1,5 +1,5 @@
 #pragma once
-#include "composition.interop.h"
+#include "f1_datalogger/image_logging/winrtcapture/composition.interop.h"
 
 namespace util::uwp
 {

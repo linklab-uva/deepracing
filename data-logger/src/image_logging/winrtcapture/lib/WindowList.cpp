@@ -1,5 +1,4 @@
-#include "pch.h"
-#include "WindowList.h"
+#include "f1_datalogger/image_logging/winrtcapture/WindowList.h"
 
 bool inline MatchTitleAndClassName(WindowInfo const& window, std::wstring const& title, std::wstring const& className)
 {

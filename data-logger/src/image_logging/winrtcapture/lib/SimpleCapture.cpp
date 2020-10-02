@@ -1,11 +1,10 @@
-#include "pch.h"
-#include "SimpleCapture.h"
+#include "f1_datalogger/image_logging/winrtcapture/SimpleCapture.h"
 #include <iostream>
 #include <opencv2/core.hpp>
-#include <opencv2/core/directx.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/core/directx.hpp>
 namespace winrt
 {
     using namespace Windows::Foundation;
@@ -29,11 +28,14 @@ SimpleCapture::SimpleCapture(winrt::IDirect3DDevice const& device, winrt::Graphi
     m_item = item;
     m_device = device;
     m_pixelFormat = pixelFormat;
+    QueryPerformanceFrequency(&m_performance_counter_frequency);
 
-    auto d3dDevice = GetDXGIInterfaceFromObject<ID3D11Device>(m_device);
-    d3dDevice->GetImmediateContext(m_d3dContext.put());
+    m_device_native = GetDXGIInterfaceFromObject<ID3D11Device>(m_device);
+    m_device_native->GetImmediateContext(m_d3dContext.put());
+    m_oclCtx = cv::directx::ocl::initializeContextFromD3D11Device(m_device_native.get());
+    
 
-    m_swapChain = util::CreateDXGISwapChain(d3dDevice, static_cast<uint32_t>(m_item.Size().Width), static_cast<uint32_t>(m_item.Size().Height),
+    m_swapChain = util::CreateDXGISwapChain(m_device_native, static_cast<uint32_t>(m_item.Size().Width), static_cast<uint32_t>(m_item.Size().Height),
         static_cast<DXGI_FORMAT>(m_pixelFormat), 2);
 
     // Creating our frame pool with 'Create' instead of 'CreateFreeThreaded'
@@ -53,6 +55,7 @@ void SimpleCapture::StartCapture()
 {
     CheckClosed();
     m_session.StartCapture();
+   // m_session.IsCursorCaptureEnabled(false);
 }
 
 winrt::ICompositionSurface SimpleCapture::CreateSurface(winrt::Compositor const& compositor)
@@ -74,6 +77,7 @@ void SimpleCapture::Close()
         m_session = nullptr;
         m_item = nullptr;
     }
+    destroyWindows();
 }
 
 void SimpleCapture::ResizeSwapChain()
@@ -113,35 +117,39 @@ bool SimpleCapture::TryUpdatePixelFormat()
     return false;
 }
 
-void SimpleCapture::OnFrameArrived(winrt::Direct3D11CaptureFramePool const& sender, winrt::IInspectable const&)
+void SimpleCapture::OnFrameArrived(winrt::Direct3D11CaptureFramePool const& sender, winrt::IInspectable const& args)
 {
+    deepf1::TimePoint now = deepf1::Clock::now();
     auto swapChainResizedToFrame = false;
 
     {
-        auto frame = sender.TryGetNextFrame();
-        swapChainResizedToFrame = TryResizeSwapChain(frame);
+        winrt::Windows::Graphics::Capture::Direct3D11CaptureFrame frame = sender.TryGetNextFrame();
+        // std::chrono::milliseconds nowmilli = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
+        // std::chrono::milliseconds reltimemilli = std::chrono::duration_cast<std::chrono::milliseconds>(frame.SystemRelativeTime());
+    
 
-        auto surfaceTexture = GetDXGIInterfaceFromObject<ID3D11Texture2D>(frame.Surface());
+        swapChainResizedToFrame = TryResizeSwapChain(frame);
+        winrt::com_ptr<ID3D11Texture2D> surfaceTexture = GetDXGIInterfaceFromObject<ID3D11Texture2D>(frame.Surface());
 
         // Make a copy of the texture
-        D3D11_TEXTURE2D_DESC desc = {};
-        surfaceTexture->GetDesc(&desc);
-        // Clear flags that we don't need
-        desc.Usage = D3D11_USAGE_STAGING;;
-        desc.BindFlags = 0;
-        desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-        desc.MiscFlags = 0;
-        desc.MipLevels = 1;
-        desc.ArraySize = 1;
+        // D3D11_TEXTURE2D_DESC desc = {};
+        // surfaceTexture->GetDesc(&desc);
+        // //Clear flags that we don't need
+        // desc.Usage = D3D11_USAGE_STAGING;;
+        // desc.BindFlags = 0;
+        // desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+        // desc.MiscFlags = 0;
+        // desc.MipLevels = 1;
+        // desc.ArraySize = 1;
+        // desc.SampleDesc.Count = 1;
+        // desc.SampleDesc.Quality = 0;
     //    desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-        desc.SampleDesc.Count = 1;
-        desc.SampleDesc.Quality = 0;
-        winrt::com_ptr<ID3D11Texture2D> textureCopy;
-        auto d3dDevice = GetDXGIInterfaceFromObject<ID3D11Device>(m_device);
+        // winrt::com_ptr<ID3D11Texture2D> textureCopy;
+        //winrt::com_ptr<ID3D11Device> d3dDevice = GetDXGIInterfaceFromObject<ID3D11Device>(m_device);
        // winrt::com_ptr<ID3D11DeviceContext> d3dContext;
        // d3dDevice->GetImmediateContext(d3dContext.put());
-        winrt::check_hresult(d3dDevice->CreateTexture2D(&desc, nullptr, textureCopy.put()));
-        m_d3dContext->CopyResource(textureCopy.get(), surfaceTexture.get());
+        //winrt::check_hresult(d3dDevice->CreateTexture2D(&desc, nullptr, textureCopy.put()));
+        //m_d3dContext->CopyResource(textureCopy.get(), surfaceTexture.get());
 
         winrt::com_ptr<ID3D11Texture2D> backBuffer;
         winrt::check_hresult(m_swapChain->GetBuffer(0, winrt::guid_of<ID3D11Texture2D>(), backBuffer.put_void()));
@@ -150,28 +158,28 @@ void SimpleCapture::OnFrameArrived(winrt::Direct3D11CaptureFramePool const& send
 
        // copy surfaceTexture to backBuffer
 
-       D3D11_TEXTURE2D_DESC cpudesc = {};
-       textureCopy->GetDesc(&cpudesc);
+    //    D3D11_TEXTURE2D_DESC cpudesc = {};
+    //    textureCopy->GetDesc(&cpudesc);
 
-       D3D11_MAPPED_SUBRESOURCE mappedResource;
-       m_d3dContext->Map(textureCopy.get(), 0, D3D11_MAP_READ, 0, &mappedResource);
-       char* mappedData = static_cast<char*>(mappedResource.pData);
+    //    D3D11_MAPPED_SUBRESOURCE mappedResource;
+    //    m_d3dContext->Map(textureCopy.get(), 0, D3D11_MAP_READ, 0, &mappedResource);
+    //    char* mappedData = static_cast<char*>(mappedResource.pData);
 
       // cv::ocl::Context m_oclCtx = cv::directx::ocl::initializeContextFromD3D11Device(d3dDevice.get());
       // m_oclCtx.
-       cv::Mat mattex(cpudesc.Height, cpudesc.Width, CV_8UC4, mappedData, mappedResource.RowPitch);
+       //cv::Mat mattex(cpudesc.Height, cpudesc.Width, CV_8UC4, mappedData, mappedResource.RowPitch);
        //cv::Mat matout;
-       cv::cvtColor(mattex, current_mat, cv::COLOR_BGRA2BGR);
-       if (current_mat.isContinuous())
-       {
-           cv::putText(current_mat, "The image is continuous", cv::Point(current_mat.cols / 2-50, current_mat.rows / 2),
-               cv::FONT_HERSHEY_DUPLEX,
-               1.0,
-               cv::Scalar(0, 0, 0));  //font color);
-       }
-      // cv::imwrite("D:/asdf.jpg", matout);
-       cv::imshow("CapWin", current_mat);
-       cv::waitKey(1);
+      // cv::cvtColor(mattex, current_mat, cv::COLOR_BGRA2BGR);
+        {
+            std::scoped_lock<std::mutex> lk(image_mutex);
+          //  current_mat.timestamp = now;
+            current_mat.timestamp = deepf1::TimePoint(frame.SystemRelativeTime());
+          
+            cv::directx::convertFromD3D11Texture2D(backBuffer.get(),current_mat.image);
+        }
+          
+
+    
      //  matout.create(cpudesc.Height, cpudesc.Width, CV_8UC4);
       // memcpy(matout.data, (void*)((mappedResource.pData) ), matout.total() * 32-100);
     }

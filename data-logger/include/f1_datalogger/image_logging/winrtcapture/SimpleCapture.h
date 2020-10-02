@@ -1,5 +1,8 @@
 #pragma once
-#include <opencv2/core.hpp>
+#include <f1_datalogger/car_data/timestamped_image_data.h>
+#include <opencv2/core/ocl.hpp>
+#include <mutex>
+#include <thread>
 class SimpleCapture
 {
 public:
@@ -26,6 +29,11 @@ public:
 
     void Close();
     void destroyWindows();
+    deepf1::TimestampedImageData getData() const
+    {
+        std::scoped_lock<std::mutex> lk(image_mutex);
+        return deepf1::TimestampedImageData(current_mat.timestamp, current_mat.image.clone());
+    }
 
 private:
     void OnFrameArrived(
@@ -43,15 +51,20 @@ private:
     void ResizeSwapChain();
     bool TryResizeSwapChain(winrt::Windows::Graphics::Capture::Direct3D11CaptureFrame const& frame);
     bool TryUpdatePixelFormat();
-    cv::Mat current_mat;
 
 private:
+    LARGE_INTEGER m_performance_counter_frequency;
+    deepf1::TimestampedImageData current_mat;
+    cv::ocl::Context m_oclCtx;
+    mutable std::mutex image_mutex;
+
     winrt::Windows::Graphics::Capture::GraphicsCaptureItem m_item{ nullptr };
     winrt::Windows::Graphics::Capture::Direct3D11CaptureFramePool m_framePool{ nullptr };
     winrt::Windows::Graphics::Capture::GraphicsCaptureSession m_session{ nullptr };
     winrt::Windows::Graphics::SizeInt32 m_lastSize;
 
     winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DDevice m_device{ nullptr };
+    winrt::com_ptr<ID3D11Device> m_device_native;
     winrt::com_ptr<IDXGISwapChain1> m_swapChain{ nullptr };
     winrt::com_ptr<ID3D11DeviceContext> m_d3dContext{ nullptr };
     winrt::Windows::Graphics::DirectX::DirectXPixelFormat m_pixelFormat;
@@ -61,4 +74,6 @@ private:
 
     std::atomic<bool> m_closed = false;
     std::atomic<bool> m_captureNextImage = false;
+
+    std::chrono::milliseconds lasttimemilli;
 };

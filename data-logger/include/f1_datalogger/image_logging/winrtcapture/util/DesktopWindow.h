@@ -1,7 +1,7 @@
 #pragma once
 #include <winrt/Windows.UI.Composition.Desktop.h>
-#include "composition.desktop.interop.h"
-#include "hwnd.interop.h"
+#include "f1_datalogger/image_logging/winrtcapture/util/composition.desktop.interop.h"
+#include "f1_datalogger/image_logging/winrtcapture/util/hwnd.interop.h"
 
 namespace util::desktop
 {

@@ -1,5 +1,5 @@
-#include "pch.h"
-#include "MonitorList.h"
+//#include "pch.h"
+#include "f1_datalogger/image_logging/winrtcapture/MonitorList.h"
 
 std::vector<MonitorInfo> EnumerateAllMonitors(bool includeAllMonitors)
 {

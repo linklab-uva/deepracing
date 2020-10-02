@@ -1,8 +1,7 @@
-#include "pch.h"
 #include "App.h"
 #include "SampleWindow.h"
-#include "WindowList.h"
-#include "MonitorList.h"
+#include "f1_datalogger/image_logging/winrtcapture/WindowList.h"
+#include "f1_datalogger/image_logging/winrtcapture/MonitorList.h"
 #include "ControlsHelper.h"
 
 namespace winrt
@@ -37,7 +36,7 @@ SampleWindow::SampleWindow(HINSTANCE instance, int cmdShow, std::shared_ptr<App>
 {
     WINRT_ASSERT(!m_window);
     WINRT_VERIFY(CreateWindowW(ClassName.c_str(), L"Win32CaptureSample", WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, 800, 600, nullptr, nullptr, instance, this));
+        CW_USEDEFAULT, CW_USEDEFAULT, 250, 450, nullptr, nullptr, instance, this));
     WINRT_ASSERT(m_window);
 
     ShowWindow(m_window, cmdShow);
