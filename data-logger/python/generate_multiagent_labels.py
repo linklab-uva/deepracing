@@ -122,7 +122,7 @@ print("vehicle_positions shape: %s" % (str(vehicle_positions.shape),))
 vehicle_position_diffs = vehicle_positions[:,1:] - vehicle_positions[:,:-1]
 vehicle_position_diff_norms = np.linalg.norm(vehicle_position_diffs,ord=2,axis=2)
 vehicle_position_diff_totals = np.sum(vehicle_position_diff_norms,axis=1)
-dead_cars = vehicle_position_diff_totals<15.0
+dead_cars = vehicle_position_diff_totals<(10*lookahead_time)
 print("dead_cars shape: %s" % (str(dead_cars.shape),))
 # print("vehicle_position_diff_norms shape: %s" % (str(vehicle_position_diff_norms.shape),))
 # legit_indices = vehicle_position_diff_norms<10.0
@@ -223,13 +223,15 @@ for idx in tqdm(range(len(image_tags))):
         istart = bisect.bisect_left(motion_packet_session_times, tstart-lookahead_time)
         iend = bisect.bisect_left(motion_packet_session_times, tend+lookahead_time)
         for i in range(0,20):
-            if i==ego_vehicle_index or dead_cars[i]:
+            positions = vehicle_positions[i]
+            position_interpolant = vehicle_position_interpolants[i]
+            positions_samp_global = position_interpolant(tsamp)
+            dead_car = dead_cars[i] or np.sum(np.linalg.norm(positions_samp_global[1:] - positions_samp_global[0:-1], ord=2,axis=1))<(2.5*lookahead_time)
+            if i==ego_vehicle_index or dead_car:
                 continue
            # kdtree = vehicle_kd_trees[i]
-            positions = vehicle_positions[i]
             velocities = vehicle_velocities[i]
             quaternions = vehicle_quaternions[i]
-            position_interpolant = vehicle_position_interpolants[i]
             velocity_interpolant = vehicle_velocity_interpolants[i]
 
 
@@ -240,7 +242,6 @@ for idx in tqdm(range(len(image_tags))):
             except Exception as e:
                 raise DeepRacingException("Could not create rotation interpolation for car %d" % i)
                 #continue
-            positions_samp_global = position_interpolant(tsamp)
             velocities_samp_global = velocity_interpolant(tsamp)
             rotations_samp_global = rotation_interpolant(tsamp)
 
