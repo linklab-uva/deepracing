@@ -215,7 +215,8 @@ def quaternionFromNumpy(quaternionnp : np.ndarray, quaternionpb = Quaterniond_pb
    quaternionpb.z = quaternionnp[2]
    quaternionpb.w = quaternionnp[3]
    return quaternionpb
-def vectorFromNumpy(vectornp : np.ndarray, vectorpb =  Vector3d_pb2.Vector3d()):
+   
+def vectorFromNumpy(vectornp, vectorpb =  Vector3d_pb2.Vector3d()):
    vectorpb.x = vectornp[0]
    vectorpb.y = vectornp[1]
    vectorpb.z = vectornp[2]

@@ -112,8 +112,10 @@ class MultiAgentLabelLMDBWrapper():
         for (i,traj) in enumerate(other_agent_trajectories):
             rtn[i] = np.array([ [v.x, v.y, v.z]  for v in  traj.linear_velocities ], dtype=np.float64)
         return rtn
+
     def clearStaleReaders(self):
         self.env.reader_check()
+
     def resetEnv(self):
         if self.env is not None:
             path = self.env.path()
@@ -126,6 +128,7 @@ class MultiAgentLabelLMDBWrapper():
         if self.env is None:
             return
         self.env.close()
+
     def openDatabase(self, db_path : str, mapsize=1e10, max_spare_txns=125, readonly=True, lock=False):
         if not os.path.isdir(db_path):
             raise IOError("Path " + db_path + " is not a directory")
@@ -133,9 +136,11 @@ class MultiAgentLabelLMDBWrapper():
         self.env = lmdb.open(db_path, map_size=round(mapsize,None), max_spare_txns=max_spare_txns,\
             create=False, lock=lock, readonly=readonly)
         self.env.reader_check()
+
     def writeMultiAgentLabel(self, key, entry):
         with self.env.begin(write=True) as txn:
             txn.put(key.encode( self.encoding ),entry.SerializeToString())
+
     def getMultiAgentLabel(self, key):
         rtn = MultiAgentLabel()
         with self.env.begin(write=False) as txn:
@@ -144,8 +149,10 @@ class MultiAgentLabelLMDBWrapper():
                 raise ValueError("Invalid key on label database: %s" %(key))
             rtn.ParseFromString(entry_in)
         return rtn
+
     def getNumLabels(self):
         return self.env.stat()['entries']
+        
     def getKeys(self):
         keys = None
         with self.env.begin(write=False) as txn:
