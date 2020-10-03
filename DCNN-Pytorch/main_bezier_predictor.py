@@ -32,31 +32,8 @@ import socket
 import json
 from comet_ml.api import API, APIExperiment
 import cv2
-
-
-ob_normal_dict = {}
-ob_dict = {}
-ib_normal_dict = {}
-ib_dict = {}
-def loadTracks(track_id, track_file_dir, device):
-    global ob_dict, ob_normal_dict, ib_dict, ib_normal_dict
-    trackName = trackNames[track_id]
-    print("Loading Track: " + trackName)
-    with open(os.path.join(track_file_dir, trackName + "_innerlimit.json"), "r") as f:
-        d = json.load(f)
-        ib_dict[track_id] = torch.stack([torch.tensor(d["x"], dtype=torch.float64, device=device), torch.tensor(d["z"], dtype=torch.float64, device=device)], dim=1)
-        ib_normal_dict[track_id] = F.normalize(torch.stack([torch.tensor(d["x_normal"], dtype=torch.float64, device=device), torch.tensor(d["z_normal"], dtype=torch.float64, device=device)], dim=1), dim=1)
-    with open(os.path.join(track_file_dir, trackName + "_outerlimit.json"), "r") as f:
-        d = json.load(f)
-        ob_dict[track_id] = torch.stack([torch.tensor(d["x"], dtype=torch.float64, device=device), torch.tensor(d["z"], dtype=torch.float64, device=device)], dim=1)
-        ob_normal_dict[track_id] = F.normalize(torch.stack([torch.tensor(d["x_normal"], dtype=torch.float64, device=device), torch.tensor(d["z_normal"], dtype=torch.float64, device=device)], dim=1), dim=1)
-    print("Loaded Track: " + trackName)
-
-
-
 #torch.backends.cudnn.enabled = False
-def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, kinematic_loss, boundary_loss, lossdict, epoch_number, use_label_times = True, imsize=(66,200), timewise_weights=None, debug=False, use_tqdm=True, position_indices=[0,2]):
-    global ob_dict, ob_normal_dict, ib_dict, ib_normal_dict
+def run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent_loss, config):
     cum_loss = 0.0
     cum_param_loss = 0.0
     cum_position_loss = 0.0
@@ -70,23 +47,26 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, kine
     network.train()  # This is important to call before training!
     dataloaderlen = len(trainLoader)
     dev = next(network.parameters()).device  # we are only doing single-device training for now, so this works fine.
+    fix_first_point = config["fix_first_point"]
+    loss_weights = config["loss_weights"]
 
     _, _, _, _, _, _, sample_session_times,_,_ = trainLoader.dataset[0]
-    s_torch = torch.linspace(0.0,1.0,steps=sample_session_times.shape[0],dtype=torch.float64,device=dev).unsqueeze(0).repeat(batch_size,1)
     bezier_order = network.params_per_dimension-1+int(fix_first_point)
     if not debug:
         experiment.set_epoch(epoch_number)
-    for (i, (image_torch, key_indices_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch, car_poses, track_ids) ) in t:
-        image_torch = image_torch.double().to(device=dev)
-        positions_torch = positions_torch.double().to(device=dev)
+
+    for (i, (images, racelines, racelinedists, other_agent_positions, session_times, key_indices) ) in t:
+        input_images = images.double().to(device=dev)
+        racelines = racelines.double().to(device=dev)
+        racelinedists = racelinedists.double().to(device=dev)
+        other_agent_positions = other_agent_positions.double().to(device=dev)
+        session_times = session_times.double().to(device=dev)
         session_times_torch = session_times_torch.double().to(device=dev)
-        linear_velocities_torch = linear_velocities_torch.double().to(device=dev)
-        car_poses = car_poses.double().to(device=dev)
         image_keys = ["image_%d" % (key_indices_torch[j],) for j in range(key_indices_torch.shape[0])]
         
-        predictions = network(image_torch)
+        predictions = network(input_images)
         if fix_first_point:
-            initial_zeros = torch.zeros(image_torch.shape[0],1,2,dtype=torch.float64,device=image_torch.device)
+            initial_zeros = torch.zeros(input_images.shape[0],1,2,dtype=torch.float64,device=dev)
             network_output_reshape = predictions.transpose(1,2)
             predictions_reshape = torch.cat((initial_zeros,network_output_reshape),dim=1)
         else:
@@ -101,20 +81,17 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, kine
             s_torch_cur = torch.stack([torch.linspace(0.0,1.0,steps=current_timesteps,dtype=positions_torch.dtype,device=positions_torch.device)  for i in range(current_batch_size)], dim=0)
 
         
-        
-        gt_points = positions_torch[:,:,position_indices]
-        gt_vels = linear_velocities_torch[:,:,position_indices]
-        Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(gt_points, bezier_order, t = s_torch_cur)
+        ds = racelinedists[:,-1]-racelinedists[:,0]
+        s_torch_cur = (racelinedists - racelinedists[:,0,None])/ds[:,None]
+        # gt_vels = linear_velocities_torch[:,:,position_indices]
+        Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(racelines, bezier_order, t = s_torch_cur)
+        pred_points = torch.matmul(Mpos, predictions_reshape)
         fit_points = torch.matmul(Mpos, controlpoints_fit)
 
-        Mvel, fit_vels = deepracing_models.math_utils.bezier.bezierDerivative(controlpoints_fit, t = s_torch_cur, order=1)
-        fit_vels_scaled = fit_vels/dt[:,None,None]
-        
-
-        pred_points = torch.matmul(Mpos, predictions_reshape)
-        
-        _, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape, t = s_torch_cur, order=1)
-        pred_vels_scaled = pred_vels/dt[:,None,None]
+        # Mvel, fit_vels = deepracing_models.math_utils.bezier.bezierDerivative(controlpoints_fit, t = s_torch_cur, order=1)
+        # fit_vels_scaled = fit_vels/dt[:,None,None]
+        # _, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape, t = s_torch_cur, order=1)
+        # pred_vels_scaled = pred_vels/dt[:,None,None]
         
         use_boundaries = not torch.any(torch.isnan(track_ids))
         if debug:
@@ -125,112 +102,57 @@ def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, kine
             for i in range(images_np.shape[0]):
                 ims.append([ax1.imshow(images_np[i])])
             ani = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat=True)
-            # fig2 = plt.figure()
-           # ax1.imshow(ani)
 
 
-            gt_points_np = gt_points[0].detach().cpu().numpy().copy()
+
+            gt_points_np = racelines[0].detach().cpu().numpy().copy()
             pred_points_np = pred_points[0].detach().cpu().numpy().copy()
             pred_control_points_np = predictions_reshape[0].detach().cpu().numpy().copy()
-            #print(gt_points_np)
             fit_points_np = fit_points[0].cpu().numpy().copy()
             fit_control_points_np = controlpoints_fit[0].cpu().numpy().copy()
             
 
-
-            gt_vels_np = gt_vels[0].cpu().numpy().copy()
-            fit_vels_np = fit_vels_scaled[0].cpu().numpy().copy()
-
-
-            ax2.plot(-gt_points_np[:,0],gt_points_np[:,1],'g+', label="Ground Truth Waypoints")
-            ax2.plot(-fit_points_np[:,0],fit_points_np[:,1],'b-', label="Best-fit Bézier Curve")
-            ax2.scatter(-fit_control_points_np[1:,0],fit_control_points_np[1:,1],c="b", label="Bézier Curve's Control Points")
-            ax2.scatter(-fit_control_points_np[0,0],fit_control_points_np[0,1],c="g", label="This should be (0,0)")
-            ax2.plot(-pred_points_np[:,0],pred_points_np[:,1],'r-', label="Predicted Bézier Curve")
-            ax2.scatter(-pred_control_points_np[:,0],pred_control_points_np[:,1], c='r', label="Predicted Bézier Curve's Control Points")
+            ax2.set_xlim(30,-30)
+            ax2.plot(gt_points_np[:,0],gt_points_np[:,1],'g+', label="Ground Truth Waypoints")
+            ax2.plot(fit_points_np[:,0],fit_points_np[:,1],'b-', label="Best-fit Bézier Curve")
+            ax2.scatter(fit_control_points_np[1:,0],fit_control_points_np[1:,1],c="b", label="Bézier Curve's Control Points")
+            ax2.plot(pred_points_np[:,0],pred_points_np[:,1],'r-', label="Predicted Bézier Curve")
+            ax2.scatter(pred_control_points_np[:,0],pred_control_points_np[:,1], c='r', label="Predicted Bézier Curve's Control Points")
            
-            velocity_err = kinematic_loss(fit_vels_scaled, gt_vels).item()
-            # print("\nMean velocity error: %f\n" % (velocity_err))
-            # print(session_times_torch)
-            # print(s_torch_cur)
-            # print(dt)
             plt.show()
 
-        current_position_loss = kinematic_loss(pred_points, gt_points)
-        current_velocity_loss = kinematic_loss(pred_vels_scaled, gt_vels)
-        current_param_loss = kinematic_loss(predictions_reshape,controlpoints_fit)
+        current_position_loss = raceline_loss(pred_points, racelines)
+        current_other_agent_loss = other_agent_loss(pred_points, other_agent_positions)
 
-        position_weight = lossdict["position"]
-        velocity_weight = lossdict["velocity"]
-        param_weight = lossdict["control_point"]
         
        # print(track_ids)
-        kinematic_losses = position_weight*current_position_loss + velocity_weight*current_velocity_loss
+        loss = loss_weights["position"]*current_position_loss + loss_weights["other_agents"]*current_other_agent_loss
 
-        if use_boundaries:
-            ib = torch.stack([ib_dict[track_ids[i].item()] for i in range(track_ids.shape[0])], dim=0)
-            ob = torch.stack([ob_dict[track_ids[i].item()] for i in range(track_ids.shape[0])], dim=0)
-            ib_normal = torch.stack([ib_normal_dict[track_ids[i].item()] for i in range(track_ids.shape[0])], dim=0)
-            ob_normal = torch.stack([ob_normal_dict[track_ids[i].item()] for i in range(track_ids.shape[0])], dim=0)
-
-            #pred_points_aug = torch.stack([pred_points[:,:,0], torch.zeros_like(pred_points[:,:,0]) , pred_points[:,:,1], torch.ones_like(pred_points[:,:,0])], dim=1)
-            pred_points_aug = torch.zeros(pred_points.shape[0], 4, pred_points.shape[1], dtype=pred_points.dtype, device=pred_points.device)
-            pred_points_aug[:,position_indices,:]= torch.stack([pred_points[:,:,0], pred_points[:,:,1]], dim=1)
-            pred_points_aug[:,3,:]=1.0
-            pred_points_global = torch.matmul(car_poses, pred_points_aug)[:,position_indices,:].transpose(1,2)
-            ibloss = boundary_loss(pred_points_global, ib, ib_normal)
-            obloss = boundary_loss(pred_points_global, ob, ob_normal)
-            loss = kinematic_losses + lossdict["boundary"]["inner_weight"]*ibloss + lossdict["boundary"]["outer_weight"]*obloss
-            iblossfloat = float(ibloss.item())
-            oblossfloat = float(obloss.item())
-        else:
-            loss = kinematic_losses
-            iblossfloat = 0.0
-            oblossfloat = 0.0
-        # Backward pass:
         optimizer.zero_grad()
         loss.backward() 
         # Weight and bias updates.
         optimizer.step()
         # logging information
-        cum_loss = float(loss.item())
-        cum_param_loss = float(current_param_loss.item())
-        cum_position_loss = float(current_position_loss.item())
-        cum_velocity_loss = float(current_velocity_loss.item())
+        current_position_loss_float = float(current_position_loss.item())
+        current_other_agent_loss_float = float(current_other_agent_loss.item())
         num_samples += 1.0
         if not debug:
-            experiment.log_metric("position_error", cum_position_loss, step=(epoch_number-1)*dataloaderlen + i)
-            experiment.log_metric("velocity_error", cum_velocity_loss, step=(epoch_number-1)*dataloaderlen + i)
-            experiment.log_metric("inner_boundary_loss", iblossfloat, step=(epoch_number-1)*dataloaderlen + i)
-            experiment.log_metric("outer_boundary_loss", oblossfloat, step=(epoch_number-1)*dataloaderlen + i)
+            experiment.log_metric("current_position_loss", current_position_loss_float, step=(epoch_number-1)*dataloaderlen + i)
+            experiment.log_metric("current_other_agent_loss", current_other_agent_loss_float, step=(epoch_number-1)*dataloaderlen + i)
         if use_tqdm:
-            t.set_postfix({"position_loss" : cum_position_loss, "velocity_loss" : cum_velocity_loss, "inner_boundary_loss" : iblossfloat, "outer_boundary_loss" : oblossfloat})
+            t.set_postfix({"current_position_loss" : current_position_loss_float, "current_other_agent_loss":current_other_agent_loss_float})
 def go():
-    global ob_dict, ob_normal_dict, ib_dict, ib_normal_dict
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
     parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuration file to load")
     parser.add_argument("model_config_file", type=str,  help="Model Configuration file to load")
     parser.add_argument("output_directory", type=str,  help="Where to put the resulting model files")
 
-    parser.add_argument("--context_length",  type=int, default=None,  help="Override the context length specified in the config file")
     parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
     parser.add_argument("--model_load",  type=str, default=None,  help="Load this model file prior to running. usually in conjunction with debug")
     parser.add_argument("--models_to_disk", action="store_true",  help="Save the model files to disk in addition to comet.ml")
-    parser.add_argument("--override", action="store_true",  help="Delete output directory and replace with new data")
     parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
-    parser.add_argument("--batch_size", type=int, default=None,  help="Override the order of the batch size specified in the config file")
     parser.add_argument("--gpu", type=int, default=None,  help="Override the GPU index specified in the config file")
-    parser.add_argument("--learning_rate", type=float, default=None,  help="Override the learning rate specified in the config file")
-    parser.add_argument("--momentum", type=float, default=None,  help="Override the momentum specified in the config file")
-    parser.add_argument("--dampening", type=float, default=None,  help="Override the dampening specified in the config file")
-    parser.add_argument("--nesterov", action="store_true",  help="Override the nesterov specified in the config file")
-    parser.add_argument("--bezier_order", type=int, default=None,  help="Override the order of the bezier curve specified in the config file")
-    parser.add_argument("--weighted_loss", action="store_true",  help="Use timewise weights on param loss")
-    parser.add_argument("--optimizer", type=str, default="SGD",  help="Optimizer to use")
-    parser.add_argument("--velocity_loss", type=float, default=None,  help="Override velocity loss weight in config file")
-    parser.add_argument("--position_loss", type=float, default=None,  help="Override position loss weight in config file")
-    parser.add_argument("--control_point_loss", type=float, default=None,  help="Override control point loss weight in config file")
-    parser.add_argument("--fix_first_point",type=bool,default=False, help="Override fix_first_point in the config file")
+
     
     args = parser.parse_args()
 
@@ -249,54 +171,22 @@ def go():
     image_size = dataset_config["image_size"]
     input_channels = config["input_channels"]
     
-    if args.context_length is not None:
-        context_length = args.context_length
-        config["context_length"]  = context_length
-    else:
-        context_length = config["context_length"]
-    if args.bezier_order is not None:
-        bezier_order = args.bezier_order
-        config["bezier_order"]  = bezier_order
-    else:
-        bezier_order = config["bezier_order"]
-    #num_recurrent_layers = config["num_recurrent_layers"]
+    context_length = config["context_length"]
+    bezier_order = config["bezier_order"]
+    batch_size = config["batch_size"]
+    learning_rate = config["learning_rate"]
+    momentum = config["momentum"]
+    dampening = config["dampening"]
+    nesterov = config["nesterov"]
+    fix_first_point = config["fix_first_point"]
+   
     if args.gpu is not None:
         gpu = args.gpu
         config["gpu"]  = gpu
     else:
         gpu = config["gpu"] 
     torch.cuda.set_device(gpu)
-    if args.batch_size is not None:
-        batch_size = args.batch_size
-        config["batch_size"]  = batch_size
-    else:
-        batch_size = config["batch_size"]
-    if args.learning_rate is not None:
-        learning_rate = args.learning_rate
-        config["learning_rate"] = learning_rate
-    else:
-        learning_rate = config["learning_rate"]
-    if args.momentum is not None:
-        momentum = args.momentum
-        config["momentum"] = momentum
-    else:
-        momentum = config["momentum"]
-    if args.dampening is not None:
-        dampening = args.dampening
-        config["dampening"] = dampening
-    else:
-        dampening = config["dampening"]
-    if args.nesterov:
-        nesterov = True
-        config["nesterov"] = nesterov
-    else:
-        nesterov = config["nesterov"]
-    if args.fix_first_point:
-        fix_first_point = True
-        config["fix_first_point"] = fix_first_point
-    else:
-        fix_first_point = config["fix_first_point"]
-   
+
     num_epochs = config["num_epochs"]
     num_workers = config["num_workers"]
     hidden_dim = config["hidden_dimension"]
@@ -304,10 +194,7 @@ def go():
     num_recurrent_layers = config.get("num_recurrent_layers",1)
     config["hostname"] = socket.gethostname()
     lossdict = config["loss"]
-    track_file_dir = config.get("track_file_dir", os.environ.get("F1_TRACK_DIR", None))
-    if track_file_dir is None:
-        raise ValueError("Must either set track_file_dir in the training config or set the F1_TRACK_DIR environment variable")
-    
+
     
     print("Using config:\n%s" % (str(config)))
     net = deepracing_models.nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dim, num_recurrent_layers=num_recurrent_layers, params_per_dimension=bezier_order + 1 - int(fix_first_point), use_3dconv = use_3dconv) 
@@ -315,104 +202,54 @@ def go():
     ppd = net.params_per_dimension
     numones = int(ppd/2)
     
-    kinematic_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss()
-    boundary_loss = deepracing_models.nn_models.LossFunctions.BoundaryLoss(alpha = lossdict["boundary"]["alpha"], beta=lossdict["boundary"]["beta"])
+    raceline_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss()
+    other_agent_loss = deepracing_models.nn_models.LossFunctions.OtherAgentDistanceLoss(beta=1.0)
 
     print("casting stuff to double")
     net = net.double()
-    kinematic_loss = kinematic_loss.double()
-    boundary_loss = boundary_loss.double()
+    raceline_loss = raceline_loss.double()
+
     if model_load is not None:
         net.load_state_dict(torch.load(model_load, map_location=torch.device("cpu")))
     if gpu>=0:
         print("moving stuff to GPU")
         device = torch.device("cuda:%d" % gpu)
         net = net.cuda(gpu)
-        kinematic_loss = kinematic_loss.cuda(gpu)
-        boundary_loss = boundary_loss.cuda(gpu)
+        kinematic_loss = raceline_loss.cuda(gpu)
     else:
         device = torch.device("cpu")
-    optimizer = args.optimizer
+    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=dampening, nesterov=nesterov)
     
-
-
-    config["optimizer"] = optimizer
-    if optimizer=="Adam":
-        optimizer = optim.Adam(net.parameters(), lr = learning_rate, betas=(0.9, 0.9))
-    elif optimizer=="RMSprop":
-        optimizer = optim.RMSprop(net.parameters(), lr = learning_rate, momentum = momentum)
-    elif optimizer=="ASGD":
-        optimizer = optim.ASGD(net.parameters(), lr = learning_rate)
-    elif optimizer=="SGD":
-        nesterov_ = momentum>0.0 and nesterov
-        dampening_=dampening*float(not nesterov_)
-        optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=dampening_, nesterov=nesterov_)
-    else:
-        raise ValueError("Uknown optimizer " + optimizer)
-
-   
-    
-    
-    
-        
-    if num_workers == 0:
-        max_spare_txns = 50
-    else:
-        max_spare_txns = num_workers
 
     #image_wrapper = deepracing.backend.ImageFolderWrapper(os.path.dirname(image_db))
     
     dsets=[]
-    use_optflow = net.input_channels==5
     dsetfolders = []
-    position_indices = dataset_config["position_indices"]
     print("Extracting position indices: %s" %(str(position_indices)))
     alltags = set([])
     dset_output_lengths=[]
-    lookahead_indices = dataset_config["lookahead_indices"]   
-    use_label_times = dataset_config["use_label_times"]
-    use_boundary_loss = dataset_config.get("boundary_loss", False) 
     for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
-        lateral_dimension = dataset["lateral_dimension"]  
-        geometric_variants = dataset.get("geometric_variants", False)   
-        gaussian_blur_radius = dataset.get("gaussian_blur_radius", None)
-        label_subfolder = dataset.get("label_subfolder", "pose_sequence_labels")
-        color_jitter = dataset.get("color_jitter", None)
         key_file = dataset["key_file"]
+        root_folder = dataset["root_folder"]
+        position_indices: dataset.get("position_indices",[0,1,2])
         dataset_tags = dataset.get("tags", [])
         alltags = alltags.union(set(dataset_tags))
-        root_folder = dataset["root_folder"]
+
         dsetfolders.append(root_folder)
         label_folder = os.path.join(root_folder,label_subfolder)
         image_folder = os.path.join(root_folder,"images")
         key_file = os.path.join(root_folder,key_file)
-        label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
+        label_wrapper = deepracing.backend.MultiAgentLabelLMDBWrapper()
         label_wrapper.readDatabase(os.path.join(label_folder,"lmdb") )
 
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
         image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
         image_wrapper.readDatabase( os.path.join(image_folder,"image_lmdb"), mapsize=image_mapsize )
-        if use_boundary_loss:
-            try:
-                with open(os.path.join(label_folder,"config.yaml"),"r") as f:
-                    metadata = yaml.load(f, Loader=yaml.SafeLoader)
-                    print("Openned metadata: %s" %(str(metadata),))
-                    track_id = metadata["track_id"]
-                    if not track_id in ib_dict:
-                        loadTracks(track_id, track_file_dir, device)
-            except Exception as e:
-                track_id = np.nan
-        else:
-            track_id = np.nan
-
-
-        curent_dset = PD.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, track_id,\
-                     image_size = image_size, lookahead_indices = lookahead_indices, lateral_dimension=lateral_dimension, \
-                     geometric_variants = geometric_variants, gaussian_blur=gaussian_blur_radius, color_jitter = color_jitter)
+       
+        curent_dset = PD.MultiAgentDataset(image_wrapper, label_wrapper, key_file, context_length, image_size, position_indices )
         dsets.append(curent_dset)
-        _, _, positions_test, _, _, _, session_times_test ,_ , _ = curent_dset[0]
-        dset_output_lengths.append(positions_test.shape[0])
+        
         print("\n")
     if len(dsets)==1:
         dset = dsets[0]
@@ -428,6 +265,7 @@ def go():
     if debug:
         output_directory = os.path.join(main_dir, "debug")
         os.makedirs(output_directory, exist_ok=True)
+        experiment = None
     else:
         experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingbezierpredictor")
         output_directory = os.path.join(main_dir, experiment.get_key())
@@ -438,7 +276,6 @@ def go():
         experiment.log_parameters(dataset_config)
         dsetsjson = json.dumps(dataset_config, indent=1)
         experiment.log_parameter("datasets",dsetsjson)
-        experiment.log_parameter("dset_output_lengths",dset_output_lengths)
         experiment.log_text(dsetsjson)
         experiment.add_tag("bezierpredictor")
         if len(alltags)>0:
@@ -453,7 +290,7 @@ def go():
         i = 0
         #def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, kinematic_loss, boundary_loss, lossdict, epoch_number, 
     if debug:
-        run_epoch(None, net, fix_first_point , optimizer, dataloader, kinematic_loss, boundary_loss, lossdict, 1, use_label_times=use_label_times, debug=True, use_tqdm=args.tqdm, position_indices=position_indices)
+        run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent_loss, config)
     else:
         netpostfix = "epoch_%d_params.pt"
         optimizerpostfix = "epoch_%d_optimizer.pt"
@@ -471,7 +308,7 @@ def go():
                 #dset.clearReaders()
                 try:
                     tick = time.time()
-                    run_epoch(experiment, net, fix_first_point , optimizer, dataloader, kinematic_loss, boundary_loss, lossdict, postfix, use_label_times=use_label_times, debug=False, use_tqdm=args.tqdm, position_indices=position_indices)
+                    run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent_loss, config)
                     tock = time.time()
                     print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
                     experiment.log_epoch_end(postfix)
