@@ -48,7 +48,7 @@ def pbPoseToTorch(posepb : Pose3d):
     pose[0:3,3] = torch.from_numpy( np.array( [ position_pb.x, position_pb.y, position_pb.z], dtype=np.float64 )  ).double()
 
 class MultiAgentDataset(Dataset):
-    def __init__(self, image_db_wrapper : ImageLMDBWrapper, label_db_wrapper : MultiAgentLabelLMDBWrapper, keyfile : str, context_length : int, image_size = np.array((66,200))):
+    def __init__(self, image_db_wrapper : ImageLMDBWrapper, label_db_wrapper : MultiAgentLabelLMDBWrapper, keyfile : str, context_length : int, image_size : np.ndarray, position_indices : np.ndarray):
         super(MultiAgentDataset, self).__init__()
         self.image_db_wrapper : ImageLMDBWrapper = image_db_wrapper
         self.label_db_wrapper : MultiAgentLabelLMDBWrapper = label_db_wrapper
@@ -60,10 +60,11 @@ class MultiAgentDataset(Dataset):
             self.db_keys = [keystring.replace('\n','') for keystring in keystrings]
         self.num_images = len(self.db_keys)
         self.length = self.num_images - 2 - context_length
+        self.position_indices = position_indices
 
     def __len__(self):
         return self.length
-    def __getitem__(self, index):
+    def __getitem__(self, input_index):
         index = int(input_index%self.num_images)
         label_key = self.db_keys[index]
         label_key_idx = int(label_key.split("_")[1])
@@ -74,15 +75,14 @@ class MultiAgentDataset(Dataset):
         assert(keys[-1]==label_key)
 
         label = self.label_db_wrapper.getMultiAgentLabel(keys[-1])
-        session_times = np.array([p.session_time for p in ego_traj_pb.poses ])
-
 
         raceline = np.array([[vectorpb.x, vectorpb.y, vectorpb.z]  for vectorpb in label.local_raceline]).astype(np.float64)
+        racelinedists = np.array(label.raceline_distances).astype(np.float64)
                 
         imagesnp = [ resizeImage(self.image_db_wrapper.getImage(key), self.image_size) for key in keys ]
-        images_torch = torch.stack( [ self.totensor(img) for img in imagesnp ] )
+        images_torch = torch.stack( [ self.totensor(img.copy()) for img in imagesnp ] )
 
-        rtn_agent_positions = 10000.0*np.ones([19,raceline.shape[0],raceline.shape[1]], dtype=np.float64)
+        rtn_agent_positions = np.nan*np.ones([19,raceline.shape[0],raceline.shape[1]], dtype=np.float64)
         other_agent_positions = MultiAgentLabelLMDBWrapper.positionsFromLabel(label)
         rtn_agent_positions[0:other_agent_positions.shape[0]] = other_agent_positions
 
@@ -90,4 +90,4 @@ class MultiAgentDataset(Dataset):
         other_agent_times = MultiAgentLabelLMDBWrapper.sessionTimesFromlabel(label)
         rtn_session_times[0:other_agent_times.shape[0]] = other_agent_times
 
-        return images_torch, raceline, rtn_agent_positions, rtn_session_times, packetrange[-1]
+        return images_torch, raceline[:,self.position_indices], racelinedists, rtn_agent_positions[:,:,self.position_indices], rtn_session_times, packetrange[-1]

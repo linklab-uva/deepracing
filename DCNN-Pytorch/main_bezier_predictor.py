@@ -9,7 +9,6 @@ import deepracing_models.nn_models.LossFunctions as loss_functions
 import deepracing_models.nn_models.Models
 import numpy as np
 import torch.optim as optim
-from tqdm import tqdm as tqdm
 import pickle
 from datetime import datetime
 import os
@@ -33,27 +32,25 @@ import json
 from comet_ml.api import API, APIExperiment
 import cv2
 #torch.backends.cudnn.enabled = False
-def run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent_loss, config):
+def run_epoch(experiment, network, optimizer, dataloader, raceline_loss, other_agent_loss, config, use_tqdm = False, debug=False):
     cum_loss = 0.0
     cum_param_loss = 0.0
     cum_position_loss = 0.0
     cum_velocity_loss = 0.0
     num_samples=0.0
-    batch_size = trainLoader.batch_size
+    batch_size = dataloader.batch_size
     if use_tqdm:
-        t = tqdm(enumerate(trainLoader), total=len(trainLoader))
+        t = tqdm(enumerate(dataloader), total=len(dataloader))
     else:
-        t = enumerate(trainLoader)
+        t = enumerate(dataloader)
     network.train()  # This is important to call before training!
-    dataloaderlen = len(trainLoader)
+    dataloaderlen = len(dataloader)
     dev = next(network.parameters()).device  # we are only doing single-device training for now, so this works fine.
     fix_first_point = config["fix_first_point"]
     loss_weights = config["loss_weights"]
 
-    _, _, _, _, _, _, sample_session_times,_,_ = trainLoader.dataset[0]
+    #_, _, _, _, _, _, sample_session_times,_,_ = dataloader.dataset[0]
     bezier_order = network.params_per_dimension-1+int(fix_first_point)
-    if not debug:
-        experiment.set_epoch(epoch_number)
 
     for (i, (images, racelines, racelinedists, other_agent_positions, session_times, key_indices) ) in t:
         input_images = images.double().to(device=dev)
@@ -61,8 +58,7 @@ def run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent
         racelinedists = racelinedists.double().to(device=dev)
         other_agent_positions = other_agent_positions.double().to(device=dev)
         session_times = session_times.double().to(device=dev)
-        session_times_torch = session_times_torch.double().to(device=dev)
-        image_keys = ["image_%d" % (key_indices_torch[j],) for j in range(key_indices_torch.shape[0])]
+        image_keys = ["image_%d" % (key_indices[j],) for j in range(key_indices.shape[0])]
         
         predictions = network(input_images)
         if fix_first_point:
@@ -71,14 +67,14 @@ def run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent
             predictions_reshape = torch.cat((initial_zeros,network_output_reshape),dim=1)
         else:
             predictions_reshape = predictions.transpose(1,2)
-        current_batch_size=session_times_torch.shape[0]
-        current_timesteps=session_times_torch.shape[1]
-        if use_label_times:
-            dt = session_times_torch[:,-1]-session_times_torch[:,0]
-            s_torch_cur = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
-        else:
-            dt = torch.ones(current_batch_size,dtype=positions_torch.dtype,device=positions_torch.device)
-            s_torch_cur = torch.stack([torch.linspace(0.0,1.0,steps=current_timesteps,dtype=positions_torch.dtype,device=positions_torch.device)  for i in range(current_batch_size)], dim=0)
+        # current_batch_size=image_keys.shape[0]
+        # current_timesteps=image_keys.shape[1]
+        # if use_label_times:
+        #     dt = session_times_torch[:,-1]-session_times_torch[:,0]
+        #     s_torch_cur = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
+        # else:
+        #     dt = torch.ones(current_batch_size,dtype=positions_torch.dtype,device=positions_torch.device)
+        #     s_torch_cur = torch.stack([torch.linspace(0.0,1.0,steps=current_timesteps,dtype=positions_torch.dtype,device=positions_torch.device)  for i in range(current_batch_size)], dim=0)
 
         
         ds = racelinedists[:,-1]-racelinedists[:,0]
@@ -92,12 +88,15 @@ def run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent
         # fit_vels_scaled = fit_vels/dt[:,None,None]
         # _, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape, t = s_torch_cur, order=1)
         # pred_vels_scaled = pred_vels/dt[:,None,None]
+
+        current_position_loss = raceline_loss(pred_points, racelines)
         
-        use_boundaries = not torch.any(torch.isnan(track_ids))
         if debug:
             fig, (ax1, ax2) = plt.subplots(1, 2, sharey=False)
-            images_np = np.round(255.0*image_torch[0].detach().cpu().numpy().copy().transpose(0,2,3,1)).astype(np.uint8)
+            images_np = np.round(255.0*input_images[0].detach().cpu().numpy().copy().transpose(0,2,3,1)).astype(np.uint8)
             #image_np_transpose=skimage.util.img_as_ubyte(images_np[-1].transpose(1,2,0))
+            # oap = other_agent_positions[other_agent_positions==other_agent_positions].view(1,-1,60,2)
+            # print(oap)
             ims = []
             for i in range(images_np.shape[0]):
                 ims.append([ax1.imshow(images_np[i])])
@@ -121,12 +120,16 @@ def run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent
            
             plt.show()
 
-        current_position_loss = raceline_loss(pred_points, racelines)
-        current_other_agent_loss = other_agent_loss(pred_points, other_agent_positions)
-
         
        # print(track_ids)
-        loss = loss_weights["position"]*current_position_loss + loss_weights["other_agents"]*current_other_agent_loss
+        if torch.any(~torch.isnan(other_agent_positions)):
+            current_other_agent_loss = other_agent_loss(pred_points, other_agent_positions)
+            if torch.any(torch.isnan(current_other_agent_loss)):
+                print("Current Agent Loss Is none")
+            loss = loss_weights["position"]*current_position_loss + loss_weights["other_agents"]*current_other_agent_loss
+        else:
+            loss = loss_weights["position"]*current_position_loss 
+       # loss.retain_grad()
 
         optimizer.zero_grad()
         loss.backward() 
@@ -137,8 +140,8 @@ def run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent
         current_other_agent_loss_float = float(current_other_agent_loss.item())
         num_samples += 1.0
         if not debug:
-            experiment.log_metric("current_position_loss", current_position_loss_float, step=(epoch_number-1)*dataloaderlen + i)
-            experiment.log_metric("current_other_agent_loss", current_other_agent_loss_float, step=(epoch_number-1)*dataloaderlen + i)
+            experiment.log_metric("current_position_loss", current_position_loss_float)
+            experiment.log_metric("current_other_agent_loss", current_other_agent_loss_float)
         if use_tqdm:
             t.set_postfix({"current_position_loss" : current_position_loss_float, "current_other_agent_loss":current_other_agent_loss_float})
 def go():
@@ -158,9 +161,9 @@ def go():
 
     dataset_config_file = args.dataset_config_file
     debug = args.debug
-    weighted_loss = args.weighted_loss
     model_load = args.model_load
     models_to_disk = args.models_to_disk
+    use_tqdm = args.tqdm
 
     with open(dataset_config_file) as f:
         dataset_config = yaml.load(f, Loader = yaml.SafeLoader)
@@ -178,6 +181,7 @@ def go():
     momentum = config["momentum"]
     dampening = config["dampening"]
     nesterov = config["nesterov"]
+    project_name = config["project_name"]
     fix_first_point = config["fix_first_point"]
    
     if args.gpu is not None:
@@ -193,7 +197,6 @@ def go():
     use_3dconv = config["use_3dconv"]
     num_recurrent_layers = config.get("num_recurrent_layers",1)
     config["hostname"] = socket.gethostname()
-    lossdict = config["loss"]
 
     
     print("Using config:\n%s" % (str(config)))
@@ -203,7 +206,7 @@ def go():
     numones = int(ppd/2)
     
     raceline_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss()
-    other_agent_loss = deepracing_models.nn_models.LossFunctions.OtherAgentDistanceLoss(beta=1.0)
+    other_agent_loss = deepracing_models.nn_models.LossFunctions.OtherAgentDistanceLoss()
 
     print("casting stuff to double")
     net = net.double()
@@ -225,14 +228,14 @@ def go():
     
     dsets=[]
     dsetfolders = []
-    print("Extracting position indices: %s" %(str(position_indices)))
-    alltags = set([])
+    alltags = set(dataset_config.get("tags",[]))
     dset_output_lengths=[]
     for dataset in dataset_config["datasets"]:
         print("Parsing database config: %s" %(str(dataset)))
         key_file = dataset["key_file"]
         root_folder = dataset["root_folder"]
-        position_indices: dataset.get("position_indices",[0,1,2])
+        position_indices = dataset.get("position_indices", [0,1,2])
+        label_subfolder = dataset.get("label_subfolder", "multi_agent_labels")
         dataset_tags = dataset.get("tags", [])
         alltags = alltags.union(set(dataset_tags))
 
@@ -241,7 +244,7 @@ def go():
         image_folder = os.path.join(root_folder,"images")
         key_file = os.path.join(root_folder,key_file)
         label_wrapper = deepracing.backend.MultiAgentLabelLMDBWrapper()
-        label_wrapper.readDatabase(os.path.join(label_folder,"lmdb") )
+        label_wrapper.openDatabase(os.path.join(label_folder,"lmdb") )
 
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
         image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
@@ -267,7 +270,7 @@ def go():
         os.makedirs(output_directory, exist_ok=True)
         experiment = None
     else:
-        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name="deepracingbezierpredictor")
+        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name=project_name)
         output_directory = os.path.join(main_dir, experiment.get_key())
         if os.path.isdir(output_directory) :
             raise FileExistsError("%s already exists, this should not happen." %(output_directory) )
@@ -288,9 +291,9 @@ def go():
         experiment.log_asset(os.path.join(output_directory,"experiment_config.yaml"),file_name="experiment_config.yaml")
         experiment.log_asset(os.path.join(output_directory,"model_config.yaml"),file_name="model_config.yaml")
         i = 0
-        #def run_epoch(experiment, network, fix_first_point, optimizer, trainLoader, kinematic_loss, boundary_loss, lossdict, epoch_number, 
+        #def run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent_loss, config)
     if debug:
-        run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent_loss, config)
+        run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent_loss, config, debug=True, use_tqdm=True)
     else:
         netpostfix = "epoch_%d_params.pt"
         optimizerpostfix = "epoch_%d_optimizer.pt"
@@ -308,7 +311,7 @@ def go():
                 #dset.clearReaders()
                 try:
                     tick = time.time()
-                    run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent_loss, config)
+                    run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent_loss, config, use_tqdm=use_tqdm)
                     tock = time.time()
                     print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
                     experiment.log_epoch_end(postfix)
