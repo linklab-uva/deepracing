@@ -70,42 +70,24 @@ class MultiAgentDataset(Dataset):
         images_start = label_key_idx - self.context_length + 1
         images_end = label_key_idx + 1
         packetrange = range(images_start, images_end)
-        #key_indices = np.array([i for i in packetrange], dtype=np.int32)
         keys = ["image_%d" % (i,) for i in packetrange]
         assert(keys[-1]==label_key)
 
         label = self.label_db_wrapper.getMultiAgentLabel(keys[-1])
-        ego_traj_pb = label.ego_agent_trajectory
         session_times = np.array([p.session_time for p in ego_traj_pb.poses ])
 
-        sizes = np.array( [len(ego_traj_pb.poses), len(ego_traj_pb.linear_velocities), len(ego_traj_pb.angular_velocities)] )
-        assert(np.all(sizes == sizes[0]))
-        num_points = sizes[0]
-        #print(len(ego_traj_pb))
-        ego_traj_poses = np.tile(np.eye(4, dtype=np.float64),(num_points,1,1))
-        ego_traj_linear_vels = np.zeros((num_points,3), dtype=np.float64)
-        ego_traj_angular_vels = np.zeros((num_points,3), dtype=np.float64)
-        for i in range(ego_traj_poses.shape[0]):
 
-            ego_pose_pb = ego_traj_pb.poses[i]
-            ego_position_pb = ego_pose_pb.translation
-            ego_rotation_pb = ego_pose_pb.rotation
-
-            ego_linear_vel_pb = ego_traj_pb.linear_velocities[i]
-            ego_traj_linear_vels[i] = np.array( [ego_linear_vel_pb.vector.x, ego_linear_vel_pb.vector.y, ego_linear_vel_pb.vector.z], dtype=np.float64 )
-
-            ego_angular_vel_pb = ego_traj_pb.angular_velocities[i]
-            ego_traj_angular_vels[i] = np.array( [ego_angular_vel_pb.vector.x, ego_angular_vel_pb.vector.y, ego_angular_vel_pb.vector.z], dtype=np.float64 )
-
-
-            q = np.array([ego_rotation_pb.x,ego_rotation_pb.y,ego_rotation_pb.z,ego_rotation_pb.w], dtype=np.float64 )
-            ego_traj_poses[i,0:3,0:3] = Rot.from_quat( q/np.linalg.norm(q) ).as_matrix()
-            ego_traj_poses[i,0:3,3] =  np.array( [ego_position_pb.x, ego_position_pb.y, ego_position_pb.z], dtype=np.float64 )
-
-
-        
+        raceline = np.array([[vectorpb.x, vectorpb.y, vectorpb.z]  for vectorpb in label.local_raceline]).astype(np.float64)
                 
         imagesnp = [ resizeImage(self.image_db_wrapper.getImage(key), self.image_size) for key in keys ]
         images_torch = torch.stack( [ self.totensor(img) for img in imagesnp ] )
-        #images_torch = images_torch.double()
-        return images_torch, torch.as_tensor(packetrange[-1],dtype=torch.int32), session_times, ego_traj_poses, ego_traj_linear_vels, ego_traj_angular_vels
+
+        rtn_agent_positions = 10000.0*np.ones([19,raceline.shape[0],raceline.shape[1]], dtype=np.float64)
+        other_agent_positions = MultiAgentLabelLMDBWrapper.positionsFromLabel(label)
+        rtn_agent_positions[0:other_agent_positions.shape[0]] = other_agent_positions
+
+        rtn_session_times = np.zeros([19,raceline.shape[0]], dtype=np.float64)
+        other_agent_times = MultiAgentLabelLMDBWrapper.sessionTimesFromlabel(label)
+        rtn_session_times[0:other_agent_times.shape[0]] = other_agent_times
+
+        return images_torch, raceline, rtn_agent_positions, rtn_session_times, packetrange[-1]
