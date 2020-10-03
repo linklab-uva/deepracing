@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import LeakyReLU
+import numpy as np
+
 def signedDistances(waypoints, boundarypoints, boundarynormals):
     batch_dimension = waypoints.shape[0]
     num_waypoints = waypoints.shape[1]
@@ -129,10 +131,11 @@ class SquaredLpNormLoss(nn.Module):
         else:
             return means
 class OtherAgentDistanceLoss(nn.Module):
-    def __init__(self, beta : float = 0.05, denominator_ridge : float = 0.1):
+    def __init__(self, beta : float = 0.1):
         super(OtherAgentDistanceLoss, self).__init__()
         self.beta=beta
-        self.denominator_ridge=denominator_ridge
+        self.minval = np.exp(-self.beta*615)
+
     def forward(self, predicted_path, other_agent_paths):
         if not (other_agent_paths.shape[2]==predicted_path.shape[1]):
             raise ValueError("Paths of other agents have %d points, but predicted path has %d points" % (other_agent_paths.shape[2],predicted_path.shape[1]))
@@ -140,13 +143,11 @@ class OtherAgentDistanceLoss(nn.Module):
             raise ValueError("Paths of other agents are of dimension %d, but predicted path is of dimension %d" % (other_agent_paths.shape[3],predicted_path.shape[2]))
         batch_size = other_agent_paths.shape[0]
         num_points = other_agent_paths.shape[2]
-        oap = other_agent_paths[other_agent_paths==other_agent_paths].view(batch_size,-1,num_points,2)
-
-        squareddiffnormmeans = torch.mean(torch.square(oap - predicted_path[:,None]), dim=3)
-
-        expdists = torch.exp(-self.beta*squareddiffnormmeans)
-
-        rtn = torch.mean(expdists)
+        distances = torch.norm(other_agent_paths - predicted_path[:,None], p=2, dim=3)
+        meandistances = torch.mean(distances, dim=2)
+        expdists = torch.exp(-self.beta*meandistances)
+        nontrivialcosts = expdists[expdists>self.minval]
+        rtn = torch.mean(nontrivialcosts)
         return rtn
 
         

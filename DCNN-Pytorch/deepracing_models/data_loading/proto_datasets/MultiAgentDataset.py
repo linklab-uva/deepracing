@@ -82,7 +82,7 @@ class MultiAgentDataset(Dataset):
         imagesnp = [ resizeImage(self.image_db_wrapper.getImage(key), self.image_size) for key in keys ]
         images_torch = torch.stack( [ self.totensor(img.copy()) for img in imagesnp ] )
 
-        rtn_agent_positions = np.nan*np.ones([19,raceline.shape[0],raceline.shape[1]], dtype=np.float64)
+        rtn_agent_positions = 500*np.ones([19,raceline.shape[0],raceline.shape[1]], dtype=np.float64)
         other_agent_positions = MultiAgentLabelLMDBWrapper.positionsFromLabel(label)
         rtn_agent_positions[0:other_agent_positions.shape[0]] = other_agent_positions
 

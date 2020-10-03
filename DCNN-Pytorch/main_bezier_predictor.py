@@ -89,9 +89,9 @@ def run_epoch(experiment, network, optimizer, dataloader, raceline_loss, other_a
         # _, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape, t = s_torch_cur, order=1)
         # pred_vels_scaled = pred_vels/dt[:,None,None]
 
-        current_position_loss = raceline_loss(pred_points, racelines)
+        current_position_loss = loss_weights["position"]*raceline_loss(pred_points, racelines)
         
-        if debug:
+        if debug and False:
             fig, (ax1, ax2) = plt.subplots(1, 2, sharey=False)
             images_np = np.round(255.0*input_images[0].detach().cpu().numpy().copy().transpose(0,2,3,1)).astype(np.uint8)
             #image_np_transpose=skimage.util.img_as_ubyte(images_np[-1].transpose(1,2,0))
@@ -122,13 +122,15 @@ def run_epoch(experiment, network, optimizer, dataloader, raceline_loss, other_a
 
         
        # print(track_ids)
-        if torch.any(~torch.isnan(other_agent_positions)):
-            current_other_agent_loss = other_agent_loss(pred_points, other_agent_positions)
+        oapmeaningful = ~(other_agent_positions==500.0)
+        if torch.any(oapmeaningful).item():
+            current_other_agent_loss = loss_weights["other_agents"]*other_agent_loss(pred_points, other_agent_positions)
             if torch.any(torch.isnan(current_other_agent_loss)):
                 print("Current Agent Loss Is none")
-            loss = loss_weights["position"]*current_position_loss + loss_weights["other_agents"]*current_other_agent_loss
+            loss = current_position_loss + current_other_agent_loss
         else:
-            loss = loss_weights["position"]*current_position_loss 
+            loss = current_position_loss 
+            current_other_agent_loss = torch.tensor([0.0])[0]
        # loss.retain_grad()
 
         optimizer.zero_grad()
