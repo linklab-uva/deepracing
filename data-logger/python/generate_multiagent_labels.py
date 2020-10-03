@@ -235,10 +235,9 @@ for idx in tqdm(range(len(image_tags))):
 
         for i in range(srl.shape[0]):
             newvec = label_tag.local_raceline.add()
-            newvec.vector.CopyFrom(proto_utils.vectorFromNumpy(raceline_local_samp[i]))
-            newvec.frame = FrameId_pb2.LOCAL
-            newvec.session_time = srl[i]
-
+            newvec.CopyFrom(proto_utils.vectorFromNumpy(raceline_local_samp[i]))
+            label_tag.raceline_distances.append(srl[i])
+        label_tag.raceline_frame = FrameId_pb2.LOCAL
 
         match_found = False
         match_positions = []

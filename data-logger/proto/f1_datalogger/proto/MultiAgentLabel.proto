@@ -1,7 +1,9 @@
 syntax = "proto3";
 package deepf1.protobuf;
+import "FrameId.proto";
 import "Pose3d.proto";
 import "TimestampedImage.proto";
+import "Vector3d.proto";
 import "Vector3dStamped.proto";
 import "Trajectory.proto";
 message MultiAgentLabel {
@@ -13,5 +15,7 @@ message MultiAgentLabel {
 	repeated uint32 trajectory_car_indices = 6;		
     uint32 ego_car_index = 7;	
     uint32 track_id = 8;		
-    repeated deepf1.protobuf.eigen.Vector3dStamped local_raceline = 9;				
+    repeated deepf1.protobuf.eigen.Vector3d local_raceline = 9;	
+    repeated double raceline_distances = 10;	
+	deepf1.protobuf.eigen.FrameId raceline_frame = 11;			
 }
