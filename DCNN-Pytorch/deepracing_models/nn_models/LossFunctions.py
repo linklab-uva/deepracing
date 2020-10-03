@@ -128,16 +128,20 @@ class SquaredLpNormLoss(nn.Module):
             return torch.sum(means)
         else:
             return means
-class TaylorSeriesLinear(nn.Module):
-    def __init__(self, reduction="mean"):
-        super(TaylorSeriesLinear, self).__init__()
-        self.reduction=reduction
-    def forward(self, position, velocity, time, acceleration=None):
-        position_diff = position[:,1:,:]-position[:,:-1,:]
-        dt=time[:,1:]-time[:,:-1]
-        vel_est = position_diff/dt[:,:,None]
-        squarednorms = torch.norm((velocity[:,:-1,:] - vel_est),dim=2, p=2)
-        if self.reduction=="mean":
-            return torch.mean(squarednorms)
-        else:
-            return torch.sum(squarednorms)
+class OtherAgentDistanceLoss(nn.Module):
+    def __init__(self, beta : float = 1.0, denominator_ridge : float = 0.1):
+        super(OtherAgentDistanceLoss, self).__init__()
+        self.beta=beta
+        self.denominator_ridge=denominator_ridge
+    def forward(self, predicted_path, other_agent_paths):
+        if not (other_agent_paths.shape[2]==predicted_path.shape[1]):
+            raise ValueError("Paths of other agents have %d points, but predicted path has %d points" % (other_agent_paths.shape[2],predicted_path.shape[1]))
+        if not (other_agent_paths.shape[3]==predicted_path.shape[2]):
+            raise ValueError("Paths of other agents are of dimension %d, but predicted path is of dimension %d" % (other_agent_paths.shape[3],predicted_path.shape[2]))
+        diffs = other_agent_paths - predicted_path[:,None]
+        squareddiffnorms = torch.mean(torch.square(diffs),dim=3)
+        expdists = torch.mean(torch.exp(-self.beta*squareddiffnorms),dim=2)
+        notnan = expdists==expdists
+        return torch.sum(expdists[notnan])/(torch.sum(notnan)+self.denominator_ridge)
+
+        
