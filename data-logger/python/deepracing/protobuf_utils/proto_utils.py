@@ -233,7 +233,7 @@ def extractVelocity(packet, car_index = None):
    else:
       idx = car_index
    motion_data = packet.m_carMotionData[idx]
-   velocity = np.array((motion_data.m_worldVelocityX, motion_data.m_worldVelocityY, motion_data.m_worldVelocityZ), np.float64)
+   velocity = np.array([motion_data.m_worldVelocityX, motion_data.m_worldVelocityY, motion_data.m_worldVelocityZ], np.float64)
    return velocity
     
 def extractPosition(packet , car_index = None):
@@ -270,17 +270,5 @@ def extractPose(packet : PacketMotionData_pb2.PacketMotionData, car_index = None
    quat = extractRotation(packet, car_index=idx)
    return position, quat 
 
-def loadTrackfile(filepath : str):
-   trackin = np.loadtxt(filepath,delimiter=",",skiprows=2)
-   I = np.argsort(trackin[:,0])
-   track = trackin[I].copy()
-   r = track[:,0]
-   X = np.zeros((track.shape[0],3))
-   Xdot = np.zeros((track.shape[0],3))
-   X[:,0] = track[:,1]
-   X[:,1] = track[:,3]
-   X[:,2] = track[:,2]
-
-   
-
-   return r, X
+def vectorListToArray(listOfVectors):
+   return np.array([[vectorpb.vector.x, vectorpb.vector.y, vectorpb.vector.z]  for vectorpb in listOfVectors])
