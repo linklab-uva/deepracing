@@ -131,7 +131,7 @@ class SquaredLpNormLoss(nn.Module):
         else:
             return means
 class OtherAgentDistanceLoss(nn.Module):
-    def __init__(self, beta : float = 0.1):
+    def __init__(self, beta : float = 1.0/np.pi):
         super(OtherAgentDistanceLoss, self).__init__()
         self.beta=beta
         self.minval = np.exp(-self.beta*615)
@@ -147,7 +147,9 @@ class OtherAgentDistanceLoss(nn.Module):
         meandistances = torch.mean(distances, dim=2)
         expdists = torch.exp(-self.beta*meandistances)
         nontrivialcosts = expdists[expdists>self.minval]
-        rtn = torch.mean(nontrivialcosts)
+        rtn = torch.sum(nontrivialcosts)/max(1.0, float(torch.numel(nontrivialcosts)))
+        rtnshape = rtn.shape
+      #  print("yay")
         return rtn
 
         
