@@ -11,11 +11,12 @@ message MultiAgentLabel {
 	deepf1.protobuf.eigen.Pose3d ego_agent_pose = 2;
 	deepf1.protobuf.eigen.Vector3dStamped ego_agent_linear_velocity = 3;
 	deepf1.protobuf.eigen.Vector3dStamped ego_agent_angular_velocity = 4;
-	repeated deepf1.protobuf.Trajectory other_agent_trajectories = 5;	
-	repeated uint32 trajectory_car_indices = 6;		
-    uint32 ego_car_index = 7;	
-    uint32 track_id = 8;		
-    repeated deepf1.protobuf.eigen.Vector3d local_raceline = 9;	
-    repeated double raceline_distances = 10;	
-	deepf1.protobuf.eigen.FrameId raceline_frame = 11;			
+	deepf1.protobuf.Trajectory ego_agent_trajectory = 5;	
+	repeated deepf1.protobuf.Trajectory other_agent_trajectories = 6;	
+	repeated uint32 trajectory_car_indices = 7;		
+    uint32 ego_car_index = 8;	
+    uint32 track_id = 9;		
+    repeated deepf1.protobuf.eigen.Vector3d local_raceline = 10;	
+    repeated double raceline_distances = 11;	
+	deepf1.protobuf.eigen.FrameId raceline_frame = 12;			
 }
