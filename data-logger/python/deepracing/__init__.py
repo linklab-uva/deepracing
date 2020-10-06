@@ -8,7 +8,7 @@ trackNames=["Australia", "France", "China", "Bahrain", "Spain", "Monaco",\
             "Canada", "Britain", "Germany", "Hungary", "Belgium", "Italy",\
             "Singapore", "Japan", "Abu_Dhabi", "USA", "Brazil", "Austria",\
             "Russia", "Mexico", "Azerbaijan", "Bahrain_short", "Britan_short",\
-            "USA_short", "Japan_short"]
+            "USA_short", "Japan_short", "Rice242"]
 def searchForFile(filename : str, searchdirs : List[str]):
     for searchdir in searchdirs:
         entries = os.scandir(searchdir)
