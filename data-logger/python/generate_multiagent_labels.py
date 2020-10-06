@@ -356,7 +356,7 @@ for idx in tqdm(range(len(image_tags))):
         # plt.plot(-ego_label_positions[:,0], ego_label_positions[:,2], label="Ego Vehicle Trajectory", c="b")
         # plt.legend()
         label_positions = np.array([ np.array([[pose.translation.x, pose.translation.y, pose.translation.z]  for pose in agent_trajectory.poses ]).transpose() for agent_trajectory in label_tag.other_agent_trajectories])
-        raceline_labels = np.array([ [vectorpb.vector.x, vectorpb.vector.y, vectorpb.vector.z] for vectorpb in label_tag.local_raceline])
+        raceline_labels = np.array([ [vectorpb.x, vectorpb.y, vectorpb.z] for vectorpb in label_tag.local_raceline])
         minx = min(np.min(label_positions[:,0]), np.min(raceline_labels[:,0]))-5.0
         maxx = max(np.max(label_positions[:,0]), np.max(raceline_labels[:,0]))+5.0
         maxz = max(np.max(label_positions[:,2]), np.max(raceline_labels[:,2]))+5.0
