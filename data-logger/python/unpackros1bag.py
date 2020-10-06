@@ -69,11 +69,11 @@ with open(configfile,'r') as f:
     topicdict : dict =yaml.load(f, Loader=yaml.SafeLoader)
 with open(racelinefile,'r') as f:
     racelinedict : dict = json.load(f)
-raceline = np.row_stack([racelinedict["x"], racelinedict["y"], racelinedict["z"], np.ones_like(racelinedict["z"], dtype=np.float64)])
-racelinedist = np.array(racelinedict["dist"], dtype=np.float64)
+raceline = np.column_stack([np.array(racelinedict["x"], dtype=np.float64).copy(), np.array(racelinedict["y"], dtype=np.float64).copy(), np.array(racelinedict["z"], dtype=np.float64).copy()])
+racelinedist = np.array(racelinedict["dist"], dtype=np.float64).copy()
 print("racelinedist.shape: %s" % (str(racelinedist.shape),))
 bezier_order = racelinedict["bezier_order"]
-racelinekdtree = KDTree(raceline[0:3].copy().transpose())
+racelinekdtree = KDTree(raceline.copy())
 bag = rosbag.Bag(bagpath)
 msg_types, typedict = bag.get_type_and_topic_info()
 print(typedict)
@@ -121,7 +121,8 @@ imagebackend = deepracing.backend.ImageLMDBWrapper()
 imagebackend.readDatabase(imagelmdbdir,mapsize=int(round(1.5*len(images)*66*200*3)), readonly=False)
 labelbackend = deepracing.backend.MultiAgentLabelLMDBWrapper()
 labelbackend.openDatabase(labellmdbdir, readonly=False)
-for (i, timage) in enumerate(imagetimes):
+goodkeys = []
+for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
     imagetag = TimestampedImage_pb2.TimestampedImage()
     imageprefix =  "image_%d"
     imagetag.image_file = (imageprefix +".jpg") % i
@@ -166,7 +167,7 @@ for (i, timage) in enumerate(imagetimes):
     ry = ry/np.linalg.norm(ry, ord=2)
     rz = np.cross(rx,ry)
     rz = rz/np.linalg.norm(rz, ord=2)
-    print(rz)
+    #print(rz)
     
     carpose = np.eye(4,dtype=np.float64)
     carpose[0:3,3] = posimage
@@ -180,12 +181,18 @@ for (i, timage) in enumerate(imagetimes):
 
 
     _, iclosest = racelinekdtree.query(carpose[0:3,3])
-    rlidx = np.arange(iclosest-int(round(racelinebuff/6)), iclosest+racelinebuff+1,step=1, dtype=np.int64)%raceline.shape[1]
+    rlidx = np.arange(iclosest-int(round(racelinebuff/6)), iclosest+racelinebuff+1,step=1, dtype=np.int64)%raceline.shape[0]
+
     rld = racelinedist[rlidx]
-    print(rld)
-    rld = rld#-rld[0]    
-    rlglobal = raceline[:,rlidx]
-    rlspline = scipy.interpolate.make_lsq_spline(rld, rlglobal[0:3].transpose(), sensibleKnots(rld,k), k=k)
+  #  print(rld)
+    overlapidx = rld<rld[0]
+    irldmax = np.argmax(rld)
+  #  print(overlapidx)
+    rld[overlapidx]+=rld[irldmax] + meanrldist
+   # print(rld)
+
+    rlglobal = raceline[rlidx]
+    rlspline = scipy.interpolate.make_lsq_spline(rld, rlglobal, sensibleKnots(rld,k), k=k)
     rldsamp = np.linspace(rld[0], rld[-1], num=num_samples)
     labeltag.ClearField("raceline_distances")
     labeltag.raceline_distances.extend(rldsamp.tolist())
@@ -208,6 +215,7 @@ for (i, timage) in enumerate(imagetimes):
     with open(os.path.join(labeldir, (imageprefix +".pb") % i), "wb") as f:
         f.write(labeltag.SerializeToString())
     labelbackend.writeMultiAgentLabel(imageprefix%i, labeltag)
+    goodkeys.append((imageprefix%i)+"\n")
 
     if debug:
         fig1 = plt.subplot(1, 2, 1)
@@ -220,3 +228,5 @@ for (i, timage) in enumerate(imagetimes):
         plt.plot(splvals[0,0], splvals[0,1], "g*", label="Position of Car")
       #  plt.arrow(splvals[0,0], splvals[0,1], rx[0], rx[1], label="Velocity of Car")
         plt.show()
+with open(os.path.join(rootdir,"goodkeys.txt"),"w") as f:
+    f.writelines(goodkeys)
