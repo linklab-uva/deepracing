@@ -192,7 +192,7 @@ for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
 
 
     _, iclosest = racelinekdtree.query(carpose[0:3,3])
-    rlidx = np.arange(iclosest-int(round(racelinebuff/6)), iclosest+racelinebuff+1,step=1, dtype=np.int64)%raceline.shape[0]
+    rlidx = np.arange(iclosest-int(round(racelinebuff/12)), iclosest+racelinebuff+1,step=1, dtype=np.int64)%raceline.shape[0]
 
     rld = racelinedist[rlidx]
   #  print(rld)
@@ -231,8 +231,9 @@ for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
     tock = time.time()
     dt = (tock-tick)
     if debug:
+        imnpdb = imagebackend.getImage(imageprefix%i)
         fig1 = plt.subplot(1, 2, 1)
-        plt.imshow(imnpresize)
+        plt.imshow(imnpdb)
         fig2 = plt.subplot(1, 2, 2)
         plt.title("Image %d" % i)
         plt.scatter(pfit[:,0], pfit[:,1], label="Data", facecolors="none", edgecolors="blue")
