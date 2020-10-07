@@ -44,13 +44,16 @@ def sortKey(msg):
     return stampToSeconds(msg.header.stamp)
 parser = argparse.ArgumentParser("Unpack a bag file into a dataset")
 parser.add_argument('bagfile', type=str,  help='The bagfile to unpack')
+parser.add_argument('--rowstart', type=float, default=0.25, help="Crop this portion of the off the top of each image")
 parser.add_argument('--config', type=str, required=False, default=None , help="Config file specifying the rostopics to unpack, defaults to a file named \"topicconfig.yaml\" in the same directory as the bagfile")
 parser.add_argument('--raceline', type=str, required=True , help="Path to the raceline json to read")
 parser.add_argument('--lookahead_distance', type=float, default=1.5, help="Look ahead this many meters from the ego pose")
 parser.add_argument('--num_samples', type=int, default=60, help="How many points to sample along the lookahead distance")
+parser.add_argument('--k', type=int, default=5, help="Order of the least squares splines to fit to the noisy data")
 parser.add_argument('--debug', action="store_true", help="Display some debug plots")
 parser.add_argument('--mintime', type=float, default=5.0, help="Ignore this many seconds of data from the beginning of the bag file")
 parser.add_argument('--maxtime', type=float, default=7.5, help="Ignore this many seconds of leading up to the end of the bag file")
+
 args = parser.parse_args()
 argdict = vars(args)
 lookahead_distance = argdict["lookahead_distance"]
@@ -60,7 +63,9 @@ bagpath = argdict["bagfile"]
 mintime = argdict["mintime"]
 maxtime = argdict["maxtime"]
 debug = argdict["debug"]
+rowstartratio = argdict["rowstart"]
 racelinefile = argdict["raceline"]
+k = argdict["k"]
 bagdir = os.path.dirname(bagpath)
 bridge = cv_bridge.CvBridge()
 if configfile is None:
@@ -102,7 +107,6 @@ posemsgs = [o.pose.pose for o in odoms]
 positions = np.array([ [p.position.x, p.position.y, p.position.z] for p in posemsgs], dtype=np.float64)
 quaternions = np.array([ [p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w] for p in posemsgs], dtype=np.float64)
 
-k = 5
 nspline = 60
 print("Writing labels to file")
 rootdir = os.path.join(bagdir, os.path.splitext(os.path.basename(bagpath))[0])
@@ -124,6 +128,14 @@ labelbackend.openDatabase(labellmdbdir, readonly=False)
 goodkeys = []
 up = np.array([0.0,0.0,1.0], dtype=np.float64)
 trate = 1.0/15.0
+imnp0 = bridge.compressed_imgmsg_to_cv2(images[0], desired_encoding="rgb8")
+rowstart = int(round(rowstartratio*imnp0.shape[0]))
+
+dout = dict(argdict)
+dout["bagfile"] = os.path.abspath(dout["bagfile"])
+dout["raceline"] = os.path.abspath(dout["raceline"])
+with open(os.path.join(rootdir,"config.json"),"w") as f:
+    json.dump(dout, f, indent=2)
 for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
     tick = time.time()
     imagetag = TimestampedImage_pb2.TimestampedImage()
@@ -135,8 +147,7 @@ for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
     impil.save(os.path.join(imagedir, imagetag.image_file))
     rows = imnp.shape[0]
     cols = imnp.shape[1]
-    rowstart = int(round(0.55*rows))
-    imcropped = impil.crop([0,rowstart, cols-1, rows-1])
+    imcropped = impil.crop([0, rowstart, cols-1, rows-1])
     impilresize = imagebackend.writeImage(imageprefix%i, imcropped)
     imnpresize = np.array(impilresize)
 
@@ -230,7 +241,7 @@ for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
     goodkeys.append((imageprefix%i)+"\n")
     tock = time.time()
     dt = (tock-tick)
-    if debug:
+    if debug and i%10==0:
         key = goodkeys[-1].replace("\n","")
         imnpdb = imagebackend.getImage(key)
         lbldb = labelbackend.getMultiAgentLabel(key)
@@ -241,6 +252,7 @@ for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
         egopose[0:3,0:3] = Rot.from_quat(np.array([lbldb.ego_agent_pose.rotation.x, lbldb.ego_agent_pose.rotation.y, lbldb.ego_agent_pose.rotation.z, lbldb.ego_agent_pose.rotation.w], dtype=np.float64)).as_matrix()
         egotrajpb = lbldb.ego_agent_trajectory
         egotrajlocal = np.array([[p.translation.x,  p.translation.y, p.translation.z, 1.0 ]  for p in egotrajpb.poses ], dtype=np.float64 ).transpose()
+        pfitlocal = np.matmul(np.linalg.inv(egopose), np.row_stack([pfit.transpose(), np.ones_like(pfit[:,0])]))[0:3].transpose()
         egotrajglobal = np.matmul(egopose, egotrajlocal)
         racelineglobal = np.matmul(egopose, racelinelocal)
         fig1 = plt.subplot(1, 3, 1)
@@ -254,9 +266,10 @@ for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
         plt.plot(egotrajglobal[0,0], egotrajglobal[1,0], "g*", label="Position of Car")
         fig3 = plt.subplot(1, 3, 3)
         plt.title("Local Coordinates")
-        xmin = np.min(np.hstack([egotrajlocal[1], racelinelocal[1]]))
-        xmax = np.max(np.hstack([egotrajlocal[1], racelinelocal[1]]))
+        xmin = np.min(np.hstack([egotrajlocal[1], racelinelocal[1], pfitlocal[:,1]]))
+        xmax = np.max(np.hstack([egotrajlocal[1], racelinelocal[1], pfitlocal[:,1]]))
         plt.xlim(xmax,xmin)
+        plt.scatter(pfitlocal[:,1], pfitlocal[:,0], label="Data", facecolors="none", edgecolors="blue")
         plt.plot(egotrajlocal[1], egotrajlocal[0], label="Ego Agent Trajectory Label", c="r")
         plt.plot(racelinelocal[1], racelinelocal[0], label="Optimal Raceline", c="g")
         plt.plot(egotrajlocal[1,0], egotrajlocal[0,0], "g*", label="Position of Car")
