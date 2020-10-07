@@ -130,11 +130,13 @@ class SquaredLpNormLoss(nn.Module):
             return torch.sum(means)
         else:
             return means
+
 class OtherAgentDistanceLoss(nn.Module):
-    def __init__(self, beta : float = 1.0/np.pi):
+    def __init__(self, beta : float = 1.0/np.pi, max_average_distance = 100):
         super(OtherAgentDistanceLoss, self).__init__()
         self.beta=beta
-        self.minval = np.exp(-self.beta*615)
+        self.max_average_distance = max_average_distance
+        self.minval = np.exp(-self.beta*max_average_distance)
 
     def forward(self, predicted_path, other_agent_paths):
         if not (other_agent_paths.shape[2]==predicted_path.shape[1]):
