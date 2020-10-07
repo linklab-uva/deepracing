@@ -105,10 +105,10 @@ quaternions = np.array([ [p.orientation.x, p.orientation.y, p.orientation.z, p.o
 k = 5
 nspline = 60
 print("Writing labels to file")
-up = np.array([0.0,0.0,1.0], dtype=np.float64)
 rootdir = os.path.join(bagdir, os.path.splitext(os.path.basename(bagpath))[0])
 if os.path.isdir(rootdir):
-    shutil.rmtree(rootdir)
+    shutil.rmtree(rootdir, ignore_errors=True)
+    time.sleep(0.5)
 imagedir = os.path.join(rootdir,"images")
 imagelmdbdir = os.path.join(imagedir,"image_lmdb")
 labeldir = os.path.join(rootdir,"raceline_labels")
@@ -122,7 +122,10 @@ imagebackend.readDatabase(imagelmdbdir,mapsize=int(round(1.5*len(images)*66*200*
 labelbackend = deepracing.backend.MultiAgentLabelLMDBWrapper()
 labelbackend.openDatabase(labellmdbdir, readonly=False)
 goodkeys = []
+up = np.array([0.0,0.0,1.0], dtype=np.float64)
+trate = 1.0/15.0
 for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
+    tick = time.time()
     imagetag = TimestampedImage_pb2.TimestampedImage()
     imageprefix =  "image_%d"
     imagetag.image_file = (imageprefix +".jpg") % i
@@ -151,33 +154,41 @@ for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
     isamp = bisect.bisect_left(odomtimes, timage)
     tfit = odomtimes[isamp-tbuff:isamp+nspline+tbuff]
     pfit = positions[isamp-tbuff:isamp+nspline+tbuff]
-    knots = sensibleKnots(tfit, k)
-
-    # print(tfit)
-    # print(pfit)
-    spl : scipy.interpolate.LSQUnivariateSpline = scipy.interpolate.make_lsq_spline(tfit, pfit, knots, k=k)
-    splder : scipy.interpolate.LSQUnivariateSpline = spl.derivative()
+    
+    spl : scipy.interpolate.LSQUnivariateSpline = scipy.interpolate.make_lsq_spline(tfit, pfit, sensibleKnots(tfit, k), k=k)
+    splvel : scipy.interpolate.LSQUnivariateSpline = spl.derivative()
     tsamp = np.linspace(timage, timage+1.5, num = num_samples)
     splvals = spl(tsamp)
-    spldervals = splder(tsamp)
-    posimage = splvals[0]
-    velimage = spldervals[0]
-    rx = velimage/np.linalg.norm(velimage, ord=2)
-    ry = np.cross(up,rx)
-    ry = ry/np.linalg.norm(ry, ord=2)
-    rz = np.cross(rx,ry)
-    rz = rz/np.linalg.norm(rz, ord=2)
+    splvelvals = splvel(tsamp)
+    
+    cartraj = np.stack( [np.eye(4,dtype=np.float64) for asdf in range(tsamp.shape[0])], axis=0)
+    for j in range(cartraj.shape[0]):
+        posspl = splvals[j]
+        velspl = splvelvals[j]
+        rx = velspl/np.linalg.norm(velspl, ord=2)
+        ry = np.cross(up,rx)
+        ry = ry/np.linalg.norm(ry, ord=2)
+        rz = np.cross(rx,ry)
+        rz = rz/np.linalg.norm(rz, ord=2)
+        cartraj[j,0:3,3] = posspl
+        cartraj[j,0:3,0:3] = np.column_stack([rx,ry,rz])
     #print(rz)
     
-    carpose = np.eye(4,dtype=np.float64)
-    carpose[0:3,3] = posimage
-    carpose[0:3,0:3] = np.column_stack([rx,ry,rz])
-    carrotation = Rot.from_matrix(carpose[0:3,0:3])
+    carpose = cartraj[0].copy()
+    carrotation = Rot.from_matrix(carpose[0:3,0:3].copy())
     carposeinv = np.linalg.inv(carpose)
+
     labeltag.ego_agent_pose.translation.CopyFrom(proto_utils.vectorFromNumpy(carpose[0:3,3]))
     labeltag.ego_agent_pose.rotation.CopyFrom(proto_utils.quaternionFromScipy(carrotation))
     labeltag.ego_agent_pose.frame = FrameId_pb2.GLOBAL
+    labeltag.ego_agent_pose.session_time = tsamp[0]
+
+    labeltag.ego_agent_linear_velocity.vector.CopyFrom(proto_utils.vectorFromNumpy(splvelvals[0]))
+    labeltag.ego_agent_linear_velocity.session_time = tsamp[0]
+    labeltag.ego_agent_linear_velocity.frame = FrameId_pb2.GLOBAL
+
     labeltag.raceline_frame = FrameId_pb2.LOCAL
+
 
 
     _, iclosest = racelinekdtree.query(carpose[0:3,3])
@@ -199,14 +210,15 @@ for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
 
     rlsampglobal = rlspline(rldsamp)
     rlsamplocal = np.matmul(carposeinv, np.row_stack([rlsampglobal.transpose(), np.ones_like(rlsampglobal[:,0])]))[0:3].transpose()
-    splvalslocal = np.matmul(carposeinv, np.row_stack([splvals.transpose(), np.ones_like(splvals[:,0])]))[0:3].transpose()
+    cartrajlocal = np.matmul(carposeinv, cartraj)
     for j in range(num_samples):
         newvec = labeltag.local_raceline.add()
         newvec.CopyFrom(proto_utils.vectorFromNumpy(rlsamplocal[j]))
 
         newpose = labeltag.ego_agent_trajectory.poses.add()
         newpose.frame = FrameId_pb2.LOCAL
-        newpose.translation.CopyFrom(proto_utils.vectorFromNumpy(splvalslocal[j]))
+        newpose.translation.CopyFrom(proto_utils.vectorFromNumpy(cartrajlocal[j,0:3,3]))
+        newpose.rotation.CopyFrom(proto_utils.quaternionFromScipy(Rot.from_matrix(cartrajlocal[j,0:3,0:3])))
         newpose.session_time = tsamp[j]
     labeltag.ego_car_index = 0
     labeltag.track_id=26
@@ -216,7 +228,8 @@ for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
         f.write(labeltag.SerializeToString())
     labelbackend.writeMultiAgentLabel(imageprefix%i, labeltag)
     goodkeys.append((imageprefix%i)+"\n")
-
+    tock = time.time()
+    dt = (tock-tick)
     if debug:
         fig1 = plt.subplot(1, 2, 1)
         plt.imshow(imnpresize)
@@ -228,5 +241,7 @@ for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
         plt.plot(splvals[0,0], splvals[0,1], "g*", label="Position of Car")
       #  plt.arrow(splvals[0,0], splvals[0,1], rx[0], rx[1], label="Velocity of Car")
         plt.show()
+    if dt<trate:
+        time.sleep(trate - dt)
 with open(os.path.join(rootdir,"goodkeys.txt"),"w") as f:
     f.writelines(goodkeys)
