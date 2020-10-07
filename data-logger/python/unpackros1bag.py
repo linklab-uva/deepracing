@@ -192,7 +192,7 @@ for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
 
 
     _, iclosest = racelinekdtree.query(carpose[0:3,3])
-    rlidx = np.arange(iclosest-int(round(racelinebuff/12)), iclosest+racelinebuff+1,step=1, dtype=np.int64)%raceline.shape[0]
+    rlidx = np.arange(iclosest-int(round(racelinebuff/8)), iclosest+racelinebuff+1,step=1, dtype=np.int64)%raceline.shape[0]
 
     rld = racelinedist[rlidx]
   #  print(rld)
@@ -231,15 +231,32 @@ for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
     tock = time.time()
     dt = (tock-tick)
     if debug:
-        imnpdb = imagebackend.getImage(imageprefix%i)
-        fig1 = plt.subplot(1, 2, 1)
+        key = goodkeys[-1].replace("\n","")
+        imnpdb = imagebackend.getImage(key)
+        lbldb = labelbackend.getMultiAgentLabel(key)
+        lbldbrl = lbldb.local_raceline
+        racelinelocal =  np.array([[p.x,  p.y, p.z, 1.0 ]  for p in lbldbrl ], dtype=np.float64 ).transpose()
+        egopose = np.eye(4,dtype=np.float64)
+        egopose[0:3,3] = np.array([lbldb.ego_agent_pose.translation.x, lbldb.ego_agent_pose.translation.y, lbldb.ego_agent_pose.translation.z ], dtype=np.float64)
+        egopose[0:3,0:3] = Rot.from_quat(np.array([lbldb.ego_agent_pose.rotation.x, lbldb.ego_agent_pose.rotation.y, lbldb.ego_agent_pose.rotation.z, lbldb.ego_agent_pose.rotation.w], dtype=np.float64)).as_matrix()
+        egotrajpb = lbldb.ego_agent_trajectory
+        egotrajlocal = np.array([[p.translation.x,  p.translation.y, p.translation.z, 1.0 ]  for p in egotrajpb.poses ], dtype=np.float64 ).transpose()
+        egotrajglobal = np.matmul(egopose, egotrajlocal)
+        racelineglobal = np.matmul(egopose, racelinelocal)
+        fig1 = plt.subplot(1, 3, 1)
         plt.imshow(imnpdb)
-        fig2 = plt.subplot(1, 2, 2)
         plt.title("Image %d" % i)
+        fig2 = plt.subplot(1, 3, 2)
+        plt.title("Global Coordinates")
         plt.scatter(pfit[:,0], pfit[:,1], label="Data", facecolors="none", edgecolors="blue")
-        plt.plot(splvals[:,0], splvals[:,1], label="Least Squares Spline", c="r")
-        plt.plot(rlsampglobal[:,0], rlsampglobal[:,1], label="Optimal Raceline", c="g")
-        plt.plot(splvals[0,0], splvals[0,1], "g*", label="Position of Car")
+        plt.plot(egotrajglobal[0], egotrajglobal[1], label="Ego Agent Trajectory Label", c="r")
+        plt.plot(racelineglobal[0], racelineglobal[1], label="Optimal Raceline", c="g")
+        plt.plot(egotrajglobal[0,0], egotrajglobal[1,0], "g*", label="Position of Car")
+        fig3 = plt.subplot(1, 3, 3)
+        plt.title("Local Coordinates")
+        plt.plot(-egotrajlocal[1], egotrajlocal[0], label="Ego Agent Trajectory Label", c="r")
+        plt.plot(-racelinelocal[1], racelinelocal[0], label="Optimal Raceline", c="g")
+        plt.plot(-egotrajlocal[1,0], egotrajlocal[0,0], "g*", label="Position of Car")
       #  plt.arrow(splvals[0,0], splvals[0,1], rx[0], rx[1], label="Velocity of Car")
         plt.show()
     if dt<trate:
