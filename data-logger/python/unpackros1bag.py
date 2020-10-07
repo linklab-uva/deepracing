@@ -108,9 +108,9 @@ positions = np.array([ [p.position.x, p.position.y, p.position.z] for p in posem
 quaternions = np.array([ [p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w] for p in posemsgs], dtype=np.float64)
 
 nspline = 60
-print("Writing labels to file")
 rootdir = os.path.join(bagdir, os.path.splitext(os.path.basename(bagpath))[0])
 if os.path.isdir(rootdir):
+    print("Purging old data")
     shutil.rmtree(rootdir, ignore_errors=True)
     time.sleep(0.5)
 imagedir = os.path.join(rootdir,"images")
@@ -131,6 +131,7 @@ trate = 1.0/15.0
 imnp0 = bridge.compressed_imgmsg_to_cv2(images[0], desired_encoding="rgb8")
 rowstart = int(round(rowstartratio*imnp0.shape[0]))
 
+print("Writing labels to file")
 dout = dict(argdict)
 dout["bagfile"] = os.path.abspath(dout["bagfile"])
 dout["raceline"] = os.path.abspath(dout["raceline"])
@@ -170,12 +171,12 @@ for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
     splvel : scipy.interpolate.LSQUnivariateSpline = spl.derivative()
     tsamp = np.linspace(timage, timage+1.5, num = num_samples)
     splvals = spl(tsamp)
-    splvelvals = splvel(tsamp)
+    linearvelsglobal = splvel(tsamp)
     
     cartraj = np.stack( [np.eye(4,dtype=np.float64) for asdf in range(tsamp.shape[0])], axis=0)
     for j in range(cartraj.shape[0]):
         posspl = splvals[j]
-        velspl = splvelvals[j]
+        velspl = linearvelsglobal[j]
         rx = velspl/np.linalg.norm(velspl, ord=2)
         ry = np.cross(up,rx)
         ry = ry/np.linalg.norm(ry, ord=2)
@@ -183,6 +184,9 @@ for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
         rz = rz/np.linalg.norm(rz, ord=2)
         cartraj[j,0:3,3] = posspl
         cartraj[j,0:3,0:3] = np.column_stack([rx,ry,rz])
+    carrotations = Rot.from_matrix(cartraj[:,0:3,0:3])
+    carrotspline = RotSpline(tsamp,carrotations)
+    angvelsglobal = carrotspline(tsamp,1)
     #print(rz)
     
     carpose = cartraj[0].copy()
@@ -194,9 +198,13 @@ for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
     labeltag.ego_agent_pose.frame = FrameId_pb2.GLOBAL
     labeltag.ego_agent_pose.session_time = tsamp[0]
 
-    labeltag.ego_agent_linear_velocity.vector.CopyFrom(proto_utils.vectorFromNumpy(splvelvals[0]))
+    labeltag.ego_agent_linear_velocity.vector.CopyFrom(proto_utils.vectorFromNumpy(linearvelsglobal[0]))
     labeltag.ego_agent_linear_velocity.session_time = tsamp[0]
     labeltag.ego_agent_linear_velocity.frame = FrameId_pb2.GLOBAL
+
+    labeltag.ego_agent_angular_velocity.vector.CopyFrom(proto_utils.vectorFromNumpy(angvelsglobal[0]))
+    labeltag.ego_agent_angular_velocity.session_time = tsamp[0]
+    labeltag.ego_agent_angular_velocity.frame = FrameId_pb2.GLOBAL
 
     labeltag.raceline_frame = FrameId_pb2.LOCAL
 
@@ -220,6 +228,8 @@ for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
     labeltag.raceline_distances.extend(rldsamp.tolist())
 
     rlsampglobal = rlspline(rldsamp)
+    linearvelslocal = np.matmul(carposeinv[0:3,0:3], linearvelsglobal.transpose()).transpose()
+    angvelslocal = np.matmul(carposeinv[0:3,0:3], angvelsglobal.transpose()).transpose()
     rlsamplocal = np.matmul(carposeinv, np.row_stack([rlsampglobal.transpose(), np.ones_like(rlsampglobal[:,0])]))[0:3].transpose()
     cartrajlocal = np.matmul(carposeinv, cartraj)
     for j in range(num_samples):
@@ -231,6 +241,17 @@ for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
         newpose.translation.CopyFrom(proto_utils.vectorFromNumpy(cartrajlocal[j,0:3,3]))
         newpose.rotation.CopyFrom(proto_utils.quaternionFromScipy(Rot.from_matrix(cartrajlocal[j,0:3,0:3])))
         newpose.session_time = tsamp[j]
+
+        newlinearvel = labeltag.ego_agent_trajectory.linear_velocities.add()
+        newlinearvel.frame = FrameId_pb2.LOCAL
+        newlinearvel.vector.CopyFrom(proto_utils.vectorFromNumpy(linearvelslocal[j]))
+        newlinearvel.session_time = tsamp[j]
+
+        newangularvel = labeltag.ego_agent_trajectory.angular_velocities.add()
+        newangularvel.frame = FrameId_pb2.LOCAL
+        newangularvel.vector.CopyFrom(proto_utils.vectorFromNumpy(angvelslocal[j]))
+        newangularvel.session_time = tsamp[j]
+
     labeltag.ego_car_index = 0
     labeltag.track_id=26
     with open(os.path.join(labeldir, (imageprefix +".json") % i), "w") as f:
