@@ -2,4 +2,5 @@
 *~lock
 .~lock*
 ~lock*
+*.jpg
 playground.py
