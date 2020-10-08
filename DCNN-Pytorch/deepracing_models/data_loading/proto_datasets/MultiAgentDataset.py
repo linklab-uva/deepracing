@@ -41,6 +41,15 @@ from typing import List
 import torchvision.transforms as T
 import torchvision.transforms.functional as F
 from deepracing_models.data_loading.image_transforms import IdentifyTransform
+import json
+import scipy.interpolate
+from scipy.interpolate import make_lsq_spline, BSpline
+
+def sensibleKnots(t, degree):
+    numsamples = t.shape[0]
+    knots = [ t[int(numsamples/4)], t[int(numsamples/2)], t[int(3*numsamples/4)] ]
+    knots = np.r_[(t[0],)*(degree+1),  knots,  (t[-1],)*(degree+1)]
+    return knots
 
 def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
@@ -52,7 +61,8 @@ def pbPoseToTorch(posepb : Pose3d):
     pose[0:3,3] = torch.from_numpy( np.array( [ position_pb.x, position_pb.y, position_pb.z], dtype=np.float64 )  ).double()
 
 class MultiAgentDataset(Dataset):
-    def __init__(self, image_db_wrapper : ImageLMDBWrapper, label_db_wrapper : MultiAgentLabelLMDBWrapper, keyfile : str, context_length : int, image_size : np.ndarray, position_indices : np.ndarray, extra_transforms : list = []):
+    def __init__(self, image_db_wrapper : ImageLMDBWrapper, label_db_wrapper : MultiAgentLabelLMDBWrapper, keyfile : str, context_length : int, image_size : np.ndarray, position_indices : np.ndarray,\
+        raceline_json_file : str, raceline_lookahead: float, extra_transforms : list = []):
         super(MultiAgentDataset, self).__init__()
         self.image_db_wrapper : ImageLMDBWrapper = image_db_wrapper
         self.label_db_wrapper : MultiAgentLabelLMDBWrapper = label_db_wrapper
@@ -66,7 +76,12 @@ class MultiAgentDataset(Dataset):
         self.length = self.num_images - 2 - context_length
         self.position_indices = position_indices
         self.transforms = [IdentifyTransform()] + extra_transforms
-
+        with open(raceline_json_file,"r") as f:
+            rldict = json.load(f)
+        self.raceline_global = np.row_stack([np.array(rldict["x"],dtype=np.float64), np.array(rldict["y"],dtype=np.float64), np.array(rldict["z"],dtype=np.float64),  np.ones_like(np.array(rldict["z"],dtype=np.float64))])
+        racelinediffs = np.linalg.norm(self.raceline_global[0:3,1:] -  self.raceline_global[0:3,:-1], ord=2, axis=0)
+        self.raceline_buffer = int(round(raceline_lookahead/np.mean(racelinediffs)))
+        self.raceline_lookahead = raceline_lookahead
     def __len__(self):
         return self.length*len(self.transforms)
     def __getitem__(self, input_index):
@@ -80,18 +95,36 @@ class MultiAgentDataset(Dataset):
         assert(keys[-1]==label_key)
 
         label = self.label_db_wrapper.getMultiAgentLabel(keys[-1])
+        rtn_session_times = np.array([p.session_time for p in label.ego_agent_trajectory.poses], dtype=np.float64)
+        egopose = np.eye(4,dtype=np.float64)
+        egopose[0:3,3] = np.array([label.ego_agent_pose.translation.x, label.ego_agent_pose.translation.y, label.ego_agent_pose.translation.z], dtype=np.float64)
+        egopose[0:3,0:3] = Rot.from_quat(np.array([label.ego_agent_pose.rotation.x, label.ego_agent_pose.rotation.y, label.ego_agent_pose.rotation.z, label.ego_agent_pose.rotation.w], dtype=np.float64)).as_matrix()
+        egoposeinv = np.linalg.inv(egopose)
 
-        raceline = np.array([[vectorpb.x, vectorpb.y, vectorpb.z]  for vectorpb in label.local_raceline], dtype=np.float64)
-        racelinedists = np.array(label.raceline_distances, dtype=np.float64)
+        raceline_local = np.matmul(egoposeinv, self.raceline_global)[0:3].transpose()
+      #  print("raceline_local.shape: %s " % (str(raceline_local.shape),))
+        raceline_distances = np.linalg.norm(raceline_local,ord=2,axis=1)
+       # print("raceline_distances.shape: %s " % (str(raceline_distances.shape),))
+        closestidx = np.argmin(raceline_distances)
+        idxsamp = np.arange(closestidx-int(round(self.raceline_buffer/3)), closestidx+self.raceline_buffer+1,step=1, dtype=np.int64)%raceline_local.shape[0]
+     #   print("idxsamp.shape: %s " % (str(idxsamp.shape),))
+        raceline_close = raceline_local[idxsamp]
+    #    print("raceline_close.shape: %s " % (str(raceline_close.shape),))
+        raceline_close = raceline_close[raceline_close[:,self.position_indices[0]]>=0.0]
+        raceline_close_dists = np.hstack([np.zeros(1, dtype=np.float64), np.cumsum(np.linalg.norm(raceline_close[1:] - raceline_close[:-1], ord=2, axis=1))])
+        k=3
+        spl : BSpline = make_lsq_spline(raceline_close_dists, raceline_close, sensibleKnots(raceline_close_dists, k), k=k)
+        dsamp = np.linspace(0, raceline_close_dists[-1], num = rtn_session_times.shape[0])
+        raceline_label = spl(dsamp)
+
                 
         transform = self.transforms[int(input_index/self.num_images)]
         images_pil = [ transform( F.resize( PILImage.fromarray( self.image_db_wrapper.getImage(key) ), self.image_size, interpolation=PIL.Image.LANCZOS) ) for key in keys ]
         images_torch = torch.stack( [ self.totensor(img.copy()) for img in images_pil ] )
 
-        rtn_agent_positions = 500*np.ones([19,raceline.shape[0],raceline.shape[1]], dtype=np.float64)
+        rtn_agent_positions = 500*np.ones([19,raceline_label.shape[0],raceline_label.shape[1]], dtype=np.float64)
         other_agent_positions = MultiAgentLabelLMDBWrapper.positionsFromLabel(label)
         rtn_agent_positions[0:other_agent_positions.shape[0]] = other_agent_positions
 
-        rtn_session_times = np.array([p.session_time for p in label.ego_agent_trajectory.poses], dtype=np.float64)
 
-        return images_torch, raceline[:,self.position_indices], racelinedists, rtn_agent_positions[:,:,self.position_indices], rtn_session_times, packetrange[-1]
+        return images_torch, raceline_label[:,self.position_indices], dsamp, rtn_agent_positions[:,:,self.position_indices], rtn_session_times, packetrange[-1]

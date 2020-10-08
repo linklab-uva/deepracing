@@ -240,12 +240,14 @@ def go():
     alltags = set(dataset_config.get("tags",[]))
     dset_output_lengths=[]
     for dataset in dataset_config["datasets"]:
-        print("Parsing database config: %s" %(str(dataset)))
-        key_file = dataset["key_file"]
-        root_folder = dataset["root_folder"]
-        position_indices = dataset.get("position_indices", [0,1,2])
-        label_subfolder = dataset.get("label_subfolder", "multi_agent_labels")
-        dataset_tags = dataset.get("tags", [])
+        dlocal : dict = {k: dataset_config[k] for k in set(list(dataset_config.keys())) - set(["datasets"])}
+        dlocal.update(dataset)
+        print("Parsing database config: %s" %(str(dlocal)))
+        key_file = dlocal["key_file"]
+        root_folder = dlocal["root_folder"]
+        position_indices = dlocal.get("position_indices", [0,1,2])
+        label_subfolder = dlocal.get("label_subfolder", "multi_agent_labels")
+        dataset_tags = dlocal.get("tags", [])
         alltags = alltags.union(set(dataset_tags))
 
         dsetfolders.append(root_folder)
@@ -255,21 +257,24 @@ def go():
         label_wrapper = deepracing.backend.MultiAgentLabelLMDBWrapper()
         label_wrapper.openDatabase(os.path.join(label_folder,"lmdb") )
 
+
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
         image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
         image_wrapper.readDatabase( os.path.join(image_folder,"image_lmdb"), mapsize=image_mapsize )
 
         extra_transforms = []
-        brighten = dataset.get("brighten", None) 
+        brighten = dlocal.get("brighten", None) 
         if brighten is not None:
             extra_transforms.append(T.ColorJitter(brightness=[brighten, brighten]))
-        darken = dataset.get("darken", None)   
+        darken = dlocal.get("darken", None)   
         if darken is not None:
             extra_transforms.append(T.ColorJitter(brightness=[darken, darken]))
-        blur = dataset.get("blur", None)   
+        blur = dlocal.get("blur", None)   
         if blur is not None:
             extra_transforms.append(GaussianBlur(blur))
-        curent_dset = PD.MultiAgentDataset(image_wrapper, label_wrapper, key_file, context_length, image_size, position_indices, extra_transforms=extra_transforms )
+        raceline_file = os.path.join(root_folder,"racingline.json")
+        raceline_lookahead = dlocal["raceline_lookahead"]
+        curent_dset = PD.MultiAgentDataset(image_wrapper, label_wrapper, key_file, context_length, image_size, position_indices, raceline_file, raceline_lookahead, extra_transforms=extra_transforms )
         dsets.append(curent_dset)
         
         print("\n")

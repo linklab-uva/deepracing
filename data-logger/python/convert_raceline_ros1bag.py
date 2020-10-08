@@ -21,7 +21,6 @@ import shutil
 import os
 import time
 import deepracing, deepracing.backend, deepracing.protobuf_utils as proto_utils
-import deepracing_models, deepracing_models.math_utils as math_utils
 import google.protobuf.json_format
 import bisect
 import PIL
@@ -74,7 +73,7 @@ up = np.row_stack( [np.array([0.0,0.0,1.0], dtype=np.float64) for asdf in range(
 inward = np.cross(up,chosenpathtangents)
 inward = inward/np.linalg.norm(inward,ord=2,axis=1)[:,np.newaxis]
 
-chosenpatheval = chosenpatheval - 0.05*inward
+chosenpatheval = chosenpatheval - 0.125*inward
 dsamp = np.hstack([np.zeros(1), np.cumsum(np.linalg.norm(chosenpatheval[1:]-chosenpatheval[0:-1], ord=2, axis=1))])
 print(dsamp)
 

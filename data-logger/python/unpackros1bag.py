@@ -118,6 +118,7 @@ os.makedirs(imagedir)
 os.makedirs(labeldir)
 os.makedirs(imagelmdbdir)
 os.makedirs(labellmdbdir)
+shutil.copy(racelinefile, os.path.join(rootdir,"racingline.json"))
 imagebackend = deepracing.backend.ImageLMDBWrapper()
 imagebackend.readDatabase(imagelmdbdir,mapsize=int(round(1.5*len(images)*66*200*3)), readonly=False)
 labelbackend = deepracing.backend.MultiAgentLabelLMDBWrapper()
@@ -204,7 +205,6 @@ try:
         labeltag.ego_agent_angular_velocity.session_time = tsamp[0]
         labeltag.ego_agent_angular_velocity.frame = FrameId_pb2.GLOBAL
 
-        labeltag.raceline_frame = FrameId_pb2.LOCAL
 
 
 
@@ -225,8 +225,6 @@ try:
         
         rlspline = scipy.interpolate.make_lsq_spline(rld, rlglobal, sensibleKnots(rld,k), k=k)
         rldsamp = np.linspace(rld[0], rld[-1], num=num_samples)
-        labeltag.ClearField("raceline_distances")
-        labeltag.raceline_distances.extend(rldsamp.tolist())
 
         rlsampglobal = rlspline(rldsamp)
         linearvelslocal = np.matmul(carposeinv[0:3,0:3], linearvelsglobal.transpose()).transpose()
@@ -234,8 +232,6 @@ try:
         rlsamplocal = np.matmul(carposeinv, np.row_stack([rlsampglobal.transpose(), np.ones_like(rlsampglobal[:,0])]))[0:3].transpose()
         cartrajlocal = np.matmul(carposeinv, cartraj)
         for j in range(num_samples):
-            newvec = labeltag.local_raceline.add()
-            newvec.CopyFrom(proto_utils.vectorFromNumpy(rlsamplocal[j]))
 
             newpose = labeltag.ego_agent_trajectory.poses.add()
             newpose.frame = FrameId_pb2.LOCAL
@@ -265,10 +261,10 @@ try:
         dt = (tock-tick)
         if debug and i%10==0:
             key = goodkeys[-1].replace("\n","")
-            imnpdb = imagebackend.getImage(key)
+           # imnpdb = imagebackend.getImage(key)
+            imnpdb = imnp
             lbldb = labelbackend.getMultiAgentLabel(key)
-            lbldbrl = lbldb.local_raceline
-            racelinelocal =  np.array([[p.x,  p.y, p.z, 1.0 ]  for p in lbldbrl ], dtype=np.float64 ).transpose()
+            racelinelocal =  np.row_stack([rlsamplocal.transpose(), np.ones_like(rlsamplocal[:,0])])
             egopose = np.eye(4,dtype=np.float64)
             egopose[0:3,3] = np.array([lbldb.ego_agent_pose.translation.x, lbldb.ego_agent_pose.translation.y, lbldb.ego_agent_pose.translation.z ], dtype=np.float64)
             egopose[0:3,0:3] = Rot.from_quat(np.array([lbldb.ego_agent_pose.rotation.x, lbldb.ego_agent_pose.rotation.y, lbldb.ego_agent_pose.rotation.z, lbldb.ego_agent_pose.rotation.w], dtype=np.float64)).as_matrix()
@@ -282,19 +278,21 @@ try:
             plt.title("Image %d" % i)
             fig2 = plt.subplot(1, 3, 2)
             plt.title("Global Coordinates")
-            plt.scatter(pfit[:,0], pfit[:,1], label="Data", facecolors="none", edgecolors="blue")
+            plt.scatter(pfit[:,0], pfit[:,1], label="PF Estimates", facecolors="none", edgecolors="blue")
             plt.plot(egotrajglobal[0], egotrajglobal[1], label="Ego Agent Trajectory Label", c="r")
             plt.plot(racelineglobal[0], racelineglobal[1], label="Optimal Raceline", c="g")
             plt.plot(egotrajglobal[0,0], egotrajglobal[1,0], "g*", label="Position of Car")
             fig3 = plt.subplot(1, 3, 3)
             plt.title("Local Coordinates")
-            plt.scatter(pfitlocal[:,1], pfitlocal[:,0], label="Data", facecolors="none", edgecolors="blue")
+            plt.scatter(pfitlocal[:,1], pfitlocal[:,0], label="PF Estimates", facecolors="none", edgecolors="blue")
             plt.plot(egotrajlocal[1], egotrajlocal[0], label="Ego Agent Trajectory Label", c="r")
             plt.plot(racelinelocal[1], racelinelocal[0], label="Optimal Raceline", c="g")
             plt.plot(egotrajlocal[1,0], egotrajlocal[0,0], "g*", label="Position of Car")
+            plt.plot([0.0, 0.0], [0.0, lookahead_distance], label="Forward", c="black")
             xmin = np.min(np.hstack([egotrajlocal[1], racelinelocal[1]])) - 0.05
             xmax = np.max(np.hstack([egotrajlocal[1], racelinelocal[1]])) + 0.05
             plt.xlim(xmax,xmin)
+            plt.legend()
         #  plt.arrow(splvals[0,0], splvals[0,1], rx[0], rx[1], label="Velocity of Car")
             plt.show()
         if dt<trate:

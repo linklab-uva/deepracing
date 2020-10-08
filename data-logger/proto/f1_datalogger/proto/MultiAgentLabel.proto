@@ -15,8 +15,5 @@ message MultiAgentLabel {
 	repeated deepf1.protobuf.Trajectory other_agent_trajectories = 6;	
 	repeated uint32 trajectory_car_indices = 7;		
     uint32 ego_car_index = 8;	
-    uint32 track_id = 9;		
-    repeated deepf1.protobuf.eigen.Vector3d local_raceline = 10;	
-    repeated double raceline_distances = 11;	
-	deepf1.protobuf.eigen.FrameId raceline_frame = 12;			
+    uint32 track_id = 9;				
 }
