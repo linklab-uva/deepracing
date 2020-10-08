@@ -32,13 +32,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument("racelinebag", help="Path to trackfile to convert",  type=str)
 parser.add_argument("num_samples", type=int, help="Number of values to sample from the spline. Default (0) means no sampling and just copy the data as is")
 parser.add_argument("--topic", default="overtake", type=str, help="which topic to get raceline from")
-parser.add_argument("--k", default=31, type=int, help="Order of bezier curve to use for the fit")
+parser.add_argument("--k", default=1, type=int, help="Order of bezier curve to use for the fit")
 #parser.add_argument("--negate_normals", action="store_true", help="Flip the sign all all of the computed normal vectors")
 args = parser.parse_args()
 argdict = vars(args)
 racelinebag = argdict["racelinebag"]
 num_samples = argdict["num_samples"]
-bezierorder = argdict["k"]
+k = argdict["k"]
 
 
 bagdir = os.path.dirname(racelinebag)
@@ -47,44 +47,47 @@ typeandtopicinfo = bag.get_type_and_topic_info()
 topics = typeandtopicinfo.topics
 msgdict = {topic: [] for topic in topics.keys()}
 print(topics)
+rltopic = "/trajectory/raceline"
+ottopic = "/trajectory/overtake"
 subtopic = argdict["topic"]
-rltopic = "/trajectory/%s" % subtopic
+chosentopic = "/trajectory/%s" % subtopic
 print(rltopic)
 for topic, msg, t in tqdm(iterable=bag.read_messages(topics=None), desc="Loading messages from bag file", total=bag.get_message_count()):
     msgdict[topic].append(msg)
 raceline : Path = msgdict[rltopic][0]
-rlnp = np.array([  [p.pose.position.x, p.pose.position.y, p.pose.position.z ] for p in raceline.poses ], dtype=np.float64)
-rlnp = rlnp[0:-1]
-rldiffs = rlnp[1:] - rlnp[0:-1]
-rldiffnorms = np.linalg.norm(rldiffs, ord=2, axis=1)
-rl = torch.from_numpy(rlnp.copy())
-rldistances = torch.from_numpy((np.concatenate([np.zeros(1,dtype=np.float64), np.cumsum(rldiffnorms)])).copy())
-# print(rl.shape)
-# print(rldistances)
-dmax = rldistances[-1]
-s = rldistances/dmax
-# print(s)
+overtake : Path = msgdict[ottopic][0]
+chosenpath : Path = msgdict[chosentopic][0]
 
+rlnp = np.array([  [p.pose.position.x, p.pose.position.y, p.pose.position.z ] for p in raceline.poses ], dtype=np.float64)[:-1]
+otnp = np.array([  [p.pose.position.x, p.pose.position.y, p.pose.position.z ] for p in overtake.poses ], dtype=np.float64)[:-1]
 
+chosenpathnp = np.array([  [p.pose.position.x, p.pose.position.y, p.pose.position.z ] for p in chosenpath.poses ], dtype=np.float64)[:-1]
+chosenpathdists = np.hstack([np.zeros(1), np.cumsum(np.linalg.norm(chosenpathnp[1:]-chosenpathnp[0:-1], ord=2, axis=1))])
+print(chosenpathdists)
 
+spl : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(chosenpathdists, chosenpathnp, k=k)
+tanspl : scipy.interpolate.BSpline = spl.derivative()
+dsamp = np.linspace(chosenpathdists[0], chosenpathdists[-1], num=num_samples)
+chosenpatheval = spl(dsamp)
+chosenpathtangents = tanspl(dsamp)
+up = np.row_stack( [np.array([0.0,0.0,1.0], dtype=np.float64) for asdf in range(dsamp.shape[0])] )
+inward = np.cross(up,chosenpathtangents)
+inward = inward/np.linalg.norm(inward,ord=2,axis=1)[:,np.newaxis]
 
-Mlstsq, bc = math_utils.bezierLsqfit(rl.unsqueeze(0), bezierorder, t=s.unsqueeze(0))
-
-ssamp = torch.linspace(0.0,1.0,steps=num_samples, dtype=torch.float64).unsqueeze(0)
-dsamp = dmax*ssamp
-Meval = math_utils.bezierM(ssamp, bezierorder)
-
-rleval = torch.matmul(Meval, bc)[0]
+chosenpatheval = chosenpatheval + 0.1*inward
+dsamp = np.hstack([np.zeros(1), np.cumsum(np.linalg.norm(chosenpatheval[1:]-chosenpatheval[0:-1], ord=2, axis=1))])
+print(dsamp)
 
 
 fig = plt.figure()
-plt.scatter(rl[:,0].numpy(), rl[:,1].numpy(), edgecolor="b", facecolor="none", label="Raceline on subtopic %s" % subtopic)
-plt.plot(rleval[0,0].numpy(), rleval[0,1].numpy(), "g*", label="Initial Point")
-plt.plot(rleval[:,0].numpy(), rleval[:,1].numpy(), label="best fit bc", c="g")
+plt.scatter(rlnp[:,0], rlnp[:,1], edgecolor="b", facecolor="none", label="Raceline Path on subtopic %s" % subtopic)
+plt.scatter(otnp[:,0], otnp[:,1], edgecolor="b", facecolor="none", label="Overtake Path on subtopic %s" % subtopic)
+plt.plot(chosenpatheval[:,0], chosenpatheval[:,1], label="best fit bc", c="g")
+plt.plot(chosenpatheval[0,0], chosenpatheval[0,1], "g*", label="Initial Point")
 plt.show()
 
 
-rldict = {"x": rleval[:,0].numpy().tolist(), "y": rleval[:,1].numpy().tolist(), "z": rleval[:,2].numpy().tolist(), "dist": dsamp[0].numpy().tolist(), "bezier_order" : bezierorder} 
+rldict = {"x": chosenpatheval[:,0].tolist(), "y": chosenpatheval[:,1].tolist(), "z": chosenpatheval[:,2].tolist(), "dist": dsamp.tolist(), "splk" : k} 
 
 with open(os.path.join(bagdir, "%s.json" % subtopic),"w") as f:
     json.dump(rldict, f, indent=2)
