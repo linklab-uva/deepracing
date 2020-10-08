@@ -74,7 +74,7 @@ up = np.row_stack( [np.array([0.0,0.0,1.0], dtype=np.float64) for asdf in range(
 inward = np.cross(up,chosenpathtangents)
 inward = inward/np.linalg.norm(inward,ord=2,axis=1)[:,np.newaxis]
 
-chosenpatheval = chosenpatheval + 0.1*inward
+chosenpatheval = chosenpatheval - 0.05*inward
 dsamp = np.hstack([np.zeros(1), np.cumsum(np.linalg.norm(chosenpatheval[1:]-chosenpatheval[0:-1], ord=2, axis=1))])
 print(dsamp)
 
