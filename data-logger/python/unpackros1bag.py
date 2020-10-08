@@ -88,7 +88,7 @@ for topic, msg, t in tqdm(iterable=bag.read_messages(topics=None), desc="Loading
     msgdict[topic].append(msg)
 
 odoms = sorted(msgdict[topicdict["odom"]], key=sortKey)
-print(len(odoms))
+
 images = sorted(msgdict[topicdict["images"]], key=sortKey)
 imagetimes = np.array([stampToSeconds(i.header.stamp) for i in images], dtype=np.float64)
 odomtimes = np.array([stampToSeconds(o.header.stamp) for o in odoms], dtype=np.float64)
@@ -100,8 +100,6 @@ meanrldist = np.mean(racelinedist[1:] - racelinedist[:-1])
 racelinebuff = int(np.round(lookahead_distance/meanrldist))
 print("racelinebuff: %d" % (racelinebuff,))
 
-print(imagetimes)
-print(odomtimes)
 posemsgs = [o.pose.pose for o in odoms]
 positions = np.array([ [p.position.x, p.position.y, p.position.z] for p in posemsgs], dtype=np.float64)
 quaternions = np.array([ [p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w] for p in posemsgs], dtype=np.float64)
@@ -290,13 +288,13 @@ try:
             plt.plot(egotrajglobal[0,0], egotrajglobal[1,0], "g*", label="Position of Car")
             fig3 = plt.subplot(1, 3, 3)
             plt.title("Local Coordinates")
-            xmin = np.min(np.hstack([egotrajlocal[1], racelinelocal[1], pfitlocal[:,1]])) - 0.25
-            xmax = np.max(np.hstack([egotrajlocal[1], racelinelocal[1], pfitlocal[:,1]])) + 0.25
-            plt.xlim(xmax,xmin)
             plt.scatter(pfitlocal[:,1], pfitlocal[:,0], label="Data", facecolors="none", edgecolors="blue")
             plt.plot(egotrajlocal[1], egotrajlocal[0], label="Ego Agent Trajectory Label", c="r")
             plt.plot(racelinelocal[1], racelinelocal[0], label="Optimal Raceline", c="g")
             plt.plot(egotrajlocal[1,0], egotrajlocal[0,0], "g*", label="Position of Car")
+            xmin = np.min(np.hstack([egotrajlocal[1], racelinelocal[1]])) - 0.05
+            xmax = np.max(np.hstack([egotrajlocal[1], racelinelocal[1]])) + 0.05
+            plt.xlim(xmax,xmin)
         #  plt.arrow(splvals[0,0], splvals[0,1], rx[0], rx[1], label="Velocity of Car")
             plt.show()
         if dt<trate:
