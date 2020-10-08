@@ -24,4 +24,4 @@ loss_reduction: "mean"
 debug: False
 
 #comet stuff
-project_name: "deepracingbezierpredictor"
+project_name: "deepracingf1tenth"
