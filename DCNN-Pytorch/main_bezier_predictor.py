@@ -240,13 +240,13 @@ def go():
     alltags = set(dataset_config.get("tags",[]))
     dset_output_lengths=[]
     for dataset in dataset_config["datasets"]:
-        dlocal : dict = {k: dataset_config[k] for k in set(list(dataset_config.keys())) - set(["datasets"])}
+        dlocal : dict = {k: dataset_config[k] for k in dataset_config.keys()  if (not (k in ["datasets"]))}
         dlocal.update(dataset)
         print("Parsing database config: %s" %(str(dlocal)))
         key_file = dlocal["key_file"]
         root_folder = dlocal["root_folder"]
-        position_indices = dlocal.get("position_indices", [0,1,2])
-        label_subfolder = dlocal.get("label_subfolder", "multi_agent_labels")
+        position_indices = dlocal["position_indices"]
+        label_subfolder = dlocal["label_subfolder"]
         dataset_tags = dlocal.get("tags", [])
         alltags = alltags.union(set(dataset_tags))
 
@@ -263,12 +263,10 @@ def go():
         image_wrapper.readDatabase( os.path.join(image_folder,"image_lmdb"), mapsize=image_mapsize )
 
         extra_transforms = []
-        brighten = dlocal.get("brighten", None) 
-        if brighten is not None:
-            extra_transforms.append(T.ColorJitter(brightness=[brighten, brighten]))
-        darken = dlocal.get("darken", None)   
-        if darken is not None:
-            extra_transforms.append(T.ColorJitter(brightness=[darken, darken]))
+        color_jitters = dlocal.get("color_jitters", None) 
+        if color_jitters is not None:
+            extra_transforms+=[T.ColorJitter(brightness=[cj, cj]) for cj in color_jitters]
+            
         blur = dlocal.get("blur", None)   
         if blur is not None:
             extra_transforms.append(GaussianBlur(blur))
