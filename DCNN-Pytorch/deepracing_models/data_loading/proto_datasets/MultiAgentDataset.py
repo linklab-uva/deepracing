@@ -92,8 +92,6 @@ class MultiAgentDataset(Dataset):
         other_agent_positions = MultiAgentLabelLMDBWrapper.positionsFromLabel(label)
         rtn_agent_positions[0:other_agent_positions.shape[0]] = other_agent_positions
 
-        rtn_session_times = np.zeros([19,raceline.shape[0]], dtype=np.float64)
-        other_agent_times = MultiAgentLabelLMDBWrapper.sessionTimesFromlabel(label)
-        rtn_session_times[0:other_agent_times.shape[0]] = other_agent_times
+        rtn_session_times = np.array([p.session_time for p in label.ego_agent_trajectory.poses], dtype=np.float64)
 
         return images_torch, raceline[:,self.position_indices], racelinedists, rtn_agent_positions[:,:,self.position_indices], rtn_session_times, packetrange[-1]
