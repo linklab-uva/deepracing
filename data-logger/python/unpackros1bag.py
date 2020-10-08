@@ -77,7 +77,6 @@ with open(racelinefile,'r') as f:
 raceline = np.column_stack([np.array(racelinedict["x"], dtype=np.float64).copy(), np.array(racelinedict["y"], dtype=np.float64).copy(), np.array(racelinedict["z"], dtype=np.float64).copy()])
 racelinedist = np.array(racelinedict["dist"], dtype=np.float64).copy()
 print("racelinedist.shape: %s" % (str(racelinedist.shape),))
-bezier_order = racelinedict["bezier_order"]
 racelinekdtree = KDTree(raceline.copy())
 bag = rosbag.Bag(bagpath)
 msg_types, typedict = bag.get_type_and_topic_info()
