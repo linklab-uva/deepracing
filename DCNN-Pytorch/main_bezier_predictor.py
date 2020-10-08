@@ -31,6 +31,9 @@ import socket
 import json
 from comet_ml.api import API, APIExperiment
 import cv2
+import torchvision, torchvision.transforms as T
+from deepracing_models.data_loading.image_transforms import GaussianBlur
+
 #torch.backends.cudnn.enabled = False
 def run_epoch(experiment, network, optimizer, dataloader, raceline_loss, other_agent_loss, config, use_tqdm = False, debug=False):
     cum_loss = 0.0
@@ -91,7 +94,7 @@ def run_epoch(experiment, network, optimizer, dataloader, raceline_loss, other_a
 
         current_position_loss = loss_weights["position"]*raceline_loss(pred_points, racelines)
         
-        if debug and False:
+        if debug:
             fig, (ax1, ax2) = plt.subplots(1, 2, sharey=False)
             images_np = np.round(255.0*input_images[0].detach().cpu().numpy().copy().transpose(0,2,3,1)).astype(np.uint8)
             #image_np_transpose=skimage.util.img_as_ubyte(images_np[-1].transpose(1,2,0))
@@ -110,13 +113,17 @@ def run_epoch(experiment, network, optimizer, dataloader, raceline_loss, other_a
             fit_points_np = fit_points[0].cpu().numpy().copy()
             fit_control_points_np = controlpoints_fit[0].cpu().numpy().copy()
             
-
-            ax2.set_xlim(30,-30)
-            ax2.plot(gt_points_np[:,0],gt_points_np[:,1],'g+', label="Ground Truth Waypoints")
-            ax2.plot(fit_points_np[:,0],fit_points_np[:,1],'b-', label="Best-fit Bézier Curve")
-            ax2.scatter(fit_control_points_np[1:,0],fit_control_points_np[1:,1],c="b", label="Bézier Curve's Control Points")
-            ax2.plot(pred_points_np[:,0],pred_points_np[:,1],'r-', label="Predicted Bézier Curve")
-            ax2.scatter(pred_control_points_np[:,0],pred_control_points_np[:,1], c='r', label="Predicted Bézier Curve's Control Points")
+            ymin = np.min(np.hstack([gt_points_np[:,1], fit_points_np[:,1], pred_points_np[:,1] ]))-0.05
+            ymax = np.max(np.hstack([gt_points_np[:,1], fit_points_np[:,1], pred_points_np[:,1] ]))+0.05
+            xmin = np.min(np.hstack([gt_points_np[:,0], fit_points_np[:,0] ])) - 0.05
+            xmax = np.max(np.hstack([gt_points_np[:,0], fit_points_np[:,0] ]))
+            ax2.set_xlim(ymax,ymin)
+            ax2.set_ylim(xmin,xmax)
+            ax2.plot(gt_points_np[:,1],gt_points_np[:,0],'g+', label="Ground Truth Waypoints")
+            ax2.plot(fit_points_np[:,1],fit_points_np[:,0],'b-', label="Best-fit Bézier Curve")
+            #ax2.scatter(fit_control_points_np[1:,0],fit_control_points_np[1:,1],c="b", label="Bézier Curve's Control Points")
+       #     ax2.plot(pred_points_np[:,1],pred_points_np[:,0],'r-', label="Predicted Bézier Curve")
+          #  ax2.scatter(pred_control_points_np[:,1],pred_control_points_np[:,0], c='r', label="Predicted Bézier Curve's Control Points")
            
             plt.show()
 
@@ -251,8 +258,18 @@ def go():
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
         image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
         image_wrapper.readDatabase( os.path.join(image_folder,"image_lmdb"), mapsize=image_mapsize )
-       
-        curent_dset = PD.MultiAgentDataset(image_wrapper, label_wrapper, key_file, context_length, image_size, position_indices )
+
+        extra_transforms = []
+        brighten = dataset.get("brighten", None) 
+        if brighten is not None:
+            extra_transforms.append(T.ColorJitter(brightness=[brighten, brighten]))
+        darken = dataset.get("darken", None)   
+        if darken is not None:
+            extra_transforms.append(T.ColorJitter(brightness=[darken, darken]))
+        blur = dataset.get("blur", None)   
+        if blur is not None:
+            extra_transforms.append(GaussianBlur(blur))
+        curent_dset = PD.MultiAgentDataset(image_wrapper, label_wrapper, key_file, context_length, image_size, position_indices, extra_transforms=extra_transforms )
         dsets.append(curent_dset)
         
         print("\n")
