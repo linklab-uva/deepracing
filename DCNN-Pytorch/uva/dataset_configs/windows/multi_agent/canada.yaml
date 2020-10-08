@@ -1,6 +1,0 @@
-#datasets definition
-image_size: [66, 200]
-datasets:
-  -
-    root_folder: D:/f1_training_data/canada_grand_prix_run1
-    key_file: multi_agent_label_keys.txt

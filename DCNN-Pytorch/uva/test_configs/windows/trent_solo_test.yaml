@@ -1,6 +1,0 @@
-#datasets definition
-image_size: [66, 200]
-datasets:
-  -
-    dataset_root: "D:/f1_training_data/trent_test_australia"
-    key_file: controloutputkeys.txt

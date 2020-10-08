@@ -1,5 +1,0 @@
-pilotnet_control:
-    ros__parameters:
-        model_file : 'D:/f1_model_files/cometpulls/pilotnet/f1e3f7b44b17496096893c906564a06f_from_comet/pilotnet_epoch_100_params.pt'
-        use_compressed_images: True
-        gpu: 0

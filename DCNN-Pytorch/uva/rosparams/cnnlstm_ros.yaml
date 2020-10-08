@@ -1,6 +1,0 @@
-cnnlstm_control:
-    ros__parameters:
-        #model_file : 'D:/f1_model_files/cometpulls/cnnlstm/523e52d35dc940ee981d87686ad3fc33_from_comet/pilotnet_epoch_100_params.pt'
-        model_file : 'D:/f1_model_files/cometpulls/cnnlstm/523e52d35dc940ee981d87686ad3fc33_from_comet/pilotnet_epoch_20_params.pt'
-        use_compressed_images: True
-        gpu: 0

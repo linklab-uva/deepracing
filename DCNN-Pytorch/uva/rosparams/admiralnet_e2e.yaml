@@ -1,8 +1,0 @@
-admiralnet_e2e_control:
-    ros__parameters:
-        #model_file : 'D:/f1_model_files/cometpulls/cnnlstm/523e52d35dc940ee981d87686ad3fc33_from_comet/pilotnet_epoch_100_params.pt'
-        model_file : 'D:/f1_model_files/cometpulls/ame2e/358925b6a2b3460c8c292435df5a7e54_from_comet/admiralnet_epoch_60_params.pt'
-        model_file : 'D:/f1_model_files/cometpulls/ame2e/358925b6a2b3460c8c292435df5a7e54_from_comet/admiralnet_epoch_55_params.pt'
-        model_file : 'D:/f1_model_files/cometpulls/ame2e/358925b6a2b3460c8c292435df5a7e54_from_comet/admiralnet_epoch_48_params.pt'
-        use_compressed_images: True
-        gpu: 0

@@ -1,7 +1,0 @@
-#datasets definition
-image_size: [66, 200]
-position_indices: [0, 1]
-datasets:
-  -
-    root_folder: /p/DeepRacing/rosbags/deepracing_train_1
-    key_file: goodkeys.txt
