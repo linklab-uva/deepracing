@@ -36,8 +36,12 @@ import cv2
 import random
 from scipy.spatial.transform import Rotation as Rot
 from scipy.spatial.transform import RotationSpline as RotSpline
-from .image_transforms import IdentifyTransform
 from Pose3d_pb2 import Pose3d
+from typing import List
+import torchvision.transforms as T
+import torchvision.transforms.functional as F
+from deepracing_models.data_loading.image_transforms import IdentifyTransform
+
 def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
 def pbPoseToTorch(posepb : Pose3d):
@@ -48,7 +52,7 @@ def pbPoseToTorch(posepb : Pose3d):
     pose[0:3,3] = torch.from_numpy( np.array( [ position_pb.x, position_pb.y, position_pb.z], dtype=np.float64 )  ).double()
 
 class MultiAgentDataset(Dataset):
-    def __init__(self, image_db_wrapper : ImageLMDBWrapper, label_db_wrapper : MultiAgentLabelLMDBWrapper, keyfile : str, context_length : int, image_size : np.ndarray, position_indices : np.ndarray):
+    def __init__(self, image_db_wrapper : ImageLMDBWrapper, label_db_wrapper : MultiAgentLabelLMDBWrapper, keyfile : str, context_length : int, image_size : np.ndarray, position_indices : np.ndarray, extra_transforms : list = []):
         super(MultiAgentDataset, self).__init__()
         self.image_db_wrapper : ImageLMDBWrapper = image_db_wrapper
         self.label_db_wrapper : MultiAgentLabelLMDBWrapper = label_db_wrapper
@@ -61,9 +65,10 @@ class MultiAgentDataset(Dataset):
         self.num_images = len(self.db_keys)
         self.length = self.num_images - 2 - context_length
         self.position_indices = position_indices
+        self.transforms = [IdentifyTransform()] + extra_transforms
 
     def __len__(self):
-        return self.length
+        return self.length*len(self.transforms)
     def __getitem__(self, input_index):
         index = int(input_index%self.num_images)
         label_key = self.db_keys[index]
@@ -76,11 +81,12 @@ class MultiAgentDataset(Dataset):
 
         label = self.label_db_wrapper.getMultiAgentLabel(keys[-1])
 
-        raceline = np.array([[vectorpb.x, vectorpb.y, vectorpb.z]  for vectorpb in label.local_raceline]).astype(np.float64)
-        racelinedists = np.array(label.raceline_distances).astype(np.float64)
+        raceline = np.array([[vectorpb.x, vectorpb.y, vectorpb.z]  for vectorpb in label.local_raceline], dtype=np.float64)
+        racelinedists = np.array(label.raceline_distances, dtype=np.float64)
                 
-        imagesnp = [ resizeImage(self.image_db_wrapper.getImage(key), self.image_size) for key in keys ]
-        images_torch = torch.stack( [ self.totensor(img.copy()) for img in imagesnp ] )
+        transform = self.transforms[int(input_index/self.num_images)]
+        images_pil = [ transform( F.resize( PILImage.fromarray( self.image_db_wrapper.getImage(key) ), self.image_size, interpolation=PIL.Image.LANCZOS) ) for key in keys ]
+        images_torch = torch.stack( [ self.totensor(img.copy()) for img in images_pil ] )
 
         rtn_agent_positions = 500*np.ones([19,raceline.shape[0],raceline.shape[1]], dtype=np.float64)
         other_agent_positions = MultiAgentLabelLMDBWrapper.positionsFromLabel(label)

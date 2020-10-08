@@ -15,6 +15,6 @@ class GaussianBlur(object):
         #super(IdentifyTransform, self).__init__(lambda image: image)
         self.gbPIL = GBPIL(radius=radius)
     def __call__(self, img):
-        return self.gbPIL.filter(img)
+        return img.filter(self.gbPIL)
     def __repr__(self):
         return self.__class__.__name__ + '()'
