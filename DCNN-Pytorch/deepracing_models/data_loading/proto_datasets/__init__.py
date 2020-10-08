@@ -2,6 +2,7 @@ from .PoseSequenceDataset import PoseSequenceDataset
 from .ControlOutputDataset import ControlOutputDataset
 from .ControlOutputSequenceDataset import ControlOutputSequenceDataset
 from .MultiAgentDataset import MultiAgentDataset
+from .RacelineLabelDataset import RacelineLabelDataset
 import os
 import deepracing.backend
 import numpy as np

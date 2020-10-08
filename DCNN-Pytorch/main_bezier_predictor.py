@@ -55,12 +55,12 @@ def run_epoch(experiment, network, optimizer, dataloader, raceline_loss, other_a
     #_, _, _, _, _, _, sample_session_times,_,_ = dataloader.dataset[0]
     bezier_order = network.params_per_dimension-1+int(fix_first_point)
 
-    for (i, (images, racelines, racelinedists, other_agent_positions, session_times, key_indices) ) in t:
+    for (i, (images, racelines, racelinedists, _, _, key_indices) ) in t:
         input_images = images.double().to(device=dev)
         racelines = racelines.double().to(device=dev)
         racelinedists = racelinedists.double().to(device=dev)
-        other_agent_positions = other_agent_positions.double().to(device=dev)
-        session_times = session_times.double().to(device=dev)
+      #  other_agent_positions = other_agent_positions.double().to(device=dev)
+      #  session_times = session_times.double().to(device=dev)
         image_keys = ["image_%d" % (key_indices[j],) for j in range(key_indices.shape[0])]
         
         predictions = network(input_images)
@@ -129,15 +129,17 @@ def run_epoch(experiment, network, optimizer, dataloader, raceline_loss, other_a
 
         
        # print(track_ids)
-        oapmeaningful = ~(other_agent_positions==500.0)
-        if torch.any(oapmeaningful).item():
-            current_other_agent_loss = loss_weights["other_agents"]*other_agent_loss(pred_points, other_agent_positions)
-            if torch.any(torch.isnan(current_other_agent_loss)):
-                print("Current Agent Loss Is none")
-            loss = current_position_loss + current_other_agent_loss
-        else:
-            loss = current_position_loss 
-            current_other_agent_loss = torch.tensor([0.0])[0]
+        # oapmeaningful = ~(other_agent_positions==500.0)
+        # if torch.any(oapmeaningful).item():
+        #     current_other_agent_loss = loss_weights["other_agents"]*other_agent_loss(pred_points, other_agent_positions)
+        #     if torch.any(torch.isnan(current_other_agent_loss)):
+        #         print("Current Agent Loss Is none")
+        #     loss = current_position_loss + current_other_agent_loss
+        # else:
+        #     loss = current_position_loss 
+        #     current_other_agent_loss = torch.tensor([0.0])[0]
+        loss = current_position_loss 
+      #  current_other_agent_loss = torch.tensor([0.0])[0]
        # loss.retain_grad()
 
         optimizer.zero_grad()
@@ -146,13 +148,11 @@ def run_epoch(experiment, network, optimizer, dataloader, raceline_loss, other_a
         optimizer.step()
         # logging information
         current_position_loss_float = float(current_position_loss.item())
-        current_other_agent_loss_float = float(current_other_agent_loss.item())
         num_samples += 1.0
         if not debug:
             experiment.log_metric("current_position_loss", current_position_loss_float)
-            experiment.log_metric("current_other_agent_loss", current_other_agent_loss_float)
         if use_tqdm:
-            t.set_postfix({"current_position_loss" : current_position_loss_float, "current_other_agent_loss":current_other_agent_loss_float})
+            t.set_postfix({"current_position_loss" : current_position_loss_float})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
     parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuration file to load")
@@ -272,7 +272,7 @@ def go():
             extra_transforms.append(GaussianBlur(blur))
         raceline_file = os.path.join(root_folder,"racingline.json")
         raceline_lookahead = dlocal["raceline_lookahead"]
-        curent_dset = PD.MultiAgentDataset(image_wrapper, label_wrapper, key_file, context_length, image_size, position_indices, raceline_file, raceline_lookahead, extra_transforms=extra_transforms )
+        curent_dset = PD.RacelineLabelDataset(image_wrapper, label_wrapper, key_file, context_length, image_size, position_indices, raceline_file, raceline_lookahead, extra_transforms=extra_transforms )
         dsets.append(curent_dset)
         
         print("\n")
