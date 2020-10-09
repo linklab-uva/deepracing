@@ -44,12 +44,11 @@ def sortKey(msg):
     return stampToSeconds(msg.header.stamp)
 parser = argparse.ArgumentParser("Unpack a bag file into a dataset")
 parser.add_argument('bagfile', type=str,  help='The bagfile to unpack')
-parser.add_argument('--rowstart', type=float, default=0.25, help="Crop this portion of the off the top of each image")
 parser.add_argument('--config', type=str, required=False, default=None , help="Config file specifying the rostopics to unpack, defaults to a file named \"topicconfig.yaml\" in the same directory as the bagfile")
 parser.add_argument('--raceline', type=str, required=True , help="Path to the raceline json to read")
 parser.add_argument('--lookahead_distance', type=float, default=1.5, help="Look ahead this many meters from the ego pose")
 parser.add_argument('--num_samples', type=int, default=60, help="How many points to sample along the lookahead distance")
-parser.add_argument('--k', type=int, default=5, help="Order of the least squares splines to fit to the noisy data")
+parser.add_argument('--k', type=int, default=3, help="Order of the least squares splines to fit to the noisy data")
 parser.add_argument('--debug', action="store_true", help="Display some debug plots")
 parser.add_argument('--mintime', type=float, default=5.0, help="Ignore this many seconds of data from the beginning of the bag file")
 parser.add_argument('--maxtime', type=float, default=7.5, help="Ignore this many seconds of leading up to the end of the bag file")
@@ -63,7 +62,6 @@ bagpath = argdict["bagfile"]
 mintime = argdict["mintime"]
 maxtime = argdict["maxtime"]
 debug = argdict["debug"]
-rowstartratio = argdict["rowstart"]
 racelinefile = argdict["raceline"]
 k = argdict["k"]
 bagdir = os.path.dirname(bagpath)
@@ -119,15 +117,14 @@ os.makedirs(labeldir)
 os.makedirs(imagelmdbdir)
 os.makedirs(labellmdbdir)
 shutil.copy(racelinefile, os.path.join(rootdir,"racingline.json"))
+imnp0 = bridge.compressed_imgmsg_to_cv2(images[0], desired_encoding="rgb8")
 imagebackend = deepracing.backend.ImageLMDBWrapper()
-imagebackend.readDatabase(imagelmdbdir,mapsize=int(round(1.5*len(images)*66*200*3)), readonly=False)
+imagebackend.readDatabase(imagelmdbdir,mapsize=int(round(1.1*len(images)*np.prod(np.array(imnp0.shape)))), readonly=False)
 labelbackend = deepracing.backend.MultiAgentLabelLMDBWrapper()
 labelbackend.openDatabase(labellmdbdir, readonly=False)
 goodkeys = []
 up = np.array([0.0,0.0,1.0], dtype=np.float64)
 trate = 1.0/15.0
-imnp0 = bridge.compressed_imgmsg_to_cv2(images[0], desired_encoding="rgb8")
-rowstart = int(round(rowstartratio*imnp0.shape[0]))
 
 print("Writing labels to file")
 dout = dict(argdict)
@@ -147,9 +144,7 @@ try:
         impil.save(os.path.join(imagedir, imagetag.image_file))
         rows = imnp.shape[0]
         cols = imnp.shape[1]
-        imcropped = impil.crop([0, rowstart, cols-1, rows-1])
-        impilresize = imagebackend.writeImage(imageprefix%i, imcropped)
-        imnpresize = np.array(impilresize)
+        impilresize = imagebackend.writeImage(imageprefix%i, impil, size=list(imnp.shape[0:2]))
 
         with open(os.path.join(imagedir, (imageprefix +".json") % i), "w") as f:
             f.write(google.protobuf.json_format.MessageToJson(imagetag, including_default_value_fields=True, indent=2))
@@ -295,8 +290,8 @@ try:
             plt.legend()
         #  plt.arrow(splvals[0,0], splvals[0,1], rx[0], rx[1], label="Velocity of Car")
             plt.show()
-        if dt<trate:
-            time.sleep(trate - dt)
+        # if dt<trate:
+        #     time.sleep(trate - dt)
 except KeyboardInterrupt as e:
     pass
 with open(os.path.join(rootdir,"goodkeys.txt"),"w") as f:
