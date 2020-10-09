@@ -95,6 +95,7 @@ class MultiAgentDataset(Dataset):
         assert(keys[-1]==label_key)
 
         label = self.label_db_wrapper.getMultiAgentLabel(keys[-1])
+        assert(keys[-1]+".jpg"==label.image_tag.image_file)
         rtn_session_times = np.array([p.session_time for p in label.ego_agent_trajectory.poses], dtype=np.float64)
         egopose = np.eye(4,dtype=np.float64)
         egopose[0:3,3] = np.array([label.ego_agent_pose.translation.x, label.ego_agent_pose.translation.y, label.ego_agent_pose.translation.z], dtype=np.float64)

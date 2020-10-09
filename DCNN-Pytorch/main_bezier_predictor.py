@@ -94,7 +94,7 @@ def run_epoch(experiment, network, optimizer, dataloader, raceline_loss, other_a
 
         current_position_loss = loss_weights["position"]*raceline_loss(pred_points, racelines)
         
-        if debug:
+        if debug:# and False:
             fig, (ax1, ax2) = plt.subplots(1, 2, sharey=False)
             images_np = np.round(255.0*input_images[0].detach().cpu().numpy().copy().transpose(0,2,3,1)).astype(np.uint8)
             #image_np_transpose=skimage.util.img_as_ubyte(images_np[-1].transpose(1,2,0))
@@ -147,7 +147,7 @@ def run_epoch(experiment, network, optimizer, dataloader, raceline_loss, other_a
         # Weight and bias updates.
         optimizer.step()
         # logging information
-        current_position_loss_float = float(current_position_loss.item())
+        current_position_loss_float = float(loss.item())
         num_samples += 1.0
         if not debug:
             experiment.log_metric("current_position_loss", current_position_loss_float)
@@ -247,6 +247,7 @@ def go():
         root_folder = dlocal["root_folder"]
         position_indices = dlocal["position_indices"]
         label_subfolder = dlocal["label_subfolder"]
+        row_crop_ratio = dlocal["row_crop_ratio"]
         dataset_tags = dlocal.get("tags", [])
         alltags = alltags.union(set(dataset_tags))
 
@@ -272,7 +273,7 @@ def go():
             extra_transforms.append(GaussianBlur(blur))
         raceline_file = os.path.join(root_folder,"racingline.json")
         raceline_lookahead = dlocal["raceline_lookahead"]
-        curent_dset = PD.RacelineLabelDataset(image_wrapper, label_wrapper, key_file, context_length, image_size, position_indices, raceline_file, raceline_lookahead, extra_transforms=extra_transforms )
+        curent_dset = PD.RacelineLabelDataset(image_wrapper, label_wrapper, key_file, context_length, image_size, position_indices, raceline_file, raceline_lookahead, extra_transforms=extra_transforms, row_crop_ratio=row_crop_ratio )
         dsets.append(curent_dset)
         
         print("\n")

@@ -351,10 +351,6 @@ for idx in tqdm(range(len(image_tags))):
         plt.imshow(cv2.cvtColor(imcv, cv2.COLOR_BGR2RGB))
 
         fig2 = plt.subplot(1, 2, 2)
-        # ego_label_positions = np.array([[pose.translation.x,pose.translation.y,pose.translation.z]  for pose in label_tag.ego_agent_trajectory.poses ])
-        # print("Ego position 0: " + str(ego_label_positions[0]))
-        # plt.plot(-ego_label_positions[:,0], ego_label_positions[:,2], label="Ego Vehicle Trajectory", c="b")
-        # plt.legend()
         label_positions = np.array([ np.array([[pose.translation.x, pose.translation.y, pose.translation.z]  for pose in agent_trajectory.poses ]).transpose() for agent_trajectory in label_tag.other_agent_trajectories])
         raceline_labels = np.array([ [vectorpb.x, vectorpb.y, vectorpb.z] for vectorpb in label_tag.local_raceline])
         minx = min(np.min(label_positions[:,0]), np.min(raceline_labels[:,0]))-5.0
@@ -366,8 +362,7 @@ for idx in tqdm(range(len(image_tags))):
         plt.legend()
         for k in range(label_positions.shape[0]):
             agent_trajectory = label_positions[k]
-            #label_positions_local = np.matmul(ego_pose_matrix_inverse, label_positions)
-            plt.plot(agent_trajectory[0], agent_trajectory[2])#, label="Ego Vehicle Trajectory", c="b")
+            plt.plot(agent_trajectory[0], agent_trajectory[2])
         plt.show()
 
 
