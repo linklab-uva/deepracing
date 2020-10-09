@@ -101,13 +101,12 @@ class ImageLMDBWrapper():
             with env.begin(write=True) as write_txn:
                 write_txn.put(key.encode(self.encoding), entry.SerializeToString())
         env.close()
-    def writeImage(self, key, impil, size=[66,200]):
-        impilresize = F.resize(impil, size, interpolation=PILImage.LANCZOS)
-        im = np.asarray(impilresize)
-        entry = Image_pb2.Image( rows=im.shape[0] , cols=im.shape[1] , channel_order=ChannelOrder_pb2.RGB , image_data=im.flatten().tobytes() )
+    def writeImage(self, key, image):
+        imarr = np.asarray(image)
+        entry = Image_pb2.Image( rows=imarr.shape[0] , cols=imarr.shape[1] , channel_order=ChannelOrder_pb2.RGB , image_data=imarr.flatten().tobytes() )
         with self.env.begin(write=True) as write_txn:
             write_txn.put(key.encode(self.encoding), entry.SerializeToString())
-        return impilresize
+        return entry
     def clearStaleReaders(self):
         self.env.reader_check()
     def resetEnv(self):

@@ -102,7 +102,7 @@ odomtimes = np.array([stampToSeconds(o.header.stamp) for o in odoms], dtype=np.f
 t0 = imagetimes[0]
 imagetimes = imagetimes - t0
 odomtimes = odomtimes - t0
-tbuff = int(np.round(0.5/np.mean(odomtimes[1:] - odomtimes[0:-1])))
+tbuff = int(np.round(1.5/np.mean(odomtimes[1:] - odomtimes[0:-1])))
 meanrldist = np.mean(racelinedist[1:] - racelinedist[:-1])
 racelinebuff = int(np.round(lookahead_distance/meanrldist))
 print("racelinebuff: %d" % (racelinebuff,))
@@ -111,7 +111,7 @@ posemsgs = [o.pose.pose for o in odoms]
 positions = np.array([ [p.position.x, p.position.y, p.position.z] for p in posemsgs], dtype=np.float64)
 quaternions = np.array([ [p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w] for p in posemsgs], dtype=np.float64)
 
-nspline = 60
+nspline = 10
 rootdir = os.path.join(bagdir, os.path.splitext(os.path.basename(bagpath))[0])
 if os.path.isdir(rootdir):
     print("Purging old data")
@@ -151,9 +151,7 @@ try:
         imnp = bridge.compressed_imgmsg_to_cv2(images[i], desired_encoding="rgb8")
         impil = PIL.Image.fromarray(imnp)
         impil.save(os.path.join(imagedir, imagetag.image_file))
-        rows = imnp.shape[0]
-        cols = imnp.shape[1]
-        impilresize = imagebackend.writeImage(imageprefix%i, impil, size=list(imnp.shape[0:2]))
+        impb = imagebackend.writeImage(imageprefix%i, impil)
 
         with open(os.path.join(imagedir, (imageprefix +".json") % i), "w") as f:
             f.write(google.protobuf.json_format.MessageToJson(imagetag, including_default_value_fields=True, indent=2))
@@ -167,14 +165,20 @@ try:
         labeltag.image_tag.CopyFrom(imagetag)
 
         isamp = bisect.bisect_left(odomtimes, timage)
-        tfit = odomtimes[isamp-tbuff:isamp+nspline+tbuff]
-        pfit = positions[isamp-tbuff:isamp+nspline+tbuff]
+        tfit = odomtimes[isamp-nspline:isamp+tbuff+nspline]
+        pfit = positions[isamp-nspline:isamp+tbuff+nspline]
+        qfit = quaternions[isamp-nspline:isamp+tbuff+nspline]
         
         spl : scipy.interpolate.LSQUnivariateSpline = scipy.interpolate.make_lsq_spline(tfit, pfit, sensibleKnots(tfit, k), k=k)
         splvel : scipy.interpolate.LSQUnivariateSpline = spl.derivative()
         tsamp = np.linspace(timage, timage+1.5, num = num_samples)
         splvals = spl(tsamp)
         linearvelsglobal = splvel(tsamp)
+
+        kq = 2
+        naiverotspl : scipy.interpolate.LSQUnivariateSpline = scipy.interpolate.make_lsq_spline(tfit,  qfit, sensibleKnots(tfit, kq), k=kq)
+        qsamp = naiverotspl(tsamp)
+        qsamp = qsamp/np.linalg.norm(qsamp, ord=2, axis=1)[:,np.newaxis]
         
         cartraj = np.stack( [np.eye(4,dtype=np.float64) for asdf in range(tsamp.shape[0])], axis=0)
         for j in range(cartraj.shape[0]):
@@ -186,10 +190,16 @@ try:
             rz = np.cross(rx,ry)
             rz = rz/np.linalg.norm(rz, ord=2)
             cartraj[j,0:3,3] = posspl
-            cartraj[j,0:3,0:3] = np.column_stack([rx,ry,rz])
-        carrotations = Rot.from_matrix(cartraj[:,0:3,0:3])
-        carrotspline = RotSpline(tsamp,carrotations)
-        angvelsglobal = carrotspline(tsamp,1)
+            r = Rot.from_matrix(np.column_stack([rx,ry,rz]))
+            q = r.as_quat()
+           # print("Distance between rotations: %f" % np.arccos(-1+ 2*(np.dot(q,qsamp[j])**2)))
+            #cartraj[j,0:3,0:3] = np.column_stack([rx,ry,rz])
+      #  print(qsamp)
+        carrotations = Rot.from_quat(qsamp)
+        cartraj[:,0:3,3] = splvals
+        cartraj[:,0:3,0:3] = carrotations.as_matrix()
+        carrotationspline = RotSpline(tsamp,carrotations)
+        angvelsglobal = carrotationspline(tsamp,1)
         #print(rz)
         
         carpose = cartraj[0].copy()
@@ -263,7 +273,7 @@ try:
         goodkeys.append((imageprefix%i)+"\n")
         tock = time.time()
         dt = (tock-tick)
-        if debug and i%10==0:
+        if debug and i%30==0:
             key = goodkeys[-1].replace("\n","")
             imnpdb = imagebackend.getImage(key)
            # imnpdb = imnp

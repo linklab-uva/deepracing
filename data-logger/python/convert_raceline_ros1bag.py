@@ -1,3 +1,14 @@
+import rospkg 
+import os
+if "add_dll_directory" in dir(os):
+    rospack = rospkg.RosPack()
+    rosbinpaths = set([os.path.abspath(os.path.join(rospack.get_path("cv_bridge"),os.pardir,os.pardir,"bin")),\
+                       os.path.abspath(os.path.join(rospack.get_path("cv_bridge"),os.pardir,os.pardir,"bin"))])
+    for path in rosbinpaths:
+        os.add_dll_directory(path)
+    vcpkg_bin_dir = os.getenv("VCPKG_BIN_DIR")
+    if vcpkg_bin_dir is not None:
+        os.add_dll_directory(vcpkg_bin_dir)
 import rosbag
 import yaml
 from ackermann_msgs.msg import AckermannDrive, AckermannDriveStamped
@@ -18,7 +29,6 @@ from matplotlib import pyplot as plt
 import cv_bridge
 import cv2
 import shutil
-import os
 import time
 import deepracing, deepracing.backend, deepracing.protobuf_utils as proto_utils
 import google.protobuf.json_format
@@ -30,7 +40,7 @@ import json
 parser = argparse.ArgumentParser()
 parser.add_argument("racelinebag", help="Path to trackfile to convert",  type=str)
 parser.add_argument("num_samples", type=int, help="Number of values to sample from the spline. Default (0) means no sampling and just copy the data as is")
-parser.add_argument("--topic", default="overtake", type=str, help="which topic to get raceline from")
+parser.add_argument("--topic", default="raceline", type=str, help="which topic to get raceline from")
 parser.add_argument("--k", default=1, type=int, help="Order of bezier curve to use for the fit")
 #parser.add_argument("--negate_normals", action="store_true", help="Flip the sign all all of the computed normal vectors")
 args = parser.parse_args()
@@ -73,9 +83,9 @@ up = np.row_stack( [np.array([0.0,0.0,1.0], dtype=np.float64) for asdf in range(
 inward = np.cross(up,chosenpathtangents)
 inward = inward/np.linalg.norm(inward,ord=2,axis=1)[:,np.newaxis]
 
-chosenpatheval = chosenpatheval - 0.125*inward
-dsamp = np.hstack([np.zeros(1), np.cumsum(np.linalg.norm(chosenpatheval[1:]-chosenpatheval[0:-1], ord=2, axis=1))])
-print(dsamp)
+# chosenpatheval = chosenpatheval - 0.125*inward
+# dsamp = np.hstack([np.zeros(1), np.cumsum(np.linalg.norm(chosenpatheval[1:]-chosenpatheval[0:-1], ord=2, axis=1))])
+# print(dsamp)
 
 
 fig = plt.figure()
