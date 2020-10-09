@@ -111,7 +111,7 @@ posemsgs = [o.pose.pose for o in odoms]
 positions = np.array([ [p.position.x, p.position.y, p.position.z] for p in posemsgs], dtype=np.float64)
 quaternions = np.array([ [p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w] for p in posemsgs], dtype=np.float64)
 
-nspline = 10
+nspline = int(round(0.275*tbuff))
 rootdir = os.path.join(bagdir, os.path.splitext(os.path.basename(bagpath))[0])
 if os.path.isdir(rootdir):
     print("Purging old data")
@@ -174,50 +174,42 @@ try:
         tsamp = np.linspace(timage, timage+1.5, num = num_samples)
         splvals = spl(tsamp)
         linearvelsglobal = splvel(tsamp)
-
-        kq = 2
-        naiverotspl : scipy.interpolate.LSQUnivariateSpline = scipy.interpolate.make_lsq_spline(tfit,  qfit, sensibleKnots(tfit, kq), k=kq)
-        qsamp = naiverotspl(tsamp)
-        qsamp = qsamp/np.linalg.norm(qsamp, ord=2, axis=1)[:,np.newaxis]
         
         cartraj = np.stack( [np.eye(4,dtype=np.float64) for asdf in range(tsamp.shape[0])], axis=0)
+        cartraj[:,0:3,3] = splvals
         for j in range(cartraj.shape[0]):
-            posspl = splvals[j]
             velspl = linearvelsglobal[j]
             rx = velspl/np.linalg.norm(velspl, ord=2)
             ry = np.cross(up,rx)
             ry = ry/np.linalg.norm(ry, ord=2)
             rz = np.cross(rx,ry)
             rz = rz/np.linalg.norm(rz, ord=2)
-            cartraj[j,0:3,3] = posspl
-            r = Rot.from_matrix(np.column_stack([rx,ry,rz]))
-            q = r.as_quat()
+            cartraj[j,0:3,0:3] = np.column_stack([rx,ry,rz])
+           # q = r.as_quat()
            # print("Distance between rotations: %f" % np.arccos(-1+ 2*(np.dot(q,qsamp[j])**2)))
             #cartraj[j,0:3,0:3] = np.column_stack([rx,ry,rz])
       #  print(qsamp)
-        carrotations = Rot.from_quat(qsamp)
-        cartraj[:,0:3,3] = splvals
-        cartraj[:,0:3,0:3] = carrotations.as_matrix()
+        carrotations = Rot.from_matrix(cartraj[:,0:3,0:3])
+        
         carrotationspline = RotSpline(tsamp,carrotations)
         angvelsglobal = carrotationspline(tsamp,1)
         #print(rz)
         
         carpose = cartraj[0].copy()
-        carrotation = Rot.from_matrix(carpose[0:3,0:3].copy())
         carposeinv = np.linalg.inv(carpose)
 
         labeltag.ego_agent_pose.translation.CopyFrom(proto_utils.vectorFromNumpy(carpose[0:3,3]))
-        labeltag.ego_agent_pose.rotation.CopyFrom(proto_utils.quaternionFromScipy(carrotation))
+        labeltag.ego_agent_pose.rotation.CopyFrom(proto_utils.quaternionFromScipy(carrotations[0]))
         labeltag.ego_agent_pose.frame = FrameId_pb2.GLOBAL
         labeltag.ego_agent_pose.session_time = tsamp[0]
 
         labeltag.ego_agent_linear_velocity.vector.CopyFrom(proto_utils.vectorFromNumpy(linearvelsglobal[0]))
-        labeltag.ego_agent_linear_velocity.session_time = tsamp[0]
         labeltag.ego_agent_linear_velocity.frame = FrameId_pb2.GLOBAL
+        labeltag.ego_agent_linear_velocity.session_time = tsamp[0]
 
         labeltag.ego_agent_angular_velocity.vector.CopyFrom(proto_utils.vectorFromNumpy(angvelsglobal[0]))
+        labeltag.ego_agent_linear_velocity.frame = FrameId_pb2.GLOBAL
         labeltag.ego_agent_angular_velocity.session_time = tsamp[0]
-        labeltag.ego_agent_angular_velocity.frame = FrameId_pb2.GLOBAL
 
 
 
@@ -231,14 +223,17 @@ try:
         rld[overlapidx]+=rld[irldmax] + meanrldist
 
         
-        xposidx = np.array([np.dot(rlglobal[j] - carpose[0:3,3], carpose[0:3,0]) for j in range(rlglobal.shape[0])])>=0
-        rlglobal = rlglobal[xposidx]
-        rld = rld[xposidx]
+        # xposidx = np.array([np.dot(rlglobal[j] - carpose[0:3,3], carpose[0:3,0]) for j in range(rlglobal.shape[0])])>=0
+        # rlglobal = rlglobal[xposidx]
+        # rld = rld[xposidx]
 
 
-        
-        rlspline = scipy.interpolate.make_lsq_spline(rld, rlglobal, sensibleKnots(rld,k), k=k)
-        rldsamp = np.linspace(rld[0], rld[-1], num=num_samples)
+        try:
+            rlspline = scipy.interpolate.make_lsq_spline(rld, rlglobal, sensibleKnots(rld,k), k=k)
+            rldsamp = np.linspace(rld[0], rld[-1], num=num_samples)
+        except:
+            print("Could not fit a raceline spline for image %d" % (i,))
+            continue
 
         rlsampglobal = rlspline(rldsamp)
         linearvelslocal = np.matmul(carposeinv[0:3,0:3], linearvelsglobal.transpose()).transpose()
@@ -273,7 +268,7 @@ try:
         goodkeys.append((imageprefix%i)+"\n")
         tock = time.time()
         dt = (tock-tick)
-        if debug and i%30==0:
+        if debug and i%60==0:
             key = goodkeys[-1].replace("\n","")
             imnpdb = imagebackend.getImage(key)
            # imnpdb = imnp
