@@ -223,9 +223,9 @@ try:
         rld[overlapidx]+=rld[irldmax] + meanrldist
 
         
-        # xposidx = np.array([np.dot(rlglobal[j] - carpose[0:3,3], carpose[0:3,0]) for j in range(rlglobal.shape[0])])>=0
-        # rlglobal = rlglobal[xposidx]
-        # rld = rld[xposidx]
+        xposidx = np.array([np.dot(rlglobal[j] - carpose[0:3,3], carpose[0:3,0]) for j in range(rlglobal.shape[0])])>=0
+        rlglobal = rlglobal[xposidx]
+        rld = rld[xposidx]
 
 
         try:
