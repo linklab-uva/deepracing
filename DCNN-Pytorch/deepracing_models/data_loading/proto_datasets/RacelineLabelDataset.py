@@ -62,7 +62,7 @@ def pbPoseToTorch(posepb : Pose3d):
 
 class RacelineLabelDataset(Dataset):
     def __init__(self, image_db_wrapper : ImageLMDBWrapper, label_db_wrapper : MultiAgentLabelLMDBWrapper, keyfile : str, context_length : int, image_size : np.ndarray, position_indices : np.ndarray,\
-        raceline_json_file : str, raceline_lookahead: float, extra_transforms : list = []):
+        raceline_json_file : str, raceline_lookahead: float, extra_transforms : list = [], row_crop_ratio : float = 0.25):
         super(RacelineLabelDataset, self).__init__()
         self.image_db_wrapper : ImageLMDBWrapper = image_db_wrapper
         self.label_db_wrapper : MultiAgentLabelLMDBWrapper = label_db_wrapper
@@ -82,6 +82,9 @@ class RacelineLabelDataset(Dataset):
         racelinediffs = np.linalg.norm(self.raceline_global[0:3,1:] -  self.raceline_global[0:3,:-1], ord=2, axis=0)
         self.raceline_buffer = int(round(raceline_lookahead/np.mean(racelinediffs)))
         self.raceline_lookahead = raceline_lookahead
+        self.row_crop_ratio = row_crop_ratio
+
+
     def __len__(self):
         return self.length*len(self.transforms)
     def __getitem__(self, input_index):
@@ -120,8 +123,9 @@ class RacelineLabelDataset(Dataset):
 
                 
         transform = self.transforms[int(input_index/self.num_images)]
-        images_pil = [ transform( F.resize( PILImage.fromarray( self.image_db_wrapper.getImage(key) ), self.image_size, interpolation=PIL.Image.LANCZOS) ) for key in keys ]
-        images_torch = torch.stack( [ self.totensor(img.copy()) for img in images_pil ] )
+        images_pil = [ PILImage.fromarray( self.image_db_wrapper.getImage(key) ) for key in keys ]
+        images_pil = [ F.resize( transform( impil.crop([0, int(round(self.row_crop_ratio*impil.height)), impil.width-1, impil.height-1] ) ) , self.image_size, interpolation=PIL.Image.LANCZOS )  for impil in images_pil ]
+        images_torch = torch.stack( [ self.totensor(img) for img in images_pil ] )
 
 
 
