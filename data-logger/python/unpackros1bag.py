@@ -57,7 +57,7 @@ parser.add_argument('--config', type=str, required=False, default=None , help="C
 parser.add_argument('--raceline', type=str, required=True , help="Path to the raceline json to read")
 parser.add_argument('--lookahead_distance', type=float, default=2.0, help="Look ahead this many meters from the ego pose")
 parser.add_argument('--num_samples', type=int, default=120, help="How many points to sample along the lookahead distance")
-parser.add_argument('--k', type=int, default=3, help="Order of the least squares splines to fit to the noisy data")
+parser.add_argument('--k', type=int, default=5, help="Order of the least squares splines to fit to the noisy data")
 parser.add_argument('--debug', action="store_true", help="Display some debug plots")
 parser.add_argument('--mintime', type=float, default=5.0, help="Ignore this many seconds of data from the beginning of the bag file")
 parser.add_argument('--maxtime', type=float, default=7.5, help="Ignore this many seconds of leading up to the end of the bag file")
