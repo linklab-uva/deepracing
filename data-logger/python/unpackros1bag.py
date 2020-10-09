@@ -1,3 +1,14 @@
+import rospkg 
+import os
+if "add_dll_directory" in dir(os):
+    rospack = rospkg.RosPack()
+    rosbinpaths = set([os.path.abspath(os.path.join(rospack.get_path("cv_bridge"),os.pardir,os.pardir,"bin")),\
+                       os.path.abspath(os.path.join(rospack.get_path("cv_bridge"),os.pardir,os.pardir,"bin"))])
+    for path in rosbinpaths:
+        os.add_dll_directory(path)
+    vcpkg_bin_dir = os.getenv("VCPKG_BIN_DIR")
+    if vcpkg_bin_dir is not None:
+        os.add_dll_directory(vcpkg_bin_dir)
 import rosbag
 import yaml
 from ackermann_msgs.msg import AckermannDrive, AckermannDriveStamped
@@ -16,9 +27,7 @@ from scipy.spatial.transform import Rotation as Rot, RotationSpline as RotSpline
 import matplotlib
 from matplotlib import pyplot as plt
 import cv_bridge
-import cv2
 import shutil
-import os
 import time
 import deepracing, deepracing.backend, deepracing.protobuf_utils as proto_utils
 import google.protobuf.json_format
@@ -261,8 +270,8 @@ try:
         dt = (tock-tick)
         if debug and i%10==0:
             key = goodkeys[-1].replace("\n","")
-           # imnpdb = imagebackend.getImage(key)
-            imnpdb = imnp
+            imnpdb = imagebackend.getImage(key)
+           # imnpdb = imnp
             lbldb = labelbackend.getMultiAgentLabel(key)
             racelinelocal =  np.row_stack([rlsamplocal.transpose(), np.ones_like(rlsamplocal[:,0])])
             egopose = np.eye(4,dtype=np.float64)
