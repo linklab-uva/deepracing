@@ -2,8 +2,7 @@ import rospkg
 import os
 if "add_dll_directory" in dir(os):
     rospack = rospkg.RosPack()
-    rosbinpaths = set([os.path.abspath(os.path.join(rospack.get_path("cv_bridge"),os.pardir,os.pardir,"bin")),\
-                       os.path.abspath(os.path.join(rospack.get_path("cv_bridge"),os.pardir,os.pardir,"bin"))])
+    rosbinpaths = set([os.path.abspath(os.path.join(rospack.get_path(pkgname),os.pardir,os.pardir,"bin")) for pkgname in ["cv_bridge", "rosbag"] ])
     for path in rosbinpaths:
         os.add_dll_directory(path)
     vcpkg_bin_dir = os.getenv("VCPKG_BIN_DIR")
@@ -61,6 +60,7 @@ parser.add_argument('--k', type=int, default=3, help="Order of the least squares
 parser.add_argument('--debug', action="store_true", help="Display some debug plots")
 parser.add_argument('--mintime', type=float, default=5.0, help="Ignore this many seconds of data from the beginning of the bag file")
 parser.add_argument('--maxtime', type=float, default=7.5, help="Ignore this many seconds of leading up to the end of the bag file")
+parser.add_argument('--rowstart', type=float, default=0.5, help="Ratio to crop off the top of the image")
 
 args = parser.parse_args()
 argdict = vars(args)
@@ -72,6 +72,7 @@ mintime = argdict["mintime"]
 maxtime = argdict["maxtime"]
 debug = argdict["debug"]
 racelinefile = argdict["raceline"]
+rowstart = argdict["rowstart"]
 k = argdict["k"]
 bagdir = os.path.dirname(bagpath)
 bridge = cv_bridge.CvBridge()
@@ -127,8 +128,9 @@ os.makedirs(imagelmdbdir)
 os.makedirs(labellmdbdir)
 shutil.copy(racelinefile, os.path.join(rootdir,"racingline.json"))
 imnp0 = bridge.compressed_imgmsg_to_cv2(images[0], desired_encoding="rgb8")
+imsize = np.array([200,66,imnp0.shape[2]])
 imagebackend = deepracing.backend.ImageLMDBWrapper()
-imagebackend.readDatabase(imagelmdbdir,mapsize=int(round(1.1*len(images)*np.prod(np.array(imnp0.shape)))), readonly=False)
+imagebackend.readDatabase(imagelmdbdir,mapsize=int(round(1.1*len(images)*np.prod(imsize))), readonly=False)
 labelbackend = deepracing.backend.MultiAgentLabelLMDBWrapper()
 labelbackend.openDatabase(labellmdbdir, readonly=False)
 goodkeys = []
@@ -139,6 +141,10 @@ print("Writing labels to file")
 dout = dict(argdict)
 dout["bagfile"] = os.path.abspath(dout["bagfile"])
 dout["raceline"] = os.path.abspath(dout["raceline"])
+dout["inputsize"] = list(imnp0.shape)
+dout["outputsize"] = imsize.tolist()
+croprow = int(round(rowstart*float(imnp0.shape[0])))
+dout["croprow"] = croprow
 with open(os.path.join(rootdir,"config.json"),"w") as f:
     json.dump(dout, f, indent=2)
 try:
@@ -148,10 +154,10 @@ try:
         imageprefix =  "image_%d"
         imagetag.image_file = (imageprefix +".jpg") % i
         imagetag.timestamp = timage
-        imnp = bridge.compressed_imgmsg_to_cv2(images[i], desired_encoding="rgb8")
-        impil = PIL.Image.fromarray(imnp)
+        impil = PIL.Image.fromarray(bridge.compressed_imgmsg_to_cv2(images[i], desired_encoding="rgb8"))
         impil.save(os.path.join(imagedir, imagetag.image_file))
-        impb = imagebackend.writeImage(imageprefix%i, impil)
+        imlmdb : PIL.Image.Image = impil.crop([0, croprow, impil.width-1, impil.height-1]).resize(imsize[0:2], resample = PIL.Image.LANCZOS)
+        impb = imagebackend.writeImage(imageprefix%i, imlmdb)
 
         with open(os.path.join(imagedir, (imageprefix +".json") % i), "w") as f:
             f.write(google.protobuf.json_format.MessageToJson(imagetag, including_default_value_fields=True, indent=2))
@@ -270,6 +276,7 @@ try:
         dt = (tock-tick)
         if debug and i%60==0:
             key = goodkeys[-1].replace("\n","")
+            imnp = np.asarray(impil)
             imnpdb = imagebackend.getImage(key)
            # imnpdb = imnp
             lbldb = labelbackend.getMultiAgentLabel(key)
