@@ -254,15 +254,15 @@ try:
             newpose.rotation.CopyFrom(proto_utils.quaternionFromScipy(Rot.from_matrix(cartrajlocal[j,0:3,0:3])))
             newpose.session_time = tsamp[j]
 
-            # newlinearvel = labeltag.ego_agent_trajectory.linear_velocities.add()
-            # newlinearvel.frame = FrameId_pb2.LOCAL
-            # newlinearvel.vector.CopyFrom(proto_utils.vectorFromNumpy(linearvelslocal[j]))
-            # newlinearvel.session_time = tsamp[j]
+            newlinearvel = labeltag.ego_agent_trajectory.linear_velocities.add()
+            newlinearvel.frame = FrameId_pb2.LOCAL
+            newlinearvel.vector.CopyFrom(proto_utils.vectorFromNumpy(linearvelslocal[j]))
+            newlinearvel.session_time = tsamp[j]
 
-            # newangularvel = labeltag.ego_agent_trajectory.angular_velocities.add()
-            # newangularvel.frame = FrameId_pb2.LOCAL
-            # newangularvel.vector.CopyFrom(proto_utils.vectorFromNumpy(angvelslocal[j]))
-            # newangularvel.session_time = tsamp[j]
+            newangularvel = labeltag.ego_agent_trajectory.angular_velocities.add()
+            newangularvel.frame = FrameId_pb2.LOCAL
+            newangularvel.vector.CopyFrom(proto_utils.vectorFromNumpy(angvelslocal[j]))
+            newangularvel.session_time = tsamp[j]
 
         labeltag.ego_car_index = 0
         labeltag.track_id=26
