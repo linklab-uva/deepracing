@@ -54,9 +54,9 @@ parser = argparse.ArgumentParser("Unpack a bag file into a dataset")
 parser.add_argument('bagfile', type=str,  help='The bagfile to unpack')
 parser.add_argument('--config', type=str, required=False, default=None , help="Config file specifying the rostopics to unpack, defaults to a file named \"topicconfig.yaml\" in the same directory as the bagfile")
 parser.add_argument('--raceline', type=str, required=True , help="Path to the raceline json to read")
-parser.add_argument('--lookahead_distance', type=float, default=1.5, help="Look ahead this many meters from the ego pose")
-parser.add_argument('--num_samples', type=int, default=60, help="How many points to sample along the lookahead distance")
-parser.add_argument('--k', type=int, default=3, help="Order of the least squares splines to fit to the noisy data")
+parser.add_argument('--lookahead_distance', type=float, default=2.0, help="Look ahead this many meters from the ego pose")
+parser.add_argument('--num_samples', type=int, default=120, help="How many points to sample along the lookahead distance")
+parser.add_argument('--k', type=int, default=5, help="Order of the least squares splines to fit to the noisy data")
 parser.add_argument('--debug', action="store_true", help="Display some debug plots")
 parser.add_argument('--mintime', type=float, default=5.0, help="Ignore this many seconds of data from the beginning of the bag file")
 parser.add_argument('--maxtime', type=float, default=7.5, help="Ignore this many seconds of leading up to the end of the bag file")
@@ -229,9 +229,9 @@ try:
         rld[overlapidx]+=rld[irldmax] + meanrldist
 
         
-        # xposidx = np.array([np.dot(rlglobal[j] - carpose[0:3,3], carpose[0:3,0]) for j in range(rlglobal.shape[0])])>=0
-        # rlglobal = rlglobal[xposidx]
-        # rld = rld[xposidx]
+        xposidx = np.array([np.dot(rlglobal[j] - carpose[0:3,3], carpose[0:3,0]) for j in range(rlglobal.shape[0])])>=0
+        rlglobal = rlglobal[xposidx]
+        rld = rld[xposidx]
 
 
         try:
@@ -274,7 +274,7 @@ try:
         goodkeys.append((imageprefix%i)+"\n")
         tock = time.time()
         dt = (tock-tick)
-        if debug and i%60==0:
+        if debug and i%5==0:
             key = goodkeys[-1].replace("\n","")
             imnp = np.asarray(impil)
             imnpdb = imagebackend.getImage(key)
