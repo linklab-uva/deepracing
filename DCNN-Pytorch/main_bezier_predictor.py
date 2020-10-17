@@ -87,7 +87,8 @@ def run_epoch(experiment, network, optimizer, dataloader, ego_agent_loss, other_
         # gt_vels = linear_velocities_torch[:,:,position_indices]
         Mpos = deepracing_models.math_utils.bezierM(s_torch_cur, bezier_order)
         pred_points = torch.matmul(Mpos, predictions_reshape)
-        Mvel, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape, t = s_torch_cur, order=1)
+        Mvel, pred_vel_s = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape, t = s_torch_cur, order=1)
+        pred_vel_t = pred_vel_s/dt[:,None,None]
 
         # Mvel, fit_vels = deepracing_models.math_utils.bezier.bezierDerivative(controlpoints_fit, t = s_torch_cur, order=1)
         # fit_vels_scaled = fit_vels/dt[:,None,None]
@@ -143,7 +144,7 @@ def run_epoch(experiment, network, optimizer, dataloader, ego_agent_loss, other_
         #     loss = current_position_loss 
         #     current_other_agent_loss = torch.tensor([0.0])[0]
         current_position_loss = ego_agent_loss(pred_points, ego_positions)
-        current_velocity_loss = ego_agent_loss(pred_vels, ego_velocities)
+        current_velocity_loss = ego_agent_loss(pred_vel_t, ego_velocities)
         loss = loss_weights["position"]*current_position_loss + loss_weights["velocity"]*current_velocity_loss
       #  current_other_agent_loss = torch.tensor([0.0])[0]
        # loss.retain_grad()
