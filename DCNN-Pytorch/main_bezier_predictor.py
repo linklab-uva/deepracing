@@ -258,7 +258,6 @@ def go():
         root_folder = dlocal["root_folder"]
         position_indices = dlocal["position_indices"]
         label_subfolder = dlocal["label_subfolder"]
-        row_crop_ratio = dlocal["row_crop_ratio"]
         dataset_tags = dlocal.get("tags", [])
         alltags = alltags.union(set(dataset_tags))
 
