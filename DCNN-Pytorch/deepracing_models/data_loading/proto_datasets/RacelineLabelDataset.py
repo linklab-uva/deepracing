@@ -116,7 +116,7 @@ class RacelineLabelDataset(Dataset):
     #    print("raceline_close.shape: %s " % (str(raceline_close.shape),))
         raceline_close = raceline_close[raceline_close[:,self.position_indices[0]]>=0.0]
         raceline_close_dists = np.hstack([np.zeros(1, dtype=np.float64), np.cumsum(np.linalg.norm(raceline_close[1:] - raceline_close[:-1], ord=2, axis=1))])
-        k=3
+        k=13
         spl : BSpline = make_lsq_spline(raceline_close_dists, raceline_close, sensibleKnots(raceline_close_dists, k), k=k)
         dsamp = np.linspace(0, raceline_close_dists[-1], num = rtn_session_times.shape[0])
         raceline_label = spl(dsamp)

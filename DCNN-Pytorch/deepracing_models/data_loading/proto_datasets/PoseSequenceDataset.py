@@ -4,8 +4,6 @@ import scipy.linalg as la
 import skimage
 import PIL
 from PIL import Image as PILImage
-from PIL.ImageFilter import GaussianBlur
-import PIL.ImageFilter
 import TimestampedPacketMotionData_pb2
 import PoseSequenceLabel_pb2
 import TimestampedImage_pb2
@@ -26,87 +24,58 @@ import torch
 from torch.utils.data import Dataset
 import skimage
 import skimage.io
-import torchvision.transforms as transforms 
-import torchvision.transforms.functional as F
+import torchvision.transforms as transforms
 from skimage.transform import resize
 import time
 import shutil
 from tqdm import tqdm as tqdm
 from deepracing.imutils import resizeImage as resizeImage
 from deepracing.imutils import readImage as readImage
+from deepracing.backend import MultiAgentLabelLMDBWrapper, ImageLMDBWrapper
 import cv2
 import random
-from itertools import chain, combinations
 from scipy.spatial.transform import Rotation as Rot
+from scipy.spatial.transform import RotationSpline as RotSpline
+from Pose3d_pb2 import Pose3d
+from typing import List
+import torchvision.transforms as T
+import torchvision.transforms.functional as F
+from deepracing_models.data_loading.image_transforms import IdentifyTransform
+import json
+import scipy.interpolate
+from scipy.interpolate import make_lsq_spline, BSpline
 
-def powerset(iterable):
-    "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
-    s = list(iterable)
-    return [list(elem) for elem in list(chain.from_iterable(combinations(s, r) for r in range(len(s)+1))) if elem!=tuple([]) ]
-
+def sensibleKnots(t, degree):
+    numsamples = t.shape[0]
+    knots = [ t[int(numsamples/4)], t[int(numsamples/2)], t[int(3*numsamples/4)] ]
+    knots = np.r_[(t[0],)*(degree+1),  knots,  (t[-1],)*(degree+1)]
+    return knots
 
 def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
+def pbPoseToTorch(posepb : Pose3d):
+    position_pb = posepb.translation
+    rotation_pb = posepb.rotation
+    pose = torch.eye(4).double()
+    pose[0:3,0:3] = torch.from_numpy( Rot.from_quat( np.array([ rotation_pb.x,rotation_pb.y,rotation_pb.z,rotation_pb.w ], dtype=np.float64 ) ).as_matrix() ).double()
+    pose[0:3,3] = torch.from_numpy( np.array( [ position_pb.x, position_pb.y, position_pb.z], dtype=np.float64 )  ).double()
+
 class PoseSequenceDataset(Dataset):
-    def __init__(self, image_db_wrapper, label_db_wrapper, keyfile, context_length, track_id,\
-        image_size = np.array((66,200)), lookahead_indices = -1, lateral_dimension = 1,\
-            gaussian_blur = None, color_jitter = None, geometric_variants = False):
+    def __init__(self, image_db_wrapper : ImageLMDBWrapper, label_db_wrapper : MultiAgentLabelLMDBWrapper, keyfile : str, context_length : int, image_size : np.ndarray,  position_indices : np.ndarray,  extra_transforms : list = []):
         super(PoseSequenceDataset, self).__init__()
-        self.image_db_wrapper = image_db_wrapper
-        self.label_db_wrapper = label_db_wrapper
+        self.image_db_wrapper : ImageLMDBWrapper = image_db_wrapper
+        self.label_db_wrapper : MultiAgentLabelLMDBWrapper = label_db_wrapper
         self.image_size = image_size
         self.context_length = context_length
         self.totensor = transforms.ToTensor()
-        self.topil = transforms.ToPILImage()
-        self.lateral_dimension = lateral_dimension
-        self.lookahead_indices = lookahead_indices
-        self.track_id = track_id
-        if bool(gaussian_blur) and gaussian_blur>0:
-            self.gaussian_blur_PIL = GaussianBlur(radius=gaussian_blur)
-            self.gaussian_blur = transforms.Lambda(lambda img : img.filter(self.gaussian_blur_PIL))
-        else:
-            self.gaussian_blur = None
-        if bool(color_jitter):
-            self.color_jitter = transforms.ColorJitter( brightness=(color_jitter[0],color_jitter[0]), contrast=(color_jitter[1],color_jitter[1]) )
-        else:
-            self.color_jitter = None
-        if geometric_variants:
-            self.hflip = transforms.Lambda(lambda img : transforms.functional.hflip(img))
-        else:
-            self.hflip = None
         with open(keyfile,'r') as filehandle:
             keystrings = filehandle.readlines()
             self.db_keys = [keystring.replace('\n','') for keystring in keystrings]
-        
-        self.num_images = len(self.db_keys)# - 5 - context_length
-        self.transform_dict = {0: lambda img : img}
-        overflowidx = 1
-        possible_transforms = [ tf for tf in [self.gaussian_blur, self.color_jitter , self.hflip ] if bool(tf) ]
-        self.transform_powerset = powerset(possible_transforms)
-        self.transform_powerset.append([transforms.Lambda(lambda img : img)])
-        self.length = self.num_images*len(self.transform_powerset)
-        # if bool(self.gaussian_blur):
-        #     self.transform_dict[overflowidx] = 
-        #     overflowidx+=1
-        #     self.length += self.num_images
-        # if bool(self.color_jitter):
-        #     self.transform_dict[overflowidx] = self.color_jitter
-        #     overflowidx+=1
-        #     self.length += self.num_images
-        # if geometric_variants:
-        #     self.transform_dict[overflowidx] = "flip_images"
-        #     overflowidx+=1
-        #     self.length += self.num_images
-
-    def resetEnvs(self):
-        #pass
-        self.image_db_wrapper.resetEnv()
-        self.label_db_wrapper.resetEnv()
-    def clearReaders(self):
-        self.image_db_wrapper.clearStaleReaders()
-        self.label_db_wrapper.clearStaleReaders()
+        self.num_images = len(self.db_keys)
+        self.position_indices = position_indices
+        self.transforms = [IdentifyTransform()] + extra_transforms
     def __len__(self):
-        return self.length
+        return (self.num_images - self.context_length - 1)*len(self.transforms)
     def __getitem__(self, input_index):
         index = int(input_index%self.num_images)
         label_key = self.db_keys[index]
@@ -117,44 +86,21 @@ class PoseSequenceDataset(Dataset):
         keys = ["image_%d" % (i,) for i in packetrange]
         assert(keys[-1]==label_key)
 
-       # packets = [self.label_db_wrapper.getPoseSequenceLabel(keys[i]) for i in range(len(keys))]
-        label_packet = self.label_db_wrapper.getPoseSequenceLabel(keys[-1])
+        label = self.label_db_wrapper.getMultiAgentLabel(keys[-1])
+        assert(keys[-1]+".jpg"==label.image_tag.image_file)
+        posespb = label.ego_agent_trajectory.poses
+        rtn_session_times = np.array([p.session_time for p in posespb], dtype=np.float64)
+        egopose = np.eye(4,dtype=np.float64)
+        egopose[0:3,3] = np.array([label.ego_agent_pose.translation.x, label.ego_agent_pose.translation.y, label.ego_agent_pose.translation.z], dtype=np.float64)
+        egopose[0:3,0:3] = Rot.from_quat(np.array([label.ego_agent_pose.rotation.x, label.ego_agent_pose.rotation.y, label.ego_agent_pose.rotation.z, label.ego_agent_pose.rotation.w], dtype=np.float64)).as_matrix()
+
+        egopositions = np.array([ [p.translation.x, p.translation.y, p.translation.z]  for p in posespb  ], dtype=np.float64)
+
+                
+        transform = self.transforms[int(input_index/self.num_images)]
+        images_pil = [ transform( F.resize( PILImage.fromarray( self.image_db_wrapper.getImage(key) ), self.image_size, interpolation=PIL.Image.LANCZOS) ) for key in keys ]
+        images_torch = torch.stack( [ self.totensor(img) for img in images_pil ] )
 
 
-        session_times_np = np.array([p.session_time for p in label_packet.subsequent_poses ])
-        positions_np, quats_np, linear_velocities_np, angular_velocities_np = deepracing.protobuf_utils.labelPacketToNumpy(label_packet)
-        car_pose_proto = label_packet.car_pose
-        car_pose_np = np.eye(4, dtype=np.float64)
-        car_pose_np[0:3,3] =  np.array([car_pose_proto.translation.x, car_pose_proto.translation.y, car_pose_proto.translation.z], dtype=np.float64)
-        car_pose_np[0:3,0:3] = Rot.from_quat(np.array([car_pose_proto.rotation.x, car_pose_proto.rotation.y, car_pose_proto.rotation.z, car_pose_proto.rotation.w], dtype=np.float64)).as_matrix()
-        
-        positions_torch = torch.from_numpy(positions_np).double()
-        quats_torch = torch.from_numpy(quats_np).double()
-        linear_velocities_torch = torch.from_numpy(linear_velocities_np).double()
-        angular_velocities_torch = torch.from_numpy(angular_velocities_np).double()
-        session_times_torch = torch.from_numpy(session_times_np).double()
 
-        max_i = min(self.lookahead_indices, positions_torch.shape[0])
-        if max_i>0:
-            positions_torch = positions_torch[0:max_i]
-            quats_torch = quats_torch[0:max_i]
-            linear_velocities_torch = linear_velocities_torch[0:max_i]
-            angular_velocities_torch = angular_velocities_torch[0:max_i]
-            session_times_torch = session_times_torch[0:max_i]
-
-        pilimages = [ self.topil(resizeImage(self.image_db_wrapper.getImage(keys[i]), self.image_size)) for i in range(len(keys)) ]
-
-        quotient = int(input_index/self.num_images)
-        transform_list = self.transform_powerset[quotient]
-        transform = transforms.Compose(transform_list)
-        pilimages = [transform(img) for img in pilimages] 
-        if self.hflip in transform_list:
-            positions_torch[:,self.lateral_dimension]*=-1.0
-            linear_velocities_torch[:,self.lateral_dimension]*=-1.0
-            angular_velocities_torch[:,[i for i in range(3) if i!=self.lateral_dimension]]*=-1.0
-        # else:
-        #     tf = self.transform_dict[quotient]
-        images_torch = torch.stack( [ self.totensor(img) for img in pilimages ] ).double()
-       
-
-        return image_keys, images_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch, car_pose_np, self.track_id
+        return {"images": images_torch, "ego_pose": egopose, "session_times": rtn_session_times, "ego_future_positions": egopositions[:,self.position_indices], "image_index": packetrange[-1]}

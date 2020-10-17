@@ -64,11 +64,10 @@ class ImageFolderWrapper():
         fp = os.path.join(self.image_folder,key+".jpg")
         return deepracing.imutils.readImage(fp)
 class ImageLMDBWrapper():
-    def __init__(self, encoding = "ascii", direct_caching = False):
+    def __init__(self, encoding = "ascii"):
         self.env = None
         self.encoding = encoding
         self.spare_txns=1
-        self.direct_caching = direct_caching
         self.internal_cache = {}
     def readImages(self, image_files, keys, db_path, im_size, ROI=None, mapsize=int(1e10)):
         assert(len(image_files) > 0)
@@ -132,16 +131,7 @@ class ImageLMDBWrapper():
             im_pb.ParseFromString( entry )
         return im_pb
     def getImage( self, key : str ):
-        if self.direct_caching:
-            im = self.internal_cache.get(key,None)
-            if im is not None:
-                return im.copy()
-            im_pb = self.getImagePB( key )
-            im = pbImageToNpImage( im_pb )
-            self.internal_cache["key"]=im
-            return im.copy()
-        else:  
-            return pbImageToNpImage( self.getImagePB( key ) )
+        return pbImageToNpImage( self.getImagePB( key ) )
     def getNumImages(self):
         return self.env.stat()['entries']
     def getKeys(self):

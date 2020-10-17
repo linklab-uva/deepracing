@@ -35,13 +35,12 @@ import torchvision, torchvision.transforms as T
 from deepracing_models.data_loading.image_transforms import GaussianBlur
 
 #torch.backends.cudnn.enabled = False
-def run_epoch(experiment, network, optimizer, dataloader, raceline_loss, other_agent_loss, config, use_tqdm = False, debug=False):
+def run_epoch(experiment, network, optimizer, dataloader, ego_agent_loss, other_agent_loss, config, use_tqdm = False, debug=False):
     cum_loss = 0.0
     cum_param_loss = 0.0
     cum_position_loss = 0.0
     cum_velocity_loss = 0.0
     num_samples=0.0
-    batch_size = dataloader.batch_size
     if use_tqdm:
         t = tqdm(enumerate(dataloader), total=len(dataloader))
     else:
@@ -55,17 +54,18 @@ def run_epoch(experiment, network, optimizer, dataloader, raceline_loss, other_a
     #_, _, _, _, _, _, sample_session_times,_,_ = dataloader.dataset[0]
     bezier_order = network.params_per_dimension-1+int(fix_first_point)
 
-    for (i, (images, racelines, racelinedists, _, _, key_indices) ) in t:
-        input_images = images.double().to(device=dev)
-        racelines = racelines.double().to(device=dev)
-        racelinedists = racelinedists.double().to(device=dev)
-      #  other_agent_positions = other_agent_positions.double().to(device=dev)
-      #  session_times = session_times.double().to(device=dev)
-        image_keys = ["image_%d" % (key_indices[j],) for j in range(key_indices.shape[0])]
+    for (i, imagedict) in t:
+        input_images = imagedict["images"].double().to(device=dev)
+        ego_current_pose = imagedict["ego_current_pose"].double().to(device=dev)
+        session_times = imagedict["session_times"].double().to(device=dev)
+        ego_positions = imagedict["ego_positions"].double().to(device=dev)
+        batch_size = input_images.shape[0]
+        
+    #    image_keys = ["image_%d" % (key_indices[j],) for j in range(key_indices.shape[0])]
         
         predictions = network(input_images)
         if fix_first_point:
-            initial_zeros = torch.zeros(input_images.shape[0],1,2,dtype=torch.float64,device=dev)
+            initial_zeros = torch.zeros(batch_size,1,2,dtype=torch.float64,device=dev)
             network_output_reshape = predictions.transpose(1,2)
             predictions_reshape = torch.cat((initial_zeros,network_output_reshape),dim=1)
         else:
@@ -80,10 +80,10 @@ def run_epoch(experiment, network, optimizer, dataloader, raceline_loss, other_a
         #     s_torch_cur = torch.stack([torch.linspace(0.0,1.0,steps=current_timesteps,dtype=positions_torch.dtype,device=positions_torch.device)  for i in range(current_batch_size)], dim=0)
 
         
-        ds = racelinedists[:,-1]-racelinedists[:,0]
-        s_torch_cur = (racelinedists - racelinedists[:,0,None])/ds[:,None]
+        dt = session_times[:,-1]-session_times[:,0]
+        s_torch_cur = (session_times - session_times[:,0,None])/dt[:,None]
         # gt_vels = linear_velocities_torch[:,:,position_indices]
-        Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(racelines, bezier_order, t = s_torch_cur)
+        Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(ego_positions, bezier_order, t = s_torch_cur)
         pred_points = torch.matmul(Mpos, predictions_reshape)
         fit_points = torch.matmul(Mpos, controlpoints_fit)
 
@@ -92,9 +92,9 @@ def run_epoch(experiment, network, optimizer, dataloader, raceline_loss, other_a
         # _, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape, t = s_torch_cur, order=1)
         # pred_vels_scaled = pred_vels/dt[:,None,None]
 
-        current_position_loss = loss_weights["position"]*raceline_loss(pred_points, racelines)
+        current_position_loss = loss_weights["position"]*ego_agent_loss(pred_points, ego_positions)
         
-        if debug:# and False:
+        if debug and False:
             fig, (ax1, ax2) = plt.subplots(1, 2, sharey=False)
             images_np = np.round(255.0*input_images[0].detach().cpu().numpy().copy().transpose(0,2,3,1)).astype(np.uint8)
             #image_np_transpose=skimage.util.img_as_ubyte(images_np[-1].transpose(1,2,0))
@@ -107,7 +107,7 @@ def run_epoch(experiment, network, optimizer, dataloader, raceline_loss, other_a
 
 
 
-            gt_points_np = racelines[0].detach().cpu().numpy().copy()
+            gt_points_np = ego_positions[0].detach().cpu().numpy().copy()
             pred_points_np = pred_points[0].detach().cpu().numpy().copy()
             pred_control_points_np = predictions_reshape[0].detach().cpu().numpy().copy()
             fit_points_np = fit_points[0].cpu().numpy().copy()
@@ -121,6 +121,7 @@ def run_epoch(experiment, network, optimizer, dataloader, raceline_loss, other_a
             ax2.set_ylim(xmin,xmax)
             ax2.plot(gt_points_np[:,1],gt_points_np[:,0],'g+', label="Ground Truth Waypoints")
             ax2.plot(fit_points_np[:,1],fit_points_np[:,0],'b-', label="Best-fit Bézier Curve")
+            ax2.plot(pred_points_np[:,1],pred_points_np[:,0],'r-', label="Predicted Bézier Curve")
             #ax2.scatter(fit_control_points_np[1:,0],fit_control_points_np[1:,1],c="b", label="Bézier Curve's Control Points")
        #     ax2.plot(pred_points_np[:,1],pred_points_np[:,0],'r-', label="Predicted Bézier Curve")
           #  ax2.scatter(pred_control_points_np[:,1],pred_control_points_np[:,0], c='r', label="Predicted Bézier Curve's Control Points")
@@ -214,12 +215,13 @@ def go():
     ppd = net.params_per_dimension
     numones = int(ppd/2)
     
-    raceline_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss()
+    ego_agent_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss()
     other_agent_loss = deepracing_models.nn_models.LossFunctions.OtherAgentDistanceLoss()
 
     print("casting stuff to double")
     net = net.double()
-    raceline_loss = raceline_loss.double()
+    ego_agent_loss = ego_agent_loss.double()
+    other_agent_loss = other_agent_loss.double()
 
     if model_load is not None:
         net.load_state_dict(torch.load(model_load, map_location=torch.device("cpu")))
@@ -227,7 +229,8 @@ def go():
         print("moving stuff to GPU")
         device = torch.device("cuda:%d" % gpu)
         net = net.cuda(gpu)
-        kinematic_loss = raceline_loss.cuda(gpu)
+        ego_agent_loss = ego_agent_loss.cuda(gpu)
+        other_agent_loss = other_agent_loss.cuda(gpu)
     else:
         device = torch.device("cpu")
     optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=dampening, nesterov=nesterov)
@@ -239,6 +242,7 @@ def go():
     dsetfolders = []
     alltags = set(dataset_config.get("tags",[]))
     dset_output_lengths=[]
+    return_other_agents = bool(dataset_config.get("other_agents",False))
     for dataset in dataset_config["datasets"]:
         dlocal : dict = {k: dataset_config[k] for k in dataset_config.keys()  if (not (k in ["datasets"]))}
         dlocal.update(dataset)
@@ -260,7 +264,7 @@ def go():
 
 
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
-        image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
+        image_wrapper = deepracing.backend.ImageLMDBWrapper()
         image_wrapper.readDatabase( os.path.join(image_folder,"image_lmdb"), mapsize=image_mapsize )
 
         extra_transforms = []
@@ -271,10 +275,9 @@ def go():
         blur = dlocal.get("blur", None)   
         if blur is not None:
             extra_transforms.append(GaussianBlur(blur))
-        raceline_file = os.path.join(root_folder,"racingline.json")
-        raceline_lookahead = dlocal["raceline_lookahead"]
-        curent_dset = PD.RacelineLabelDataset(image_wrapper, label_wrapper, key_file, context_length, image_size, position_indices, raceline_file, raceline_lookahead, extra_transforms=extra_transforms, row_crop_ratio=row_crop_ratio )
-        dsets.append(curent_dset)
+        
+        current_dset = PD.MultiAgentDataset(image_wrapper, label_wrapper, key_file, context_length, image_size, position_indices, extra_transforms=extra_transforms, return_other_agents=return_other_agents)
+        dsets.append(current_dset)
         
         print("\n")
     if len(dsets)==1:
@@ -316,7 +319,7 @@ def go():
         i = 0
         #def run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent_loss, config)
     if debug:
-        run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent_loss, config, debug=True, use_tqdm=True)
+        run_epoch(experiment, net, optimizer, dataloader, ego_agent_loss, other_agent_loss, config, debug=True, use_tqdm=True)
     else:
         netpostfix = "epoch_%d_params.pt"
         optimizerpostfix = "epoch_%d_optimizer.pt"
@@ -334,7 +337,7 @@ def go():
                 #dset.clearReaders()
                 try:
                     tick = time.time()
-                    run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent_loss, config, use_tqdm=use_tqdm)
+                    run_epoch(experiment, net, optimizer, dataloader, ego_agent_loss, other_agent_loss, config, use_tqdm=use_tqdm)
                     tock = time.time()
                     print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
                     experiment.log_epoch_end(postfix)
