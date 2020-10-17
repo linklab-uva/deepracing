@@ -90,19 +90,21 @@ class MultiAgentDataset(Dataset):
         label = self.label_db_wrapper.getMultiAgentLabel(keys[-1])
         assert(keys[-1]+".jpg"==label.image_tag.image_file)
         posespb = label.ego_agent_trajectory.poses
-        rtn_session_times = np.asarray([p.session_time for p in posespb], dtype=np.float64,)
+        linearvelspb = label.ego_agent_trajectory.linear_velocities
+        rtn_session_times = np.asarray([p.session_time for p in posespb])
         egopose = np.eye(4,dtype=np.float64)
-        egopose[0:3,3] = np.asarray([label.ego_agent_pose.translation.x, label.ego_agent_pose.translation.y, label.ego_agent_pose.translation.z], dtype=np.float64)
-        egopose[0:3,0:3] = Rot.from_quat(np.asarray([label.ego_agent_pose.rotation.x, label.ego_agent_pose.rotation.y, label.ego_agent_pose.rotation.z, label.ego_agent_pose.rotation.w], dtype=np.float64)).as_matrix()
+        egopose[0:3,3] = np.asarray([label.ego_agent_pose.translation.x, label.ego_agent_pose.translation.y, label.ego_agent_pose.translation.z])
+        egopose[0:3,0:3] = Rot.from_quat(np.asarray([label.ego_agent_pose.rotation.x, label.ego_agent_pose.rotation.y, label.ego_agent_pose.rotation.z, label.ego_agent_pose.rotation.w]).astype(np.float64)).as_matrix()
 
-        egopositions = np.asarray([ [p.translation.x, p.translation.y, p.translation.z]  for p in posespb  ], dtype=np.float64)
+        egopositions = np.asarray([ [p.translation.x, p.translation.y, p.translation.z]  for p in posespb  ])
+        egovelocities = np.asarray([ [v.vector.x, v.vector.y, v.vector.z]  for v in linearvelspb  ])
 
                 
         transform = self.transforms[int(input_index/self.num_images)]
         images_pil = [ transform( F.resize( PILImage.fromarray( self.image_db_wrapper.getImage(key) ), self.image_size, interpolation=PIL.Image.LANCZOS) ) for key in keys ]
         images_torch = torch.stack( [ self.totensor(img) for img in images_pil ] )
 
-        rtndict = {"images": images_torch, "ego_current_pose": egopose, "session_times": rtn_session_times, "ego_positions": egopositions[:,self.position_indices], "image_index": packetrange[-1]}
+        rtndict = {"images": images_torch, "ego_current_pose": egopose, "session_times": rtn_session_times, "ego_positions": egopositions[:,self.position_indices], "ego_velocities": egovelocities[:,self.position_indices], "image_index": packetrange[-1]}
 
         if self.return_other_agents:
             rtn_agent_positions = 500*np.ones([19,raceline_label.shape[0],raceline_label.shape[1]], dtype=np.float64)

@@ -53,12 +53,14 @@ def run_epoch(experiment, network, optimizer, dataloader, ego_agent_loss, other_
 
     #_, _, _, _, _, _, sample_session_times,_,_ = dataloader.dataset[0]
     bezier_order = network.params_per_dimension-1+int(fix_first_point)
+   # Mpos = deepracing_models.math_utils.bezierM(torch.linspace(0.0,1.5,120).unsqueeze(0).repeat(64,1).double().to(device=dev), bezier_order)
 
     for (i, imagedict) in t:
         input_images = imagedict["images"].double().to(device=dev)
         ego_current_pose = imagedict["ego_current_pose"].double().to(device=dev)
         session_times = imagedict["session_times"].double().to(device=dev)
         ego_positions = imagedict["ego_positions"].double().to(device=dev)
+        ego_velocities = imagedict["ego_velocities"].double().to(device=dev)
         batch_size = input_images.shape[0]
         
     #    image_keys = ["image_%d" % (key_indices[j],) for j in range(key_indices.shape[0])]
@@ -83,16 +85,15 @@ def run_epoch(experiment, network, optimizer, dataloader, ego_agent_loss, other_
         dt = session_times[:,-1]-session_times[:,0]
         s_torch_cur = (session_times - session_times[:,0,None])/dt[:,None]
         # gt_vels = linear_velocities_torch[:,:,position_indices]
-        Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(ego_positions, bezier_order, t = s_torch_cur)
+        Mpos = deepracing_models.math_utils.bezierM(s_torch_cur, bezier_order)
         pred_points = torch.matmul(Mpos, predictions_reshape)
-        fit_points = torch.matmul(Mpos, controlpoints_fit)
+        Mvel, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape, t = s_torch_cur, order=1)
 
         # Mvel, fit_vels = deepracing_models.math_utils.bezier.bezierDerivative(controlpoints_fit, t = s_torch_cur, order=1)
         # fit_vels_scaled = fit_vels/dt[:,None,None]
         # _, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(predictions_reshape, t = s_torch_cur, order=1)
         # pred_vels_scaled = pred_vels/dt[:,None,None]
 
-        current_position_loss = loss_weights["position"]*ego_agent_loss(pred_points, ego_positions)
         
         if debug and False:
             fig, (ax1, ax2) = plt.subplots(1, 2, sharey=False)
@@ -106,6 +107,8 @@ def run_epoch(experiment, network, optimizer, dataloader, ego_agent_loss, other_
             ani = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat=True)
 
 
+            _, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(ego_positions, bezier_order, M = Mpos)
+            fit_points = torch.matmul(Mpos, controlpoints_fit)
 
             gt_points_np = ego_positions[0].detach().cpu().numpy().copy()
             pred_points_np = pred_points[0].detach().cpu().numpy().copy()
@@ -125,7 +128,7 @@ def run_epoch(experiment, network, optimizer, dataloader, ego_agent_loss, other_
             #ax2.scatter(fit_control_points_np[1:,0],fit_control_points_np[1:,1],c="b", label="Bézier Curve's Control Points")
        #     ax2.plot(pred_points_np[:,1],pred_points_np[:,0],'r-', label="Predicted Bézier Curve")
           #  ax2.scatter(pred_control_points_np[:,1],pred_control_points_np[:,0], c='r', label="Predicted Bézier Curve's Control Points")
-           
+            plt.legend()
             plt.show()
 
         
@@ -139,7 +142,9 @@ def run_epoch(experiment, network, optimizer, dataloader, ego_agent_loss, other_
         # else:
         #     loss = current_position_loss 
         #     current_other_agent_loss = torch.tensor([0.0])[0]
-        loss = current_position_loss 
+        current_position_loss = ego_agent_loss(pred_points, ego_positions)
+        current_velocity_loss = ego_agent_loss(pred_vels, ego_velocities)
+        loss = loss_weights["position"]*current_position_loss + loss_weights["velocity"]*current_velocity_loss
       #  current_other_agent_loss = torch.tensor([0.0])[0]
        # loss.retain_grad()
 
@@ -148,12 +153,14 @@ def run_epoch(experiment, network, optimizer, dataloader, ego_agent_loss, other_
         # Weight and bias updates.
         optimizer.step()
         # logging information
-        current_position_loss_float = float(loss.item())
+        current_position_loss_float = float(current_position_loss.item())
+        current_velocity_loss_float = float(current_velocity_loss.item())
         num_samples += 1.0
         if not debug:
             experiment.log_metric("current_position_loss", current_position_loss_float)
+            experiment.log_metric("current_velocity_loss", current_velocity_loss_float)
         if use_tqdm:
-            t.set_postfix({"current_position_loss" : current_position_loss_float})
+            t.set_postfix({"current_position_loss" : current_position_loss_float, "current_velocity_loss" : current_velocity_loss_float})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
     parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuration file to load")
