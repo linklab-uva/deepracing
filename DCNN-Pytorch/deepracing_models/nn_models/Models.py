@@ -302,6 +302,24 @@ class AdmiralNetKinematicPredictor(nn.Module):
         position_predictions = self.classifier(x_linear)
 
         return position_predictions
+class LinearRecursionCurvePredictor(nn.Module):
+    def __init__(self, input_dimension, params_per_dimension=11, context_length = 5, hidden_dimnsion = 200,  output_dimension = 2):
+        self.conv1 = nn.Conv2d(self.input_channels, 24, kernel_size=5, stride=2)
+        self.Norm_1 = nn.BatchNorm2d(24)
+        self.conv2 = nn.Conv2d(24, 36, kernel_size=5, stride=2)
+        self.Norm_2 = nn.BatchNorm2d(36)
+        self.conv3 = nn.Conv2d(36, 48, kernel_size=5, stride=2)
+        self.Norm_3 = nn.BatchNorm2d(48) 
+        self.conv4 = nn.Conv2d(48, 64, kernel_size=3)
+        self.Norm_4 = nn.BatchNorm2d(64)
+        self.conv5 = nn.Conv2d(64, 64, kernel_size=3)
+        self.Norm_5 = nn.BatchNorm2d(64)
+
+        self.linear_rnn = nn.LSTM(self.img_features, self.hidden_dim, batch_first = True, num_layers = num_recurrent_layers, bidirectional=rnn_bidirectional)
+        self.linear_rnn_init_hidden = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),self.hidden_dim)), requires_grad=True)
+        self.linear_rnn_init_cell = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),self.hidden_dim)), requires_grad=True)
+
+
 class AdmiralNetCurvePredictor(nn.Module):
     def __init__(self, input_channels=3, params_per_dimension=11, \
                  context_length = 5, hidden_dim = 200, num_recurrent_layers = 1, rnn_bidirectional=False,  \
