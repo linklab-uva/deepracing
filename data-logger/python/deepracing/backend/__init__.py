@@ -1,6 +1,7 @@
 from .ImageBackends import ImageLMDBWrapper as ImageLMDBWrapper
 from .ImageBackends import ImageFolderWrapper as ImageFolderWrapper
 from .ImageBackends import ImageArrayBackend as ImageArrayBackend
+from .LaserScanBackends import LaserScanLMDBWrapper as LaserScanLMDBWrapper
 from .LabelBackends import PoseSequenceLabelLMDBWrapper as PoseSequenceLabelLMDBWrapper
 from .LabelBackends import ControlLabelLMDBWrapper as ControlLabelLMDBWrapper
 from .LabelBackends import MultiAgentLabelLMDBWrapper as MultiAgentLabelLMDBWrapper

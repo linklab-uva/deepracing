@@ -5,6 +5,7 @@ import TimestampedPacketLapData_pb2
 import TimestampedImage_pb2
 import PacketMotionData_pb2
 import CarTelemetryData_pb2
+import LaserScan_pb2
 import Spline3D_pb2
 import Vector3d_pb2
 import Quaterniond_pb2
@@ -16,6 +17,19 @@ import numpy.linalg as la
 from scipy.spatial.transform import Rotation as Rot
 from tqdm import tqdm as tqdm
 import BezierCurve_pb2
+
+def ros1LaserScanToPB(laserScanRos):
+   rtn = LaserScan_pb2.LaserScan()
+   rtn.angle_min = laserScanRos.angle_min
+   rtn.angle_max = laserScanRos.angle_max
+   rtn.angle_increment = laserScanRos.angle_increment
+   rtn.time_increment = laserScanRos.time_increment
+   rtn.scan_time = laserScanRos.scan_time
+   rtn.range_min = laserScanRos.range_min
+   rtn.range_max = laserScanRos.range_max
+   rtn.ranges.extend(laserScanRos.ranges)
+   rtn.intensities.extend(laserScanRos.ranges)
+   return rtn
 
 def splineSciPyToPB(splineSciPy : scipy.interpolate.BSpline, tmin,tmax,Xmin,Xmax,Ymin,Ymax,Zmin,Zmax):
    return Spline3D_pb2.Spline3D(XParams = splineSciPy.c[:,0], ZParams = splineSciPy.c[:,1],degree=splineSciPy.k, knots=splineSciPy.t,\

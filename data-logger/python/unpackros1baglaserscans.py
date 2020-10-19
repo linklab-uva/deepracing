@@ -14,7 +14,7 @@ from ackermann_msgs.msg import AckermannDrive, AckermannDriveStamped
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan, LaserEcho, Image, CompressedImage
 import argparse
-import TimestampedImage_pb2, TimestampedPacketMotionData_pb2, Image_pb2, FrameId_pb2, MultiAgentLabel_pb2
+import TimestampedImage_pb2, TimestampedPacketMotionData_pb2, Image_pb2, FrameId_pb2, MultiAgentLabel_pb2, LaserScan_pb2, LaserScanLabel_pb2
 import Pose3d_pb2, Vector3dStamped_pb2
 
 from tqdm import tqdm as tqdm
@@ -25,7 +25,6 @@ import scipy, scipy.integrate, scipy.interpolate
 from scipy.spatial.transform import Rotation as Rot, RotationSpline as RotSpline
 import matplotlib
 from matplotlib import pyplot as plt
-import cv_bridge
 import shutil
 import time
 import deepracing, deepracing.backend, deepracing.protobuf_utils as proto_utils
@@ -35,6 +34,9 @@ import PIL
 from PIL import Image, ImageFilter, ImageDraw
 import json
 from scipy.spatial.kdtree import KDTree
+from copy import deepcopy
+
+
 # /car_1/camera/image_raw      8263 msgs    : sensor_msgs/Image
 # /car_1/multiplexer/command   7495 msgs    : ackermann_msgs/AckermannDrive
 # /car_1/odom_filtered         6950 msgs    : nav_msgs/Odometry
@@ -50,6 +52,7 @@ def stampToSeconds(stamp):
     return stampToTime(stamp).to_sec()
 def sortKey(msg):
     return stampToSeconds(msg.header.stamp)
+
 parser = argparse.ArgumentParser("Unpack a bag file into a dataset")
 parser.add_argument('bagfile', type=str,  help='The bagfile to unpack')
 parser.add_argument('--config', type=str, required=False, default=None , help="Config file specifying the rostopics to unpack, defaults to a file named \"topicconfig.yaml\" in the same directory as the bagfile")
@@ -75,7 +78,6 @@ racelinefile = argdict["raceline"]
 rowstart = argdict["rowstart"]
 k = argdict["k"]
 bagdir = os.path.dirname(bagpath)
-bridge = cv_bridge.CvBridge()
 if configfile is None:
     configfile = os.path.join(bagdir,"topicconfig.yaml")
 with open(configfile,'r') as f:
@@ -97,13 +99,26 @@ for topic, msg, t in tqdm(iterable=bag.read_messages(topics=None), desc="Loading
 
 odoms = sorted(msgdict[topicdict["odom"]], key=sortKey)
 
-images = sorted(msgdict[topicdict["images"]], key=sortKey)
-imagetimes = np.array([stampToSeconds(i.header.stamp) for i in images], dtype=np.float64)
+laserscans = sorted(msgdict[topicdict["scan"]], key=sortKey)
+
+#print(laserscans[0])
+
 odomtimes = np.array([stampToSeconds(o.header.stamp) for o in odoms], dtype=np.float64)
-t0 = imagetimes[0]
-imagetimes = imagetimes - t0
+lasersscansizes = np.array([len(ls.ranges) for ls in laserscans], dtype=np.int64)
+print(set(lasersscansizes.tolist()))
+laserscantimes = np.array([stampToSeconds(ls.header.stamp) for ls in laserscans], dtype=np.float64)
+
+
+t0 = deepcopy(laserscantimes[0])
+laserscantimes = laserscantimes - t0
 odomtimes = odomtimes - t0
+
+
+
+
+
 tbuff = int(np.round(1.5/np.mean(odomtimes[1:] - odomtimes[0:-1])))
+nextra = int(round(0.25*tbuff))
 meanrldist = np.mean(racelinedist[1:] - racelinedist[:-1])
 racelinebuff = int(np.round(lookahead_distance/meanrldist))
 print("racelinebuff: %d" % (racelinebuff,))
@@ -112,27 +127,37 @@ posemsgs = [o.pose.pose for o in odoms]
 positions = np.array([ [p.position.x, p.position.y, p.position.z] for p in posemsgs], dtype=np.float64)
 quaternions = np.array([ [p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w] for p in posemsgs], dtype=np.float64)
 
-nspline = int(round(0.275*tbuff))
 rootdir = os.path.join(bagdir, os.path.splitext(os.path.basename(bagpath))[0])
-if os.path.isdir(rootdir):
-    print("Purging old data")
-    shutil.rmtree(rootdir, ignore_errors=True)
+laserscandir = os.path.join(rootdir,"laser_scans")
+if os.path.isdir(laserscandir):
+    print("Purging old laser scans")
+    shutil.rmtree(laserscandir, ignore_errors=True)
     time.sleep(0.5)
-imagedir = os.path.join(rootdir,"images")
-imagelmdbdir = os.path.join(imagedir,"image_lmdb")
-labeldir = os.path.join(rootdir,"raceline_labels")
-labellmdbdir = os.path.join(labeldir,"lmdb")
-os.makedirs(imagedir)
-os.makedirs(labeldir)
-os.makedirs(imagelmdbdir)
-os.makedirs(labellmdbdir)
-shutil.copy(racelinefile, os.path.join(rootdir,"racingline.json"))
-imnp0 = bridge.compressed_imgmsg_to_cv2(images[0], desired_encoding="rgb8")
-imsize = np.array([200,66,imnp0.shape[2]])
-imagebackend = deepracing.backend.ImageLMDBWrapper()
-imagebackend.readDatabase(imagelmdbdir,mapsize=int(round(1.1*len(images)*np.prod(imsize))), readonly=False)
+laserscanlmdbdir = os.path.join(laserscandir,"lmdb")
+
+laserscanlabeldir = os.path.join(rootdir,"laser_scan_labels")
+if os.path.isdir(laserscanlabeldir):
+    print("Purging old laser scan labels")
+    shutil.rmtree(laserscanlabeldir, ignore_errors=True)
+    time.sleep(0.5)
+laserscanlabellmdbdir = os.path.join(laserscanlabeldir,"lmdb")
+
+
+os.makedirs(laserscandir)
+os.makedirs(laserscanlmdbdir)
+
+os.makedirs(laserscanlabeldir)
+os.makedirs(laserscanlabellmdbdir)
+
+
+#shutil.copy(racelinefile, os.path.join(rootdir,"racingline.json"))
+
+
+scanbackend = deepracing.backend.LaserScanLMDBWrapper()
+scanbackend.openDatabase(laserscanlmdbdir, readonly=False)
+
 labelbackend = deepracing.backend.MultiAgentLabelLMDBWrapper()
-labelbackend.openDatabase(labellmdbdir, readonly=False)
+labelbackend.openDatabase(laserscanlabellmdbdir, readonly=False)
 goodkeys = []
 up = np.array([0.0,0.0,1.0], dtype=np.float64)
 trate = 1.0/15.0
@@ -141,65 +166,60 @@ print("Writing labels to file")
 dout = dict(argdict)
 dout["bagfile"] = os.path.abspath(dout["bagfile"])
 dout["raceline"] = os.path.abspath(dout["raceline"])
-dout["inputsize"] = list(imnp0.shape)
-dout["outputsize"] = imsize.tolist()
-croprow = int(round(rowstart*float(imnp0.shape[0])))
-dout["croprow"] = croprow
-with open(os.path.join(rootdir,"config.json"),"w") as f:
+dout["inputsize"] = len(laserscans[0].ranges)
+keyprefix = "laser_scan_%d"
+
+print(dout)
+with open(os.path.join(rootdir,"laser_scan_config.json"),"w") as f:
     json.dump(dout, f, indent=2)
 try:
-    for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
+    for (i, tscan) in tqdm(enumerate(laserscantimes), total=len(laserscantimes)):
         tick = time.time()
-        imagetag = TimestampedImage_pb2.TimestampedImage()
-        imageprefix =  "image_%d"
-        imagetag.image_file = (imageprefix +".jpg") % i
-        imagetag.timestamp = timage
-        impil = PIL.Image.fromarray(bridge.compressed_imgmsg_to_cv2(images[i], desired_encoding="rgb8"))
-        impil.save(os.path.join(imagedir, imagetag.image_file))
-        imlmdb : PIL.Image.Image = impil.crop([0, croprow, impil.width-1, impil.height-1]).resize(imsize[0:2], resample = PIL.Image.LANCZOS)
-        impb = imagebackend.writeImage(imageprefix%i, imlmdb)
+        key = keyprefix % i
 
-        with open(os.path.join(imagedir, (imageprefix +".json") % i), "w") as f:
-            f.write(google.protobuf.json_format.MessageToJson(imagetag, including_default_value_fields=True, indent=2))
-        with open(os.path.join(imagedir, (imageprefix +".pb") % i), "wb") as f:
-            f.write(imagetag.SerializeToString())
+        scantag = proto_utils.ros1LaserScanToPB(laserscans[i])
+        scantag.frame = FrameId_pb2.LOCAL
+        scantag.session_time = tscan
+        scanbackend.writeLaserScan(key, scantag)
 
-            
-        if timage<=mintime or timage>=imagetimes[-1]-maxtime:
+        with open(os.path.join(laserscandir, key + ".json"), "w") as f:
+            f.write(google.protobuf.json_format.MessageToJson(scantag, including_default_value_fields=True, indent=2))
+        with open(os.path.join(laserscandir, key + ".pb"), "wb") as f:
+            f.write(scantag.SerializeToString())
+
+
+        
+        if tscan<=laserscantimes[0]+mintime or tscan>=laserscantimes[-1]-maxtime:
             continue
-        labeltag = MultiAgentLabel_pb2.MultiAgentLabel()
-        labeltag.image_tag.CopyFrom(imagetag)
 
-        isamp = bisect.bisect_left(odomtimes, timage)
-        tfit = odomtimes[isamp-nspline:isamp+tbuff+nspline]
-        pfit = positions[isamp-nspline:isamp+tbuff+nspline]
-        qfit = quaternions[isamp-nspline:isamp+tbuff+nspline]
+
+        labeltag = MultiAgentLabel_pb2.MultiAgentLabel()
+        isamp = bisect.bisect_left(odomtimes, tscan)
+        tfit = odomtimes[isamp-nextra:isamp+tbuff+nextra]
+        pfit = positions[isamp-nextra:isamp+tbuff+nextra]
+        qfit = quaternions[isamp-nextra:isamp+tbuff+nextra]
         
         spl : scipy.interpolate.LSQUnivariateSpline = scipy.interpolate.make_lsq_spline(tfit, pfit, sensibleKnots(tfit, k), k=k)
         splvel : scipy.interpolate.LSQUnivariateSpline = spl.derivative()
-        tsamp = np.linspace(timage, timage+1.5, num = num_samples)
-        splvals = spl(tsamp)
-        linearvelsglobal = splvel(tsamp)
+        tsamp = np.linspace(tscan, tscan+1.5, num = num_samples)
+        pglobalsamp = spl(tsamp)
+        vglobalsamp = splvel(tsamp)
         
         cartraj = np.stack( [np.eye(4,dtype=np.float64) for asdf in range(tsamp.shape[0])], axis=0)
-        cartraj[:,0:3,3] = splvals
+        cartraj[:,0:3,3] = pglobalsamp
         for j in range(cartraj.shape[0]):
-            velspl = linearvelsglobal[j]
+            velspl = vglobalsamp[j]
             rx = velspl/np.linalg.norm(velspl, ord=2)
             ry = np.cross(up,rx)
             ry = ry/np.linalg.norm(ry, ord=2)
             rz = np.cross(rx,ry)
             rz = rz/np.linalg.norm(rz, ord=2)
             cartraj[j,0:3,0:3] = np.column_stack([rx,ry,rz])
-           # q = r.as_quat()
-           # print("Distance between rotations: %f" % np.arccos(-1+ 2*(np.dot(q,qsamp[j])**2)))
-            #cartraj[j,0:3,0:3] = np.column_stack([rx,ry,rz])
-      #  print(qsamp)
         carrotations = Rot.from_matrix(cartraj[:,0:3,0:3])
         
         carrotationspline = RotSpline(tsamp,carrotations)
         angvelsglobal = carrotationspline(tsamp,1)
-        #print(rz)
+
         
         carpose = cartraj[0].copy()
         carposeinv = np.linalg.inv(carpose)
@@ -209,7 +229,7 @@ try:
         labeltag.ego_agent_pose.frame = FrameId_pb2.GLOBAL
         labeltag.ego_agent_pose.session_time = tsamp[0]
 
-        labeltag.ego_agent_linear_velocity.vector.CopyFrom(proto_utils.vectorFromNumpy(linearvelsglobal[0]))
+        labeltag.ego_agent_linear_velocity.vector.CopyFrom(proto_utils.vectorFromNumpy(vglobalsamp[0]))
         labeltag.ego_agent_linear_velocity.frame = FrameId_pb2.GLOBAL
         labeltag.ego_agent_linear_velocity.session_time = tsamp[0]
 
@@ -221,18 +241,13 @@ try:
 
 
         _, iclosest = racelinekdtree.query(carpose[0:3,3])
-        rlidx = np.arange(iclosest-int(round(racelinebuff/3)), iclosest+racelinebuff+1,step=1, dtype=np.int64)%raceline.shape[0]
+        istart = (iclosest - int(racelinebuff/3))%raceline.shape[0]
+        while np.dot(raceline[istart] - carpose[0:3,3], carpose[0:3,0])<-0.05:
+            istart = istart+1
+            istart = istart%raceline.shape[0]
+        rlidx = np.arange(istart, istart+racelinebuff+1,step=1, dtype=np.int64)%raceline.shape[0]
         rlglobal = raceline[rlidx]
-        rld = racelinedist[rlidx]
-        overlapidx = rld<rld[0]
-        irldmax = np.argmax(rld)
-        rld[overlapidx]+=rld[irldmax] + meanrldist
-
-        
-        xposidx = np.array([np.dot(rlglobal[j] - carpose[0:3,3], carpose[0:3,0]) for j in range(rlglobal.shape[0])])>=0
-        rlglobal = rlglobal[xposidx]
-        rld = rld[xposidx]
-
+        rld = np.hstack([np.zeros(1), np.cumsum(np.linalg.norm(rlglobal[1:] - rlglobal[:-1], ord=2, axis=1))])
 
         try:
             rlspline = scipy.interpolate.make_lsq_spline(rld, rlglobal, sensibleKnots(rld,k), k=k)
@@ -242,7 +257,7 @@ try:
             continue
 
         rlsampglobal = rlspline(rldsamp)
-        linearvelslocal = np.matmul(carposeinv[0:3,0:3], linearvelsglobal.transpose()).transpose()
+        linearvelslocal = np.matmul(carposeinv[0:3,0:3], vglobalsamp.transpose()).transpose()
         angvelslocal = np.matmul(carposeinv[0:3,0:3], angvelsglobal.transpose()).transpose()
         rlsamplocal = np.matmul(carposeinv, np.row_stack([rlsampglobal.transpose(), np.ones_like(rlsampglobal[:,0])]))[0:3].transpose()
         cartrajlocal = np.matmul(carposeinv, cartraj)
@@ -264,21 +279,19 @@ try:
             newangularvel.vector.CopyFrom(proto_utils.vectorFromNumpy(angvelslocal[j]))
             newangularvel.session_time = tsamp[j]
 
-        labeltag.ego_car_index = 0
-        labeltag.track_id=26
-        with open(os.path.join(labeldir, (imageprefix +".json") % i), "w") as f:
+        # labeltag.ego_car_index = 0
+        # labeltag.track_id=26
+        with open(os.path.join(laserscanlabeldir, key + ".json"), "w") as f:
             f.write(google.protobuf.json_format.MessageToJson(labeltag, including_default_value_fields=True, indent=2))
-        with open(os.path.join(labeldir, (imageprefix +".pb") % i), "wb") as f:
+        with open(os.path.join(laserscanlabeldir, key + ".pb"), "wb") as f:
             f.write(labeltag.SerializeToString())
-        labelbackend.writeMultiAgentLabel(imageprefix%i, labeltag)
-        goodkeys.append((imageprefix%i)+"\n")
+        labelbackend.writeMultiAgentLabel(key, labeltag)
+        goodkeys.append(key+"\n")
         tock = time.time()
         dt = (tock-tick)
         if debug and i%5==0:
             key = goodkeys[-1].replace("\n","")
-            imnp = np.asarray(impil)
-            imnpdb = imagebackend.getImage(key)
-           # imnpdb = imnp
+ 
             lbldb = labelbackend.getMultiAgentLabel(key)
             racelinelocal =  np.row_stack([rlsamplocal.transpose(), np.ones_like(rlsamplocal[:,0])])
             egopose = np.eye(4,dtype=np.float64)
@@ -289,16 +302,13 @@ try:
             pfitlocal = np.matmul(np.linalg.inv(egopose), np.row_stack([pfit.transpose(), np.ones_like(pfit[:,0])]))[0:3].transpose()
             egotrajglobal = np.matmul(egopose, egotrajlocal)
             racelineglobal = np.matmul(egopose, racelinelocal)
-            fig1 = plt.subplot(1, 3, 1)
-            plt.imshow(imnpdb)
-            plt.title("Image %d" % i)
-            fig2 = plt.subplot(1, 3, 2)
+            fig2 = plt.subplot(1, 2, 1)
             plt.title("Global Coordinates")
             plt.scatter(pfit[:,0], pfit[:,1], label="PF Estimates", facecolors="none", edgecolors="blue")
             plt.plot(egotrajglobal[0], egotrajglobal[1], label="Ego Agent Trajectory Label", c="r")
             plt.plot(racelineglobal[0], racelineglobal[1], label="Optimal Raceline", c="g")
             plt.plot(egotrajglobal[0,0], egotrajglobal[1,0], "g*", label="Position of Car")
-            fig3 = plt.subplot(1, 3, 3)
+            fig3 = plt.subplot(1, 2, 2)
             plt.title("Local Coordinates")
             plt.scatter(pfitlocal[:,1], pfitlocal[:,0], label="PF Estimates", facecolors="none", edgecolors="blue")
             plt.plot(egotrajlocal[1], egotrajlocal[0], label="Ego Agent Trajectory Label", c="r")

@@ -17,3 +17,4 @@ from .proto_utils import labelPacketToNumpy as labelPacketToNumpy
 from .proto_utils import vectorFromNumpy as vectorFromNumpy
 from .proto_utils import quaternionFromNumpy as quaternionFromNumpy
 from .proto_utils import quaternionFromScipy as quaternionFromScipy
+from .proto_utils import ros1LaserScanToPB

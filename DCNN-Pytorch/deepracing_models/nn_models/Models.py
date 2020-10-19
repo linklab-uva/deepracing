@@ -302,23 +302,71 @@ class AdmiralNetKinematicPredictor(nn.Module):
         position_predictions = self.classifier(x_linear)
 
         return position_predictions
+        
 class LinearRecursionCurvePredictor(nn.Module):
-    def __init__(self, input_dimension, params_per_dimension=11, context_length = 5, hidden_dimnsion = 200,  output_dimension = 2):
-        self.conv1 = nn.Conv2d(self.input_channels, 24, kernel_size=5, stride=2)
+    def __init__(self, input_features, context_length = 5, hidden_dimension = 200, bezier_order=5,  output_dimension = 2):
+        super(LinearRecursionCurvePredictor, self).__init__()
+        self.linear_rnn = nn.LSTM(input_features, hidden_dimension, batch_first = True, num_layers = 1, bidirectional=False)
+        self.linear_rnn_init_hidden = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),hidden_dimension)), requires_grad=True)
+        self.linear_rnn_init_cell = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),hidden_dimension)), requires_grad=True)
+        self.conv1 = nn.Conv2d(1, 24, kernel_size=3, padding=1)
         self.Norm_1 = nn.BatchNorm2d(24)
-        self.conv2 = nn.Conv2d(24, 36, kernel_size=5, stride=2)
+        self.conv2 = nn.Conv2d(24, 36, kernel_size=3, padding=1)
         self.Norm_2 = nn.BatchNorm2d(36)
-        self.conv3 = nn.Conv2d(36, 48, kernel_size=5, stride=2)
-        self.Norm_3 = nn.BatchNorm2d(48) 
-        self.conv4 = nn.Conv2d(48, 64, kernel_size=3)
-        self.Norm_4 = nn.BatchNorm2d(64)
-        self.conv5 = nn.Conv2d(64, 64, kernel_size=3)
-        self.Norm_5 = nn.BatchNorm2d(64)
+        self.conv3 = nn.Conv2d(36, 36, kernel_size=3, padding=1)
+        self.Norm_3 = nn.BatchNorm2d(36) 
+        self.conv4 = nn.Conv2d(36, 24, kernel_size=3)
+        self.Norm_4 = nn.BatchNorm2d(24)
+        self.conv5 = nn.Conv2d(24, 12, kernel_size=3)
+        self.Norm_5 = nn.BatchNorm2d(12)
+        self.sigmoid = nn.Sigmoid()
+        self.output_dimension = output_dimension
+        self.bezier_order = bezier_order
 
-        self.linear_rnn = nn.LSTM(self.img_features, self.hidden_dim, batch_first = True, num_layers = num_recurrent_layers, bidirectional=rnn_bidirectional)
-        self.linear_rnn_init_hidden = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),self.hidden_dim)), requires_grad=True)
-        self.linear_rnn_init_cell = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),self.hidden_dim)), requires_grad=True)
+        self.convolutions = torch.nn.Sequential(
+            *[
+            self.conv1,
+            self.Norm_1,
+            self.sigmoid,
+            self.conv2,
+            self.Norm_2,
+            self.sigmoid,
+            self.conv3,
+            self.Norm_3,
+            self.sigmoid,
+            self.conv4,
+            self.Norm_4,
+            self.sigmoid,
+            self.conv5,
+            self.Norm_5
+            ]
+        )
 
+        self.linear_layers = torch.nn.Sequential(
+            *[
+                nn.Linear(2352,1176),
+                self.sigmoid,
+                nn.Linear(1176,588),
+                self.sigmoid,
+                nn.Linear(588,294),
+                self.sigmoid,
+                nn.Linear(294,147),
+                self.sigmoid,
+                nn.Linear(147,(bezier_order+1)*output_dimension),
+            ]
+        )
+
+
+    def forward(self, inputs):
+        batch_size = inputs.shape[0]
+        linear_rnn_init_hidden = self.linear_rnn_init_hidden.unsqueeze(1).repeat(1,batch_size,1)
+        linear_rnn_init_cell = self.linear_rnn_init_cell.unsqueeze(1).repeat(1,batch_size,1)
+        recursive_features, (linear_new_hidden, linear_new_cell) = self.linear_rnn(inputs, (linear_rnn_init_hidden,  linear_rnn_init_cell) )
+        recursive_features = recursive_features.unsqueeze(1)
+        convout = self.convolutions(recursive_features)
+        convflattened = convout.view(batch_size,-1)
+        linearout = self.linear_layers(convflattened)
+        return linearout.view(-1,self.bezier_order+1,self.output_dimension)
 
 class AdmiralNetCurvePredictor(nn.Module):
     def __init__(self, input_channels=3, params_per_dimension=11, \
