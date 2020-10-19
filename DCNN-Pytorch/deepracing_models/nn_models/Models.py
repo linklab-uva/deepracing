@@ -307,8 +307,8 @@ class LinearRecursionCurvePredictor(nn.Module):
     def __init__(self, input_features, context_length = 5, hidden_dimension = 200, bezier_order=5,  output_dimension = 2):
         super(LinearRecursionCurvePredictor, self).__init__()
         self.linear_rnn = nn.LSTM(input_features, hidden_dimension, batch_first = True, num_layers = 1, bidirectional=False)
-        self.linear_rnn_init_hidden = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),hidden_dimension)), requires_grad=True)
-        self.linear_rnn_init_cell = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),hidden_dimension)), requires_grad=True)
+        self.linear_rnn_init_hidden = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),1,hidden_dimension)), requires_grad=True)
+        self.linear_rnn_init_cell = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),1,hidden_dimension)), requires_grad=True)
         self.conv1 = nn.Conv2d(1, 24, kernel_size=3, padding=1)
         self.Norm_1 = nn.BatchNorm2d(24)
         self.conv2 = nn.Conv2d(24, 36, kernel_size=3, padding=1)
@@ -359,8 +359,8 @@ class LinearRecursionCurvePredictor(nn.Module):
 
     def forward(self, inputs):
         batch_size = inputs.shape[0]
-        linear_rnn_init_hidden = self.linear_rnn_init_hidden.unsqueeze(1).repeat(1,batch_size,1)
-        linear_rnn_init_cell = self.linear_rnn_init_cell.unsqueeze(1).repeat(1,batch_size,1)
+        linear_rnn_init_hidden = self.linear_rnn_init_hidden.repeat(1,batch_size,1)
+        linear_rnn_init_cell = self.linear_rnn_init_cell.repeat(1,batch_size,1)
         recursive_features, (linear_new_hidden, linear_new_cell) = self.linear_rnn(inputs, (linear_rnn_init_hidden,  linear_rnn_init_cell) )
         recursive_features = recursive_features.unsqueeze(1)
         convout = self.convolutions(recursive_features)

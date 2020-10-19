@@ -3,6 +3,7 @@ from .ControlOutputDataset import ControlOutputDataset
 from .ControlOutputSequenceDataset import ControlOutputSequenceDataset
 from .MultiAgentDataset import MultiAgentDataset
 from .RacelineLabelDataset import RacelineLabelDataset
+from .LaserScanDataset import LaserScanDataset
 import os
 import deepracing.backend
 import numpy as np
