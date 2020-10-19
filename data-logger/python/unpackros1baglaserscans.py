@@ -14,7 +14,7 @@ from ackermann_msgs.msg import AckermannDrive, AckermannDriveStamped
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan, LaserEcho, Image, CompressedImage
 import argparse
-import TimestampedImage_pb2, TimestampedPacketMotionData_pb2, Image_pb2, FrameId_pb2, MultiAgentLabel_pb2, LaserScan_pb2, LaserScanLabel_pb2
+import TimestampedImage_pb2, TimestampedPacketMotionData_pb2, Image_pb2, FrameId_pb2, MultiAgentLabel_pb2, LaserScan_pb2
 import Pose3d_pb2, Vector3dStamped_pb2
 
 from tqdm import tqdm as tqdm
@@ -154,10 +154,10 @@ os.makedirs(laserscanlabellmdbdir)
 
 
 scanbackend = deepracing.backend.LaserScanLMDBWrapper()
-scanbackend.openDatabase(laserscanlmdbdir, readonly=False)
+scanbackend.openDatabase(laserscanlmdbdir, readonly=False, mapsize=32*len(laserscans)*len(laserscans[0].ranges))
 
 labelbackend = deepracing.backend.MultiAgentLabelLMDBWrapper()
-labelbackend.openDatabase(laserscanlabellmdbdir, readonly=False)
+labelbackend.openDatabase(laserscanlabellmdbdir, readonly=False, mapsize=17000*len(laserscans))
 goodkeys = []
 up = np.array([0.0,0.0,1.0], dtype=np.float64)
 trate = 1.0/15.0
@@ -167,10 +167,11 @@ dout = dict(argdict)
 dout["bagfile"] = os.path.abspath(dout["bagfile"])
 dout["raceline"] = os.path.abspath(dout["raceline"])
 dout["inputsize"] = len(laserscans[0].ranges)
+dout["num_scans"] = len(laserscans)
 keyprefix = "laser_scan_%d"
 
 print(dout)
-with open(os.path.join(rootdir,"laser_scan_config.json"),"w") as f:
+with open(os.path.join(laserscandir,"config.json"),"w") as f:
     json.dump(dout, f, indent=2)
 try:
     for (i, tscan) in tqdm(enumerate(laserscantimes), total=len(laserscantimes)):
@@ -184,8 +185,8 @@ try:
 
         with open(os.path.join(laserscandir, key + ".json"), "w") as f:
             f.write(google.protobuf.json_format.MessageToJson(scantag, including_default_value_fields=True, indent=2))
-        with open(os.path.join(laserscandir, key + ".pb"), "wb") as f:
-            f.write(scantag.SerializeToString())
+        # with open(os.path.join(laserscandir, key + ".pb"), "wb") as f:
+        #     f.write(scantag.SerializeToString())
 
 
         
@@ -237,6 +238,10 @@ try:
         labeltag.ego_agent_linear_velocity.frame = FrameId_pb2.GLOBAL
         labeltag.ego_agent_angular_velocity.session_time = tsamp[0]
 
+        carspinspeed = np.linalg.norm(angvelsglobal[0])
+
+
+
 
 
 
@@ -275,25 +280,37 @@ try:
             newlinearvel.session_time = tsamp[j]
 
             newangularvel = labeltag.ego_agent_trajectory.angular_velocities.add()
-            newangularvel.frame = FrameId_pb2.LOCAL
             newangularvel.vector.CopyFrom(proto_utils.vectorFromNumpy(angvelslocal[j]))
+            newangularvel.frame = FrameId_pb2.LOCAL
             newangularvel.session_time = tsamp[j]
+
+            newracelinevec = labeltag.raceline.add()
+            newracelinevec.frame = FrameId_pb2.LOCAL
+            newracelinevec.vector.CopyFrom(proto_utils.vectorFromNumpy(rlsamplocal[j]))
+
+
 
         # labeltag.ego_car_index = 0
         # labeltag.track_id=26
         with open(os.path.join(laserscanlabeldir, key + ".json"), "w") as f:
             f.write(google.protobuf.json_format.MessageToJson(labeltag, including_default_value_fields=True, indent=2))
-        with open(os.path.join(laserscanlabeldir, key + ".pb"), "wb") as f:
-            f.write(labeltag.SerializeToString())
+        # with open(os.path.join(laserscanlabeldir, key + ".pb"), "wb") as f:
+        #     f.write(labeltag.SerializeToString())
         labelbackend.writeMultiAgentLabel(key, labeltag)
         goodkeys.append(key+"\n")
         tock = time.time()
         dt = (tock-tick)
         if debug and i%5==0:
             key = goodkeys[-1].replace("\n","")
- 
+            scandb = scanbackend.getLaserScan(key)
+            r = np.asarray(scandb.ranges)
+            theta = np.linspace(scandb.angle_min, scandb.angle_max, num=r.shape[0])
+            # print(theta)
+            # print(carspinspeed)
+            xlaser = r*np.cos(theta) + .125
+            ylaser = r*np.sin(theta)
             lbldb = labelbackend.getMultiAgentLabel(key)
-            racelinelocal =  np.row_stack([rlsamplocal.transpose(), np.ones_like(rlsamplocal[:,0])])
+            racelinelocal =  np.asarray([[v.vector.x, v.vector.y, v.vector.z, 1.0] for v in  labeltag.raceline]).transpose()
             egopose = np.eye(4,dtype=np.float64)
             egopose[0:3,3] = np.array([lbldb.ego_agent_pose.translation.x, lbldb.ego_agent_pose.translation.y, lbldb.ego_agent_pose.translation.z ], dtype=np.float64)
             egopose[0:3,0:3] = Rot.from_quat(np.array([lbldb.ego_agent_pose.rotation.x, lbldb.ego_agent_pose.rotation.y, lbldb.ego_agent_pose.rotation.z, lbldb.ego_agent_pose.rotation.w], dtype=np.float64)).as_matrix()
@@ -310,15 +327,19 @@ try:
             plt.plot(egotrajglobal[0,0], egotrajglobal[1,0], "g*", label="Position of Car")
             fig3 = plt.subplot(1, 2, 2)
             plt.title("Local Coordinates")
-            plt.scatter(pfitlocal[:,1], pfitlocal[:,0], label="PF Estimates", facecolors="none", edgecolors="blue")
-            plt.plot(egotrajlocal[1], egotrajlocal[0], label="Ego Agent Trajectory Label", c="r")
-            plt.plot(racelinelocal[1], racelinelocal[0], label="Optimal Raceline", c="g")
-            plt.plot(egotrajlocal[1,0], egotrajlocal[0,0], "g*", label="Position of Car")
+            # xmin = np.min(np.hstack([egotrajlocal[1], racelinelocal[1], [egotrajlocal[0,0]]])) - 0.05
+            # xmax = np.max(np.hstack([egotrajlocal[1], racelinelocal[1], [egotrajlocal[0,0]]])) + 0.05
+            # plt.xlim(xmax,xmin)
+            # ymin = np.min(np.hstack([egotrajlocal[0], racelinelocal[0], [egotrajlocal[1,0]]])) - 0.5
+            # ymax = np.max(np.hstack([egotrajlocal[0], racelinelocal[0], [egotrajlocal[1,0]]])) + 0.5
+            # plt.ylim(ymax,ymin)
+            plt.scatter(-pfitlocal[:,1], pfitlocal[:,0], label="PF Estimates", facecolors="none", edgecolors="blue")
+            plt.plot(-egotrajlocal[1], egotrajlocal[0], label="Ego Agent Trajectory Label", c="r")
+            plt.plot(-racelinelocal[1], racelinelocal[0], label="Optimal Raceline", c="g")
+            plt.scatter(-ylaser, xlaser, label="Laser Scan")
+            plt.plot(-egotrajlocal[1,0], egotrajlocal[0,0], "g*", label="Position of Car")
             plt.plot([0.0, 0.0], [0.0, lookahead_distance], label="Forward", c="black")
-            xmin = np.min(np.hstack([egotrajlocal[1], racelinelocal[1]])) - 0.05
-            xmax = np.max(np.hstack([egotrajlocal[1], racelinelocal[1]])) + 0.05
-            plt.xlim(xmax,xmin)
-            plt.legend()
+            #plt.legend()
         #  plt.arrow(splvals[0,0], splvals[0,1], rx[0], rx[1], label="Velocity of Car")
             plt.show()
         # if dt<trate:

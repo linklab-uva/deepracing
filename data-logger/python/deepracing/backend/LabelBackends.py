@@ -8,8 +8,6 @@ import deepracing.imutils
 import PoseSequenceLabel_pb2
 import MultiAgentLabel_pb2
 from MultiAgentLabel_pb2 import MultiAgentLabel
-import LaserScanLabel_pb2
-from LaserScanLabel_pb2 import LaserScanLabel
 import ChannelOrder_pb2
 import cv2
 import google.protobuf.json_format
