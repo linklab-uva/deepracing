@@ -168,7 +168,7 @@ dout["bagfile"] = os.path.abspath(dout["bagfile"])
 dout["raceline"] = os.path.abspath(dout["raceline"])
 dout["inputsize"] = len(laserscans[0].ranges)
 dout["num_scans"] = len(laserscans)
-keyprefix = "laser_scan_%d"
+keyprefix = "laserscan_%d"
 
 print(dout)
 with open(os.path.join(laserscandir,"config.json"),"w") as f:
@@ -346,5 +346,5 @@ try:
         #     time.sleep(trate - dt)
 except KeyboardInterrupt as e:
     pass
-with open(os.path.join(rootdir,"goodkeys.txt"),"w") as f:
+with open(os.path.join(laserscanlabeldir,"goodkeys.txt"),"w") as f:
     f.writelines(goodkeys)
