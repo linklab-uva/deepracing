@@ -1,321 +1,189 @@
 import comet_ml
 import torch
 import torch.nn as NN
+import torch.nn.functional as F
 import torch.utils.data as data_utils
-import data_loading.proto_datasets
+import deepracing_models.data_loading.proto_datasets as PD
 from tqdm import tqdm as tqdm
 import deepracing_models.nn_models.LossFunctions as loss_functions
 import deepracing_models.nn_models.Models
 import numpy as np
 import torch.optim as optim
-from tqdm import tqdm as tqdm
 import pickle
 from datetime import datetime
 import os
 import string
 import argparse
-import scipy.integrate
 import torchvision.transforms as transforms
 import yaml
 import shutil
 import skimage
 import skimage.io
+import deepracing
+from deepracing import trackNames
 import deepracing.backend
 import imageio
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
-import scipy.interpolate
-import numpy.linalg as la
 import deepracing_models.math_utils.bezier
-from scipy.stats import norm
-from sklearn.neighbors import KernelDensity
-def run_epoch(network, testLoader, gpu, loss_func, imsize=(66,200), debug=False,  use_float=True):
-    lossfloat = 0.0
-    batch_size = testLoader.batch_size
+import socket
+import json
+from comet_ml.api import API, APIExperiment
+import cv2
+import torchvision, torchvision.transforms as T
+from deepracing_models.data_loading.image_transforms import GaussianBlur
+
+#torch.backends.cudnn.enabled = False
+def runtest(network, dataloader, ego_agent_loss, use_tqdm = False, debug=False):
+    cum_loss = 0.0
+    cum_param_loss = 0.0
+    cum_position_loss = 0.0
+    cum_velocity_loss = 0.0
     num_samples=0.0
-    splK = 3
-    numpoints = 11
-    t : tqdm = tqdm(enumerate(testLoader), total=len(testLoader))
-    network.eval()  # This is important to call before testing!
-    losses=np.zeros(len(testLoader.dataset))
-    gterrors=np.zeros(len(testLoader.dataset))
-    gtvelerrors=np.zeros(len(testLoader.dataset))
-    dtarr=np.zeros(len(testLoader.dataset))
-    for (i, (image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch) ) in t:
-        if network.input_channels==5:
-            image_torch = torch.cat((image_torch,opt_flow_torch),axis=2)
-        if use_float:
-            image_torch = image_torch.float()
-            positions_torch = positions_torch.float()
-            linear_velocities_torch = linear_velocities_torch.float()
-            session_times_torch = session_times_torch.float()
+    dataloaderlen = len(dataloader)
+    if use_tqdm:
+        t = tqdm(enumerate(dataloader), total=dataloaderlen)
+    else:
+        t = enumerate(dataloader)
+    network.eval()
+    dev = next(network.parameters()).device  # we are only doing single-device for now, so this is fine.
+    fix_first_point = config["fix_first_point"]
+    loss_weights = config["loss_weights"]
+
+    bezier_order = network.params_per_dimension-1+int(fix_first_point)
+
+    for (i, imagedict) in t:
+        input_images = imagedict["images"].double().to(device=dev)
+        ego_current_pose = imagedict["ego_current_pose"].double().to(device=dev)
+        session_times = imagedict["session_times"].double().to(device=dev)
+        ego_positions = imagedict["ego_positions"].double().to(device=dev)
+        ego_velocities = imagedict["ego_velocities"].double().to(device=dev)
+        batch_size = input_images.shape[0]
+        
+        
+        predictions = network(input_images)
+        if fix_first_point:
+            initial_zeros = torch.zeros(batch_size,1,2,dtype=torch.float64,device=dev)
+            network_output_reshape = predictions.transpose(1,2)
+            predictions_reshape = torch.cat((initial_zeros,network_output_reshape),dim=1)
         else:
-            image_torch = image_torch.double()
-            positions_torch = positions_torch.double()
-            session_times_torch = session_times_torch.double()
-            linear_velocities_torch = linear_velocities_torch.double()
-        if gpu>=0:
-            image_torch = image_torch.cuda(gpu)
-            positions_torch = positions_torch.cuda(gpu)
-            session_times_torch = session_times_torch.cuda(gpu)
-            linear_velocities_torch = linear_velocities_torch.cuda(gpu)
- 
-        predictions = network(image_torch)
-        predictions_reshape = predictions.transpose(1,2)
-        dt = session_times_torch[:,-1]-session_times_torch[:,0]
-        s_torch = (session_times_torch - session_times_torch[:,0,None])/dt[:,None]
-        fitpoints = positions_torch[:,:,[0,2]]
-        fitvels = linear_velocities_torch[:,:,[0,2]]
-        bezier_order = network.params_per_dimension-1
-        Mfit, controlpoints_fit = math_utils.bezier.bezierLsqfit(fitpoints,s_torch,bezier_order)
-        gtevalpoints = torch.matmul(Mfit, controlpoints_fit)
-        _, gt_fit_vels = math_utils.bezier.bezierDerivative(controlpoints_fit,s_torch)
-        pred_eval_points = torch.matmul(Mfit, predictions_reshape)
-        _, pred_vels = math_utils.bezier.bezierDerivative(predictions_reshape,s_torch)
-        loss = torch.mean( torch.sqrt(loss_func(pred_eval_points,fitpoints)),dim=1)
-       # print(loss.shape)
+            predictions_reshape = predictions.transpose(1,2)
 
-        currloss = float(torch.sum(loss).item())
-        lossfloat+=currloss
-        if testLoader.batch_size==1:
-            losses[i]=currloss
-            gterrors[i]=torch.mean(torch.norm(fitpoints-gtevalpoints,p=2,dim=2)).item()
-            gtvelerrors[i]=torch.mean(torch.norm(fitvels-gt_fit_vels/dt[:,None,None],p=2,dim=2)).item()
-            dtarr[i] = dt.item()
-        else:
-            istart = i*testLoader.batch_size
-            iend = istart+s_torch.shape[0]
-            losses[istart:iend]=loss.detach().cpu().numpy()
-            gterrors[istart:iend]=torch.mean(torch.norm(fitpoints-gtevalpoints,p=2,dim=2),dim=1).detach().cpu().numpy()
-            gtvelerrors[istart:iend]=torch.mean(torch.norm(fitvels-gt_fit_vels/dt[:,None,None],p=2,dim=2),dim=1).detach().cpu().numpy()
-        num_samples += testLoader.batch_size
-        if debug and i%30==0:
-            print("Current loss: %s" %(str(loss)))
-            predevalpoints = torch.matmul(Mfit, predictions_reshape)
-            xgtnp = fitpoints[0,:,0].cpu().detach().numpy()
-            ygtnp = fitpoints[0,:,1].cpu().detach().numpy()
-            xgtevalnp = gtevalpoints[0,:,0].cpu().detach().numpy()
-            ygtevalnp = gtevalpoints[0,:,1].cpu().detach().numpy()
-            xprednp = predevalpoints[0,:,0].cpu().detach().numpy()
-            zprednp = predevalpoints[0,:,1].cpu().detach().numpy()
-            xvelprednp = pred_vels[0,:,0].cpu().detach().numpy()
-            zvelprednp = pred_vels[0,:,1].cpu().detach().numpy()
-            pred_control_points_np = predictions_reshape[0].cpu().detach().numpy()
-            gt_control_points_np = controlpoints_fit[0].cpu().detach().numpy()
-            print(i)
-            print(gt_control_points_np.shape)
-            fig = plt.figure()
-            ax = fig.add_subplot()
-            #ax.plot(-fitpoints[0,:,0].cpu().numpy(),fitpoints[0,:,1].cpu().numpy(),'b-',label="Ground Truth Trajectory")
-            ax.plot([],[],'g',label="BSpline Samples")
-            ax.scatter(-xgtnp,ygtnp, facecolors='none', edgecolors='g')
-            ax.plot(-xgtevalnp,ygtevalnp,'b-',label="Fitted Bezier Curve")
-            ax.plot([],[],'r',label="Bezier Curve Control Points")
-            ax.scatter(-gt_control_points_np[:,0],gt_control_points_np[:,1], facecolors='none', edgecolors='r')
-            ax.set_title("Local Ground-Truth Trajectory")
-            ax.legend()
-           # ax.scatter(gtevalpoints[0,:,0].cpu().numpy(),gtevalpoints[0,:,1].cpu().numpy(), facecolors='none', edgecolors='g')
+        dt = session_times[:,-1]-session_times[:,0]
+        s_torch_cur = (session_times - session_times[:,0,None])/dt[:,None]
 
-            #ax.scatter(xprednp,zprednp, facecolors='none', edgecolors='b')
-            #ax.scatter(pred_control_points_np[:,0],pred_control_points_np[:,1], facecolors='none', edgecolors='r')
-            skipn = 1
-            #ax.quiver(gtevalpoints[0,::skipn,0].cpu().numpy(),gtevalpoints[0,::skipn,1].cpu().numpy(),(100/60)*gt_fit_vels[0,::skipn,0].cpu().numpy(),gt_fit_vels[0,::skipn,1].cpu().numpy())
+        Mpos = deepracing_models.math_utils.bezierM(s_torch_cur, bezier_order)
 
-            # zmax = np.max(zprednp) + 10
-            # xmin = np.min(xprednp) - 5
-            # xmax = np.max(xprednp) + 5
-            # dx = xmax-xmin
-            # plt.xlim(xmin,xmax)
-            # plt.ylim(0,zmax)
-            plt.show()
-        t.set_postfix({"posloss":lossfloat/num_samples})
-    return losses, gterrors, gtvelerrors, dtarr
+        pred_points = torch.matmul(Mpos, predictions_reshape)
 
-def plotStatistics(errors, label):
-    figkde, axkde = plt.subplots()
-    figkde.subplots_adjust(hspace=0.05, wspace=0.05)
-    kde = KernelDensity(bandwidth=0.1).fit(errors.reshape(-1, 1))
 
-    distancesplot = np.linspace(0,np.max(errors),2*distances.shape[0])# + 1.5*stddist)
-    kdexplot = distancesplot.reshape(-1, 1)
-    log_dens = kde.score_samples(kdexplot)
-    pdf = np.exp(log_dens)
-    axkde.plot(np.hstack((np.array([0]),distancesplot)), np.hstack((np.array([0]),pdf)), '-')
-    axkde.set_xlabel("Distance from prediction to ground truth %s" %(label))
-    axkde.set_ylabel("Probability Density (pdf)")
+        current_loss = ego_agent_loss(pred_points, ego_positions)
+
+        if use_tqdm:
+            t.set_postfix({"current_loss" : current_loss.item()})
+def go():
+    parser = argparse.ArgumentParser(description="Test AdmiralNet Bezier Curve Predictor")
+    parser.add_argument("dataset_file", type=str,  help="Dataset Configuration file to load")
+    parser.add_argument("model_file", type=str,  help="Model Configuration file to load")
+
+    parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
+    parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
+    parser.add_argument("--gpu", type=int, default=None,  help="Override the GPU index specified in the config file")
 
     
-    figcdf, axcdf = plt.subplots()
-
-    cdf = distance_indices/distance_indices.shape[0]
-    axcdf.plot(distances, cdf, '-')
-    axcdf.set_xlabel("Distance from prediction to ground truth")
-    axcdf.set_ylabel("Cumulative Probability Density (cdf)")
-
-def go():
-    parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
-    parser.add_argument("model_file", type=str,  help="Weight file to load")
-    parser.add_argument("dataset_config_file", type=str,  help="Dataset config file to load")
-
-    parser.add_argument("--gpu", type=int, default=-1,  help="GPU to use")
-    parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
     args = parser.parse_args()
-    dataset_config_file = args.dataset_config_file
-    model_file = args.model_file
-    config_file = os.path.join(os.path.dirname(model_file),"config.yaml")
-    comet_config_file = os.path.join(os.path.dirname(model_file),"experiment_config.yaml")
-    debug = args.debug
-    with open(config_file,'r') as f:
-        config = yaml.load(f, Loader = yaml.SafeLoader)
-    with open(dataset_config_file,'r') as f:
-        datasets_config = yaml.load(f, Loader = yaml.SafeLoader)
-    with open(comet_config_file,'r') as f:
-        comet_config = yaml.load(f, Loader = yaml.SafeLoader)
+    argdict = vars(args)
+    use_tqdm = argdict["tqdm"]
 
-    image_size = datasets_config["image_size"]
-    hidden_dimension = config["hidden_dimension"]
-    input_channels = config["input_channels"]
-    context_length = config["context_length"]
-    bezier_order = config["bezier_order"]
-    gpu = args.gpu
-    loss_weights = config["loss_weights"]
-    temporal_conv_feature_factor = config["temporal_conv_feature_factor"]
-    debug = args.debug
-    use_float = config["use_float"]
-    learnable_initial_state = config.get("learnable_initial_state",True)
-    print("Using config:\n%s" % (str(config)))
-    net = nn_models.Models.AdmiralNetCurvePredictor(context_length= context_length, input_channels=input_channels, params_per_dimension=bezier_order+1) 
-    net.load_state_dict(torch.load(model_file,map_location=torch.device("cpu")))
-    print("net:\n%s" % (str(net)))
 
-    loss_func = nn_models.LossFunctions.SquaredLpNormLoss(time_reduction="oogabooga",batch_reduction="oogabooga")
-    if use_float:
-        print("casting stuff to float")
-        net = net.float()
-        loss_func = loss_func.float()
-    else:
-        print("casting stuff to double")
-        net = net.double()
-        loss_func = loss_func.double()
+    dataset_file = argdict["dataset_file"]
+    with open(dataset_config_file,"r") as f:
+        dataset_config = yaml.load(f, Loader = yaml.SafeLoader)
+    
+    model_file = argdict["model_file"]
+    config_file = os.path.join(os.path.dirname(model_file),"model_config.yaml")
+    with open(config_file,"r") as f:
+        model_config = yaml.load(f, Loader = yaml.SafeLoader)
+
+   
+
+    context_length = model_config["context_length"]
+    input_channels = model_config["input_channels"]
+    hidden_dim = model_config["hidden_dimension"]
+    use_3dconv = model_config["use_3dconv"]
+    bezier_order = model_config["bezier_order"]
+    fix_first_point = model_config["fix_first_point"]
+    num_recurrent_layers = model_config.get("num_recurrent_layers",1)
+
+
+    
+    net = deepracing_models.nn_models.Models.AdmiralNetCurvePredictor( context_length = context_length , input_channels=input_channels, hidden_dim = hidden_dim, num_recurrent_layers=num_recurrent_layers, params_per_dimension=bezier_order + 1 - int(fix_first_point), use_3dconv = use_3dconv) 
+
+    loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss()
+
+    print("casting stuff to double")
+    net = net.double()
+    ego_agent_loss = ego_agent_loss.double()
+    other_agent_loss = other_agent_loss.double()
+
+    if model_load is not None:
+        net.load_state_dict(torch.load(model_load, map_location=torch.device("cpu")))
     if gpu>=0:
         print("moving stuff to GPU")
         net = net.cuda(gpu)
-        loss_func = loss_func.cuda(gpu)
+        loss = loss.cuda(gpu)
+    else:
+        device = torch.device("cpu")
     
     
-    num_workers = 0
-    max_spare_txns = 50
-    #image_wrapper = deepracing.backend.ImageFolderWrapper(os.path.dirname(image_db))
     dsets=[]
-    use_optflow = net.input_channels==5
-    for dataset in datasets_config["datasets"]:
-        print("Parsing database config: %s" %(str(dataset)))
-        label_folder = dataset["label_folder"]
-        key_file = dataset["key_file"]
-        image_folder = dataset["image_folder"]
-        apply_color_jitter = dataset.get("apply_color_jitter",False)
-        erasing_probability = dataset.get("erasing_probability",0.0)
-        label_wrapper = deepracing.backend.PoseSequenceLabelLMDBWrapper()
-        label_wrapper.readDatabase(os.path.join(label_folder,"lmdb"), max_spare_txns=max_spare_txns )
+    dsetfolders = []
+    alltags = set(dataset_config.get("tags",[]))
+    dset_output_lengths=[]
+    return_other_agents = bool(dataset_config.get("other_agents",False))
+    for dataset in dataset_config["datasets"]:
+        dlocal : dict = {k: dataset_config[k] for k in dataset_config.keys()  if (not (k in ["datasets"]))}
+        dlocal.update(dataset)
+        print("Parsing database config: %s" %(str(dlocal)))
+        key_file = dlocal["key_file"]
+        root_folder = dlocal["root_folder"]
+        position_indices = dlocal["position_indices"]
+        label_subfolder = dlocal["label_subfolder"]
+        dataset_tags = dlocal.get("tags", [])
+        alltags = alltags.union(set(dataset_tags))
+
+        dsetfolders.append(root_folder)
+        label_folder = os.path.join(root_folder,label_subfolder)
+        image_folder = os.path.join(root_folder,"images")
+        key_file = os.path.join(root_folder,key_file)
+        label_wrapper = deepracing.backend.MultiAgentLabelLMDBWrapper()
+        label_wrapper.openDatabase(os.path.join(label_folder,"lmdb") )
+
+
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
+        image_wrapper = deepracing.backend.ImageLMDBWrapper()
+        image_wrapper.readDatabase( os.path.join(image_folder,"image_lmdb"), mapsize=image_mapsize )
 
-        image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
-        image_wrapper.readDatabase(os.path.join(image_folder,"image_lmdb"), max_spare_txns=max_spare_txns, mapsize=image_mapsize )
-
-
-        curent_dset = data_loading.proto_datasets.PoseSequenceDataset(image_wrapper, label_wrapper, key_file, context_length, image_size = image_size, return_optflow=use_optflow,\
-            apply_color_jitter=False, erasing_probability=0.0, geometric_variants = False)
-        dsets.append(curent_dset)
+        extra_transforms = []
+        color_jitters = dlocal.get("color_jitters", None) 
+        if color_jitters is not None:
+            extra_transforms+=[T.ColorJitter(brightness=[cj, cj]) for cj in color_jitters]
+            
+        blur = dlocal.get("blur", None)   
+        if blur is not None:
+            extra_transforms.append(GaussianBlur(blur))
+        
+        current_dset = PD.MultiAgentDataset(image_wrapper, label_wrapper, key_file, context_length, image_size, position_indices, extra_transforms=extra_transforms, return_other_agents=return_other_agents)
+        dsets.append(current_dset)
+        
         print("\n")
     if len(dsets)==1:
         dset = dsets[0]
     else:
         dset = torch.utils.data.ConcatDataset(dsets)
     
-    dataloader = data_utils.DataLoader(dset)
-    print("Dataloader of of length %d" %(len(dataloader)))
-    losses, gterrors, gtvelerrors, dtarr = run_epoch(net, dataloader, gpu, loss_func, debug=debug, use_float = use_float)
-    #distances = np.sqrt(losses)
-    distance_sort = np.argsort(losses)
-    distances = losses.copy()[distance_sort]
-    distance_indices = np.linspace(0,distances.shape[0]-1,distances.shape[0]).astype(np.float32)
-
-    distance_sort_descending = np.flip(distance_sort.copy())
-    distances_sorted_descending = losses.copy()[distance_sort_descending]
-    meandist = np.mean(distances)
-    stddist = np.std(distances)
-    print(dtarr)
-    print("Mean dt: %f" % ( np.mean(dtarr) ) )
-    print("STD dt: %f" % ( np.std(dtarr) ) )
-    print(gterrors)
-    print("RMS gt fit error: %f" % ( np.mean(gterrors) ) )
-    print(gtvelerrors)
-    print("RMS gt fit vel error: %f" % ( np.mean(gtvelerrors) ) )
-    print(distances)
-    print("RMS error: %f" % (  np.mean(losses) ) ) 
-   # plt.plot(distance_indices,distances)
-    
-    figkde, axkde = plt.subplots()
-    figkde.subplots_adjust(hspace=0.05, wspace=0.05)
-    kde = KernelDensity(bandwidth=0.1).fit(distances.reshape(-1, 1))
-
-    distancesplot = np.linspace(0,np.max(distances),2*distances.shape[0])# + 1.5*stddist)
-    kdexplot = distancesplot.reshape(-1, 1)
-    log_dens = kde.score_samples(kdexplot)
-    pdf = np.exp(log_dens)
-    axkde.plot(np.hstack((np.array([0]),distancesplot)), np.hstack((np.array([0]),pdf)), '-')
-    axkde.set_xlabel("Distance from prediction to ground truth")
-    axkde.set_ylabel("Probability Density (pdf)")
-
-    
-    figcdf, axcdf = plt.subplots()
-
-    cdf = distance_indices/distance_indices.shape[0]
-    axcdf.plot(distances, cdf, '-')
-    axcdf.set_xlabel("Distance from prediction to ground truth")
-    axcdf.set_ylabel("Cumulative Probability Density (cdf)")
-    try:
-        plt.show()
-    except:
-        pass
-    bezier_order = net.params_per_dimension-1
-    try:
-        experiment =  comet_ml.ExistingExperiment(workspace="electric-turtle", project_name="deepracingbezierpredictor", previous_experiment=comet_config["experiment_key"])
-        with experiment.test():
-            for i, idx in enumerate(distance_sort_descending[0:100]):
-                print("Running image %d"%(idx))
-                image_torch, opt_flow_torch, positions_torch, quats_torch, linear_velocities_torch, angular_velocities_torch, session_times_torch = dset[idx]
-                image_numpy = np.round(255.0*(image_torch.numpy().copy().transpose(0,2,3,1))).astype(np.uint8)
-                predictions_reshape = net(image_torch.double().cuda(gpu).unsqueeze(0)).transpose(1,2)
-                last_image = image_numpy[-1]
-                fig = plt.figure()
-                ax_im = fig.add_subplot(121)
-                ax_im.imshow(last_image)
-                ax_pos = fig.add_subplot(122)
-                ax_pos.set_xlim(-15, 15)
-                ax_pos.set_title("Predicted and Ground-Truth Paths")
-                ax_pos.set_xlabel("X Position In Local Coordinates (meters)")
-                ax_pos.set_ylabel("Z Position In Local Coordinates (meters)")
-                dt = session_times_torch[-1]-session_times_torch[0]
-                s_torch = ((session_times_torch - session_times_torch[0])/dt).double().cuda(gpu)
-                fitpoints = positions_torch[:,[0,2]].double().cuda(gpu)
-                M = math_utils.bezierM(s_torch.unsqueeze(0),bezier_order)
-                pred_eval_points = torch.matmul(M, predictions_reshape)[0].cpu().detach().numpy().copy()
-                positions_numpy = fitpoints.cpu().detach().numpy().copy()
-
-                ax_pos.plot(-pred_eval_points[:,0],pred_eval_points[:,1], label='Predictions', color='r')
-                ax_pos.scatter(-pred_eval_points[:,0],pred_eval_points[:,1], facecolors='none', edgecolors='r')
-
-                ax_pos.plot(-positions_numpy[:,0],positions_numpy[:,1], label='Ground Truth', color='g')
-                ax_pos.scatter(-positions_numpy[:,0],positions_numpy[:,1], facecolors='none', edgecolors='g')
-                ax_pos.set_aspect("equal")
-                ax_pos.legend()
-
-                experiment.log_figure(figure_name="image_%d"%(i), figure=fig , overwrite=True )
-    except KeyboardInterrupt as key:
-        pass
-
+    dataloader = data_utils.DataLoader(dset, batch_size=1, shuffle=False, pin_memory=(gpu>=0))
 
 import logging
 if __name__ == '__main__':
