@@ -80,6 +80,21 @@ debug = argdict["debug"]
 rowstart = argdict["rowstart"]
 k = argdict["k"]
 bagdir = os.path.dirname(bagpath)
+
+rootdir = os.path.join(bagdir, os.path.splitext(os.path.basename(bagpath))[0])
+imagedir = os.path.join(rootdir,"images")
+croppedimagedir = os.path.join(rootdir,"cropped_images")
+imagelmdbdir = os.path.join(imagedir,"image_lmdb")
+labeldir = os.path.join(rootdir,labeldirarg)
+labellmdbdir = os.path.join(labeldir,"lmdb")
+os.makedirs(labellmdbdir, exist_ok=False)
+
+os.makedirs(imagedir, exist_ok=True)
+os.makedirs(croppedimagedir, exist_ok=True)
+os.makedirs(imagelmdbdir, exist_ok=True)
+
+
+
 bridge = cv_bridge.CvBridge()
 if configfile is None:
     configfile = os.path.join(bagdir,"topicconfig.yaml")
@@ -122,19 +137,6 @@ dtbuff = int(round(0.5*dtindices))
 posemsgs = [o.pose.pose for o in odoms]
 positions = np.array([ [p.position.x, p.position.y, p.position.z] for p in posemsgs], dtype=np.float64)
 quaternions = np.array([ [p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w] for p in posemsgs], dtype=np.float64)
-
-rootdir = os.path.join(bagdir, os.path.splitext(os.path.basename(bagpath))[0])
-imagedir = os.path.join(rootdir,"images")
-croppedimagedir = os.path.join(rootdir,"cropped_images")
-imagelmdbdir = os.path.join(imagedir,"image_lmdb")
-labeldir = os.path.join(rootdir,labeldirarg)
-labellmdbdir = os.path.join(labeldir,"lmdb")
-os.makedirs(labellmdbdir, exist_ok=False)
-
-os.makedirs(imagedir, exist_ok=True)
-os.makedirs(croppedimagedir, exist_ok=True)
-os.makedirs(imagelmdbdir, exist_ok=True)
-
 
 try:
     imnp0 = bridge.imgmsg_to_cv2(images[0], desired_encoding="rgb8")
