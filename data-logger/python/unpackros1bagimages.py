@@ -57,7 +57,7 @@ parser.add_argument('bagfile', type=str,  help='The bagfile to unpack')
 parser.add_argument('--config', type=str, required=False, default=None , help="Config file specifying the rostopics to unpack, defaults to a file named \"topicconfig.yaml\" in the same directory as the bagfile")
 parser.add_argument('--lookahead_time', type=float, default=1.5, help="Look ahead this seconds for the ego trajectory labels")
 parser.add_argument('--num_samples', type=int, default=120, help="How many points to sample along the lookahead distance")
-parser.add_argument('--k', type=int, default=5, help="Order of the least squares splines to fit to the noisy data")
+parser.add_argument('--k', type=int, default=3, help="Order of the least squares splines to fit to the noisy data")
 parser.add_argument('--debug', action="store_true", help="Display some debug plots")
 parser.add_argument('--mintime', type=float, default=5.0, help="Ignore this many seconds of data from the beginning of the bag file")
 parser.add_argument('--maxtime', type=float, default=7.5, help="Ignore this many seconds of leading up to the end of the bag file")
@@ -112,7 +112,7 @@ laserscantimes = laserscantimes - t0
 
 
 dtindices = int(round(lookahead_time/np.mean(odomtimes[1:] - odomtimes[0:-1])))
-dtbuff = int(round(0.275*dtindices))
+dtbuff = int(round(0.5*dtindices))
 
 posemsgs = [o.pose.pose for o in odoms]
 positions = np.array([ [p.position.x, p.position.y, p.position.z] for p in posemsgs], dtype=np.float64)
@@ -194,12 +194,11 @@ try:
         qfit = quaternions[istart-dtbuff:iend+dtbuff]
         
         spl : scipy.interpolate.LSQUnivariateSpline = scipy.interpolate.make_lsq_spline(tfit, pfit, sensibleKnots(tfit, k), k=k)
-        splvel : scipy.interpolate.LSQUnivariateSpline = spl.derivative()
-        splvals = spl(tsamp)
-        linearvelsglobal = splvel(tsamp)
+        splder : scipy.interpolate.LSQUnivariateSpline = spl.derivative()
         
         cartraj = np.stack( [np.eye(4,dtype=np.float64) for asdf in range(tsamp.shape[0])], axis=0)
-        cartraj[:,0:3,3] = splvals
+        cartraj[:,0:3,3] = spl(tsamp)
+        linearvelsglobal = splder(tsamp)
         for j in range(cartraj.shape[0]):
             velspl = linearvelsglobal[j]
             rx = velspl/np.linalg.norm(velspl, ord=2)
@@ -234,9 +233,9 @@ try:
         labeltag.ego_agent_linear_velocity.frame = FrameId_pb2.GLOBAL
         labeltag.ego_agent_angular_velocity.session_time = tsamp[0]
 
+        cartrajlocal = np.matmul(carposeinv, cartraj)
         linearvelslocal = np.matmul(carposeinv[0:3,0:3], linearvelsglobal.transpose()).transpose()
         angvelslocal = np.matmul(carposeinv[0:3,0:3], angvelsglobal.transpose()).transpose()
-        cartrajlocal = np.matmul(carposeinv, cartraj)
         for j in range(num_samples):
 
             newpose = labeltag.ego_agent_trajectory.poses.add()
@@ -273,8 +272,8 @@ try:
             lbldb = labelbackend.getMultiAgentLabel(key)
 
             egopose = np.eye(4,dtype=np.float64)
-            egopose[0:3,3] = np.array([lbldb.ego_agent_pose.translation.x, lbldb.ego_agent_pose.translation.y, lbldb.ego_agent_pose.translation.z ], dtype=np.float64)
-            egopose[0:3,0:3] = Rot.from_quat(np.array([lbldb.ego_agent_pose.rotation.x, lbldb.ego_agent_pose.rotation.y, lbldb.ego_agent_pose.rotation.z, lbldb.ego_agent_pose.rotation.w], dtype=np.float64)).as_matrix()
+            egopose[0:3,3] = np.array([ lbldb.ego_agent_pose.translation.x, lbldb.ego_agent_pose.translation.y, lbldb.ego_agent_pose.translation.z ], dtype=np.float64)
+            egopose[0:3,0:3] = Rot.from_quat(np.array([ lbldb.ego_agent_pose.rotation.x, lbldb.ego_agent_pose.rotation.y, lbldb.ego_agent_pose.rotation.z, lbldb.ego_agent_pose.rotation.w ], dtype=np.float64)).as_matrix()
             egotrajpb = lbldb.ego_agent_trajectory
             egotrajlocal = np.array([ [p.translation.x,  p.translation.y, p.translation.z, 1.0 ]  for p in egotrajpb.poses ], dtype=np.float64 ).transpose()
             pfitlocal = np.matmul(np.linalg.inv(egopose), np.row_stack([pfit.transpose(), np.ones_like(pfit[:,0])]))[0:3].transpose()
