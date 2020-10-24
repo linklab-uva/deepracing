@@ -324,25 +324,6 @@ class LinearRecursionCurvePredictor(nn.Module):
         self.output_dimension = output_dimension
         self.bezier_order = bezier_order
 
-        self.projection_encoder = torch.nn.Sequential(
-            *[
-            nn.Conv2d(1, 24, kernel_size=3, padding=1)
-            self.Norm_1,
-            self.Norm_1 = nn.BatchNorm2d(24),
-            self.conv2,
-            self.Norm_2,
-            self.sigmoid,
-            self.conv3,
-            self.Norm_3,
-            self.sigmoid,
-            self.conv4,
-            self.Norm_4,
-            self.sigmoid,
-            self.conv5,
-            self.Norm_5
-            ]
-        )
-
         self.convolutions = torch.nn.Sequential(
             *[
             self.conv1,
