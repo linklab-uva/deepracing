@@ -147,7 +147,7 @@ imsize = np.array([200,66,imnp0.shape[2]])
 imagebackend = deepracing.backend.ImageLMDBWrapper()
 imagebackend.readDatabase(imagelmdbdir,mapsize=int(round(1.1*len(images)*np.prod(imsize))), readonly=False)
 labelbackend = deepracing.backend.MultiAgentLabelLMDBWrapper()
-labelbackend.openDatabase(labellmdbdir, readonly=False)
+labelbackend.openDatabase(labellmdbdir, mapsize=30000*len(images), readonly=False)
 goodkeys = []
 up = np.array([0.0,0.0,1.0], dtype=np.float64)
 trate = 1.0/15.0
@@ -258,6 +258,8 @@ try:
         labeltag.track_id=26
         with open(os.path.join(labeldir, key+".json"), "w")  as f:
             f.write(google.protobuf.json_format.MessageToJson(labeltag, including_default_value_fields=True, indent=2))
+        with open(os.path.join(labeldir, key+".pb"), "wb")  as f:
+            f.write(labeltag.SerializeToString())
 
         labelbackend.writeMultiAgentLabel(key, labeltag)
         goodkeys.append(key)
