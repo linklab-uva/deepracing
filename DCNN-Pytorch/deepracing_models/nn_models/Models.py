@@ -315,13 +315,33 @@ class LinearRecursionCurvePredictor(nn.Module):
         self.Norm_2 = nn.BatchNorm2d(36)
         self.conv3 = nn.Conv2d(36, 36, kernel_size=3, padding=1)
         self.Norm_3 = nn.BatchNorm2d(36) 
-        self.conv4 = nn.Conv2d(36, 24, kernel_size=3)
-        self.Norm_4 = nn.BatchNorm2d(24)
-        self.conv5 = nn.Conv2d(24, 12, kernel_size=3)
-        self.Norm_5 = nn.BatchNorm2d(12)
+        self.conv4 = nn.Conv2d(36, 48, kernel_size=3)
+        self.Norm_4 = nn.BatchNorm2d(48)
+        self.conv5 = nn.Conv2d(48, 64, kernel_size=3)
+        self.Norm_5 = nn.BatchNorm2d(64)
         self.sigmoid = nn.Sigmoid()
+        self.relu = nn.ReLU()
         self.output_dimension = output_dimension
         self.bezier_order = bezier_order
+
+        self.projection_encoder = torch.nn.Sequential(
+            *[
+            nn.Conv2d(1, 24, kernel_size=3, padding=1)
+            self.Norm_1,
+            self.Norm_1 = nn.BatchNorm2d(24),
+            self.conv2,
+            self.Norm_2,
+            self.sigmoid,
+            self.conv3,
+            self.Norm_3,
+            self.sigmoid,
+            self.conv4,
+            self.Norm_4,
+            self.sigmoid,
+            self.conv5,
+            self.Norm_5
+            ]
+        )
 
         self.convolutions = torch.nn.Sequential(
             *[
@@ -342,17 +362,18 @@ class LinearRecursionCurvePredictor(nn.Module):
             ]
         )
 
+        lineardimstart = 64*(hidden_dimension-4)
         self.linear_layers = torch.nn.Sequential(
             *[
-                nn.Linear(2352,1176),
+                nn.Linear(lineardimstart,int(lineardimstart/2)),
                 self.sigmoid,
-                nn.Linear(1176,588),
+                nn.Linear(int(lineardimstart/2),int(lineardimstart/4)),
                 self.sigmoid,
-                nn.Linear(588,294),
+                nn.Linear(int(lineardimstart/4),int(lineardimstart/8)),
                 self.sigmoid,
-                nn.Linear(294,147),
+                nn.Linear(int(lineardimstart/8),int(lineardimstart/16)),
                 self.sigmoid,
-                nn.Linear(147,(bezier_order+1)*output_dimension),
+                nn.Linear(int(lineardimstart/16),(bezier_order+1)*output_dimension),
             ]
         )
 
