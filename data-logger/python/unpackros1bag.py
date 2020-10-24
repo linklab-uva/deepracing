@@ -36,6 +36,8 @@ from PIL import Image, ImageFilter, ImageDraw
 import json
 from scipy.spatial.kdtree import KDTree
 from copy import deepcopy
+import torch
+import torchvision.transforms.functional as F
 # /car_1/camera/image_raw      8263 msgs    : sensor_msgs/Image
 # /car_1/multiplexer/command   7495 msgs    : ackermann_msgs/AckermannDrive
 # /car_1/odom_filtered         6950 msgs    : nav_msgs/Odometry
@@ -62,9 +64,12 @@ parser.add_argument('--debug', action="store_true", help="Display some debug plo
 parser.add_argument('--mintime', type=float, default=5.0, help="Ignore this many seconds of data from the beginning of the bag file")
 parser.add_argument('--maxtime', type=float, default=7.5, help="Ignore this many seconds of leading up to the end of the bag file")
 parser.add_argument('--rowstart', type=float, default=0.5, help="Ratio to crop off the top of the image")
+parser.add_argument('--labeldir', type=str, required=False, default="pose_sequence_labels" , help="Where to put the labels relative to the bagfile")
+
 
 args = parser.parse_args()
 argdict = vars(args)
+labeldirarg = argdict["labeldir"]
 lookahead_time = argdict["lookahead_time"]
 num_samples = argdict["num_samples"]
 configfile = argdict["config"]
@@ -119,48 +124,43 @@ positions = np.array([ [p.position.x, p.position.y, p.position.z] for p in posem
 quaternions = np.array([ [p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w] for p in posemsgs], dtype=np.float64)
 
 rootdir = os.path.join(bagdir, os.path.splitext(os.path.basename(bagpath))[0])
-if os.path.isdir(rootdir):
-    print("Purging old data")
-    shutil.rmtree(rootdir, ignore_errors=True)
-    time.sleep(0.5)
 imagedir = os.path.join(rootdir,"images")
 croppedimagedir = os.path.join(rootdir,"cropped_images")
 imagelmdbdir = os.path.join(imagedir,"image_lmdb")
-labeldir = os.path.join(rootdir,"pose_sequence_labels")
+labeldir = os.path.join(rootdir,labeldirarg)
 labellmdbdir = os.path.join(labeldir,"lmdb")
-laserscandir = os.path.join(rootdir,"laser_scans")
-laserscanlmdbdir = os.path.join(laserscandir,"lmdb")
-os.makedirs(imagedir)
-os.makedirs(croppedimagedir)
-os.makedirs(labeldir)
-os.makedirs(laserscandir)
-os.makedirs(imagelmdbdir)
-os.makedirs(labellmdbdir)
-os.makedirs(laserscanlmdbdir)
+os.makedirs(labellmdbdir, exist_ok=False)
+
+os.makedirs(imagedir, exist_ok=True)
+os.makedirs(croppedimagedir, exist_ok=True)
+os.makedirs(imagelmdbdir, exist_ok=True)
 
 
 try:
     imnp0 = bridge.imgmsg_to_cv2(images[0], desired_encoding="rgb8")
 except Exception as e:
     imnp0 = bridge.compressed_imgmsg_to_cv2(images[0], desired_encoding="rgb8")
-imsize = np.array([200,66,imnp0.shape[2]])
+croprow = int(round(imnp0.shape[0]*rowstart))
+imsize = np.array([66,200])
 imagebackend = deepracing.backend.ImageLMDBWrapper()
-imagebackend.readDatabase(imagelmdbdir,mapsize=int(round(1.1*len(images)*np.prod(imsize))), readonly=False)
+imagebackend.readDatabase(imagelmdbdir,mapsize=int(round(1.1*len(images)*3*np.prod(imsize))), readonly=False)
 labelbackend = deepracing.backend.MultiAgentLabelLMDBWrapper()
 labelbackend.openDatabase(labellmdbdir, mapsize=30000*len(images), readonly=False)
 goodkeys = []
 up = np.array([0.0,0.0,1.0], dtype=np.float64)
 trate = 1.0/15.0
 
+imageconfig = {k: argdict[k] for k in ['rowstart']}
+imageconfig['inputsize'] = [imnp0.shape[0], imnp0.shape[1]]
+imageconfig['outputsize'] = imsize.tolist()
+with open(os.path.join(imagedir,"config.json"),"w") as f:
+    json.dump(imageconfig, f, indent=2)
+
+labelconfig = {k: argdict[k] for k in ['mintime', 'maxtime', 'lookahead_time', 'num_samples']}
+with open(os.path.join(labeldir,"config.json"),"w") as f:
+    json.dump(labelconfig, f, indent=2)
+
 print("Writing labels to file")
-dout = dict(argdict)
-dout["bagfile"] = os.path.abspath(dout["bagfile"])
-dout["inputsize"] = list(imnp0.shape)
-dout["outputsize"] = imsize.tolist()
-croprow = int(round(rowstart*float(imnp0.shape[0])))
-dout["croprow"] = croprow
-with open(os.path.join(rootdir,"config.json"),"w") as f:
-    json.dump(dout, f, indent=2)
 try:
     for (i, timage) in tqdm(enumerate(imagetimes), total=len(imagetimes)):
         tick = time.time()
@@ -175,7 +175,7 @@ try:
         impil.save(os.path.join(imagedir, imagetag.image_file))
         imcropped : PIL.Image.Image = impil.crop([0, croprow, impil.width, impil.height])
         imcropped.save(os.path.join(croppedimagedir, imagetag.image_file))
-        imlmdb : PIL.Image.Image = imcropped.resize(imsize[0:2], resample = PIL.Image.LANCZOS)
+        imlmdb : PIL.Image.Image = F.resize(imcropped, imsize, interpolation = PIL.Image.LANCZOS)
         impb = imagebackend.writeImage(key, imlmdb)
 
         with open(os.path.join(imagedir, key +".json"), "w") as f:
