@@ -65,6 +65,8 @@ parser.add_argument('--mintime', type=float, default=5.0, help="Ignore this many
 parser.add_argument('--maxtime', type=float, default=7.5, help="Ignore this many seconds of leading up to the end of the bag file")
 parser.add_argument('--rowstart', type=float, default=0.5, help="Ratio to crop off the top of the image")
 parser.add_argument('--labeldir', type=str, required=False, default="pose_sequence_labels" , help="Where to put the labels relative to the bagfile")
+parser.add_argument('--h', type=int, default=66, help="Height to resize images")
+parser.add_argument('--w', type=int, default=200, help="Width to resize images")
 
 
 args = parser.parse_args()
@@ -76,6 +78,8 @@ configfile = argdict["config"]
 bagpath = argdict["bagfile"]
 mintime = argdict["mintime"]
 maxtime = argdict["maxtime"]
+h = argdict["h"]
+w = argdict["w"]
 debug = argdict["debug"]
 rowstart = argdict["rowstart"]
 k = argdict["k"]
@@ -143,7 +147,7 @@ try:
 except Exception as e:
     imnp0 = bridge.compressed_imgmsg_to_cv2(images[0], desired_encoding="rgb8")
 croprow = int(round(imnp0.shape[0]*rowstart))
-imsize = np.array([66,200])
+imsize = np.array([h,w])
 imagebackend = deepracing.backend.ImageLMDBWrapper()
 imagebackend.readDatabase(imagelmdbdir,mapsize=int(round(1.1*len(images)*3*np.prod(imsize))), readonly=False)
 labelbackend = deepracing.backend.MultiAgentLabelLMDBWrapper()
