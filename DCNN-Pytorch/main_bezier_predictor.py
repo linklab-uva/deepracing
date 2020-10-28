@@ -96,7 +96,7 @@ def run_epoch(experiment, network, optimizer, dataloader, ego_agent_loss, other_
         # pred_vels_scaled = pred_vels/dt[:,None,None]
 
         
-        if debug and False:
+        if debug:
             fig, (ax1, ax2) = plt.subplots(1, 2, sharey=False)
             images_np = np.round(255.0*input_images[0].detach().cpu().numpy().copy().transpose(0,2,3,1)).astype(np.uint8)
             #image_np_transpose=skimage.util.img_as_ubyte(images_np[-1].transpose(1,2,0))
@@ -313,7 +313,6 @@ def go():
         dsetsjson = json.dumps(dataset_config, indent=1)
         experiment.log_parameter("datasets",dsetsjson)
         experiment.log_text(dsetsjson)
-        experiment.add_tag("bezierpredictor")
         if len(alltags)>0:
             experiment.add_tags(list(alltags))
         experiment_config = {"experiment_key": experiment.get_key()}
