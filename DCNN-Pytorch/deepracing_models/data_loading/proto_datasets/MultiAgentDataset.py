@@ -107,7 +107,8 @@ class MultiAgentDataset(Dataset):
         rtndict = {"images": images_torch, "ego_current_pose": egopose, "session_times": rtn_session_times, "ego_positions": egopositions[:,self.position_indices], "ego_velocities": egovelocities[:,self.position_indices], "image_index": packetrange[-1]}
 
         if self.return_other_agents:
-            rtn_agent_positions = 500*np.ones([19,raceline_label.shape[0],raceline_label.shape[1]], dtype=np.float64)
+          #  rtn_agent_positions = 500*np.ones([19,raceline_label.shape[0],raceline_label.shape[1]], dtype=np.float64)
+            rtn_agent_positions = np.nan*np.ones([19,raceline_label.shape[0],raceline_label.shape[1]], dtype=np.float64)
             other_agent_positions = MultiAgentLabelLMDBWrapper.positionsFromLabel(label)
             rtn_agent_positions[0:other_agent_positions.shape[0]] = other_agent_positions
             rtndict["other_agent_positions"] =  rtn_agent_positions[:,:,self.position_indices]
