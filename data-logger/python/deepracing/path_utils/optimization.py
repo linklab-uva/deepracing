@@ -28,7 +28,7 @@ class OptimWrapper():
     def functional(self, xcurr):
         return -np.sum(xcurr)
 
-    def optimize(self, x0 = None , method="SLSQP", maxiter=5):
+    def optimize(self, x0 = None , method="SLSQP", maxiter=20):
         if x0 is None:
             x0 = 0.5*(self.maxspeed**2)*np.ones_like(self.radii)
         constraints = (self.getLinearAccelConstraint(), self.getCentripetalAccelConstraint())

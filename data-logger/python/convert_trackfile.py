@@ -24,7 +24,8 @@ import json
 from functools import reduce
 import operator
 import math
-import open3d
+from deepracing.path_utils.optimization import OptimWrapper
+
 from shapely.geometry import Point as ShapelyPoint, MultiPoint#, Point2d as ShapelyPoint2d
 from shapely.geometry.polygon import Polygon
 from shapely.geometry import LinearRing
@@ -84,6 +85,8 @@ Xin = np.row_stack((Xin, np.column_stack((final_r,final_stretch))))
 # rnormalized = Xin[:,0] - Xin[0,0]
 # rnormalized = rnormalized/rnormalized[-1]
 spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(Xin[:,0], Xin[:,1:], k = k)
+tangentspline : scipy.interpolate.BSpline = spline.derivative()
+normalspline : scipy.interpolate.BSpline = tangentspline.derivative()
 
 finalidx = -1
 if finalidx is None:
@@ -91,9 +94,9 @@ if finalidx is None:
 else:
     finalextrassamps = abs(finalidx)
 
-rsamp = np.linspace(Xin[0,0], Xin[-1,0], num = num_samples + finalextrassamps)
-splinevals=spline(rsamp)[0:finalidx]
-rout = rsamp[0:finalidx]
+rsamp = np.linspace(Xin[0,0], Xin[-1,0], num = num_samples + finalextrassamps)[0:finalidx]
+splinevals=spline(rsamp)
+rout = rsamp
 
 splinevalspolygon = spline(np.linspace(Xin[0,0], Xin[-1,0], num = 750) )
 # lr = LinearRing([(splinevalspolygon[i,0], splinevalspolygon[i,2]) for i in range(splinevalspolygon.shape[0])])
@@ -102,14 +105,20 @@ polygon : Polygon = Polygon(lr)
 assert(polygon.is_valid)
 
 
-deltasamples = (np.arange(0, splinevals.shape[0], step=1, dtype=np.uint64) + 1)%splinevals.shape[0]
-P2 = splinevals[deltasamples].copy()
-P1 = splinevals.copy()
-#P2[:,1] = P1[:,1] = 0.0
-deltas = P2-P1
-delta_norms = np.linalg.norm(deltas, axis=1, ord=2)
-unit_tangents=deltas/delta_norms[:,np.newaxis]
+tangents = tangentspline(rsamp)
+#print(tangents.shape)
+tangentnorms = np.linalg.norm(tangents, ord=2, axis=1)
+unit_tangents = tangents/tangentnorms[:,np.newaxis]
 
+accels = normalspline(rsamp)
+accelnorms = np.linalg.norm(accels, ord=2, axis=1)
+
+dotsquares = np.sum(tangents*accels, axis=1)**2
+
+radii = (tangentnorms**3)/np.sqrt((tangentnorms**2)*(accelnorms**2) - dotsquares)
+print(radii)
+#unit_normals = normals/normalnorms[:,np.newaxis]
+#print(unit_normals.shape)
 
 
 #if innerboundary:
@@ -125,13 +134,16 @@ v1 = np.cross(unit_tangents, ref)
 v1 = v1/np.linalg.norm(v1, axis=1, ord=2)[:,np.newaxis]
 v2 =  np.cross(v1, unit_tangents)
 v2 = v2/np.linalg.norm(v2, axis=1, ord=2)[:,np.newaxis]
+
 unit_normals = np.cross(v2, unit_tangents)
 unit_normals = unit_normals/np.linalg.norm(unit_normals, axis=1, ord=2)[:,np.newaxis]
 
 
 
+
 normaltangentdots = np.sum(unit_tangents*unit_normals, axis=1)
-print(normaltangentdots)
+# print(normaltangentdots)
+# print(normaltangentdots.shape)
 if not np.all(np.abs(normaltangentdots)<=1E-6):
     raise ValueError("Something went wrong. one of the tangents is not normal to it's corresponding normal.")
 
@@ -181,6 +193,22 @@ plt.plot(x[0], z[0], 'g*')
 plt.quiver(x, z, unit_normals[:,0], unit_normals[:,2], angles="xy", scale=4.0, scale_units="inches")
 plt.show()
 
+
+
+maxspeed = 150.0
+maxlinearaccel = 15.0
+maxcentripetalaccel = 9.8*4.0
+maxiter=30
+ds = np.mean(np.linalg.norm(splinevals[1:] - splinevals[0:-1], ord=2, axis=1))
+sqp = OptimWrapper(maxspeed, maxlinearaccel, maxcentripetalaccel, ds, radii)
+
+
+x0, res = sqp.optimize(maxiter=maxiter)
+print(res)
+print(x0)
+
+
+
 jsonout = os.path.join(trackdir,os.path.splitext(trackfilein)[0] + ".json")
 jsondict : dict = {}
 jsondict["dist"] = X[:,0].tolist()
@@ -199,3 +227,4 @@ print("First point: " + str(X[0,:]))
 print("Last point: " + str(X[-1,:]))
 print("Average diff norm: " + str(np.mean(diffnorms)))
 print("Final diff norm: " + str(np.linalg.norm(X[0,1:] - X[-1,1:])))
+
