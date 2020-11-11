@@ -37,7 +37,11 @@ class OptimWrapper():
         if x0 is None:
             x0 = 0.5*ub*np.ones_like(self.radii)
         constraints = (self.getLinearAccelConstraint(), self.getCentripetalAccelConstraint())
-        return x0, minimize(self.functional, x0, method=method, jac=self.jac, hessp=self.hessp, constraints=constraints, options = {"maxiter": maxiter, "disp": disp}, bounds=Bounds(lb, ub, keep_feasible=True))
+        if method in ["Newton-CG", "trust-ncg", "trust-krylov", "trust-constr"]:
+            hessp = self.hessp
+        else:
+            hessp = None
+        return x0, minimize(self.functional, x0, method=method, jac=self.jac, hessp=hessp, constraints=constraints, options = {"maxiter": maxiter, "disp": disp}, bounds=Bounds(lb, ub, keep_feasible=True))
 
 
 
