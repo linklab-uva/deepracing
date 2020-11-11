@@ -22,19 +22,22 @@ class OptimWrapper():
     def getCentripetalAccelConstraint(self, keep_feasible=False):
         return LinearConstraint(self.acentripetalmat, 0, self.maxcentripetalaccel, keep_feasible=keep_feasible)
 
+    def hessp(self, xcurr, p):
+        return np.zeros_like(xcurr)
+
     def jac(self, xcurr):
         return -np.ones_like(xcurr)
         
     def functional(self, xcurr):
         return -np.sum(xcurr)
 
-    def optimize(self, x0 = None , method="SLSQP", maxiter=20):
+    def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False):
         lb = 0
         ub = self.maxspeed**2
         if x0 is None:
             x0 = 0.5*ub*np.ones_like(self.radii)
         constraints = (self.getLinearAccelConstraint(), self.getCentripetalAccelConstraint())
-        return x0, minimize(self.functional, x0, method=method, jac=self.jac, constraints=constraints, options = {"maxiter": maxiter}, bounds=Bounds(lb, ub, keep_feasible=True))
+        return x0, minimize(self.functional, x0, method=method, jac=self.jac, hessp=self.hessp, constraints=constraints, options = {"maxiter": maxiter, "disp": disp}, bounds=Bounds(lb, ub, keep_feasible=True))
 
 
 

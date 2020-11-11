@@ -34,7 +34,7 @@ from scipy.spatial.transform import Rotation as Rot
 
 parser = argparse.ArgumentParser()
 parser.add_argument("trackfile", help="Path to trackfile to convert",  type=str)
-parser.add_argument("num_samples", type=int, help="Number of values to sample from the spline. Default (0) means no sampling and just copy the data as is")
+parser.add_argument("ds", type=float, help="Sample the path at points this distance apart along the path")
 parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
 #parser.add_argument("--negate_normals", action="store_true", help="Flip the sign all all of the computed normal vectors")
 args = parser.parse_args()
@@ -50,7 +50,7 @@ outerboundary = not (isracingline or innerboundary)
 
 
 trackdir = os.path.dirname(trackfilein)
-num_samples = argdict["num_samples"]
+ds = argdict["ds"]
 k = argdict["k"]
 trackin = np.loadtxt(trackfilein,delimiter=",",skiprows=2)
 
@@ -95,7 +95,9 @@ if finalidx is None:
 else:
     finalextrassamps = abs(finalidx)
 
-rsamp = np.linspace(Xin[0,0], Xin[-1,0], num = num_samples)# + finalextrassamps)#[0:finalidx]
+#rsamp = np.linspace(Xin[0,0], Xin[-1,0], num = num_samples)# + finalextrassamps)#[0:finalid
+rsamp = np.arange(Xin[0,0], Xin[-1,0], step = ds)
+#rsamp = np.hstack([rsamp, np.array([ Xin[-1,0] ])])
 splinevals=spline(rsamp)
 rout = rsamp
 
@@ -162,8 +164,11 @@ plt.quiver(x, z, unit_normals[:,0], unit_normals[:,2], angles="xy", scale=4.0, s
 plt.show()
 
 
-rsampradii = np.linspace(rsamp[0], rsamp[-1], num=num_samples)
+rsampradii = np.arange(rsamp[0], rsamp[-1]+ds, step=ds)
+# rsampradii = np.linspace(rsamp[0], rsamp[-1], num=num_samples)
+#ds = rsampradii[1]-rsampradii[0]
 positionsradii = spline(rsampradii)
+print("Optimizing over a space of size: %d" %(rsampradii.shape[0],))
 
 
 tangentsradii = tangentspline(rsampradii)
@@ -182,29 +187,40 @@ radii = (tangentsradiinorms**3)/np.sqrt((tangentsradiinorms**2)*(accelnorms**2) 
 
 maxspeed = 86.0
 maxlinearaccel = 13.0
-maxcentripetalaccel = 9.8*3.0
+maxcentripetalaccel = 9.8*2.5
+sqp = OptimWrapper(maxspeed, maxlinearaccel, maxcentripetalaccel, ds, radii)
+
+
+#method="trust-constr"
+method="SLSQP"
 maxiter=100
-meands = np.mean(np.linalg.norm(splinevals[1:] - splinevals[0:-1], ord=2, axis=1))
-sqp = OptimWrapper(maxspeed, maxlinearaccel, maxcentripetalaccel, meands, radii)
-
-
-x0, res = sqp.optimize(maxiter=maxiter)
+x0, res = sqp.optimize(maxiter=maxiter,method=method,disp=True)#,eps=100.0)
 v0 = np.sqrt(x0)
 velsquares = res.x
 vels = np.sqrt(velsquares)
-#print(v0)
+# resdict = vars(res)
+# print(resdict["x"])
+# print({key:resdict[key] for key in resdict.keys() if key!="x"})
 print(vels)
 
-tlist = [0.0]
-for i in range(0, vels.shape[0]-1):
-    ds = rsampradii[i+1] - rsampradii[i]
-    dt = ds/vels[i]
-    tlist.append(tlist[-1] + dt)
+velinv = 1.0/vels
+invspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(rsampradii, velinv)
+invsplinead : scipy.interpolate.BSpline = invspline.antiderivative()
+tparameterized = invsplinead(rsampradii)
+tparameterized = tparameterized - tparameterized[0]
+print(tparameterized)
+
+
+# tlist = [0.0]
+# for i in range(0, vels.shape[0]-1):
+#     ds = rsampradii[i+1] - rsampradii[i]
+#     dt = ds/vels[i]
+#     tlist.append(tlist[-1] + dt)
 # dxfinal = positionsradii[0] - positionsradii[-1]
 # dsfinal =  np.linalg.norm(dxfinal, ord=2)
 # tlist.append(tlist[-1] + 0.75*dsfinal/vels[-1])
 # positionsradii = np.row_stack([positionsradii, positionsradii[-1] + 0.75*dxfinal])
-tparameterized = np.array(tlist)
+#tparameterized = np.array(tlist)
 # print("tparameterized: %s" % (str(tparameterized),))
 
 truespline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(tparameterized, positionsradii)
@@ -225,7 +241,9 @@ vsamp = truesplinevel(tsamp)
 xdottrue = vsamp[:,0]
 ydottrue = vsamp[:,1]
 zdottrue = vsamp[:,2]
-#print(unittangentsradii*vels[:,np.newaxis]-truesplinevel(tparameterized))
+print(unittangentsradii*vels[:,np.newaxis]-truesplinevel(tparameterized))
+speedstrue = np.linalg.norm(vsamp,ord=2,axis=1)
+unit_tangents_true = vsamp/speedstrue[:,np.newaxis]
 
 asamp = truesplineaccel(tsamp)
 xdotdottrue = asamp[:,0]
@@ -233,14 +251,16 @@ ydotdottrue = asamp[:,1]
 zdotdottrue = asamp[:,2]
 
 
-ref = np.column_stack([np.zeros_like(unit_tangents.shape[0]), np.ones_like(unit_tangents.shape[0]), np.zeros_like(unit_tangents.shape[0])]).astype(np.float64)
+ref = np.column_stack([np.zeros_like(unit_tangents_true.shape[0]), np.ones_like(unit_tangents_true.shape[0]), np.zeros_like(unit_tangents_true.shape[0])]).astype(np.float64)
 if innerboundary:
     ref[:,1]*=-1.0
-v1 = np.cross(unit_tangents, ref)
+v1 = np.cross(unit_tangents_true, ref)
 v1 = v1/np.linalg.norm(v1, axis=1, ord=2)[:,np.newaxis]
-v2 =  np.cross(v1, unit_tangents)
+v2 =  np.cross(v1, unit_tangents_true)
 v2 = v2/np.linalg.norm(v2, axis=1, ord=2)[:,np.newaxis]
 
+unit_normals_true = np.cross(v2, unit_tangents_true)
+unit_normals_true = unit_normals_true/np.linalg.norm(unit_normals_true, axis=1, ord=2)[:,np.newaxis]
 
 
 fig2 = plt.figure()
@@ -251,7 +271,7 @@ plt.xlim(np.max(xtrue)+10, np.min(xtrue)-10)
 plt.plot(positionsradii[:,0],positionsradii[:,2],'r')
 plt.scatter(xtrue, ztrue, c='b', marker='o', s = 16.0*np.ones_like(psamp[:,0]))
 plt.plot(xtrue[0], ztrue[0], 'g*')
-#plt.quiver(x, z, unit_normals[:,0], unit_normals[:,2], angles="xy", scale=4.0, scale_units="inches")
+plt.quiver(xtrue, ztrue, unit_normals_true[:,0], unit_normals_true[:,2], angles="xy", scale=4.0, scale_units="inches")
 plt.show()
 
 
@@ -274,6 +294,10 @@ jsondict["z"] = ztrue.tolist()
 jsondict["vx"] = xdottrue.tolist()
 jsondict["vy"] = ydottrue.tolist()
 jsondict["vz"] = zdottrue.tolist()
+jsondict["xnormal"] = unit_normals_true[:,0].tolist()
+jsondict["ynormal"] = unit_normals_true[:,1].tolist()
+jsondict["znormal"] = unit_normals_true[:,2].tolist()
+
 # jsondict["xvel"] = xdottrue.tolist()
 # jsondict["yvel"] = ydottrue.tolist()
 # jsondict["zvel"] = zdottrue.tolist()
