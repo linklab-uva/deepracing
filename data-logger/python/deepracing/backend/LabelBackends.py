@@ -94,7 +94,7 @@ class MultiAgentLabelLMDBWrapper():
             return np.zeros([0, len(label_pb.ego_agent_trajectory.poses), 4])
         trajectory_lengths = [len(traj.poses) for traj in other_agent_trajectories]
         assert(len(set(trajectory_lengths))==1), "All trajectories in a label must be of the same length."
-        assert(trajectory_lengths[0]==len(label_pb.local_raceline)), "Trajectories must be the same length as the local raceline."
+        assert(trajectory_lengths[0]==len(label_pb.raceline)), "Trajectories must be the same length as the local raceline."
         rtn = np.zeros([num_trajectories, trajectory_lengths[0], 4], dtype=np.float64)
         for (i,traj) in enumerate(other_agent_trajectories):
             quats_pb = [pose_pb.rotation for pose_pb in traj.poses]
@@ -109,7 +109,7 @@ class MultiAgentLabelLMDBWrapper():
             return np.zeros([0, len(label_pb.ego_agent_trajectory.poses), 3])
         trajectory_lengths = [len(traj.poses) for traj in other_agent_trajectories]
         assert(len(set(trajectory_lengths))==1), "All trajectories in a label must be of the same length."
-        assert(trajectory_lengths[0]==len(label_pb.local_raceline)), "Trajectories must be the same length as the local raceline."
+        assert(trajectory_lengths[0]==len(label_pb.raceline)), "Trajectories must be the same length as the local raceline."
         rtn = np.zeros([num_trajectories, trajectory_lengths[0], 3], dtype=np.float64)
         for (i,traj) in enumerate(other_agent_trajectories):
             positions_pb = [pose_pb.translation for pose_pb in traj.poses]
