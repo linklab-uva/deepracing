@@ -6,3 +6,5 @@ from .bezier import simpson as bezierArcLength
 
 from .statistics import cov
 from .integrate import cumtrapz
+
+from .geometry import localRacelines
