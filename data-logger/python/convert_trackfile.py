@@ -96,7 +96,7 @@ else:
     finalextrassamps = abs(finalidx)
 
 #rsamp = np.linspace(Xin[0,0], Xin[-1,0], num = num_samples)# + finalextrassamps)#[0:finalid
-rsamp = np.arange(Xin[0,0], Xin[-1,0], step = ds)
+rsamp = np.arange(Xin[0,0], Xin[-1,0]+ds, step = ds)
 #rsamp = np.hstack([rsamp, np.array([ Xin[-1,0] ])])
 splinevals=spline(rsamp)
 rout = rsamp
@@ -112,6 +112,12 @@ tangents = tangentspline(rsamp)
 #print(tangents.shape)
 tangentnorms = np.linalg.norm(tangents, ord=2, axis=1)
 unit_tangents = tangents/tangentnorms[:,np.newaxis]
+
+
+accels = normalspline(rsamp)
+#print(tangents.shape)
+accelnorms = np.linalg.norm(accels, ord=2, axis=1)
+unit_accels = accelnorms/accelnorms[:,np.newaxis]
 
 
 ref = np.column_stack([np.zeros_like(unit_tangents.shape[0]), np.ones_like(unit_tangents.shape[0]), np.zeros_like(unit_tangents.shape[0])]).astype(np.float64)
@@ -164,24 +170,24 @@ plt.quiver(x, z, unit_normals[:,0], unit_normals[:,2], angles="xy", scale=4.0, s
 plt.show()
 
 
-rsampradii = np.arange(rsamp[0], rsamp[-1]+ds, step=ds)
+#rsampradii = np.arange(rsamp[0], rsamp[-1]+ds, step=ds)
+#rsampradii = rsamp
 # rsampradii = np.linspace(rsamp[0], rsamp[-1], num=num_samples)
 #ds = rsampradii[1]-rsampradii[0]
-positionsradii = spline(rsampradii)
-print("Optimizing over a space of size: %d" %(rsampradii.shape[0],))
+print("Optimizing over a space of size: %d" %(rsamp.shape[0],))
 
 
-tangentsradii = tangentspline(rsampradii)
-tangentsradiinorms = np.linalg.norm(tangentsradii, ord=2, axis=1)
-unittangentsradii = tangentsradii/tangentsradiinorms[:,np.newaxis]
+# tangentsradii = tangentspline(rsampradii)
+# tangentsradiinorms = np.linalg.norm(tangentsradii, ord=2, axis=1)
+# unittangentsradii = tangentsradii/tangentsradiinorms[:,np.newaxis]
 
 
-accels = normalspline(rsampradii)
-accelnorms = np.linalg.norm(accels, ord=2, axis=1)
+# accels = normalspline(rsampradii)
+# accelnorms = np.linalg.norm(accels, ord=2, axis=1)
 
-dotsquares = np.sum(tangentsradii*accels, axis=1)**2
+dotsquares = np.sum(tangents*accels, axis=1)**2
 
-radii = (tangentsradiinorms**3)/np.sqrt((tangentsradiinorms**2)*(accelnorms**2) - dotsquares)
+radii = (tangentnorms**3)/np.sqrt((tangentnorms**2)*(accelnorms**2) - dotsquares)
 
 
 
@@ -204,11 +210,11 @@ vels = np.sqrt(velsquares)
 print(vels)
 
 velinv = 1.0/vels
-invspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(rsampradii, velinv)
+invspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(rsamp, velinv)
 invsplinead : scipy.interpolate.BSpline = invspline.antiderivative()
-tparameterized = invsplinead(rsampradii)
+tparameterized = invsplinead(rsamp)
 tparameterized = tparameterized - tparameterized[0]
-print(tparameterized)
+#print(tparameterized)
 
 
 # tlist = [0.0]
@@ -223,25 +229,31 @@ print(tparameterized)
 #tparameterized = np.array(tlist)
 # print("tparameterized: %s" % (str(tparameterized),))
 
+positionsradii = spline(rsamp)
 truespline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(tparameterized, positionsradii)
 truesplinevel : scipy.interpolate.BSpline = truespline.derivative()
 truesplineaccel : scipy.interpolate.BSpline = truesplinevel.derivative()
 
 
+
 nout = 4000
 tsamp = np.linspace(tparameterized[0], tparameterized[-1], num=nout)
+dsamp = np.linspace(rsamp[0], rsamp[-1], num=nout)
 print("dt: %f" % (tsamp[-1] - tsamp[0],))
+print("ds: %f" % (dsamp[-1] - dsamp[0],))
 
 psamp = truespline(tsamp)
 xtrue = psamp[:,0]
 ytrue = psamp[:,1]
 ztrue = psamp[:,2]
+final_stretch_samp = psamp[0] - psamp[-1]
+print("Final position distance: %f" % (np.linalg.norm(final_stretch_samp, ord=2),))
 
 vsamp = truesplinevel(tsamp)
 xdottrue = vsamp[:,0]
 ydottrue = vsamp[:,1]
 zdottrue = vsamp[:,2]
-print(unittangentsradii*vels[:,np.newaxis]-truesplinevel(tparameterized))
+print(unit_tangents*vels[:,np.newaxis]-truesplinevel(tparameterized))
 speedstrue = np.linalg.norm(vsamp,ord=2,axis=1)
 unit_tangents_true = vsamp/speedstrue[:,np.newaxis]
 
@@ -261,6 +273,7 @@ v2 = v2/np.linalg.norm(v2, axis=1, ord=2)[:,np.newaxis]
 
 unit_normals_true = np.cross(v2, unit_tangents_true)
 unit_normals_true = unit_normals_true/np.linalg.norm(unit_normals_true, axis=1, ord=2)[:,np.newaxis]
+
 
 
 fig2 = plt.figure()
@@ -286,7 +299,7 @@ plt.show()
 
 jsonout = os.path.join(trackdir,os.path.splitext(trackfilein)[0] + ".json")
 jsondict : dict = {}
-jsondict["dist"] = np.linspace(rsampradii[0], rsampradii[-1], num=nout).tolist()
+jsondict["dist"] = dsamp.tolist()
 jsondict["t"] = tsamp.tolist()
 jsondict["x"] = xtrue.tolist()
 jsondict["y"] = ytrue.tolist()
