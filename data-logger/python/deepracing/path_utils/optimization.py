@@ -29,10 +29,12 @@ class OptimWrapper():
         return -np.sum(xcurr)
 
     def optimize(self, x0 = None , method="SLSQP", maxiter=20):
+        lb = 0
+        ub = self.maxspeed**2
         if x0 is None:
-            x0 = 0.5*(self.maxspeed**2)*np.ones_like(self.radii)
+            x0 = 0.5*ub*np.ones_like(self.radii)
         constraints = (self.getLinearAccelConstraint(), self.getCentripetalAccelConstraint())
-        return x0, minimize(self.functional, x0, method=method, jac=self.jac, constraints=constraints, options = {"maxiter": maxiter}, bounds=Bounds(0, self.maxspeed**2, keep_feasible=True))
+        return x0, minimize(self.functional, x0, method=method, jac=self.jac, constraints=constraints, options = {"maxiter": maxiter}, bounds=Bounds(lb, ub, keep_feasible=True))
 
 
 
