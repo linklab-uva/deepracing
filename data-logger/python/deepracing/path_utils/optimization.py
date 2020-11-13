@@ -1,5 +1,27 @@
 import scipy, numpy as np
-from scipy.optimize import LinearConstraint, minimize, Bounds
+from scipy.optimize import LinearConstraint, minimize, Bounds, NonlinearConstraint
+
+import torch
+from torch import Tensor
+
+
+class LinearConstraintTorch():
+    def __init__(self, A : Tensor, keep_feasible=False, device = torch.device("cuda:0")):
+        self.keep_feasible = keep_feasible
+        self.device = device
+        self.A = A.double().to(self.device)
+        self.Anp = A.to(torch.device("cpu")).numpy().copy()
+        self.hessmat = np.zeros_like(self.Anp)
+    def eval(self, x):
+        with torch.no_grad():
+            rtn = torch.matmul(self.A, torch.from_numpy(x).to(self.device)).to(torch.device("cpu")).numpy()
+        return rtn
+    def jac(self, x):
+        return self.Anp
+    def hess(self, x, v):
+        return self.hessmat
+    def asSciPy(self, lb, ub):
+        return NonlinearConstraint(self.eval, lb, ub, jac = self.jac, keep_feasible=self.keep_feasible)
 
 class OptimWrapper():
     def __init__(self, maxspeed : float, maxlinearaccel : float, maxcentripetalaccel : float, ds : float, radii : np.ndarray):
@@ -32,11 +54,14 @@ class OptimWrapper():
         return -np.sum(xcurr)
 
     def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False):
-        lb = 0
+        lb = 1.0
         ub = self.maxspeed**2
         if x0 is None:
             x0 = 0.5*ub*np.ones_like(self.radii)
-        constraints = (self.getLinearAccelConstraint(), self.getCentripetalAccelConstraint())
+        linear_accel_constraint_torch = LinearConstraintTorch(torch.from_numpy(self.linearaccelmat), keep_feasible=False)
+        centripetal_accel_constraint_torch = LinearConstraintTorch(torch.from_numpy(self.acentripetalmat), keep_feasible=False)
+        constraints = (linear_accel_constraint_torch.asSciPy(-self.maxlinearaccel, self.maxlinearaccel), centripetal_accel_constraint_torch.asSciPy(0, self.maxcentripetalaccel))
+        #constraints = (self.getLinearAccelConstraint(), self.getCentripetalAccelConstraint())
         if method in ["Newton-CG", "trust-ncg", "trust-krylov", "trust-constr"]:
             hessp = self.hessp
         else:
