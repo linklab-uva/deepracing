@@ -58,10 +58,10 @@ class OptimWrapper():
         ub = self.maxspeed**2
         if x0 is None:
             x0 = 0.5*ub*np.ones_like(self.radii)
-        linear_accel_constraint_torch = LinearConstraintTorch(torch.from_numpy(self.linearaccelmat), keep_feasible=False)
-        centripetal_accel_constraint_torch = LinearConstraintTorch(torch.from_numpy(self.acentripetalmat), keep_feasible=False)
-        constraints = (linear_accel_constraint_torch.asSciPy(-self.maxlinearaccel, self.maxlinearaccel), centripetal_accel_constraint_torch.asSciPy(0, self.maxcentripetalaccel))
-        #constraints = (self.getLinearAccelConstraint(), self.getCentripetalAccelConstraint())
+        # linear_accel_constraint_torch = LinearConstraintTorch(torch.from_numpy(self.linearaccelmat), keep_feasible=False)
+        # centripetal_accel_constraint_torch = LinearConstraintTorch(torch.from_numpy(self.acentripetalmat), keep_feasible=False)
+        # constraints = (linear_accel_constraint_torch.asSciPy(-self.maxlinearaccel, self.maxlinearaccel), centripetal_accel_constraint_torch.asSciPy(0, self.maxcentripetalaccel))
+        constraints = (self.getLinearAccelConstraint(), self.getCentripetalAccelConstraint())
         if method in ["Newton-CG", "trust-ncg", "trust-krylov", "trust-constr"]:
             hessp = self.hessp
         else:
