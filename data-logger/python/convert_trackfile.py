@@ -157,7 +157,6 @@ z_normal = unit_normals[:,2]
 diffs = X[1:,1:] - X[0:-1,1:]
 diffnorms = np.linalg.norm(diffs,axis=1)
 
-
 fig = plt.figure()
 plt.xlim(np.max(x)+10, np.min(x)-10)
 # ax = fig.gca(projection='3d')
@@ -167,14 +166,18 @@ plt.scatter(Xin[:,1], Xin[:,3], c='b', marker='o', s = 16.0*np.ones_like(Xin[:,1
 plt.scatter(x, z, c='r', marker='o', s = 4.0*np.ones_like(x))
 plt.plot(x[0], z[0], 'g*')
 plt.quiver(x, z, unit_normals[:,0], unit_normals[:,2], angles="xy", scale=4.0, scale_units="inches")
-plt.show()
+try:
+    plt.show()
+except:
+    plt.close()
+    print("Got %d points to optimize on." % (X.shape[0],), flush=True)
 
 
 #rsampradii = np.arange(rsamp[0], rsamp[-1]+ds, step=ds)
 #rsampradii = rsamp
 # rsampradii = np.linspace(rsamp[0], rsamp[-1], num=num_samples)
 #ds = rsampradii[1]-rsampradii[0]
-print("Optimizing over a space of size: %d" %(rsamp.shape[0],))
+print("Optimizing over a space of size: %d" %(rsamp.shape[0],), flush=True)
 
 
 # tangentsradii = tangentspline(rsampradii)
@@ -199,7 +202,7 @@ sqp = OptimWrapper(maxspeed, maxlinearaccel, maxcentripetalaccel, ds, radii)
 
 #method="trust-constr"
 method="SLSQP"
-maxiter=100
+maxiter=75
 x0, res = sqp.optimize(maxiter=maxiter,method=method,disp=True)#,eps=100.0)
 v0 = np.sqrt(x0)
 velsquares = res.x
@@ -207,7 +210,7 @@ vels = np.sqrt(velsquares)
 # resdict = vars(res)
 # print(resdict["x"])
 # print({key:resdict[key] for key in resdict.keys() if key!="x"})
-print(vels)
+print(vels, flush=True)
 
 velinv = 1.0/vels
 invspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(rsamp, velinv)
@@ -239,21 +242,21 @@ truesplineaccel : scipy.interpolate.BSpline = truesplinevel.derivative()
 nout = 4000
 tsamp = np.linspace(tparameterized[0], tparameterized[-1], num=nout)
 dsamp = np.linspace(rsamp[0], rsamp[-1], num=nout)
-print("dt: %f" % (tsamp[-1] - tsamp[0],))
-print("ds: %f" % (dsamp[-1] - dsamp[0],))
+print("dt: %f" % (tsamp[-1] - tsamp[0],), flush=True)
+print("ds: %f" % (dsamp[-1] - dsamp[0],), flush=True)
 
 psamp = truespline(tsamp)
 xtrue = psamp[:,0]
 ytrue = psamp[:,1]
 ztrue = psamp[:,2]
 final_stretch_samp = psamp[0] - psamp[-1]
-print("Final position distance: %f" % (np.linalg.norm(final_stretch_samp, ord=2),))
+print("Final position distance: %f" % (np.linalg.norm(final_stretch_samp, ord=2),), flush=True)
 
 vsamp = truesplinevel(tsamp)
 xdottrue = vsamp[:,0]
 ydottrue = vsamp[:,1]
 zdottrue = vsamp[:,2]
-print(unit_tangents*vels[:,np.newaxis]-truesplinevel(tparameterized))
+print(unit_tangents*vels[:,np.newaxis]-truesplinevel(tparameterized), flush=True)
 speedstrue = np.linalg.norm(vsamp,ord=2,axis=1)
 unit_tangents_true = vsamp/speedstrue[:,np.newaxis]
 
@@ -285,7 +288,10 @@ plt.plot(positionsradii[:,0],positionsradii[:,2],'r')
 plt.scatter(xtrue, ztrue, c='b', marker='o', s = 16.0*np.ones_like(psamp[:,0]))
 plt.plot(xtrue[0], ztrue[0], 'g*')
 plt.quiver(xtrue, ztrue, unit_normals_true[:,0], unit_normals_true[:,2], angles="xy", scale=4.0, scale_units="inches")
-plt.show()
+try:
+    plt.show()
+except:
+    plt.close()
 
 
 
@@ -328,8 +334,8 @@ jsondict["znormal"] = unit_normals_true[:,2].tolist()
 # jsondict["z_normal"] = z_normal.tolist()
 with open(jsonout,"w") as f:
     json.dump( jsondict , f , indent=1 )
-print("First point: " + str(X[0,:]))
-print("Last point: " + str(X[-1,:]))
-print("Average diff norm: " + str(np.mean(diffnorms)))
-print("Final diff norm: " + str(np.linalg.norm(X[0,1:] - X[-1,1:])))
+print("First point: " + str(X[0,:]), flush=True)
+print("Last point: " + str(X[-1,:]), flush=True)
+print("Average diff norm: " + str(np.mean(diffnorms)), flush=True)
+print("Final diff norm: " + str(np.linalg.norm(X[0,1:] - X[-1,1:])), flush=True)
 
