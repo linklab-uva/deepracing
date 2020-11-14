@@ -195,7 +195,7 @@ radii = (tangentnorms**3)/np.sqrt((tangentnorms**2)*(accelnorms**2) - dotsquares
 
 
 maxspeed = 86.0
-maxlinearaccel = 13.0
+maxlinearaccel = 18.0
 maxcentripetalaccel = 9.8*2.5
 sqp = OptimWrapper(maxspeed, maxlinearaccel, maxcentripetalaccel, ds, radii)
 
