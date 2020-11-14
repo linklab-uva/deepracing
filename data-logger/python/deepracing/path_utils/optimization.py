@@ -34,15 +34,17 @@ class OptimWrapper():
         self.linearaccelmat = np.eye(numpoints)
         np.fill_diagonal(self.linearaccelmat,-1.0)
         np.fill_diagonal(self.linearaccelmat[:,1:],1.0)
-        self.linearaccelmat[-1,0] = 1.0
         self.linearaccelmat*=(1.0/(2.0*ds))
+        self.linearaccelmat[-1:,:] = 0.0
+        # self.linearaccelmat[-1,0] = 1.0
         self.acentripetalmat = np.diag(1.0/radii)
+    #    self.acentripetalmat[-1,:] = 0.0
         
     def getLinearAccelConstraint(self, keep_feasible=False):
         return LinearConstraint(self.linearaccelmat, -self.maxlinearaccel, self.maxlinearaccel, keep_feasible=keep_feasible)
 
     def getCentripetalAccelConstraint(self, keep_feasible=False):
-        return LinearConstraint(self.acentripetalmat, 0, self.maxcentripetalaccel, keep_feasible=keep_feasible)
+        return LinearConstraint(self.acentripetalmat, -1E-8, self.maxcentripetalaccel, keep_feasible=keep_feasible)
 
     def hessp(self, xcurr, p):
         return np.zeros_like(xcurr)

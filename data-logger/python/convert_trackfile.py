@@ -37,8 +37,8 @@ parser.add_argument("trackfile", help="Path to trackfile to convert",  type=str)
 parser.add_argument("ds", type=float, help="Sample the path at points this distance apart along the path")
 parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
 parser.add_argument("--maxv", default=86.0, type=float, help="Max linear speed the car can yave")
-parser.add_argument("--maxa", default=18.0, type=float, help="Max linear acceleration the car can have")
-parser.add_argument("--maxacent", default=20.0, type=float, help="Max centripetal acceleration the car can have")
+parser.add_argument("--maxa", default=35.0, type=float, help="Max linear acceleration the car can have")
+parser.add_argument("--maxacent", default=15.0, type=float, help="Max centripetal acceleration the car can have")
 #parser.add_argument("--negate_normals", action="store_true", help="Flip the sign all all of the computed normal vectors")
 args = parser.parse_args()
 argdict = vars(args)
@@ -89,9 +89,11 @@ Xin = np.row_stack((Xin, np.column_stack((final_r,final_stretch))))
 
 # rnormalized = Xin[:,0] - Xin[0,0]
 # rnormalized = rnormalized/rnormalized[-1]
-spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(Xin[:,0], Xin[:,1:], k = k)
-tangentspline : scipy.interpolate.BSpline = spline.derivative()
-normalspline : scipy.interpolate.BSpline = tangentspline.derivative()
+bc_type=([(3, np.zeros(3))], [(3, np.zeros(3))])
+# bc_type="natural"
+spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(Xin[:,0], Xin[:,1:], k = k, bc_type=bc_type)
+tangentspline : scipy.interpolate.BSpline = spline.derivative(nu=1)
+normalspline : scipy.interpolate.BSpline = spline.derivative(nu=2)
 
 finalidx = -1
 if finalidx is None:
@@ -100,12 +102,13 @@ else:
     finalextrassamps = abs(finalidx)
 
 #rsamp = np.linspace(Xin[0,0], Xin[-1,0], num = num_samples)# + finalextrassamps)#[0:finalid
-rsamp = np.arange(Xin[0,0], Xin[-1,0]+ds, step = ds)
+# rsamp = np.arange(Xin[0,0], Xin[-1,0]+ds, step = ds)
+rsamp = np.arange(Xin[0,0], Xin[-1,0], step = ds)
 #rsamp = np.hstack([rsamp, np.array([ Xin[-1,0] ])])
 splinevals=spline(rsamp)
 rout = rsamp
 
-splinevalspolygon = spline(np.linspace(Xin[0,0], Xin[-1,0], num = 750) )
+splinevalspolygon = spline(np.linspace(Xin[0,0], Xin[-1,0], num = 750))
 # lr = LinearRing([(splinevalspolygon[i,0], splinevalspolygon[i,2]) for i in range(splinevalspolygon.shape[0])])
 lr = LinearRing([(Xin[i,1], Xin[i,3]) for i in range(0,Xin.shape[0],2)])
 polygon : Polygon = Polygon(lr)
@@ -167,7 +170,8 @@ plt.xlim(np.max(x)+10, np.min(x)-10)
 # ax.scatter(x, y, z, c='r', marker='o', s =2.0*np.ones_like(x))
 # ax.quiver(x, y, z, unit_normals[:,0], unit_normals[:,1], unit_normals[:,2], length=50.0, normalize=True)
 plt.scatter(Xin[:,1], Xin[:,3], c='b', marker='o', s = 16.0*np.ones_like(Xin[:,1]))
-plt.scatter(x, z, c='r', marker='o', s = 4.0*np.ones_like(x))
+# plt.scatter(x, z, c='r', marker='o', s = 4.0*np.ones_like(x))
+plt.plot(x, z, 'r')
 plt.plot(x[0], z[0], 'g*')
 plt.quiver(x, z, unit_normals[:,0], unit_normals[:,2], angles="xy", scale=4.0, scale_units="inches")
 try:
@@ -195,6 +199,10 @@ print("Optimizing over a space of size: %d" %(rsamp.shape[0],), flush=True)
 dotsquares = np.sum(tangents*accels, axis=1)**2
 
 radii = (tangentnorms**3)/np.sqrt((tangentnorms**2)*(accelnorms**2) - dotsquares)
+radii[-2] = 0.5*(radii[-3] + radii[-1])
+
+rprint = 20
+print("Final %d radii:\n%s" %(rprint, str(radii[-rprint:]),))
 
 
 
@@ -211,13 +219,14 @@ x0, res = sqp.optimize(maxiter=maxiter,method=method,disp=True)#,eps=100.0)
 v0 = np.sqrt(x0)
 velsquares = res.x
 vels = np.sqrt(velsquares)
+vels[-1] = vels[-2]
 # resdict = vars(res)
 # print(resdict["x"])
 # print({key:resdict[key] for key in resdict.keys() if key!="x"})
 print(vels, flush=True)
 
 velinv = 1.0/vels
-invspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(rsamp, velinv)
+invspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(rsamp, velinv, bc_type="natural")
 invsplinead : scipy.interpolate.BSpline = invspline.antiderivative()
 tparameterized = invsplinead(rsamp)
 tparameterized = tparameterized - tparameterized[0]
@@ -237,7 +246,7 @@ tparameterized = tparameterized - tparameterized[0]
 # print("tparameterized: %s" % (str(tparameterized),))
 
 positionsradii = spline(rsamp)
-truespline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(tparameterized, positionsradii)
+truespline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(tparameterized, positionsradii, bc_type="natural")
 truesplinevel : scipy.interpolate.BSpline = truespline.derivative()
 truesplineaccel : scipy.interpolate.BSpline = truesplinevel.derivative()
 
