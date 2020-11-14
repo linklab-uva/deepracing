@@ -36,9 +36,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument("trackfile", help="Path to trackfile to convert",  type=str)
 parser.add_argument("ds", type=float, help="Sample the path at points this distance apart along the path")
 parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
+parser.add_argument("--maxv", default=86.0, type=float, help="Max linear speed the car can yave")
+parser.add_argument("--maxa", default=18.0, type=float, help="Max linear acceleration the car can have")
+parser.add_argument("--maxacent", default=20.0, type=float, help="Max centripetal acceleration the car can have")
 #parser.add_argument("--negate_normals", action="store_true", help="Flip the sign all all of the computed normal vectors")
 args = parser.parse_args()
 argdict = vars(args)
+
 # if argdict["negate_normals"]:
 #     normalsign = -1.0
 # else:
@@ -194,9 +198,9 @@ radii = (tangentnorms**3)/np.sqrt((tangentnorms**2)*(accelnorms**2) - dotsquares
 
 
 
-maxspeed = 86.0
-maxlinearaccel = 18.0
-maxcentripetalaccel = 9.8*2.5
+maxspeed = argdict["maxv"]
+maxlinearaccel = argdict["maxa"]
+maxcentripetalaccel = argdict["maxacent"]
 sqp = OptimWrapper(maxspeed, maxlinearaccel, maxcentripetalaccel, ds, radii)
 
 
