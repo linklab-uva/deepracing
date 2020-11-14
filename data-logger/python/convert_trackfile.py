@@ -246,7 +246,7 @@ tparameterized = tparameterized - tparameterized[0]
 # print("tparameterized: %s" % (str(tparameterized),))
 
 positionsradii = spline(rsamp)
-truespline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(tparameterized, positionsradii, bc_type="natural")
+truespline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(tparameterized, positionsradii, bc_type=bc_type)
 truesplinevel : scipy.interpolate.BSpline = truespline.derivative()
 truesplineaccel : scipy.interpolate.BSpline = truesplinevel.derivative()
 
