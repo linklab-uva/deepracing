@@ -1,6 +1,6 @@
 import numpy as np
 import numpy.linalg as la
-import scipy
+import scipy, scipy.integrate
 import skimage
 import PIL
 from PIL import Image as PILImage
@@ -32,6 +32,9 @@ from shapely.geometry import LinearRing
 
 from scipy.spatial.transform import Rotation as Rot
 
+import pickle as pkl
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument("trackfile", help="Path to trackfile to convert",  type=str)
 parser.add_argument("ds", type=float, help="Sample the path at points this distance apart along the path")
@@ -39,6 +42,7 @@ parser.add_argument("--k", default=3, type=int, help="Degree of spline interpola
 parser.add_argument("--maxv", default=86.0, type=float, help="Max linear speed the car can yave")
 parser.add_argument("--maxa", default=35.0, type=float, help="Max linear acceleration the car can have")
 parser.add_argument("--maxacent", default=15.0, type=float, help="Max centripetal acceleration the car can have")
+parser.add_argument("--method", default="SLSQP", type=str, help="Optimization method to use")
 #parser.add_argument("--negate_normals", action="store_true", help="Flip the sign all all of the computed normal vectors")
 args = parser.parse_args()
 argdict = vars(args)
@@ -181,6 +185,29 @@ except:
     print("Got %d points to optimize on." % (X.shape[0],), flush=True)
 
 
+jsonout = os.path.join(trackdir,os.path.splitext(trackfilein)[0] + ".json")
+pklout = os.path.join(trackdir,os.path.splitext(trackfilein)[0] + ".pkl")
+
+if innerboundary or outerboundary:
+    jsondict = dict()
+    jsondict["dist"] = rsamp.tolist()
+    jsondict["x"] = x.tolist()
+    jsondict["y"] = y.tolist()
+    jsondict["z"] = z.tolist()
+    jsondict["x_tangent"] = x_tangent.tolist()
+    jsondict["y_tangent"] = y_tangent.tolist()
+    jsondict["z_tangent"] = z_tangent.tolist()
+    jsondict["x_normal"] = x_normal.tolist()
+    jsondict["y_normal"] = y_normal.tolist()
+    jsondict["z_normal"] = z_normal.tolist()
+    
+    with open(jsonout,"w") as f:
+        json.dump( jsondict , f , indent=1 )
+    with open(pklout,"wb") as f:
+        pkl.dump(spline, f)
+    exit(0)
+
+
 #rsampradii = np.arange(rsamp[0], rsamp[-1]+ds, step=ds)
 #rsampradii = rsamp
 # rsampradii = np.linspace(rsamp[0], rsamp[-1], num=num_samples)
@@ -217,7 +244,7 @@ sqp = OptimWrapper(maxspeed, maxlinearaccel, maxcentripetalaccel, dsvec, radii)
 
 
 #method="trust-constr"
-method="SLSQP"
+method=argdict["method"]
 maxiter=75
 x0, res = sqp.optimize(maxiter=maxiter,method=method,disp=True)#,eps=100.0)
 v0 = np.sqrt(x0)
@@ -230,11 +257,21 @@ vels[-1] = vels[-2]
 print(vels, flush=True)
 
 velinv = 1.0/vels
-invspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(rsamp, velinv, bc_type="natural")
+#print(velinv)
+invspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(rsamp, velinv, k=2)
 invsplinead : scipy.interpolate.BSpline = invspline.antiderivative()
 tparameterized = invsplinead(rsamp)
 tparameterized = tparameterized - tparameterized[0]
-#print(tparameterized)
+# #print(tparameterized)
+# tparameterized = np.zeros(radii.shape[0])
+# dsvec = ds*np.ones_like(tparameterized)
+# cumdsvec = np.hstack([np.zeros(1), np.cumsum(dsvec)])
+# print(cumdsvec)
+# tparameterized[0:4] = scipy.integrate.cumtrapz(velinv[0:4], x=cumdsvec[0:4], initial=0.0)
+# for i in range(4,tparameterized.shape[0]):
+#     tparameterized[i]=scipy.integrate.simps(velinv[i-4:i+1], x=cumdsvec[i-4:i+1]) + tparameterized[i-4]
+# print(tparameterized)
+#tparameterized = np.asarray(tlist)
 
 
 # tlist = [0.0]
@@ -320,7 +357,6 @@ except:
 
 
 
-jsonout = os.path.join(trackdir,os.path.splitext(trackfilein)[0] + ".json")
 jsondict : dict = {}
 jsondict["dist"] = dsamp.tolist()
 jsondict["t"] = tsamp.tolist()
@@ -351,6 +387,9 @@ jsondict["znormal"] = unit_normals_true[:,2].tolist()
 # jsondict["z_normal"] = z_normal.tolist()
 with open(jsonout,"w") as f:
     json.dump( jsondict , f , indent=1 )
+    
+with open(pklout,"wb") as f:
+    pkl.dump(truespline, f)
 print("First point: " + str(X[0,:]), flush=True)
 print("Last point: " + str(X[-1,:]), flush=True)
 print("Average diff norm: " + str(np.mean(diffnorms)), flush=True)
