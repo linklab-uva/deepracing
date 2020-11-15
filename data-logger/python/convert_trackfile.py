@@ -199,9 +199,10 @@ print("Optimizing over a space of size: %d" %(rsamp.shape[0],), flush=True)
 dotsquares = np.sum(tangents*accels, axis=1)**2
 
 radii = (tangentnorms**3)/np.sqrt((tangentnorms**2)*(accelnorms**2) - dotsquares)
-radii[-2] = 0.5*(radii[-3] + radii[-1])
+radii[-int(round(40/ds)):] = np.inf
+# radii[-2] = 0.5*(radii[-3] + radii[-1])
 
-rprint = 20
+rprint = 50
 print("Final %d radii:\n%s" %(rprint, str(radii[-rprint:]),))
 
 
@@ -209,7 +210,10 @@ print("Final %d radii:\n%s" %(rprint, str(radii[-rprint:]),))
 maxspeed = argdict["maxv"]
 maxlinearaccel = argdict["maxa"]
 maxcentripetalaccel = argdict["maxacent"]
-sqp = OptimWrapper(maxspeed, maxlinearaccel, maxcentripetalaccel, ds, radii)
+dsvec = ds*np.ones_like(radii)
+dsvec[-int(round(40/ds)):] = np.inf
+print("Final %d delta s:\n%s" %(rprint, str(dsvec[-rprint:]),))
+sqp = OptimWrapper(maxspeed, maxlinearaccel, maxcentripetalaccel, dsvec, radii)
 
 
 #method="trust-constr"

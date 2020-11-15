@@ -29,16 +29,16 @@ class OptimWrapper():
         self.maxspeed = maxspeed
         self.maxlinearaccel = maxlinearaccel
         self.maxcentripetalaccel = maxcentripetalaccel
-        self.ds = ds
+        if type(ds)==float:
+            self.ds = ds*np.ones_like(self.radii)
+        else:
+            self.ds = ds
         numpoints = radii.shape[0]
         self.linearaccelmat = np.eye(numpoints)
         np.fill_diagonal(self.linearaccelmat,-1.0)
         np.fill_diagonal(self.linearaccelmat[:,1:],1.0)
-        self.linearaccelmat*=(1.0/(2.0*ds))
-        self.linearaccelmat[-1:,:] = 0.0
-        # self.linearaccelmat[-1,0] = 1.0
+        self.linearaccelmat*=(1.0/(2.0*self.ds))[:,np.newaxis]
         self.acentripetalmat = np.diag(1.0/radii)
-    #    self.acentripetalmat[-1,:] = 0.0
         
     def getLinearAccelConstraint(self, keep_feasible=False):
         return LinearConstraint(self.linearaccelmat, -self.maxlinearaccel, self.maxlinearaccel, keep_feasible=keep_feasible)
