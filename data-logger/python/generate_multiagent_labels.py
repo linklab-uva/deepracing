@@ -104,7 +104,10 @@ rlbasename, rlext = os.path.splitext(os.path.basename(racelineFile))
 with open(os.path.join(os.path.dirname(racelineFile), rlbasename + ".pkl"), "rb") as f:
     rlspline : scipy.interpolate.BSpline = pkl.load(f)
 racelinetimes = racelinetimes.numpy()
-raceline = raceline.numpy()[0:3].transpose()
+nrl = 10000
+racelinetimes = np.linspace(racelinetimes[0], racelinetimes[-1], num=nrl)
+raceline = rlspline(racelinetimes)
+racelinedists = np.linspace(racelinedists[0], racelinedists[-1], num=nrl)
 print("raceline shape: %s" %(str(raceline.shape),))
 rlkdtree : scipy.spatial.KDTree = scipy.spatial.KDTree(raceline)
 
@@ -245,7 +248,6 @@ for idx in tqdm(range(len(image_tags))):
         ego_pose_matrix = torch.eye(4, dtype=torch.float64)
         ego_pose_matrix[0:3,0:3] = torch.from_numpy(ego_vehicle_rotation.as_matrix())
         ego_pose_matrix[0:3,3] = torch.from_numpy(ego_vehicle_position)
-        ego_pose_matrix = ego_pose_matrix
         ego_pose_matrix_inverse = torch.inverse(ego_pose_matrix)
 
 
