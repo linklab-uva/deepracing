@@ -36,6 +36,7 @@ import matplotlib.pyplot as plt
 from deepracing import trackNames, searchForFile
 from deepracing.raceline_utils import loadRaceline
 import torch
+import pickle as pkl
 
 def imageDataKey(data):
     return data.timestamp
@@ -49,7 +50,7 @@ def poseSequenceLabelKey(label):
 parser = argparse.ArgumentParser()
 parser.add_argument("db_path", help="Path to root directory of DB",  type=str)
 parser.add_argument("lookahead_time", help="Amount of time to look forward for each driver",  type=float)
-parser.add_argument("--sample_indices", help="Number of indices to sample the spline for on the region specified by lookahead_time",  type=int, default=60)
+parser.add_argument("--sample_indices", help="Number of indices to sample the spline for on the region specified by lookahead_time",  type=int, default=120)
 parser.add_argument("--max_distance", help="Ignore other agents further than this many meters away",  type=float, default=60)
 parser.add_argument("--spline_degree", help="Spline degree to fit",  type=int, default=3)
 parser.add_argument("--debug", help="Display debug plots", action="store_true", required=False)
@@ -99,9 +100,12 @@ racelineFile = searchForFile(searchFile, os.getenv("F1_TRACK_DIRS").split(os.pat
 if racelineFile is None:
     raise ValueError("Could not find trackfile %s" % searchFile)
 racelinetimes, racelinedists, raceline = loadRaceline(racelineFile)
+rlbasename, rlext = os.path.splitext(os.path.basename(racelineFile))
+with open(os.path.join(os.path.dirname(racelineFile), rlbasename + ".pkl"), "rb") as f:
+    rlspline : scipy.interpolate.BSpline = pkl.load(f)
+racelinetimes = racelinetimes.numpy()
 raceline = raceline.numpy()[0:3].transpose()
 print("raceline shape: %s" %(str(raceline.shape),))
-rlspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(racelinetimes, raceline)
 rlkdtree : scipy.spatial.KDTree = scipy.spatial.KDTree(raceline)
 
 
@@ -119,6 +123,11 @@ print("Range of motion packet session times: [%f,%f]" % (tmin,tmax))
 player_car_indices = [packet.udp_packet.m_header.m_playerCarIndex for packet in motion_packets]
 
 spectating_flags = [bool(packet.udp_packet.m_isSpectating) for packet in session_packets]
+session_type_flags = np.array([packet.udp_packet.m_sessionType for packet in session_packets])
+
+time_trial = np.any(session_type_flags == 12)
+
+
 spectating = any(spectating_flags)
 spectator_car_indices = [int(packet.udp_packet.m_spectatorCarIndex) for packet in session_packets]
 spectator_car_indices_set = set(spectator_car_indices)
@@ -135,27 +144,33 @@ else:
     else:
         ego_vehicle_index = player_car_indices[0]
 
-
-vehicle_positions = np.stack([np.array([extractPosition(packet.udp_packet, car_index=i) for i in range(20) ]) for packet in motion_packets], axis=0).transpose(1,0,2)
-print("vehicle_positions shape: %s" % (str(vehicle_positions.shape),))
-vehicle_position_diffs = vehicle_positions[:,1:] - vehicle_positions[:,:-1]
-vehicle_position_diff_norms = np.linalg.norm(vehicle_position_diffs,ord=2,axis=2)
-vehicle_position_diff_totals = np.sum(vehicle_position_diff_norms,axis=1)
-dead_cars = vehicle_position_diff_totals<(10*lookahead_time)
-print("dead_cars shape: %s" % (str(dead_cars.shape),))
-
-
-vehicle_velocities = np.stack([np.array([extractVelocity(packet.udp_packet, car_index=i) for i in range(20) ]) for packet in motion_packets], axis=0).transpose(1,0,2)
-
-vehicle_quaternions = np.stack([np.array([extractRotation(packet.udp_packet, car_index=i) for i in range(20) ]) for packet in motion_packets], axis=0).transpose(1,0,2)
+if time_trial:
+    print("This dataset is a time trial, not bothering to compute paths for any other agents")
+    ego_vehicle_path = np.array([extractPosition(packet.udp_packet, car_index=ego_vehicle_index) for packet in motion_packets ])
+    ego_vehicle_velocities = np.array([extractVelocity(packet.udp_packet, car_index=ego_vehicle_index) for packet in motion_packets ])
+    ego_vehicle_quaternions = np.array([extractRotation(packet.udp_packet, car_index=ego_vehicle_index) for packet in motion_packets ])
+    allx = ego_vehicle_path[:,0]
+else:
+    vehicle_positions = np.stack([np.array([extractPosition(packet.udp_packet, car_index=i) for i in range(20) ]) for packet in motion_packets], axis=0).transpose(1,0,2)
+    print("vehicle_positions shape: %s" % (str(vehicle_positions.shape),))
+    vehicle_position_diffs = vehicle_positions[:,1:] - vehicle_positions[:,:-1]
+    vehicle_position_diff_norms = np.linalg.norm(vehicle_position_diffs,ord=2,axis=2)
+    vehicle_position_diff_totals = np.sum(vehicle_position_diff_norms,axis=1)
+    dead_cars = time_trial + (vehicle_position_diff_totals<(10*lookahead_time))
+    print("dead_cars shape: %s" % (str(dead_cars.shape),))
+    vehicle_velocities = np.stack([np.array([extractVelocity(packet.udp_packet, car_index=i) for i in range(20) ]) for packet in motion_packets], axis=0).transpose(1,0,2)
+    vehicle_quaternions = np.stack([np.array([extractRotation(packet.udp_packet, car_index=i) for i in range(20) ]) for packet in motion_packets], axis=0).transpose(1,0,2)
+    ego_vehicle_path = vehicle_positions[ego_vehicle_index]
+    ego_vehicle_velocities = vehicle_velocities[ego_vehicle_index]
+    ego_vehicle_quaternions = vehicle_quaternions[ego_vehicle_index]
+    allx = vehicle_positions[:,:,0]
 
 
 try:
     fig = plt.figure()
-    allx = vehicle_positions[:,:,0]
     plt.xlim(np.max(allx)+10.0, np.min(allx)-10.0)
-    plt.plot(vehicle_positions[ego_vehicle_index,:,0], vehicle_positions[ego_vehicle_index,:,2], label="Ego vehicle path")
-    for i in range(20):
+    plt.plot(ego_vehicle_path[:,0], ego_vehicle_path[:,2], label="Ego vehicle path")
+    for i in range(20*int(not time_trial)):
         if i!=ego_vehicle_index and (not dead_cars[i]):
             plt.scatter(vehicle_positions[i,:,0], vehicle_positions[i,:,2])
     plt.show()
@@ -166,15 +181,21 @@ except Exception as e:
   print("Skipping visualiation")
   print(e)
 print("Fitting position interpolants")
-vehicle_position_interpolants : List[scipy.interpolate.BSpline] = [scipy.interpolate.make_interp_spline(motion_packet_session_times, vehicle_positions[i], k=splk) for i in range(20)]
-ego_vehicle_position_interpolant : scipy.interpolate.BSpline = vehicle_position_interpolants[ego_vehicle_index]
+if time_trial:
+    ego_vehicle_position_interpolant : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(motion_packet_session_times, ego_vehicle_path, k=splk)
+else:
+    vehicle_position_interpolants : List[scipy.interpolate.BSpline] = [scipy.interpolate.make_interp_spline(motion_packet_session_times, vehicle_positions[i], k=splk) for i in range(20)]
+    ego_vehicle_position_interpolant : scipy.interpolate.BSpline = vehicle_position_interpolants[ego_vehicle_index]
 # print("Fitting position KDTrees")
 # vehicle_kd_trees : List[KDTree] = [KDTree(vehicle_positions[i]) for i in range(20)]
 print("Fitting velocity interpolants")
-vehicle_velocity_interpolants : List[scipy.interpolate.BSpline] = [scipy.interpolate.make_interp_spline(motion_packet_session_times, vehicle_velocities[i], k=splk) for i in range(20)]
-ego_vehicle_velocity_interpolant : scipy.interpolate.BSpline = vehicle_velocity_interpolants[ego_vehicle_index]
+if time_trial:
+    ego_vehicle_velocity_interpolant : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(motion_packet_session_times, ego_vehicle_velocities, k=splk)
+else:
+    vehicle_velocity_interpolants : List[scipy.interpolate.BSpline] = [scipy.interpolate.make_interp_spline(motion_packet_session_times, vehicle_velocities[i], k=splk) for i in range(20)]
+    ego_vehicle_velocity_interpolant : scipy.interpolate.BSpline = vehicle_velocity_interpolants[ego_vehicle_index]
 print("Fitting ego vehicle rotation interpolant")
-ego_vehicle_rotation_interpolant : RotSpline = RotSpline(motion_packet_session_times, Rot.from_quat(vehicle_quaternions[ego_vehicle_index]))
+ego_vehicle_rotation_interpolant : RotSpline = RotSpline(motion_packet_session_times, Rot.from_quat(ego_vehicle_quaternions))
 
 print("Creating LMDB")
 lmdb_dir = os.path.join(output_dir,"lmdb")
@@ -291,7 +312,7 @@ for idx in tqdm(range(len(image_tags))):
         match_positions = []
         istart = bisect.bisect_left(motion_packet_session_times, tstart-lookahead_time)
         iend = bisect.bisect_left(motion_packet_session_times, tend+lookahead_time)
-        for i in range(0,20):
+        for i in range(0,20*int(not time_trial)):
             positions = vehicle_positions[i]
             position_interpolant = vehicle_position_interpolants[i]
             positions_samp_global = position_interpolant(tsamp)
@@ -390,7 +411,7 @@ for idx in tqdm(range(len(image_tags))):
         print("Exception message: %s"%(str(e)))
         continue  
 
-    if debug and len(label_tag.other_agent_trajectories)!=0:# and idx%30==0:
+    if debug:# and len(label_tag.other_agent_trajectories)!=0:# and idx%30==0:
         fig1 = plt.subplot(1, 2, 1)
         imcv = cv2.imread(os.path.join(image_folder, label_tag.image_tag.image_file), cv2.IMREAD_UNCHANGED)
         plt.imshow(cv2.cvtColor(imcv, cv2.COLOR_BGR2RGB))
@@ -399,11 +420,11 @@ for idx in tqdm(range(len(image_tags))):
         fig2 = plt.subplot(1, 2, 2)
         label_positions = deepracing.backend.MultiAgentLabelLMDBWrapper.positionsFromLabel(label_tag_dbg)
         raceline_labels = np.array([ [vectorpb.vector.x, vectorpb.vector.y, vectorpb.vector.z] for vectorpb in label_tag_dbg.raceline])
-        minx = min(np.min(label_positions[:,0]), np.min(raceline_labels[:,0]))-5.0
-        maxx = max(np.max(label_positions[:,0]), np.max(raceline_labels[:,0]))+5.0
-        maxz = max(np.max(label_positions[:,2]), np.max(raceline_labels[:,2]))+5.0
+        minx = np.min(raceline_labels[:,0])-5.0
+        maxx = np.max(raceline_labels[:,0])+5.0
         plt.xlim(maxx,minx)
-        plt.ylim(0,maxz)
+        maxz = np.max(raceline_labels[:,2])
+        plt.ylim(-1.0,maxz+5.0)
         plt.plot(raceline_labels[:,0], raceline_labels[:,2], label="Optimal Raceline")
         plt.legend()
         for k in range(label_positions.shape[0]):
