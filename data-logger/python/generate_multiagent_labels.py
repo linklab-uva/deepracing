@@ -237,22 +237,20 @@ for idx in tqdm(range(len(image_tags))):
         label_tag.ego_agent_angular_velocity.frame = FrameId_pb2.GLOBAL
         label_tag.ego_agent_angular_velocity.session_time = tlabel
 
-        ego_pose_matrix = torch.eye(4, dtype=torch.float64)
-        ego_pose_matrix[0:3,0:3] = torch.from_numpy(ego_vehicle_rotation.as_matrix())
-        ego_pose_matrix[0:3,3] = torch.from_numpy(ego_vehicle_position)
-        ego_pose_matrix = ego_pose_matrix
-        ego_pose_matrix_inverse = torch.inverse(ego_pose_matrix)
+        ego_pose_matrix = np.eye(4, dtype=np.float64)
+        ego_pose_matrix[0:3,0:3] = ego_vehicle_rotation.as_matrix()
+        ego_pose_matrix[0:3,3] = ego_vehicle_position
+        ego_pose_matrix_inverse = np.linalg.inv(ego_pose_matrix)
 
 
-        d, Iclosestrl = rlkdtree.query(ego_pose_matrix[0:3,3].numpy())
+        d, Iclosestrl = rlkdtree.query(ego_pose_matrix[0:3,3])
         rltclosest = racelinetimes[Iclosestrl]
         rlt = np.linspace(rltclosest, rltclosest + lookahead_time, num = sample_indices)%racelinetimes[-1]
         rlsamp = rlspline(rlt)
      #   print("rlsamp.shape: " + str(rlsamp.shape))
-        raceline_global_np = np.row_stack([rlsamp.transpose(), np.ones_like(rlt)])
-        raceline_global = torch.from_numpy(raceline_global_np)
+        raceline_global = np.row_stack([rlsamp.transpose(), np.ones_like(rlt)])
      #   print(raceline_global.shape)
-        raceline_local_samp = torch.matmul(ego_pose_matrix_inverse, raceline_global)[0:3].transpose(0,1).numpy()
+        raceline_local_samp = np.matmul(ego_pose_matrix_inverse, raceline_global)[0:3].transpose()
         # rlimin = torch.argmin(torch.linalg.norm(raceline_local, ord=2, dim=1)).item()
         # rlidx = torch.arange(rlimin, rlimin + racelineoffset, 1)%raceline.shape[1]
         # raceline_local = raceline_local[rlidx]
@@ -275,9 +273,9 @@ for idx in tqdm(range(len(image_tags))):
         ego_velocities_global = ego_vehicle_velocity_interpolant(tsamp).transpose()
         ego_angvels_global = ego_vehicle_rotation_interpolant(tsamp, order=1).transpose()
 
-        ego_poses_local = np.matmul(ego_pose_matrix_inverse.numpy(), ego_poses_global)
-        ego_velocities_local = np.matmul(ego_pose_matrix_inverse[0:3,0:3].numpy(), ego_velocities_global).transpose()
-        ego_angvels_local = np.matmul(ego_pose_matrix_inverse[0:3,0:3].numpy(), ego_angvels_global).transpose()
+        ego_poses_local = np.matmul(ego_pose_matrix_inverse, ego_poses_global)
+        ego_velocities_local = np.matmul(ego_pose_matrix_inverse[0:3,0:3], ego_velocities_global).transpose()
+        ego_angvels_local = np.matmul(ego_pose_matrix_inverse[0:3,0:3], ego_angvels_global).transpose()
 
         for i in range(tsamp.shape[0]):
             newvec = label_tag.raceline.add()
@@ -327,21 +325,20 @@ for idx in tqdm(range(len(image_tags))):
             except Exception as e:
                 raise DeepRacingException("Could not create rotation interpolation for car %d" % i)
                 #continue
-            velocities_samp_global = torch.from_numpy( velocity_interpolant(tsamp) )
+            velocities_samp_global = velocity_interpolant(tsamp)
             rotations_samp_global = rotation_interpolant(tsamp)
+            angvel_samp_global = rotation_interpolant(tsamp,1)
 
-            angvel_samp_global = torch.from_numpy( rotation_interpolant(tsamp,1) ).double()
-            poses_global = torch.stack([torch.eye(4, dtype=torch.float64) for asdf in range(tsamp.shape[0])], dim=0)
-            poses_global[:,0:3,0:3] = torch.from_numpy(rotations_samp_global.as_matrix())
-            poses_global[:,0:3,3] = torch.from_numpy(positions_samp_global)
-            rotations_samp_global = rotation_interpolant(tsamp)
+            poses_global = np.stack([np.eye(4, dtype=np.float64) for asdf in range(tsamp.shape[0])], axis=0)
+            poses_global[:,0:3,3] = positions_samp_global
+            poses_global[:,0:3,0:3] = rotations_samp_global.as_matrix()
 
-            poses_samp = torch.matmul(ego_pose_matrix_inverse,poses_global)
+            poses_samp = np.matmul(ego_pose_matrix_inverse,poses_global)
             positions_samp = poses_samp[:,0:3,3]
-            rotations_samp = Rot.from_matrix(poses_samp[:,0:3,0:3].numpy())
+            rotations_samp = Rot.from_matrix(poses_samp[:,0:3,0:3])
             quaternions_samp = rotations_samp.as_quat()
-            velocities_samp = torch.matmul(ego_pose_matrix_inverse[0:3,0:3],velocities_samp_global.transpose(0,1)).transpose(0,1)
-            angvel_samp = torch.matmul(ego_pose_matrix_inverse[0:3,0:3],angvel_samp_global.transpose(0,1)).transpose(0,1)
+            velocities_samp = np.matmul(ego_pose_matrix_inverse[0:3,0:3],velocities_samp_global.transpose()).transpose()
+            angvel_samp = np.matmul(ego_pose_matrix_inverse[0:3,0:3],angvel_samp_global.transpose()).transpose()
 
 
 
@@ -349,7 +346,7 @@ for idx in tqdm(range(len(image_tags))):
             x = carpositionlocal[0]
             y = carpositionlocal[1]
             z = carpositionlocal[2]
-            match_found = (z>-.15) and (z<40.0) and (abs(x) < 25)
+            match_found = (z>-.15) and (z<80.0) and (abs(x) < 25)
             if match_found:
                 match_positions.append(carpositionlocal)
 
@@ -359,18 +356,18 @@ for idx in tqdm(range(len(image_tags))):
                     newpose = new_trajectory_pb.poses.add()
                     newpose.frame = FrameId_pb2.LOCAL
                     newpose.session_time = tsamp[j]
-                    newpose.translation.CopyFrom(proto_utils.vectorFromNumpy(positions_samp[j].numpy()))
+                    newpose.translation.CopyFrom(proto_utils.vectorFromNumpy(positions_samp[j]))
                     newpose.rotation.CopyFrom(proto_utils.quaternionFromScipy(rotations_samp[j]))
 
                     newvel = new_trajectory_pb.linear_velocities.add()
                     newvel.frame = FrameId_pb2.LOCAL
                     newvel.session_time = tsamp[j]
-                    newvel.vector.CopyFrom(proto_utils.vectorFromNumpy(velocities_samp[j].numpy()))
+                    newvel.vector.CopyFrom(proto_utils.vectorFromNumpy(velocities_samp[j]))
 
                     newangvel = new_trajectory_pb.angular_velocities.add()
                     newangvel.frame = FrameId_pb2.LOCAL
                     newangvel.session_time = tsamp[j]
-                    newvel.vector.CopyFrom(proto_utils.vectorFromNumpy(angvel_samp[j].numpy()))
+                    newvel.vector.CopyFrom(proto_utils.vectorFromNumpy(angvel_samp[j]))
         if debug and (not len(label_tag.other_agent_trajectories)==0):
             image_file = "image_%d.jpg" % idx
             print("Found a match for %s. Metadata:" %(image_file,))
@@ -418,14 +415,21 @@ for idx in tqdm(range(len(image_tags))):
         minx = np.min(raceline_labels[:,0])-5.0
         maxx = np.max(raceline_labels[:,0])+5.0
         maxz = np.max(raceline_labels[:,2])+5.0
+        if label_positions.shape[0]>0:
+            minx = min(np.min(label_positions[:,:,0]) - 5.0, minx)
+            maxx = max(np.min(label_positions[:,:,0]) + 5.0, maxx)
+            maxz = max(np.min(label_positions[:,:,0]) + 5.0, maxz)
+
         plt.xlim(maxx,minx)
         plt.ylim(0,maxz)
         plt.plot(raceline_labels[:,0], raceline_labels[:,2], label="Optimal Raceline")
-        plt.legend()
         for k in range(label_positions.shape[0]):
             agent_trajectory = label_positions[k]
             plt.plot(agent_trajectory[:,0], agent_trajectory[:,2])
+        plt.legend()
+       # print(label_positions)
         plt.show()
+
 
 
 print("Loading database labels.")
