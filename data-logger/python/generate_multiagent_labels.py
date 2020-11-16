@@ -300,75 +300,75 @@ for idx in tqdm(range(len(image_tags))):
             newegoangvel.session_time = tsamp[i]
 
 
-
-        match_found = False
-        match_positions = []
-        istart = bisect.bisect_left(motion_packet_session_times, tstart-lookahead_time)
-        iend = bisect.bisect_left(motion_packet_session_times, tend+lookahead_time)
-        for i in range(0,20*int(not time_trial)):
-            positions = vehicle_positions[i]
-            position_interpolant = vehicle_position_interpolants[i]
-            positions_samp_global = position_interpolant(tsamp)
-            dead_car = i==ego_vehicle_index or dead_cars[i] or np.sum(np.linalg.norm(positions_samp_global[1:] - positions_samp_global[0:-1], ord=2,axis=1))<(2.0*lookahead_time)
-            if dead_car:
-                continue
-           # kdtree = vehicle_kd_trees[i]
-            velocities = vehicle_velocities[i]
-            quaternions = vehicle_quaternions[i]
-            velocity_interpolant = vehicle_velocity_interpolants[i]
-
-
-            if np.any(np.linalg.norm(quaternions[istart:iend],ord=2,axis=1)<0.9) or np.all(positions[istart:iend]==0.0) or np.any(np.linalg.norm(positions[istart:iend],ord=2,axis=1)<2.0):
-                continue
-            try:
-                rotation_interpolant = RotSpline(motion_packet_session_times[istart:iend], Rot.from_quat(quaternions[istart:iend]))
-            except Exception as e:
-                raise DeepRacingException("Could not create rotation interpolation for car %d" % i)
-                #continue
-            velocities_samp_global = velocity_interpolant(tsamp)
-            rotations_samp_global = rotation_interpolant(tsamp)
-            angvel_samp_global = rotation_interpolant(tsamp,1)
-
-            poses_global = np.stack([np.eye(4, dtype=np.float64) for asdf in range(tsamp.shape[0])], axis=0)
-            poses_global[:,0:3,3] = positions_samp_global
-            poses_global[:,0:3,0:3] = rotations_samp_global.as_matrix()
-
-            poses_samp = np.matmul(ego_pose_matrix_inverse,poses_global)
-            positions_samp = poses_samp[:,0:3,3]
-            rotations_samp = Rot.from_matrix(poses_samp[:,0:3,0:3])
-            quaternions_samp = rotations_samp.as_quat()
-            velocities_samp = np.matmul(ego_pose_matrix_inverse[0:3,0:3],velocities_samp_global.transpose()).transpose()
-            angvel_samp = np.matmul(ego_pose_matrix_inverse[0:3,0:3],angvel_samp_global.transpose()).transpose()
+        if not time_trial:
+            match_found = False
+            match_positions = []
+            istart = bisect.bisect_left(motion_packet_session_times, tstart-lookahead_time)
+            iend = bisect.bisect_left(motion_packet_session_times, tend+lookahead_time)
+            for i in range(0,20):
+                positions = vehicle_positions[i]
+                position_interpolant = vehicle_position_interpolants[i]
+                positions_samp_global = position_interpolant(tsamp)
+                dead_car = i==ego_vehicle_index or dead_cars[i] or np.sum(np.linalg.norm(positions_samp_global[1:] - positions_samp_global[0:-1], ord=2,axis=1))<(2.0*lookahead_time)
+                if dead_car:
+                    continue
+                velocities = vehicle_velocities[i]
+                quaternions = vehicle_quaternions[i]
+                velocity_interpolant = vehicle_velocity_interpolants[i]
 
 
+                if np.any(np.linalg.norm(quaternions[istart:iend],ord=2,axis=1)<0.9) or np.all(positions[istart:iend]==0.0) or np.any(np.linalg.norm(positions[istart:iend],ord=2,axis=1)<2.0):
+                    continue
+                try:
+                    rotation_interpolant = RotSpline(motion_packet_session_times[istart:iend], Rot.from_quat(quaternions[istart:iend]))
+                except Exception as e:
+                    raise DeepRacingException("Could not create rotation interpolation for car %d" % i)
+                    #continue
+                velocities_samp_global = velocity_interpolant(tsamp)
+                rotations_samp_global = rotation_interpolant(tsamp)
+                angvel_samp_global = rotation_interpolant(tsamp,1)
 
-            carpositionlocal = positions_samp[0]
-            x = carpositionlocal[0]
-            y = carpositionlocal[1]
-            z = carpositionlocal[2]
-            match_found = (z>-.15) and (z<80.0) and (abs(x) < 25)
-            if match_found:
-                match_positions.append(carpositionlocal)
+                poses_global = np.stack([np.eye(4, dtype=np.float64) for asdf in range(tsamp.shape[0])], axis=0)
+                poses_global[:,0:3,3] = positions_samp_global
+                poses_global[:,0:3,0:3] = rotations_samp_global.as_matrix()
 
-                new_trajectory_pb = label_tag.other_agent_trajectories.add()
-                label_tag.trajectory_car_indices.append(i)
-                for j in range(tsamp.shape[0]):
-                    newpose = new_trajectory_pb.poses.add()
-                    newpose.frame = FrameId_pb2.LOCAL
-                    newpose.session_time = tsamp[j]
-                    newpose.translation.CopyFrom(proto_utils.vectorFromNumpy(positions_samp[j]))
-                    newpose.rotation.CopyFrom(proto_utils.quaternionFromScipy(rotations_samp[j]))
+                poses_samp = np.matmul(ego_pose_matrix_inverse,poses_global)
+                positions_samp = poses_samp[:,0:3,3]
+                rotations_samp = Rot.from_matrix(poses_samp[:,0:3,0:3])
+                quaternions_samp = rotations_samp.as_quat()
+                velocities_samp = np.matmul(ego_pose_matrix_inverse[0:3,0:3],velocities_samp_global.transpose()).transpose()
+                angvel_samp = np.matmul(ego_pose_matrix_inverse[0:3,0:3],angvel_samp_global.transpose()).transpose()
 
-                    newvel = new_trajectory_pb.linear_velocities.add()
-                    newvel.frame = FrameId_pb2.LOCAL
-                    newvel.session_time = tsamp[j]
-                    newvel.vector.CopyFrom(proto_utils.vectorFromNumpy(velocities_samp[j]))
 
-                    newangvel = new_trajectory_pb.angular_velocities.add()
-                    newangvel.frame = FrameId_pb2.LOCAL
-                    newangvel.session_time = tsamp[j]
-                    newvel.vector.CopyFrom(proto_utils.vectorFromNumpy(angvel_samp[j]))
-        if debug and (not len(label_tag.other_agent_trajectories)==0):
+
+                carpositionlocal = positions_samp[0]
+                x = carpositionlocal[0]
+                y = carpositionlocal[1]
+                z = carpositionlocal[2]
+                slope = np.tan((np.pi/180.0)*10)
+                match_found = (z>-.15) and (z<65.0) and (abs(x) < 25) and z>(slope*abs(x))
+                if match_found:
+                    match_positions.append(carpositionlocal)
+
+                    new_trajectory_pb = label_tag.other_agent_trajectories.add()
+                    label_tag.trajectory_car_indices.append(i)
+                    for j in range(tsamp.shape[0]):
+                        newpose = new_trajectory_pb.poses.add()
+                        newpose.frame = FrameId_pb2.LOCAL
+                        newpose.session_time = tsamp[j]
+                        newpose.translation.CopyFrom(proto_utils.vectorFromNumpy(positions_samp[j]))
+                        newpose.rotation.CopyFrom(proto_utils.quaternionFromScipy(rotations_samp[j]))
+
+                        newvel = new_trajectory_pb.linear_velocities.add()
+                        newvel.frame = FrameId_pb2.LOCAL
+                        newvel.session_time = tsamp[j]
+                        newvel.vector.CopyFrom(proto_utils.vectorFromNumpy(velocities_samp[j]))
+
+                        newangvel = new_trajectory_pb.angular_velocities.add()
+                        newangvel.frame = FrameId_pb2.LOCAL
+                        newangvel.session_time = tsamp[j]
+                        newvel.vector.CopyFrom(proto_utils.vectorFromNumpy(angvel_samp[j]))
+        if debug and (not time_trial) and (not len(label_tag.other_agent_trajectories)==0):
             image_file = "image_%d.jpg" % idx
             print("Found a match for %s. Metadata:" %(image_file,))
             print("Match positions: " + str(match_positions))
@@ -403,7 +403,7 @@ for idx in tqdm(range(len(image_tags))):
         print("Exception message: %s"%(str(e)))
         continue  
 
-    if debug:# and len(label_tag.other_agent_trajectories)!=0:# and idx%30==0:
+    if debug and (time_trial or len(label_tag.other_agent_trajectories)!=0):# and idx%30==0:
         fig1 = plt.subplot(1, 2, 1)
         imcv = cv2.imread(os.path.join(image_folder, label_tag.image_tag.image_file), cv2.IMREAD_UNCHANGED)
         plt.imshow(cv2.cvtColor(imcv, cv2.COLOR_BGR2RGB))
