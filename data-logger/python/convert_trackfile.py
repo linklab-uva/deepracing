@@ -262,34 +262,11 @@ invspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(rsa
 invsplinead : scipy.interpolate.BSpline = invspline.antiderivative()
 tparameterized = invsplinead(rsamp)
 tparameterized = tparameterized - tparameterized[0]
-# #print(tparameterized)
-# tparameterized = np.zeros(radii.shape[0])
-# dsvec = ds*np.ones_like(tparameterized)
-# cumdsvec = np.hstack([np.zeros(1), np.cumsum(dsvec)])
-# print(cumdsvec)
-# tparameterized[0:4] = scipy.integrate.cumtrapz(velinv[0:4], x=cumdsvec[0:4], initial=0.0)
-# for i in range(4,tparameterized.shape[0]):
-#     tparameterized[i]=scipy.integrate.simps(velinv[i-4:i+1], x=cumdsvec[i-4:i+1]) + tparameterized[i-4]
-# print(tparameterized)
-#tparameterized = np.asarray(tlist)
-
-
-# tlist = [0.0]
-# for i in range(0, vels.shape[0]-1):
-#     ds = rsampradii[i+1] - rsampradii[i]
-#     dt = ds/vels[i]
-#     tlist.append(tlist[-1] + dt)
-# dxfinal = positionsradii[0] - positionsradii[-1]
-# dsfinal =  np.linalg.norm(dxfinal, ord=2)
-# tlist.append(tlist[-1] + 0.75*dsfinal/vels[-1])
-# positionsradii = np.row_stack([positionsradii, positionsradii[-1] + 0.75*dxfinal])
-#tparameterized = np.array(tlist)
-# print("tparameterized: %s" % (str(tparameterized),))
-
 positionsradii = spline(rsamp)
+
 truespline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(tparameterized, positionsradii, bc_type=bc_type)
-truesplinevel : scipy.interpolate.BSpline = truespline.derivative()
-truesplineaccel : scipy.interpolate.BSpline = truesplinevel.derivative()
+truesplinevel : scipy.interpolate.BSpline = truespline.derivative(nu=1)
+truesplineaccel : scipy.interpolate.BSpline = truespline.derivative(nu=2)
 
 
 
@@ -306,32 +283,7 @@ ztrue = psamp[:,2]
 final_stretch_samp = psamp[0] - psamp[-1]
 print("Final position distance: %f" % (np.linalg.norm(final_stretch_samp, ord=2),), flush=True)
 
-vsamp = truesplinevel(tsamp)
-xdottrue = vsamp[:,0]
-ydottrue = vsamp[:,1]
-zdottrue = vsamp[:,2]
-print(unit_tangents*vels[:,np.newaxis]-truesplinevel(tparameterized), flush=True)
-speedstrue = np.linalg.norm(vsamp,ord=2,axis=1)
-unit_tangents_true = vsamp/speedstrue[:,np.newaxis]
-
-asamp = truesplineaccel(tsamp)
-xdotdottrue = asamp[:,0]
-ydotdottrue = asamp[:,1]
-zdotdottrue = asamp[:,2]
-
-
-ref = np.column_stack([np.zeros_like(unit_tangents_true.shape[0]), np.ones_like(unit_tangents_true.shape[0]), np.zeros_like(unit_tangents_true.shape[0])]).astype(np.float64)
-if innerboundary:
-    ref[:,1]*=-1.0
-v1 = np.cross(unit_tangents_true, ref)
-v1 = v1/np.linalg.norm(v1, axis=1, ord=2)[:,np.newaxis]
-v2 =  np.cross(v1, unit_tangents_true)
-v2 = v2/np.linalg.norm(v2, axis=1, ord=2)[:,np.newaxis]
-
-unit_normals_true = np.cross(v2, unit_tangents_true)
-unit_normals_true = unit_normals_true/np.linalg.norm(unit_normals_true, axis=1, ord=2)[:,np.newaxis]
-
-
+#print("Specified vels minus spline vels:\n" + str(unit_tangents*vels[:,np.newaxis]-truesplinevel(tparameterized)), flush=True)
 
 fig2 = plt.figure()
 plt.xlim(np.max(xtrue)+10, np.min(xtrue)-10)
@@ -341,7 +293,6 @@ plt.xlim(np.max(xtrue)+10, np.min(xtrue)-10)
 plt.plot(positionsradii[:,0],positionsradii[:,2],'r')
 plt.scatter(xtrue, ztrue, c='b', marker='o', s = 16.0*np.ones_like(psamp[:,0]))
 plt.plot(xtrue[0], ztrue[0], 'g*')
-plt.quiver(xtrue, ztrue, unit_normals_true[:,0], unit_normals_true[:,2], angles="xy", scale=4.0, scale_units="inches")
 try:
     plt.show()
 except:
@@ -358,38 +309,16 @@ except:
 
 
 jsondict : dict = {}
-jsondict["dist"] = dsamp.tolist()
-jsondict["t"] = tsamp.tolist()
-jsondict["x"] = xtrue.tolist()
-jsondict["y"] = ytrue.tolist()
-jsondict["z"] = ztrue.tolist()
-jsondict["vx"] = xdottrue.tolist()
-jsondict["vy"] = ydottrue.tolist()
-jsondict["vz"] = zdottrue.tolist()
-jsondict["xnormal"] = unit_normals_true[:,0].tolist()
-jsondict["ynormal"] = unit_normals_true[:,1].tolist()
-jsondict["znormal"] = unit_normals_true[:,2].tolist()
+jsondict["dist"] = rsamp.tolist()
+jsondict["t"] = tparameterized.tolist()
+jsondict["x"] = positionsradii[:,0].tolist()
+jsondict["y"] = positionsradii[:,1].tolist()
+jsondict["z"] = positionsradii[:,2].tolist()
 
-# jsondict["xvel"] = xdottrue.tolist()
-# jsondict["yvel"] = ydottrue.tolist()
-# jsondict["zvel"] = zdottrue.tolist()
-# jsondict["xaccel"] = xdotdottrue.tolist()
-# jsondict["yaccel"] = ydotdottrue.tolist()
-# jsondict["zaccel"] = zdotdottrue.tolist()
-# jsondict["x"] = x.tolist()
-# jsondict["y"] = y.tolist()
-# jsondict["z"] = z.tolist()
-# jsondict["x_tangent"] = x_tangent.tolist()
-# jsondict["y_tangent"] = y_tangent.tolist()
-# jsondict["z_tangent"] = z_tangent.tolist()
-# jsondict["x_normal"] = x_normal.tolist()
-# jsondict["y_normal"] = y_normal.tolist()
-# jsondict["z_normal"] = z_normal.tolist()
+
 with open(jsonout,"w") as f:
     json.dump( jsondict , f , indent=1 )
     
-with open(pklout,"wb") as f:
-    pkl.dump(truespline, f)
 print("First point: " + str(X[0,:]), flush=True)
 print("Last point: " + str(X[-1,:]), flush=True)
 print("Average diff norm: " + str(np.mean(diffnorms)), flush=True)
