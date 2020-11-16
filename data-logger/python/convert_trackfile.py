@@ -85,16 +85,18 @@ final_distance = np.linalg.norm(final_vector)
 print("initial final distance: %f" %(final_distance,))
 final_unit_vector = final_vector/final_distance
 nstretch = 8
-rstretch =  np.linspace(final_distance/nstretch, final_distance,nstretch)
-# rstretch =  np.linspace(final_distance/nstretch,((nstretch-1)/nstretch)*final_distance,nstretch)
+# rstretch =  np.linspace(final_distance/nstretch, final_distance,nstretch)
+rstretch =  np.linspace(final_distance/nstretch,((nstretch-1)/nstretch)*final_distance,nstretch)
 final_stretch = np.row_stack([Xin[-1,1:] + rstretch[i]*final_unit_vector for i in range(rstretch.shape[0])])
 final_r =  rstretch + Xin[-1,0]
 Xin = np.row_stack((Xin, np.column_stack((final_r,final_stretch))))
 
 # rnormalized = Xin[:,0] - Xin[0,0]
 # rnormalized = rnormalized/rnormalized[-1]
-bc_type=([(3, np.zeros(3))], [(3, np.zeros(3))])
-# bc_type="natural"
+
+#bc_type=([(3, np.zeros(3))], [(3, np.zeros(3))])
+#bc_type=None
+bc_type="natural"
 spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(Xin[:,0], Xin[:,1:], k = k, bc_type=bc_type)
 tangentspline : scipy.interpolate.BSpline = spline.derivative(nu=1)
 normalspline : scipy.interpolate.BSpline = spline.derivative(nu=2)
@@ -107,7 +109,8 @@ else:
 
 #rsamp = np.linspace(Xin[0,0], Xin[-1,0], num = num_samples)# + finalextrassamps)#[0:finalid
 # rsamp = np.arange(Xin[0,0], Xin[-1,0]+ds, step = ds)
-rsamp = np.arange(Xin[0,0], Xin[-1,0], step = ds)
+# rsamp = np.arange(Xin[0,0], Xin[-1,0], step = ds)
+rsamp = np.linspace(Xin[0,0], Xin[-1,0], num = int(round((Xin[-1,0]- Xin[0,0])/ds)))
 #rsamp = np.hstack([rsamp, np.array([ Xin[-1,0] ])])
 splinevals=spline(rsamp)
 rout = rsamp
@@ -226,10 +229,15 @@ print("Optimizing over a space of size: %d" %(rsamp.shape[0],), flush=True)
 dotsquares = np.sum(tangents*accels, axis=1)**2
 
 radii = (tangentnorms**3)/np.sqrt((tangentnorms**2)*(accelnorms**2) - dotsquares)
-radii[-int(round(40/ds)):] = np.inf
+radii[0:int(round(92.0/ds))] = np.inf
+radii[-int(round(92.0/ds)):] = np.inf
 # radii[-2] = 0.5*(radii[-3] + radii[-1])
+#radii[-1] = 0.5*(radii[-2] + radii[0])
+radii[0] = radii[1]
+radii[-1] = radii[-2]
 
 rprint = 50
+print("First %d radii:\n%s" %(rprint, str(radii[0:rprint]),))
 print("Final %d radii:\n%s" %(rprint, str(radii[-rprint:]),))
 
 
@@ -237,8 +245,8 @@ print("Final %d radii:\n%s" %(rprint, str(radii[-rprint:]),))
 maxspeed = argdict["maxv"]
 maxlinearaccel = argdict["maxa"]
 maxcentripetalaccel = argdict["maxacent"]
-dsvec = ds*np.ones_like(radii)
-dsvec[-int(round(40/ds)):] = np.inf
+dsvec = np.array((rsamp[1:] - rsamp[:-1]).tolist() + [np.linalg.norm(splinevals[-1] - splinevals[0])])
+#dsvec[-int(round(40/ds)):] = np.inf
 print("Final %d delta s:\n%s" %(rprint, str(dsvec[-rprint:]),))
 sqp = OptimWrapper(maxspeed, maxlinearaccel, maxcentripetalaccel, dsvec, radii)
 
@@ -250,7 +258,7 @@ x0, res = sqp.optimize(maxiter=maxiter,method=method,disp=True)#,eps=100.0)
 v0 = np.sqrt(x0)
 velsquares = res.x
 vels = np.sqrt(velsquares)
-vels[-1] = vels[-2]
+#vels[-1] = vels[-2]
 # resdict = vars(res)
 # print(resdict["x"])
 # print({key:resdict[key] for key in resdict.keys() if key!="x"})
@@ -291,7 +299,7 @@ plt.xlim(np.max(xtrue)+10, np.min(xtrue)-10)
 # ax.scatter(x, y, z, c='r', marker='o', s =2.0*np.ones_like(x))
 # ax.quiver(x, y, z, unit_normals[:,0], unit_normals[:,1], unit_normals[:,2], length=50.0, normalize=True)
 plt.plot(positionsradii[:,0],positionsradii[:,2],'r')
-plt.scatter(xtrue, ztrue, c='b', marker='o', s = 16.0*np.ones_like(psamp[:,0]))
+plt.scatter(xtrue[1:], ztrue[1:], c='b', marker='o', s = 16.0*np.ones_like(xtrue[1:]))
 plt.plot(xtrue[0], ztrue[0], 'g*')
 try:
     plt.show()
@@ -314,6 +322,7 @@ jsondict["t"] = tparameterized.tolist()
 jsondict["x"] = positionsradii[:,0].tolist()
 jsondict["y"] = positionsradii[:,1].tolist()
 jsondict["z"] = positionsradii[:,2].tolist()
+assert(len(jsondict["dist"]) == len(jsondict["t"]) == len(jsondict["x"]) == len(jsondict["y"]) == len(jsondict["z"]))
 
 
 with open(jsonout,"w") as f:
