@@ -34,7 +34,7 @@ def loadRaceline(raceline_file : str, device : torch.device = torch.device("cpu"
         with open(raceline_file,"r") as f:
             raceline_dictionary = json.load(f)
         racelinenp = np.column_stack([raceline_dictionary["x"], raceline_dictionary["y"], raceline_dictionary["z"]])
-        racelinedistsnp = np.array(raceline_dictionary["dist"])
+        racelinedistsnp = np.array(raceline_dictionary["r"])
         racelinetimesnp = np.array(raceline_dictionary["t"])
         racelinetimes = torch.from_numpy(racelinetimesnp).double().to(device)
     elif racelinefile_ext==".csv":
