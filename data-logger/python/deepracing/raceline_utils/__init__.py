@@ -28,6 +28,23 @@ def shiftRaceline(raceline: np.ndarray, reference_vec: np.ndarray, distance: flo
     unit_laterals = laterals/lateral_norms[:,np.newaxis]
     return s_, racelinegood + distance*unit_laterals
 
+def loadBoundary(boundary_file : str, device : torch.device = torch.device("cpu")):
+    ext = os.path.splitext(os.path.basename(raceline_file))[1].lower()
+    if ext==".json":
+        with open(raceline_file,"r") as f:
+            boundary_dict = json.load(f)
+        boundarynp = np.column_stack([raceline_dictionary["xsamp"], raceline_dictionary["ysamp"], raceline_dictionary["zsamp"]])
+        rnp = np.array(raceline_dictionary["rsamp"])
+    else:
+        raise ValueError("Only .json extensions are supported")
+    rsamp = torch.from_numpy(rnp).double().to(device)
+    boundary = torch.stack( [ torch.from_numpy(boundarynp[:,0]),\
+                                     torch.from_numpy(boundarynp[:,1]),\
+                                     torch.from_numpy(boundarynp[:,2]),\
+                                     torch.ones_like(torch.from_numpy(boundarynp[:,0]))], dim=0).double().to(device)
+
+    return rsamp, boundary
+
 def loadRaceline(raceline_file : str, device : torch.device = torch.device("cpu")):
     racelinefile_ext = os.path.splitext(os.path.basename(raceline_file))[1].lower()
     if racelinefile_ext==".json":
