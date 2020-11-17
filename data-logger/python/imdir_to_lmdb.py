@@ -82,7 +82,7 @@ def main(args):
         else:
             mapsize = int( float(np.prod(im_size) + 12 )*float(len(img_files))*1.1 )
         print("Using a mapsize of " + str(mapsize))
-        db.readImages(img_files, keys, dbpath, im_size, ROI=(x,y,w,h), mapsize=mapsize)
+        db.readImages(img_files, keys, dbpath, im_size[0:2].tolist(), ROI=(x,y,w,h), mapsize=mapsize)
         with open(os.path.join(dbpath,"config.yaml"),"w") as f:
             yaml.dump({"ROI":[x,y,w,h]},f,Dumper=yaml.SafeDumper)
         print("Done creating LMDB")
@@ -90,16 +90,17 @@ def main(args):
     else:
         im_size = np.array((imrows, imcols, im.shape[2]))
         if(args.mapsize>0):
-            mapsize = int(args.mapsize)
+            mapsize = args.mapsize
         else:
             mapsize = int( float(np.prod(im_size) + 12 )*float(len(img_files))*1.1 )
         db.readDatabase(dbpath, mapsize=mapsize, max_spare_txns=32)
     windowname="DB Image"
     idx = random.randint(0,len(keys)-1)
     #randomkey = keys[idx]
-    randomkey = "image_626"
-    print("Grabbing image with key: %s" %(randomkey))
+    randomkey = random.choice(keys)
+    print("Grabbing image with key: %s" %(randomkey,))
     im = db.getImage(randomkey)
+    print("Image has size: %s" %(str(im.shape),))
     try:
         plt.imshow(im)
         plt.show()
@@ -111,53 +112,15 @@ def main(args):
         print(im.shape)
         print("Could not display db image because:")
         print(ex)
-    if args.optical_flow:
-        optflow_db = deepracing.backend.OpticalFlowLMDBWrapper()
-        optflow_dbpath = os.path.join(img_folder,"optical_flow_lmdb")
-        if(os.path.isdir(optflow_dbpath)):
-            s=""
-            while not (s=='n' or s=='y'):
-                s=input("Database folder " + optflow_dbpath+ " already exists. overwrite with new data? [y/n]\n")
-            if(s=='n'):
-                print("Goodbye then!")
-                exit(0)
-            shutil.rmtree(optflow_dbpath)
-        if(args.mapsize>0):
-            mapsize = int(8*args.mapsize/3)
-        else:
-            mapsize = int( float(np.prod(im_size[0:2])*8 + 12 )*float(len(img_files))*1.1 )
-        print("Using an optical flow mapsize of " + str(mapsize))
-        optflow_db.readImages( keys, optflow_dbpath, db, mapsize=mapsize )
-        optflow_db.readDatabase(optflow_dbpath, mapsize=mapsize)
-        try:
-            r, c, _ = im.shape
-            gd = 8 # every 10th point
-            X = np.linspace(0,c-1,int(c/gd)+int(bool(not c%gd==0)))
-            Y = np.linspace(0,r-1,int(r/gd)+int(bool(not r%gd==0)))
-            flow_db = optflow_db.getImage(randomkey)
-            print(flow_db.shape)
-            dY = flow_db[::gd,::gd,0]
-            dX = flow_db[::gd,::gd,1]
-            print(X.shape)
-            print(Y.shape)
-            print(dX.shape)
-            print(dY.shape)
-            plt.figure()
-            plt.quiver(X, Y, dX, dY, color='r')
-            plt.imshow(im)
-            plt.show()
-        except Exception as e:
-            print(e)
-            print("Loading of optical flow database was successful, but could not visualize the optical flow image for reason printed above")
+    
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Load an image directory into a database")
     parser.add_argument("image_dir", type=str, help="Directory containing the images")
     parser.add_argument("imrows", type=int, help="Number of rows to resize images to")
     parser.add_argument("imcols", type=int, help="Number of cols to resize images to")
     parser.add_argument("--display_resize_factor", type=float, default=0.5, help="Resize the first image by this factor for selecting a ROI.")
-    parser.add_argument("--mapsize", type=float, default=-1.0, help="Map size for the LMDB.")
-    parser.add_argument('-R','--ROI', nargs='+', help='ROI to capture', default=None)
-    parser.add_argument('--optical_flow', action="store_true", help='Compute optical flow as well', default=None)
+    parser.add_argument("--mapsize", type=int, default=-1, help="Map size for the LMDB.")
+    parser.add_argument('-R','--ROI', nargs=4, help='Region of Interest (ROI) to capture of the form [x, y, h, w] with (x,y) being the top-left corner of the ROI. h is the height and w is the width of the ROI', default=None)
     parser.add_argument('--json', action="store_true", help='Use json packets', default=None)
     parser.add_argument('--override', action="store_true", help='Delete existing DB if it already exists', default=None)
     args = parser.parse_args()
