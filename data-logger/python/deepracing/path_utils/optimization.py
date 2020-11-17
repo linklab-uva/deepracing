@@ -37,6 +37,7 @@ class OptimWrapper():
         self.linearaccelmat = np.eye(numpoints)
         np.fill_diagonal(self.linearaccelmat,-1.0)
         np.fill_diagonal(self.linearaccelmat[:,1:],1.0)
+        self.linearaccelmat[-1,0] = 1.0
         self.linearaccelmat*=(1.0/(2.0*self.ds))[:,np.newaxis]
         self.acentripetalmat = np.diag(1.0/radii)
         

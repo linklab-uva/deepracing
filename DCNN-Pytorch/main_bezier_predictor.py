@@ -33,9 +33,12 @@ from comet_ml.api import API, APIExperiment
 import cv2
 import torchvision, torchvision.transforms as T
 from deepracing_models.data_loading.image_transforms import GaussianBlur
+from deepracing.raceline_utils import loadBoundary
+from deepracing import searchForFile
+import deepracing.path_utils.geometric as geometric
 
 #torch.backends.cudnn.enabled = False
-def run_epoch(experiment, network, optimizer, dataloader, ego_agent_loss, other_agent_loss, config, use_tqdm = False, debug=False):
+def run_epoch(experiment, network, optimizer, dataloader, loss_dict, config, use_tqdm = False, debug=False):
     cum_loss = 0.0
     cum_param_loss = 0.0
     cum_position_loss = 0.0
@@ -50,15 +53,23 @@ def run_epoch(experiment, network, optimizer, dataloader, ego_agent_loss, other_
     dev = next(network.parameters()).device  # we are only doing single-device training for now, so this works fine.
     fix_first_point = config["fix_first_point"]
     loss_weights = config["loss_weights"]
+    ego_agent_loss = loss_dict["position"]
+    other_agent_loss = loss_dict["other_agents"]
+    inner_boundary_loss = loss_dict["inner_boundary"]
+    outer_boundary_loss = loss_dict["outer_boundary"]
 
     #_, _, _, _, _, _, sample_session_times,_,_ = dataloader.dataset[0]
     bezier_order = network.params_per_dimension-1+int(fix_first_point)
    # Mpos = deepracing_models.math_utils.bezierM(torch.linspace(0.0,1.5,120).unsqueeze(0).repeat(64,1).double().to(device=dev), bezier_order)
 
     for (i, imagedict) in t:
+        track_names = imagedict["track"]
         input_images = imagedict["images"].double().to(device=dev)
         ego_current_pose = imagedict["ego_current_pose"].double().to(device=dev)
         session_times = imagedict["session_times"].double().to(device=dev)
+        raceline = imagedict["raceline"].double().to(device=dev)
+        ego_current_pose = imagedict["ego_current_pose"].double().to(device=dev)
+        ego_current_pose.requires_grad=False
         ego_positions = imagedict["ego_positions"].double().to(device=dev)
         ego_velocities = imagedict["ego_velocities"].double().to(device=dev)
         batch_size = input_images.shape[0]
@@ -96,7 +107,7 @@ def run_epoch(experiment, network, optimizer, dataloader, ego_agent_loss, other_
         # pred_vels_scaled = pred_vels/dt[:,None,None]
 
         
-        if debug:
+        if debug and False:
             fig, (ax1, ax2) = plt.subplots(1, 2, sharey=False)
             images_np = np.round(255.0*input_images[0].detach().cpu().numpy().copy().transpose(0,2,3,1)).astype(np.uint8)
             #image_np_transpose=skimage.util.img_as_ubyte(images_np[-1].transpose(1,2,0))
@@ -111,21 +122,22 @@ def run_epoch(experiment, network, optimizer, dataloader, ego_agent_loss, other_
             _, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(ego_positions, bezier_order, M = Mpos)
             fit_points = torch.matmul(Mpos, controlpoints_fit)
 
-            gt_points_np = ego_positions[0].detach().cpu().numpy().copy()
+            # gt_points_np = ego_positions[0].detach().cpu().numpy().copy()
+            gt_points_np = raceline[0].detach().cpu().numpy().copy()
             pred_points_np = pred_points[0].detach().cpu().numpy().copy()
             pred_control_points_np = predictions_reshape[0].detach().cpu().numpy().copy()
             fit_points_np = fit_points[0].cpu().numpy().copy()
             fit_control_points_np = controlpoints_fit[0].cpu().numpy().copy()
             
-            ymin = np.min(np.hstack([gt_points_np[:,1], fit_points_np[:,1], pred_points_np[:,1] ]))-0.05
-            ymax = np.max(np.hstack([gt_points_np[:,1], fit_points_np[:,1], pred_points_np[:,1] ]))+0.05
-            xmin = np.min(np.hstack([gt_points_np[:,0], fit_points_np[:,0] ])) - 0.05
+            ymin = np.min(np.hstack([gt_points_np[:,1], pred_points_np[:,1] ])) - 2.5
+            ymax = np.max(np.hstack([gt_points_np[:,1], pred_points_np[:,1] ])) + 2.5
+            xmin = np.min(np.hstack([gt_points_np[:,0], fit_points_np[:,0] ])) -  2.5
             xmax = np.max(np.hstack([gt_points_np[:,0], fit_points_np[:,0] ]))
-            ax2.set_xlim(ymax,ymin)
-            ax2.set_ylim(xmin,xmax)
-            ax2.plot(gt_points_np[:,1],gt_points_np[:,0],'g+', label="Ground Truth Waypoints")
-            ax2.plot(fit_points_np[:,1],fit_points_np[:,0],'b-', label="Best-fit Bézier Curve")
-            ax2.plot(pred_points_np[:,1],pred_points_np[:,0],'r-', label="Predicted Bézier Curve")
+            ax2.set_xlim(xmax,xmin)
+            ax2.set_ylim(ymin,ymax)
+            ax2.plot(gt_points_np[:,0],gt_points_np[:,1],'g+', label="Ground Truth Waypoints")
+            ax2.plot(pred_points_np[:,0],pred_points_np[:,1],'r-', label="Predicted Bézier Curve")
+            # ax2.plot(fit_points_np[:,0],fit_points_np[:,1],'b-', label="Best-fit Bézier Curve")
             #ax2.scatter(fit_control_points_np[1:,0],fit_control_points_np[1:,1],c="b", label="Bézier Curve's Control Points")
        #     ax2.plot(pred_points_np[:,1],pred_points_np[:,0],'r-', label="Predicted Bézier Curve")
           #  ax2.scatter(pred_control_points_np[:,1],pred_control_points_np[:,0], c='r', label="Predicted Bézier Curve's Control Points")
@@ -143,9 +155,11 @@ def run_epoch(experiment, network, optimizer, dataloader, ego_agent_loss, other_
         # else:
         #     loss = current_position_loss 
         #     current_other_agent_loss = torch.tensor([0.0])[0]
-        current_position_loss = ego_agent_loss(pred_points, ego_positions)
-        current_velocity_loss = ego_agent_loss(pred_vel_t, ego_velocities)
-        loss = loss_weights["position"]*current_position_loss + loss_weights["velocity"]*current_velocity_loss
+        pred_points_boundary = torch.stack([pred_points[:,:,0], torch.zeros_like(pred_points[:,:,0]) ,pred_points[:,:,1]], dim=2)
+        current_inner_boundary_loss = inner_boundary_loss(ego_current_pose, pred_points_boundary)
+        current_outer_boundary_loss = outer_boundary_loss(ego_current_pose, pred_points_boundary)
+        current_position_loss = ego_agent_loss(pred_points, raceline)
+        loss = loss_weights["position"]*current_position_loss + loss_weights["boundary"]*(current_inner_boundary_loss + current_outer_boundary_loss)
       #  current_other_agent_loss = torch.tensor([0.0])[0]
        # loss.retain_grad()
 
@@ -155,13 +169,11 @@ def run_epoch(experiment, network, optimizer, dataloader, ego_agent_loss, other_
         optimizer.step()
         # logging information
         current_position_loss_float = float(current_position_loss.item())
-        current_velocity_loss_float = float(current_velocity_loss.item())
         num_samples += 1.0
         if not debug:
             experiment.log_metric("current_position_loss", current_position_loss_float)
-            experiment.log_metric("current_velocity_loss", current_velocity_loss_float)
         if use_tqdm:
-            t.set_postfix({"current_position_loss" : current_position_loss_float, "current_velocity_loss" : current_velocity_loss_float})
+            t.set_postfix({"current_position_loss" : current_position_loss_float})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
     parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuration file to load")
@@ -233,15 +245,6 @@ def go():
 
     if model_load is not None:
         net.load_state_dict(torch.load(model_load, map_location=torch.device("cpu")))
-    if gpu>=0:
-        print("moving stuff to GPU")
-        device = torch.device("cuda:%d" % gpu)
-        net = net.cuda(gpu)
-        ego_agent_loss = ego_agent_loss.cuda(gpu)
-        other_agent_loss = other_agent_loss.cuda(gpu)
-    else:
-        device = torch.device("cpu")
-    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=dampening, nesterov=nesterov)
     
 
     #image_wrapper = deepracing.backend.ImageFolderWrapper(os.path.dirname(image_db))
@@ -251,6 +254,39 @@ def go():
     alltags = set(dataset_config.get("tags",[]))
     dset_output_lengths=[]
     return_other_agents = bool(dataset_config.get("other_agents",False))
+    track_name = dataset_config["track_name"]
+
+    ibfile = searchForFile(track_name+"_innerlimit.json", os.getenv("F1_TRACK_DIRS").split(os.pathsep)+[os.curdir])
+    if ibfile is None:
+        raise ValueError("Could not find inner boundary limits file")
+    inner_boundary_r, inner_boundary = loadBoundary(ibfile)
+    _, _, _, ibnormals_np = geometric.computeTangentsAndNormals(inner_boundary_r.numpy().copy(), inner_boundary[0:3].transpose(0,1).numpy().copy(), k=3, ref=np.array([0.0,-1.0,0.0]))
+    ibloss = loss_functions.BoundaryLoss(inner_boundary, torch.from_numpy(ibnormals_np).transpose(0,1)).double()
+    
+    obfile = searchForFile(track_name+"_outerlimit.json", os.getenv("F1_TRACK_DIRS").split(os.pathsep)+[os.curdir])
+    if obfile is None:
+        raise ValueError("Could not find outer boundary limits file")
+    outer_boundary_r, outer_boundary = loadBoundary(obfile)
+    _, _, _, obnormals_np = geometric.computeTangentsAndNormals(outer_boundary_r.numpy().copy(), outer_boundary[0:3].transpose(0,1).numpy().copy(), k=3, ref=np.array([0.0,1.0,0.0]))
+    obloss = loss_functions.BoundaryLoss(outer_boundary, torch.from_numpy(obnormals_np).transpose(0,1)).double()
+
+    
+    if gpu>=0:
+        print("moving stuff to GPU")
+        device = torch.device("cuda:%d" % gpu)
+        net = net.cuda(gpu)
+        ego_agent_loss = ego_agent_loss.cuda(gpu)
+        other_agent_loss = other_agent_loss.cuda(gpu)
+        ibloss = ibloss.cuda(gpu)
+        obloss = obloss.cuda(gpu)
+    else:
+        device = torch.device("cpu")
+    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=dampening, nesterov=nesterov)
+
+    loss_dict = {"position":ego_agent_loss, "other_agents": other_agent_loss, "inner_boundary": ibloss, "outer_boundary": obloss}
+
+
+
     for dataset in dataset_config["datasets"]:
         dlocal : dict = {k: dataset_config[k] for k in dataset_config.keys()  if (not (k in ["datasets"]))}
         dlocal.update(dataset)
@@ -259,6 +295,7 @@ def go():
         root_folder = dlocal["root_folder"]
         position_indices = dlocal["position_indices"]
         label_subfolder = dlocal["label_subfolder"]
+        track_name =  dlocal["track_name"]
         dataset_tags = dlocal.get("tags", [])
         alltags = alltags.union(set(dataset_tags))
 
@@ -283,7 +320,7 @@ def go():
         if blur is not None:
             extra_transforms.append(GaussianBlur(blur))
         
-        current_dset = PD.MultiAgentDataset(image_wrapper, label_wrapper, key_file, context_length, image_size, position_indices, extra_transforms=extra_transforms, return_other_agents=return_other_agents)
+        current_dset = PD.MultiAgentDataset(image_wrapper, label_wrapper, key_file, context_length, image_size, position_indices, track_name, extra_transforms=extra_transforms, return_other_agents=return_other_agents)
         dsets.append(current_dset)
         
         print("\n")
@@ -325,7 +362,7 @@ def go():
         i = 0
         #def run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent_loss, config)
     if debug:
-        run_epoch(experiment, net, optimizer, dataloader, ego_agent_loss, other_agent_loss, config, debug=True, use_tqdm=True)
+        run_epoch(experiment, net, optimizer, dataloader, loss_dict, config, debug=True, use_tqdm=True)
     else:
         netpostfix = "epoch_%d_params.pt"
         optimizerpostfix = "epoch_%d_optimizer.pt"
@@ -343,7 +380,7 @@ def go():
                 #dset.clearReaders()
                 try:
                     tick = time.time()
-                    run_epoch(experiment, net, optimizer, dataloader, ego_agent_loss, other_agent_loss, config, use_tqdm=use_tqdm)
+                    run_epoch(experiment, net, optimizer, dataloader, loss_dict, config, use_tqdm=use_tqdm)
                     tock = time.time()
                     print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
                     experiment.log_epoch_end(postfix)

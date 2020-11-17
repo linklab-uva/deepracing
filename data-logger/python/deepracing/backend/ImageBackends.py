@@ -91,9 +91,9 @@ class ImageLMDBWrapper():
                 y = ROI[1]
                 w = ROI[2]
                 h = ROI[3]
-                impilresize = F.resized_crop(impil,y,x,h,w,im_size[0:2],interpolation=PILImage.LANCZOS)
+                impilresize = F.resized_crop(impil,y,x,h,w,im_size,interpolation=PILImage.LANCZOS)
             else:
-                impilresize = F.resize(impil,im_size[0:2], interpolation=PILImage.LANCZOS)
+                impilresize = F.resize(impil,im_size, interpolation=PILImage.LANCZOS)
             impilresize.save(os.path.join(cropped_images_dir, "image_%d.jpg" % (i,)))
             im = np.asarray(impilresize)
             entry = Image_pb2.Image( rows=im.shape[0] , cols=im.shape[1] , channel_order=ChannelOrder_pb2.RGB , image_data=im.flatten().tobytes() )

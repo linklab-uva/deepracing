@@ -6,6 +6,8 @@ import numpy as np
 
 def signedDistances(waypoints, boundarypoints, boundarynormals):
     batch_dimension = waypoints.shape[0]
+    assert(boundarypoints.shape[0] == batch_dimension)
+    assert(boundarynormals.shape[0] == batch_dimension)
     num_waypoints = waypoints.shape[1]
     num_boundary_points = boundarypoints.shape[1]
     point_dimension = waypoints.shape[2]
@@ -46,7 +48,7 @@ class ExpRelu(nn.Module):
         return torch.where(inp>0.0, self.alpha*inp+1.0, torch.exp(self.beta*inp))
 
 class BoundaryLoss(nn.Module):
-    def __init__( self, time_reduction="mean", batch_reduction="mean", alpha = 1.0, beta = 0.5, p = None, relu_type="Exp" ):
+    def __init__( self, boundary : torch.Tensor, boundarynormals : torch.Tensor, time_reduction="mean", batch_reduction="mean", alpha = 1.0, beta = 0.5, p = None, relu_type="Exp" ):
         super(BoundaryLoss, self).__init__()
         self.time_reduction = time_reduction
         self.batch_reduction = batch_reduction
@@ -55,9 +57,14 @@ class BoundaryLoss(nn.Module):
             self.relu = ExpRelu(alpha = alpha, beta = beta)
         elif relu_type =="Leaky":
             self.relu = ScaledLeakyRelu(alpha = alpha, beta = beta)
+        self.boundary = nn.Parameter(boundary, requires_grad=False)
+        self.boundarynormals = nn.Parameter(boundarynormals, requires_grad=False)
     
-    def forward(self, waypoints, boundarypoints, boundarynormals):
-        _, dot_prods = signedDistances(waypoints, boundarypoints, boundarynormals)
+    def forward(self, posesglobal, waypointslocal):
+        posesinv = torch.inverse(posesglobal)
+        boundarypointslocal = torch.matmul(posesinv, self.boundary)[:,0:3].transpose(1,2)
+        boundarynormalslocal = torch.matmul(posesinv[:,0:3,0:3], self.boundarynormals).transpose(1,2)
+        _, dot_prods = signedDistances(waypointslocal, boundarypointslocal, boundarynormalslocal)
         if self.p is None:
             dot_prods_relu = self.relu(dot_prods)
         elif self.p==2:

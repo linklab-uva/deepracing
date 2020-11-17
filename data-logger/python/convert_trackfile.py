@@ -25,6 +25,7 @@ from functools import reduce
 import operator
 import math
 from deepracing.path_utils.optimization import OptimWrapper
+import deepracing.path_utils.geometric as geometric
 
 from shapely.geometry import Point as ShapelyPoint, MultiPoint#, Point2d as ShapelyPoint2d
 from shapely.geometry.polygon import Polygon
@@ -39,7 +40,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("trackfile", help="Path to trackfile to convert",  type=str)
 parser.add_argument("ds", type=float, help="Sample the path at points this distance apart along the path")
 parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
-parser.add_argument("--maxv", default=86.0, type=float, help="Max linear speed the car can yave")
+parser.add_argument("--maxv", default=86.0, type=float, help="Max linear speed the car can have")
 parser.add_argument("--maxa", default=35.0, type=float, help="Max linear acceleration the car can have")
 parser.add_argument("--maxacent", default=15.0, type=float, help="Max centripetal acceleration the car can have")
 parser.add_argument("--method", default="SLSQP", type=str, help="Optimization method to use")
@@ -67,25 +68,19 @@ track = trackin[I].copy()
 r = track[:,0].copy()
 
 
-if isracingline:
-    Xin = np.zeros((track.shape[0]-1,4))
-    Xin[:,1] = track[:-1,1]
-    Xin[:,2] = track[:-1,3]
-    Xin[:,3] = track[:-1,2]
-    Xin[:,0] = np.hstack( [np.zeros(1), np.cumsum(np.linalg.norm(Xin[1:,1:] - Xin[:-1,1:], axis=1, ord=2))   ]   )
-else:
-    Xin = np.zeros((track.shape[0],4))
-    Xin[:,1] = track[:,1]
-    Xin[:,2] = track[:,3]
-    Xin[:,3] = track[:,2]
-    Xin[:,0] = np.hstack( [np.zeros(1), np.cumsum(np.linalg.norm(Xin[1:,1:] - Xin[:-1,1:], axis=1, ord=2))   ]   )
+
+Xin = np.zeros((track.shape[0],4))
+Xin[:,1] = track[:,1]
+Xin[:,2] = track[:,3]
+Xin[:,3] = track[:,2]
+Xin[:,0] = r
 Xin[:,0] = Xin[:,0] - Xin[0,0]
 final_vector = Xin[0,1:] - Xin[-1,1:]
 final_distance = np.linalg.norm(final_vector)
 print("initial final distance: %f" %(final_distance,))
 final_unit_vector = final_vector/final_distance
 nstretch = 8
-rstretch =  np.linspace(final_distance/nstretch, final_distance,nstretch)
+rstretch =  np.linspace(final_distance/nstretch, 0.99*final_distance,nstretch)
 # rstretch =  np.linspace(final_distance/nstretch,((nstretch-1)/nstretch)*final_distance,nstretch)
 final_stretch = np.row_stack([Xin[-1,1:] + rstretch[i]*final_unit_vector for i in range(rstretch.shape[0])])
 final_r =  rstretch + Xin[-1,0]
@@ -93,11 +88,10 @@ Xin = np.row_stack((Xin, np.column_stack((final_r,final_stretch))))
 
 # rnormalized = Xin[:,0] - Xin[0,0]
 # rnormalized = rnormalized/rnormalized[-1]
-bc_type=([(3, np.zeros(3))], [(3, np.zeros(3))])
+
+#bc_type=([(3, np.zeros(3))], [(3, np.zeros(3))])
+bc_type=None
 # bc_type="natural"
-spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(Xin[:,0], Xin[:,1:], k = k, bc_type=bc_type)
-tangentspline : scipy.interpolate.BSpline = spline.derivative(nu=1)
-normalspline : scipy.interpolate.BSpline = spline.derivative(nu=2)
 
 finalidx = -1
 if finalidx is None:
@@ -105,16 +99,20 @@ if finalidx is None:
 else:
     finalextrassamps = abs(finalidx)
 
-#rsamp = np.linspace(Xin[0,0], Xin[-1,0], num = num_samples)# + finalextrassamps)#[0:finalid
-# rsamp = np.arange(Xin[0,0], Xin[-1,0]+ds, step = ds)
-rsamp = np.arange(Xin[0,0], Xin[-1,0], step = ds)
-#rsamp = np.hstack([rsamp, np.array([ Xin[-1,0] ])])
-splinevals=spline(rsamp)
-rout = rsamp
+rin = Xin[:,0].copy()
+rin = rin-rin[0]
+rsamp = np.linspace(rin[0], rin[-1], num = int(round((Xin[-1,0]- Xin[0,0])/ds)))
 
-splinevalspolygon = spline(np.linspace(Xin[0,0], Xin[-1,0], num = 750))
-# lr = LinearRing([(splinevalspolygon[i,0], splinevalspolygon[i,2]) for i in range(splinevalspolygon.shape[0])])
-lr = LinearRing([(Xin[i,1], Xin[i,3]) for i in range(0,Xin.shape[0],2)])
+
+ref = np.array([0.0, 1.0, 0.0], dtype=np.float64)
+if innerboundary:
+    ref*=-1.0
+spline, Xsamp, unit_tangents, unit_normals = geometric.computeTangentsAndNormals(rin, Xin[:,1:], k=k, rsamp=rsamp, ref=ref)
+tangentspline : scipy.interpolate.BSpline = spline.derivative(nu=1)
+accelspline : scipy.interpolate.BSpline = spline.derivative(nu=2)
+
+
+lr = LinearRing([(Xin[i,1], Xin[i,3]) for i in range(0,Xin.shape[0])])
 polygon : Polygon = Polygon(lr)
 assert(polygon.is_valid)
 
@@ -125,22 +123,19 @@ tangentnorms = np.linalg.norm(tangents, ord=2, axis=1)
 unit_tangents = tangents/tangentnorms[:,np.newaxis]
 
 
-accels = normalspline(rsamp)
+accels = accelspline(rsamp)
 #print(tangents.shape)
 accelnorms = np.linalg.norm(accels, ord=2, axis=1)
 unit_accels = accelnorms/accelnorms[:,np.newaxis]
 
 
-ref = np.column_stack([np.zeros_like(unit_tangents.shape[0]), np.ones_like(unit_tangents.shape[0]), np.zeros_like(unit_tangents.shape[0])]).astype(np.float64)
-if innerboundary:
-    ref[:,1]*=-1.0
-v1 = np.cross(unit_tangents, ref)
-v1 = v1/np.linalg.norm(v1, axis=1, ord=2)[:,np.newaxis]
-v2 =  np.cross(v1, unit_tangents)
-v2 = v2/np.linalg.norm(v2, axis=1, ord=2)[:,np.newaxis]
+# v1 = np.cross(unit_tangents, ref)
+# v1 = v1/np.linalg.norm(v1, axis=1, ord=2)[:,np.newaxis]
+# v2 =  np.cross(v1, unit_tangents)
+# v2 = v2/np.linalg.norm(v2, axis=1, ord=2)[:,np.newaxis]
 
-unit_normals = np.cross(v2, unit_tangents)
-unit_normals = unit_normals/np.linalg.norm(unit_normals, axis=1, ord=2)[:,np.newaxis]
+# unit_normals = np.cross(v2, unit_tangents)
+# unit_normals = unit_normals/np.linalg.norm(unit_normals, axis=1, ord=2)[:,np.newaxis]
 
 
 normaltangentdots = np.sum(unit_tangents*unit_normals, axis=1)
@@ -152,59 +147,52 @@ if not np.all(np.abs(normaltangentdots)<=1E-6):
 print("Max dot between normals and tangents: %f" % (np.max(normaltangentdots),) )
 
 
-offset_points = splinevals + unit_normals*1.0
+offset_points = Xsamp + unit_normals*1.0
 
 
-X = np.column_stack((rout,splinevals))
-x = X[:,1]
-y = X[:,2]
-z = X[:,3]
-x_tangent = unit_tangents[:,0]
-y_tangent = unit_tangents[:,1]
-z_tangent = unit_tangents[:,2]
-x_normal = unit_normals[:,0]
-y_normal = unit_normals[:,1]
-z_normal = unit_normals[:,2]
-diffs = X[1:,1:] - X[0:-1,1:]
+xin = Xin[:,1]
+yin = Xin[:,2]
+zin = Xin[:,3]
+
+xsamp = Xsamp[:,0]
+ysamp = Xsamp[:,1]
+zsamp = Xsamp[:,2]
+
+diffs = Xsamp[1:] - Xsamp[:-1]
 diffnorms = np.linalg.norm(diffs,axis=1)
 
 fig = plt.figure()
-plt.xlim(np.max(x)+10, np.min(x)-10)
+plt.xlim(np.max(xsamp)+10, np.min(xsamp)-10)
 # ax = fig.gca(projection='3d')
 # ax.scatter(x, y, z, c='r', marker='o', s =2.0*np.ones_like(x))
 # ax.quiver(x, y, z, unit_normals[:,0], unit_normals[:,1], unit_normals[:,2], length=50.0, normalize=True)
-plt.scatter(Xin[:,1], Xin[:,3], c='b', marker='o', s = 16.0*np.ones_like(Xin[:,1]))
+plt.scatter(xin, zin, c='b', marker='o', s = 16.0*np.ones_like(Xin[:,1]))
 # plt.scatter(x, z, c='r', marker='o', s = 4.0*np.ones_like(x))
-plt.plot(x, z, 'r')
-plt.plot(x[0], z[0], 'g*')
-plt.quiver(x, z, unit_normals[:,0], unit_normals[:,2], angles="xy", scale=4.0, scale_units="inches")
+plt.plot(xsamp, zsamp, 'r')
+plt.plot(xsamp[0], zsamp[0], 'g*')
+plt.quiver(xsamp, zsamp, unit_normals[:,0], unit_normals[:,2], angles="xy", scale=4.0, scale_units="inches")
 try:
     plt.show()
 except:
     plt.close()
-    print("Got %d points to optimize on." % (X.shape[0],), flush=True)
 
 
 jsonout = os.path.join(trackdir,os.path.splitext(trackfilein)[0] + ".json")
-pklout = os.path.join(trackdir,os.path.splitext(trackfilein)[0] + ".pkl")
-
 if innerboundary or outerboundary:
     jsondict = dict()
-    jsondict["dist"] = rsamp.tolist()
-    jsondict["x"] = x.tolist()
-    jsondict["y"] = y.tolist()
-    jsondict["z"] = z.tolist()
-    jsondict["x_tangent"] = x_tangent.tolist()
-    jsondict["y_tangent"] = y_tangent.tolist()
-    jsondict["z_tangent"] = z_tangent.tolist()
-    jsondict["x_normal"] = x_normal.tolist()
-    jsondict["y_normal"] = y_normal.tolist()
-    jsondict["z_normal"] = z_normal.tolist()
+    jsondict["rin"] = rin.tolist()
+    jsondict["xin"] = xin.tolist()
+    jsondict["yin"] = yin.tolist()
+    jsondict["zin"] = zin.tolist()
+    jsondict["rsamp"] = rsamp.tolist()
+    jsondict["xsamp"] = xsamp.tolist()
+    jsondict["ysamp"] = ysamp.tolist()
+    jsondict["zsamp"] = zsamp.tolist()
+    jsondict["k"] = k
+    jsondict["ds"] = ds
     
     with open(jsonout,"w") as f:
         json.dump( jsondict , f , indent=1 )
-    with open(pklout,"wb") as f:
-        pkl.dump(spline, f)
     exit(0)
 
 
@@ -226,10 +214,15 @@ print("Optimizing over a space of size: %d" %(rsamp.shape[0],), flush=True)
 dotsquares = np.sum(tangents*accels, axis=1)**2
 
 radii = (tangentnorms**3)/np.sqrt((tangentnorms**2)*(accelnorms**2) - dotsquares)
-radii[-int(round(40/ds)):] = np.inf
+radii[0:int(round(92.0/ds))] = np.inf
+radii[-int(round(92.0/ds)):] = np.inf
 # radii[-2] = 0.5*(radii[-3] + radii[-1])
+#radii[-1] = 0.5*(radii[-2] + radii[0])
+radii[0] = radii[1]
+radii[-1] = radii[-2]
 
 rprint = 50
+print("First %d radii:\n%s" %(rprint, str(radii[0:rprint]),))
 print("Final %d radii:\n%s" %(rprint, str(radii[-rprint:]),))
 
 
@@ -237,8 +230,8 @@ print("Final %d radii:\n%s" %(rprint, str(radii[-rprint:]),))
 maxspeed = argdict["maxv"]
 maxlinearaccel = argdict["maxa"]
 maxcentripetalaccel = argdict["maxacent"]
-dsvec = ds*np.ones_like(radii)
-dsvec[-int(round(40/ds)):] = np.inf
+dsvec = np.array((rsamp[1:] - rsamp[:-1]).tolist() + [np.linalg.norm(Xsamp[-1] - Xsamp[0])])
+#dsvec[-int(round(40/ds)):] = np.inf
 print("Final %d delta s:\n%s" %(rprint, str(dsvec[-rprint:]),))
 sqp = OptimWrapper(maxspeed, maxlinearaccel, maxcentripetalaccel, dsvec, radii)
 
@@ -250,7 +243,7 @@ x0, res = sqp.optimize(maxiter=maxiter,method=method,disp=True)#,eps=100.0)
 v0 = np.sqrt(x0)
 velsquares = res.x
 vels = np.sqrt(velsquares)
-vels[-1] = vels[-2]
+#vels[-1] = vels[-2]
 # resdict = vars(res)
 # print(resdict["x"])
 # print({key:resdict[key] for key in resdict.keys() if key!="x"})
@@ -291,7 +284,7 @@ plt.xlim(np.max(xtrue)+10, np.min(xtrue)-10)
 # ax.scatter(x, y, z, c='r', marker='o', s =2.0*np.ones_like(x))
 # ax.quiver(x, y, z, unit_normals[:,0], unit_normals[:,1], unit_normals[:,2], length=50.0, normalize=True)
 plt.plot(positionsradii[:,0],positionsradii[:,2],'r')
-plt.scatter(xtrue, ztrue, c='b', marker='o', s = 16.0*np.ones_like(psamp[:,0]))
+plt.scatter(xtrue[1:], ztrue[1:], c='b', marker='o', s = 16.0*np.ones_like(xtrue[1:]))
 plt.plot(xtrue[0], ztrue[0], 'g*')
 try:
     plt.show()
@@ -309,18 +302,20 @@ except:
 
 
 jsondict : dict = {}
-jsondict["dist"] = rsamp.tolist()
+jsondict["r"] = rsamp.tolist()
 jsondict["t"] = tparameterized.tolist()
 jsondict["x"] = positionsradii[:,0].tolist()
 jsondict["y"] = positionsradii[:,1].tolist()
 jsondict["z"] = positionsradii[:,2].tolist()
+jsondict["rin"] = rin.tolist()
+jsondict["xin"] = xin.tolist()
+jsondict["yin"] = yin.tolist()
+jsondict["zin"] = zin.tolist()
+jsondict.update({key : argdict[key] for key in ["maxv", "maxa", "maxacent", "method", "k", "ds"]})
+assert(len(jsondict["r"]) == len(jsondict["t"]) == len(jsondict["x"]) == len(jsondict["y"]) == len(jsondict["z"]))
 
 
 with open(jsonout,"w") as f:
     json.dump( jsondict , f , indent=1 )
     
-print("First point: " + str(X[0,:]), flush=True)
-print("Last point: " + str(X[-1,:]), flush=True)
-print("Average diff norm: " + str(np.mean(diffnorms)), flush=True)
-print("Final diff norm: " + str(np.linalg.norm(X[0,1:] - X[-1,1:])), flush=True)
 

@@ -162,7 +162,7 @@ class MultiAgentLabelLMDBWrapper():
         with self.env.begin(write=False) as txn:
             entry_in = txn.get( key.encode( self.encoding ) )#.tobytes()
             if (entry_in is None):
-                raise ValueError("Invalid key on label database: %s" %(key))
+                raise ValueError("Invalid key on label database: %s in database %s" %(key, self.env.path()))
             rtn.ParseFromString(entry_in)
         return rtn
 
