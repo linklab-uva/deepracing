@@ -35,7 +35,7 @@ from typing import List
 import matplotlib.pyplot as plt
 from deepracing import trackNames, searchForFile
 from deepracing.raceline_utils import loadRaceline
-import torch
+import time
 
 def imageDataKey(data):
     return data.timestamp
@@ -77,18 +77,19 @@ with open(os.path.join(root_dir,"f1_dataset_config.yaml"),"r") as f:
 use_json = dset_config["use_json"]
 session_packets = getAllSessionPackets(session_folder, use_json)
 output_dir = os.path.join(root_dir, args.output_dir)
+if override and os.path.isdir(output_dir):
+    shutil.rmtree(output_dir)
+    time.sleep(1.0)
 if os.path.isdir(output_dir):
-    if override:
+    s = 'asdf'
+    while not ( (s=='y') or (s=='n') ):
+        s = input("Directory %s already exists. overwrite it? (y\\n)" %(output_dir,))
+    if s=='y':
         shutil.rmtree(output_dir)
+        time.sleep(1.0)     
     else:
-        s = 'asdf'
-        while not ( (s=='y') or (s=='n') ):
-            s = input("Directory %s already exists. overwrite it? (y\\n)" %(output_dir,))
-        if s=='y':
-            shutil.rmtree(output_dir)
-        else:
-            print("Thanks for playing!")
-            exit(0)
+        print("Thanks for playing!")
+        exit(0)
 os.makedirs(output_dir)
 
 session_tags = getAllSessionPackets(session_folder, use_json)
@@ -251,13 +252,6 @@ for idx in tqdm(range(len(image_tags))):
         raceline_global = np.row_stack([rlsamp.transpose(), np.ones_like(rlt)])
      #   print(raceline_global.shape)
         raceline_local_samp = np.matmul(ego_pose_matrix_inverse, raceline_global)[0:3].transpose()
-        # rlimin = torch.argmin(torch.linalg.norm(raceline_local, ord=2, dim=1)).item()
-        # rlidx = torch.arange(rlimin, rlimin + racelineoffset, 1)%raceline.shape[1]
-        # raceline_local = raceline_local[rlidx]
-        # raceline_dist_local = torch.cat([torch.tensor([0.0]), torch.cumsum(torch.linalg.norm(raceline_local[1:] - raceline_local[0:-1] , ord=2, dim=1), dim=0 )])
-        # raceline_spl : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(raceline_dist_local.numpy(), raceline_local.numpy(), k=splk)
-        # srl = np.linspace(raceline_dist_local[0], raceline_dist_local[-1], num=sample_indices)
-        # raceline_local_samp = raceline_spl(srl)
         tstart = tlabel
         tend = tlabel + lookahead_time
         tsamp = np.linspace(tstart, tend, num=sample_indices)
