@@ -49,7 +49,7 @@ def poseSequenceLabelKey(label):
 parser = argparse.ArgumentParser()
 parser.add_argument("db_path", help="Path to root directory of DB",  type=str)
 parser.add_argument("lookahead_time", help="Amount of time to look forward for each driver",  type=float)
-parser.add_argument("--sample_indices", help="Number of indices to sample the spline for on the region specified by lookahead_time",  type=int, default=60)
+parser.add_argument("--sample_indices", help="Number of indices to sample the spline for on the region specified by lookahead_time",  type=int, default=120)
 parser.add_argument("--max_distance", help="Ignore other agents further than this many meters away",  type=float, default=60)
 parser.add_argument("--spline_degree", help="Spline degree to fit",  type=int, default=3)
 parser.add_argument("--debug", help="Display debug plots", action="store_true", required=False)
