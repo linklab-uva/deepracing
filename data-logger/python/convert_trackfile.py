@@ -304,13 +304,17 @@ except:
 
 
 jsondict : dict = {}
-jsondict["dist"] = rsamp.tolist()
+jsondict["r"] = rsamp.tolist()
 jsondict["t"] = tparameterized.tolist()
 jsondict["x"] = positionsradii[:,0].tolist()
 jsondict["y"] = positionsradii[:,1].tolist()
 jsondict["z"] = positionsradii[:,2].tolist()
+jsondict["rin"] = rin.tolist()
+jsondict["xin"] = xin.tolist()
+jsondict["yin"] = yin.tolist()
+jsondict["zin"] = zin.tolist()
 jsondict.update({key : argdict[key] for key in ["maxv", "maxa", "maxacent", "method", "k", "ds"]})
-assert(len(jsondict["dist"]) == len(jsondict["t"]) == len(jsondict["x"]) == len(jsondict["y"]) == len(jsondict["z"]))
+assert(len(jsondict["r"]) == len(jsondict["t"]) == len(jsondict["x"]) == len(jsondict["y"]) == len(jsondict["z"]))
 
 
 with open(jsonout,"w") as f:
