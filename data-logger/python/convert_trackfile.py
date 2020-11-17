@@ -68,18 +68,12 @@ track = trackin[I].copy()
 r = track[:,0].copy()
 
 
-if isracingline:
-    Xin = np.zeros((track.shape[0]-1,4))
-    Xin[:,1] = track[:-1,1]
-    Xin[:,2] = track[:-1,3]
-    Xin[:,3] = track[:-1,2]
-    Xin[:,0] = np.hstack( [np.zeros(1), np.cumsum(np.linalg.norm(Xin[1:,1:] - Xin[:-1,1:], axis=1, ord=2))   ]   )
-else:
-    Xin = np.zeros((track.shape[0],4))
-    Xin[:,1] = track[:,1]
-    Xin[:,2] = track[:,3]
-    Xin[:,3] = track[:,2]
-    Xin[:,0] = np.hstack( [np.zeros(1), np.cumsum(np.linalg.norm(Xin[1:,1:] - Xin[:-1,1:], axis=1, ord=2))   ]   )
+
+Xin = np.zeros((track.shape[0],4))
+Xin[:,1] = track[:,1]
+Xin[:,2] = track[:,3]
+Xin[:,3] = track[:,2]
+Xin[:,0] = r
 Xin[:,0] = Xin[:,0] - Xin[0,0]
 final_vector = Xin[0,1:] - Xin[-1,1:]
 final_distance = np.linalg.norm(final_vector)
