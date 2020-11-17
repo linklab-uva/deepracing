@@ -316,8 +316,4 @@ assert(len(jsondict["dist"]) == len(jsondict["t"]) == len(jsondict["x"]) == len(
 with open(jsonout,"w") as f:
     json.dump( jsondict , f , indent=1 )
     
-print("First point: " + str(X[0,:]), flush=True)
-print("Last point: " + str(X[-1,:]), flush=True)
-print("Average diff norm: " + str(np.mean(diffnorms)), flush=True)
-print("Final diff norm: " + str(np.linalg.norm(X[0,1:] - X[-1,1:])), flush=True)
 
