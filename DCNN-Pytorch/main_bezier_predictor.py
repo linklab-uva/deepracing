@@ -63,6 +63,7 @@ def run_epoch(experiment, network, optimizer, dataloader, loss_dict, config, use
    # Mpos = deepracing_models.math_utils.bezierM(torch.linspace(0.0,1.5,120).unsqueeze(0).repeat(64,1).double().to(device=dev), bezier_order)
 
     for (i, imagedict) in t:
+        track_names = imagedict["track"]
         input_images = imagedict["images"].double().to(device=dev)
         ego_current_pose = imagedict["ego_current_pose"].double().to(device=dev)
         session_times = imagedict["session_times"].double().to(device=dev)
@@ -106,7 +107,7 @@ def run_epoch(experiment, network, optimizer, dataloader, loss_dict, config, use
         # pred_vels_scaled = pred_vels/dt[:,None,None]
 
         
-        if debug:
+        if debug and False:
             fig, (ax1, ax2) = plt.subplots(1, 2, sharey=False)
             images_np = np.round(255.0*input_images[0].detach().cpu().numpy().copy().transpose(0,2,3,1)).astype(np.uint8)
             #image_np_transpose=skimage.util.img_as_ubyte(images_np[-1].transpose(1,2,0))
@@ -294,6 +295,7 @@ def go():
         root_folder = dlocal["root_folder"]
         position_indices = dlocal["position_indices"]
         label_subfolder = dlocal["label_subfolder"]
+        track_name =  dlocal["track_name"]
         dataset_tags = dlocal.get("tags", [])
         alltags = alltags.union(set(dataset_tags))
 
@@ -318,7 +320,7 @@ def go():
         if blur is not None:
             extra_transforms.append(GaussianBlur(blur))
         
-        current_dset = PD.MultiAgentDataset(image_wrapper, label_wrapper, key_file, context_length, image_size, position_indices, extra_transforms=extra_transforms, return_other_agents=return_other_agents)
+        current_dset = PD.MultiAgentDataset(image_wrapper, label_wrapper, key_file, context_length, image_size, position_indices, track_name, extra_transforms=extra_transforms, return_other_agents=return_other_agents)
         dsets.append(current_dset)
         
         print("\n")
