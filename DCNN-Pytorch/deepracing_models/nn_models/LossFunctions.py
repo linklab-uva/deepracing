@@ -61,9 +61,9 @@ class BoundaryLoss(nn.Module):
         self.boundarynormals = nn.Parameter(boundarynormals, requires_grad=False)
     
     def forward(self, posesglobal, waypointslocal):
-        posesinv = torch.inv(posesglobal)
-        boundarypointslocal = torch.matmul(posesinv, self.boundary)[0:3].transpose(0,1)
-        boundarynormalslocal = torch.matmul(posesinv[:,0:3,0:3], self.boundarynormals).transpose(0,1)
+        posesinv = torch.inverse(posesglobal)
+        boundarypointslocal = torch.matmul(posesinv, self.boundary)[:,0:3].transpose(1,2)
+        boundarynormalslocal = torch.matmul(posesinv[:,0:3,0:3], self.boundarynormals).transpose(1,2)
         _, dot_prods = signedDistances(waypointslocal, boundarypointslocal, boundarynormalslocal)
         if self.p is None:
             dot_prods_relu = self.relu(dot_prods)

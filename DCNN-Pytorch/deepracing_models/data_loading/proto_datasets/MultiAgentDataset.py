@@ -108,7 +108,7 @@ class MultiAgentDataset(Dataset):
         images_pil = [ transform( F.resize( PILImage.fromarray( self.image_db_wrapper.getImage(key) ), self.image_size, interpolation=PIL.Image.LANCZOS) ) for key in keys ]
         images_torch = torch.stack( [ self.totensor(img) for img in images_pil ] )
 
-        rtndict = {"images": images_torch, "session_times": rtn_session_times, "raceline": raceline, "ego_current_pose": egopose, "ego_positions": egopositions[:,self.position_indices],"ego_velocities": egovelocities[:,self.position_indices], "image_index": packetrange[-1]}
+        rtndict = {"images": images_torch, "session_times": rtn_session_times, "raceline": raceline[:,self.position_indices], "ego_current_pose": egopose, "ego_positions": egopositions[:,self.position_indices],"ego_velocities": egovelocities[:,self.position_indices], "image_index": packetrange[-1]}
 
         if self.return_other_agents:
             rtn_agent_positions = np.nan*np.ones([19,raceline.shape[0],raceline.shape[1]], dtype=np.float64)
