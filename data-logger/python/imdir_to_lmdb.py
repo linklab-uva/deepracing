@@ -19,13 +19,18 @@ def extractROI(x, y, w, h, image):
     return image[y:y+h, x:x+w].copy()
 def main(args):
     img_folder = args.image_dir
+    img_ext = args.imext
     cropped_dir = os.path.join(img_folder, "cropped_images")
     if os.path.isdir(cropped_dir):
         shutil.rmtree(cropped_dir, ignore_errors=True)
     print("Getting image files from disk")
-    packets = sorted(getAllImageFilePackets(img_folder, args.json), key=packetSortKey)
-    img_files = [os.path.join(img_folder,packet.image_file) for packet in packets]
-    keys = [os.path.splitext(os.path.basename(img_file))[0] for img_file in img_files]
+    img_files = []
+    keys = []
+    for f in os.listdir(img_folder):
+        key, ext = os.path.splitext(f)
+        if ext.lower()==img_ext:
+            keys.append(key)
+            img_files.append(os.path.join(img_folder,f))
 
     im_size = None
     imrows = args.imrows
@@ -123,5 +128,6 @@ if __name__ == '__main__':
     parser.add_argument('-R','--ROI', nargs=4, help='Region of Interest (ROI) to capture of the form [x, y, h, w] with (x,y) being the top-left corner of the ROI. h is the height and w is the width of the ROI', default=None)
     parser.add_argument('--json', action="store_true", help='Use json packets', default=None)
     parser.add_argument('--override', action="store_true", help='Delete existing DB if it already exists', default=None)
+    parser.add_argument('--imext', type=str, default=".jpg", help='Load image files with this extension')
     args = parser.parse_args()
     main(args)
