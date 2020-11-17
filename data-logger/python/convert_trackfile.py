@@ -112,9 +112,7 @@ tangentspline : scipy.interpolate.BSpline = spline.derivative(nu=1)
 accelspline : scipy.interpolate.BSpline = spline.derivative(nu=2)
 
 
-splinevalspolygon = spline(np.linspace(Xin[0,0], Xin[-1,0], num = 750))
-# lr = LinearRing([(splinevalspolygon[i,0], splinevalspolygon[i,2]) for i in range(splinevalspolygon.shape[0])])
-lr = LinearRing([(Xin[i,1], Xin[i,3]) for i in range(0,Xin.shape[0],2)])
+lr = LinearRing([(Xin[i,1], Xin[i,3]) for i in range(0,Xin.shape[0])])
 polygon : Polygon = Polygon(lr)
 assert(polygon.is_valid)
 
