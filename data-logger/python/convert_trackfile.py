@@ -309,6 +309,7 @@ jsondict["t"] = tparameterized.tolist()
 jsondict["x"] = positionsradii[:,0].tolist()
 jsondict["y"] = positionsradii[:,1].tolist()
 jsondict["z"] = positionsradii[:,2].tolist()
+jsondict.update({key : argdict[key] for key in ["maxv", "maxa", "maxacent", "method", "k", "ds"]})
 assert(len(jsondict["dist"]) == len(jsondict["t"]) == len(jsondict["x"]) == len(jsondict["y"]) == len(jsondict["z"]))
 
 
