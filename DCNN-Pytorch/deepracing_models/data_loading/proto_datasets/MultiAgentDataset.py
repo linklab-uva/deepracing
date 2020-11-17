@@ -61,7 +61,7 @@ def pbPoseToTorch(posepb : Pose3d):
     pose[0:3,3] = torch.from_numpy( np.array( [ position_pb.x, position_pb.y, position_pb.z], dtype=np.float64 )  ).double()
 
 class MultiAgentDataset(Dataset):
-    def __init__(self, image_db_wrapper : ImageLMDBWrapper, label_db_wrapper : MultiAgentLabelLMDBWrapper, keyfile : str, context_length : int, image_size : np.ndarray,  position_indices : np.ndarray,  extra_transforms : list = [], return_other_agents = False):
+    def __init__(self, image_db_wrapper : ImageLMDBWrapper, label_db_wrapper : MultiAgentLabelLMDBWrapper, keyfile : str, context_length : int, image_size : np.ndarray,  position_indices : np.ndarray,  track_name : str, extra_transforms : list = [], return_other_agents = False):
         super(MultiAgentDataset, self).__init__()
         self.image_db_wrapper : ImageLMDBWrapper = image_db_wrapper
         self.label_db_wrapper : MultiAgentLabelLMDBWrapper = label_db_wrapper
@@ -75,6 +75,7 @@ class MultiAgentDataset(Dataset):
         self.position_indices = position_indices
         self.transforms = [IdentifyTransform()] + extra_transforms
         self.return_other_agents = return_other_agents
+        self.track_name = track_name
     def __len__(self):
         return (self.num_images - self.context_length - 1)*len(self.transforms)
     def __getitem__(self, input_index):
@@ -108,7 +109,7 @@ class MultiAgentDataset(Dataset):
         images_pil = [ transform( F.resize( PILImage.fromarray( self.image_db_wrapper.getImage(key) ), self.image_size, interpolation=PIL.Image.LANCZOS) ) for key in keys ]
         images_torch = torch.stack( [ self.totensor(img) for img in images_pil ] )
 
-        rtndict = {"images": images_torch, "session_times": rtn_session_times, "raceline": raceline[:,self.position_indices], "ego_current_pose": egopose, "ego_positions": egopositions[:,self.position_indices],"ego_velocities": egovelocities[:,self.position_indices], "image_index": packetrange[-1]}
+        rtndict = {"track": self.track_name, "images": images_torch, "session_times": rtn_session_times, "raceline": raceline[:,self.position_indices], "ego_current_pose": egopose, "ego_positions": egopositions[:,self.position_indices],"ego_velocities": egovelocities[:,self.position_indices], "image_index": packetrange[-1]}
 
         if self.return_other_agents:
             rtn_agent_positions = np.nan*np.ones([19,raceline.shape[0],raceline.shape[1]], dtype=np.float64)
