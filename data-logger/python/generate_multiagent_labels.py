@@ -100,7 +100,7 @@ racelineFile = searchForFile(searchFile, os.getenv("F1_TRACK_DIRS").split(os.pat
 if racelineFile is None:
     raise ValueError("Could not find trackfile %s" % searchFile)
 racelinetimes_, racelinedists_, raceline_ = loadRaceline(racelineFile)
-Nsamp = int(8E3)
+Nsamp = int(15E3)
 racelinedists = np.linspace(racelinedists_[0].item(), racelinedists_[-1].item(), Nsamp)
 racelinetimes = np.linspace(racelinetimes_[0].item(), racelinetimes_[-1].item(), Nsamp)
 rlfit_t = racelinetimes_.numpy()
@@ -205,6 +205,7 @@ with open(os.path.join(output_dir,'config.yaml'), 'w') as yaml_file:
     yaml.dump(config_dict, yaml_file)#, Dumper=yaml.SafeDumper)
 db = deepracing.backend.MultiAgentLabelLMDBWrapper()
 db.openDatabase( lmdb_dir, mapsize=95000*len(image_tags), max_spare_txns=16, readonly=False, lock=True )
+keys = []
 for idx in tqdm(range(len(image_tags))):
     label_tag = MultiAgentLabel_pb2.MultiAgentLabel()
     try:
@@ -388,8 +389,9 @@ for idx in tqdm(range(len(image_tags))):
 
         label_tag_binary_file = os.path.join(output_dir, key + "_multi_agent_label.pb")
         with open(label_tag_binary_file,'wb') as f: 
-            f.write( label_tag.SerializeToString() )
-        db.writeMultiAgentLabel( key , label_tag )      
+            f.write( label_tag.SerializeToString() )  
+        db.writeMultiAgentLabel( key , label_tag )
+        keys.append(key)  
     except KeyboardInterrupt as e:
         break
     except DeepRacingException as e: 
@@ -426,31 +428,33 @@ for idx in tqdm(range(len(image_tags))):
 
 
 
-print("Loading database labels.")
-db_keys = db.getKeys()
-label_pb_tags = []
-for i,key in tqdm(enumerate(db_keys), total=len(db_keys)):
-    #print(key)
-    label_pb_tags.append(db.getMultiAgentLabel(key))
-    if(not (label_pb_tags[-1].image_tag.image_file == key+".jpg")):
-        raise AttributeError("Mismatch between database key: %s and associated image file: %s" %(key, label_pb_tags.image_tag.image_file))
-sorted_indices = np.argsort( np.array([lbl.ego_agent_pose.session_time for lbl in label_pb_tags]) )
-#tagscopy = label_pb_tags.copy()
-label_pb_tags_sorted = [label_pb_tags[sorted_indices[i]] for i in range(len(sorted_indices))]
-sorted_keys = []
+# print("Loading database labels.")
+# db_keys = db.getKeys()
+# label_pb_tags = []
+# for i,key in tqdm(enumerate(db_keys), total=len(db_keys)):
+#     #print(key)
+#     label_pb_tags.append(db.getMultiAgentLabel(key))
+#     if(not (label_pb_tags[-1].image_tag.image_file == key+".jpg")):
+#         raise AttributeError("Mismatch between database key: %s and associated image file: %s" %(key, label_pb_tags.image_tag.image_file))
+# sorted_indices = np.argsort( np.array([lbl.ego_agent_pose.session_time for lbl in label_pb_tags]) )
+# #tagscopy = label_pb_tags.copy()
+# label_pb_tags_sorted = [label_pb_tags[sorted_indices[i]] for i in range(len(sorted_indices))]
+valid_keys = []
 print("Checking for invalid keys.")
-for packet in tqdm(label_pb_tags_sorted):
+for key in tqdm(keys):
     #print(key)
-    key = os.path.splitext(packet.image_tag.image_file)[0]
+    #key = os.path.splitext(packet.image_tag.image_file)[0]
     try:
         lbl = db.getMultiAgentLabel(key)
-        sorted_keys.append(key)
+        valid_keys.append(key)
+    except KeyboardInterrupt as e:
+        raise e
     except:
         print("Skipping bad key: %s" %(key))
         continue
 key_file = os.path.join(root_dir,"multi_agent_label_keys.txt")
 with open(key_file, 'w') as filehandle:
-    filehandle.writelines("%s\n" % key for key in sorted_keys)    
+    filehandle.writelines("%s\n" % key for key in valid_keys)    
 
 
 
