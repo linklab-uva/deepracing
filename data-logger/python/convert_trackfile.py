@@ -184,10 +184,10 @@ if innerboundary or outerboundary:
     jsondict["xin"] = xin.tolist()
     jsondict["yin"] = yin.tolist()
     jsondict["zin"] = zin.tolist()
-    jsondict["rsamp"] = rsamp.tolist()
-    jsondict["xsamp"] = xsamp.tolist()
-    jsondict["ysamp"] = ysamp.tolist()
-    jsondict["zsamp"] = zsamp.tolist()
+    jsondict["r"] = rsamp.tolist()
+    jsondict["x"] = xsamp.tolist()
+    jsondict["y"] = ysamp.tolist()
+    jsondict["z"] = zsamp.tolist()
     jsondict["k"] = k
     jsondict["ds"] = ds
     
