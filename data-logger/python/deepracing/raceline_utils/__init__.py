@@ -33,8 +33,8 @@ def loadBoundary(boundary_file : str, device : torch.device = torch.device("cpu"
     if ext==".json":
         with open(boundary_file,"r") as f:
             boundary_dict = json.load(f)
-        boundarynp = np.column_stack([boundary_dict["xsamp"], boundary_dict["ysamp"], boundary_dict["zsamp"]])
-        rnp = np.array(boundary_dict["rsamp"])
+        boundarynp = np.column_stack([boundary_dict["x"], boundary_dict["y"], boundary_dict["z"]])
+        rnp = np.array(boundary_dict["r"])
     else:
         raise ValueError("Only .json extensions are supported")
     rsamp = torch.from_numpy(rnp).double().to(device)
