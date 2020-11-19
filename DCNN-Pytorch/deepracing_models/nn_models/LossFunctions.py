@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import LeakyReLU
+from torch.nn import LeakyReLU, ReLU
 import numpy as np
 
 def signedDistances(waypoints, boundarypoints, boundarynormals):
@@ -57,6 +57,8 @@ class BoundaryLoss(nn.Module):
             self.relu = ExpRelu(alpha = alpha, beta = beta)
         elif relu_type =="Leaky":
             self.relu = ScaledLeakyRelu(alpha = alpha, beta = beta)
+        else:
+            self.relu = ReLU()
         self.boundary = nn.Parameter(boundary, requires_grad=False)
         self.boundarynormals = nn.Parameter(boundarynormals, requires_grad=False)
     
@@ -139,26 +141,32 @@ class SquaredLpNormLoss(nn.Module):
             return means
 
 class OtherAgentDistanceLoss(nn.Module):
-    def __init__(self, beta : float = 1.0/np.pi, max_average_distance = 100):
+    def __init__(self, alpha = 5.0,  beta : float = 1.0/np.pi):
         super(OtherAgentDistanceLoss, self).__init__()
         self.beta=beta
-        self.max_average_distance = max_average_distance
-        self.minval = np.exp(-self.beta*max_average_distance)
+        self.alpha=alpha
 
-    def forward(self, predicted_path, other_agent_paths):
+
+    def forward(self, predicted_path, other_agent_paths, valid_index):
         if not (other_agent_paths.shape[2]==predicted_path.shape[1]):
             raise ValueError("Paths of other agents have %d points, but predicted path has %d points" % (other_agent_paths.shape[2],predicted_path.shape[1]))
         if not (other_agent_paths.shape[3]==predicted_path.shape[2]):
             raise ValueError("Paths of other agents are of dimension %d, but predicted path is of dimension %d" % (other_agent_paths.shape[3],predicted_path.shape[2]))
         batch_size = other_agent_paths.shape[0]
         num_points = other_agent_paths.shape[2]
+        # diffs = other_agent_paths - predicted_path[:,None]
+        # diffsquares = torch.square(diffs)
+        # sumdiffsquares = torch.sqrt(torch.sum(diffsquares, dim=3))
+        # exp = torch.exp(-self.beta*validmeandiffsquares)
+        # meandiffsquare = torch.mean(sumdiffsquares, dim=2)
         distances = torch.norm(other_agent_paths - predicted_path[:,None], p=2, dim=3)
         meandistances = torch.mean(distances, dim=2)
-        expdists = torch.exp(-self.beta*meandistances)
-        nontrivialcosts = expdists[expdists>self.minval]
-        rtn = torch.sum(nontrivialcosts)/max(1.0, float(torch.numel(nontrivialcosts)))
-        rtnshape = rtn.shape
-      #  print("yay")
+        expdists = self.alpha*torch.exp(-self.beta*meandistances)
+        validexpdists = expdists[valid_index]
+       # validmeandistances = meandistances[meandistances==meandistances]
+        # expdists = self.alpha*torch.exp(-self.beta*validmeandistances)
+        rtn = torch.mean(validexpdists)
+       # rtn = torch.mean(exp)
         return rtn
 
         

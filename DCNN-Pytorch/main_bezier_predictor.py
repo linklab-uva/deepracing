@@ -38,7 +38,7 @@ from deepracing import searchForFile
 import deepracing.path_utils.geometric as geometric
 
 #torch.backends.cudnn.enabled = False
-def run_epoch(experiment, network, optimizer, dataloader, loss_dict, config, use_tqdm = False, debug=False):
+def run_epoch(experiment, network, optimizer, dataloader, loss_dict, config, use_tqdm = False, debug=False, plot=False):
     cum_loss = 0.0
     cum_param_loss = 0.0
     cum_position_loss = 0.0
@@ -65,6 +65,7 @@ def run_epoch(experiment, network, optimizer, dataloader, loss_dict, config, use
     for (i, imagedict) in t:
         track_names = imagedict["track"]
         input_images = imagedict["images"].double().to(device=dev)
+        batch_size = input_images.shape[0]
         ego_current_pose = imagedict["ego_current_pose"].double().to(device=dev)
         session_times = imagedict["session_times"].double().to(device=dev)
         raceline = imagedict["raceline"].double().to(device=dev)
@@ -72,7 +73,9 @@ def run_epoch(experiment, network, optimizer, dataloader, loss_dict, config, use
         ego_current_pose.requires_grad=False
         ego_positions = imagedict["ego_positions"].double().to(device=dev)
         ego_velocities = imagedict["ego_velocities"].double().to(device=dev)
-        batch_size = input_images.shape[0]
+        #other_agent_positions = imagedict.get("other_agent_positions", torch.Tensor( [np.nan for asdf in range(batch_size)] ) ).double().to(device=dev)
+        other_agent_positions = imagedict.get("other_agent_positions", torch.zeros(batch_size)).double().to(device=dev)
+        other_agent_valid = imagedict.get("other_agent_valid", torch.zeros(batch_size,19).bool())
         
     #    image_keys = ["image_%d" % (key_indices[j],) for j in range(key_indices.shape[0])]
         
@@ -107,7 +110,7 @@ def run_epoch(experiment, network, optimizer, dataloader, loss_dict, config, use
         # pred_vels_scaled = pred_vels/dt[:,None,None]
 
         
-        if debug and False:
+        if debug and plot:
             fig, (ax1, ax2) = plt.subplots(1, 2, sharey=False)
             images_np = np.round(255.0*input_images[0].detach().cpu().numpy().copy().transpose(0,2,3,1)).astype(np.uint8)
             #image_np_transpose=skimage.util.img_as_ubyte(images_np[-1].transpose(1,2,0))
@@ -144,22 +147,15 @@ def run_epoch(experiment, network, optimizer, dataloader, loss_dict, config, use
             plt.legend()
             plt.show()
 
-        
-       # print(track_ids)
-        # oapmeaningful = ~(other_agent_positions==500.0)
-        # if torch.any(oapmeaningful).item():
-        #     current_other_agent_loss = loss_weights["other_agents"]*other_agent_loss(pred_points, other_agent_positions)
-        #     if torch.any(torch.isnan(current_other_agent_loss)):
-        #         print("Current Agent Loss Is none")
-        #     loss = current_position_loss + current_other_agent_loss
-        # else:
-        #     loss = current_position_loss 
-        #     current_other_agent_loss = torch.tensor([0.0])[0]
         pred_points_boundary = torch.stack([pred_points[:,:,0], torch.zeros_like(pred_points[:,:,0]) ,pred_points[:,:,1]], dim=2)
         current_inner_boundary_loss = inner_boundary_loss(ego_current_pose, pred_points_boundary)
         current_outer_boundary_loss = outer_boundary_loss(ego_current_pose, pred_points_boundary)
         current_position_loss = ego_agent_loss(pred_points, raceline)
-        loss = loss_weights["position"]*current_position_loss + loss_weights["boundary"]*(current_inner_boundary_loss + current_outer_boundary_loss)
+        if torch.any(other_agent_valid):
+            current_other_agent_loss = other_agent_loss(pred_points, other_agent_positions, other_agent_valid)
+            loss = loss_weights["position"]*current_position_loss + loss_weights["boundary"]*(current_inner_boundary_loss + current_outer_boundary_loss) + loss_weights["other_agents"]*current_other_agent_loss
+        else:
+            loss = loss_weights["position"]*current_position_loss + loss_weights["boundary"]*(current_inner_boundary_loss + current_outer_boundary_loss)
       #  current_other_agent_loss = torch.tensor([0.0])[0]
        # loss.retain_grad()
 
@@ -180,7 +176,8 @@ def go():
     parser.add_argument("model_config_file", type=str,  help="Model Configuration file to load")
     parser.add_argument("output_directory", type=str,  help="Where to put the resulting model files")
 
-    parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
+    parser.add_argument("--debug", action="store_true",  help="Don't actually push to comet, just testing")
+    parser.add_argument("--plot", action="store_true",  help="Plot images upon each iteration of the training loop")
     parser.add_argument("--model_load",  type=str, default=None,  help="Load this model file prior to running. usually in conjunction with debug")
     parser.add_argument("--models_to_disk", action="store_true",  help="Save the model files to disk in addition to comet.ml")
     parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
@@ -191,6 +188,7 @@ def go():
 
     dataset_config_file = args.dataset_config_file
     debug = args.debug
+    plot = args.plot
     model_load = args.model_load
     models_to_disk = args.models_to_disk
     use_tqdm = args.tqdm
@@ -362,7 +360,7 @@ def go():
         i = 0
         #def run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent_loss, config)
     if debug:
-        run_epoch(experiment, net, optimizer, dataloader, loss_dict, config, debug=True, use_tqdm=True)
+        run_epoch(experiment, net, optimizer, dataloader, loss_dict, config, debug=True, use_tqdm=True, plot=plot)
     else:
         netpostfix = "epoch_%d_params.pt"
         optimizerpostfix = "epoch_%d_optimizer.pt"

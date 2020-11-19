@@ -112,9 +112,13 @@ class MultiAgentDataset(Dataset):
         rtndict = {"track": self.track_name, "images": images_torch, "session_times": rtn_session_times, "raceline": raceline[:,self.position_indices], "ego_current_pose": egopose, "ego_positions": egopositions[:,self.position_indices],"ego_velocities": egovelocities[:,self.position_indices], "image_index": packetrange[-1]}
 
         if self.return_other_agents:
-            rtn_agent_positions = np.nan*np.ones([19,raceline.shape[0],raceline.shape[1]], dtype=np.float64)
+            rtn_agent_positions = 1E9*np.ones([19,raceline.shape[0],raceline.shape[1]], dtype=np.float64)
             other_agent_positions = MultiAgentLabelLMDBWrapper.positionsFromLabel(label)
-            rtn_agent_positions[0:other_agent_positions.shape[0]] = other_agent_positions
+            valid = torch.zeros(19).bool()
+            if other_agent_positions is not None:
+                rtn_agent_positions[0:other_agent_positions.shape[0]] = other_agent_positions
+                valid[0:other_agent_positions.shape[0]] = True
             rtndict["other_agent_positions"] =  rtn_agent_positions[:,:,self.position_indices]
+            rtndict["other_agent_valid"] =  valid
 
         return rtndict
