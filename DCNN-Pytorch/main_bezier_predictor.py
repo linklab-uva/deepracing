@@ -234,7 +234,9 @@ def go():
     numones = int(ppd/2)
     
     ego_agent_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss()
-    other_agent_loss = deepracing_models.nn_models.LossFunctions.OtherAgentDistanceLoss()
+
+    other_agent_loss_config = config["other_agent_loss"]
+    other_agent_loss = deepracing_models.nn_models.LossFunctions.OtherAgentDistanceLoss(alpha=other_agent_loss_config["alpha"], beta=other_agent_loss_config["beta"])
 
     print("casting stuff to double")
     net = net.double()
@@ -253,20 +255,23 @@ def go():
     dset_output_lengths=[]
     return_other_agents = bool(dataset_config.get("other_agents",False))
     track_name = dataset_config["track_name"]
+    
 
+    boundary_loss_config = config["boundary_loss"]
+    
     ibfile = searchForFile(track_name+"_innerlimit.json", os.getenv("F1_TRACK_DIRS").split(os.pathsep)+[os.curdir])
     if ibfile is None:
         raise ValueError("Could not find inner boundary limits file")
     inner_boundary_r, inner_boundary = loadBoundary(ibfile)
     _, _, _, ibnormals_np = geometric.computeTangentsAndNormals(inner_boundary_r.numpy().copy(), inner_boundary[0:3].transpose(0,1).numpy().copy(), k=3, ref=np.array([0.0,-1.0,0.0]))
-    ibloss = loss_functions.BoundaryLoss(inner_boundary, torch.from_numpy(ibnormals_np).transpose(0,1)).double()
+    ibloss = loss_functions.BoundaryLoss(inner_boundary, torch.from_numpy(ibnormals_np).transpose(0,1), alpha=boundary_loss_config["alpha"], beta=boundary_loss_config["beta"]).double()
     
     obfile = searchForFile(track_name+"_outerlimit.json", os.getenv("F1_TRACK_DIRS").split(os.pathsep)+[os.curdir])
     if obfile is None:
         raise ValueError("Could not find outer boundary limits file")
     outer_boundary_r, outer_boundary = loadBoundary(obfile)
     _, _, _, obnormals_np = geometric.computeTangentsAndNormals(outer_boundary_r.numpy().copy(), outer_boundary[0:3].transpose(0,1).numpy().copy(), k=3, ref=np.array([0.0,1.0,0.0]))
-    obloss = loss_functions.BoundaryLoss(outer_boundary, torch.from_numpy(obnormals_np).transpose(0,1)).double()
+    obloss = loss_functions.BoundaryLoss(outer_boundary, torch.from_numpy(obnormals_np).transpose(0,1), alpha=boundary_loss_config["alpha"], beta=boundary_loss_config["beta"]).double()
 
     
     if gpu>=0:
