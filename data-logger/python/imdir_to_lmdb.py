@@ -27,6 +27,8 @@ def main(args):
     img_files = []
     keys = []
     for f in os.listdir(img_folder):
+        if not os.path.isfile(os.path.join(img_folder,f)):
+            continue
         key, ext = os.path.splitext(f)
         if ext.lower()==img_ext:
             keys.append(key)
@@ -126,7 +128,6 @@ if __name__ == '__main__':
     parser.add_argument("--display_resize_factor", type=float, default=0.5, help="Resize the first image by this factor for selecting a ROI.")
     parser.add_argument("--mapsize", type=int, default=-1, help="Map size for the LMDB.")
     parser.add_argument('-R','--ROI', nargs=4, help='Region of Interest (ROI) to capture of the form [x, y, h, w] with (x,y) being the top-left corner of the ROI. h is the height and w is the width of the ROI', default=None)
-    parser.add_argument('--json', action="store_true", help='Use json packets', default=None)
     parser.add_argument('--override', action="store_true", help='Delete existing DB if it already exists', default=None)
     parser.add_argument('--imext', type=str, default=".jpg", help='Load image files with this extension')
     args = parser.parse_args()
