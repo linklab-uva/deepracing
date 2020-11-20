@@ -184,6 +184,21 @@ install(DIRECTORY tracks/
     FILES_MATCHING PATTERN "*.json"
 )
 
+
+
+if(MSVC)
+    file(TO_NATIVE_PATH ${CMAKE_INSTALL_PREFIX}/Lib/python python_install_directory)
+    configure_file(scripts/windows/tbbvars2019.bat.in tbbvars2019.bat @ONLY NEWLINE_STYLE WIN32)
+    configure_file(scripts/windows/addpythonpath.build.bat.in ${CMAKE_CURRENT_BINARY_DIR}/addpythonpathbuild.bat @ONLY NEWLINE_STYLE WIN32)
+    configure_file(scripts/windows/addpythonpath.build.ps1.in ${CMAKE_CURRENT_BINARY_DIR}/addpythonpathbuild.ps1 @ONLY NEWLINE_STYLE WIN32)
+    configure_file(scripts/windows/addpythonpath.install.ps1.in ${CMAKE_CURRENT_BINARY_DIR}/addpythonpath.ps1 @ONLY NEWLINE_STYLE WIN32)
+    configure_file(scripts/windows/addpythonpath.install.bat.in ${CMAKE_CURRENT_BINARY_DIR}/addpythonpath.bat @ONLY NEWLINE_STYLE WIN32)
+    set(source_scripts ${CMAKE_CURRENT_BINARY_DIR}/addpythonpath.ps1 ${CMAKE_CURRENT_BINARY_DIR}/addpythonpath.bat)
+else()
+    configure_file(scripts/bash/addpythonpath.build.bash.in ${CMAKE_BINARY_DIR}/addpythonpathbuild.bash @ONLY NEWLINE_STYLE UNIX)
+    configure_file(scripts/bash/addpythonpath.install.bash.in ${CMAKE_BINARY_DIR}/addpythonpath.bash @ONLY NEWLINE_STYLE UNIX)
+    set(source_scripts ${CMAKE_BINARY_DIR}/addpythonpath.bash)
+endif() 
 if(ament_cmake_FOUND)
     message(STATUS "Ament was found. Building a ROS2-style cmake package")
     ament_export_targets(${PROJECT_NAME}-export)
@@ -210,20 +225,7 @@ else()
     install(DIRECTORY python/deepracing
         DESTINATION lib/python
     )
+    install(FILES ${source_scripts} DESTINATION share/${PROJECT_NAME})
 
-
-    if(MSVC)
-        file(TO_NATIVE_PATH ${CMAKE_INSTALL_PREFIX}/Lib/python python_install_directory)
-        configure_file(scripts/windows/tbbvars2019.bat.in tbbvars2019.bat @ONLY NEWLINE_STYLE WIN32)
-        configure_file(scripts/windows/addpythonpath.build.ps1.in ${CMAKE_CURRENT_BINARY_DIR}/addpythonpathbuild.ps1 @ONLY NEWLINE_STYLE WIN32)
-        configure_file(scripts/windows/addpythonpath.install.ps1.in ${CMAKE_CURRENT_BINARY_DIR}/addpythonpath.ps1 @ONLY NEWLINE_STYLE WIN32)
-        configure_file(scripts/windows/addpythonpath.install.bat.in ${CMAKE_CURRENT_BINARY_DIR}/addpythonpath.bat @ONLY NEWLINE_STYLE WIN32)
-        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/addpythonpath.ps1 DESTINATION share/${PROJECT_NAME})
-        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/addpythonpath.bat DESTINATION share/${PROJECT_NAME})
-    else()
-        configure_file(scripts/bash/addpythonpath.build.bash.in ${CMAKE_BINARY_DIR}/addpythonpathbuild.bash @ONLY NEWLINE_STYLE UNIX)
-        configure_file(scripts/bash/addpythonpath.install.bash.in ${CMAKE_BINARY_DIR}/addpythonpath.bash @ONLY NEWLINE_STYLE UNIX)
-        install(FILES ${CMAKE_BINARY_DIR}/addpythonpath.bash DESTINATION share/${PROJECT_NAME})
-    endif() 
 
 endif()

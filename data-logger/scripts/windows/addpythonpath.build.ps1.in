@@ -1,9 +1,9 @@
 $extrapythonpaths="@python_proto_path_@;@CMAKE_SOURCE_DIR@/python;@CMAKE_BINARY_DIR@/src/controllers/python_cpp_bindings"
-If( "$Env:PYTHONPATH" -eq "")
+If( "$ENV:PYTHONPATH" -eq "")
 {
-	$Env:PYTHONPATH=$extrapythonpaths
+	$ENV:PYTHONPATH=$extrapythonpaths
 }
 Else
 {
-	$Env:PYTHONPATH+=";"+$extrapythonpaths
+	$ENV:PYTHONPATH+=";$extrapythonpaths"
 }
