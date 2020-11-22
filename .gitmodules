@@ -4,9 +4,6 @@
 [submodule "data-logger/src/controllers/python_cpp_bindings/pybind11"]
 	path = data-logger/src/controllers/python_cpp_bindings/pybind11
 	url = https://github.com/pybind/pybind11.git
-[submodule "DCNN-Pytorch/kfac"]
-	path = DCNN-Pytorch/kfac
-	url = https://github.com/alecwangcq/KFAC-Pytorch.git
 [submodule "vJoy"]
 	path = vJoy
 	url = https://github.com/linklab-uva/vJoy.git
