@@ -1,12 +1,6 @@
 [submodule "data-logger/third_party/screen_capture_lite"]
 	path = data-logger/third_party/screen_capture_lite
 	url = https://github.com/smasherprog/screen_capture_lite.git
-[submodule "data-logger/third_party/DirectXTK12"]
-	path = data-logger/third_party/DirectXTK12
-	url = https://github.com/microsoft/DirectXTK12.git
-[submodule "data-logger/third_party/DirectXTK"]
-	path = data-logger/third_party/DirectXTK
-	url = https://github.com/microsoft/DirectXTK.git
 [submodule "data-logger/src/controllers/python_cpp_bindings/pybind11"]
 	path = data-logger/src/controllers/python_cpp_bindings/pybind11
 	url = https://github.com/pybind/pybind11.git

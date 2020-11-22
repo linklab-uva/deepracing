@@ -20,10 +20,7 @@ ${Boost_TARGETS}
 ${TBB_IMPORTED_TARGETS}
 Eigen3::Eigen
 )
-target_include_directories(${PROJECT_NAME}_cv_viewer_example 
-PRIVATE
-${DIRECTXT_INCLUDE_DIR}
-)
+
 
 add_executable(${PROJECT_NAME}_proto_rebroadcaster
 proto_rebroadcaster.cpp
