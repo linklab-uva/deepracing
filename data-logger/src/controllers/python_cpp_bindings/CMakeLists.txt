@@ -1,7 +1,7 @@
 
 find_package(Python REQUIRED COMPONENTS Interpreter Development)
 
-add_subdirectory(pybind11)
+find_package(pybind11 REQUIRED)
 
 pybind11_add_module(py_f1_interface py_f1_interface.cpp)
 target_link_libraries(py_f1_interface
