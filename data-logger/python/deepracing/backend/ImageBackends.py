@@ -7,6 +7,7 @@ from skimage.transform import resize
 import deepracing.imutils
 import ChannelOrder_pb2
 import Image_pb2
+import TimestampedImage_pb2
 import cv2
 import time
 import google.protobuf.empty_pb2 as Empty_pb2
@@ -14,6 +15,8 @@ import yaml
 import PIL, PIL.Image as PILImage
 import torchvision, torchvision.transforms.functional as F
 import torchvision.transforms as TF
+import json
+
 def pbImageToNpImage(im_pb : Image_pb2.Image):
     im = None
     if im_pb.channel_order == ChannelOrder_pb2.BGR:
@@ -83,8 +86,24 @@ class ImageLMDBWrapper():
        # topil = TF.ToPILImage()
         cropped_images_dir = os.path.join(os.path.dirname(db_path),"cropped_images")
         os.makedirs(cropped_images_dir,exist_ok=True)
+        tsdict = dict()
         for i, key in tqdm(enumerate(keys), total=len(keys)):
-            imgin = deepracing.imutils.readImage(image_files[i])
+            imgfile = image_files[i]
+            base, ext = os.path.splitext(imgfile)
+            try:
+                with open(base+".json","r") as f:
+                    imdict = json.load(f)
+                assert(imdict["imageFile"]==os.path.basename(imgfile))
+                tsdict[key] = imdict["timestamp"]/1000.0
+            except:
+                with open(base+".pb","rb") as f:
+                    pb = TimestampedImage_pb2.TimestampedImage()
+                    pb.ParseFromString(f.read())
+                assert(pb.image_file==os.path.basename(imgfile))
+                tsdict[key] = pb.timestamp/1000.0
+
+
+            imgin = deepracing.imutils.readImage(imgfile)
             impil = F.to_pil_image(imgin)
             if bool(ROI):
                 x = ROI[0]
@@ -99,13 +118,18 @@ class ImageLMDBWrapper():
             entry = Image_pb2.Image( rows=im.shape[0] , cols=im.shape[1] , channel_order=ChannelOrder_pb2.RGB , image_data=im.flatten().tobytes() )
             with env.begin(write=True) as write_txn:
                 write_txn.put(key.encode(self.encoding), entry.SerializeToString())
+        with open(os.path.join(env.path(), "timestamps.json"), "w") as f:
+            json.dump(tsdict, f, indent=2, sort_keys=True)    
         env.close()
+
     def writeImage(self, key, image):
         imarr = np.asarray(image)
         entry = Image_pb2.Image( rows=imarr.shape[0] , cols=imarr.shape[1] , channel_order=ChannelOrder_pb2.RGB , image_data=imarr.flatten().tobytes() )
         with self.env.begin(write=True) as write_txn:
             write_txn.put(key.encode(self.encoding), entry.SerializeToString())
         return entry
+    def getDBPath(self):
+        return self.env.path()
     def clearStaleReaders(self):
         self.env.reader_check()
     def resetEnv(self):
