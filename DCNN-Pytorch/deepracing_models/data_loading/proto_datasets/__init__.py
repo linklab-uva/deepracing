@@ -4,6 +4,7 @@ from .ControlOutputSequenceDataset import ControlOutputSequenceDataset
 from .MultiAgentDataset import MultiAgentDataset
 from .RacelineLabelDataset import RacelineLabelDataset
 from .LaserScanDataset import LaserScanDataset
+from .ImageSequenceDataset import ImageSequenceDataset
 import os
 import deepracing.backend
 import numpy as np
