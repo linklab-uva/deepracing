@@ -104,16 +104,17 @@ class MultiAgentDataset(Dataset):
         raceline = np.asarray([ [v.vector.x, v.vector.y, v.vector.z]  for v in racelinepb  ])
 
         if self.downsample is not None:
-            s = np.linspace(0.0,1.0,num=egopositions.shape[0])
-            splp = make_interp_spline(s, egopositions, k=5)
-            splv = make_interp_spline(s, egovelocities, k=5)
-            splrl = make_interp_spline(s, raceline, k=5)
-            splst = make_interp_spline(s, rtn_session_times, k=5)
-            ssamp = np.linspace(0.0,1.0,num=self.downsample)
-            egopositions = splp(ssamp)
-            egovelocities = splv(ssamp)
-            raceline = splrl(ssamp)
-            rtn_session_times = splst(ssamp)
+            t0 = rtn_session_times[0]
+            tfit = rtn_session_times - t0
+            splp = make_interp_spline(tfit, egopositions, k=5)
+            splv = make_interp_spline(tfit, egovelocities, k=5)
+            splrl = make_interp_spline(tfit, raceline, k=5)
+            splst = make_interp_spline(tfit, rtn_session_times, k=5)
+            tsamp = np.linspace(tfit[0],tfit[-1],num=self.downsample)
+            egopositions = splp(tsamp)
+            egovelocities = splv(tsamp)
+            raceline = splrl(tsamp)
+            rtn_session_times = tsamp + t0
 
 
 
