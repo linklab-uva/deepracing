@@ -202,6 +202,9 @@ def go():
 
         dsetfolders.append(root_folder)
         label_folder = os.path.join(root_folder,label_subfolder)
+        with open(os.path.join(label_folder,"config.yaml"), "r") as f:
+            dataset.update(yaml.load(f, Loader=yaml.SafeLoader))
+            
         image_folder = os.path.join(root_folder,"images")
         key_file = os.path.join(root_folder,key_file)
         label_wrapper = deepracing.backend.MultiAgentLabelLMDBWrapper()
