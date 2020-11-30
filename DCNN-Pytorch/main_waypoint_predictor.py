@@ -50,11 +50,11 @@ def run_epoch(experiment, network, optimizer, dataloader, waypoint_loss, use_tqd
     network.train()  # This is important to call before training!
     dataloaderlen = len(dataloader)
     dev = next(network.parameters()).device  # we are only doing single-device training for now, so this works fine.
-
+    dtype = (next(network.parameters())).dtype
     for (i, imagedict) in t:
-        input_images = imagedict["images"].double().to(device=dev)
+        input_images = imagedict["images"].type(dtype).to(device=dev)
         batch_size = input_images.shape[0]
-        ego_positions = imagedict["ego_positions"].double().to(device=dev)
+        ego_positions = imagedict["ego_positions"].type(dtype).to(device=dev)
         predictions = network(input_images)
 
         
@@ -153,6 +153,7 @@ def go():
     hidden_dim = config["hidden_dimension"]
     sequence_length = config["sequence_length"]
     use_3dconv = config["use_3dconv"]
+    use_float = config["use_float"]
     num_recurrent_layers = config.get("num_recurrent_layers",1)
     config["hostname"] = socket.gethostname()
 
@@ -174,8 +175,13 @@ def go():
         device = torch.device("cuda:%d" % gpu)
     else:
         device = torch.device("cpu")
-    net = net.double().to(device=device)
-    waypoint_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss().double().to(device=device)
+    if use_float:
+        net = net.float().to(device=device)
+    else:
+        net = net.double().to(device=device)
+    dtype = (next(net.parameters())).dtype
+    waypoint_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss().type(dtype).to(device=device)
+
     optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=dampening)
 
     dsets=[]
