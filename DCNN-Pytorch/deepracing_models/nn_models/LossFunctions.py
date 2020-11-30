@@ -119,7 +119,9 @@ class SquaredLpNormLoss(nn.Module):
         #self.pairwise_dist = nn.PairwiseDistance(p=self.p)
     def forward(self, predictions, targets):
         diff = predictions - targets
-        if self.p%2 == 0:
+        if self.p==2:
+            squarednorms  = torch.sum(torch.square(diff),dim=self.dim)
+        elif self.p%2 == 0:
             squarednorms  = torch.sum(torch.pow(diff,self.p),dim=self.dim)
         else:
             squarednorms  = torch.sum(torch.abs(torch.pow(diff,self.p)),dim=self.dim)
