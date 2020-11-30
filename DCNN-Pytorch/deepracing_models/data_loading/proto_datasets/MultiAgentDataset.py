@@ -43,7 +43,7 @@ import torchvision.transforms.functional as F
 from deepracing_models.data_loading.image_transforms import IdentifyTransform
 import json
 import scipy.interpolate
-from scipy.interpolate import make_lsq_spline, BSpline
+from scipy.interpolate import make_lsq_spline, BSpline, make_interp_spline
 
 def sensibleKnots(t, degree):
     numsamples = t.shape[0]
@@ -61,7 +61,7 @@ def pbPoseToTorch(posepb : Pose3d):
     pose[0:3,3] = torch.from_numpy( np.array( [ position_pb.x, position_pb.y, position_pb.z], dtype=np.float64 )  ).double()
 
 class MultiAgentDataset(Dataset):
-    def __init__(self, image_db_wrapper : ImageLMDBWrapper, label_db_wrapper : MultiAgentLabelLMDBWrapper, keyfile : str, context_length : int, image_size : np.ndarray,  position_indices : np.ndarray,  track_name : str, extra_transforms : list = [], return_other_agents = False):
+    def __init__(self, image_db_wrapper : ImageLMDBWrapper, label_db_wrapper : MultiAgentLabelLMDBWrapper, keyfile : str, context_length : int, image_size : np.ndarray,  position_indices : np.ndarray,  track_name : str, extra_transforms : list = [], return_other_agents = False, downsample = None):
         super(MultiAgentDataset, self).__init__()
         self.image_db_wrapper : ImageLMDBWrapper = image_db_wrapper
         self.label_db_wrapper : MultiAgentLabelLMDBWrapper = label_db_wrapper
@@ -76,6 +76,7 @@ class MultiAgentDataset(Dataset):
         self.transforms = [IdentifyTransform()] + extra_transforms
         self.return_other_agents = return_other_agents
         self.track_name = track_name
+        self.downsample = downsample
     def __len__(self):
         return (self.num_images - self.context_length - 1)*len(self.transforms)
     def __getitem__(self, input_index):
@@ -101,6 +102,18 @@ class MultiAgentDataset(Dataset):
         egopositions = np.asarray([ [p.translation.x, p.translation.y, p.translation.z]  for p in posespb  ])
         egovelocities = np.asarray([ [v.vector.x, v.vector.y, v.vector.z]  for v in linearvelspb  ])
         raceline = np.asarray([ [v.vector.x, v.vector.y, v.vector.z]  for v in racelinepb  ])
+
+        if self.downsample is not None:
+            s = np.linspace(0.0,1.0,num=egopositions.shape[0])
+            splp = make_interp_spline(s, egopositions, k=5)
+            splv = make_interp_spline(s, egovelocities, k=5)
+            splrl = make_interp_spline(s, raceline, k=5)
+            splst = make_interp_spline(s, rtn_session_times, k=5)
+            ssamp = np.linspace(0.0,1.0,num=self.downsample)
+            egopositions = splp(ssamp)
+            egovelocities = splv(ssamp)
+            raceline = splrl(ssamp)
+            rtn_session_times = splst(ssamp)
 
 
 
