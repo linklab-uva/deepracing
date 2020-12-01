@@ -124,7 +124,6 @@ def go():
     num_workers = config["num_workers"]
     hidden_dim = config["hidden_dimension"]
     sequence_length = config["sequence_length"]
-    use_3dconv = config["use_3dconv"]
     use_float = config["use_float"]
     num_recurrent_layers = config.get("num_recurrent_layers",1)
     config["hostname"] = socket.gethostname()
