@@ -53,13 +53,6 @@ def sensibleKnots(t, degree):
 
 def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
-def pbPoseToTorch(posepb : Pose3d):
-    position_pb = posepb.translation
-    rotation_pb = posepb.rotation
-    pose = torch.eye(4).double()
-    pose[0:3,0:3] = torch.from_numpy( Rot.from_quat( np.array([ rotation_pb.x,rotation_pb.y,rotation_pb.z,rotation_pb.w ], dtype=np.float64 ) ).as_matrix() ).double()
-    pose[0:3,3] = torch.from_numpy( np.array( [ position_pb.x, position_pb.y, position_pb.z], dtype=np.float64 )  ).double()
-
 class MultiAgentDataset(Dataset):
     def __init__(self, image_db_wrapper : ImageLMDBWrapper, label_db_wrapper : MultiAgentLabelLMDBWrapper, keyfile : str, context_length : int, image_size : np.ndarray,  position_indices : np.ndarray,  track_name : str, extra_transforms : list = [], return_other_agents = False, downsample = None):
         super(MultiAgentDataset, self).__init__()
@@ -95,9 +88,9 @@ class MultiAgentDataset(Dataset):
         posespb = label.ego_agent_trajectory.poses
         linearvelspb = label.ego_agent_trajectory.linear_velocities
         rtn_session_times = np.asarray([v.session_time for v in racelinepb])
-        egopose = np.eye(4,dtype=np.float64)
+        egopose = np.eye(4)
         egopose[0:3,3] = np.asarray([label.ego_agent_pose.translation.x, label.ego_agent_pose.translation.y, label.ego_agent_pose.translation.z])
-        egopose[0:3,0:3] = Rot.from_quat(np.asarray([label.ego_agent_pose.rotation.x, label.ego_agent_pose.rotation.y, label.ego_agent_pose.rotation.z, label.ego_agent_pose.rotation.w]).astype(np.float64)).as_matrix()
+        egopose[0:3,0:3] = Rot.from_quat(np.asarray([label.ego_agent_pose.rotation.x, label.ego_agent_pose.rotation.y, label.ego_agent_pose.rotation.z, label.ego_agent_pose.rotation.w])).as_matrix()
 
         egopositions = np.asarray([ [p.translation.x, p.translation.y, p.translation.z]  for p in posespb  ])
         egovelocities = np.asarray([ [v.vector.x, v.vector.y, v.vector.z]  for v in linearvelspb  ])
@@ -125,7 +118,7 @@ class MultiAgentDataset(Dataset):
         rtndict = {"track": self.track_name, "images": images_torch, "session_times": rtn_session_times, "raceline": raceline[:,self.position_indices], "ego_current_pose": egopose, "ego_positions": egopositions[:,self.position_indices],"ego_velocities": egovelocities[:,self.position_indices], "image_index": packetrange[-1]}
 
         if self.return_other_agents:
-            rtn_agent_positions = 1E9*np.ones([19,raceline.shape[0],raceline.shape[1]], dtype=np.float64)
+            rtn_agent_positions = 1E9*np.ones([19,raceline.shape[0],raceline.shape[1]])
             other_agent_positions = MultiAgentLabelLMDBWrapper.positionsFromLabel(label)
             valid = torch.zeros(19).bool()
             if other_agent_positions is not None:
