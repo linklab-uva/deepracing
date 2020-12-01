@@ -320,9 +320,14 @@ def go():
         label_wrapper.openDatabase(os.path.join(label_folder,"lmdb") )
 
 
+        image_lmdb_folder = os.path.join(image_folder,"image_lmdb")
+        with open(os.path.join(image_lmdb_folder,"config.yaml"),"r") as f:
+            dataset.update(yaml.load(f, Loader=yaml.SafeLoader))
+
+
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
         image_wrapper = deepracing.backend.ImageLMDBWrapper()
-        image_wrapper.readDatabase( os.path.join(image_folder,"image_lmdb"), mapsize=image_mapsize )
+        image_wrapper.readDatabase( image_lmdb_folder , mapsize=image_mapsize )
 
         extra_transforms = []
         color_jitters = dlocal.get("color_jitters", None) 
@@ -345,7 +350,8 @@ def go():
     dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
                         shuffle=True, num_workers=num_workers, pin_memory=gpu>=0)
     print("Dataloader of of length %d" %(len(dataloader)))
-
+    if debug:
+        print("Using datasets:\n%s", (str(dataset_config)))
     
     main_dir = args.output_directory
     if debug:
