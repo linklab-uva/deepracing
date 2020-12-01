@@ -96,7 +96,7 @@ class MultiAgentDataset(Dataset):
         egovelocities = np.asarray([ [v.vector.x, v.vector.y, v.vector.z]  for v in linearvelspb  ])
         raceline = np.asarray([ [v.vector.x, v.vector.y, v.vector.z]  for v in racelinepb  ])
 
-        if self.downsample is not None:
+        if bool(self.downsample):
             t0 = rtn_session_times[0]
             tfit = rtn_session_times - t0
             splp = make_interp_spline(tfit, egopositions, k=5)
