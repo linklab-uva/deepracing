@@ -68,6 +68,8 @@ class ControlOutputSequenceDataset(Dataset):
         assert(str(labels_pb[0].image_file).lower()==(label_keys[0]+".jpg").lower())
 
         
-        control_outputs = np.stack([ np.array([lbl.label.steering for lbl in labels_pb]), np.array([lbl.label.throttle-lbl.label.brake for lbl in labels_pb]) ], axis=1)
+        steering = np.array([lbl.label.steering for lbl in labels_pb])
+        throttle = np.array([lbl.label.throttle for lbl in labels_pb]) 
+        brake = np.array([lbl.label.brake for lbl in labels_pb])
     
-        return images, control_outputs
+        return {"images": images, "steering": steering, "throttle": throttle, "brake": brake}
