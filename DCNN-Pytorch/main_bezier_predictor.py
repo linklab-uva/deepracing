@@ -59,6 +59,7 @@ def run_epoch(experiment, network, optimizer, dataloader, loss_dict, config, use
     other_agent_loss = loss_dict["other_agents"]
     inner_boundary_loss = loss_dict["inner_boundary"]
     outer_boundary_loss = loss_dict["outer_boundary"]
+    target = config["target"]
 
     #_, _, _, _, _, _, sample_session_times,_,_ = dataloader.dataset[0]
     bezier_order = network.params_per_dimension-1+int(fix_first_point)
@@ -70,11 +71,11 @@ def run_epoch(experiment, network, optimizer, dataloader, loss_dict, config, use
         batch_size = input_images.shape[0]
         ego_current_pose = imagedict["ego_current_pose"].type(dtype).to(device=dev)
         session_times = imagedict["session_times"].type(dtype).to(device=dev)
-        raceline = imagedict["raceline"].type(dtype).to(device=dev)
+        targets = imagedict[target].type(dtype).to(device=dev)
         ego_current_pose = imagedict["ego_current_pose"].type(dtype).to(device=dev)
         ego_current_pose.requires_grad=False
-        ego_positions = imagedict["ego_positions"].type(dtype).to(device=dev)
-        ego_velocities = imagedict["ego_velocities"].type(dtype).to(device=dev)
+        # ego_positions = imagedict["ego_positions"].type(dtype).to(device=dev)
+        # ego_velocities = imagedict["ego_velocities"].type(dtype).to(device=dev)
         #other_agent_positions = imagedict.get("other_agent_positions", torch.Tensor( [np.nan for asdf in range(batch_size)] ) ).double().to(device=dev)
         other_agent_positions = imagedict.get("other_agent_positions", torch.zeros(batch_size)).type(dtype).to(device=dev)
         other_agent_valid = imagedict.get("other_agent_valid", torch.zeros(batch_size,19).bool())
@@ -124,11 +125,11 @@ def run_epoch(experiment, network, optimizer, dataloader, loss_dict, config, use
             ani = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat=True)
 
 
-            _, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(ego_positions, bezier_order, M = Mpos)
+            _, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(targets, bezier_order, M = Mpos)
             fit_points = torch.matmul(Mpos, controlpoints_fit)
 
             # gt_points_np = ego_positions[0].detach().cpu().numpy().copy()
-            gt_points_np = raceline[0].detach().cpu().numpy().copy()
+            gt_points_np = targets[0].detach().cpu().numpy().copy()
             pred_points_np = pred_points[0].detach().cpu().numpy().copy()
             pred_control_points_np = predictions_reshape[0].detach().cpu().numpy().copy()
             fit_points_np = fit_points[0].cpu().numpy().copy()
@@ -152,7 +153,7 @@ def run_epoch(experiment, network, optimizer, dataloader, loss_dict, config, use
         pred_points_boundary = torch.stack([pred_points[:,:,0], torch.zeros_like(pred_points[:,:,0]) ,pred_points[:,:,1]], dim=2)
         current_inner_boundary_loss = inner_boundary_loss(ego_current_pose, pred_points_boundary)
         current_outer_boundary_loss = outer_boundary_loss(ego_current_pose, pred_points_boundary)
-        current_position_loss = ego_agent_loss(pred_points, raceline)
+        current_position_loss = ego_agent_loss(pred_points, targets)
         if torch.any(other_agent_valid):
             current_other_agent_loss = other_agent_loss(pred_points, other_agent_positions, other_agent_valid)
             loss = loss_weights["position"]*current_position_loss + loss_weights["boundary"]*(current_inner_boundary_loss + current_outer_boundary_loss) + loss_weights["other_agents"]*current_other_agent_loss
