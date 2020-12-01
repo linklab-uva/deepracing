@@ -168,19 +168,20 @@ def go():
         root_folder = dlocal["root_folder"]
         position_indices = dlocal["position_indices"]
         label_subfolder = dlocal["label_subfolder"]
-        track_name =  dlocal["track_name"]
         dataset_tags = dlocal.get("tags", [])
         alltags = alltags.union(set(dataset_tags))
 
         dsetfolders.append(root_folder)
         label_folder = os.path.join(root_folder,label_subfolder)
-        with open(os.path.join(label_folder,"config.yaml"), "r") as f:
-            dataset.update(yaml.load(f, Loader=yaml.SafeLoader))
 
         image_folder = os.path.join(root_folder,"images")
         key_file = os.path.join(root_folder,key_file)
+
+        label_lmdb_folder = os.path.join(label_folder,"lmdb")
+        with open(os.path.join(label_lmdb_folder,"args.yaml"), "r") as f:
+            dataset.update(yaml.load(f, Loader=yaml.SafeLoader))
         label_wrapper = deepracing.backend.ControlLabelLMDBWrapper()
-        label_wrapper.openDatabase(os.path.join(label_folder,"lmdb") )
+        label_wrapper.readDatabase( label_lmdb_folder )
 
 
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
@@ -196,7 +197,7 @@ def go():
         if blur is not None:
             extra_transforms.append(GaussianBlur(blur))
         
-        current_dset = PD.ControlOutputSequenceDataset(image_db_wrapper, label_wrapper, key_file, context_length=context_length, sequence_length=sequence_length)
+        current_dset = PD.ControlOutputSequenceDataset(image_wrapper, label_wrapper, key_file, context_length=context_length, sequence_length=sequence_length)
         dsets.append(current_dset)
         
         print("\n")
