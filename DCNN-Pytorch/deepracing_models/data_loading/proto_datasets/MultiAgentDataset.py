@@ -109,7 +109,6 @@ class MultiAgentDataset(Dataset):
             splp = make_interp_spline(tfit, egopositions, k=5)
             splv = make_interp_spline(tfit, egovelocities, k=5)
             splrl = make_interp_spline(tfit, raceline, k=5)
-            splst = make_interp_spline(tfit, rtn_session_times, k=5)
             tsamp = np.linspace(tfit[0],tfit[-1],num=self.downsample)
             egopositions = splp(tsamp)
             egovelocities = splv(tsamp)
