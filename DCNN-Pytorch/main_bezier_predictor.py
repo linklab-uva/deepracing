@@ -245,9 +245,9 @@ def go():
         net = net.float()
     else:
         net = net.double()
-    p = next(net.parameters())
-    ego_agent_loss = ego_agent_loss.type(p.dtype)
-    other_agent_loss = other_agent_loss.type(p.dtype)
+    dtype = next(net.parameters()).dtype
+    ego_agent_loss = ego_agent_loss.type(dtype)
+    other_agent_loss = other_agent_loss.type(dtype)
 
     if model_load is not None:
         net.load_state_dict(torch.load(model_load, map_location=torch.device("cpu")))
@@ -270,14 +270,14 @@ def go():
         raise ValueError("Could not find inner boundary limits file")
     inner_boundary_r, inner_boundary = loadBoundary(ibfile)
     _, _, _, ibnormals_np = geometric.computeTangentsAndNormals(inner_boundary_r.numpy().copy(), inner_boundary[0:3].transpose(0,1).numpy().copy(), k=3, ref=np.array([0.0,-1.0,0.0]))
-    ibloss = loss_functions.BoundaryLoss(inner_boundary, torch.from_numpy(ibnormals_np).transpose(0,1), alpha=boundary_loss_config["alpha"], beta=boundary_loss_config["beta"]).type(p.dtype)
+    ibloss = loss_functions.BoundaryLoss(inner_boundary, torch.from_numpy(ibnormals_np).transpose(0,1), alpha=boundary_loss_config["alpha"], beta=boundary_loss_config["beta"]).type(dtype)
     
     obfile = searchForFile(track_name+"_outerlimit.json", os.getenv("F1_TRACK_DIRS").split(os.pathsep)+[os.curdir])
     if obfile is None:
         raise ValueError("Could not find outer boundary limits file")
     outer_boundary_r, outer_boundary = loadBoundary(obfile)
     _, _, _, obnormals_np = geometric.computeTangentsAndNormals(outer_boundary_r.numpy().copy(), outer_boundary[0:3].transpose(0,1).numpy().copy(), k=3, ref=np.array([0.0,1.0,0.0]))
-    obloss = loss_functions.BoundaryLoss(outer_boundary, torch.from_numpy(obnormals_np).transpose(0,1), alpha=boundary_loss_config["alpha"], beta=boundary_loss_config["beta"]).type(p.dtype)
+    obloss = loss_functions.BoundaryLoss(outer_boundary, torch.from_numpy(obnormals_np).transpose(0,1), alpha=boundary_loss_config["alpha"], beta=boundary_loss_config["beta"]).type(dtype)
 
     
     if gpu>=0:
