@@ -37,10 +37,9 @@ def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
 class ControlOutputSequenceDataset(Dataset):
     def __init__(self, image_db_wrapper : deepracing.backend.ImageLMDBWrapper, label_db_wrapper : deepracing.backend.ControlLabelLMDBWrapper, \
-        keyfile, image_size = np.array((66,200)), context_length = 5, sequence_length = 1, optflow_db_wrapper = None):
+        keyfile, image_size = np.array((66,200)), context_length = 5, sequence_length = 1):
         super(ControlOutputSequenceDataset, self).__init__()
         self.image_db_wrapper = image_db_wrapper
-        self.optflow_db_wrapper = optflow_db_wrapper
         self.label_db_wrapper = label_db_wrapper
         self.image_size = image_size
         self.totensor = transforms.ToTensor()
@@ -54,29 +53,21 @@ class ControlOutputSequenceDataset(Dataset):
     def __len__(self):
         return self.length
     def __getitem__(self, index):
-        image_start = index
+        image_start = int(self.db_keys[index].split("_")[-1])
         image_end = image_start+self.context_length
-        labels_start = image_end-1
-        labels_end = labels_start+self.sequence_length
 
-        image_keys = self.db_keys[image_start:image_end]
-        label_keys = self.db_keys[labels_start:labels_end]
+        label_start = image_end-1
+        label_end = label_start+self.sequence_length
 
+        image_keys = ["image_%d" % i for i in range(image_start, image_end)]
+        label_keys = ["image_%d" % i for i in range(label_start, label_end)]
 
-        image_torch = torch.from_numpy(\
-            np.array( [ self.totensor( resizeImage(self.image_db_wrapper.getImage(key), self.image_size)  ).numpy() for key in image_keys ] )\
-                )
-        if self.optflow_db_wrapper is None:
-            opt_flow_torch = torch.from_numpy(np.nan(self.context_length,2,self.image_size[0],self.image_size[1]))
-        else:
-            opt_flow_torch = torch.from_numpy(\
-                        np.array( [ self.optflow_db_wrapper.getImage(key).transpose(2,0,1) for key in image_keys ] )\
-                            )
+        images = np.array([self.image_db_wrapper.getImage(k) for k in image_keys])
 
-        control_outputs = torch.zeros(self.sequence_length, 2, dtype=image_torch.dtype)
-        for i in range(len(label_keys)):
-            label_packet = self.label_db_wrapper.getControlLabel(label_keys[i])
-            control_outputs[i][0] = label_packet.label.steering
-            accel = label_packet.label.throttle - label_packet.label.brake
-            control_outputs[i][1] = accel
-        return image_torch, opt_flow_torch, torch.clamp(control_outputs, -1.0, 1.0)
+        labels_pb = [self.label_db_wrapper.getControlLabel(k) for k in label_keys]
+        assert(str(labels_pb[0].image_file).lower()==(label_keys[0]+".jpg").lower())
+
+        
+        control_outputs = np.stack([ np.array([lbl.label.steering for lbl in labels_pb]), np.array([lbl.label.throttle-lbl.label.brake for lbl in labels_pb]) ], axis=1)
+    
+        return images, control_outputs
