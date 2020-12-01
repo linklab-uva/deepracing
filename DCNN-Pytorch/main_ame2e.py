@@ -1,15 +1,14 @@
 import comet_ml
 import torch
 import torch.nn as NN
+import torch.nn.functional as F
 import torch.utils.data as data_utils
 import deepracing_models.data_loading.proto_datasets as PD
 from tqdm import tqdm as tqdm
-import deepracing_models.nn_models
-import deepracing_models.nn_models.Models
 import deepracing_models.nn_models.LossFunctions as loss_functions
+import deepracing_models.nn_models.Models
 import numpy as np
 import torch.optim as optim
-from tqdm import tqdm as tqdm
 import pickle
 from datetime import datetime
 import os
@@ -20,292 +19,269 @@ import yaml
 import shutil
 import skimage
 import skimage.io
+import deepracing
+from deepracing import trackNames
 import deepracing.backend
 import imageio
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
-from io import BytesIO
+import socket
+import json
+from comet_ml.api import API, APIExperiment
+import cv2
+import torchvision, torchvision.transforms as T
+from deepracing_models.data_loading.image_transforms import GaussianBlur
+from deepracing.raceline_utils import loadBoundary
+from deepracing import searchForFile
+import deepracing.path_utils.geometric as geometric
 
-
-loss = torch.zeros(1)
-def run_epoch(network, optimizer, trainLoader, gpu, loss_function, imsize=(66,200), debug=False, use_tqdm=True):
-    global loss
+#torch.backends.cudnn.enabled = False
+def run_epoch(experiment, network, optimizer, dataloader, control_loss, use_tqdm = False, debug=False, plot=False):
     cum_loss = 0.0
-    batch_size = trainLoader.batch_size
+    cum_param_loss = 0.0
+    cum_position_loss = 0.0
+    cum_velocity_loss = 0.0
     num_samples=0.0
     if use_tqdm:
-        t = tqdm(enumerate(trainLoader), total=len(trainLoader))
+        t = tqdm(enumerate(dataloader), total=len(dataloader))
     else:
-        t = enumerate(trainLoader)
+        t = enumerate(dataloader)
     network.train()  # This is important to call before training!
-    for (i, (image_torch, optflow_torch, control_output) ) in t:
-        if debug:
-            image_np = image_torch[0].numpy().copy().transpose(1,2,0)
-            image_ubyte = skimage.util.img_as_ubyte(image_np)
-            print(control_output[0])
-            cv2.namedWindow("Image",cv2.WINDOW_AUTOSIZE)
-            cv2.imshow("Image", cv2.cvtColor(image_ubyte,cv2.COLOR_RGB2BGR))
-            cv2.waitKey(0)
-        image_torch = image_torch.double()
-        optflow_torch = optflow_torch.double()
-        control_output = control_output.double()
+    dataloaderlen = len(dataloader)
+    firstparam = next(network.parameters()) # we are only doing single-device training for now, so this works fine.
+    dev = firstparam.device  
+    dtype = firstparam.dtype
+    for (i, imagedict) in t:
+        input_images = imagedict["images"].type(dtype).to(device=dev)
+        steering = imagedict["steering"]
+        throttle = imagedict["throttle"]
+        brake = imagedict["brake"]
+        targets = torch.stack([steering, throttle-brake], dim=2).type(dtype).to(device=dev)
 
-        if gpu>=0:
-            image_torch = image_torch.cuda(gpu)
-            optflow_torch = optflow_torch.cuda(gpu)
-            control_output = control_output.cuda(gpu)
-      #  print(image_torch.dtype)
-        # Forward pass:
-        if network.input_channels==5:
-            input_torch = torch.cat((image_torch, optflow_torch), dim=2)
-        elif network.input_channels==3:
-            input_torch = image_torch
-        elif network.input_channels==2:
-            input_torch = optflow_torch
-        else:
-            raise ValueError("Invalid number of input channels: %d" %(net.input_channels))
-        predictions = network(input_torch)
-        loss = loss_function(predictions, control_output)
-        
-        # Backward pass:
+        predictions = network(input_images)
+
+
+        loss = control_loss(predictions, targets)
         optimizer.zero_grad()
         loss.backward() 
-
         # Weight and bias updates.
         optimizer.step()
-
+        # logging information
+        current_position_loss_float = float(loss.item())
+        num_samples += 1.0
+        if not debug:
+            experiment.log_metric("current_position_loss", current_position_loss_float)
         if use_tqdm:
-            # logging information
-            cum_loss += float(loss.item())
-            num_samples += float(batch_size)
-            t.set_postfix({"cum_loss" : cum_loss/num_samples})
+            t.set_postfix({"current_position_loss" : current_position_loss_float})
 def go():
-    parser = argparse.ArgumentParser(description="Train AdmiralNet Control Predictor")
-    parser.add_argument("training_config", type=str,  help="Training Parameters Configuration file to load")
-    parser.add_argument("dataset_config", type=str,  help="Dataset Configuration file to load")
+    parser = argparse.ArgumentParser(description="Train AdmiralNet Waypoint Predictor")
+    parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuration file to load")
+    parser.add_argument("model_config_file", type=str,  help="Model Configuration file to load")
     parser.add_argument("output_directory", type=str,  help="Where to put the resulting model files")
 
-    parser.add_argument("--debug", action="store_true",  help="Display images upon each iteration of the training loop")
+    parser.add_argument("--debug", action="store_true",  help="Don't actually push to comet, just testing")
+    parser.add_argument("--plot", action="store_true",  help="Plot images upon each iteration of the training loop")
+    parser.add_argument("--model_load",  type=str, default=None,  help="Load this model file prior to running. usually in conjunction with debug")
+    parser.add_argument("--models_to_disk", action="store_true",  help="Save the model files to disk in addition to comet.ml")
     parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
-    parser.add_argument("--gpu", type=int, default=None,  help="Override GPU number in config file")
-    parser.add_argument("--batch_size", type=int, default=None,  help="Override the order of the batch size specified in the config file")
-    parser.add_argument("--learning_rate", type=float, default=None,  help="Override the learning rate specified in the config file")
-    parser.add_argument("--momentum", type=float, default=None,  help="Override the momentum specified in the config file")
-    parser.add_argument("--loss_function", type=str, default=None,  help="Override the loss function specified in the config file")
-    parser.add_argument("--experiment_id", type=str, default=None,  help="Resume from a specific comet experiment.")
+    parser.add_argument("--gpu", type=int, default=None,  help="Override the GPU index specified in the config file")
 
     
-    args : argparse.Namespace = parser.parse_args()
-    
-    argsdict = dict(args.__dict__)
-    print(argsdict)
-    training_config_file = args.training_config
-    dataset_config_file = args.dataset_config
-    main_dir = args.output_directory
-    exp_id = args.experiment_id
+    args = parser.parse_args()
+
+    dataset_config_file = args.dataset_config_file
     debug = args.debug
-    with open(training_config_file) as f:
-        config = yaml.load(f, Loader = yaml.SafeLoader)
+    plot = args.plot
+    model_load = args.model_load
+    models_to_disk = args.models_to_disk
+    use_tqdm = args.tqdm
+
     with open(dataset_config_file) as f:
         dataset_config = yaml.load(f, Loader = yaml.SafeLoader)
-
+    config_file = args.model_config_file
+    with open(config_file) as f:
+        config = yaml.load(f, Loader = yaml.SafeLoader)
+    print(dataset_config)
     image_size = dataset_config["image_size"]
-    output_dimension = config["output_dimension"]
-    sequence_length = config["sequence_length"]
+    input_channels = config["input_channels"]
+    
     context_length = config["context_length"]
-    hidden_dimension = config["hidden_dimension"]
-    input_channels  = config["input_channels"] 
+    batch_size = config["batch_size"]
+    learning_rate = config["learning_rate"]
+    momentum = config["momentum"]
+    dampening = config["dampening"]
+    project_name = config["project_name"]
+   
     if args.gpu is not None:
         gpu = args.gpu
-        config["gpu"]=gpu
+        config["gpu"]  = gpu
     else:
-        gpu = config["gpu"]
-
-    if args.momentum is not None:
-        momentum = args.momentum
-        config["momentum"]=momentum
-    else:
-        momentum = config["momentum"]
-
-    if args.batch_size is not None:
-        batch_size = args.batch_size
-        config["batch_size"]=batch_size
-    else:
-        batch_size = config["batch_size"]
-
-    if args.learning_rate is not None:
-        learning_rate = args.learning_rate
-        config["learning_rate"]=learning_rate
-    else:
-        learning_rate = config["learning_rate"]
-
-    if args.loss_function is not None:
-        loss_function = args.loss_function
-        config["loss_function"]=loss_function
-    else:
-        loss_function = config["loss_function"]
+        gpu = config["gpu"] 
+    torch.cuda.set_device(gpu)
 
     num_epochs = config["num_epochs"]
     num_workers = config["num_workers"]
-    loss_reduction = config["loss_reduction"]
-    nesterov = config["nesterov"]
+    hidden_dim = config["hidden_dimension"]
+    sequence_length = config["sequence_length"]
+    use_3dconv = config["use_3dconv"]
+    use_float = config["use_float"]
+    num_recurrent_layers = config.get("num_recurrent_layers",1)
+    config["hostname"] = socket.gethostname()
 
     
-    if loss_function=="L1":
-        loss_func = torch.nn.L1Loss(reduction=loss_reduction)
-    elif loss_function=="MSE":
-        loss_func = torch.nn.MSELoss(reduction=loss_reduction)
-    else:
-        raise ValueError("Unknown loss function: " + loss_function)
-    loss_func = loss_func.double()
+    print("Using config:\n%s" % (str(config)))
+    net = deepracing_models.nn_models.Models.AdmiralNetKinematicPredictor( context_length = context_length , input_channels=input_channels, sequence_length=sequence_length,  hidden_dim = hidden_dim, num_recurrent_layers=num_recurrent_layers, use_3dconv = use_3dconv ) 
+    print("net:\n%s" % (str(net)))
+    
+
+
+
+    
+
+    #image_wrapper = deepracing.backend.ImageFolderWrapper(os.path.dirname(image_db))
+    
+
     if gpu>=0:
-        loss_func = loss_func.cuda(gpu)
-    if num_workers == 0:
-        max_spare_txns = 16
+        print("moving stuff to GPU")
+        device = torch.device("cuda:%d" % gpu)
     else:
-        max_spare_txns = num_workers
-    
-    datasets = dataset_config["datasets"]
+        device = torch.device("cpu")
+    if use_float:
+        net = net.float().to(device=device)
+    else:
+        net = net.double().to(device=device)
+    dtype = (next(net.parameters())).dtype
+    control_loss = NN.MSELoss().type(dtype).to(device=device)
+
+    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum, dampening=dampening)
+
     dsets=[]
-    use_optflow=True
-    for dataset in datasets:
-        print("Parsing database config: %s" %(str(dataset)))
-        root_folder = dataset["root_folder"]
+    dsetfolders = []
+    alltags = set(dataset_config.get("tags",[]))
+    dset_output_lengths=[]
+    for dataset in dataset_config["datasets"]:
+        dlocal : dict = {k: dataset_config[k] for k in dataset_config.keys()  if (not (k in ["datasets"]))}
+        dlocal.update(dataset)
+        print("Parsing database config: %s" %(str(dlocal)))
+        key_file = dlocal["key_file"]
+        root_folder = dlocal["root_folder"]
+        position_indices = dlocal["position_indices"]
+        label_subfolder = dlocal["label_subfolder"]
+        track_name =  dlocal["track_name"]
+        dataset_tags = dlocal.get("tags", [])
+        alltags = alltags.union(set(dataset_tags))
+
+        dsetfolders.append(root_folder)
+        label_folder = os.path.join(root_folder,label_subfolder)
+        with open(os.path.join(label_folder,"config.yaml"), "r") as f:
+            dataset.update(yaml.load(f, Loader=yaml.SafeLoader))
+
         image_folder = os.path.join(root_folder,"images")
-        image_lmdb = os.path.join(image_folder,"image_lmdb")
-        optflow_lmdb = os.path.join(image_folder,"optical_flow_lmdb")
-        label_folder = os.path.join(root_folder,"steering_labels")
-        label_lmdb = os.path.join(label_folder,"lmdb")
-        key_file = os.path.join(root_folder,dataset["key_file"])
-
+        key_file = os.path.join(root_folder,key_file)
         label_wrapper = deepracing.backend.ControlLabelLMDBWrapper()
-        label_wrapper.readDatabase(label_lmdb, mapsize=2e9, max_spare_txns=max_spare_txns )
+        label_wrapper.openDatabase(os.path.join(label_folder,"lmdb") )
 
-        image_size = np.array(image_size)
+
         image_mapsize = float(np.prod(image_size)*3+12)*float(len(label_wrapper.getKeys()))*1.1
-        image_wrapper = deepracing.backend.ImageLMDBWrapper(direct_caching=False)
-        image_wrapper.readDatabase(image_lmdb, max_spare_txns=max_spare_txns, mapsize=image_mapsize )
+        image_wrapper = deepracing.backend.ImageLMDBWrapper()
+        image_wrapper.readDatabase( os.path.join(image_folder,"image_lmdb"), mapsize=image_mapsize )
 
-        optflow_wrapper = deepracing.backend.OpticalFlowLMDBWrapper()
-        optflow_wrapper.readDatabase(optflow_lmdb, mapsize=8*image_mapsize)
+        extra_transforms = []
+        color_jitters = dlocal.get("color_jitters", None) 
+        if color_jitters is not None:
+            extra_transforms+=[T.ColorJitter(brightness=[cj, cj]) for cj in color_jitters]
+            
+        blur = dlocal.get("blur", None)   
+        if blur is not None:
+            extra_transforms.append(GaussianBlur(blur))
         
-        curent_dset = PD.ControlOutputSequenceDataset(image_wrapper, label_wrapper, key_file,\
-             context_length=context_length, sequence_length=sequence_length, image_size = image_size, optflow_db_wrapper=optflow_wrapper)
-        dsets.append(curent_dset)
+        current_dset = PD.ControlOutputSequenceDataset(image_db_wrapper, label_wrapper, key_file, context_length=context_length, sequence_length=sequence_length)
+        dsets.append(current_dset)
+        
+        print("\n")
     if len(dsets)==1:
         dset = dsets[0]
     else:
         dset = torch.utils.data.ConcatDataset(dsets)
     
-    dataloader = data_utils.DataLoader(dset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=gpu>=0)
-    netpostfix="admiralnet_epoch_%d_params.pt" 
-    optimizerpostfix = "admiralnet_epoch_%d_optimizer.pt"
-    if exp_id is not None:
-        api = comet_ml.API()
-        api_experiment : comet_ml.APIExperiment  =  api.get_experiment("electric-turtle", "deepracingadmiralnet-e2e", exp_id)
+    dataloader = data_utils.DataLoader(dset, batch_size=batch_size,
+                        shuffle=True, num_workers=num_workers, pin_memory=gpu>=0)
+    print("Dataloader of of length %d" %(len(dataloader)))
 
-        learning_rate = float(api_experiment.get_parameters_summary(parameter="learning_rate")["valueCurrent"])
-        config["learning_rate"] = learning_rate
-        input_channels = int(api_experiment.get_parameters_summary(parameter="input_channels")["valueCurrent"])
-        config["input_channels"] = input_channels
-        momentum = float(api_experiment.get_parameters_summary(parameter="momentum")["valueCurrent"])
-        config["momentum"] = momentum
-        nesterov = api_experiment.get_parameters_summary(parameter="nesterov")["valueCurrent"]=="true"
-        config["nesterov"] = nesterov
-        
-        net = deepracing_models.nn_models.Models.AdmiralNetKinematicPredictor(input_channels=input_channels, output_dimension=2, \
-                                                        context_length=context_length, sequence_length=sequence_length, hidden_dim = hidden_dimension)
-        net = net.double()
-
-        assetlist = api_experiment.get_asset_list()
-        assetdict = {d['fileName']: d['assetId'] for d in assetlist}
-        indices : set = set([int(d['fileName'].split("_")[2]) for d in assetlist])
-        print(indices)
-        i = np.max(np.array(list(indices)))-1
-
-        print("Resuming from epoch %d" %(i,))
-        networkweightsfile = netpostfix%(i,)
-        optimizerweightsfile = optimizerpostfix%(i,)
-        
-        output_directory = os.path.join(main_dir, exp_id)
+    
+    main_dir = args.output_directory
+    if debug:
+        output_directory = os.path.join(main_dir, "debug")
         os.makedirs(output_directory, exist_ok=True)
-        nwf = os.path.join(output_directory,networkweightsfile)
-        if os.path.isfile(nwf):
-            net.load_state_dict(torch.load(nwf, map_location=torch.device("cpu")))
-        else:
-            print("Getting network weights from comet.ml")
-            networkweights = api_experiment.get_asset(assetdict[networkweightsfile])
-            net.load_state_dict(torch.load(BytesIO(networkweights), map_location=torch.device("cpu")))
-            torch.save(net.state_dict(), nwf)
-        if gpu>=0:
-            net = net.cuda(gpu)
-
-        optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum, dampening=0.0, nesterov=(nesterov and momentum>0) )
-        owf = os.path.join(output_directory,optimizerweightsfile)
-        if os.path.isfile(owf):
-            optimizer.load_state_dict(torch.load(owf, map_location=next(net.parameters()).device) )
-        else:
-            print("Getting optimizer weights from comet")
-            optimizerweights = api_experiment.get_asset(assetdict[optimizerweightsfile])
-            optimizer.load_state_dict(torch.load(BytesIO(optimizerweights), map_location=next(net.parameters()).device))
-            torch.save(optimizer.state_dict(), owf)
-        del api
-        del api_experiment
-        experiment : comet_ml.ExistingExperiment = comet_ml.ExistingExperiment(previous_experiment=exp_id, project_name="deepracingadmiralnet-e2e", workspace="electric-turtle")
-
-
+        experiment = None
     else:
-        net = deepracing_models.nn_models.Models.AdmiralNetKinematicPredictor(input_channels=input_channels, output_dimension=2, \
-                                                        context_length=context_length, sequence_length=sequence_length, hidden_dim = hidden_dimension)
-        net = net.double()
-        if gpu>=0:
-            net = net.cuda(gpu)
-        optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum, dampening=0.0, nesterov=(nesterov and momentum>0) )
-        experiment = comet_ml.Experiment(project_name="deepracingadmiralnet-e2e", workspace="electric-turtle")
-        experiment.log_parameters(config)
-        experiment.log_parameters(dataset_config)
+        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name=project_name)
         output_directory = os.path.join(main_dir, experiment.get_key())
         if os.path.isdir(output_directory) :
-            raise FileExistsError( "%s already exists, this should not happen." % (output_directory) )
+            raise FileExistsError("%s already exists, this should not happen." %(output_directory) )
         os.makedirs(output_directory)
+        experiment.log_parameters(config)
+        experiment.log_parameters(dataset_config)
+        dsetsjson = json.dumps(dataset_config, indent=1)
+        experiment.log_parameter("datasets",dsetsjson)
+        experiment.log_text(dsetsjson)
+        if len(alltags)>0:
+            experiment.add_tags(list(alltags))
+        experiment_config = {"experiment_key": experiment.get_key()}
+        yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
+        yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
+        yaml.dump(config, stream=open(os.path.join(output_directory,"model_config.yaml"), "w"), Dumper = yaml.SafeDumper)
+        experiment.log_asset(os.path.join(output_directory,"dataset_config.yaml"),file_name="datasets.yaml")
+        experiment.log_asset(os.path.join(output_directory,"experiment_config.yaml"),file_name="experiment_config.yaml")
+        experiment.log_asset(os.path.join(output_directory,"model_config.yaml"),file_name="model_config.yaml")
         i = 0
-    experiment_config = {"experiment_key": experiment.get_key()}
-    yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
-    yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
-    yaml.dump(config, stream=open(os.path.join(output_directory,"model_config.yaml"), "w"), Dumper = yaml.SafeDumper)
-    if gpu>=0:
-        net = net.cuda(gpu)
-    print("Dataloader of of length %d" %(len(dataloader)))
-    with experiment.train():
-        while i < num_epochs:
-            time.sleep(2.0)
-            postfix = i + 1
-            print("Running Epoch Number %d" %(postfix))
-            #dset.clearReaders()
-            try:
-                tick = time.time()
-                run_epoch(net, optimizer, dataloader, gpu, loss_func, debug=debug, use_tqdm=args.tqdm)
-                tock = time.time()
-                print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
-            except Exception as e:
-                print("Restarting epoch %d because %s"%(postfix, str(e)))
-                modelin = os.path.join(output_directory,netpostfix %(postfix-1))
-                optimizerin = os.path.join(output_directory,optimizerpostfix %(postfix-1))
-                net.load_state_dict(torch.load(modelin))
-                optimizer.load_state_dict(torch.load(optimizerin))
-                continue
+        #def run_epoch(experiment, net, optimizer, dataloader, raceline_loss, other_agent_loss, config)
+    if debug:
+        run_epoch(experiment, net, optimizer, dataloader, control_loss, debug=True, use_tqdm=True, plot=plot)
+    else:
+        netpostfix = "epoch_%d_params.pt"
+        optimizerpostfix = "epoch_%d_optimizer.pt"
+        with experiment.train():
+            while i < num_epochs:
+                time.sleep(2.0)
+                postfix = i + 1
+                if models_to_disk:
+                    modelfile = netpostfix % (postfix-1)
+                    optimizerfile = optimizerpostfix % (postfix-1)
+                else:
+                    modelfile = "params.pt"
+                    optimizerfile = "optimizer.pt"
+                print("Running Epoch Number %d" %(postfix))
+                #dset.clearReaders()
+                try:
+                    tick = time.time()
+                    run_epoch(experiment, net, optimizer, dataloader, control_loss, use_tqdm=use_tqdm)
+                    tock = time.time()
+                    print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
+                    experiment.log_epoch_end(postfix)
+                except FileExistsError as e:
+                    raise e
+                except Exception as e:
+                    print("Restarting epoch %d because %s"%(postfix, str(e)))
+                    modelin = os.path.join(output_directory, modelfile)
+                    optimizerin = os.path.join(output_directory,optimizerfile)
+                    net.load_state_dict(torch.load(modelin))
+                    optimizer.load_state_dict(torch.load(optimizerin))
+                    continue
 
-            netfile = netpostfix % ( postfix )
-            modelout = os.path.join( output_directory, netfile )
-            torch.save( net.state_dict(), modelout )
-            experiment.log_asset(modelout, file_name=netfile, overwrite=True, copy_to_tmp=False )
-            
-            optimizerfile = optimizerpostfix % ( postfix )
-            optimizerout = os.path.join( output_directory, optimizerfile )
-            torch.save( optimizer.state_dict(), optimizerout )
-            experiment.log_asset(optimizerout, file_name=optimizerfile, overwrite=True, copy_to_tmp=False )
-            i = i + 1
+                modelout = os.path.join(output_directory,modelfile)
+                with open(modelout,'wb') as f:
+                    torch.save(net.state_dict(), f)
+                with open(modelout,'rb') as f:
+                    experiment.log_asset(f,file_name=netpostfix %(postfix,) )
+
+                optimizerout = os.path.join(output_directory, optimizerfile)
+                with open(optimizerout,'wb') as f:
+                    torch.save(optimizer.state_dict(), f)
+                with open(optimizerout,'rb') as f:
+                    experiment.log_asset(f,file_name=optimizerpostfix %(postfix,) )
+                i = i + 1
 import logging
 if __name__ == '__main__':
     logging.basicConfig()
