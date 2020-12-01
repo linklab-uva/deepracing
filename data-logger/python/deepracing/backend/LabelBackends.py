@@ -25,12 +25,12 @@ class ControlLabelLMDBWrapper():
     def writeControlLabel(self, key : str, label : LabeledImage_pb2.LabeledImage):
         with self.env.begin(write=True) as write_txn:
             write_txn.put(key.encode(self.encoding), label.SerializeToString())
-    def readDatabase(self, db_path : str, mapsize=1e10, max_spare_txns=1, readonly=True):
+    def readDatabase(self, db_path : str, mapsize=1e10, max_spare_txns=1, readonly=True, lock=False):
         if not os.path.isdir(db_path):
             raise IOError("Path " + db_path + " is not a directory")
         if self.env is not None:
             self.env.close()
-        self.env = lmdb.open(db_path, map_size=int(round(mapsize)), readonly=readonly, max_spare_txns=max_spare_txns)
+        self.env = lmdb.open(db_path, map_size=int(round(mapsize)), readonly=readonly, max_spare_txns=max_spare_txns, lock=lock)
         self.env.reader_check()
     def getControlLabel(self, key):
         rtn = LabeledImage_pb2.LabeledImage()
