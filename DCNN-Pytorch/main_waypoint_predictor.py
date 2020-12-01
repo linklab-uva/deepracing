@@ -49,8 +49,9 @@ def run_epoch(experiment, network, optimizer, dataloader, waypoint_loss, use_tqd
         t = enumerate(dataloader)
     network.train()  # This is important to call before training!
     dataloaderlen = len(dataloader)
-    dev = next(network.parameters()).device  # we are only doing single-device training for now, so this works fine.
-    dtype = (next(network.parameters())).dtype
+    firstparam = next(network.parameters()) # we are only doing single-device training for now, so this works fine.
+    dev = firstparam.device  
+    dtype = firstparam.dtype
     for (i, imagedict) in t:
         input_images = imagedict["images"].type(dtype).to(device=dev)
         batch_size = input_images.shape[0]
@@ -204,7 +205,7 @@ def go():
         label_folder = os.path.join(root_folder,label_subfolder)
         with open(os.path.join(label_folder,"config.yaml"), "r") as f:
             dataset.update(yaml.load(f, Loader=yaml.SafeLoader))
-            
+
         image_folder = os.path.join(root_folder,"images")
         key_file = os.path.join(root_folder,key_file)
         label_wrapper = deepracing.backend.MultiAgentLabelLMDBWrapper()

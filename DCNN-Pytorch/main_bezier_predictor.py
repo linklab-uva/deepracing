@@ -50,7 +50,9 @@ def run_epoch(experiment, network, optimizer, dataloader, loss_dict, config, use
         t = enumerate(dataloader)
     network.train()  # This is important to call before training!
     dataloaderlen = len(dataloader)
+    
     dev = next(network.parameters()).device  # we are only doing single-device training for now, so this works fine.
+    dtype = next(network.parameters()).dtype # we are only doing single-device training for now, so this works fine.
     fix_first_point = config["fix_first_point"]
     loss_weights = config["loss_weights"]
     ego_agent_loss = loss_dict["position"]
@@ -64,24 +66,24 @@ def run_epoch(experiment, network, optimizer, dataloader, loss_dict, config, use
 
     for (i, imagedict) in t:
         track_names = imagedict["track"]
-        input_images = imagedict["images"].double().to(device=dev)
+        input_images = imagedict["images"].type(dtype).to(device=dev)
         batch_size = input_images.shape[0]
-        ego_current_pose = imagedict["ego_current_pose"].double().to(device=dev)
-        session_times = imagedict["session_times"].double().to(device=dev)
-        raceline = imagedict["raceline"].double().to(device=dev)
-        ego_current_pose = imagedict["ego_current_pose"].double().to(device=dev)
+        ego_current_pose = imagedict["ego_current_pose"].type(dtype).to(device=dev)
+        session_times = imagedict["session_times"].type(dtype).to(device=dev)
+        raceline = imagedict["raceline"].type(dtype).to(device=dev)
+        ego_current_pose = imagedict["ego_current_pose"].type(dtype).to(device=dev)
         ego_current_pose.requires_grad=False
-        ego_positions = imagedict["ego_positions"].double().to(device=dev)
-        ego_velocities = imagedict["ego_velocities"].double().to(device=dev)
+        ego_positions = imagedict["ego_positions"].type(dtype).to(device=dev)
+        ego_velocities = imagedict["ego_velocities"].type(dtype).to(device=dev)
         #other_agent_positions = imagedict.get("other_agent_positions", torch.Tensor( [np.nan for asdf in range(batch_size)] ) ).double().to(device=dev)
-        other_agent_positions = imagedict.get("other_agent_positions", torch.zeros(batch_size)).double().to(device=dev)
+        other_agent_positions = imagedict.get("other_agent_positions", torch.zeros(batch_size)).type(dtype).to(device=dev)
         other_agent_valid = imagedict.get("other_agent_valid", torch.zeros(batch_size,19).bool())
         
     #    image_keys = ["image_%d" % (key_indices[j],) for j in range(key_indices.shape[0])]
         
         predictions = network(input_images)
         if fix_first_point:
-            initial_zeros = torch.zeros(batch_size,1,2,dtype=torch.float64,device=dev)
+            initial_zeros = torch.zeros(batch_size,1,2,dtype=dtype,device=dev)
             network_output_reshape = predictions.transpose(1,2)
             predictions_reshape = torch.cat((initial_zeros,network_output_reshape),dim=1)
         else:
@@ -238,10 +240,14 @@ def go():
     other_agent_loss_config = config["other_agent_loss"]
     other_agent_loss = deepracing_models.nn_models.LossFunctions.OtherAgentDistanceLoss(alpha=other_agent_loss_config["alpha"], beta=other_agent_loss_config["beta"])
 
-    print("casting stuff to double")
-    net = net.double()
-    ego_agent_loss = ego_agent_loss.double()
-    other_agent_loss = other_agent_loss.double()
+    use_float = config["use_float"]
+    if use_float:
+        net = net.float()
+    else:
+        net = net.double()
+    p = next(net.parameters())
+    ego_agent_loss = ego_agent_loss.type(p.dtype)
+    other_agent_loss = other_agent_loss.type(p.dtype)
 
     if model_load is not None:
         net.load_state_dict(torch.load(model_load, map_location=torch.device("cpu")))
@@ -264,14 +270,14 @@ def go():
         raise ValueError("Could not find inner boundary limits file")
     inner_boundary_r, inner_boundary = loadBoundary(ibfile)
     _, _, _, ibnormals_np = geometric.computeTangentsAndNormals(inner_boundary_r.numpy().copy(), inner_boundary[0:3].transpose(0,1).numpy().copy(), k=3, ref=np.array([0.0,-1.0,0.0]))
-    ibloss = loss_functions.BoundaryLoss(inner_boundary, torch.from_numpy(ibnormals_np).transpose(0,1), alpha=boundary_loss_config["alpha"], beta=boundary_loss_config["beta"]).double()
+    ibloss = loss_functions.BoundaryLoss(inner_boundary, torch.from_numpy(ibnormals_np).transpose(0,1), alpha=boundary_loss_config["alpha"], beta=boundary_loss_config["beta"]).type(p.dtype)
     
     obfile = searchForFile(track_name+"_outerlimit.json", os.getenv("F1_TRACK_DIRS").split(os.pathsep)+[os.curdir])
     if obfile is None:
         raise ValueError("Could not find outer boundary limits file")
     outer_boundary_r, outer_boundary = loadBoundary(obfile)
     _, _, _, obnormals_np = geometric.computeTangentsAndNormals(outer_boundary_r.numpy().copy(), outer_boundary[0:3].transpose(0,1).numpy().copy(), k=3, ref=np.array([0.0,1.0,0.0]))
-    obloss = loss_functions.BoundaryLoss(outer_boundary, torch.from_numpy(obnormals_np).transpose(0,1), alpha=boundary_loss_config["alpha"], beta=boundary_loss_config["beta"]).double()
+    obloss = loss_functions.BoundaryLoss(outer_boundary, torch.from_numpy(obnormals_np).transpose(0,1), alpha=boundary_loss_config["alpha"], beta=boundary_loss_config["beta"]).type(p.dtype)
 
     
     if gpu>=0:
