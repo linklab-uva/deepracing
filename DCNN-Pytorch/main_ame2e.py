@@ -68,12 +68,12 @@ def run_epoch(experiment, network, optimizer, dataloader, control_loss, use_tqdm
         # Weight and bias updates.
         optimizer.step()
         # logging information
-        current_position_loss_float = float(loss.item())
+        current_control_loss = float(loss.item())
         num_samples += 1.0
         if not debug:
-            experiment.log_metric("current_position_loss", current_position_loss_float)
+            experiment.log_metric("current_control_loss", current_control_loss)
         if use_tqdm:
-            t.set_postfix({"current_position_loss" : current_position_loss_float})
+            t.set_postfix({"current_control_loss" : current_control_loss})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Waypoint Predictor")
     parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuration file to load")
