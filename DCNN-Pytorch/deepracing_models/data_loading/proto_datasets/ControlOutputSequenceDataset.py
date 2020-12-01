@@ -21,6 +21,7 @@ import deepracing.pose_utils
 from deepracing.protobuf_utils import getAllImageFilePackets, getAllMotionPackets, getAllSequenceLabelPackets, labelPacketToNumpy
 import numpy as np
 import torch
+import torchvision, torchvision.transforms.functional as F
 from torch.utils.data import Dataset
 import skimage
 import skimage.io
@@ -33,6 +34,8 @@ from deepracing.imutils import resizeImage as resizeImage
 from deepracing.imutils import readImage as readImage
 import cv2
 import deepracing.backend
+
+
 def LabelPacketSortKey(packet):
     return packet.car_pose.session_time
 class ControlOutputSequenceDataset(Dataset):
@@ -62,7 +65,7 @@ class ControlOutputSequenceDataset(Dataset):
         image_keys = ["image_%d" % i for i in range(image_start, image_end)]
         label_keys = ["image_%d" % i for i in range(label_start, label_end)]
 
-        images = np.array([self.image_db_wrapper.getImage(k) for k in image_keys])
+        images = torch.stack( [F.to_tensor(self.image_db_wrapper.getImage(k).copy()) for k in image_keys], dim=0 )
 
         labels_pb = [self.label_db_wrapper.getControlLabel(k) for k in label_keys]
         assert(str(labels_pb[0].image_file).lower()==(label_keys[0]+".jpg").lower())
