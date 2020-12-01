@@ -22,6 +22,9 @@ from deepracing.protobuf_utils import getAllSessionPackets, getAllTelemetryPacke
 from tqdm import tqdm as tqdm
 import yaml
 import LabeledImage_pb2
+import shutil
+import time
+
 def imageDataKey(data):
     return data.timestamp
 def udpPacketKey(packet):
@@ -33,6 +36,7 @@ parser.add_argument("--assume_linear_timescale", help="Assumes the slope between
 parser.add_argument("--output_dir", help="Output directory for the labels. relative to the database images folder",  default="control_labels", type=str, required=False)
 parser.add_argument("--spline_degree", help="What degree of interpolation to use when selecting labels",  default=1, type=int, required=False)
 args = parser.parse_args()
+argdict = vars(args)
 spline_degree = args.spline_degree
 with open(os.path.join(args.db_path, "f1_dataset_config.yaml"), "r") as f:
     dset_config = yaml.load(f, Loader=yaml.SafeLoader)
@@ -152,10 +156,14 @@ except KeyboardInterrupt:
 #scipy.interpolate.interp1d
 output_dir=os.path.join(args.db_path, args.output_dir)
 lmdb_dir=os.path.join(output_dir,"lmdb")
-if not os.path.isdir(output_dir):
-    os.makedirs(output_dir)
-if not os.path.isdir(lmdb_dir):
-    os.makedirs(lmdb_dir)
+
+if os.path.isdir(output_dir):
+    shutil.rmtree(output_dir)
+    time.sleep(1.0)
+os.makedirs(lmdb_dir)
+with open(os.path.join(lmdb_dir,"args.yaml"), "w") as f:
+    yaml.dump(argdict, f, Dumper=yaml.SafeDumper)
+
 lmdb_backend = deepracing.backend.ControlLabelLMDBWrapper()
 mapsize=1500*len(image_tags)
 lmdb_backend.readDatabase(lmdb_dir, mapsize=mapsize, readonly=False, lock=True)
