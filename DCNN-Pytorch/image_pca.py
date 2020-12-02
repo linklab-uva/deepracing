@@ -51,7 +51,7 @@ for (keys, image_wrapper) in wrappers:
     for key in sample_keys:
         imagelist.append(image_wrapper.getImage(key))
 sourcesize = imagelist[0].shape
-flattened_image_array = np.array([im.flatten() for im in imagelist]).astype(np.float64)/255.0
+flattened_image_array = np.array([im.flatten() for im in imagelist]).astype(np.float32)/255.0
 dataset_config_dir, dataset_config_basefile = os.path.split(dataset_config_file)
 base_file_name = os.path.splitext(dataset_config_basefile)[0] + ("_pca_%d" % (num_components,))
 print("Fitting a %d-component pca with %d samples" % (num_components, flattened_image_array.shape[0]))
