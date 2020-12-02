@@ -10,15 +10,18 @@ import scipy, scipy.stats
 import sklearn
 from sklearn.decomposition import PCA, IncrementalPCA
 import matplotlib.pyplot as plt
+import torch
 
 parser = argparse.ArgumentParser(description="Get PCA of an image dataset")
 parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuration file to load")
 parser.add_argument("num_components", type=int,  help="Number of principle components to reduce to")
 parser.add_argument("--sample_ratio", type=float, default=0.2 , help="Ratio of each dataset to sample")
+parser.add_argument("--gpu", type=int, default=-1 , help="Use GPU to generate SVD")
 args = parser.parse_args()
 argdict = vars(args)
 dataset_config_file = argdict["dataset_config_file"]
 num_components = argdict["num_components"]
+gpu = argdict["gpu"]
 sample_ratio = min(argdict["sample_ratio"], 1.0)
 with open(dataset_config_file,"r") as f:
     dataset_config = yaml.load(f, Loader=yaml.SafeLoader)
@@ -47,26 +50,46 @@ for (keys, image_wrapper) in wrappers:
     sample_keys = random.sample(keys, int(sample_ratio*len(keys)))
     for key in sample_keys:
         imagelist.append(image_wrapper.getImage(key))
-flattened_image_array = np.array([im.flatten() for im in imagelist]).astype(np.float64)#/255.0
-
-pca = IncrementalPCA(n_components=num_components, copy=True)
-print("Fitting a %d-component pca with %d samples" % (num_components, flattened_image_array.shape[0]))
-pca.fit(flattened_image_array)
-print("Done fitting")
-
+sourcesize = imagelist[0].shape
+flattened_image_array = np.array([im.flatten() for im in imagelist]).astype(np.float64)/255.0
 dataset_config_dir, dataset_config_basefile = os.path.split(dataset_config_file)
 base_file_name = os.path.splitext(dataset_config_basefile)[0] + ("_pca_%d" % (num_components,))
-with open(os.path.join(dataset_config_dir, base_file_name + ".pkl"), "wb") as f:
-    pkl.dump(pca, f)
+print("Fitting a %d-component pca with %d samples" % (num_components, flattened_image_array.shape[0]))
+if gpu>=0:
+    flattened_image_torch = torch.from_numpy(flattened_image_array).cuda(gpu)
+    flattened_image_means = torch.mean(flattened_image_torch, dim=0)
+    flattened_image_torch = flattened_image_torch - flattened_image_means
+    U, S, V = torch.pca_lowrank(flattened_image_torch, niter = 2, q=num_components, center=False)
+    print(V.shape)
+    imin = flattened_image_torch[np.random.randint(0, high=flattened_image_torch.shape[0], dtype=np.int64)]
+    improj = torch.matmul(imin.unsqueeze(0), V[:, :num_components])
+    imroundtrip = (255.0*torch.clamp(torch.matmul(improj, V[:, :num_components].t())[0] + flattened_image_means, 0.0, 1.0)).cpu().numpy().astype(np.uint8).reshape(sourcesize)
+    iminreshape = (255.0*(imin + flattened_image_means)).cpu().numpy().astype(np.uint8).reshape(sourcesize)
+    explained_variances = S.cpu().numpy()/(flattened_image_torch.shape[0]-1)
+    explained_variance_ratios = explained_variances/np.sum(explained_variances)
+    with open(os.path.join(dataset_config_dir, base_file_name + "_U.pt"), "wb") as f:
+        torch.save(U, f)
+    with open(os.path.join(dataset_config_dir, base_file_name + "_S.pt"), "wb") as f:
+        torch.save(S, f)
+    with open(os.path.join(dataset_config_dir, base_file_name + "_V.pt"), "wb") as f:
+        torch.save(V, f)
+    with open(os.path.join(dataset_config_dir, base_file_name + "_means.pt"), "wb") as f:
+        torch.save(flattened_image_means, f)
+else:
+    pca = PCA(n_components=num_components, copy=True)
+    pca.fit(flattened_image_array)
+    with open(os.path.join(dataset_config_dir, base_file_name + ".pkl"), "wb") as f:
+        pkl.dump(pca, f)
 
-explained_variance_ratios = np.array(pca.explained_variance_ratio_)
-explained_variances = np.array(pca.explained_variance_)
-print(explained_variance_ratios)
+    explained_variance_ratios = np.array(pca.explained_variance_ratio_)
+    explained_variances = np.array(pca.explained_variance_)
 
-sourcesize = imagelist[0].shape
-imin = flattened_image_array[np.random.randint(0, high=flattened_image_array.shape[0], dtype=np.int64)]
-imroundtrip = (pca.inverse_transform(pca.transform(imin.reshape(1,-1)))[0].reshape(sourcesize)).astype(np.uint8)
-iminreshape = (imin.reshape(sourcesize)).astype(np.uint8)
+    imin = flattened_image_array[np.random.randint(0, high=flattened_image_array.shape[0], dtype=np.int64)]
+    improj = np.matmul((imin - pca.mean_).reshape(1,-1), pca.components_.transpose())
+    #improj = pca.transform(imin.reshape(1,-1))
+    imroundtrip = (255.0*np.clip(pca.inverse_transform(improj), 0.0, 1.0))[0].astype(np.uint8).reshape(sourcesize)
+    iminreshape = (255.0*imin.reshape(sourcesize)).astype(np.uint8)
+print("Done fitting")
 
 
 fig, (axratio, axval, axinput, axroundtrip) = plt.subplots(nrows=1, ncols=4)
@@ -80,7 +103,7 @@ axratio.set_ylabel("Ratio of Explained Variance")
 axval.plot(np.arange(1, explained_variances.shape[0]+1, dtype=np.int32), explained_variances, label="Explained Variances")
 axval.set_title("Scree Plot (Absolute Values)")
 axval.set_xlabel("Number of Principle Components")
-axval.set_ylabel("Ratio of Explained Variance")
+axval.set_ylabel("Explained Variance")
 #axval.legend()
 axinput.imshow(iminreshape)
 axroundtrip.imshow(imroundtrip)
