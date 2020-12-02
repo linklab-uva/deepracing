@@ -408,10 +408,11 @@ for idx in tqdm(range(len(image_tags))):
         fig2 = plt.subplot(1, 2, 2)
         label_positions = deepracing.backend.MultiAgentLabelLMDBWrapper.positionsFromLabel(label_tag_dbg)
         raceline_labels = np.array([ [vectorpb.vector.x, vectorpb.vector.y, vectorpb.vector.z] for vectorpb in label_tag_dbg.raceline])
+        car_indices_dbg = np.array(label_tag_dbg.trajectory_car_indices)
         minx = np.min(raceline_labels[:,0])-5.0
         maxx = np.max(raceline_labels[:,0])+5.0
         maxz = np.max(raceline_labels[:,2])+5.0
-        if label_positions.shape[0]>0:
+        if (label_positions is not None) and label_positions.shape[0]>0:
             minx = min(np.min(label_positions[:,:,0]) - 5.0, minx)
             maxx = max(np.min(label_positions[:,:,0]) + 5.0, maxx)
             maxz = max(np.min(label_positions[:,:,0]) + 5.0, maxz)
@@ -419,9 +420,10 @@ for idx in tqdm(range(len(image_tags))):
         plt.xlim(maxx,minx)
         plt.ylim(0,maxz)
         plt.plot(raceline_labels[:,0], raceline_labels[:,2], label="Optimal Raceline")
-        for k in range(label_positions.shape[0]):
-            agent_trajectory = label_positions[k]
-            plt.plot(agent_trajectory[:,0], agent_trajectory[:,2])
+        if (label_positions is not None):
+            for k in range(label_positions.shape[0]):
+                agent_trajectory = label_positions[k]
+                plt.plot(agent_trajectory[:,0], agent_trajectory[:,2], label="Trajectory of Car #%d" %(car_indices_dbg[k],))
         plt.legend()
        # print(label_positions)
         plt.show()
