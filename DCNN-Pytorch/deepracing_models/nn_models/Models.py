@@ -50,10 +50,10 @@ class VariationalImageCurveEncoder(nn.Module):
             nn.BatchNorm3d(200),
             self.relu,
             nn.Flatten(),
-            # nn.Linear(4400, 2000),
-            # self.relu,
-            # nn.Linear(2000, 1000),
-            # self.relu,
+            nn.Linear(4400, 2000),
+            self.relu,
+            nn.Linear(2000, 1000),
+            self.relu,
         ])
 
         self.decoder=torch.nn.Sequential(*[
@@ -65,8 +65,8 @@ class VariationalImageCurveEncoder(nn.Module):
         
         num_latent_vars = (bezier_order+1)*output_dim
         num_covars = int((num_latent_vars * (num_latent_vars-1))/2)
-        self.down_to_bezier_mu = nn.Linear(4400, num_latent_vars)
-        self.down_to_bezier_logvar = nn.Linear(4400, num_latent_vars)
+        self.down_to_bezier_mu = nn.Linear(1000, num_latent_vars)
+        self.down_to_bezier_logvar = nn.Linear(1000, num_latent_vars)
        
     def forward(self, images, times):
         batch_size = images.shape[0]
