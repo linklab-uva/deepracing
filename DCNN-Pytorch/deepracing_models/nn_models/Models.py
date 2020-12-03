@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torch.nn.utils.rnn as RNNUtils
 import sys
+import deepracing_models.math_utils as mu
 # import torchvision.models as visionmodels
 # import torchvision.models.vgg
 # class ResNetAdapter(nn.Module):
@@ -19,6 +20,84 @@ import sys
 #         x = self.features(x)
 #         x = x.view(batch_size, -1)
 #         return x
+class ImageCurvePredictor(nn.Module):
+    def __init__(self, input_channels = 3, input_dimension = 39600, output_dim = 500, bezier_order=3):
+        super(ImageCurvePredictor, self).__init__()
+        self.output_dim = output_dim
+        self.bezier_order = bezier_order
+        self.sigmoid = nn.Sigmoid()
+        self.input_dimension = input_dimension
+        self.conv3dlayers = torch.nn.Sequential(*[
+            nn.BatchNorm3d(input_channels),
+            nn.Conv3d(input_channels, 10, kernel_size=(3,3,3), stride = (2,2,2), padding=(2,2,2) ),
+            nn.BatchNorm3d(10),
+            self.sigmoid,
+            nn.Conv3d(10, 25, kernel_size=(3,3,3), stride = (2,2,2), padding=(2,2,2) ),
+            nn.BatchNorm3d(25),
+            self.sigmoid,
+            nn.Conv3d(25, 75, kernel_size=(3,3,3), stride = (1,1,1), padding=(2,2,2) ),
+            nn.BatchNorm3d(75),
+            self.sigmoid,
+            nn.Conv3d(75, 100, kernel_size=(3,3,3), stride = (1,1,1), padding=(2,2,2) ),
+            nn.BatchNorm3d(100),
+            self.sigmoid,
+            nn.Conv3d(100, 100, kernel_size=(3,3,3), stride = (1,1,1) ),
+            nn.BatchNorm3d(100),
+            self.sigmoid,
+            nn.Conv3d(100, 100, kernel_size=(3,3,3), stride = (1,1,1) ),
+            nn.BatchNorm3d(100),
+            self.sigmoid,
+            nn.Conv3d(100, 100, kernel_size=(3,3,3), stride = (1,1,1) ),
+            nn.BatchNorm3d(100),
+            self.sigmoid
+        ])
+        self.conv2dlayers = torch.nn.Sequential(*[
+            nn.BatchNorm2d(100),
+            self.sigmoid,
+            nn.Conv2d(100, 150, kernel_size=5, padding=1),
+            nn.BatchNorm2d(150),
+            self.sigmoid,
+            nn.Conv2d(150, 150, kernel_size=5, padding=1),
+            nn.BatchNorm2d(150),
+            self.sigmoid,
+            nn.Conv2d(150, 150, kernel_size=3),
+            nn.BatchNorm2d(150),
+            self.sigmoid,
+            nn.Conv2d(150, output_dim, kernel_size=3),
+            nn.BatchNorm2d(output_dim),
+            self.sigmoid,
+        ])
+        self.down_to_bezier_mu = nn.Linear(336, bezier_order+1, bias=False)
+        self.down_to_bezier_logvar = nn.Linear(336, bezier_order+1, bias=False)
+
+        self.decoder = torch.nn.Sequential(*[
+            nn.Linear(output_dim, int(self.input_dimension/4), bias=False),
+            self.sigmoid,
+            nn.Linear(int(self.input_dimension/4), int(self.input_dimension/2)),
+            self.sigmoid,
+            nn.Linear(int(self.input_dimension/2), self.input_dimension),
+        ])
+    def forward(self, images, times):
+        batch_size = images.shape[0]
+        conv3dout = self.conv3dlayers(images)
+        removesingleton = conv3dout[:, :, 0, :, :]
+        conv2dout = self.conv2dlayers(removesingleton)
+        flatten = conv2dout.view(batch_size, self.output_dim, -1)
+        bezier_mu = self.down_to_bezier_mu(flatten)
+        bezier_logstdev = self.down_to_bezier_logvar(flatten)
+        bezier_stdev = torch.exp(bezier_logstdev)
+        dist = torch.distributions.MultivariateNormal(bezier_mu.view(batch_size,-1), scale_tril=torch.diag_embed(bezier_stdev.view(batch_size,-1)))
+        samp = dist.sample((1,))[0].view(batch_size, self.output_dim, self.bezier_order+1)
+        dt = times[:,-1] - times[:,0]
+        s = (times- times[:,0,None])/dt[:,None]
+
+        M = mu.bezier.bezierM(s, self.bezier_order)
+
+        curve_samples = torch.matmul(M, samp.transpose(1,2))
+        
+        decoded_samples = self.decoder(curve_samples)
+
+        return bezier_mu, bezier_stdev, curve_samples, decoded_samples
 
 class PilotNet(nn.Module):
     """PyTorch Implementation of NVIDIA's PilotNet"""
