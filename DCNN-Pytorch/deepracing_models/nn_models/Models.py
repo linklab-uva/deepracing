@@ -7,6 +7,7 @@ import torch
 import torch.nn.utils.rnn as RNNUtils
 import sys
 import deepracing_models.math_utils as mu
+import math
 # import torchvision.models as visionmodels
 # import torchvision.models.vgg
 # class ResNetAdapter(nn.Module):
@@ -20,13 +21,30 @@ import deepracing_models.math_utils as mu
 #         x = self.features(x)
 #         x = x.view(batch_size, -1)
 #         return x
+class VariationalImageCurveDecoder(nn.Module):
+    def __init__(self, manifold_dimension, reconstruct_dimension, hidden_dim=350):
+        super(VariationalImageCurveDecoder, self).__init__()
+        self.reconstruct_dimension = reconstruct_dimension
+        self.relu = nn.ReLU()
+        # self.rnn = nn.LSTM(manifold_dimension, hidden_dim, batch_first=True)
+        # self.init_hidden = torch.nn.Parameter(torch.normal(0, 0.1, size=(1,hidden_dim)), requires_grad=True)
+        # self.init_cell = torch.nn.Parameter(torch.normal(0, 0.1, size=(1,hidden_dim)), requires_grad=True) 
+        # self.linear = nn.Linear(hidden_dim, reconstruct_dimension)
+        self.linear1 = nn.Linear(manifold_dimension, hidden_dim)
+        self.linear2 = nn.Linear(hidden_dim, reconstruct_dimension)
+    def forward(self, sample_curve_points):
+        # batch_size = sample_curve_points.shape[0]
+        # h_0 = self.init_hidden.repeat(1,batch_size,1)
+        # c_0 = self.init_cell.repeat(1,batch_size,1)
+        # rnn_out, (h_n, c_n) = self.rnn(sample_curve_points,  (h_0, c_0) )
+        hidden = self.relu(self.linear1(sample_curve_points))
+        return torch.clamp(self.relu(self.linear2(hidden)), 0.0, 1.0)
 class VariationalImageCurveEncoder(nn.Module):
-    def __init__(self, input_dim=39600, output_dim = 250, bezier_order=3, sequence_length=5):
+    def __init__(self, output_dim = 250, bezier_order=3, sequence_length=5):
         super(VariationalImageCurveEncoder, self).__init__()
         self.output_dim = output_dim
         self.bezier_order = bezier_order
         self.sequence_length = sequence_length
-        self.input_dim = input_dim
         self.num_latent_vars = (bezier_order+1)*output_dim
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
@@ -34,40 +52,32 @@ class VariationalImageCurveEncoder(nn.Module):
             nn.BatchNorm3d(sequence_length),
             nn.Conv3d(sequence_length, 10, kernel_size=(3,3,3), stride = (2,2,2), padding=(2,2,2) ),
             nn.BatchNorm3d(10),
-            self.relu,
+            self.sigmoid,
             nn.Conv3d(10, 25, kernel_size=(3,3,3), stride = (2,2,2), padding=(2,2,2) ),
             nn.BatchNorm3d(25),
-            self.relu,
+            self.sigmoid,
             nn.Conv3d(25, 75, kernel_size=(3,3,3), stride = (2,2,2), padding=(2,2,2) ),
             nn.BatchNorm3d(75),
-            self.relu,
+            self.sigmoid,
             nn.Conv3d(75, 100, kernel_size=(3,3,3), stride = (1,2,2), padding=(2,2,2) ),
             nn.BatchNorm3d(100),
-            self.relu,
+            self.sigmoid,
             nn.Conv3d(100, 200, kernel_size=(3,3,3), stride = (1,1,1) ),
             nn.BatchNorm3d(200),
-            self.relu,
+            self.sigmoid,
             nn.Conv3d(200, 200, kernel_size=(3,3,3), stride = (1,1,1) ),
             nn.BatchNorm3d(200),
-            self.relu,
+            self.sigmoid,
             nn.Flatten(),
             nn.Linear(4400, 2000),
-            self.relu,
+            self.sigmoid,
             nn.Linear(2000, 1000),
-            self.relu,
+            self.sigmoid,
         ])
-
-        self.decoder=torch.nn.Sequential(*[
-            nn.Linear(output_dim, int(input_dim/2)),
-            self.relu,
-            nn.Linear(int(input_dim/2), input_dim),
-            self.relu,
-        ])
-        
         self.down_to_bezier_mu = nn.Linear(1000, self.num_latent_vars)
         self.down_to_bezier_logvar = nn.Linear(1000, self.num_latent_vars)
        
-    def forward(self, images, times):
+    def forward(self, images):
         batch_size = images.shape[0]
         assert(images.shape[1]==self.sequence_length)
     
@@ -76,22 +86,12 @@ class VariationalImageCurveEncoder(nn.Module):
         bezier_mu_flat = self.down_to_bezier_mu(encoderout)
         bezier_logstdev_flat = self.down_to_bezier_logvar(encoderout)
         bezier_stdev_flat = torch.exp(0.5*bezier_logstdev_flat)
-
         
-        bezier_stdev = bezier_stdev_flat.view(batch_size, self.bezier_order+1, self.output_dim)
-        bezier_mu = bezier_mu_flat.view(batch_size, self.bezier_order+1, self.output_dim)
-
         scale_tril = torch.diag_embed(bezier_stdev_flat)
-        dist = torch.distributions.MultivariateNormal(bezier_mu_flat, scale_tril=scale_tril, validate_args=True)
-        curves = dist.sample((1,))[0].view(batch_size, self.bezier_order+1, self.output_dim)
-        #curves = (bezier_mu_flat + torch.randn_like(bezier_stdev_flat)*bezier_stdev_flat).view(batch_size, self.output_dim, self.bezier_order+1).transpose(1,2)
-        dt = times[:,-1] - times[:,0]
-        s = (times- times[:,0,None])/dt[:,None]
-        M = mu.bezier.bezierM(s, self.bezier_order)
-        curve_points = torch.matmul(M, curves)
-        decoded_points = torch.clamp(self.decoder(curve_points), 0.0, 1.0)
+        distribution = torch.distributions.MultivariateNormal(bezier_mu_flat, scale_tril=scale_tril, validate_args=True)
+       # curvesample = distribution.sample((1,))[0].view(batch_size, self.bezier_order+1, self.output_dim)
 
-        return bezier_mu, bezier_stdev, dist, curves, curve_points, decoded_points
+        return distribution
 
 class PilotNet(nn.Module):
     """PyTorch Implementation of NVIDIA's PilotNet"""
