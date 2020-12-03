@@ -50,11 +50,9 @@ class VariationalImageCurveEncoder(nn.Module):
             nn.BatchNorm3d(200),
             self.relu,
             nn.Flatten(),
-            nn.Linear(4400, 3000),
+            nn.Linear(4400, 2000),
             self.relu,
-            nn.Linear(3000, 2000),
-            self.relu,
-            nn.Linear(2000, 2000),
+            nn.Linear(2000, 1000),
             self.relu,
         ])
 
@@ -69,8 +67,8 @@ class VariationalImageCurveEncoder(nn.Module):
         
         num_latent_vars = (bezier_order+1)*output_dim
         num_covars = int((num_latent_vars * (num_latent_vars-1))/2)
-        self.down_to_bezier_mu = nn.Linear(2000, num_latent_vars)
-        self.down_to_bezier_logvar = nn.Linear(2000, num_latent_vars)
+        self.down_to_bezier_mu = nn.Linear(1000, num_latent_vars)
+        self.down_to_bezier_logvar = nn.Linear(1000, num_latent_vars)
        
     def forward(self, images, times):
         batch_size = images.shape[0]
@@ -82,8 +80,6 @@ class VariationalImageCurveEncoder(nn.Module):
         bezier_logstdev_flat = self.down_to_bezier_logvar(encoderout)
 
         bezier_stdev_flat = torch.exp(0.5*bezier_logstdev_flat)
-        bezier_stdev = bezier_stdev_flat.view(batch_size, self.bezier_order+1, self.output_dim)
-        bezier_mu = bezier_mu_flat.view(batch_size, self.bezier_order+1, self.output_dim)
         scale_tril = torch.diag_embed(bezier_stdev_flat)
         dist = torch.distributions.MultivariateNormal(bezier_mu_flat, scale_tril=scale_tril, validate_args=True)
         curves = dist.sample((1,))[0].view(batch_size, self.bezier_order+1, self.output_dim)
@@ -91,10 +87,12 @@ class VariationalImageCurveEncoder(nn.Module):
         dt = times[:,-1] - times[:,0]
         s = (times- times[:,0,None])/dt[:,None]
         M = mu.bezier.bezierM(s, self.bezier_order)
-        curve_points = torch.matmul(M, curves )
-      #  decoded_points = self.decoder(curve_points)
+        curve_points = torch.matmul(M, curves)
+        decoded_points = self.decoder(curve_points)
 
-        return bezier_mu, bezier_stdev, dist, curves, curve_points
+        bezier_stdev = bezier_stdev_flat.view(batch_size, self.bezier_order+1, self.output_dim)
+        bezier_mu = bezier_mu_flat.view(batch_size, self.bezier_order+1, self.output_dim)
+        return bezier_mu, bezier_stdev, dist, curves, curve_points, decoded_points
 
 class PilotNet(nn.Module):
     """PyTorch Implementation of NVIDIA's PilotNet"""
