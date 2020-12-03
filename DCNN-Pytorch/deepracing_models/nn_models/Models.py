@@ -90,7 +90,7 @@ class VariationalImageCurveEncoder(nn.Module):
         s = (times- times[:,0,None])/dt[:,None]
         M = mu.bezier.bezierM(s, self.bezier_order)
         curve_points = torch.matmul(M, curves)
-        decoded_points = self.decoder(curve_points)
+        decoded_points = torch.clamp(self.decoder(curve_points), 0.0, 1.0)
 
         return bezier_mu, bezier_stdev, dist, curves, curve_points, decoded_points
 
