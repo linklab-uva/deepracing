@@ -66,7 +66,7 @@ print("Fitting a %d-component pca with %d samples" % (num_components, flattened_
 if gpu>=0:
     flattened_image_torch = torch.from_numpy(flattened_image_array).cuda(gpu)
     flattened_image_stdevs, flattened_image_means = torch.std_mean(flattened_image_torch, dim = 0)
-    _, S, V = torch.pca_lowrank(flattened_image_torch, niter = 3, q=q, center=True)
+    U, S, V = torch.pca_lowrank(flattened_image_torch, niter = 3, q=q, center=True)
     irand = int(np.random.randint(0, high=flattened_image_torch.shape[0], dtype=np.int64))
 
     improj = torch.matmul((flattened_image_torch[irand] - flattened_image_means).unsqueeze(0), V[:, :num_components])
@@ -74,8 +74,8 @@ if gpu>=0:
     iminreshape = (255.0*flattened_image_torch[irand]).cpu().numpy().astype(np.uint8).reshape(sourcesize).transpose(1,2,0)
     explained_variances = ((S**2)/(flattened_image_torch.shape[0]-1)).cpu().numpy()
     explained_variance_ratios = explained_variances/np.sum(explained_variances)
-    # with open(os.path.join(dataset_config_dir, base_file_name + "_U.pt"), "wb") as f:
-    #     torch.save(U, f)
+    with open(os.path.join(dataset_config_dir, base_file_name + "_U.pt"), "wb") as f:
+        torch.save(U, f)
     with open(os.path.join(dataset_config_dir, base_file_name + "_S.pt"), "wb") as f:
         torch.save(S, f)
     with open(os.path.join(dataset_config_dir, base_file_name + "_V.pt"), "wb") as f:
