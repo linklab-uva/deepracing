@@ -12,10 +12,9 @@ from typing import List
 def sortkey(key):
     return int(key.split("_")[1])
 class ImageSequenceDataset(Dataset):
-    def __init__(self, image_db_path : str, sequence_length : int, keys : List[str] = None, image_size=[66,200]):
+    def __init__(self, image_wrapper : ImageLMDBWrapper, sequence_length : int, keys : List[str] = None, image_size=[66,200]):
         super(ImageSequenceDataset, self).__init__()
-        self.image_wrapper : ImageLMDBWrapper = ImageLMDBWrapper()
-        self.image_wrapper.readDatabase(image_db_path)
+        self.image_wrapper : ImageLMDBWrapper = image_wrapper
         self.sequence_length = sequence_length
         self.image_size = image_size
         if keys is None:
@@ -23,7 +22,7 @@ class ImageSequenceDataset(Dataset):
         else:
             self.db_keys = sorted(keys, key=sortkey)
         self.num_keys = len(self.db_keys)
-        with open(os.path.join(image_db_path, "timestamps.json"), "r") as f:
+        with open(os.path.join(self.image_wrapper.getDBPath(), "timestamps.json"), "r") as f:
             self.timestampdict = json.load(f)
         assert(set(self.db_keys).issubset(set(self.timestampdict.keys())))
     def __len__(self):
