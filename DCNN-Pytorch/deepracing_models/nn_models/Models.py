@@ -27,6 +27,7 @@ class VariationalImageCurveEncoder(nn.Module):
         self.bezier_order = bezier_order
         self.sequence_length = sequence_length
         self.input_dim = input_dim
+        self.num_latent_vars = (bezier_order+1)*output_dim
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
         self.encoder = torch.nn.Sequential(*[
@@ -63,10 +64,8 @@ class VariationalImageCurveEncoder(nn.Module):
             self.relu,
         ])
         
-        num_latent_vars = (bezier_order+1)*output_dim
-        num_covars = int((num_latent_vars * (num_latent_vars-1))/2)
-        self.down_to_bezier_mu = nn.Linear(1000, num_latent_vars)
-        self.down_to_bezier_logvar = nn.Linear(1000, num_latent_vars)
+        self.down_to_bezier_mu = nn.Linear(1000, self.num_latent_vars)
+        self.down_to_bezier_logvar = nn.Linear(1000, self.num_latent_vars)
        
     def forward(self, images, times):
         batch_size = images.shape[0]
