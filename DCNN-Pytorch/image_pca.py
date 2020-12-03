@@ -24,8 +24,6 @@ dataset_config_file = argdict["dataset_config_file"]
 num_components = argdict["num_components"]
 gpu = argdict["gpu"]
 q = argdict["q"]
-if q<0:
-    q = int(1.5*num_components)
 sample_ratio = min(argdict["sample_ratio"], 1.0)
 with open(dataset_config_file,"r") as f:
     dataset_config = yaml.load(f, Loader=yaml.SafeLoader)
@@ -56,6 +54,8 @@ for (keys, image_wrapper) in wrappers:
         imagelist.append(F.to_tensor(image_wrapper.getImage(key).copy()).numpy().astype(np.float32))
 sourcesize = imagelist[0].shape
 flattened_image_array = np.array([im.flatten() for im in imagelist])
+if q<0:
+    q = min(int(1.5*num_components), flattened_image_array.shape[0], flattened_image_array.shape[1])
 dataset_config_dir, dataset_config_basefile = os.path.split(dataset_config_file)
 base_file_name = os.path.splitext(dataset_config_basefile)[0] + ("_pca_%d" % (num_components,))
 print("Fitting a %d-component pca with %d samples" % (num_components, flattened_image_array.shape[0]))
@@ -63,7 +63,7 @@ if gpu>=0:
     flattened_image_torch = torch.from_numpy(flattened_image_array).cuda(gpu)
     flattened_image_stdevs, flattened_image_means = torch.std_mean(flattened_image_torch, dim = 0)
     flattened_image_torch = flattened_image_torch - flattened_image_means
-    U, S, V = torch.pca_lowrank(flattened_image_torch, niter = 3, q=q, center=False)
+    _, S, V = torch.pca_lowrank(flattened_image_torch, niter = 3, q=q, center=False)
     irand = int(np.random.randint(0, high=flattened_image_torch.shape[0], dtype=np.int64))
 
     improj = torch.matmul(flattened_image_torch[irand].unsqueeze(0), V[:, :num_components])
@@ -71,8 +71,8 @@ if gpu>=0:
     iminreshape = (255.0*(flattened_image_torch[irand] + flattened_image_means)).cpu().numpy().astype(np.uint8).reshape(sourcesize).transpose(1,2,0)
     explained_variances = ((S**2)/(flattened_image_torch.shape[0]-1)).cpu().numpy()
     explained_variance_ratios = explained_variances/np.sum(explained_variances)
-    with open(os.path.join(dataset_config_dir, base_file_name + "_U.pt"), "wb") as f:
-        torch.save(U, f)
+    # with open(os.path.join(dataset_config_dir, base_file_name + "_U.pt"), "wb") as f:
+    #     torch.save(U, f)
     with open(os.path.join(dataset_config_dir, base_file_name + "_S.pt"), "wb") as f:
         torch.save(S, f)
     with open(os.path.join(dataset_config_dir, base_file_name + "_V.pt"), "wb") as f:
@@ -90,11 +90,12 @@ else:
     explained_variance_ratios = np.array(pca.explained_variance_ratio_)
     explained_variances = np.array(pca.explained_variance_)
 
-    imin = flattened_image_array[np.random.randint(0, high=flattened_image_array.shape[0], dtype=np.int64)]
+    irand = int(np.random.randint(0, high=flattened_image_array.shape[0], dtype=int))
+    imin = flattened_image_array[irand]
     improj = np.matmul((imin - pca.mean_).reshape(1,-1), pca.components_.transpose())
     #improj = pca.transform(imin.reshape(1,-1))
-    imroundtrip = (255.0*np.clip(pca.inverse_transform(improj), 0.0, 1.0))[0].astype(np.uint8).reshape(sourcesize)
-    iminreshape = (255.0*imin.reshape(sourcesize)).astype(np.uint8)
+    imrtreshape = (255.0*np.clip(pca.inverse_transform(improj), 0.0, 1.0))[0].astype(np.uint8).reshape(sourcesize).transpose(1,2,0)
+    iminreshape = (255.0*imin).astype(np.uint8).reshape(sourcesize).transpose(1,2,0)
 print("Done fitting")
 
 
