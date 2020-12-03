@@ -11,6 +11,8 @@ import sklearn
 from sklearn.decomposition import PCA, IncrementalPCA
 import matplotlib.pyplot as plt
 import torch, torchvision, torchvision.transforms.functional as F
+import PIL
+import PIL.Image as Image
 
 parser = argparse.ArgumentParser(description="Get PCA of an image dataset")
 parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuration file to load")
@@ -18,12 +20,14 @@ parser.add_argument("num_components", type=int,  help="Number of principle compo
 parser.add_argument("--sample_ratio", type=float, default=0.2 , help="Ratio of each dataset to sample")
 parser.add_argument("--gpu", type=int, default=-1 , help="Use GPU to generate SVD")
 parser.add_argument("--q", type=int, default=-1 , help="Assumed rank of the underlying data. Default is int(1.5*num_components)")
+parser.add_argument("--resize", type=float, default=1.0 , help="Scale the images up by this factor before display")
 args = parser.parse_args()
 argdict = vars(args)
 dataset_config_file = argdict["dataset_config_file"]
 num_components = argdict["num_components"]
 gpu = argdict["gpu"]
 q = argdict["q"]
+resize = argdict["resize"]
 sample_ratio = min(argdict["sample_ratio"], 1.0)
 with open(dataset_config_file,"r") as f:
     dataset_config = yaml.load(f, Loader=yaml.SafeLoader)
@@ -96,9 +100,14 @@ else:
     imrtreshape = (255.0*np.clip(pca.inverse_transform(improj), 0.0, 1.0))[0].astype(np.uint8).reshape(sourcesize).transpose(1,2,0)
     iminreshape = (255.0*imin).astype(np.uint8).reshape(sourcesize).transpose(1,2,0)
 print("Done fitting")
+dims = np.round(resize*(np.array([sourcesize[1], sourcesize[2]]).astype(np.float64))).astype(np.int64).tolist()
+rtpil = Image.fromarray(imrtreshape)
+rtpilresize = F.resize(rtpil, dims, interpolation=Image.LANCZOS)
+inpil = Image.fromarray(iminreshape)
+inpilresize = F.resize(inpil, dims, interpolation=Image.LANCZOS)
 
 
-fig, (axratio, axval, axinput, axroundtrip) = plt.subplots(nrows=1, ncols=4)
+fig, (axratio, axval) = plt.subplots(nrows=1, ncols=2)
 
 axratio.plot(np.arange(1, explained_variance_ratios.shape[0]+1, dtype=np.int32), explained_variance_ratios, label="Explained Variance Ratios")
 axratio.set_title("Scree Plot (Ratios)")
@@ -110,9 +119,18 @@ axval.plot(np.arange(1, explained_variances.shape[0]+1, dtype=np.int32), explain
 axval.set_title("Scree Plot (Absolute Values)")
 axval.set_xlabel("Number of Principle Components")
 axval.set_ylabel("Explained Variance")
+fig.suptitle("Scree plots for a %d-component PCA" % (num_components,))
 #axval.legend()
-axinput.imshow(iminreshape)
-axroundtrip.imshow(imrtreshape)
+plt.savefig(os.path.join(dataset_config_dir, base_file_name+"_scree.svg"))
+plt.savefig(os.path.join(dataset_config_dir, base_file_name+"_scree.png"))
+plt.savefig(os.path.join(dataset_config_dir, base_file_name+"_scree.eps"))
+fig2, (axinput, axroundtrip) = plt.subplots(nrows=1, ncols=2)
+axinput.imshow(np.array(inpilresize))
+axinput.set_title("Original Image")
+axroundtrip.imshow(np.array(rtpilresize))
+axroundtrip.set_title("Round-Trip Projection")
+fig2.suptitle("Example images for a %d-component PCA" % (num_components,))
+plt.savefig(os.path.join(dataset_config_dir, base_file_name+"_example.png"))
 plt.show()
 
 
