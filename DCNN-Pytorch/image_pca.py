@@ -19,14 +19,12 @@ parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuratio
 parser.add_argument("num_components", type=int,  help="Number of principle components to reduce to")
 parser.add_argument("--sample_ratio", type=float, default=0.2 , help="Ratio of each dataset to sample")
 parser.add_argument("--gpu", type=int, default=-1 , help="Use GPU to generate SVD")
-parser.add_argument("--q", type=int, default=-1 , help="Assumed rank of the underlying data. Default is int(1.5*num_components)")
 parser.add_argument("--resize", type=float, default=1.0 , help="Scale the images up by this factor before display")
 args = parser.parse_args()
 argdict = vars(args)
 dataset_config_file = argdict["dataset_config_file"]
 num_components = argdict["num_components"]
 gpu = argdict["gpu"]
-q = argdict["q"]
 resize = argdict["resize"]
 sample_ratio = min(argdict["sample_ratio"], 1.0)
 with open(dataset_config_file,"r") as f:
@@ -58,14 +56,14 @@ for (keys, image_wrapper) in wrappers:
         imagelist.append(F.to_tensor(image_wrapper.getImage(key).copy()).numpy().astype(np.float32))
 sourcesize = imagelist[0].shape
 flattened_image_array = np.array([im.flatten() for im in imagelist])
-if q<0:
-    q = min(int(1.5*num_components), flattened_image_array.shape[0], flattened_image_array.shape[1])
 dataset_config_dir, dataset_config_basefile = os.path.split(dataset_config_file)
 base_file_name = os.path.splitext(dataset_config_basefile)[0] + ("_pca_%d" % (num_components,))
 print("Fitting a %d-component pca with %d samples" % (num_components, flattened_image_array.shape[0]))
 if gpu>=0:
     flattened_image_torch = torch.from_numpy(flattened_image_array).cuda(gpu)
+    flattened_image_torch.requires_grad=False
     flattened_image_stdevs, flattened_image_means = torch.std_mean(flattened_image_torch, dim = 0)
+    q = min(num_components, flattened_image_torch.shape[0], flattened_image_torch.shape[1] )
     U, S, V = torch.pca_lowrank(flattened_image_torch, niter = 3, q=q, center=True)
     irand = int(np.random.randint(0, high=flattened_image_torch.shape[0], dtype=np.int64))
 
