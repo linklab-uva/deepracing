@@ -21,14 +21,14 @@ import deepracing_models.math_utils as mu
 #         x = x.view(batch_size, -1)
 #         return x
 class VariationalImageCurveEncoder(nn.Module):
-    def __init__(self, input_channels = 3, input_dimension = 39600, output_dim = 250, bezier_order=3, context_length=5):
+    def __init__(self, input_dim=39600, output_dim = 250, bezier_order=3, context_length=5):
         super(VariationalImageCurveEncoder, self).__init__()
         self.output_dim = output_dim
         self.bezier_order = bezier_order
         self.context_length = context_length
+        self.input_dim = input_dim
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
-        self.input_dimension = input_dimension
         self.encoder = torch.nn.Sequential(*[
             nn.BatchNorm3d(context_length),
             nn.Conv3d(context_length, 10, kernel_size=(3,3,3), stride = (2,2,2), padding=(2,2,2) ),
@@ -57,6 +57,15 @@ class VariationalImageCurveEncoder(nn.Module):
             nn.Linear(2000, 2000),
             self.relu,
         ])
+
+        self.decoder=torch.nn.Sequential(*[
+            nn.Linear(output_dim, int(input_dim/4)),
+            self.relu,
+            nn.Linear(int(input_dim/4), int(input_dim/2)),
+            self.relu,
+            nn.Linear(int(input_dim/2), input_dim),
+            self.relu,
+        ])
         
         num_latent_vars = (bezier_order+1)*output_dim
         num_covars = int((num_latent_vars * (num_latent_vars-1))/2)
@@ -79,13 +88,13 @@ class VariationalImageCurveEncoder(nn.Module):
         dist = torch.distributions.MultivariateNormal(bezier_mu_flat, scale_tril=scale_tril, validate_args=True)
         curves = dist.sample((1,))[0].view(batch_size, self.bezier_order+1, self.output_dim)
         #curves = (bezier_mu_flat + torch.randn_like(bezier_stdev_flat)*bezier_stdev_flat).view(batch_size, self.output_dim, self.bezier_order+1).transpose(1,2)
-        # dt = times[:,-1] - times[:,0]
-        # s = (times- times[:,0,None])/dt[:,None]
-        # M = mu.bezier.bezierM(s, self.bezier_order)
-        # curve_points = torch.matmul(M, curves )
-        # decoded_points = self.decoder(curve_points)
+        dt = times[:,-1] - times[:,0]
+        s = (times- times[:,0,None])/dt[:,None]
+        M = mu.bezier.bezierM(s, self.bezier_order)
+        curve_points = torch.matmul(M, curves )
+      #  decoded_points = self.decoder(curve_points)
 
-        return bezier_mu, bezier_stdev, dist, curves
+        return bezier_mu, bezier_stdev, dist, curves, curve_points
 
 class PilotNet(nn.Module):
     """PyTorch Implementation of NVIDIA's PilotNet"""
