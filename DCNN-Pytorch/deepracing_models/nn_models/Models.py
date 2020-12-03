@@ -99,12 +99,11 @@ class ImageCurvePredictor(nn.Module):
         curves = dist.sample((1,))[0].view(batch_size, self.output_dim, self.bezier_order+1)
         dt = times[:,-1] - times[:,0]
         s = (times- times[:,0,None])/dt[:,None]
+        M = mu.bezier.bezierM(s, self.bezier_order)
+        curve_points = torch.matmul(M, curves.transpose(1,2) )
+        decoded_points = self.decoder(curve_points)
 
-        M = mu.bezier.bezierM(s, self.bezier_order).transpose(1,2)
-        curve_points = torch.matmul(curves, M )
-        decoded_points = self.decoder(curve_points.transpose(1,2))
-
-        return bezier_mu, bezier_stdev, curves, curve_points, decoded_points
+        return bezier_mu, bezier_stdev, dist, curves, curve_points, decoded_points
 
 class PilotNet(nn.Module):
     """PyTorch Implementation of NVIDIA's PilotNet"""
