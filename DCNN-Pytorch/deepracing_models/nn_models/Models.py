@@ -69,6 +69,8 @@ class ImageCurvePredictor(nn.Module):
         ])
         self.down_to_bezier_mu = nn.Linear(336, bezier_order+1, bias=False)
         self.down_to_bezier_logvar = nn.Linear(336, bezier_order+1, bias=False)
+        # num_latent_vars = (bezier_order+1)*output_dim
+        # self.down_to_bezier_covar = nn.Linear(336, int(0.5*num_latent_vars*(num_latent_vars-1)), bias=False)
 
         self.decoder = torch.nn.Sequential(*[
             nn.Linear(output_dim, int(self.input_dimension/4), bias=False),
@@ -86,7 +88,14 @@ class ImageCurvePredictor(nn.Module):
         bezier_mu = self.down_to_bezier_mu(flatten)
         bezier_logstdev = self.down_to_bezier_logvar(flatten)
         bezier_stdev = torch.exp(bezier_logstdev)
-        dist = torch.distributions.MultivariateNormal(bezier_mu.view(batch_size,-1), scale_tril=torch.diag_embed(bezier_stdev.view(batch_size,-1)))
+        scale_tril = torch.diag_embed(bezier_stdev.view(batch_size,-1))
+        # tril_indices = torch.tril_indices(scale_tril.shape[1], scale_tril.shape[2], offset=-1)
+        # bezier_covar = self.down_to_bezier_covar(flatten).view(batch_size,-1)
+        # print(scale_tril.shape)
+        # print(bezier_covar.shape)
+        # scale_tril[:, tril_indices[0], tril_indices[1]] = bezier_covar
+
+        dist = torch.distributions.MultivariateNormal(bezier_mu.view(batch_size,-1), scale_tril=scale_tril)
         samp = dist.sample((1,))[0].view(batch_size, self.output_dim, self.bezier_order+1)
         dt = times[:,-1] - times[:,0]
         s = (times- times[:,0,None])/dt[:,None]
