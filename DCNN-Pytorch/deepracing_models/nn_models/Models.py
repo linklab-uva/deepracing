@@ -21,17 +21,17 @@ import deepracing_models.math_utils as mu
 #         x = x.view(batch_size, -1)
 #         return x
 class VariationalImageCurveEncoder(nn.Module):
-    def __init__(self, input_dim=39600, output_dim = 250, bezier_order=3, context_length=5):
+    def __init__(self, input_dim=39600, output_dim = 250, bezier_order=3, sequence_length=5):
         super(VariationalImageCurveEncoder, self).__init__()
         self.output_dim = output_dim
         self.bezier_order = bezier_order
-        self.context_length = context_length
+        self.sequence_length = sequence_length
         self.input_dim = input_dim
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
         self.encoder = torch.nn.Sequential(*[
-            nn.BatchNorm3d(context_length),
-            nn.Conv3d(context_length, 10, kernel_size=(3,3,3), stride = (2,2,2), padding=(2,2,2) ),
+            nn.BatchNorm3d(sequence_length),
+            nn.Conv3d(sequence_length, 10, kernel_size=(3,3,3), stride = (2,2,2), padding=(2,2,2) ),
             nn.BatchNorm3d(10),
             self.relu,
             nn.Conv3d(10, 25, kernel_size=(3,3,3), stride = (2,2,2), padding=(2,2,2) ),
@@ -70,7 +70,7 @@ class VariationalImageCurveEncoder(nn.Module):
        
     def forward(self, images, times):
         batch_size = images.shape[0]
-        context_length = images.shape[1]
+        assert(images.shape[1]==self.sequence_length)
     
         encoderout = self.encoder(images)
 
