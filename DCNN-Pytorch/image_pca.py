@@ -100,7 +100,7 @@ else:
     imrtreshape = (255.0*np.clip(pca.inverse_transform(improj), 0.0, 1.0))[0].astype(np.uint8).reshape(sourcesize).transpose(1,2,0)
     iminreshape = (255.0*imin).astype(np.uint8).reshape(sourcesize).transpose(1,2,0)
 print("Done fitting")
-dims = np.round(resize*(np.array([sourcesize[1], sourcesize[2]]).astype(np.float64))).astype(np.int64).tolist()
+dims = int(round(resize*torch.min(torch.FloatTensor(sourcesize[1:])).item()))
 rtpil = Image.fromarray(imrtreshape)
 rtpilresize = F.resize(rtpil, dims, interpolation=Image.LANCZOS)
 inpil = Image.fromarray(iminreshape)
