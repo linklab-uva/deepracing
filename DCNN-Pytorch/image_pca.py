@@ -57,16 +57,14 @@ base_file_name = os.path.splitext(dataset_config_basefile)[0] + ("_pca_%d" % (nu
 print("Fitting a %d-component pca with %d samples" % (num_components, flattened_image_array.shape[0]))
 if gpu>=0:
     flattened_image_torch = torch.from_numpy(flattened_image_array).cuda(gpu)
-    flattened_image_means = torch.mean(flattened_image_torch, dim=0)
+    flattened_image_stdevs, flattened_image_means = torch.std_mean(flattened_image_torch, dim = 0)
     flattened_image_torch = flattened_image_torch - flattened_image_means
     U, S, V = torch.pca_lowrank(flattened_image_torch, niter = 3, q=num_components, center=False)
-
-    improj = torch.matmul(flattened_image_torch, V[:, :num_components])
-    imroundtrip = (255.0*torch.clamp(torch.matmul(improj, V[:, :num_components].t()) + flattened_image_means, 0.0, 1.0)).cpu().numpy().astype(np.uint8).reshape((flattened_image_torch.shape[0],) + sourcesize)
-
     irand = int(np.random.randint(0, high=flattened_image_torch.shape[0], dtype=np.int64))
+
+    improj = torch.matmul(flattened_image_torch[irand].unsqueeze(0), V[:, :num_components])
+    imrtreshape = (255.0*torch.clamp(torch.matmul(improj, V[:, :num_components].t())[0] + flattened_image_means, 0.0, 1.0)).cpu().numpy().astype(np.uint8).reshape(sourcesize).transpose(1,2,0)
     iminreshape = (255.0*(flattened_image_torch[irand] + flattened_image_means)).cpu().numpy().astype(np.uint8).reshape(sourcesize).transpose(1,2,0)
-    imrtreshape = imroundtrip[irand].transpose(1,2,0)
     explained_variances = S.cpu().numpy()/(flattened_image_torch.shape[0]-1)
     explained_variance_ratios = explained_variances/np.sum(explained_variances)
     with open(os.path.join(dataset_config_dir, base_file_name + "_U.pt"), "wb") as f:
@@ -77,6 +75,8 @@ if gpu>=0:
         torch.save(V, f)
     with open(os.path.join(dataset_config_dir, base_file_name + "_means.pt"), "wb") as f:
         torch.save(flattened_image_means, f)
+    with open(os.path.join(dataset_config_dir, base_file_name + "_stdevs.pt"), "wb") as f:
+        torch.save(flattened_image_stdevs, f)
 else:
     pca = PCA(n_components=num_components, copy=True)
     pca.fit(flattened_image_array)
