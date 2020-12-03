@@ -21,7 +21,7 @@ import deepracing_models.math_utils as mu
 #         x = x.view(batch_size, -1)
 #         return x
 class ImageCurvePredictor(nn.Module):
-    def __init__(self, input_channels = 3, input_dimension = 39600, output_dim = 500, bezier_order=3):
+    def __init__(self, input_channels = 3, input_dimension = 39600, output_dim = 250, bezier_order=3):
         super(ImageCurvePredictor, self).__init__()
         self.output_dim = output_dim
         self.bezier_order = bezier_order
@@ -95,18 +95,16 @@ class ImageCurvePredictor(nn.Module):
         # print(bezier_covar.shape)
         # scale_tril[:, tril_indices[0], tril_indices[1]] = bezier_covar
 
-        dist = torch.distributions.MultivariateNormal(bezier_mu.view(batch_size,-1), scale_tril=scale_tril)
-        samp = dist.sample((1,))[0].view(batch_size, self.output_dim, self.bezier_order+1)
+        dist = torch.distributions.MultivariateNormal(bezier_mu.view(batch_size,-1), scale_tril=scale_tril, validate_args=True)
+        curves = dist.sample((1,))[0].view(batch_size, self.output_dim, self.bezier_order+1)
         dt = times[:,-1] - times[:,0]
         s = (times- times[:,0,None])/dt[:,None]
 
-        M = mu.bezier.bezierM(s, self.bezier_order)
+        M = mu.bezier.bezierM(s, self.bezier_order).transpose(1,2)
+        curve_points = torch.matmul(curves, M )
+        decoded_points = self.decoder(curve_points.transpose(1,2))
 
-        curve_samples = torch.matmul(M, samp.transpose(1,2))
-        
-        decoded_samples = self.decoder(curve_samples)
-
-        return bezier_mu, bezier_stdev, curve_samples, decoded_samples
+        return bezier_mu, bezier_stdev, curves, curve_points, decoded_points
 
 class PilotNet(nn.Module):
     """PyTorch Implementation of NVIDIA's PilotNet"""
