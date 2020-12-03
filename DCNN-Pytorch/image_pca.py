@@ -10,7 +10,7 @@ import scipy, scipy.stats
 import sklearn
 from sklearn.decomposition import PCA, IncrementalPCA
 import matplotlib.pyplot as plt
-import torch
+import torch, torchvision, torchvision.transforms.functional as F
 
 parser = argparse.ArgumentParser(description="Get PCA of an image dataset")
 parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuration file to load")
@@ -49,9 +49,9 @@ imagelist = []
 for (keys, image_wrapper) in wrappers:
     sample_keys = random.sample(keys, int(sample_ratio*len(keys)))
     for key in sample_keys:
-        imagelist.append(image_wrapper.getImage(key))
+        imagelist.append(F.to_tensor(image_wrapper.getImage(key).copy()).numpy().astype(np.float32))
 sourcesize = imagelist[0].shape
-flattened_image_array = np.array([im.flatten() for im in imagelist]).astype(np.float32)/255.0
+flattened_image_array = np.array([im.flatten() for im in imagelist])
 dataset_config_dir, dataset_config_basefile = os.path.split(dataset_config_file)
 base_file_name = os.path.splitext(dataset_config_basefile)[0] + ("_pca_%d" % (num_components,))
 print("Fitting a %d-component pca with %d samples" % (num_components, flattened_image_array.shape[0]))
@@ -59,12 +59,14 @@ if gpu>=0:
     flattened_image_torch = torch.from_numpy(flattened_image_array).cuda(gpu)
     flattened_image_means = torch.mean(flattened_image_torch, dim=0)
     flattened_image_torch = flattened_image_torch - flattened_image_means
-    U, S, V = torch.pca_lowrank(flattened_image_torch, niter = 2, q=num_components, center=False)
-    print(V.shape)
-    imin = flattened_image_torch[np.random.randint(0, high=flattened_image_torch.shape[0], dtype=np.int64)]
-    improj = torch.matmul(imin.unsqueeze(0), V[:, :num_components])
-    imroundtrip = (255.0*torch.clamp(torch.matmul(improj, V[:, :num_components].t())[0] + flattened_image_means, 0.0, 1.0)).cpu().numpy().astype(np.uint8).reshape(sourcesize)
-    iminreshape = (255.0*(imin + flattened_image_means)).cpu().numpy().astype(np.uint8).reshape(sourcesize)
+    U, S, V = torch.pca_lowrank(flattened_image_torch, niter = 3, q=num_components, center=False)
+
+    improj = torch.matmul(flattened_image_torch, V[:, :num_components])
+    imroundtrip = (255.0*torch.clamp(torch.matmul(improj, V[:, :num_components].t()) + flattened_image_means, 0.0, 1.0)).cpu().numpy().astype(np.uint8).reshape((flattened_image_torch.shape[0],) + sourcesize)
+
+    irand = int(np.random.randint(0, high=flattened_image_torch.shape[0], dtype=np.int64))
+    iminreshape = (255.0*(flattened_image_torch[irand] + flattened_image_means)).cpu().numpy().astype(np.uint8).reshape(sourcesize).transpose(1,2,0)
+    imrtreshape = imroundtrip[irand].transpose(1,2,0)
     explained_variances = S.cpu().numpy()/(flattened_image_torch.shape[0]-1)
     explained_variance_ratios = explained_variances/np.sum(explained_variances)
     with open(os.path.join(dataset_config_dir, base_file_name + "_U.pt"), "wb") as f:
@@ -106,7 +108,7 @@ axval.set_xlabel("Number of Principle Components")
 axval.set_ylabel("Explained Variance")
 #axval.legend()
 axinput.imshow(iminreshape)
-axroundtrip.imshow(imroundtrip)
+axroundtrip.imshow(imrtreshape)
 plt.show()
 
 
