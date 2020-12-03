@@ -20,90 +20,72 @@ import deepracing_models.math_utils as mu
 #         x = self.features(x)
 #         x = x.view(batch_size, -1)
 #         return x
-class ImageCurvePredictor(nn.Module):
-    def __init__(self, input_channels = 3, input_dimension = 39600, output_dim = 250, bezier_order=3):
-        super(ImageCurvePredictor, self).__init__()
+class VariationalImageCurveEncoder(nn.Module):
+    def __init__(self, input_channels = 3, input_dimension = 39600, output_dim = 250, bezier_order=3, context_length=5):
+        super(VariationalImageCurveEncoder, self).__init__()
         self.output_dim = output_dim
         self.bezier_order = bezier_order
+        self.context_length = context_length
+        self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
         self.input_dimension = input_dimension
-        self.conv3dlayers = torch.nn.Sequential(*[
-            nn.BatchNorm3d(input_channels),
-            nn.Conv3d(input_channels, 10, kernel_size=(3,3,3), stride = (2,2,2), padding=(2,2,2) ),
+        self.encoder = torch.nn.Sequential(*[
+            nn.BatchNorm3d(context_length),
+            nn.Conv3d(context_length, 10, kernel_size=(3,3,3), stride = (2,2,2), padding=(2,2,2) ),
             nn.BatchNorm3d(10),
-            self.sigmoid,
+            self.relu,
             nn.Conv3d(10, 25, kernel_size=(3,3,3), stride = (2,2,2), padding=(2,2,2) ),
             nn.BatchNorm3d(25),
-            self.sigmoid,
-            nn.Conv3d(25, 75, kernel_size=(3,3,3), stride = (1,1,1), padding=(2,2,2) ),
+            self.relu,
+            nn.Conv3d(25, 75, kernel_size=(3,3,3), stride = (2,2,2), padding=(2,2,2) ),
             nn.BatchNorm3d(75),
-            self.sigmoid,
-            nn.Conv3d(75, 100, kernel_size=(3,3,3), stride = (1,1,1), padding=(2,2,2) ),
+            self.relu,
+            nn.Conv3d(75, 100, kernel_size=(3,3,3), stride = (1,2,2), padding=(2,2,2) ),
             nn.BatchNorm3d(100),
-            self.sigmoid,
-            nn.Conv3d(100, 100, kernel_size=(3,3,3), stride = (1,1,1) ),
-            nn.BatchNorm3d(100),
-            self.sigmoid,
-            nn.Conv3d(100, 100, kernel_size=(3,3,3), stride = (1,1,1) ),
-            nn.BatchNorm3d(100),
-            self.sigmoid,
-            nn.Conv3d(100, 100, kernel_size=(3,3,3), stride = (1,1,1) ),
-            nn.BatchNorm3d(100),
-            self.sigmoid
+            self.relu,
+            nn.Conv3d(100, 200, kernel_size=(3,3,3), stride = (1,1,1) ),
+            nn.BatchNorm3d(200),
+            self.relu,
+            nn.Conv3d(200, 200, kernel_size=(3,3,3), stride = (1,1,1) ),
+            nn.BatchNorm3d(200),
+            self.relu,
+            nn.Flatten(),
+            nn.Linear(4400, 3000),
+            self.relu,
+            nn.Linear(3000, 2000),
+            self.relu,
+            nn.Linear(2000, 2000),
+            self.relu,
         ])
-        self.conv2dlayers = torch.nn.Sequential(*[
-            nn.BatchNorm2d(100),
-            self.sigmoid,
-            nn.Conv2d(100, 150, kernel_size=5, padding=1),
-            nn.BatchNorm2d(150),
-            self.sigmoid,
-            nn.Conv2d(150, 150, kernel_size=5, padding=1),
-            nn.BatchNorm2d(150),
-            self.sigmoid,
-            nn.Conv2d(150, 150, kernel_size=3),
-            nn.BatchNorm2d(150),
-            self.sigmoid,
-            nn.Conv2d(150, output_dim, kernel_size=3),
-            nn.BatchNorm2d(output_dim),
-            self.sigmoid,
-        ])
-        self.down_to_bezier_mu = nn.Linear(336, bezier_order+1, bias=False)
-        self.down_to_bezier_logvar = nn.Linear(336, bezier_order+1, bias=False)
-        # num_latent_vars = (bezier_order+1)*output_dim
-        # self.down_to_bezier_covar = nn.Linear(336, int(0.5*num_latent_vars*(num_latent_vars-1)), bias=False)
-
-        self.decoder = torch.nn.Sequential(*[
-            nn.Linear(output_dim, int(self.input_dimension/4), bias=False),
-            self.sigmoid,
-            nn.Linear(int(self.input_dimension/4), int(self.input_dimension/2)),
-            self.sigmoid,
-            nn.Linear(int(self.input_dimension/2), self.input_dimension),
-        ])
+        
+        num_latent_vars = (bezier_order+1)*output_dim
+        num_covars = int((num_latent_vars * (num_latent_vars-1))/2)
+        self.down_to_bezier_mu = nn.Linear(2000, num_latent_vars)
+        self.down_to_bezier_logvar = nn.Linear(2000, num_latent_vars)
+       
     def forward(self, images, times):
         batch_size = images.shape[0]
-        conv3dout = self.conv3dlayers(images)
-        removesingleton = conv3dout[:, :, 0, :, :]
-        conv2dout = self.conv2dlayers(removesingleton)
-        flatten = conv2dout.view(batch_size, self.output_dim, -1)
-        bezier_mu = self.down_to_bezier_mu(flatten)
-        bezier_logstdev = self.down_to_bezier_logvar(flatten)
-        bezier_stdev = torch.exp(bezier_logstdev)
-        scale_tril = torch.diag_embed(bezier_stdev.view(batch_size,-1))
-        # tril_indices = torch.tril_indices(scale_tril.shape[1], scale_tril.shape[2], offset=-1)
-        # bezier_covar = self.down_to_bezier_covar(flatten).view(batch_size,-1)
-        # print(scale_tril.shape)
-        # print(bezier_covar.shape)
-        # scale_tril[:, tril_indices[0], tril_indices[1]] = bezier_covar
+        context_length = images.shape[1]
+    
+        encoderout = self.encoder(images)
 
-        dist = torch.distributions.MultivariateNormal(bezier_mu.view(batch_size,-1), scale_tril=scale_tril, validate_args=True)
-        curves = dist.sample((1,))[0].view(batch_size, self.output_dim, self.bezier_order+1)
-        dt = times[:,-1] - times[:,0]
-        s = (times- times[:,0,None])/dt[:,None]
-        M = mu.bezier.bezierM(s, self.bezier_order)
-        curve_points = torch.matmul(M, curves.transpose(1,2) )
-        decoded_points = self.decoder(curve_points)
+        bezier_mu_flat = self.down_to_bezier_mu(encoderout)
+        bezier_logstdev_flat = self.down_to_bezier_logvar(encoderout)
 
-        return bezier_mu, bezier_stdev, dist, curves, curve_points, decoded_points
+        bezier_stdev_flat = torch.exp(0.5*bezier_logstdev_flat)
+        bezier_stdev = bezier_stdev_flat.view(batch_size, self.bezier_order+1, self.output_dim)
+        bezier_mu = bezier_mu_flat.view(batch_size, self.bezier_order+1, self.output_dim)
+        scale_tril = torch.diag_embed(bezier_stdev_flat)
+        dist = torch.distributions.MultivariateNormal(bezier_mu_flat, scale_tril=scale_tril, validate_args=True)
+        curves = dist.sample((1,))[0].view(batch_size, self.bezier_order+1, self.output_dim)
+        #curves = (bezier_mu_flat + torch.randn_like(bezier_stdev_flat)*bezier_stdev_flat).view(batch_size, self.output_dim, self.bezier_order+1).transpose(1,2)
+        # dt = times[:,-1] - times[:,0]
+        # s = (times- times[:,0,None])/dt[:,None]
+        # M = mu.bezier.bezierM(s, self.bezier_order)
+        # curve_points = torch.matmul(M, curves )
+        # decoded_points = self.decoder(curve_points)
+
+        return bezier_mu, bezier_stdev, dist, curves
 
 class PilotNet(nn.Module):
     """PyTorch Implementation of NVIDIA's PilotNet"""
