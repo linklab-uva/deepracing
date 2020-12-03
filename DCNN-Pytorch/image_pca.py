@@ -17,11 +17,15 @@ parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuratio
 parser.add_argument("num_components", type=int,  help="Number of principle components to reduce to")
 parser.add_argument("--sample_ratio", type=float, default=0.2 , help="Ratio of each dataset to sample")
 parser.add_argument("--gpu", type=int, default=-1 , help="Use GPU to generate SVD")
+parser.add_argument("--q", type=int, default=-1 , help="Assumed rank of the underlying data. Default is int(1.5*num_components)")
 args = parser.parse_args()
 argdict = vars(args)
 dataset_config_file = argdict["dataset_config_file"]
 num_components = argdict["num_components"]
 gpu = argdict["gpu"]
+q = argdict["q"]
+if q<0:
+    q = int(1.5*num_components)
 sample_ratio = min(argdict["sample_ratio"], 1.0)
 with open(dataset_config_file,"r") as f:
     dataset_config = yaml.load(f, Loader=yaml.SafeLoader)
@@ -59,13 +63,13 @@ if gpu>=0:
     flattened_image_torch = torch.from_numpy(flattened_image_array).cuda(gpu)
     flattened_image_stdevs, flattened_image_means = torch.std_mean(flattened_image_torch, dim = 0)
     flattened_image_torch = flattened_image_torch - flattened_image_means
-    U, S, V = torch.pca_lowrank(flattened_image_torch, niter = 3, q=num_components, center=False)
+    U, S, V = torch.pca_lowrank(flattened_image_torch, niter = 3, q=q, center=False)
     irand = int(np.random.randint(0, high=flattened_image_torch.shape[0], dtype=np.int64))
 
     improj = torch.matmul(flattened_image_torch[irand].unsqueeze(0), V[:, :num_components])
     imrtreshape = (255.0*torch.clamp(torch.matmul(improj, V[:, :num_components].t())[0] + flattened_image_means, 0.0, 1.0)).cpu().numpy().astype(np.uint8).reshape(sourcesize).transpose(1,2,0)
     iminreshape = (255.0*(flattened_image_torch[irand] + flattened_image_means)).cpu().numpy().astype(np.uint8).reshape(sourcesize).transpose(1,2,0)
-    explained_variances = S.cpu().numpy()/(flattened_image_torch.shape[0]-1)
+    explained_variances = ((S**2)/(flattened_image_torch.shape[0]-1)).cpu().numpy()
     explained_variance_ratios = explained_variances/np.sum(explained_variances)
     with open(os.path.join(dataset_config_dir, base_file_name + "_U.pt"), "wb") as f:
         torch.save(U, f)
