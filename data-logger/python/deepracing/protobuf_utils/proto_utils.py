@@ -231,9 +231,9 @@ def quaternionFromNumpy(quaternionnp : np.ndarray, quaternionpb = Quaterniond_pb
    return quaternionpb
    
 def vectorFromNumpy(vectornp, vectorpb =  Vector3d_pb2.Vector3d()):
-   vectorpb.x = vectornp[0]
-   vectorpb.y = vectornp[1]
-   vectorpb.z = vectornp[2]
+   vectorpb.x = float(vectornp[0])
+   vectorpb.y = float(vectornp[1])
+   vectorpb.z = float(vectornp[2])
    return vectorpb
 
 
@@ -259,7 +259,7 @@ def extractPosition(packet , car_index = None):
    position = np.array((motion_data.m_worldPositionX, motion_data.m_worldPositionY, motion_data.m_worldPositionZ), dtype=np.float64)
    return position 
 
-def extractRotation(packet : PacketMotionData_pb2.PacketMotionData, car_index = None):
+def extractRotation(packet : PacketMotionData_pb2.PacketMotionData, car_index = None, zforward=True):
    if car_index is None:
       idx = packet.m_header.m_playerCarIndex
    else:
@@ -271,17 +271,20 @@ def extractRotation(packet : PacketMotionData_pb2.PacketMotionData, car_index = 
    forwardvector = forwardvector/la.norm(forwardvector)
    upvector = np.cross(rightvector,forwardvector)
    upvector = upvector/la.norm(upvector)
-   rotationmat = np.column_stack((-rightvector,upvector,forwardvector))
+   if zforward:
+      rotationmat = np.column_stack((-rightvector,upvector,forwardvector))
+   else:
+      rotationmat = np.column_stack((forwardvector,-rightvector,upvector))
    quat = Rot.from_matrix(rotationmat).as_quat()
    return quat
 
-def extractPose(packet : PacketMotionData_pb2.PacketMotionData, car_index = None):
+def extractPose(packet : PacketMotionData_pb2.PacketMotionData, car_index = None, zforward=True):
    if car_index is None:
       idx = packet.m_header.m_playerCarIndex
    else:
       idx = car_index
    position = extractPosition(packet, car_index=idx)
-   quat = extractRotation(packet, car_index=idx)
+   quat = extractRotation(packet, car_index=idx, zforward=zforward)
    return position, quat 
 
 def vectorListToArray(listOfVectors):
