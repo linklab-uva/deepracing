@@ -160,6 +160,9 @@ else:
     dead_cars = vehicle_position_diff_totals<(10*lookahead_time)
     print("dead_cars shape: %s" % (str(dead_cars.shape),))
     vehicle_velocities = np.stack([np.array([extractVelocity(packet.udp_packet, car_index=i) for i in range(20) ]) for packet in motion_packets], axis=0).transpose(1,0,2)
+    print("vehicle_velocities shape: %s" % (str(vehicle_velocities.shape),))
+    print("Car 0 global vels:")
+    print(vehicle_velocities[0,100:])
     vehicle_quaternions = np.stack([np.array([extractRotation(packet.udp_packet, car_index=i) for i in range(20) ]) for packet in motion_packets], axis=0).transpose(1,0,2)
 
     ego_vehicle_positions = vehicle_positions[ego_vehicle_index]
@@ -307,11 +310,9 @@ for idx in tqdm(range(len(image_tags))):
                 dead_car = i==ego_vehicle_index or dead_cars[i] or np.sum(np.linalg.norm(positions_samp_global[1:] - positions_samp_global[0:-1], ord=2,axis=1))<(2.0*lookahead_time)
                 if dead_car:
                     continue
-                velocities = vehicle_velocities[i]
+
+
                 quaternions = vehicle_quaternions[i]
-                velocity_interpolant = vehicle_velocity_interpolants[i]
-
-
                 if np.any(np.linalg.norm(quaternions[istart:iend],ord=2,axis=1)<0.9) or np.all(positions[istart:iend]==0.0) or np.any(np.linalg.norm(positions[istart:iend],ord=2,axis=1)<2.0):
                     continue
                 try:
@@ -319,6 +320,7 @@ for idx in tqdm(range(len(image_tags))):
                 except Exception as e:
                     raise DeepRacingException("Could not create rotation interpolation for car %d" % i)
                     #continue
+                velocity_interpolant = vehicle_velocity_interpolants[i]
                 velocities_samp_global = velocity_interpolant(tsamp)
                 rotations_samp_global = rotation_interpolant(tsamp)
                 angvel_samp_global = rotation_interpolant(tsamp,1)
@@ -347,6 +349,9 @@ for idx in tqdm(range(len(image_tags))):
 
                     new_trajectory_pb = label_tag.other_agent_trajectories.add()
                     label_tag.trajectory_car_indices.append(i)
+                    if debug:
+                        print("Global velocities for car %d: %s"  %(i, str(velocities_samp_global)))
+                        print("Local velocities for car %d: %s"  %(i, str(velocities_samp)))
                     for j in range(tsamp.shape[0]):
                         newpose = new_trajectory_pb.poses.add()
                         newpose.frame = FrameId_pb2.LOCAL
@@ -354,15 +359,33 @@ for idx in tqdm(range(len(image_tags))):
                         newpose.translation.CopyFrom(proto_utils.vectorFromNumpy(positions_samp[j]))
                         newpose.rotation.CopyFrom(proto_utils.quaternionFromScipy(rotations_samp[j]))
 
+                        local_vel = velocities_samp[j].copy()
+                        if debug:
+                            print("Writing new local velocity for car %d: %s" %(i, str(local_vel)))
                         newvel = new_trajectory_pb.linear_velocities.add()
                         newvel.frame = FrameId_pb2.LOCAL
                         newvel.session_time = tsamp[j]
-                        newvel.vector.CopyFrom(proto_utils.vectorFromNumpy(velocities_samp[j]))
+                        newvel.vector.CopyFrom(proto_utils.vectorFromNumpy(local_vel))
+                        # newvel.vector.x=float(local_vel[0])
+                        # newvel.vector.y=float(local_vel[1])
+                        # newvel.vector.z=float(local_vel[2])
 
+                        local_angvel = angvel_samp[j].copy()
+                        # if debug:
+                        #     print("Writing new local angular velocity for car %d: %s" %(i, str(local_angvel)))
                         newangvel = new_trajectory_pb.angular_velocities.add()
                         newangvel.frame = FrameId_pb2.LOCAL
                         newangvel.session_time = tsamp[j]
-                        newvel.vector.CopyFrom(proto_utils.vectorFromNumpy(angvel_samp[j]))
+                        newangvel.vector.CopyFrom(proto_utils.vectorFromNumpy(local_angvel))
+                        # newangvel.vector.x=float(local_angvel[0])
+                        # newangvel.vector.y=float(local_angvel[1])
+                        # newangvel.vector.z=float(local_angvel[2])
+                    posreconstructed = np.array([ [p.translation.x, p.translation.y, p.translation.z] for p in label_tag.other_agent_trajectories[-1].poses], dtype=np.float32)
+                    quatsreconstructed = np.array([ [p.rotation.x, p.rotation.y, p.rotation.z, p.rotation.w] for p in label_tag.other_agent_trajectories[-1].poses], dtype=np.float32)
+                    velreconstructed = np.array([ [v.vector.x, v.vector.y, v.vector.z] for v in label_tag.other_agent_trajectories[-1].linear_velocities], dtype=np.float32)
+                    assert(np.allclose(positions_samp.astype(np.float32),posreconstructed, atol=1E-6))
+                    assert(np.allclose(Rot.as_quat(rotations_samp).astype(np.float32),quatsreconstructed, atol=1E-6))
+                    assert(np.allclose(velocities_samp.astype(np.float32),velreconstructed, atol=1E-6))
         if debug and (not time_trial) and (not len(label_tag.other_agent_trajectories)==0):
             image_file = "image_%d.jpg" % idx
             print("Found a match for %s. Metadata:" %(image_file,))
@@ -387,9 +410,6 @@ for idx in tqdm(range(len(image_tags))):
             label_tag_JSON = google.protobuf.json_format.MessageToJson(label_tag, including_default_value_fields=True, indent=2)
             f.write(label_tag_JSON)
 
-        label_tag_binary_file = os.path.join(output_dir, key + "_multi_agent_label.pb")
-        with open(label_tag_binary_file,'wb') as f: 
-            f.write( label_tag.SerializeToString() )  
         db.writeMultiAgentLabel( key , label_tag )
         keys.append(key)  
     except KeyboardInterrupt as e:
@@ -408,6 +428,10 @@ for idx in tqdm(range(len(image_tags))):
         fig2 = plt.subplot(1, 2, 2)
         label_positions = deepracing.backend.MultiAgentLabelLMDBWrapper.positionsFromLabel(label_tag_dbg)
         raceline_labels = np.array([ [vectorpb.vector.x, vectorpb.vector.y, vectorpb.vector.z] for vectorpb in label_tag_dbg.raceline])
+
+        last_seen_car = label_tag_dbg.trajectory_car_indices[-1]
+     #   print("Initial global velocity of car %d: %s\n" % (last_seen_car,str(velocities_samp_global[0])))
+       # print("Initial local velocity of car %d: %s\n" % (last_seen_car,str(velocities_samp[0])))
         car_indices_dbg = np.array(label_tag_dbg.trajectory_car_indices)
         minx = np.min(raceline_labels[:,0])-5.0
         maxx = np.max(raceline_labels[:,0])+5.0
