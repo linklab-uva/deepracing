@@ -224,10 +224,10 @@ def getAllImageFilePackets(image_data_folder: str, use_json: bool):
 def quaternionFromScipy(quaternion : Rot, quaternionpb = Quaterniond_pb2.Quaterniond()):
    return quaternionFromNumpy(quaternion.as_quat(), quaternionpb = quaternionpb)
 def quaternionFromNumpy(quaternionnp : np.ndarray, quaternionpb = Quaterniond_pb2.Quaterniond()):
-   quaternionpb.x = quaternionnp[0]
-   quaternionpb.y = quaternionnp[1]
-   quaternionpb.z = quaternionnp[2]
-   quaternionpb.w = quaternionnp[3]
+   quaternionpb.x = float(quaternionnp[0])
+   quaternionpb.y = float(quaternionnp[1])
+   quaternionpb.z = float(quaternionnp[2])
+   quaternionpb.w = float(quaternionnp[3])
    return quaternionpb
    
 def vectorFromNumpy(vectornp, vectorpb =  Vector3d_pb2.Vector3d()):
