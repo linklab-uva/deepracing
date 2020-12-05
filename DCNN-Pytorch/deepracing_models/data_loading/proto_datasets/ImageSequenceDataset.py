@@ -33,7 +33,7 @@ class ImageSequenceDataset(Dataset):
         images_end = images_start + self.sequence_length
         packetrange = range(images_start, images_end)
         keys = ["image_%d" % (i,) for i in packetrange]
-        session_times = np.array([self.timestampdict[key] for key in keys], dtype=np.float64)
+        session_times = np.array([self.timestampdict[key] for key in keys], dtype=np.float32)
         assert(keys[0]==initial_key)        
         images_pil = [ F.resize( PILImage.fromarray( self.image_wrapper.getImage(key) ), self.image_size, interpolation=PIL.Image.LANCZOS ) for key in keys ]
         images_torch = torch.stack( [ F.to_tensor(img) for img in images_pil ] ).double()
