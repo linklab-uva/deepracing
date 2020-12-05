@@ -171,7 +171,6 @@ def go():
         dlocal : dict = {k: dataset_config[k] for k in dataset_config.keys()  if (not (k in ["datasets"]))}
         dlocal.update(dataset)
         print("Parsing database config: %s" %(str(dlocal)))
-        key_file = dlocal["key_file"]
         root_folder = dlocal["root_folder"]
         dataset_tags = dlocal.get("tags", [])
         alltags = alltags.union(set(dataset_tags))
