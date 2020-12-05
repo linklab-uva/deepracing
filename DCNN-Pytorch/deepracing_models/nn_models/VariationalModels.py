@@ -13,32 +13,53 @@ class ConvolutionalAutoencoder(nn.Module):
     def __init__(self, out_size, in_channels):
         super(ConvolutionalAutoencoder, self).__init__()
         self.out_size = out_size
-        self.econv1 = nn.Conv2d(in_channels, 32, kernel_size = 5, bias = False)
-        self.ebatch1 = nn.BatchNorm2d(32)
-        self.econv2 = nn.Conv2d(32, 8, kernel_size = 5, bias = False)
-        self.ebatch2 = nn.BatchNorm2d(8)
-        self.econv3 = nn.Conv2d(8, out_size, kernel_size = 20, bias = True)
+        self.elu = torch.nn.ELU()
+        self.sigmoid = torch.nn.Sigmoid()
+        self.conv_layers = nn.Sequential(*[
+            nn.Conv2d(in_channels, 32, kernel_size = 5, stride=1, bias = False),
+            nn.BatchNorm2d(32),
+            self.elu,
+            nn.Conv2d(32, 64, kernel_size = 5, stride=1, bias = False),
+            nn.BatchNorm2d(64),
+            self.elu,
+            nn.Conv2d(64, 64, kernel_size = 5, bias = False),
+            nn.BatchNorm2d(64),
+            self.elu,
+            nn.Conv2d(64, 64, kernel_size = 5, bias = False),
+            nn.BatchNorm2d(64),
+            nn.Conv2d(64, out_size, kernel_size = 12, bias = True),
+            self.elu,
+        ])
 
-        self.dconv1 = nn.ConvTranspose2d(out_size, 8, kernel_size = 20, bias = True)
-        self.dbatch1 = nn.BatchNorm2d(8)
-        self.dconv2 = nn.ConvTranspose2d(8, 32, kernel_size = 5, bias = False)
-        self.dbatch2 = nn.BatchNorm2d(32)
-        self.dconv3 = nn.ConvTranspose2d(32, in_channels, kernel_size = 5, bias = False)
+        self.deconv_layers = nn.Sequential(*[
+            nn.ConvTranspose2d(out_size, 64, kernel_size = 12, bias = True),
+            nn.BatchNorm2d(64),
+            self.elu,
+            nn.ConvTranspose2d(64, 32, kernel_size = 5, bias = False),
+            nn.BatchNorm2d(32),
+            self.elu,
+            nn.ConvTranspose2d(32, 16, kernel_size = 5, stride=1, bias = False),
+            nn.BatchNorm2d(16),
+            self.elu,
+            nn.ConvTranspose2d(16, 16, kernel_size = 5, bias = False),
+            nn.BatchNorm2d(16),
+            self.elu,
+            nn.ConvTranspose2d(16, in_channels, kernel_size = 5, stride=1, bias = False),
+            self.sigmoid,
+        ])
+
+
+
 
     def encoder(self, x):
-        y1 = F.elu(self.ebatch1(self.econv1(x)))
-        y2 = F.elu(self.ebatch2(self.econv2(y1)))
-        z = F.elu(self.econv3(y2))
-        return z
+        return self.conv_layers(x)
 
     def decoder(self, z):
-        y1 = F.elu(self.dbatch1(self.dconv1(z)))
-        y2 = F.elu(self.dbatch2(self.dconv2(y1)))
-        x = torch.sigmoid(self.dconv3(y2))
-        return x
+        return self.deconv_layers(z)
      
     def forward(self, x):
         z = self.encoder(x)
+        #print(z.shape)
         y = self.decoder(z)
         return z, y
 
