@@ -129,7 +129,6 @@ def go():
     project_name = config["project_name"]
     manifold_dim = config["manifold_dim"]
     loss_weights = config["loss_weights"]
-    hidden_dim = config["hidden_dim"]
     use_float = config["use_float"]
    
     if args.gpu is not None:
@@ -167,7 +166,7 @@ def go():
 
 
 
-
+    image_size = dataset_config["image_size"]
     for dataset in dataset_config["datasets"]:
         dlocal : dict = {k: dataset_config[k] for k in dataset_config.keys()  if (not (k in ["datasets"]))}
         dlocal.update(dataset)
@@ -185,7 +184,7 @@ def go():
         image_wrapper = deepracing.backend.ImageLMDBWrapper()
         image_wrapper.readDatabase( image_lmdb_folder , mapsize=image_mapsize )
         keys = image_wrapper.getKeys()
-        current_dset = PD.ImageDataset(image_wrapper, keys=keys)
+        current_dset = PD.ImageDataset(image_wrapper, keys=keys, image_size=image_size)
         dsets.append(current_dset)
         print("\n")
     if len(dsets)==1:
