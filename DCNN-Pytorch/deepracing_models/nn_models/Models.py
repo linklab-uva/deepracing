@@ -40,6 +40,10 @@ class ConvolutionalCurveToCurvePredictor(nn.Module):
         self.output_dim = output_dim
         self.bezier_order = bezier_order
         self.activations = nn.ModuleDict({"relu": nn.ReLU(), "sigmoid": nn.Sigmoid(), "tanh": nn.Tanh(), "elu": nn.ELU()})
+        if not (conv_activation in self.activations.keys()):
+            raise ValueError("Invalid activation function for convolutional layers. Value must be one of: " + str(self.activations.keys()))
+        if not (linear_activation in self.activations.keys()):
+            raise ValueError("Invalid activation function for linear layers. Value must be one of: " + str(self.activations.keys()))
         self.conv_activation = conv_activation
         self.linear_activation = linear_activation
         self.components = nn.ModuleDict({
