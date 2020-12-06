@@ -159,7 +159,8 @@ class ImageLMDBWrapper():
             im_pb.ParseFromString( entry )
         return im_pb
     def getImage( self, key : str ):
-        return pbImageToNpImage( self.getImagePB( key ) )
+        pbimage = self.getImagePB( key )
+        return pbimage.system_time, pbImageToNpImage( pbimage )
     def getNumImages(self):
         return self.env.stat()['entries']
     def getKeys(self):
