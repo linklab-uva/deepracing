@@ -106,8 +106,10 @@ def main(args):
     #randomkey = keys[idx]
     randomkey = random.choice(keys)
     print("Grabbing image with key: %s" %(randomkey,))
-    im = db.getImage(randomkey)
-    print("Image has size: %s" %(str(im.shape),))
+    imtuple = db.getImage(randomkey)
+    imtimestamp = imtuple[0]
+    im = imtuple[1]
+    print("Image has size: %s and timestamp %f" %(str(im.shape),imtimestamp))
     try:
         plt.imshow(im)
         plt.show()
