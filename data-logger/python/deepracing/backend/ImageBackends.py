@@ -79,9 +79,11 @@ class ImageLMDBWrapper():
         if os.path.isdir(db_path):
             raise IOError("Path " + db_path + " is already a directory")
         os.makedirs(db_path)
+        cfgout = {"im_size": list(im_size), "num_images": len(image_files)}
         if ROI is not None:
-            cfgout = {"ROI":list(ROI), "im_size": list(im_size), "num_images": len(image_files)}
-            yaml.dump(cfgout,open(os.path.join(db_path,"config.yaml"),"w"),Dumper=yaml.SafeDumper)
+            cfgout["ROI"] = list(ROI)
+        with open(os.path.join(db_path,"config.yaml"),"w") as f:
+            yaml.dump(cfgout,f,Dumper=yaml.SafeDumper)
         env = lmdb.open(db_path, map_size=mapsize)
         print("Loading image data")
        # topil = TF.ToPILImage()
