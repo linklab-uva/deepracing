@@ -6,4 +6,5 @@ message Image {
   uint64 rows = 2; 
   uint64 cols = 3; 
   bytes image_data = 4;
+  double system_time = 5;
 }

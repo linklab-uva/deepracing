@@ -16,6 +16,7 @@ import PIL, PIL.Image as PILImage
 import torchvision, torchvision.transforms.functional as F
 import torchvision.transforms as TF
 import json
+import warnings
 
 def pbImageToNpImage(im_pb : Image_pb2.Image):
     im = None
@@ -79,28 +80,31 @@ class ImageLMDBWrapper():
             raise IOError("Path " + db_path + " is already a directory")
         os.makedirs(db_path)
         if ROI is not None:
-            cfgout = {"ROI":list(ROI)}
+            cfgout = {"ROI":list(ROI), "im_size": list(im_size), "num_images": len(image_files)}
             yaml.dump(cfgout,open(os.path.join(db_path,"config.yaml"),"w"),Dumper=yaml.SafeDumper)
         env = lmdb.open(db_path, map_size=mapsize)
         print("Loading image data")
        # topil = TF.ToPILImage()
         cropped_images_dir = os.path.join(os.path.dirname(db_path),"cropped_images")
         os.makedirs(cropped_images_dir,exist_ok=True)
-        tsdict = dict()
         for i, key in tqdm(enumerate(keys), total=len(keys)):
             imgfile = image_files[i]
             base, ext = os.path.splitext(imgfile)
+            system_time = None
             try:
                 with open(base+".json","r") as f:
                     imdict = json.load(f)
                 assert(imdict["imageFile"]==os.path.basename(imgfile))
-                tsdict[key] = imdict["timestamp"]/1000.0
+                system_time = imdict["timestamp"]/1000.0
             except:
-                with open(base+".pb","rb") as f:
-                    pb = TimestampedImage_pb2.TimestampedImage()
-                    pb.ParseFromString(f.read())
-                assert(pb.image_file==os.path.basename(imgfile))
-                tsdict[key] = pb.timestamp/1000.0
+                try:
+                    with open(base+".pb","rb") as f:
+                        pb = TimestampedImage_pb2.TimestampedImage()
+                        pb.ParseFromString(f.read())
+                    assert(pb.image_file==os.path.basename(imgfile))
+                    system_time = pb.timestamp/1000.0
+                except:
+                    warnings.warn("Could not get a timestamp for image file: %s" %(imgfile,), ResourceWarning)
 
 
             imgin = deepracing.imutils.readImage(imgfile)
@@ -115,11 +119,11 @@ class ImageLMDBWrapper():
                 impilresize = F.resize(impil,im_size, interpolation=PILImage.LANCZOS)
             impilresize.save(os.path.join(cropped_images_dir, "%s.jpg" % (key,)))
             im = np.asarray(impilresize)
-            entry = Image_pb2.Image( rows=im.shape[0] , cols=im.shape[1] , channel_order=ChannelOrder_pb2.RGB , image_data=im.flatten().tobytes() )
+            entry = Image_pb2.Image( rows=im.shape[0] , cols=im.shape[1] , channel_order=ChannelOrder_pb2.RGB , image_data=im.flatten().tobytes(), system_time=-1.0 )
+            if system_time is not None:
+                entry.system_time=system_time
             with env.begin(write=True) as write_txn:
                 write_txn.put(key.encode(self.encoding), entry.SerializeToString())
-        with open(os.path.join(env.path(), "timestamps.json"), "w") as f:
-            json.dump(tsdict, f, indent=2, sort_keys=True)    
         env.close()
 
     def writeImage(self, key, image):
