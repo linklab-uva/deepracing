@@ -112,10 +112,12 @@ class MultiAgentDataset(Dataset):
 
                 
         transform = self.transforms[int(input_index/self.num_images)]
-        images_pil = [ transform( F.resize( PILImage.fromarray( self.image_db_wrapper.getImage(key) ), self.image_size, interpolation=PIL.Image.LANCZOS) ) for key in keys ]
+        image_tuples = [self.image_db_wrapper.getImage(key) for key in keys]
+        images_timestamps = np.array([ t[0] for t in image_tuples ], dtype=np.float32)
+        images_pil = [ transform( F.resize( PILImage.fromarray( t[1] ), self.image_size, interpolation=PIL.Image.LANCZOS) ) for t in image_tuples ]
         images_torch = torch.stack( [ self.totensor(img) for img in images_pil ] )
 
-        rtndict = {"track": self.track_name, "images": images_torch, "session_times": rtn_session_times, "raceline": raceline[:,self.position_indices], "ego_current_pose": egopose, "ego_positions": egopositions[:,self.position_indices],"ego_velocities": egovelocities[:,self.position_indices], "image_index": packetrange[-1]}
+        rtndict = {"track": self.track_name, "images": images_torch, "image_timestamps": image_timestamps, "session_times": rtn_session_times, "raceline": raceline[:,self.position_indices], "ego_current_pose": egopose, "ego_positions": egopositions[:,self.position_indices],"ego_velocities": egovelocities[:,self.position_indices], "image_index": packetrange[-1]}
 
         if self.return_other_agents:
             rtn_agent_positions = 1E9*np.ones([19,raceline.shape[0],raceline.shape[1]])
