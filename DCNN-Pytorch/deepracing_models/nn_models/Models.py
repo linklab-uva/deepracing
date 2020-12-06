@@ -10,6 +10,92 @@ import deepracing_models.math_utils as mu
 import math
 
 
+class LinearCurveToCurvePredictor(nn.Module):
+    def __init__(self, bezier_order = 5, input_dim = 4000, output_dim = 2, linear_activation="relu"):
+        super(LinearCurveToCurvePredictor, self).__init__()
+        self.bezier_order = bezier_order
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.activations = nn.ModuleDict({"relu": nn.ReLU(), "sigmoid": nn.Sigmoid(), "tanh": nn.Tanh(), "elu": nn.ELU()})
+        self.linear_layers = nn.Sequential(*[
+            nn.Linear(input_dim, 1000, bias=False),
+            self.activations[linear_activation],
+            nn.Linear(1000, 250, bias=False),
+            self.activations[linear_activation],
+            nn.Linear(250, 100, bias=False),
+            self.activations[linear_activation],
+            nn.Linear(100, self.output_dim, bias=True),
+        ])
+    def forward(self, x):
+        batch_size = x.shape[0]
+        assert(x.shape[1]==(self.bezier_order+1))
+        assert(x.shape[2]==self.input_dim)
+        return self.linear_layers(x)
+class ConvolutionalCurveToCurvePredictor(nn.Module):
+    def __init__(self, input_channels = 3, input_rows = 66, input_columns =200, output_dim = 2, bezier_order = 5, conv_activation="elu", linear_activation="relu"):
+        super(ConvolutionalCurveToCurvePredictor, self).__init__()
+        self.input_channels = input_channels
+        self.input_rows = input_rows
+        self.input_columns = input_columns
+        self.output_dim = output_dim
+        self.bezier_order = bezier_order
+        self.activations = nn.ModuleDict({"relu": nn.ReLU(), "sigmoid": nn.Sigmoid(), "tanh": nn.Tanh(), "elu": nn.ELU()})
+        self.conv_activation = conv_activation
+        self.linear_activation = linear_activation
+        self.components = nn.ModuleDict({
+            "convolutional_layers":
+            nn.Sequential(*[
+                nn.BatchNorm2d(input_channels),
+                nn.Conv2d(input_channels, 24, kernel_size=5, stride=2),
+                nn.BatchNorm2d(24),
+                self.activations[conv_activation],
+                nn.Conv2d(24, 48, kernel_size=5, stride=2),
+                nn.BatchNorm2d(48),
+                self.activations[conv_activation],
+                nn.Conv2d(48, 64, kernel_size=3),
+                nn.BatchNorm2d(64),
+                self.activations[conv_activation],
+                # nn.Conv2d(64, 128, kernel_size=3, stride=1),
+                # nn.BatchNorm2d(128),
+                nn.MaxPool2d(3),
+                self.activations[conv_activation],
+                nn.Conv2d(64, 128, kernel_size=3),
+                nn.BatchNorm2d(128),
+                self.activations[conv_activation],
+                nn.Conv2d(128, 256, kernel_size=3, padding=1),
+                nn.BatchNorm2d(256),
+                self.activations[conv_activation],
+                nn.Conv2d(256, 256, kernel_size=3, padding=1),
+                nn.BatchNorm2d(256),
+            ])
+            ,
+            "linear_layers":
+            nn.Sequential(*[
+                nn.Linear(6656, 1000, bias=False),
+                self.activations[linear_activation],
+                nn.Linear(1000, 250, bias=False),
+                self.activations[linear_activation],
+                nn.Linear(250, 100, bias=False),
+                self.activations[linear_activation],
+                nn.Linear(100, self.output_dim, bias=True),
+            ])
+        })
+
+
+    def forward(self, x):
+        batch_size = x.shape[0]
+        assert(x.shape[1]==(self.bezier_order+1))
+        assert(x.shape[2]==self.input_channels)
+        assert(x.shape[3]==self.input_rows)
+        assert(x.shape[4]==self.input_columns)
+        batchedforconv = x.view(-1, self.input_channels, self.input_rows, self.input_columns)
+        convout = self.components["convolutional_layers"](batchedforconv)
+        convflatten = convout.view(batch_size, self.bezier_order+1, -1)
+        out = self.components["linear_layers"](convflatten)
+        return out
+
+
+
 class PilotNet(nn.Module):
     """PyTorch Implementation of NVIDIA's PilotNet"""
     def __init__(self, input_channels = 3, output_dim = 1):
