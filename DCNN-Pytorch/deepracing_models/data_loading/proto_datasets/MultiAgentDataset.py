@@ -113,7 +113,7 @@ class MultiAgentDataset(Dataset):
                 
         transform = self.transforms[int(input_index/self.num_images)]
         image_tuples = [self.image_db_wrapper.getImage(key) for key in keys]
-        images_timestamps = np.array([ t[0] for t in image_tuples ], dtype=np.float32)
+        image_timestamps = np.array([ t[0] for t in image_tuples ], dtype=np.float32)
         images_pil = [ transform( F.resize( PILImage.fromarray( t[1] ), self.image_size, interpolation=PIL.Image.LANCZOS) ) for t in image_tuples ]
         images_torch = torch.stack( [ self.totensor(img) for img in images_pil ] )
 
