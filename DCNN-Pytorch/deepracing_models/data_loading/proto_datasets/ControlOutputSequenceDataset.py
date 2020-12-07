@@ -65,7 +65,8 @@ class ControlOutputSequenceDataset(Dataset):
         image_keys = ["image_%d" % i for i in range(image_start, image_end)]
         label_keys = ["image_%d" % i for i in range(label_start, label_end)]
 
-        images = torch.stack( [F.to_tensor(self.image_db_wrapper.getImage(k).copy()) for k in image_keys], dim=0 )
+        imagetuples = [self.image_db_wrapper.getImage(key) for key in keys]
+        images = torch.stack( [F.to_tensor(t[1]) for k in imagetuples], dim=0 )
 
         labels_pb = [self.label_db_wrapper.getControlLabel(k) for k in label_keys]
         assert(str(labels_pb[0].image_file).lower()==(label_keys[0]+".jpg").lower())
