@@ -7,6 +7,7 @@ import deepracing_models.data_loading.proto_datasets as PD
 from tqdm import tqdm as tqdm
 import deepracing_models.nn_models.LossFunctions as loss_functions
 import deepracing_models.nn_models.Models
+import deepracing_models.nn_models.VariationalModels
 import numpy as np
 import torch.optim as optim
 import pickle
@@ -60,22 +61,10 @@ def run_epoch(experiment, encoder, decoder, optimizer, dataloader, recon_loss, l
     for (i, imagedict) in t:
         images = imagedict["images"].type(dtype).to(device=dev)
         batch_size = images.shape[0]
-        session_times = imagedict["session_times"].type(dtype).to(device=dev)
+        session_times = 1000.0*imagedict["session_times"].type(dtype).to(device=dev)
         sequence_length = session_times.shape[1]
         #print(session_times[0])
 
-        if plot:
-            fig = plt.figure()
-            images_np = np.round(255.0*images[0].detach().cpu().numpy().copy().transpose(0,2,3,1)).astype(np.uint8)
-            #image_np_transpose=skimage.util.img_as_ubyte(images_np[-1].transpose(1,2,0))
-            # oap = other_agent_positions[other_agent_positions==other_agent_positions].view(1,-1,60,2)
-            # print(oap)
-            ims = []
-            for i in range(images_np.shape[0]):
-                ims.append([plt.imshow(images_np[i])])
-            ani = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat=True)
-
-            plt.show()
 
 
         zeros = torch.zeros(encoder.num_latent_vars, dtype=dtype, device=dev, requires_grad=False).unsqueeze(0).expand(batch_size,encoder.num_latent_vars)
@@ -83,18 +72,40 @@ def run_epoch(experiment, encoder, decoder, optimizer, dataloader, recon_loss, l
         scale_tril = torch.diag_embed(ones)
         prior = torch.distributions.MultivariateNormal(zeros, scale_tril=scale_tril)
 
-        distribution = encoder(images)
-       # curvesample = distribution.sample((1,))[0].view(batch_size, encoder.bezier_order+1, encoder.output_dim)
-        curvesample = distribution.mean.view(batch_size, encoder.bezier_order+1, encoder.output_dim)
+        bezier_mu, bezier_stdev = encoder(images)
+        #curvesample = distribution.sample((1,))[0].view(batch_size, encoder.bezier_order+1, encoder.output_dim)
+       # curvesample = distribution.mean.view(batch_size, encoder.bezier_order+1, encoder.output_dim)
+
+        reconstructed_curve = decoder(bezier_mu)
 
         dt = session_times[:,-1] - session_times[:,0]
         s = (session_times - session_times[:,0,None])/dt[:,None]
        # print(s)
         M = mu.bezierM(s, encoder.bezier_order)
-        M.requires_grad=False
-        curve_points = torch.matmul(M, curvesample)
-        reconstructed_images = decoder(curve_points)
-        loss = recon_loss(reconstructed_images, images.view(batch_size, sequence_length, decoder.reconstruct_dimension))# - torch.mean(torch.distributions.kl_divergence(distribution,prior))
+     #   M.requires_grad=False
+        reconstructed_images = torch.matmul(M, reconstructed_curve).view(images.shape)
+     #   KLD = torch.mean(torch.distributions.kl_divergence(prior, distribution))
+        recon = recon_loss(reconstructed_images, images)
+        loss = recon# + 0.1*KLD
+
+        
+        if plot:
+            print("Session times: ")
+            print(session_times)
+            print("Normalized session times: ")
+            print(s)
+            fig, (axin, axrecon) = plt.subplots(nrows=1, ncols=2)
+            images_np = np.round(255.0*images[0].detach().cpu().numpy().copy().transpose(0,2,3,1)).astype(np.uint8)
+            reconimages_np = np.round(255.0*reconstructed_images[0].detach().cpu().numpy().copy().transpose(0,2,3,1)).astype(np.uint8)
+            #image_np_transpose=skimage.util.img_as_ubyte(images_np[-1].transpose(1,2,0))
+            # oap = other_agent_positions[other_agent_positions==other_agent_positions].view(1,-1,60,2)
+            # print(oap)
+            ims = []
+            for i in range(images_np.shape[0]):
+                ims.append([axin.imshow(images_np[i]), axrecon.imshow(reconimages_np[i])])
+            ani = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat=True)
+
+            plt.show()
 
         optimizer.zero_grad()
         loss.backward(retain_graph=False) 
@@ -106,7 +117,7 @@ def run_epoch(experiment, encoder, decoder, optimizer, dataloader, recon_loss, l
         # if not debug:
         #     experiment.log_metric("current_position_loss", current_position_loss_float)
         if use_tqdm:
-            t.set_postfix({"loss" : loss.item()})
+            t.set_postfix({"recon" : recon.item()})#, "KLD" : KLD.item()})
 def go():
     parser = argparse.ArgumentParser(description="Train Image Curve Encoder")
     parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuration file to load")
@@ -140,6 +151,7 @@ def go():
     bezier_order = config["bezier_order"]
     batch_size = config["batch_size"]
     learning_rate = config["learning_rate"]
+    momentum = config["momentum"]
     project_name = config["project_name"]
     manifold_dim = config["manifold_dim"]
     loss_weights = config["loss_weights"]
@@ -158,8 +170,8 @@ def go():
     input_dim = int(np.prod(np.array(image_size, dtype=np.int64))*input_channels)
     print("input_dim: %d" % (input_dim,))
     print("Using config:\n%s" % (str(config)))
-    encoder = deepracing_models.nn_models.Models.VariationalImageCurveEncoder(output_dim=manifold_dim, bezier_order=bezier_order, sequence_length=sequence_length)
-    decoder = deepracing_models.nn_models.Models.VariationalImageCurveDecoder(encoder.output_dim, input_dim, hidden_dim=hidden_dim)
+    encoder = deepracing_models.nn_models.VariationalModels.VariationalImageCurveEncoder(output_dim=manifold_dim, bezier_order=bezier_order, sequence_length=sequence_length)
+    decoder = deepracing_models.nn_models.VariationalModels.VariationalImageCurveDecoder(encoder.output_dim, input_dim, hidden_dim=hidden_dim)
   #  print("encoder:\n%s" % (str(encoder)))
      
     if use_float:
@@ -183,7 +195,7 @@ def go():
         recon_loss = recon_loss.cuda(gpu)
     else:
         device = torch.device("cpu")
-    optimizer = optim.SGD(list(encoder.parameters()) + list(decoder.parameters()), lr = learning_rate)
+    optimizer = optim.SGD(list(encoder.parameters()) + list(decoder.parameters()), lr = learning_rate, momentum=momentum)
 
 
 
@@ -246,7 +258,8 @@ def go():
         experiment.log_asset(os.path.join(output_directory,"model_config.yaml"),file_name="model_config.yaml")
         i = 0
     if debug:
-        run_epoch(experiment, encoder, decoder, optimizer, dataloader, recon_loss, loss_weights, use_tqdm=True, plot=plot)
+        for asdf in range(1,10):
+            run_epoch(experiment, encoder, decoder, optimizer, dataloader, recon_loss, loss_weights, use_tqdm=True, plot=plot)
     else:
         encoderpostfix = "epoch_%d_encoder.pt"
         decoderpostfix = "epoch_%d_decoder.pt"

@@ -127,9 +127,10 @@ def go():
     learning_rate = config["learning_rate"]
     momentum = config["momentum"]
     project_name = config["project_name"]
-    manifold_dim = config["manifold_dim"]
+    manifold_channels = config["manifold_channels"]
     loss_weights = config["loss_weights"]
     use_float = config["use_float"]
+    loss_func = config["loss_func"]
    
     if args.gpu is not None:
         gpu = args.gpu
@@ -141,7 +142,7 @@ def go():
     num_workers = config["num_workers"]
 
     print("Using config:\n%s" % (str(config)))
-    encoder = deepracing_models.nn_models.VariationalModels.ConvolutionalAutoencoder(manifold_dim, input_channels)
+    encoder = deepracing_models.nn_models.VariationalModels.ConvolutionalAutoencoder(manifold_channels, input_channels)
   #  print("encoder:\n%s" % (str(encoder)))
      
     if use_float:
@@ -149,8 +150,12 @@ def go():
     else:
         encoder = encoder.double()
     dtype = next(encoder.parameters()).dtype
-    #recon_loss = NN.BCELoss().type(dtype)
-    recon_loss = NN.MSELoss().type(dtype)
+    if loss_func=="mse":
+        recon_loss = NN.MSELoss().type(dtype)
+    elif loss_func=="bce":
+        recon_loss = NN.BCELoss().type(dtype)
+    else:
+        raise ValueError("Unknown loss function: %s" %(loss_func,))
 
     dsets=[]
     alltags = set(dataset_config.get("tags",[]))
@@ -224,7 +229,7 @@ def go():
         experiment.log_asset(os.path.join(output_directory,"model_config.yaml"),file_name="model_config.yaml")
         i = 0
     if debug:
-        for asdf in range(1,10):
+        for asdf in range(0,num_epochs):
             run_epoch(experiment, encoder, optimizer, dataloader, recon_loss, loss_weights, use_tqdm=True, plot=plot)
     else:
         encoderpostfix = "epoch_%d_encoder.pt"

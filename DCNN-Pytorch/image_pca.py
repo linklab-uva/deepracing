@@ -53,7 +53,8 @@ imagelist = []
 for (keys, image_wrapper) in wrappers:
     sample_keys = random.sample(keys, int(sample_ratio*len(keys)))
     for key in sample_keys:
-        imagelist.append(F.to_tensor(image_wrapper.getImage(key).copy()).numpy().astype(np.float32))
+        imtuple = image_wrapper.getImage(key)
+        imagelist.append(F.to_tensor(imtuple[1].copy()).numpy().astype(np.float32))
 sourcesize = imagelist[0].shape
 flattened_image_array = np.array([im.flatten() for im in imagelist])
 dataset_config_dir, dataset_config_basefile = os.path.split(dataset_config_file)
@@ -68,7 +69,9 @@ if gpu>=0:
     irand = int(np.random.randint(0, high=flattened_image_torch.shape[0], dtype=np.int64))
 
     improj = torch.matmul((flattened_image_torch[irand] - flattened_image_means).unsqueeze(0), V[:, :num_components])
+   # imrtreshape = (255.0*torch.clamp(torch.matmul(improj, V[:, :num_components].t())[0] + flattened_image_means, 0.0, 1.0)).cpu().numpy().astype(np.uint8).reshape(sourcesize).transpose(1,2,0)
     imrtreshape = (255.0*torch.clamp(torch.matmul(improj, V[:, :num_components].t())[0] + flattened_image_means, 0.0, 1.0)).cpu().numpy().astype(np.uint8).reshape(sourcesize).transpose(1,2,0)
+    
     iminreshape = (255.0*flattened_image_torch[irand]).cpu().numpy().astype(np.uint8).reshape(sourcesize).transpose(1,2,0)
     explained_variances = ((S**2)/(flattened_image_torch.shape[0]-1)).cpu().numpy()
     explained_variance_ratios = explained_variances/np.sum(explained_variances)
