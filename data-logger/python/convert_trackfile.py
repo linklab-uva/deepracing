@@ -114,7 +114,7 @@ accelspline : scipy.interpolate.BSpline = spline.derivative(nu=2)
 
 lr = LinearRing([(Xin[i,1], Xin[i,3]) for i in range(0,Xin.shape[0])])
 polygon : Polygon = Polygon(lr)
-assert(polygon.is_valid)
+#assert(polygon.is_valid)
 
 
 tangents = tangentspline(rsamp)
@@ -215,7 +215,7 @@ dotsquares = np.sum(tangents*accels, axis=1)**2
 
 radii = (tangentnorms**3)/np.sqrt((tangentnorms**2)*(accelnorms**2) - dotsquares)
 radii[0:int(round(92.0/ds))] = np.inf
-radii[-int(round(92.0/ds)):] = np.inf
+radii[-int(round(20.0/ds)):] = np.inf
 # radii[-2] = 0.5*(radii[-3] + radii[-1])
 #radii[-1] = 0.5*(radii[-2] + radii[0])
 radii[0] = radii[1]
