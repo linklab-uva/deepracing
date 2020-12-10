@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import LeakyReLU, ReLU
+from torch.nn import LeakyReLU, ReLU, ELU
 import numpy as np
 
 def signedDistances(waypoints, boundarypoints, boundarynormals):
@@ -24,49 +24,63 @@ class QuaternionDistance(nn.Module):
     #I am aware true quaternion distance has a factor of 2.0 out front.
     #But this is inteded to be used for neural network optimization
     #Where that extra linear factor is useless.
-    def forward(self, input, target):
-        prod = torch.mul(input,target)
+    def forward(self, inp, target):
+        prod = torch.mul(inp,target)
         dot = torch.sum(prod, dim = 2) 
         dotabs = torch.abs(dot)
         dotabsthresh = torch.clamp(dotabs, 0.0, 1.0)
         acos = torch.acos(dotabsthresh)
         batched_sum = torch.sum(acos, dim = 1)
         return torch.sum( batched_sum )
+class ScaledELU(nn.Module):
+    def __init__(self, alpha=1.0, beta=0.1):
+        super(ScaledELU, self).__init__()
+        self.alpha = alpha
+        self.beta = beta
+    def forward(self, inp):
+        return torch.where(inp>=0.0, self.alpha*inp, torch.exp(self.beta*inp)-1.0)
 class ScaledLeakyRelu(nn.Module):
     def __init__(self, alpha=1.0, beta=0.1):
         super(ScaledLeakyRelu, self).__init__()
         self.alpha = alpha
         self.beta = beta
     def forward(self, inp):
-        return torch.where(inp>0.0, self.alpha*inp, self.beta*inp)
+        return torch.where(inp>=0.0, self.alpha*inp, self.beta*inp)
 class ExpRelu(nn.Module):
     def __init__(self, alpha=1.0, beta=0.1):
         super(ExpRelu, self).__init__()
         self.alpha = alpha
         self.beta = beta
     def forward(self, inp):
-        return torch.where(inp>0.0, self.alpha*inp+1.0, torch.exp(self.beta*inp))
+        return torch.where(inp>=0.0, self.alpha*torch.exp(inp) - 1.0, torch.exp(self.beta*inp) - 1.0)
 
 class BoundaryLoss(nn.Module):
-    def __init__( self, boundary : torch.Tensor, boundarynormals : torch.Tensor, time_reduction="mean", batch_reduction="mean", alpha = 1.0, beta = 0.5, p = None, relu_type="Exp" ):
+    def __init__( self, time_reduction="mean", batch_reduction="mean", alpha = 1.0, beta = 0.5, p = None, relu_type="Exp" ):
         super(BoundaryLoss, self).__init__()
         self.time_reduction = time_reduction
         self.batch_reduction = batch_reduction
         self.p = p
-        if relu_type =="Exp":
-            self.relu = ExpRelu(alpha = alpha, beta = beta)
-        elif relu_type =="Leaky":
+        if relu_type == "Elu":
+            self.relu = ScaledELU(alpha=alpha, beta=beta)
+        elif relu_type == "Leaky":
             self.relu = ScaledLeakyRelu(alpha = alpha, beta = beta)
+        elif relu_type == "Exp":
+            self.relu = ExpRelu(alpha = alpha, beta = beta)
         else:
             self.relu = ReLU()
-        self.boundary = nn.Parameter(boundary, requires_grad=False)
-        self.boundarynormals = nn.Parameter(boundarynormals, requires_grad=False)
     
-    def forward(self, posesglobal, waypointslocal):
-        posesinv = torch.inverse(posesglobal)
-        boundarypointslocal = torch.matmul(posesinv, self.boundary)[:,0:3].transpose(1,2)
-        boundarynormalslocal = torch.matmul(posesinv[:,0:3,0:3], self.boundarynormals).transpose(1,2)
-        _, dot_prods = signedDistances(waypointslocal, boundarypointslocal, boundarynormalslocal)
+    def forward(self, waypointslocal, boundarypoints, boundarynormals, posesglobal=None):
+        batch_size = waypointslocal.shape[0]
+        N = boundarypoints.shape[0]
+        d = boundarypoints.shape[1]
+        if posesglobal is not None:
+            posesinv = torch.inverse(posesglobal)
+            boundarypointslocal_ = torch.matmul(posesinv, boundarypoints)[:,0:3].transpose(1,2)
+            boundarynormalslocal_ = torch.matmul(posesinv[:,0:3,0:3], self.boundarynormals).transpose(1,2)
+        else:
+            boundarypointslocal_ = boundarypoints
+            boundarynormalslocal_ = boundarynormals
+        _, dot_prods = signedDistances(waypointslocal, boundarypointslocal_, boundarynormalslocal_)
         if self.p is None:
             dot_prods_relu = self.relu(dot_prods)
         elif self.p==2:
@@ -80,7 +94,7 @@ class BoundaryLoss(nn.Module):
         elif self.time_reduction=="sum":
             dot_prod_redux = torch.sum(dot_prods_relu,dim=1)
         elif self.time_reduction=="max":
-            dot_prod_redux = torch.max(dot_prods_relu,dim=1)
+            dot_prod_redux, max_idx = torch.max(dot_prods_relu,dim=1)
         else:
             raise ValueError("Unsupported time-wise reduction: %s" % (self.time_reduction,) )
 
@@ -89,7 +103,8 @@ class BoundaryLoss(nn.Module):
         elif self.batch_reduction=="sum":
             return torch.sum(dot_prod_redux)
         elif self.batch_reduction=="max":
-            return torch.max(dot_prod_redux)
+            rtn, idx = torch.max(dot_prod_redux)
+            return rtn
         else:
             raise ValueError("Unsupported batch-wise reduction: %s" % (self.batch_reduction,) )
 
