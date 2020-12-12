@@ -34,89 +34,85 @@ tock = time.time()
 
 
 
-stdevs = 0.2*torch.ones(batch_size, numvars ,device=device, dtype=dtype) + 1E-3
+varfactors = torch.zeros(batch_size, numcontrolpoints, d, device=device, dtype=dtype, requires_grad=True) + 1E-3
+# varfactors[:,0] = 1E-3
+varfactors[:,:,0] = 1.0
+varfactors[:,:,1] = 1.0
+# varfactors.requires_grad = True
+#covarfactors = 0.1*torch.randn(batch_size, numcontrolpoints, 1, device=device, dtype=dtype, requires_grad=True)
+covarfactors = torch.zeros(batch_size, numcontrolpoints, 1, device=device, dtype=dtype, requires_grad=True)
+# covarfactors[:,0] = 0.0
+# covarnoise = torch.randn_like(covarfactors[:,1:])
+# covarfactors.requires_grad = True
 #co_stdevs = 
-
-scale_trils = torch.diag_embed(stdevs) #+ torch.diag()
-#scale_trils[covarmask] = co_stdevs.flatten()
-
-scale_trils[:,0,0] = scale_trils[:,1,1] = 1E-2# = scale_trils[:,-1,-1] = scale_trils[:,-2,-2] = 1E-7
-scale_trils[:,1,0] = 0.0
-
-# scale_trils_rs = scale_trils[control_point_mask].view(batch_size, numcontrolpoints, d,d)
-
-for i in range(d, numvars, d):
-    upfactor = int(i/d)
-    scale_trils[:,i,i]*=upfactor
-    scale_trils[:,i+1,i+1]*=5.0*upfactor
+# scale_trils = 0.1*torch.randn(batch_size, numcontrolpoints, d, d, device=device, dtype=dtype, requires_grad=True)
+# scale_trils[:,:,0,0] = torch.abs(scale_trils[:,:,0,0]) + 1E-3
+# scale_trils[:,:,1,1] = torch.abs(scale_trils[:,:,1,1]) + 1E-3
+# scale_trils[:,:,0,1] = 0.0
   #  scale_trils[:,i+1,i]+=0.25*np.random.randn()
-print(scale_trils[0,0:6,0:6])
-scale_trils.requires_grad = True
+# scale_trils.requires_grad = True
+# for i in range(1, numcontrolpoints):
+#     varfactors[:,i,0] = 0.1*i
+#     varfactors[:,i,1] = 0.25*i
+#     covarfactors[:,i] *= i
+    #covarfactors[:,i] += torch.randn_like(covarfactors[:,i], requires_grad=True)
+
+scale_trils = torch.diag_embed(varfactors) + torch.diag_embed(covarfactors, offset=-1)
+print(scale_trils[0])
     
 
 
 
-p0 = torch.zeros(batch_size, 1, 2, device=device, dtype=dtype)
+p0 = torch.zeros(batch_size, 2, device=device, dtype=dtype, requires_grad = True)
 pf = p0.clone()
 # pf[:,:,0]=25.0
-pf[:,:,1]=25.0
+pf[:,1]=25.0
 delta = pf - p0
 
-means = torch.cat([p0 + s.item()*delta for s in torch.linspace(0.0,1.0,steps=numcontrolpoints)], dim=1)
-means.requires_grad = True
+means = torch.stack([p0 + s.item()*delta for s in torch.linspace(0.0,1.0,steps=numcontrolpoints)], dim=1)
 #means[:,1:]+=2.0*torch.randn_like(means[:,1:])
 meansflat = means.view(batch_size,-1)
 
-# batchstandard = D.MultivariateNormal(torch.zeros(batch_size, numvars, dtype=dtype, device=device), scale_tril=*torch.eye(numvars, dtype=dtype, device=device).unsqueeze(0).repeat(batch_size,1,1),validate_args=True)
-batchstandard = D.MultivariateNormal(meansflat, scale_tril=torch.eye(numvars, dtype=dtype, device=device).unsqueeze(0).repeat(batch_size,1,1),validate_args=True)
-batchdist = D.MultivariateNormal(meansflat, scale_tril=scale_trils,validate_args=True)
+batchdist = D.MultivariateNormal(means, scale_tril=scale_trils, validate_args=True)
 
 
 meansout = batchdist.mean.view(batch_size, numcontrolpoints, d)
 meanseval = torch.matmul(M,meansout)
-
-Sigma =  batchdist.covariance_matrix
-Sigma_rs = batchdist.covariance_matrix[control_point_mask].view(batch_size, numcontrolpoints, d,d)
-
-
 Msquare = torch.square(M)
 
 # print(Msquare.shape)
-Sigma_unsqueeze = Sigma_rs.unsqueeze(1).expand(batch_size,Msquare.shape[1], numcontrolpoints, d, d)
+# Sigma_unsqueeze = Sigma_rs.unsqueeze(1).expand(batch_size,Msquare.shape[1], numcontrolpoints, d, d)
+sigma_control_points = batchdist.covariance_matrix
+# print(sigma_control_points.shape)
+scale_trils_unsqueeze = scale_trils.unsqueeze(1).expand(batch_size,Msquare.shape[1], numcontrolpoints, d, d)
+sigma_control_points_unsqueeze = sigma_control_points.unsqueeze(1).expand(batch_size,Msquare.shape[1], numcontrolpoints, d, d)
 # print(scale_trils_unsqueeze.shape)
 # example = (Msquare[:,0])[:,None]*Sigma_rs
 # print(example.shape)
 # covarstacks = Sigma_unsqueeze*Msquare[:,:,:,None,None]
-covarstacks = Sigma_unsqueeze*Msquare[:,:,:,None,None]
+scale_tril_stacks = scale_trils_unsqueeze*M[:,:,:,None,None]
+scaletrilpositions = torch.sum(scale_tril_stacks, dim=2)
+covarstacks = sigma_control_points_unsqueeze*Msquare[:,:,:,None,None]
 covarpositions = torch.sum(covarstacks, dim=2)
-print(covarpositions.shape)
+covarpositionfactors = torch.cholesky(covarpositions)
+print(covarpositions[0,0:10])
+print(s[0,0:10])
+print(torch.sqrt(s[0,0:10]))
+# print(covarpositionfactors[0,1:4])
+# print(scaletrilpositions[0,1:4])
 
-# row = 50
-# trilmanual = torch.zeros(batch_size, Msquare.shape[1], d, d, dtype=dtype, device=device)
-# covarmanual = torch.zeros(batch_size, Msquare.shape[1], d, d, dtype=dtype, device=device)
-# # print(covarmanual.shape)
-# for b in range(batch_size):
-#     for i in range(covarmanual.shape[1]):
-#         factors = Msquare[b,i]
-#         for j in range(factors.shape[0]):
-#             trilmanual[b,i]+=factors[j]*scale_trils_rs[b,j]
-#             covarmanual[b,i]+=factors[j]*Sigma_rs[b,j]
-
-# print(covarpositions[0,row])
-# print(covarmanual[0,row])
-# print(trilpositions[0,row])
-# print(trilmanual[0,row])
-# distpos = D.MultivariateNormal(sampleseval, scale_tril=trilpositions, validate_args=True)
 distpos = D.MultivariateNormal(meanseval, covariance_matrix=covarpositions, validate_args=False)
+# distpos2 = D.MultivariateNormal(meanseval, scale_tril=scaletrilpositions, validate_args=False)
 
-minus_log_probs = distpos.log_prob(meanseval)
+log_probs = distpos.log_prob(meanseval)
 # minus_log_probs = -batchdist.log_prob(meansflat)
-probs = torch.exp(minus_log_probs)
+probs = torch.exp(log_probs)
 
 batchidx = 0
-print(minus_log_probs.shape)
+print(log_probs.shape)
+print(log_probs[batchidx])
 print(probs[batchidx])
-loss = torch.mean(-minus_log_probs)
+loss = torch.mean(-log_probs)
 print(loss)
 loss.backward()
 print(loss)
