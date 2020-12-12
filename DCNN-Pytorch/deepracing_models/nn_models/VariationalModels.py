@@ -212,9 +212,9 @@ class VariationalCurvePredictor(nn.Module):
         x_linear, (final_hidden_position, final_cell_position) = self.linear_rnn(  projection_features , (linear_new_hidden, linear_new_cell) )
         x_linear_unsqueeze = x_linear.unsqueeze(1)
         hidden_convout = self.hidden_decoder(x_linear_unsqueeze)
-        print( hidden_convout.shape ) 
+
         x_features = hidden_convout.view(batch_size,self.output_dimension,self.hidden_decoder_features)
-        print( x_features.shape ) 
+
         means = self.classifier(x_features).transpose(1,2)
         varfactors = (self.var_classifier(x_features) + 1E-3).transpose(1,2)
         covarfactors = self.covar_classifier(x_features)
