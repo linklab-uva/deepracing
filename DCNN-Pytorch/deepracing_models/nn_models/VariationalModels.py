@@ -10,13 +10,15 @@ import deepracing_models.math_utils as mu
 import math
 
 class VariationalCurvePredictor(nn.Module):
-    def __init__(self, input_channels=3, params_per_dimension=11, \
+    def __init__(self, input_channels=3, bezier_order=7, fix_first_point=False,\
                  context_length = 5, hidden_dim = 200, num_recurrent_layers = 1, rnn_bidirectional=False,  \
-                    additional_rnn_calls=25, learnable_initial_state=True, output_dimension = 2, use_3dconv=True):
+                    additional_rnn_calls=25, output_dimension = 2, use_3dconv=True):
         super(VariationalCurvePredictor, self).__init__()
         self.imsize = (66,200)
         self.input_channels = input_channels
-        self.params_per_dimension = params_per_dimension
+        self.fix_first_point = fix_first_point
+        self.bezier_order = bezier_order
+        self.params_per_dimension = self.bezier_order + 1 - int(fix_first_point)
         self.context_length = context_length
         self.num_recurrent_layers = num_recurrent_layers
         self.output_dimension = output_dimension
@@ -95,14 +97,14 @@ class VariationalCurvePredictor(nn.Module):
             ])
             self.projection_layer = nn.Linear(self.intermediate_projection_size, self.img_features)
         else:
-            self.projection_features = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.additional_rnn_calls, self.img_features), requires_grad=learnable_initial_state))
+            self.projection_features = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.additional_rnn_calls, self.img_features), requires_grad=True))
 
 
         #recurrent layers
         self.hidden_dim = hidden_dim
         self.linear_rnn = nn.LSTM(self.img_features, self.hidden_dim, batch_first = True, num_layers = num_recurrent_layers, bidirectional=rnn_bidirectional)
-        self.linear_rnn_init_hidden = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),self.hidden_dim)), requires_grad=learnable_initial_state)
-        self.linear_rnn_init_cell = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),self.hidden_dim)), requires_grad=learnable_initial_state)
+        self.linear_rnn_init_hidden = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),self.hidden_dim)), requires_grad=True)
+        self.linear_rnn_init_cell = torch.nn.Parameter(torch.normal(0, 0.01, size=(self.linear_rnn.num_layers*(int(self.linear_rnn.bidirectional)+1),self.hidden_dim)), requires_grad=True)
 
 
         
@@ -151,8 +153,9 @@ class VariationalCurvePredictor(nn.Module):
             #nn.Linear(2432, self.params_per_dimension)
             ]
         )
-        numvars = self.output_dimension*self.params_per_dimension
-        numcovars = (self.output_dimension-1)*self.params_per_dimension
+        self.numvars = self.output_dimension*self.params_per_dimension
+        self.covarsperdim = int((self.output_dimension-1)*self.output_dimension/2)
+        self.numcovars = self.covarsperdim*self.params_per_dimension
         self.classifier = nn.Sequential(*[
             nn.Linear(self.hidden_decoder_features, 1200),
             self.relu,
@@ -163,23 +166,28 @@ class VariationalCurvePredictor(nn.Module):
             ]
         )
         self.var_linear = nn.Linear(250, self.params_per_dimension)
-        self.var_linear.bias=torch.nn.Parameter(0.5*torch.ones(self.params_per_dimension), requires_grad=True)
+        self.var_linear.weight=torch.nn.Parameter(0.0001*torch.randn(self.params_per_dimension, 250),  requires_grad=True)
+        self.var_linear.bias=torch.nn.Parameter(1.0*torch.ones(self.params_per_dimension), requires_grad=True)
         self.var_classifier = nn.Sequential(*[
             nn.Linear(self.hidden_decoder_features, 1200),
             self.relu,
             nn.Linear(1200, 250),
-            self.tanh,
+           # self.sigmoid,
+            nn.Sigmoid(),
             self.var_linear,
             self.relu
             ]
         )
+        self.covar_linear = nn.Linear(self.output_dimension*250, self.numcovars)
+        self.covar_linear.weight=torch.nn.Parameter(0.0001*torch.randn(self.numcovars, self.output_dimension*250),  requires_grad=True)
+        self.covar_linear.bias=torch.nn.Parameter(0.001*torch.ones(self.numcovars), requires_grad=True)
         self.covar_classifier = nn.Sequential(*[
             nn.Linear(self.hidden_decoder_features, 1200),
             self.relu,
             nn.Linear(1200, 250),
             self.tanh,
             nn.Flatten(),
-            nn.Linear(self.output_dimension*250, numcovars)
+            self.covar_linear
             ]
         )
         
@@ -215,10 +223,17 @@ class VariationalCurvePredictor(nn.Module):
 
         x_features = hidden_convout.view(batch_size,self.output_dimension,self.hidden_decoder_features)
 
-        means = self.classifier(x_features).transpose(1,2)
-        varfactors = (self.var_classifier(x_features) + 1E-3).transpose(1,2)
-        covarfactors = self.covar_classifier(x_features)
-
+        means_ = self.classifier(x_features).transpose(1,2)
+        varfactors_ = (self.var_classifier(x_features) + 1E-4).transpose(1,2)
+        covarfactors_ = self.covar_classifier(x_features).view(batch_size, self.params_per_dimension, self.covarsperdim)
+        if self.fix_first_point:
+            means = torch.cat([torch.zeros(batch_size, 1, self.output_dimension, dtype=means_.dtype, device=means_.device), means_], dim=1)
+            varfactors = torch.cat([1E-4*torch.ones(batch_size, 1, self.output_dimension, dtype=varfactors_.dtype, device=varfactors_.device), varfactors_], dim=1)
+            covarfactors = torch.cat([torch.zeros(batch_size, 1, self.covarsperdim, dtype=covarfactors_.dtype, device=covarfactors_.device), covarfactors_], dim=1)
+        else:
+            means = means_
+            varfactors = varfactors_
+            covarfactors = covarfactors_
         return means, varfactors, covarfactors
 
 class ConvolutionalAutoencoder(nn.Module):

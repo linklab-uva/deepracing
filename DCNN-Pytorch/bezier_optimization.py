@@ -179,7 +179,7 @@ while (ibloss_.item()>0.0 or obloss_.item()>0.0) and stepcount<nstep:
     obloss_ = obloss(outputs, outer_boundary, outer_boundary_normal)
     # print("Inner loss: %s" % (str(ibloss_),))
     # print("Outer loss: %s" % (str(obloss_),))
-    loss = stepfactor*ibloss_ + stepfactor*obloss_# + stepfactor*torch.relu(torch.max(centriptelaccels)-maxacent)
+    loss = stepfactor*ibloss_ + stepfactor*obloss_ + stepfactor*torch.relu(torch.max(centriptelaccels)-maxacent)
 
     optimizer.zero_grad()
     loss.backward()
