@@ -25,6 +25,7 @@ class VariationalCurvePredictor(nn.Module):
         #activations
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
+        self.sigmoid = nn.Sigmoid()
         # Convolutional layers.
         self.conv1 = nn.Conv2d(self.input_channels, 24, kernel_size=5, stride=2)
         self.Norm_1 = nn.BatchNorm2d(24)
@@ -144,15 +145,6 @@ class VariationalCurvePredictor(nn.Module):
         self.subConvPool_2,
         ])
         self.hidden_decoder_features = 2432
-        self.mean_classifier = nn.Sequential(*[
-            nn.Linear(self.hidden_decoder_features, 1200),
-            self.relu,
-            nn.Linear(1200, 500),
-            self.tanh,
-            nn.Linear(500, self.params_per_dimension)
-            #nn.Linear(2432, self.params_per_dimension)
-            ]
-        )
         self.numvars = self.output_dimension*self.params_per_dimension
         self.covarsperdim = int((self.output_dimension-1)*self.output_dimension/2)
         self.numcovars = self.covarsperdim*self.params_per_dimension
@@ -172,12 +164,11 @@ class VariationalCurvePredictor(nn.Module):
             nn.Linear(self.hidden_decoder_features, 1200),
             self.relu,
             nn.Linear(1200, 250),
-           # self.sigmoid,
-            nn.Sigmoid(),
+            self.sigmoid,
             self.var_linear,
             self.relu
             ]
-        )
+         )
         self.covar_linear = nn.Linear(self.output_dimension*250, self.numcovars)
         self.covar_linear.weight=torch.nn.Parameter(0.0001*torch.randn(self.numcovars, self.output_dimension*250),  requires_grad=True)
         self.covar_linear.bias=torch.nn.Parameter(0.001*torch.ones(self.numcovars), requires_grad=True)
@@ -224,7 +215,7 @@ class VariationalCurvePredictor(nn.Module):
         x_features = hidden_convout.view(batch_size,self.output_dimension,self.hidden_decoder_features)
 
         means_ = self.classifier(x_features).transpose(1,2)
-        varfactors_ = (self.var_classifier(x_features) + 1E-4).transpose(1,2)
+        varfactors_ = (self.var_classifier(x_features) + 1E-5).transpose(1,2)
         covarfactors_ = self.covar_classifier(x_features).view(batch_size, self.params_per_dimension, self.covarsperdim)
         if self.fix_first_point:
             means = torch.cat([torch.zeros(batch_size, 1, self.output_dimension, dtype=means_.dtype, device=means_.device), means_], dim=1)
