@@ -95,6 +95,7 @@ def run_epoch(experiment, network, optimizer, dataloader, config, use_tqdm = Fal
 
         position_error = positionerror(posmeans, targets)
         log_probs = distpos.log_prob(ego_positions)
+        NLL = torch.mean(-log_probs)
         kl_divergences = D.kl_divergence(distcurves, priorcurves)
         mean_kl = torch.mean(kl_divergences)
 
@@ -141,7 +142,7 @@ def run_epoch(experiment, network, optimizer, dataloader, config, use_tqdm = Fal
             plt.show()
 
         # loss = position_error
-        loss = loss_weights["position"]*position_error - loss_weights["nll"]*torch.mean(log_probs) + loss_weights["kl_divergence"]*mean_kl
+        loss = loss_weights["position"]*position_error + loss_weights["nll"]*NLL + loss_weights["kl_divergence"]*mean_kl
         #loss = loss_weights["position"]*position_error
         optimizer.zero_grad()
         loss.backward() 
