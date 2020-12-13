@@ -65,7 +65,9 @@ def run_epoch(experiment, network, optimizer, dataloader, config, use_tqdm = Fal
         input_images = imagedict["images"].type(dtype).to(device=dev)
         batch_size = input_images.shape[0]
         session_times = imagedict["session_times"].type(dtype).to(device=dev)
-        targets = imagedict["ego_positions"].type(dtype).to(device=dev)
+        ego_positions = imagedict["ego_positions"].type(dtype).to(device=dev)
+        ego_velocities = imagedict["ego_velocities"].type(dtype).to(device=dev)
+        targets = ego_positions
 
         
         dt = session_times[:,-1]-session_times[:,0]
@@ -80,13 +82,21 @@ def run_epoch(experiment, network, optimizer, dataloader, config, use_tqdm = Fal
         covars_expand = covars.unsqueeze(1).expand(batch_size, Msquare.shape[1], Msquare.shape[2], d, d)
         poscovar = torch.sum(Msquare[:,:,:,None,None]*covars_expand, dim=2)
         posmeans = torch.matmul(M, means)
-
+        initial_points = targets[:,0].unsqueeze(1)
+        final_points = (dt[:,None]*ego_velocities[:,0]).unsqueeze(1)
+        deltas = final_points - initial_points
+        ds = torch.linspace(0.0,1.0,steps=means.shape[1])
+        straight_lines = torch.cat([initial_points + t.item()*deltas for t in ds], dim=1)
+        priorscaletril = torch.diag_embed(torch.ones_like(straight_lines))
+        priorcurves = D.MultivariateNormal(straight_lines, scale_tril=priorscaletril, validate_args=False)
+        distcurves = D.MultivariateNormal(means, scale_tril=scale_trils, validate_args=False)
         distpos = D.MultivariateNormal(posmeans, covariance_matrix=poscovar, validate_args=False)
-        samples = distpos.sample((1,))
-    #    print(samples.shape)
 
-        log_probs = distpos.log_prob(targets)
         position_error = positionerror(posmeans, targets)
+        log_probs = distpos.log_prob(ego_positions)
+        NLL = torch.mean(-log_probs)
+        kl_divergences = D.kl_divergence(distcurves, priorcurves)
+        mean_kl = torch.mean(kl_divergences)
 
         
         if debug and plot:
@@ -127,7 +137,7 @@ def run_epoch(experiment, network, optimizer, dataloader, config, use_tqdm = Fal
             plt.legend()
             plt.show()
 
-        loss = loss_weights["position"]*torch.mean(-log_probs)
+        loss = loss_weights["position"]*NLL - loss_weights["kl_divergence"]*mean_kl
         #loss = loss_weights["position"]*position_error
         optimizer.zero_grad()
         loss.backward() 
@@ -139,6 +149,7 @@ def run_epoch(experiment, network, optimizer, dataloader, config, use_tqdm = Fal
         if not debug:
             experiment.log_metric("current_position_loss", current_position_loss_float)
             experiment.log_metric("logprob", loss.item())
+            experiment.log_metric("kl_divergence", loss.item())
         if use_tqdm:
             t.set_postfix({"current_position_loss" : current_position_loss_float})
 def go():
