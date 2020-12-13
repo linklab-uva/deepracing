@@ -72,7 +72,8 @@ def run_epoch(experiment, network, optimizer, dataloader, config, use_tqdm = Fal
         
         dt = session_times[:,-1]-session_times[:,0]
         s_torch_cur = (session_times - session_times[:,0,None])/dt[:,None]
-        M = deepracing_models.math_utils.bezierM(s_torch_cur, bezier_order)
+
+        M, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(targets, bezier_order, t = s_torch_cur)
         Msquare = torch.square(M)
 
                 
@@ -88,13 +89,12 @@ def run_epoch(experiment, network, optimizer, dataloader, config, use_tqdm = Fal
         ds = torch.linspace(0.0,1.0,steps=means.shape[1])
         straight_lines = torch.cat([initial_points + t.item()*deltas for t in ds], dim=1)
         priorscaletril = torch.diag_embed(torch.ones_like(straight_lines))
-        priorcurves = D.MultivariateNormal(straight_lines, scale_tril=priorscaletril, validate_args=False)
+        priorcurves = D.MultivariateNormal(controlpoints_fit, scale_tril=priorscaletril, validate_args=False)
         distcurves = D.MultivariateNormal(means, scale_tril=scale_trils, validate_args=False)
         distpos = D.MultivariateNormal(posmeans, covariance_matrix=poscovar, validate_args=False)
 
         position_error = positionerror(posmeans, targets)
         log_probs = distpos.log_prob(ego_positions)
-        NLL = torch.mean(-log_probs)
         kl_divergences = D.kl_divergence(distcurves, priorcurves)
         mean_kl = torch.mean(kl_divergences)
 
@@ -111,9 +111,8 @@ def run_epoch(experiment, network, optimizer, dataloader, config, use_tqdm = Fal
                 ims.append([ax1.imshow(images_np[i])])
             ani = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat=True)
 
-
-            _, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(targets, bezier_order, M = M)
             fit_points = torch.matmul(M, controlpoints_fit)
+            prior_points = torch.matmul(M, straight_lines)
 
             # gt_points_np = ego_positions[0].detach().cpu().numpy().copy()
             gt_points_np = targets[0].detach().cpu().numpy().copy()
@@ -121,6 +120,9 @@ def run_epoch(experiment, network, optimizer, dataloader, config, use_tqdm = Fal
             pred_control_points_np = means[0].detach().cpu().numpy().copy()
             fit_points_np = fit_points[0].cpu().numpy().copy()
             fit_control_points_np = controlpoints_fit[0].cpu().numpy().copy()
+
+            prior_points_np = prior_points[0].cpu().numpy().copy()
+            prior_control_points_np = straight_lines[0].cpu().numpy().copy()
             
             ymin = np.min(np.hstack([gt_points_np[:,1], pred_points_np[:,1] ])) - 2.5
             ymax = np.max(np.hstack([gt_points_np[:,1], pred_points_np[:,1] ])) + 2.5
@@ -130,6 +132,7 @@ def run_epoch(experiment, network, optimizer, dataloader, config, use_tqdm = Fal
             ax2.set_ylim(ymin,ymax)
             ax2.plot(gt_points_np[:,0],gt_points_np[:,1],'g+', label="Ground Truth Waypoints")
             ax2.plot(pred_points_np[:,0],pred_points_np[:,1],'r-', label="Predicted Bézier Curve")
+            ax2.plot(prior_points_np[:,0],prior_points_np[:,1], label="Prior")
             # ax2.plot(fit_points_np[:,0],fit_points_np[:,1],'b-', label="Best-fit Bézier Curve")
             #ax2.scatter(fit_control_points_np[1:,0],fit_control_points_np[1:,1],c="b", label="Bézier Curve's Control Points")
        #     ax2.plot(pred_points_np[:,1],pred_points_np[:,0],'r-', label="Predicted Bézier Curve")
@@ -137,7 +140,8 @@ def run_epoch(experiment, network, optimizer, dataloader, config, use_tqdm = Fal
             plt.legend()
             plt.show()
 
-        loss = loss_weights["position"]*NLL - loss_weights["kl_divergence"]*mean_kl
+        # loss = position_error
+        loss = loss_weights["position"]*position_error - loss_weights["nll"]*torch.mean(log_probs) + loss_weights["kl_divergence"]*mean_kl
         #loss = loss_weights["position"]*position_error
         optimizer.zero_grad()
         loss.backward() 
@@ -210,6 +214,8 @@ def go():
     warmstart = config.get("warmstart", None)
     if warmstart is not None:
         net.load_state_dict(torch.load(warmstart, map_location=torch.device("cpu")), strict=False)
+    else:
+        config["warmstart"] = "notset"
     ego_agent_loss = deepracing_models.nn_models.LossFunctions.SquaredLpNormLoss()
     use_float = config["use_float"]
     if use_float:
