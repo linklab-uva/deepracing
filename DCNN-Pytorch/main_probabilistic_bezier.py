@@ -138,6 +138,7 @@ def run_epoch(experiment, network, optimizer, dataloader, config, use_tqdm = Fal
         num_samples += 1.0
         if not debug:
             experiment.log_metric("current_position_loss", current_position_loss_float)
+            experiment.log_metric("logprob", loss.item())
         if use_tqdm:
             t.set_postfix({"current_position_loss" : current_position_loss_float})
 def go():
