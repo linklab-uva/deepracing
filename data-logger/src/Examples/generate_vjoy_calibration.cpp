@@ -29,7 +29,7 @@ void countdown(unsigned int seconds, std::string text="")
 int main(int argc, char** argv)
 {
 	std::cout<<"Hello World!"<<std::endl; 
-	unsigned int DevID, sleeptime;
+	unsigned int DevID, sleeptime, da;
 	std::string specified_control;
 	po::options_description desc("Allowed Options");
 
@@ -39,6 +39,7 @@ int main(int argc, char** argv)
 			("control,c", po::value<std::string>(&specified_control)->required(), "Control input to calibrate, must be one of: + (steer left), - (steer right), or t (throttle), or b (brake)")
 			("device_id,d", po::value<unsigned int>(&DevID)->default_value(1), "vJoy device ID to attach to")
 			("sleep_time,s", po::value<unsigned int>(&sleeptime)->default_value(50), "Number of microseconds to sleep between wheel updates")
+			("control_delta", po::value<unsigned int>(&da)->default_value(200), "Number of vjoy steps in between each pulse of the control")
 			;
 		po::variables_map vm;
 		po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -119,8 +120,6 @@ int main(int argc, char** argv)
 	std::unique_ptr<vjoy_plusplus::vJoy> vjoy(new vjoy_plusplus::vJoy(DevID));
 
 	joystick_value.lButtons = 0x00000000;
-	unsigned int da = 75;
-	unsigned int dt = 75;
 	unsigned int min = vjoy_plusplus::vJoy::minAxisvalue(), max = vjoy_plusplus::vJoy::maxAxisvalue();
 	countdown(3, "Beginning calibration in");
 	joystick_value.wAxisX = 0;
@@ -131,10 +130,11 @@ int main(int argc, char** argv)
 	std::this_thread::sleep_for(std::chrono::milliseconds(200));
 	if (direction > 0)
 	{
+		printf("Moving steering to the left\n");
 		for (unsigned int angle = 0; angle <= max; angle += da)
 		{
 
-			printf("Setting wheel val: %ld \n", angle);
+		//	printf("Setting wheel val: %ld \n", angle);
 			joystick_value.wAxisX = angle;
 			vjoy->update(joystick_value);
 			std::this_thread::sleep_for(std::chrono::microseconds(sleeptime));
@@ -142,10 +142,11 @@ int main(int argc, char** argv)
 		joystick_value.wAxisX = max;
 		vjoy->update(joystick_value);
 		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+		printf("Moving steering back to the middle\n");
 		for(unsigned int angle = max; angle > da; angle -= da)
 		{
 
-			printf("Setting wheel val: %lu \n", angle);
+			//printf("Setting wheel val: %lu \n", angle);
 			joystick_value.wAxisX = angle;
 			vjoy->update(joystick_value);
 			std::this_thread::sleep_for(std::chrono::microseconds(sleeptime));
@@ -174,7 +175,7 @@ int main(int argc, char** argv)
 	}
 	else if(specified_control.compare("t") == 0)
 	{
-		for (unsigned int throttleval = 0; throttleval < max; throttleval += dt)
+		for (unsigned int throttleval = 0; throttleval < max; throttleval += da)
 		{
 			printf("Setting throttle val: %lu \n", throttleval);
 			joystick_value.wAxisXRot = throttleval;
@@ -184,7 +185,7 @@ int main(int argc, char** argv)
 		joystick_value.wAxisXRot = max;
 		vjoy->update(joystick_value);
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
-		for (int throttleval = max; throttleval >= 0; throttleval -= dt)
+		for (int throttleval = max; throttleval >= 0; throttleval -= da)
 		{
 			printf("Setting throttle val: %ld \n", throttleval);
 			joystick_value.wAxisXRot = throttleval;
@@ -194,7 +195,7 @@ int main(int argc, char** argv)
 	}
 	else if (specified_control.compare("b") == 0)
 	{
-		for (unsigned int brakeval = 0; brakeval < max; brakeval += dt)
+		for (unsigned int brakeval = 0; brakeval < max; brakeval += da)
 		{
 			printf("Setting brake val: %lu \n", brakeval);
 			joystick_value.wAxisYRot = brakeval;
@@ -204,7 +205,7 @@ int main(int argc, char** argv)
 		joystick_value.wAxisYRot = max;
 		vjoy->update(joystick_value);
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
-		for (int brakeval = max; brakeval >= 0; brakeval -= dt)
+		for (int brakeval = max; brakeval >= 0; brakeval -= da)
 		{
 			printf("Setting brake val: %ld \n", brakeval);
 			joystick_value.wAxisYRot = brakeval;

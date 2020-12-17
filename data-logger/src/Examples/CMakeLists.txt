@@ -103,33 +103,6 @@ if(MSVC)
 	list(APPEND install_targets ${PROJECT_NAME}_test_vjoy_calibration ${PROJECT_NAME}_generate_vjoy_calibration ${PROJECT_NAME}_test_vjoy_lag)
 endif()
 
-	
-if(${Eigen3_VERSION} VERSION_GREATER_EQUAL "3.3.9")
-	add_executable(${PROJECT_NAME}_pure_pursuit_control
-		pure_pursuit_control.cpp
-	)
-	target_link_libraries(${PROJECT_NAME}_pure_pursuit_control
-		${PROJECT_NAME}
-		${PROJECT_NAME}_controllers
-		${PROJECT_NAME}_image_logging
-		${PROJECT_NAME}_image_logging_common
-		${PROJECT_NAME}_udp_logging
-		${PROJECT_NAME}_udp_logging_common
-		${Boost_TARGETS}
-		${screen_capture_lite_LIBRARIES}
-		${screen_capture_lite_PLATFORM_LIBS}
-		${TBB_IMPORTED_TARGETS}
-		${YAML_CPP_LIBRARIES}
-	)
-	set_target_properties(${PROJECT_NAME}_pure_pursuit_control PROPERTIES FOLDER vjoy)
-	get_target_property(PP_OUTPUT_DIR ${PROJECT_NAME}_pure_pursuit_control RUNTIME_OUTPUT_DIRECTORY)
-endif()
-
-
-
-if(TARGET ${PROJECT_NAME}_pure_pursuit_control)
-   list(APPEND install_targets ${PROJECT_NAME}_pure_pursuit_control)
-endif(TARGET ${PROJECT_NAME}_pure_pursuit_control)
 
 option(BUILD_MULTITHREADED_EXAMPLE "" ON)
 if(BUILD_MULTITHREADED_EXAMPLE)
