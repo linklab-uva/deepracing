@@ -1,5 +1,5 @@
 import numpy as np
-import torch
+import torch, torch.nn
 from scipy.special import comb as nChoosek
 def Mtk(k,n,t):
     return torch.pow(t,k)*torch.pow(1-t,(n-k))*nChoosek(n,k)
@@ -82,3 +82,26 @@ def bezierLsqfit(points, n, t = None, M = None, built_in_lstq=False):
         return M_, torch.stack([torch.lstsq(points[i], M_[i])[0][0:n+1] for i in range(batch)],dim=0)
     else:
         return M_, torch.matmul(pinv(M_), points)
+
+class BezierCurveModule(torch.nn.Module):
+    def __init__(self, control_points, mask = None):#move_first_point = False, move_last_point = False):
+        super(BezierCurveModule, self).__init__()
+      #  print(control_points.shape)
+        if mask is None:
+            self.mask = [True for asdf in range(control_points.shape[1])]
+        else:
+            self.mask = mask
+        self.control_points = torch.nn.ParameterList([ torch.nn.Parameter(control_points[:,i].unsqueeze(1), requires_grad=self.mask[i]) for i in range(len(self.mask)) ])
+    @staticmethod
+    def lsqFit(s, pts, n, mask=None):
+        assert(s.shape[0]==pts.shape[0])
+        M, cntrlpoints = bezierLsqfit(points, n, t=s)
+        return M, BezierCurveModule(cntrlpoints, mask=mask)
+    def allControlPoints(self):
+        return torch.cat([p for p in self.control_points], dim=1)
+    def forward(self, M):
+        # if not ((s is not None) ^ (M is not None)):
+        #     raise ValueError("Either s or M must be set, but not both")
+        points = self.allControlPoints()
+        #print(points.shape)
+        return torch.matmul(M, points)
