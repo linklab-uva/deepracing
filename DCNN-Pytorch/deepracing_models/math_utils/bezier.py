@@ -88,17 +88,17 @@ class BezierCurveModule(torch.nn.Module):
         super(BezierCurveModule, self).__init__()
       #  print(control_points.shape)
         if mask is None:
-            self.mask = [True for asdf in range(control_points.shape[1])]
+            self.mask = [True for asdf in range(control_points.shape[0])]
         else:
             self.mask = mask
-        self.control_points = torch.nn.ParameterList([ torch.nn.Parameter(control_points[:,i].unsqueeze(1), requires_grad=self.mask[i]) for i in range(len(self.mask)) ])
+        self.control_points = torch.nn.ParameterList([ torch.nn.Parameter(control_points[i], requires_grad=self.mask[i]) for i in range(len(self.mask)) ])
     @staticmethod
     def lsqFit(s, pts, n, mask=None):
         assert(s.shape[0]==pts.shape[0])
         M, cntrlpoints = bezierLsqfit(points, n, t=s)
-        return M, BezierCurveModule(cntrlpoints, mask=mask)
+        return M, BezierCurveModule(cntrlpoints[0], mask=mask)
     def allControlPoints(self):
-        return torch.cat([p for p in self.control_points], dim=1)
+        return torch.stack([p for p in self.control_points], dim=0).unsqueeze(0)
     def forward(self, M):
         # if not ((s is not None) ^ (M is not None)):
         #     raise ValueError("Either s or M must be set, but not both")
