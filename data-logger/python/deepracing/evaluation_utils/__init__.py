@@ -61,4 +61,4 @@ def lapMetrics(positions : np.ndarray, timestamps : np.ndarray, innerboundary_po
         distances = np.array([delta_poly.distance(ShapelyPoint(points[j,0], points[j,2])) for j in range(points.shape[0])])
         bfdists.append(float(np.mean(distances)))
 
-    return {"number_boundary_failures" : all_violation_regions.shape[0], "time_between_failures": tbf, "boundary_failure_distances" : bfdists, "boundary_failure_times" : bftimes}
+    return all_violation_regions, {"number_boundary_failures" : all_violation_regions.shape[0], "time_between_failures": tbf, "boundary_failure_distances" : bfdists, "boundary_failure_times" : bftimes}
