@@ -26,6 +26,7 @@ class VariationalCurvePredictor(nn.Module):
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
         self.sigmoid = nn.Sigmoid()
+        self.activations = nn.ModuleDict({"relu": self.relu, "tanh": self.tanh, "sigmoid": self.sigmoid})
         # Convolutional layers.
         self.conv1 = nn.Conv2d(self.input_channels, 24, kernel_size=5, stride=2)
         self.Norm_1 = nn.BatchNorm2d(24)
@@ -164,7 +165,7 @@ class VariationalCurvePredictor(nn.Module):
             nn.Linear(self.hidden_decoder_features, 1200),
             self.relu,
             nn.Linear(1200, 250),
-            self.sigmoid,
+            self.activations["sigmoid"],
             self.var_linear,
             self.relu
             ]
@@ -176,7 +177,7 @@ class VariationalCurvePredictor(nn.Module):
             nn.Linear(self.hidden_decoder_features, 1200),
             self.relu,
             nn.Linear(1200, 250),
-            self.tanh,
+            self.activations["tanh"],
             nn.Flatten(),
             self.covar_linear
             ]
