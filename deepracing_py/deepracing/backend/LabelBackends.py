@@ -102,7 +102,7 @@ class MultiAgentLabelLMDBWrapper():
         return rtn
 
     @staticmethod
-    def positionsFromLabel(label_pb : MultiAgentLabel):
+    def positionsFromLabel(label_pb : MultiAgentLabel, homogenous=False):
         other_agent_trajectories = label_pb.other_agent_trajectories
         num_trajectories = len(other_agent_trajectories)
         if num_trajectories==0:
@@ -110,10 +110,16 @@ class MultiAgentLabelLMDBWrapper():
         trajectory_lengths = [len(traj.poses) for traj in other_agent_trajectories]
         assert(len(set(trajectory_lengths))==1), "All trajectories in a label must be of the same length."
         assert(trajectory_lengths[0]==len(label_pb.raceline)), "Trajectories must be the same length as the local raceline."
-        rtn = np.zeros([num_trajectories, trajectory_lengths[0], 3], dtype=np.float64)
+        if homogenous:
+            rtn = np.zeros([num_trajectories, trajectory_lengths[0], 4], dtype=np.float64)
+        else:
+            rtn = np.zeros([num_trajectories, trajectory_lengths[0], 3], dtype=np.float64)
         for (i,traj) in enumerate(other_agent_trajectories):
             positions_pb = [pose_pb.translation for pose_pb in traj.poses]
-            rtn[i] = np.array([ [v.x, v.y, v.z]  for v in  positions_pb ], dtype=np.float64)
+            if homogenous:
+                rtn[i] = np.array([ [v.x, v.y, v.z, 1.0]  for v in  positions_pb ], dtype=np.float64)
+            else:
+                rtn[i] = np.array([ [v.x, v.y, v.z]  for v in  positions_pb ], dtype=np.float64)
         return rtn
 
     @staticmethod
