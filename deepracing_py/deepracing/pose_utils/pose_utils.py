@@ -92,7 +92,7 @@ def fromHomogenousTransform(transform):
 def toHomogenousTransform(position, quat):
     rtn = np.eye(4)
     rtn[0:3,3] = position.copy()
-    rtn[0:3,0:3] = Rot.from_quat(quat).as_dcm()
+    rtn[0:3,0:3] = Rot.from_quat(quat).as_matrix()
     return rtn
 def toHomogenousTransformArray(positions, quats):
     length = positions.shape[0]
