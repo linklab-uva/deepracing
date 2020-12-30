@@ -12,6 +12,7 @@ def signedDistances(waypoints, boundarypoints, boundarynormals):
     num_boundary_points = boundarypoints.shape[1]
     point_dimension = waypoints.shape[2]
     distance_matrix = torch.cdist(waypoints, boundarypoints)
+ #   print(distance_matrix.shape)
     closest_point_idx = torch.argmin(distance_matrix,dim=2)
     closest_boundary_points = torch.stack( [boundarypoints[i,closest_point_idx[i]] for i in range(batch_dimension)], dim=0)
     closest_boundary_normals = torch.stack( [boundarynormals[i,closest_point_idx[i]] for i in range(batch_dimension)], dim=0)
@@ -98,6 +99,8 @@ class BoundaryLoss(nn.Module):
             dot_prod_redux = torch.sum(dot_prods_relu,dim=1)
         elif self.time_reduction=="max":
             dot_prod_redux, max_idx = torch.max(dot_prods_relu,dim=1)
+        elif self.time_reduction=="all":
+            dot_prod_redux = dot_prods_relu
         else:
             raise ValueError("Unsupported time-wise reduction: %s" % (self.time_reduction,) )
       #  print("dot_prod_redux.shape: " + str(dot_prod_redux.shape))
@@ -108,6 +111,8 @@ class BoundaryLoss(nn.Module):
             return closest_point_idx, torch.sum(dot_prod_redux)
         elif self.batch_reduction=="max":
             return closest_point_idx, torch.max(dot_prod_redux)
+        elif self.batch_reduction=="all":
+            return closest_point_idx, dot_prod_redux
         else:
             raise ValueError("Unsupported batch-wise reduction: %s" % (self.batch_reduction,) )
 
