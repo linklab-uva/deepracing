@@ -353,13 +353,13 @@ for idx in tqdm(range(len(image_tags))):
                 y = carpositionlocal[1]
                 z = carpositionlocal[2]
                 slope = np.tan((np.pi/180.0)*10)
-                match_found = (z>-.15) and (z<65.0) and (abs(x) < 25) and z>(slope*abs(x))
+                match_found = (z>-.5) and (z<45.0) and (abs(x) < 25)# and z>(slope*abs(x))
                 if match_found:
                     match_positions.append(carpositionlocal)
 
                     new_trajectory_pb = label_tag.other_agent_trajectories.add()
                     label_tag.trajectory_car_indices.append(i)
-                    if debug:
+                    if debug and idx%30==0:
                         print("Global velocities for car %d: %s"  %(i, str(velocities_samp_global)))
                         print("Local velocities for car %d: %s"  %(i, str(velocities_samp)))
                     for j in range(tsamp.shape[0]):
@@ -370,7 +370,7 @@ for idx in tqdm(range(len(image_tags))):
                         newpose.rotation.CopyFrom(proto_utils.quaternionFromScipy(rotations_samp[j]))
 
                         local_vel = velocities_samp[j].copy()
-                        if debug:
+                        if debug and idx%30==0:
                             print("Writing new local velocity for car %d: %s" %(i, str(local_vel)))
                         newvel = new_trajectory_pb.linear_velocities.add()
                         newvel.frame = FrameId_pb2.LOCAL
@@ -396,7 +396,7 @@ for idx in tqdm(range(len(image_tags))):
                     assert(np.allclose(positions_samp.astype(np.float32),posreconstructed, atol=1E-6))
                     assert(np.allclose(Rot.as_quat(rotations_samp).astype(np.float32),quatsreconstructed, atol=1E-6))
                     assert(np.allclose(velocities_samp.astype(np.float32),velreconstructed, atol=1E-6))
-        if debug and (not time_trial) and (not len(label_tag.other_agent_trajectories)==0):
+        if debug and (not time_trial) and (not len(label_tag.other_agent_trajectories)==0) and idx%30==0:
             image_file = "image_%d.jpg" % idx
             print("Found a match for %s. Metadata:" %(image_file,))
             print("Match positions: " + str(match_positions))
@@ -429,7 +429,7 @@ for idx in tqdm(range(len(image_tags))):
         print("Exception message: %s"%(str(e)))
         continue  
 
-    if debug and (time_trial or len(label_tag.other_agent_trajectories)!=0):# and idx%30==0:
+    if debug and (time_trial or len(label_tag.other_agent_trajectories)!=0) and idx%30==0:
         fig1 = plt.subplot(1, 3, 1)
         imcv = cv2.imread(os.path.join(image_folder, label_tag.image_tag.image_file), cv2.IMREAD_UNCHANGED)
         plt.imshow(cv2.cvtColor(imcv, cv2.COLOR_BGR2RGB))
@@ -459,15 +459,15 @@ for idx in tqdm(range(len(image_tags))):
             minz = min(np.min(label_positions_global[:,:,2]) - 5.0, minz)
             maxz = max(np.min(label_positions_global[:,:,2]) + 5.0, maxz)
 
-        plt.xlim(maxx,minx)
+     #   plt.xlim(maxx,minx)
         plt.ylim(minz,maxz)
         plt.plot(raceline_labels_global[:,0], raceline_labels_global[:,2], label="Optimal Raceline")
         plt.plot(ego_traj_global[:,0], ego_traj_global[:,2], label="Ego Agent Trajectory")
+        plt.legend()
         if (label_positions is not None):
             for k in range(label_positions_global.shape[0]):
                 agent_trajectory = label_positions_global[k]
                 plt.plot(agent_trajectory[:,0], agent_trajectory[:,2], label="Trajectory of Car #%d" %(car_indices_dbg[k],))
-        #plt.legend()
         plt.title("Global Coordinates")
 
         fig3 = plt.subplot(1, 3, 3)
@@ -485,11 +485,11 @@ for idx in tqdm(range(len(image_tags))):
         plt.ylim(minz,maxz)
         plt.plot(raceline_labels[:,0], raceline_labels[:,2], label="Optimal Raceline")
         plt.plot(ego_traj[:,0], ego_traj[:,2], label="Ego Agent Trajectory")
+        plt.legend()
         if (label_positions is not None):
             for k in range(label_positions.shape[0]):
                 agent_trajectory = label_positions[k]
                 plt.plot(agent_trajectory[:,0], agent_trajectory[:,2], label="Trajectory of Car #%d" %(car_indices_dbg[k],))
-        #plt.legend()
         plt.title("Local Coordinates")
        # print(label_positions)
         plt.show()
