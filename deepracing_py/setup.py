@@ -6,7 +6,7 @@ install_folder="deepracing"
 setup(
     name=package_name,
     version='0.0.1',
-    packages = [install_folder] + [p for p in glob.glob(os.path.join(install_folder,"*")) if os.path.isdir(p)],
+    packages = [install_folder] + [p for p in glob.glob(os.path.join(install_folder,"*")) if (os.path.isdir(p) and os.path.isfile(os.path.join(p,"__init__.py")))],
     license='Apache License 2.0',
     long_description=open('README.txt').read(),
     install_requires=open("requirements.txt").readlines(),
