@@ -49,7 +49,7 @@ if(WIN32)
     configure_file(scripts/windows/addpythonpath.build.bat.in ${CMAKE_BINARY_DIR}/addpythonpath.bat @ONLY)
     configure_file(scripts/windows/addpythonpath.build.ps1.in ${CMAKE_BINARY_DIR}/addpythonpath.ps1 @ONLY)
 else()
-    configure_file(scripts/windows/addpythonpath.build.bash.in ${CMAKE_BINARY_DIR}/addpythonpath.bash @ONLY)
+    configure_file(scripts/bash/addpythonpath.build.bash.in ${CMAKE_BINARY_DIR}/addpythonpath.bash @ONLY)
 endif()
 
 add_library(headers INTERFACE)
