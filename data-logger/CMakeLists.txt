@@ -45,6 +45,12 @@ find_package(Protobuf REQUIRED)
 
 add_subdirectory( proto/${PROJECT_NAME}/proto )
 set(PROTO_INCLUDE_DIR ${CMAKE_BINARY_DIR}/proto)
+if(WIN32)
+    configure_file(scripts/windows/addpythonpath.build.bat.in ${CMAKE_BINARY_DIR}/addpythonpath.bat @ONLY)
+    configure_file(scripts/windows/addpythonpath.build.ps1.in ${CMAKE_BINARY_DIR}/addpythonpath.ps1 @ONLY)
+else()
+    configure_file(scripts/windows/addpythonpath.build.bash.in ${CMAKE_BINARY_DIR}/addpythonpath.bash @ONLY)
+endif()
 
 add_library(headers INTERFACE)
 target_include_directories(headers
