@@ -1,9 +1,0 @@
-$extrapythonpaths="@python_install_directory@"
-If( "$Env:PYTHONPATH" -eq "")
-{
-	$Env:PYTHONPATH=$extrapythonpaths
-}
-Else
-{
-	$Env:PYTHONPATH+=";"+$extrapythonpaths
-}

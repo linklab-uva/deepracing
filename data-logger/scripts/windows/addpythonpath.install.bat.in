@@ -1,2 +1,0 @@
-set extrapythonpaths=@python_install_directory@
-IF "%PYTHONPATH%"=="" (set PYTHONPATH=%extrapythonpaths%) ELSE (set PYTHONPATH=%PYTHONPATH%;%extrapythonpaths%)

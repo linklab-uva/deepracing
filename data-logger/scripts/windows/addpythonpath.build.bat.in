@@ -1,2 +1,2 @@
-set extrapythonpaths=@python_proto_path_@;@CMAKE_SOURCE_DIR@/python;@CMAKE_BINARY_DIR@/src/controllers/python_cpp_bindings
+set extrapythonpaths=@python_proto_path_@;@CMAKE_BINARY_DIR@/src/controllers/python_cpp_bindings
 IF "%PYTHONPATH%"=="" (set PYTHONPATH=%extrapythonpaths%) ELSE (set PYTHONPATH=%PYTHONPATH%;%extrapythonpaths%)

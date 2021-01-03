@@ -1,7 +1,0 @@
-#!/bin/bash
-extrapythonpaths=@CMAKE_INSTALL_PREFIX@/lib/python
-if [[ -z "${PYTHONPATH}" ]]; then
-  export PYTHONPATH=${extrapythonpaths}
-else
-  export PYTHONPATH=${PYTHONPATH}:${extrapythonpaths}
-fi
