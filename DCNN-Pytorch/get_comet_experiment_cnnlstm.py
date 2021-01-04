@@ -7,9 +7,7 @@ import yaml
 import torch.nn as NN
 import numpy as np
 import torch.utils.data as data_utils
-import deepracing_models.data_loading.proto_datasets as PD
 from tqdm import tqdm as tqdm
-import deepracing_models.nn_models.LossFunctions as loss_functions
 import deepracing_models.nn_models.Models
 parser = argparse.ArgumentParser(description="Download experiment from Comet.ml")
 parser.add_argument("experiment_key", type=str, help="Experiment key to grab from comet.")
@@ -22,7 +20,7 @@ args = parser.parse_args()
 experiment_key = args.experiment_key
 epoch_number = args.epoch_number
 restkey = args.restkey
-output_directory = os.path.join(args.output_directory, experiment_key + "_from_comet")
+output_directory = os.path.join(args.output_directory, experiment_key)
 if not os.path.isdir(output_directory):
     os.makedirs(output_directory)
 if restkey is None:
@@ -34,16 +32,19 @@ assetlist = experiment.get_asset_list()
 assetdict = {d['fileName']: d['assetId'] for d in assetlist}
 #print(assetdict)
 #get network weight file
-weightfilename = "pilotnet_epoch_%d_params.pt" %(epoch_number,)
-weightfilenamealt = "CNNLSTM_epoch_%d_params.pt" %(epoch_number,)
+weightfilename = "CNNLSTM_epoch_%d_params.pt" %(epoch_number,)
+weightfilenamealt = "epoch_%d_params.pt" %(epoch_number,)
+weightfilenamealtalt = "pilotnet_epoch_%d_params.pt" %(epoch_number,)
 
 print("Getting network weights from comet")
 try:
     params_binary = experiment.get_asset(assetdict[weightfilename])
-    outputweightfile = os.path.join(output_directory,weightfilename)
 except KeyError as e:
-    params_binary = experiment.get_asset(assetdict[weightfilenamealt])
-    outputweightfile = os.path.join(output_directory,weightfilenamealt)
+    try:
+        params_binary = experiment.get_asset(assetdict[weightfilename])
+    except KeyError as e:
+        params_binary = experiment.get_asset(assetdict[weightfilenamealtalt])
+outputweightfile = os.path.join(output_directory,"epoch_%d_params.pt" %(epoch_number,))
     
 
 
@@ -56,7 +57,7 @@ configin = {d["name"] : d["valueCurrent"] for d in parameters_summary}
 config = {}
 config["image_size"] = np.fromstring( configin["image_size"].replace(" ","")[1:-1], sep=',', dtype=np.int32).tolist()
 config["input_channels"] = int( configin["input_channels"] )
-config["output_dimension"] = int( configin["output_dimension"] )
+config["output_dimension"] = int( configin.get("output_dimension","2") )
 config["hidden_dimension"] = int( configin.get("hidden_dimension","100") )
 config["sequence_length"] = int( configin["sequence_length"] )
 config["context_length"] = int( configin.get("context_length","5") )
