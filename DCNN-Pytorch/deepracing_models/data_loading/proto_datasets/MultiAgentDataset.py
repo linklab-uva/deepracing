@@ -40,7 +40,7 @@ from Pose3d_pb2 import Pose3d
 from typing import List
 import torchvision.transforms as T
 import torchvision.transforms.functional as F
-from deepracing_models.data_loading.image_transforms import IdentifyTransform
+from deepracing_models.data_loading.image_transforms import IdentifyTransform, AddGaussianNoise
 import json
 import scipy.interpolate
 from scipy.interpolate import make_lsq_spline, BSpline, make_interp_spline
