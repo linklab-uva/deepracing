@@ -45,7 +45,7 @@ def loadBoundary(boundary_file : str, device : torch.device = torch.device("cpu"
 
     return rsamp, boundary
 
-def loadRaceline(raceline_file : str, device : torch.device = torch.device("cpu")):
+def loadRaceline(raceline_file : str, dtype = torch.float32, device : torch.device = torch.device("cpu")):
     racelinefile_ext = os.path.splitext(os.path.basename(raceline_file))[1].lower()
     if racelinefile_ext==".json":
         with open(raceline_file,"r") as f:
@@ -53,18 +53,20 @@ def loadRaceline(raceline_file : str, device : torch.device = torch.device("cpu"
         racelinenp = np.column_stack([raceline_dictionary["x"], raceline_dictionary["y"], raceline_dictionary["z"]])
         racelinedistsnp = np.array(raceline_dictionary["r"])
         racelinetimesnp = np.array(raceline_dictionary["t"])
-        racelinetimes = torch.from_numpy(racelinetimesnp).double().to(device)
+        racelinetimes = torch.as_tensor(racelinetimesnp.copy(), dtype=dtype, device=device)
     elif racelinefile_ext==".csv":
-        racelinenp = np.loadtxt(raceline_file,dtype=float, skiprows=1,delimiter=",")
+        racelinenp = np.loadtxt(raceline_file, dtype=float, skiprows=1, delimiter=",")
         diffnorms = np.linalg.norm(racelinenp[1:] - racelinenp[0:-1], axis=1, ord=2)
         racelinedistsnp = np.hstack([np.zeros(1), np.cumsum(diffnorms)])
-        racelinetimes = None
+        #need a more extensible solution that just ignoring velocity (time) information
+        racelinetimes = torch.as_tensor(racelinedistsnp.copy(), dtype=dtype, device=device)
     else:
         raise ValueError("Only .json and .csv extensions are supported")
-    racelinedists = torch.from_numpy(racelinedistsnp).double().to(device)
-    raceline = torch.stack( [ torch.from_numpy(racelinenp[:,0]),\
-                                     torch.from_numpy(racelinenp[:,1]),\
-                                     torch.from_numpy(racelinenp[:,2]),\
-                                     torch.ones_like(torch.from_numpy(racelinenp[:,0]))], dim=0).double().to(device)
+    racelinedists = torch.as_tensor(racelinedistsnp.copy(), dtype=dtype, device=device)
+    
+    raceline = torch.stack( [ torch.from_numpy(racelinenp[:,0], dtype=dtype, device=device),\
+                              torch.from_numpy(racelinenp[:,1], dtype=dtype, device=device),\
+                              torch.from_numpy(racelinenp[:,2], dtype=dtype, device=device),\
+                              torch.ones_like(racelinedists) ], dim=0)
 
     return racelinetimes, racelinedists, raceline
