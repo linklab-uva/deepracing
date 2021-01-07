@@ -64,9 +64,9 @@ def loadRaceline(raceline_file : str, dtype = torch.float32, device : torch.devi
         raise ValueError("Only .json and .csv extensions are supported")
     racelinedists = torch.as_tensor(racelinedistsnp.copy(), dtype=dtype, device=device)
     
-    raceline = torch.stack( [ torch.from_numpy(racelinenp[:,0], dtype=dtype, device=device),\
-                              torch.from_numpy(racelinenp[:,1], dtype=dtype, device=device),\
-                              torch.from_numpy(racelinenp[:,2], dtype=dtype, device=device),\
+    raceline = torch.stack( [ torch.as_tensor(racelinenp[:,0], dtype=dtype, device=device),\
+                              torch.as_tensor(racelinenp[:,1], dtype=dtype, device=device),\
+                              torch.as_tensor(racelinenp[:,2], dtype=dtype, device=device),\
                               torch.ones_like(racelinedists) ], dim=0)
 
     return racelinetimes, racelinedists, raceline
