@@ -58,6 +58,10 @@ def loadRaceline(raceline_file : str, dtype = torch.float32, device : torch.devi
         racelinenp = np.loadtxt(raceline_file, dtype=float, skiprows=1, delimiter=",")
         diffnorms = np.linalg.norm(racelinenp[1:] - racelinenp[0:-1], axis=1, ord=2)
         racelinedistsnp = np.hstack([np.zeros(1), np.cumsum(diffnorms)])
+        deltas = np.diff(racelinedistsnp)
+        deltanonzero = np.hstack([np.ones(1).astype(bool),deltas>0])
+        racelinenp = racelinenp[deltanonzero]
+        racelinedistsnp = racelinedistsnp[deltanonzero]
         #need a more extensible solution that just ignoring velocity (time) information
         racelinetimes = torch.as_tensor(racelinedistsnp.copy(), dtype=dtype, device=device)
     else:
