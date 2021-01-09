@@ -56,6 +56,11 @@ def loadRaceline(raceline_file : str, dtype = torch.float32, device : torch.devi
         racelinetimes = torch.as_tensor(racelinetimesnp.copy(), dtype=dtype, device=device)
     elif racelinefile_ext==".csv":
         racelinenp = np.loadtxt(raceline_file, dtype=float, skiprows=1, delimiter=",")
+        laststretch = racelinenp[0] - racelinenp[-1]
+        if np.linalg.norm(laststretch, ord=2)>5.0:
+            extrapts = np.row_stack([racelinenp[-1] + s*laststretch for s in np.linspace(0.05,0.95,num=100)])
+            racelinenp = np.concatenate([racelinenp, extrapts], axis=0)
+
         diffnorms = np.linalg.norm(racelinenp[1:] - racelinenp[0:-1], axis=1, ord=2)
         racelinedistsnp = np.hstack([np.zeros(1), np.cumsum(diffnorms)])
         deltas = np.diff(racelinedistsnp)
