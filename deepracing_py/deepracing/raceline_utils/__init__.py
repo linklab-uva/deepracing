@@ -45,7 +45,7 @@ def loadBoundary(boundary_file : str, device : torch.device = torch.device("cpu"
 
     return rsamp, boundary
 
-def loadRaceline(raceline_file : str, dtype = torch.float32, device : torch.device = torch.device("cpu")):
+def loadRaceline(raceline_file : str, dtype = torch.float32, device : torch.device = torch.device("cpu"), clockwise=False):
     racelinefile_ext = os.path.splitext(os.path.basename(raceline_file))[1].lower()
     if racelinefile_ext==".json":
         with open(raceline_file,"r") as f:
@@ -56,6 +56,8 @@ def loadRaceline(raceline_file : str, dtype = torch.float32, device : torch.devi
         racelinetimes = torch.as_tensor(racelinetimesnp.copy(), dtype=dtype, device=device)
     elif racelinefile_ext==".csv":
         racelinenp = np.loadtxt(raceline_file, dtype=float, skiprows=1, delimiter=",")
+        if clockwise:
+            racelinenp = np.flip(racelinenp, axis=0)
         laststretch = racelinenp[0] - racelinenp[-1]
         if np.linalg.norm(laststretch, ord=2)>5.0:
             extrapts = np.row_stack([racelinenp[-1] + s*laststretch for s in np.linspace(0.05,0.95,num=100)])
@@ -65,8 +67,8 @@ def loadRaceline(raceline_file : str, dtype = torch.float32, device : torch.devi
         racelinedistsnp = np.hstack([np.zeros(1), np.cumsum(diffnorms)])
         deltas = np.diff(racelinedistsnp)
         deltanonzero = np.hstack([np.ones(1).astype(bool),deltas>0])
-        racelinenp = racelinenp[deltanonzero]
         racelinedistsnp = racelinedistsnp[deltanonzero]
+        racelinenp = racelinenp[deltanonzero]
         #need a more extensible solution that just ignoring velocity (time) information
         racelinetimes = torch.as_tensor(racelinedistsnp.copy(), dtype=dtype, device=device)
     else:
@@ -77,5 +79,5 @@ def loadRaceline(raceline_file : str, dtype = torch.float32, device : torch.devi
                               torch.as_tensor(racelinenp[:,1], dtype=dtype, device=device),\
                               torch.as_tensor(racelinenp[:,2], dtype=dtype, device=device),\
                               torch.ones_like(racelinedists) ], dim=0)
-
+    
     return racelinetimes, racelinedists, raceline
