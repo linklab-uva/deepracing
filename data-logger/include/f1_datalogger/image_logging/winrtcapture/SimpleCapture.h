@@ -3,21 +3,35 @@
 #include <opencv2/core/ocl.hpp>
 #include <mutex>
 #include <thread>
+namespace f1_datalogger
+{
+namespace image_logging
+{
+namespace winrt_capture
+{
+
 class SimpleCapture
 {
+    friend class CaptureWrapper;
 public:
     SimpleCapture(
         winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DDevice const& device,
         winrt::Windows::Graphics::Capture::GraphicsCaptureItem const& item,
         winrt::Windows::Graphics::DirectX::DirectXPixelFormat pixelFormat);
     ~SimpleCapture() { Close(); }
+private:
 
     void StartCapture();
     winrt::Windows::UI::Composition::ICompositionSurface CreateSurface(
         winrt::Windows::UI::Composition::Compositor const& compositor);
 
     bool IsCursorEnabled() { CheckClosed(); return m_session.IsCursorCaptureEnabled(); }
-	void IsCursorEnabled(bool value) { CheckClosed(); m_session.IsCursorCaptureEnabled(value); }
+	void IsCursorEnabled(bool value) 
+    { 
+        CheckClosed(); 
+        auto lock = m_lock.lock_exclusive(); 
+        m_session.IsCursorCaptureEnabled(value);
+    }
     winrt::Windows::Graphics::Capture::GraphicsCaptureItem CaptureItem() { return m_item; }
 
     void SetPixelFormat(winrt::Windows::Graphics::DirectX::DirectXPixelFormat pixelFormat)
@@ -35,7 +49,6 @@ public:
         return deepf1::TimestampedImageData(current_mat.timestamp, current_mat.image.clone());
     }
 
-private:
     void OnFrameArrived(
         winrt::Windows::Graphics::Capture::Direct3D11CaptureFramePool const& sender,
         winrt::Windows::Foundation::IInspectable const& args);
@@ -76,4 +89,12 @@ private:
     std::atomic<bool> m_captureNextImage = false;
 
     std::chrono::milliseconds lasttimemilli;
+
+    deepf1::TimePoint t0;
 };
+
+
+}
+}
+}
+

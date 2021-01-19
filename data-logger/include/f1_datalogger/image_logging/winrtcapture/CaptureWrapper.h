@@ -1,15 +1,19 @@
 #pragma once
 #include "f1_datalogger/image_logging/winrtcapture/SimpleCapture.h"
-#include "SimpleImageEncoder.h"
-
-class App
+namespace f1_datalogger
+{
+namespace image_logging
+{
+namespace winrt_capture
+{
+class CaptureWrapper
 {
 public:
-    App(//winrt::Windows::UI::Composition::ContainerVisual root
+    CaptureWrapper(//winrt::Windows::UI::Composition::ContainerVisual root
         // ,winrt::Windows::Graphics::Capture::GraphicsCapturePicker capturePicker
         // ,winrt::Windows::Storage::Pickers::FileSavePicker savePicker
         );
-    ~App();
+    ~CaptureWrapper();
     void PixelFormat(winrt::Windows::Graphics::DirectX::DirectXPixelFormat pixelFormat);
 
     bool IsCursorEnabled();
@@ -17,19 +21,22 @@ public:
 
     void StopCapture();
 
-public:
-    std::shared_ptr<SimpleCapture> m_capture{ nullptr };
+    std::shared_ptr<f1_datalogger::image_logging::winrt_capture::SimpleCapture> m_capture{ nullptr };
 
     winrt::Windows::Graphics::Capture::GraphicsCaptureItem StartCaptureFromWindowHandle(HWND hwnd);
     winrt::Windows::Graphics::Capture::GraphicsCaptureItem StartCaptureFromMonitorHandle(HMONITOR hmon);
+    deepf1::TimestampedImageData getData() const
+    {
+        return m_capture->getData();
+    }
+
+private:
  //   winrt::Windows::Foundation::IAsyncOperation<winrt::Windows::Graphics::Capture::GraphicsCaptureItem> StartCaptureWithPickerAsync();
    // winrt::Windows::Foundation::IAsyncOperation<winrt::Windows::Storage::StorageFile> TakeSnapshotAsync();
     winrt::Windows::Graphics::DirectX::DirectXPixelFormat PixelFormat() { return m_pixelFormat; }
 
-private:
     void StartCaptureFromItem(winrt::Windows::Graphics::Capture::GraphicsCaptureItem item);
 
-private:
     winrt::Windows::System::DispatcherQueue m_mainThread{ nullptr };
     // winrt::Windows::UI::Composition::Compositor m_compositor{ nullptr };
     // winrt::Windows::UI::Composition::ContainerVisual m_root{ nullptr };
@@ -43,3 +50,7 @@ private:
     winrt::Windows::Graphics::DirectX::DirectXPixelFormat m_pixelFormat = winrt::Windows::Graphics::DirectX::DirectXPixelFormat::B8G8R8A8UIntNormalized;
 
 };
+    
+}
+}
+}

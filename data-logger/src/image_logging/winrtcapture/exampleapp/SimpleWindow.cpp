@@ -1,5 +1,5 @@
-#include "App.h"
-#include "SampleWindow.h"
+#include "f1_datalogger/image_logging/winrtcapture/CaptureWrapper.h"
+#include "SimpleWindow.h"
 #include "f1_datalogger/image_logging/winrtcapture/WindowList.h"
 #include "f1_datalogger/image_logging/winrtcapture/MonitorList.h"
 #include "ControlsHelper.h"
@@ -15,9 +15,9 @@ namespace winrt
     using namespace Windows::Graphics::DirectX;
 }
 
-const std::wstring SampleWindow::ClassName = L"Win32CaptureSample";
+const std::wstring SimpleWindow::ClassName = L"Win32CaptureSample";
 
-void SampleWindow::RegisterWindowClass()
+void SimpleWindow::RegisterWindowClass()
 {
     auto instance = winrt::check_pointer(GetModuleHandleW(nullptr));
     WNDCLASSEX wcex = { sizeof(wcex) };
@@ -32,7 +32,7 @@ void SampleWindow::RegisterWindowClass()
     winrt::check_bool(RegisterClassExW(&wcex));
 }
 
-SampleWindow::SampleWindow(HINSTANCE instance, int cmdShow, std::shared_ptr<App> app)
+SimpleWindow::SimpleWindow(HINSTANCE instance, int cmdShow, std::shared_ptr<f1_datalogger::image_logging::winrt_capture::CaptureWrapper> app)
 {
     WINRT_ASSERT(!m_window);
     WINRT_VERIFY(CreateWindowW(ClassName.c_str(), L"Win32CaptureSample", WS_OVERLAPPEDWINDOW,
@@ -56,12 +56,12 @@ SampleWindow::SampleWindow(HINSTANCE instance, int cmdShow, std::shared_ptr<App>
     CreateControls(instance);
 }
 
-SampleWindow::~SampleWindow()
+SimpleWindow::~SimpleWindow()
 {
     m_windows.reset();
 }
 
-LRESULT SampleWindow::MessageHandler(UINT const message, WPARAM const wparam, LPARAM const lparam)
+LRESULT SimpleWindow::MessageHandler(UINT const message, WPARAM const wparam, LPARAM const lparam)
 {
     switch (message)
     {
@@ -143,10 +143,10 @@ LRESULT SampleWindow::MessageHandler(UINT const message, WPARAM const wparam, LP
     return 0;
 }
 
-void SampleWindow::OnCaptureStarted(winrt::GraphicsCaptureItem const& item, CaptureType captureType)
+void SimpleWindow::OnCaptureStarted(winrt::GraphicsCaptureItem const& item, CaptureType captureType)
 {
     m_itemClosedRevoker.revoke();
-    m_itemClosedRevoker = item.Closed(winrt::auto_revoke, { this, &SampleWindow::OnCaptureItemClosed });
+    m_itemClosedRevoker = item.Closed(winrt::auto_revoke, { this, &SimpleWindow::OnCaptureItemClosed });
     SetSubTitle(std::wstring(item.DisplayName()));
     switch (captureType)
     {
@@ -166,7 +166,7 @@ void SampleWindow::OnCaptureStarted(winrt::GraphicsCaptureItem const& item, Capt
     EnableWindow(m_snapshotButton, true);
 }
 
-// winrt::fire_and_forget SampleWindow::OnPickerButtonClicked()
+// winrt::fire_and_forget SimpleWindow::OnPickerButtonClicked()
 // {
 //     auto selectedItem = co_await m_app->StartCaptureWithPickerAsync();
 
@@ -176,7 +176,7 @@ void SampleWindow::OnCaptureStarted(winrt::GraphicsCaptureItem const& item, Capt
 //     }
 // }
 
-// winrt::fire_and_forget SampleWindow::OnSnapshotButtonClicked()
+// winrt::fire_and_forget SimpleWindow::OnSnapshotButtonClicked()
 // {
 //     auto file = co_await m_app->TakeSnapshotAsync();
 //     if (file != nullptr)
@@ -186,7 +186,7 @@ void SampleWindow::OnCaptureStarted(winrt::GraphicsCaptureItem const& item, Capt
 // }
 
 // Not DPI aware but could be by multiplying the constants based on the monitor scale factor
-void SampleWindow::CreateControls(HINSTANCE instance)
+void SimpleWindow::CreateControls(HINSTANCE instance)
 {
     // Programmatic capture
     auto isWin32ProgrammaticPresent = winrt::ApiInformation::IsApiContractPresent(L"Windows.Foundation.UniversalApiContract", 8);
@@ -266,7 +266,7 @@ void SampleWindow::CreateControls(HINSTANCE instance)
     m_pixelFormatComboBox = pixelFormatComboBox;
 }
 
-void SampleWindow::SetSubTitle(std::wstring const& text)
+void SimpleWindow::SetSubTitle(std::wstring const& text)
 {
     std::wstring titleText(L"Win32CaptureSample");
     if (!text.empty())
@@ -276,7 +276,7 @@ void SampleWindow::SetSubTitle(std::wstring const& text)
     SetWindowTextW(m_window, titleText.c_str());
 }
 
-void SampleWindow::StopCapture()
+void SimpleWindow::StopCapture()
 {
     m_app->StopCapture();
     SetSubTitle(L"");
@@ -287,7 +287,7 @@ void SampleWindow::StopCapture()
     EnableWindow(m_snapshotButton, false);
 }
 
-void SampleWindow::OnCaptureItemClosed(winrt::GraphicsCaptureItem const&, winrt::Windows::Foundation::IInspectable const&)
+void SimpleWindow::OnCaptureItemClosed(winrt::GraphicsCaptureItem const&, winrt::Windows::Foundation::IInspectable const&)
 {
     StopCapture();
 }

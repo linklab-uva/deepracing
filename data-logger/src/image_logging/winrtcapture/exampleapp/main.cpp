@@ -1,15 +1,17 @@
-#include "App.h"
-#include "SampleWindow.h"
+#include "f1_datalogger/image_logging/winrtcapture/CaptureWrapper.h"
+#include "SimpleWindow.h"
 #include <iostream>
 #include <f1_datalogger/car_data/timestamped_image_data.h>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include <winrt/Windows.Graphics.DirectX.h>
 
 namespace winrt
 {
     using namespace Windows::Storage::Pickers;
     using namespace Windows::Graphics::Capture;
     using namespace Windows::UI::Composition;
+    using namespace Windows::Graphics::DirectX;
 }
 
 namespace util
@@ -39,7 +41,7 @@ int __stdcall WinMain(HINSTANCE instance, HINSTANCE, PSTR cmdLine, int cmdShow)
         return 1;
     }
 
-    SampleWindow::RegisterWindowClass();
+    SimpleWindow::RegisterWindowClass();
 
     // Create the DispatcherQueue that the compositor needs to run
     auto controller = util::CreateDispatcherQueueControllerForCurrentThread();
@@ -52,9 +54,10 @@ int __stdcall WinMain(HINSTANCE instance, HINSTANCE, PSTR cmdLine, int cmdShow)
     // root.Offset({ 220.0f, 0.0f, 0.0f });
 
     // Create the app
-    auto app = std::make_shared<App>();
+    auto app = std::make_shared<f1_datalogger::image_logging::winrt_capture::CaptureWrapper>();
+    app->PixelFormat(winrt::DirectXPixelFormat::B8G8R8A8UIntNormalized);
 
-    auto window = SampleWindow(instance, cmdShow, app);
+    auto window = SimpleWindow(instance, cmdShow, app);
     // Message pump
     MSG msg;
     while (GetMessageW(&msg, nullptr, 0, 0))
@@ -65,22 +68,22 @@ int __stdcall WinMain(HINSTANCE instance, HINSTANCE, PSTR cmdLine, int cmdShow)
         {
             continue;
         }
-        deepf1::TimestampedImageData curr_image = app->m_capture->getData();
+        deepf1::TimestampedImageData curr_image = app->getData();
         if (!curr_image.image.empty())
         {
          
-            cv::putText(curr_image.image, std::string("Image Type: ") + cv::typeToString(curr_image.image.type()), cv::Point(curr_image.image.cols / 2-75, curr_image.image.rows / 2),
-            cv::FONT_HERSHEY_DUPLEX,
-            1.0,
-            cv::Scalar(0, 0, 0));  
+            // cv::putText(curr_image.image, std::string("Image Type: ") + cv::typeToString(curr_image.image.type()), cv::Point(curr_image.image.cols / 2-75, curr_image.image.rows / 2),
+            // cv::FONT_HERSHEY_DUPLEX,
+            // 1.0,
+            // cv::Scalar(0, 0, 0));  
             cv::imshow("CapWin", curr_image.image);
             cv::waitKey(1);
         }
     }
 
-    MessageBoxW(nullptr,
-            L"Goodbye World!",
-            L"Win32CaptureSample",
-        MB_OK | MB_ICONINFORMATION);
+    // MessageBoxW(nullptr,
+    //         L"Goodbye World!",
+    //         L"Win32CaptureSample",
+    //     MB_OK | MB_ICONINFORMATION);
     return static_cast<int>(msg.wParam);
 }

@@ -10,6 +10,7 @@ add_library(winrt_capture_lib SHARED
 	lib/SimpleCapture.cpp
 	lib/MonitorList.cpp
 	lib/WindowList.cpp
+	lib/CaptureWrapper.cpp
 )
 target_include_directories(winrt_capture_lib
     PUBLIC
@@ -44,10 +45,7 @@ WINDOWS_EXPORT_ALL_SYMBOLS TRUE
 )
 
 add_executable(winrtcapture 
-exampleapp/CaptureSnapshot.cpp
-exampleapp/SimpleImageEncoder.cpp
-exampleapp/SampleWindow.cpp
-exampleapp/App.cpp
+exampleapp/SimpleWindow.cpp
 exampleapp/main.cpp
 )
 target_link_libraries(winrtcapture PRIVATE winrt_capture_lib winrt_capture_pch)

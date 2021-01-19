@@ -1,6 +1,4 @@
-#include "App.h"
-#include "CaptureSnapshot.h"
-
+#include "f1_datalogger/image_logging/winrtcapture/CaptureWrapper.h"
 namespace winrt
 {
     using namespace Windows::Storage;
@@ -19,11 +17,17 @@ namespace util
     using namespace desktop;
     using namespace uwp;
 }
-App::~App()
+namespace f1_datalogger
+{
+namespace image_logging
+{
+namespace winrt_capture
+{
+CaptureWrapper::~CaptureWrapper()
 {
     StopCapture();
 }
-App::App()//winrt::ContainerVisual root, winrt::GraphicsCapturePicker capturePicker, winrt::FileSavePicker savePicker)
+CaptureWrapper::CaptureWrapper()//winrt::ContainerVisual root, winrt::GraphicsCapturePicker capturePicker, winrt::FileSavePicker savePicker)
 {
    // m_capturePicker = capturePicker;
    // m_savePicker = savePicker;
@@ -56,14 +60,14 @@ App::App()//winrt::ContainerVisual root, winrt::GraphicsCapturePicker capturePic
     m_device = CreateDirect3DDevice(dxgiDevice.get());
 }
 
-winrt::GraphicsCaptureItem App::StartCaptureFromWindowHandle(HWND hwnd)
+winrt::GraphicsCaptureItem CaptureWrapper::StartCaptureFromWindowHandle(HWND hwnd)
 {
     auto item = util::CreateCaptureItemForWindow(hwnd);
     StartCaptureFromItem(item);
     return item;
 }
 
-winrt::GraphicsCaptureItem App::StartCaptureFromMonitorHandle(HMONITOR hmon)
+winrt::GraphicsCaptureItem CaptureWrapper::StartCaptureFromMonitorHandle(HMONITOR hmon)
 {
     auto item = util::CreateCaptureItemForMonitor(hmon);
     StartCaptureFromItem(item);
@@ -151,9 +155,9 @@ winrt::GraphicsCaptureItem App::StartCaptureFromMonitorHandle(HMONITOR hmon)
 //     co_return file;
 // }
 
-void App::StartCaptureFromItem(winrt::GraphicsCaptureItem item)
+void CaptureWrapper::StartCaptureFromItem(winrt::GraphicsCaptureItem item)
 {
-    m_capture.reset(new SimpleCapture(m_device, item, m_pixelFormat));
+    m_capture.reset(new f1_datalogger::image_logging::winrt_capture::SimpleCapture(m_device, item, m_pixelFormat));
    // m_capture->IsCursorEnabled(false);
     // auto surface = m_capture->CreateSurface(m_compositor);
     // m_brush.Surface(surface);
@@ -161,7 +165,7 @@ void App::StartCaptureFromItem(winrt::GraphicsCaptureItem item)
     m_capture->StartCapture();
 }
 
-void App::StopCapture()
+void CaptureWrapper::StopCapture()
 {
 
     if (m_capture)
@@ -173,7 +177,7 @@ void App::StopCapture()
     }
 }
 
-bool App::IsCursorEnabled()
+bool CaptureWrapper::IsCursorEnabled()
 {
     if (m_capture != nullptr)
     {
@@ -182,7 +186,7 @@ bool App::IsCursorEnabled()
     return false;
 }
 
-void App::IsCursorEnabled(bool value)
+void CaptureWrapper::IsCursorEnabled(bool value)
 {
     if (m_capture != nullptr)
     {
@@ -190,11 +194,15 @@ void App::IsCursorEnabled(bool value)
     }
 }
 
-void App::PixelFormat(winrt::DirectXPixelFormat pixelFormat)
+void CaptureWrapper::PixelFormat(winrt::DirectXPixelFormat pixelFormat)
 {
     m_pixelFormat = pixelFormat;
     if (m_capture)
     {
         m_capture->SetPixelFormat(pixelFormat);
     }
+}
+
+}
+}
 }

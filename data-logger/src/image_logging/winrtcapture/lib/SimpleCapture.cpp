@@ -23,6 +23,13 @@ namespace util
     using namespace uwp;
 }
 
+namespace f1_datalogger
+{
+namespace image_logging
+{
+namespace winrt_capture
+{
+
 SimpleCapture::SimpleCapture(winrt::IDirect3DDevice const& device, winrt::GraphicsCaptureItem const& item, winrt::DirectXPixelFormat pixelFormat) 
 {
     m_item = item;
@@ -54,6 +61,7 @@ SimpleCapture::SimpleCapture(winrt::IDirect3DDevice const& device, winrt::Graphi
 void SimpleCapture::StartCapture()
 {
     CheckClosed();
+    t0 = deepf1::Clock::now();
     m_session.StartCapture();
    // m_session.IsCursorCaptureEnabled(false);
 }
@@ -124,58 +132,37 @@ void SimpleCapture::OnFrameArrived(winrt::Direct3D11CaptureFramePool const& send
 
     {
         winrt::Windows::Graphics::Capture::Direct3D11CaptureFrame frame = sender.TryGetNextFrame();
-        // std::chrono::milliseconds nowmilli = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
-        // std::chrono::milliseconds reltimemilli = std::chrono::duration_cast<std::chrono::milliseconds>(frame.SystemRelativeTime());
-    
 
         swapChainResizedToFrame = TryResizeSwapChain(frame);
         winrt::com_ptr<ID3D11Texture2D> surfaceTexture = GetDXGIInterfaceFromObject<ID3D11Texture2D>(frame.Surface());
 
-        // Make a copy of the texture
-        // D3D11_TEXTURE2D_DESC desc = {};
-        // surfaceTexture->GetDesc(&desc);
-        // //Clear flags that we don't need
-        // desc.Usage = D3D11_USAGE_STAGING;;
-        // desc.BindFlags = 0;
-        // desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-        // desc.MiscFlags = 0;
-        // desc.MipLevels = 1;
-        // desc.ArraySize = 1;
-        // desc.SampleDesc.Count = 1;
-        // desc.SampleDesc.Quality = 0;
-    //    desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-        // winrt::com_ptr<ID3D11Texture2D> textureCopy;
-        //winrt::com_ptr<ID3D11Device> d3dDevice = GetDXGIInterfaceFromObject<ID3D11Device>(m_device);
-       // winrt::com_ptr<ID3D11DeviceContext> d3dContext;
-       // d3dDevice->GetImmediateContext(d3dContext.put());
-        //winrt::check_hresult(d3dDevice->CreateTexture2D(&desc, nullptr, textureCopy.put()));
-        //m_d3dContext->CopyResource(textureCopy.get(), surfaceTexture.get());
-
         winrt::com_ptr<ID3D11Texture2D> backBuffer;
         winrt::check_hresult(m_swapChain->GetBuffer(0, winrt::guid_of<ID3D11Texture2D>(), backBuffer.put_void()));
         m_d3dContext->CopyResource(backBuffer.get(), surfaceTexture.get());
-      // textureCopy->GetPrivateData()
-
-       // copy surfaceTexture to backBuffer
-
-    //    D3D11_TEXTURE2D_DESC cpudesc = {};
-    //    textureCopy->GetDesc(&cpudesc);
-
-    //    D3D11_MAPPED_SUBRESOURCE mappedResource;
-    //    m_d3dContext->Map(textureCopy.get(), 0, D3D11_MAP_READ, 0, &mappedResource);
-    //    char* mappedData = static_cast<char*>(mappedResource.pData);
-
-      // cv::ocl::Context m_oclCtx = cv::directx::ocl::initializeContextFromD3D11Device(d3dDevice.get());
-      // m_oclCtx.
-       //cv::Mat mattex(cpudesc.Height, cpudesc.Width, CV_8UC4, mappedData, mappedResource.RowPitch);
-       //cv::Mat matout;
-      // cv::cvtColor(mattex, current_mat, cv::COLOR_BGRA2BGR);
+      
         {
             std::scoped_lock<std::mutex> lk(image_mutex);
           //  current_mat.timestamp = now;
             current_mat.timestamp = deepf1::TimePoint(frame.SystemRelativeTime());
-          
+            std::chrono::duration<double, std::milli> dtframe = std::chrono::duration<double, std::milli>(current_mat.timestamp - t0);
             cv::directx::convertFromD3D11Texture2D(backBuffer.get(),current_mat.image);
+            
+            // std::chrono::duration<double, std::milli> dtclock = std::chrono::duration<double, std::milli>(now - t0);
+            // cv::putText(current_mat.image, std::string("dtclock: ") + std::to_string(dtclock.count()), cv::Point(current_mat.image.cols / 2-75, current_mat.image.rows / 2),
+            // cv::FONT_HERSHEY_DUPLEX,
+            // 1.0,
+            // cv::Scalar(0, 0, 0));  
+            // cv::putText(current_mat.image, std::string("dtframe: ") + std::to_string(dtframe.count()), cv::Point(current_mat.image.cols / 2-75, current_mat.image.rows / 2 + 100),
+            // cv::FONT_HERSHEY_DUPLEX,
+            // 1.0,
+            // cv::Scalar(0, 0, 0)); 
+            
+            // double delta =  dtframe.count() - dtclock.count();   
+            // cv::putText(current_mat.image, std::string("delta: ") + std::to_string(delta), cv::Point(current_mat.image.cols / 2-75, current_mat.image.rows / 2 + 200),
+            // cv::FONT_HERSHEY_DUPLEX,
+            // 1.0,
+            // cv::Scalar(0, 0, 0)); 
+            
         }
           
 
@@ -197,4 +184,10 @@ void SimpleCapture::OnFrameArrived(winrt::Direct3D11CaptureFramePool const& send
 void SimpleCapture::destroyWindows()
 {
     cv::destroyAllWindows();
+}
+
+
+
+}
+}
 }

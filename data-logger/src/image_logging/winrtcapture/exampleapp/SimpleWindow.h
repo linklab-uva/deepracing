@@ -1,17 +1,25 @@
 #pragma once
 #include "f1_datalogger/image_logging/winrtcapture/util/DesktopWindow.h"
 
-class App;
 class WindowList;
 class MonitorList;
-
-struct SampleWindow : util::desktop::DesktopWindow<SampleWindow>
+namespace f1_datalogger
+{
+namespace image_logging
+{
+namespace winrt_capture
+{
+    class CaptureWrapper;
+}
+}
+}
+struct SimpleWindow : util::desktop::DesktopWindow<SimpleWindow>
 {
     static const std::wstring ClassName;
     static void RegisterWindowClass();
 
-    SampleWindow(HINSTANCE instance, int cmdShow, std::shared_ptr<App> app);
-    ~SampleWindow();
+    SimpleWindow(HINSTANCE instance, int cmdShow, std::shared_ptr<f1_datalogger::image_logging::winrt_capture::CaptureWrapper> app);
+    ~SimpleWindow();
 
     winrt::Windows::UI::Composition::Desktop::DesktopWindowTarget CreateWindowTarget(winrt::Windows::UI::Composition::Compositor const& compositor)
     {
@@ -62,6 +70,6 @@ private:
     std::unique_ptr<WindowList> m_windows;
     std::unique_ptr<MonitorList> m_monitors;
     std::vector<PixelFormatData> m_pixelFormats;
-    std::shared_ptr<App> m_app;
+    std::shared_ptr<f1_datalogger::image_logging::winrt_capture::CaptureWrapper> m_app;
     winrt::Windows::Graphics::Capture::GraphicsCaptureItem::Closed_revoker m_itemClosedRevoker;
 };
