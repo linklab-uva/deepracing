@@ -1,12 +1,14 @@
 #pragma once
 #include "f1_datalogger/image_logging/winrtcapture/SimpleCapture.h"
+#include <f1_datalogger/image_logging/visibility_control.h>
+
 namespace f1_datalogger
 {
 namespace image_logging
 {
 namespace winrt_capture
 {
-class CaptureWrapper
+class F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CaptureWrapper
 {
 public:
     CaptureWrapper(//winrt::Windows::UI::Composition::ContainerVisual root

@@ -2,10 +2,11 @@
 #include <winrt/Windows.UI.Composition.h>
 #include <windows.ui.composition.interop.h>
 #include <d2d1_1.h>
+#include <f1_datalogger/image_logging/visibility_control.h>
 
 namespace util::uwp
 {
-    inline auto CreateCompositionGraphicsDevice(winrt::Windows::UI::Composition::Compositor const& compositor, ::IUnknown* device)
+    inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateCompositionGraphicsDevice(winrt::Windows::UI::Composition::Compositor const& compositor, ::IUnknown* device)
     {
         winrt::Windows::UI::Composition::CompositionGraphicsDevice graphicsDevice{ nullptr };
         auto compositorInterop = compositor.as<ABI::Windows::UI::Composition::ICompositorInterop>();
@@ -16,7 +17,7 @@ namespace util::uwp
         return graphicsDevice;
     }
 
-    inline void ResizeSurface(winrt::Windows::UI::Composition::CompositionDrawingSurface const& surface,
+    inline void F1_DATALOGGER_IMAGE_LOGGING_PUBLIC ResizeSurface(winrt::Windows::UI::Composition::CompositionDrawingSurface const& surface,
         winrt::Windows::Foundation::Size const& size)
     {
         auto surfaceInterop = surface.as<ABI::Windows::UI::Composition::ICompositionDrawingSurfaceInterop>();
@@ -24,12 +25,12 @@ namespace util::uwp
     }
 
     // Do the type conversion from long -> float without warnings
-    inline D2D1::Matrix3x2F Translation(const POINT& pt)
+    inline D2D1::Matrix3x2F F1_DATALOGGER_IMAGE_LOGGING_PUBLIC Translation(const POINT& pt)
     {
         return D2D1::Matrix3x2F::Translation(static_cast<float>(pt.x), static_cast<float>(pt.y));
     }
 
-    inline auto SurfaceBeginDraw(winrt::Windows::UI::Composition::CompositionDrawingSurface const& surface)
+    inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC SurfaceBeginDraw(winrt::Windows::UI::Composition::CompositionDrawingSurface const& surface)
     {
         auto surfaceInterop = surface.as<ABI::Windows::UI::Composition::ICompositionDrawingSurfaceInterop>();
         winrt::com_ptr<ID2D1DeviceContext> context;
@@ -39,13 +40,13 @@ namespace util::uwp
         return context;
     }
 
-    inline void SurfaceEndDraw(winrt::Windows::UI::Composition::CompositionDrawingSurface const& surface)
+    inline void F1_DATALOGGER_IMAGE_LOGGING_PUBLIC SurfaceEndDraw(winrt::Windows::UI::Composition::CompositionDrawingSurface const& surface)
     {
         auto surfaceInterop = surface.as<ABI::Windows::UI::Composition::ICompositionDrawingSurfaceInterop>();
         winrt::check_hresult(surfaceInterop->EndDraw());
     }
 
-    inline auto CreateCompositionSurfaceForSwapChain(winrt::Windows::UI::Composition::Compositor const& compositor, ::IUnknown* swapChain)
+    inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateCompositionSurfaceForSwapChain(winrt::Windows::UI::Composition::Compositor const& compositor, ::IUnknown* swapChain)
     {
         winrt::Windows::UI::Composition::ICompositionSurface surface{ nullptr };
         auto compositorInterop = compositor.as<ABI::Windows::UI::Composition::ICompositorInterop>();

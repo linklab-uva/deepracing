@@ -2,10 +2,11 @@
 #include <winrt/Windows.Graphics.Capture.h>
 #include <windows.graphics.capture.interop.h>
 #include <windows.graphics.capture.h>
+#include <f1_datalogger/image_logging/visibility_control.h>
 
 namespace util
 {
-    inline auto CreateCaptureItemForWindow(HWND hwnd)
+    inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateCaptureItemForWindow(HWND hwnd)
     {
         auto interop_factory = winrt::get_activation_factory<winrt::Windows::Graphics::Capture::GraphicsCaptureItem, IGraphicsCaptureItemInterop>();
         winrt::Windows::Graphics::Capture::GraphicsCaptureItem item = { nullptr };
@@ -13,7 +14,7 @@ namespace util
         return item;
     }
 
-    inline auto CreateCaptureItemForMonitor(HMONITOR hmon)
+    inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateCaptureItemForMonitor(HMONITOR hmon)
     {
         auto interop_factory = winrt::get_activation_factory<winrt::Windows::Graphics::Capture::GraphicsCaptureItem, IGraphicsCaptureItemInterop>();
         winrt::Windows::Graphics::Capture::GraphicsCaptureItem item = { nullptr };

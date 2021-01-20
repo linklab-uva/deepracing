@@ -1,4 +1,5 @@
 #pragma once
+#include <f1_datalogger/image_logging/visibility_control.h>
 
 struct MonitorInfo
 {
@@ -23,7 +24,7 @@ struct MonitorInfo
     bool operator!=(const MonitorInfo& monitor) { return !(*this == monitor); }
 };
 
-class MonitorList
+class F1_DATALOGGER_IMAGE_LOGGING_PUBLIC MonitorList
 {
 public:
     MonitorList(bool includeAllMonitors);

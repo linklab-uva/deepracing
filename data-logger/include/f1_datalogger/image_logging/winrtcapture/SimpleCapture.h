@@ -3,6 +3,8 @@
 #include <opencv2/core/ocl.hpp>
 #include <mutex>
 #include <thread>
+#include <f1_datalogger/image_logging/visibility_control.h>
+
 namespace f1_datalogger
 {
 namespace image_logging
@@ -10,7 +12,7 @@ namespace image_logging
 namespace winrt_capture
 {
 
-class SimpleCapture
+class F1_DATALOGGER_IMAGE_LOGGING_PUBLIC SimpleCapture
 {
     friend class CaptureWrapper;
 public:

@@ -4,7 +4,7 @@
 
 namespace util::uwp
 {
-    inline auto CreateStreamFromRandomAccessStream(
+    inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateStreamFromRandomAccessStream(
         winrt::Windows::Storage::Streams::IRandomAccessStream const& stream)
     {
         winrt::com_ptr<IStream> result;

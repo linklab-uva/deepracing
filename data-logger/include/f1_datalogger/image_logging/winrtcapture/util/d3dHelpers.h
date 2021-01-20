@@ -1,5 +1,6 @@
 #pragma once
 #include "f1_datalogger/image_logging/winrtcapture/composition.interop.h"
+#include <f1_datalogger/image_logging/visibility_control.h>
 
 namespace util::uwp
 {
@@ -45,19 +46,19 @@ namespace util::uwp
         winrt::com_ptr<ID3D11Multithread> m_multithread;
     };
 
-    inline auto CreateWICFactory()
+    inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateWICFactory()
     {
         return winrt::create_instance<IWICImagingFactory2>(CLSID_WICImagingFactory2);
     }
 
-    inline auto CreateD2DDevice(winrt::com_ptr<ID2D1Factory1> const& factory, winrt::com_ptr<ID3D11Device> const& device)
+    inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateD2DDevice(winrt::com_ptr<ID2D1Factory1> const& factory, winrt::com_ptr<ID3D11Device> const& device)
     {
         winrt::com_ptr<ID2D1Device> result;
         winrt::check_hresult(factory->CreateDevice(device.as<IDXGIDevice>().get(), result.put()));
         return result;
     }
 
-    inline auto CreateD3DDevice(D3D_DRIVER_TYPE const type, winrt::com_ptr<ID3D11Device>& device)
+    inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateD3DDevice(D3D_DRIVER_TYPE const type, winrt::com_ptr<ID3D11Device>& device)
     {
         WINRT_ASSERT(!device);
 
@@ -71,7 +72,7 @@ namespace util::uwp
             nullptr, nullptr);
     }
 
-    inline auto CreateD3DDevice()
+    inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateD3DDevice()
     {
         winrt::com_ptr<ID3D11Device> device;
         HRESULT hr = CreateD3DDevice(D3D_DRIVER_TYPE_HARDWARE, device);
@@ -84,7 +85,7 @@ namespace util::uwp
         return device;
     }
 
-    inline auto CreateD2DFactory()
+    inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateD2DFactory()
     {
         D2D1_FACTORY_OPTIONS options{};
 
@@ -97,7 +98,7 @@ namespace util::uwp
         return factory;
     }
 
-    inline auto CreateDXGISwapChain(winrt::com_ptr<ID3D11Device> const& device, const DXGI_SWAP_CHAIN_DESC1* desc)
+    inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateDXGISwapChain(winrt::com_ptr<ID3D11Device> const& device, const DXGI_SWAP_CHAIN_DESC1* desc)
     {
         auto dxgiDevice = device.as<IDXGIDevice2>();
         winrt::com_ptr<IDXGIAdapter> adapter;
@@ -110,7 +111,7 @@ namespace util::uwp
         return swapchain;
     }
 
-    inline auto CreateDXGISwapChain(winrt::com_ptr<ID3D11Device> const& device,
+    inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateDXGISwapChain(winrt::com_ptr<ID3D11Device> const& device,
         uint32_t width, uint32_t height, DXGI_FORMAT format, uint32_t bufferCount)
     {
         DXGI_SWAP_CHAIN_DESC1 desc = {};
@@ -128,7 +129,7 @@ namespace util::uwp
         return CreateDXGISwapChain(device, &desc);
     }
 
-    inline auto CopyD3DTexture(winrt::com_ptr<ID3D11Device> const& device, winrt::com_ptr<ID3D11Texture2D> const& texture, bool asStagingTexture)
+    inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CopyD3DTexture(winrt::com_ptr<ID3D11Device> const& device, winrt::com_ptr<ID3D11Texture2D> const& texture, bool asStagingTexture)
     {
         winrt::com_ptr<ID3D11DeviceContext> context;
         device->GetImmediateContext(context.put());

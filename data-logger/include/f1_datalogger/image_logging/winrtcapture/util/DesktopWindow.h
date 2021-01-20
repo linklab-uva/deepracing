@@ -2,6 +2,7 @@
 #include <winrt/Windows.UI.Composition.Desktop.h>
 #include "f1_datalogger/image_logging/winrtcapture/util/composition.desktop.interop.h"
 #include "f1_datalogger/image_logging/winrtcapture/util/hwnd.interop.h"
+#include <f1_datalogger/image_logging/visibility_control.h>
 
 namespace util::desktop
 {

@@ -1,10 +1,11 @@
 #pragma once
 #include <winrt/Windows.System.h>
 #include <dispatcherqueue.h>
+#include <f1_datalogger/image_logging/visibility_control.h>
 
 namespace util::desktop
 {
-    inline auto CreateDispatcherQueueControllerForCurrentThread()
+    inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateDispatcherQueueControllerForCurrentThread()
     {
         namespace abi = ABI::Windows::System;
 

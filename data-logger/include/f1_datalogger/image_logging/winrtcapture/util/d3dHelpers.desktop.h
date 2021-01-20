@@ -1,10 +1,11 @@
 #pragma once
 #include <d3d11.h>
 #include <dxgi1_2.h>
+#include <f1_datalogger/image_logging/visibility_control.h>
 
 namespace util::desktop
 {
-    inline auto CreateDXGISwapChainForWindow(winrt::com_ptr<ID3D11Device> const& device, const DXGI_SWAP_CHAIN_DESC1* desc, HWND window)
+    inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateDXGISwapChainForWindow(winrt::com_ptr<ID3D11Device> const& device, const DXGI_SWAP_CHAIN_DESC1* desc, HWND window)
     {
         auto dxgiDevice = device.as<IDXGIDevice2>();
         winrt::com_ptr<IDXGIAdapter> adapter;
@@ -17,7 +18,7 @@ namespace util::desktop
         return swapchain;
     }
 
-    inline auto CreateDXGISwapChainForWindow(winrt::com_ptr<ID3D11Device> const& device,
+    inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateDXGISwapChainForWindow(winrt::com_ptr<ID3D11Device> const& device,
         uint32_t width, uint32_t height, DXGI_FORMAT format, uint32_t bufferCount, HWND window)
     {
         DXGI_SWAP_CHAIN_DESC1 desc = {};

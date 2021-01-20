@@ -15,9 +15,7 @@ add_library(winrt_capture_lib SHARED
 target_include_directories(winrt_capture_lib
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
-      #  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<INSTALL_INTERFACE:include>
-		#$<INSTALL_INTERFACE:include/${PROJECT_NAME}/winrtcapture>
 		${Opencv_INCLUDE_DIRS}
 )
 
@@ -25,9 +23,9 @@ target_compile_options(winrt_capture_lib PUBLIC /Zc:inline /fp:precise /await /Z
 target_link_libraries(winrt_capture_lib
 PUBLIC
 	Dwmapi
-	windowsapp
 	WIL::WIL
 	${OpenCV_LIBRARIES}
+	windowsapp
 PRIVATE
 	winrt_capture_pch
 )
@@ -39,9 +37,6 @@ target_compile_definitions(winrt_capture_lib
 set_target_properties(winrt_capture_lib PROPERTIES 
 OUTPUT_NAME ${PROJECT_NAME}_winrtcapture 
 CXX_STANDARD 17
-WINDOWS_EXPORT_ALL_SYMBOLS TRUE
-#VS_WINRT_COMPONENT TRUE
-
 )
 
 add_executable(winrtcapture 

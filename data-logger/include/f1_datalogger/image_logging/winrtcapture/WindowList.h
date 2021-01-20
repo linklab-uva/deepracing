@@ -1,5 +1,7 @@
 #pragma once
 #include <vector>
+#include <f1_datalogger/image_logging/visibility_control.h>
+
 struct WindowInfo
 {
     WindowInfo(HWND windowHandle)
@@ -27,7 +29,7 @@ struct WindowInfo
     bool operator!=(const WindowInfo& info) { return !(*this == info); }
 };
 
-class WindowList
+class F1_DATALOGGER_IMAGE_LOGGING_PUBLIC WindowList
 {
 public:
     WindowList();
