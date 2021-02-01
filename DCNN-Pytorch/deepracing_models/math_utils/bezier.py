@@ -1,21 +1,10 @@
 import numpy as np
 import torch, torch.nn
 from scipy.special import comb as nChoosek
+from deepracing_models.math_utils.fitting import pinv
 def Mtk(k,n,t):
     return torch.pow(t,k)*torch.pow(1-t,(n-k))*nChoosek(n,k)
-def pinv(A, minimum_singular_value = 0.0):
-    """
-    Return the batchwise pseudoinverse of A
-
-    PyTorch's SVD function now supports batchwise solving, so this is pretty easy.
-    """
-   # batch, rows, cols = A.size()
-    U,S,V = torch.svd(A)
-    sinv =  torch.where(S > minimum_singular_value, 1/S, torch.zeros_like(S))
-    #sinv = 1/S
-    #sinv[sinv == float("Inf")] = 0
-    return torch.matmul(torch.matmul(V,torch.diag_embed(sinv).transpose(1,2)),U.transpose(1,2))
-def simpson(control_points, d0=None, N=59, simpsonintervals=4 ):
+def bezierArcLength(control_points, d0=None, N=59, simpsonintervals=4 ):
     
     
     t=torch.stack([torch.linspace(0.0, 1.0, steps = simpsonintervals*N+1, dtype=control_points.dtype, device=control_points.device ) for i in range(control_points.shape[0])], dim=0)
