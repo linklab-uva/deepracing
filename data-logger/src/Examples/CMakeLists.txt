@@ -44,7 +44,7 @@ ${PROJECT_NAME}_proto_rebroadcaster
 ${PROJECT_NAME}_cv_viewer_example
 )
 
-if(MSVC)
+if(MSVC AND BUILD_CONTROLLERS)
 	#find_package(vJoy_plusplus REQUIRED)
 	set(WITH_VJOY ON)
 	add_executable(${PROJECT_NAME}_generate_vjoy_calibration
@@ -101,6 +101,8 @@ if(MSVC)
 		target_compile_definitions(${PROJECT_NAME}_test_vjoy_lag PRIVATE "YAML_CPP_DLL")
 	endif()
 	list(APPEND install_targets ${PROJECT_NAME}_test_vjoy_calibration ${PROJECT_NAME}_generate_vjoy_calibration ${PROJECT_NAME}_test_vjoy_lag)
+else()
+	set(WITH_VJOY OFF)
 endif()
 
 

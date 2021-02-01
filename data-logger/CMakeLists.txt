@@ -60,8 +60,10 @@ INTERFACE
 )
 if(WIN32)
     option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to interact with existing protobuf datasets" ON)
+    option(BUILD_CONTROLLERS "Builds the controllers library for pushing commands back into the F1 game" ON)
 else()
     option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to interact with existing protobuf datasets" OFF)
+    option(BUILD_CONTROLLERS "Builds the controllers library for pushing commands back into the F1 game" OFF)
 endif()
 if(BUILD_DATALOGGER)
     option(YAML_CPP_DLL "Set this if YAML CPP was compiled as a DLL" ON)
@@ -117,7 +119,6 @@ if(BUILD_DATALOGGER)
 	endif()
     add_subdirectory( src/udp_logging )
     add_subdirectory( src/image_logging )
-    add_subdirectory( src/controllers )
     add_library(${PROJECT_NAME}
     src/f1_datalogger.cpp
     )
@@ -128,11 +129,16 @@ if(BUILD_DATALOGGER)
     ${PROJECT_NAME}_proto 
     ${PROJECT_NAME}_eigen_utils
     ${PROJECT_NAME}_image_utils
-    ${PROJECT_NAME}_controllers
     ${Boost_TARGETS}
     INTERFACE
     ${screen_capture_lite_PLATFORM_LIBS}
     )
+    if(BUILD_CONTROLLERS)
+        add_subdirectory( src/controllers )
+        target_link_libraries(${PROJECT_NAME} PUBLIC
+            ${PROJECT_NAME}_controllers
+        )
+    endif()
     target_compile_definitions(${PROJECT_NAME} PRIVATE F1_DATALOGGER_BUILDING_DLL)
     add_subdirectory( src/Examples )
 
@@ -146,10 +152,12 @@ if(BUILD_DATALOGGER)
         ${PROJECT_NAME}_proto 
         ${PROJECT_NAME}_eigen_utils
         ${PROJECT_NAME}_image_utils
-        ${PROJECT_NAME}_controllers
         headers
         screen_capture_lite
     )
+    if(BUILD_CONTROLLERS)
+        list(APPEND install_targets ${PROJECT_NAME}_controllers)
+    endif()
     
     install(DIRECTORY include/${PROJECT_NAME}
         DESTINATION include
