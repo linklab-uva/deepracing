@@ -11,12 +11,18 @@ def cumtrapz(y,x,initial=None):
     #print("res shape: ", res.shape)
     if initial is None:
         return res
-    return torch.cat((initial,res),dim=1)
+    return torch.cat([initial,res],dim=1)
 #come back to this later
-# def simpson(f_x, x, simpsonintervals=4, d0=0.0):
-#     simpsonscale = torch.ones(f_x.shape[0], simpsonintervals+1, 1, dtype=f_x.dtype, device=f_x.device)
-#     simpsonscale[:,[i for i in range(1,simpsonintervals,2)]] = 4.0
-#     simpsonscale[:,[i for i in range(2,simpsonintervals,2)]] = 2.0
-#     Vmat = torch.stack([ torch.stack([speeds[i,4*j:4*j+5] for j in range(0, N)], dim=0)   for i in range(f_x.shape[0])], dim=0)
-#     relmoves = torch.matmul(Vmat, simpsonscale)[:,:,0]
-#     distances = torch.cat([d0*torch.ones(f_x.shape[0],1,dtype=f_x.dtype, device=f_x.device),torch.cumsum(relmoves,dim=1)/(3.0*simpsonintervals*N)],dim=1)
+def simpson(f_x, delta_x):
+    numpoints = f_x.shape[1]
+    if numpoints%2==0:
+        raise ValueError("Number of points in f_x must be odd (for an even number of intervals as required by simpsons method)")
+    if delta_x.shape[0]!=f_x.shape[0]:
+        raise ValueError("Batch size of %d for delta_x but batch size of %d for f_x" %(delta_x.shape[0], f_x.shape[0]))
+    simpsonintervals = numpoints -1
+
+    simpsonscale = torch.ones(f_x.shape[0], numpoints, dtype=f_x.dtype, device=f_x.device)
+    simpsonscale[:,list(range(1,simpsonintervals,2))] = 4.0
+    simpsonscale[:,list(range(2,simpsonintervals,2))] = 2.0
+    
+    return (delta_x/3.0)*torch.sum(simpsonscale*f_x, dim=1)
