@@ -3,6 +3,11 @@ import torch
 def quaternionToMatrix(quaternions: torch.Tensor):
     if quaternions.ndim == 1:
         return quaternionToMatrix(quaternions.unsqueeze(0))[0]
+    elif quaternions.ndim == 2:
+        if quaternions.shape[1]!=4:
+            raise ValueError("Invalid input shape. input must be eiter a single quaternion (size 4) or a batch of quaternions [N x 4]")
+    else:
+        raise ValueError("Invalid input shape. input must be eiter a single quaternion (size 4) or a batch of quaternions [N x 4]")
 
     Nquats = quaternions.shape[0]
     norms = torch.norm(quaternions, p=2, dim=1)
