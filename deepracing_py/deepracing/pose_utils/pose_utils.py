@@ -103,3 +103,21 @@ def interpolateVectors(p1, t1, p2, t2, t_interp):
     tau = (t_interp - t1)/(t2 - t1)
     rtn = (1-tau)*p1 + tau*p2
     return rtn
+def pointDirectionToPose(positions : np.ndarray, forward_vectors : np.ndarray, right_vectors : np.ndarray):
+    if positions.ndim!=2 or positions.shape[1]!=3:
+        raise ValueError("Invalid input shape for positions. positions must have shape [N x 3], but got shape: " + str(positions.shape))
+    if forward_vectors.ndim!=2 or forward_vectors.shape[1]!=3:
+        raise ValueError("Invalid input shape for forward_vectors. forward_vectors must have shape [N x 3], but got shape: " + str(forward_vectors.shape))
+    if right_vectors.ndim!=2 or right_vectors.shape[1]!=3:
+        raise ValueError("Invalid input shape for right_vectors. right_vectors must have shape [N x 3], but got shape: " + str(right_vectors.shape))
+    npoints = positions.shape[0]
+    poses = np.stack([np.eye(4, dtype=positions.dtype) for i in range(npoints)])
+    z = forward_vectors/np.linalg.norm(forward_vectors, ord=2, axis=1)[:,None]
+    x = (-1.0*right_vectors)/np.linalg.norm(right_vectors, ord=2, axis=1)[:,None]
+    y = np.cross(z,x,axis=1)
+    y = y/np.linalg.norm(y, ord=2, axis=1)[:,None]
+
+    poses[:,0:3,0:3] = np.stack([x,y,z],axis=1)
+    poses[:,0:3,3] = positions
+
+    return poses

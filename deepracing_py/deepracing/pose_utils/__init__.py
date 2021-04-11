@@ -9,3 +9,4 @@ from .pose_utils import inverseTransform
 from .pose_utils import randomQuaternion
 from .pose_utils import randomTransform
 from .pose_utils import registerImagesToMotiondata
+from .pose_utils import pointDirectionToPose
