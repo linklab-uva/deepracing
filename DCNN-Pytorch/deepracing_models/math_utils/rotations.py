@@ -1,4 +1,23 @@
 import torch
+import numpy as np
+
+def pointDirectionToPose(positions : torch.Tensor, forward_vectors : torch.Tensor, right_vectors : torch.Tensor):
+    if positions.ndim!=2 or positions.shape[1]!=3:
+        raise ValueError("Invalid input shape for positions. positions must have shape [N x 4], but got shape: " + str(positions.shape))
+    if forward_vectors.ndim!=2 or forward_vectors.shape[1]!=3:
+        raise ValueError("Invalid input shape for forward_vectors. forward_vectors must have shape [N x 4], but got shape: " + str(forward_vectors.shape))
+    if right_vectors.ndim!=2 or right_vectors.shape[1]!=3:
+        raise ValueError("Invalid input shape for right_vectors. right_vectors must have shape [N x 4], but got shape: " + str(right_vectors.shape))
+    npoints = positions.shape[0]
+    poses = torch.eye(4, dtype=positions.dtype, device=positions.device).unsqueeze(0).repeat(npoints,1,1)
+    z = forward_vectors
+    x = right_vectors
+    y = torch.cross(z,x,dim=1)
+
+    poses[:,0:3,0:3] = torch.stack([x,y,z],dim=1)
+    poses[:,0:3,3] = positions
+
+    return poses
 
 def quaternionToMatrix(quaternions: torch.Tensor):
     if quaternions.ndim == 1:
@@ -12,6 +31,7 @@ def quaternionToMatrix(quaternions: torch.Tensor):
     Nquats = quaternions.shape[0]
     norms = torch.norm(quaternions, p=2, dim=1)
     if not torch.allclose(norms, torch.ones_like(norms)):
+        print(quaternions)
         raise ValueError("input quaternions must be normalized")
 
     qi = quaternions[:,0]
