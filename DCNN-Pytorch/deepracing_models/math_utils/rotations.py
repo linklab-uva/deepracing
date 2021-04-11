@@ -11,7 +11,7 @@ def pointDirectionToPose(positions : torch.Tensor, forward_vectors : torch.Tenso
     npoints = positions.shape[0]
     poses = torch.eye(4, dtype=positions.dtype, device=positions.device).unsqueeze(0).repeat(npoints,1,1)
     z = forward_vectors
-    x = right_vectors
+    x = -1.0*right_vectors
     y = torch.cross(z,x,dim=1)
 
     poses[:,0:3,0:3] = torch.stack([x,y,z],dim=1)
