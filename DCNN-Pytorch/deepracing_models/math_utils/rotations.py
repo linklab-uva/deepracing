@@ -3,11 +3,11 @@ import numpy as np
 
 def pointDirectionToPose(positions : torch.Tensor, forward_vectors : torch.Tensor, right_vectors : torch.Tensor):
     if positions.ndim!=2 or positions.shape[1]!=3:
-        raise ValueError("Invalid input shape for positions. positions must have shape [N x 4], but got shape: " + str(positions.shape))
+        raise ValueError("Invalid input shape for positions. positions must have shape [N x 3], but got shape: " + str(positions.shape))
     if forward_vectors.ndim!=2 or forward_vectors.shape[1]!=3:
-        raise ValueError("Invalid input shape for forward_vectors. forward_vectors must have shape [N x 4], but got shape: " + str(forward_vectors.shape))
+        raise ValueError("Invalid input shape for forward_vectors. forward_vectors must have shape [N x 3], but got shape: " + str(forward_vectors.shape))
     if right_vectors.ndim!=2 or right_vectors.shape[1]!=3:
-        raise ValueError("Invalid input shape for right_vectors. right_vectors must have shape [N x 4], but got shape: " + str(right_vectors.shape))
+        raise ValueError("Invalid input shape for right_vectors. right_vectors must have shape [N x 3], but got shape: " + str(right_vectors.shape))
     npoints = positions.shape[0]
     poses = torch.eye(4, dtype=positions.dtype, device=positions.device).unsqueeze(0).repeat(npoints,1,1)
     z = forward_vectors
