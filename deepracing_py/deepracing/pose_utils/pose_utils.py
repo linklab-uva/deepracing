@@ -117,7 +117,9 @@ def pointDirectionToPose(positions : np.ndarray, forward_vectors : np.ndarray, r
     y = np.cross(z,x,axis=1)
     y = y/np.linalg.norm(y, ord=2, axis=1)[:,None]
 
-    poses[:,0:3,0:3] = np.stack([x,y,z],axis=1)
+    poses[:,0:3,0] = x
+    poses[:,0:3,1] = y
+    poses[:,0:3,2] = z
     poses[:,0:3,3] = positions
 
     return poses
