@@ -2,6 +2,7 @@ import TimestampedPacketSessionData_pb2
 import TimestampedPacketCarTelemetryData_pb2
 import TimestampedPacketMotionData_pb2
 import TimestampedPacketLapData_pb2
+import TimestampedPacketParticipantsData_pb2
 import TimestampedImage_pb2
 import PacketMotionData_pb2
 import CarTelemetryData_pb2
@@ -17,6 +18,7 @@ import numpy.linalg as la
 from scipy.spatial.transform import Rotation as Rot
 from tqdm import tqdm as tqdm
 import BezierCurve_pb2
+import json
 
 def ros1LaserScanToPB(laserScanRos):
    rtn = LaserScan_pb2.LaserScan()
@@ -85,6 +87,19 @@ def getAllBezierCurves(bezier_curve_folder: str, use_json: bool):
             print("Could not read bezier curve binary file %s." %(filepath))
             continue
    return bezier_curves
+
+def getAllParticipantsPackets(participants_folder: str, use_json: bool):
+   rtn = []
+   if use_json:
+      print("Loading json files for participants packets")
+      filepaths = [os.path.join(participants_folder, f) for f in os.listdir(participants_folder) if os.path.isfile(os.path.join(participants_folder, f)) and str.lower(os.path.splitext(f)[1])==".json"]
+      for fp in tqdm(filepaths):
+         with open(fp, 'r', encoding='utf-8') as f:
+            jsondict = json.load(f)
+            rtn.append(jsondict)
+   else:
+      raise ValueError("Only json encoding is supported in Participants Packets for now. Need to come up with a solution for non-ASCII characters in the driver names")
+   return rtn
 
 def getAllSessionPackets(session_folder: str, use_json: bool):
    session_packets = []
