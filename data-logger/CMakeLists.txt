@@ -58,13 +58,8 @@ INTERFACE
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/>
     $<INSTALL_INTERFACE:include/>
 )
-if(WIN32)
-    option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to interact with existing protobuf datasets" ON)
-    option(BUILD_CONTROLLERS "Builds the controllers library for pushing commands back into the F1 game" ON)
-else()
-    option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to interact with existing protobuf datasets" OFF)
-    option(BUILD_CONTROLLERS "Builds the controllers library for pushing commands back into the F1 game" OFF)
-endif()
+option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to interact with existing protobuf datasets" OFF)
+option(BUILD_CONTROLLERS "Builds the controllers library for pushing commands back into the F1 game" OFF)
 if(BUILD_DATALOGGER)
     option(YAML_CPP_DLL "Set this if YAML CPP was compiled as a DLL" ON)
     option(GUI_TOOLS "Attempt to build the GUI tools" OFF)
