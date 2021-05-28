@@ -120,7 +120,9 @@ if(BUILD_DATALOGGER)
     target_link_libraries(${PROJECT_NAME} 
     PUBLIC
     ${PROJECT_NAME}_image_logging 
+    ${PROJECT_NAME}_image_logging_common 
     ${PROJECT_NAME}_udp_logging 
+    ${PROJECT_NAME}_udp_logging_common
     ${PROJECT_NAME}_proto 
     ${PROJECT_NAME}_eigen_utils
     ${PROJECT_NAME}_image_utils
