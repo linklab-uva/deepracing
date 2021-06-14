@@ -9,8 +9,8 @@
 #define INCLUDE_F1_DATALOGGER_H_
 #include <f1_datalogger/visibility_control.h>
 
-#include "image_logging/f1_framegrab_manager.h"
-#include "udp_logging/f1_datagrab_manager.h"
+#include "f1_datalogger/image_logging/f1_framegrab_manager.h"
+#include "f1_datalogger/udp_logging/f1_datagrab_manager.h"
 namespace deepf1
 {
 
