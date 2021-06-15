@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
 
 
         std::shared_ptr<PacketCarTelemetryData> data(new PacketCarTelemetryData);
-        data->m_header.m_packetFormat=2;
+        data->m_header.m_packetFormat=2018;
         data->m_header.m_packetId=PacketID::CARTELEMETRY;
         data->m_header.m_packetVersion=18;
         data->m_header.m_playerCarIndex=0;
@@ -78,13 +78,13 @@ int main(int argc, char** argv) {
                 data->m_header.m_sessionTime=fake_time;
                 data->m_header.m_sessionUID=id;
                 data->m_carTelemetryData[data->m_header.m_playerCarIndex].m_steer = (int8_t)(100.0*std::sin(twopi*freq*fake_time));
-                data->m_carTelemetryData[data->m_header.m_playerCarIndex].m_throttle = 50 + (int8_t)(50.0*std::cos(twopi*freq*fake_time));
-                data->m_carTelemetryData[data->m_header.m_playerCarIndex].m_brake = 50;
-                //std::cout<<"Sending fake UDP data"<<std::endl;
-                // std::cout<<"fake_time: "<<fake_time<<std::endl;
-                // std::cout<<"Steering: "<<data->m_steer<<std::endl;
-                // std::cout<<"Throttle: "<<data->m_throttle<<std::endl;
-                // std::cout<<"B:rake "<<data->m_brake<<std::endl;
+                data->m_carTelemetryData[data->m_header.m_playerCarIndex].m_throttle = (uint8_t)50 + (uint8_t)(50.0*std::cos(twopi*freq*fake_time));
+                data->m_carTelemetryData[data->m_header.m_playerCarIndex].m_brake = (uint8_t)50;
+                std::printf("Sending fake UDP data\n");
+                std::printf("Fake Time: %f.\n", fake_time);
+                std::printf("Steering: %d.\n", data->m_carTelemetryData[data->m_header.m_playerCarIndex].m_steer);
+                std::printf("Throttle: %u.\n", data->m_carTelemetryData[data->m_header.m_playerCarIndex].m_throttle);
+                std::printf("Brake: %u.\n", data->m_carTelemetryData[data->m_header.m_playerCarIndex].m_brake);
                 socket.send_to(boost::asio::buffer(boost::asio::buffer(data.get(), packet_size)), receiver_endpoint);
                 fake_time += dt;
                 id++;
