@@ -3,6 +3,10 @@ cmake_minimum_required (VERSION ${_required_cmake} FATAL_ERROR)
 cmake_policy(VERSION ${_required_cmake})
 project(f1_datalogger)
 find_package(ament_cmake QUIET)
+if(ament_cmake_FOUND)
+    #This is probably a ROS2-based installation, also look for the yaml-cpp provided by ROS2.
+    find_package(yaml_cpp_vendor QUIET)
+endif()
 message(STATUS "Using CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 
 if(NOT CMAKE_CXX_STANDARD)
