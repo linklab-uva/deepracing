@@ -64,78 +64,71 @@ void F1DataGrabManager::run()
 {
   boost::system::error_code error;
   char buffer[ F1DataGrabManager::BUFFER_SIZE ];
-  deepf1::uint16 packet_format_2018 = 2018;
-  deepf1::uint16 packet_format_2019 = 2019;
-  deepf1::uint16 packet_format_2020 = 2020;
+  boost::asio::mutable_buffer boost_buffer = boost::asio::buffer(buffer, BUFFER_SIZE);
   deepf1::TimePoint timestamp;
   deepf1::twenty_eighteen::PacketHeader* header;
   boost::asio::ip::udp::endpoint rebroadcastendpoint;
 
   while (running_)
   {
-    std::size_t received_bytes = socket_.receive_from(boost::asio::buffer(buffer, BUFFER_SIZE), remote_endpoint_, 0, error);
+    std::size_t received_bytes = socket_.receive_from(boost_buffer, remote_endpoint_, 0, error);
     timestamp = deepf1::Clock::now();
-    if(memcmp(buffer,(char *)&packet_format_2018, 2)==0)
+    header = reinterpret_cast<deepf1::twenty_eighteen::PacketHeader*>(buffer);
+    if(header->m_packetFormat==2018 && !handlers2018.empty())
     {
-      header = reinterpret_cast<deepf1::twenty_eighteen::PacketHeader*>(buffer);
-      
-      if (!handlers2018.empty())
+      switch(header->m_packetId)
       {
-
-        switch(header->m_packetId)
+        case deepf1::twenty_eighteen::PacketID::MOTION:
         {
-          case deepf1::twenty_eighteen::PacketID::MOTION:
-          {
-            deepf1::twenty_eighteen::TimestampedPacketMotionData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketMotionData*>(buffer)), timestamp);
-            std::for_each(handlers2018.begin(), handlers2018.end(), [data](std::shared_ptr<IF12018DataGrabHandler> data_handler){ if(bool(data_handler) && data_handler->isReady()){data_handler->handleData(data);}});
-            break;
-          }
-          case deepf1::twenty_eighteen::PacketID::EVENT:
-          {
-            deepf1::twenty_eighteen::TimestampedPacketEventData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketEventData*>(buffer)), timestamp);
-            std::for_each(handlers2018.begin(), handlers2018.end(), [data](std::shared_ptr<IF12018DataGrabHandler> data_handler){ if(bool(data_handler) && data_handler->isReady()){data_handler->handleData(data);}});
-            break;
-          }
-          case deepf1::twenty_eighteen::PacketID::SESSION:
-          {
-            deepf1::twenty_eighteen::TimestampedPacketSessionData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketSessionData*>(buffer)), timestamp);
-            std::for_each(handlers2018.begin(), handlers2018.end(), [data](std::shared_ptr<IF12018DataGrabHandler> data_handler){ if(bool(data_handler) && data_handler->isReady()){data_handler->handleData(data);}});
-            break;
-          }
-          case deepf1::twenty_eighteen::PacketID::LAPDATA:
-          {
-            deepf1::twenty_eighteen::TimestampedPacketLapData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketLapData*>(buffer)), timestamp);
-            std::for_each(handlers2018.begin(), handlers2018.end(), [data](std::shared_ptr<IF12018DataGrabHandler> data_handler){ if(bool(data_handler) && data_handler->isReady()){data_handler->handleData(data);}});
-            break;
-          }
-          case deepf1::twenty_eighteen::PacketID::PARTICIPANTS:
-          {
-            deepf1::twenty_eighteen::TimestampedPacketParticipantsData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketParticipantsData*>(buffer)), timestamp);
-            std::for_each(handlers2018.begin(), handlers2018.end(), [data](std::shared_ptr<IF12018DataGrabHandler> data_handler){ if(bool(data_handler) && data_handler->isReady()){data_handler->handleData(data);}});
-            break;
-          }
-          case deepf1::twenty_eighteen::PacketID::CARSETUPS:
-          {
-            deepf1::twenty_eighteen::TimestampedPacketCarSetupData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketCarSetupData*>(buffer)), timestamp);
-            std::for_each(handlers2018.begin(), handlers2018.end(), [data](std::shared_ptr<IF12018DataGrabHandler> data_handler){ if(bool(data_handler) && data_handler->isReady()){data_handler->handleData(data);}});
-            break;
-          }
-          case deepf1::twenty_eighteen::PacketID::CARTELEMETRY:
-          {
-            deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketCarTelemetryData*>(buffer)), timestamp);
-            std::for_each(handlers2018.begin(), handlers2018.end(), [data](std::shared_ptr<IF12018DataGrabHandler> data_handler){ if(bool(data_handler) && data_handler->isReady()){data_handler->handleData(data);}});
-            break;
-          }
-          case deepf1::twenty_eighteen::PacketID::CARSTATUS:
-          {
-            deepf1::twenty_eighteen::TimestampedPacketCarStatusData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketCarStatusData*>(buffer)), timestamp);
-            std::for_each(handlers2018.begin(), handlers2018.end(), [data](std::shared_ptr<IF12018DataGrabHandler> data_handler){ if(bool(data_handler) && data_handler->isReady()){data_handler->handleData(data);}});
-            break;
-          }
-          default:
-          {
-            break;
-          }
+          deepf1::twenty_eighteen::TimestampedPacketMotionData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketMotionData*>(buffer)), timestamp);
+          std::for_each(handlers2018.begin(), handlers2018.end(), [data](std::shared_ptr<IF12018DataGrabHandler> data_handler){ if(bool(data_handler) && data_handler->isReady()){data_handler->handleData(data);}});
+          break;
+        }
+        case deepf1::twenty_eighteen::PacketID::EVENT:
+        {
+          deepf1::twenty_eighteen::TimestampedPacketEventData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketEventData*>(buffer)), timestamp);
+          std::for_each(handlers2018.begin(), handlers2018.end(), [data](std::shared_ptr<IF12018DataGrabHandler> data_handler){ if(bool(data_handler) && data_handler->isReady()){data_handler->handleData(data);}});
+          break;
+        }
+        case deepf1::twenty_eighteen::PacketID::SESSION:
+        {
+          deepf1::twenty_eighteen::TimestampedPacketSessionData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketSessionData*>(buffer)), timestamp);
+          std::for_each(handlers2018.begin(), handlers2018.end(), [data](std::shared_ptr<IF12018DataGrabHandler> data_handler){ if(bool(data_handler) && data_handler->isReady()){data_handler->handleData(data);}});
+          break;
+        }
+        case deepf1::twenty_eighteen::PacketID::LAPDATA:
+        {
+          deepf1::twenty_eighteen::TimestampedPacketLapData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketLapData*>(buffer)), timestamp);
+          std::for_each(handlers2018.begin(), handlers2018.end(), [data](std::shared_ptr<IF12018DataGrabHandler> data_handler){ if(bool(data_handler) && data_handler->isReady()){data_handler->handleData(data);}});
+          break;
+        }
+        case deepf1::twenty_eighteen::PacketID::PARTICIPANTS:
+        {
+          deepf1::twenty_eighteen::TimestampedPacketParticipantsData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketParticipantsData*>(buffer)), timestamp);
+          std::for_each(handlers2018.begin(), handlers2018.end(), [data](std::shared_ptr<IF12018DataGrabHandler> data_handler){ if(bool(data_handler) && data_handler->isReady()){data_handler->handleData(data);}});
+          break;
+        }
+        case deepf1::twenty_eighteen::PacketID::CARSETUPS:
+        {
+          deepf1::twenty_eighteen::TimestampedPacketCarSetupData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketCarSetupData*>(buffer)), timestamp);
+          std::for_each(handlers2018.begin(), handlers2018.end(), [data](std::shared_ptr<IF12018DataGrabHandler> data_handler){ if(bool(data_handler) && data_handler->isReady()){data_handler->handleData(data);}});
+          break;
+        }
+        case deepf1::twenty_eighteen::PacketID::CARTELEMETRY:
+        {
+          deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketCarTelemetryData*>(buffer)), timestamp);
+          std::for_each(handlers2018.begin(), handlers2018.end(), [data](std::shared_ptr<IF12018DataGrabHandler> data_handler){ if(bool(data_handler) && data_handler->isReady()){data_handler->handleData(data);}});
+          break;
+        }
+        case deepf1::twenty_eighteen::PacketID::CARSTATUS:
+        {
+          deepf1::twenty_eighteen::TimestampedPacketCarStatusData data(*(reinterpret_cast<deepf1::twenty_eighteen::PacketCarStatusData*>(buffer)), timestamp);
+          std::for_each(handlers2018.begin(), handlers2018.end(), [data](std::shared_ptr<IF12018DataGrabHandler> data_handler){ if(bool(data_handler) && data_handler->isReady()){data_handler->handleData(data);}});
+          break;
+        }
+        default:
+        {
+          break;
         }
       }
     }
