@@ -6,6 +6,7 @@ import TimestampedPacketParticipantsData_pb2
 import TimestampedImage_pb2
 import PacketMotionData_pb2
 import CarTelemetryData_pb2
+import PoseSequenceLabel_pb2
 import LaserScan_pb2
 import Spline3D_pb2
 import Vector3d_pb2
@@ -235,7 +236,7 @@ def getAllImageFilePackets(image_data_folder: str, use_json: bool):
                   image_packets.append(data)
          except Exception as ex:
             #f.close()
-            print("Could not read image data file %s." %(filepath))
+            print("Could not read image data file %s." %(fp))
             print(ex)
             continue
    return image_packets

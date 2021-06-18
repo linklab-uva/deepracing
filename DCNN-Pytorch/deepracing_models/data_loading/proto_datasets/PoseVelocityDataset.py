@@ -133,13 +133,13 @@ class PoseVelocityDataset(Dataset):
         allvalid[self.player_car_idx]=0
         valid_mask = allvalid.astype(np.bool8)
 
-        tpast = np.linspace(current_packet_time - 2.0, current_packet_time, 5)
-        past_positions = np.zeros((20, tpast.shape[0], 3), dtype=np.float64)
-        past_velocities = np.zeros((20, tpast.shape[0], 3), dtype=np.float64)
-        past_quaternions = np.zeros((20, tpast.shape[0], 4), dtype=np.float64)
+        tpast = np.linspace(current_packet_time - 1.5, current_packet_time, 5)
+        past_positions = np.empty((20, tpast.shape[0], 3), dtype=np.float64)
+        past_velocities = np.empty((20, tpast.shape[0], 3), dtype=np.float64)
+        past_quaternions = np.empty((20, tpast.shape[0], 4), dtype=np.float64)
 
-        tfuture = np.linspace(current_packet_time, current_packet_time + 2.0, 3*tpast.shape[0])
-        future_positions = np.zeros((past_positions.shape[0], tfuture.shape[0], 3), dtype=np.float64)
+        tfuture = np.linspace(current_packet_time, current_packet_time + 1.5, 3*tpast.shape[0])
+        future_positions = np.empty((past_positions.shape[0], tfuture.shape[0], 3), dtype=np.float64)
         for i in range(past_positions.shape[0]):
             past_positions[i] = self.position_splines[i](tpast)
             past_velocities[i] = self.velocity_splines[i](tpast)
