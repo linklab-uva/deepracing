@@ -6,6 +6,7 @@ from .RacelineLabelDataset import RacelineLabelDataset
 from .LaserScanDataset import LaserScanDataset
 from .ImageSequenceDataset import ImageSequenceDataset
 from .ImageDataset import ImageDataset
+from .PoseVelocityDataset import PoseVelocityDataset
 import os
 import deepracing.backend
 import numpy as np
