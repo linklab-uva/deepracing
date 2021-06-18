@@ -15,7 +15,7 @@ class TimeIndex:
             raise ValueError("tmin (%f) cannot be greater-equal to tmax (%f)" % (tmin, tmax))
         if tmin < self.time_array[0]:
             raise ValueError("tmin (%f) cannot be outside range of time values [%f, %f]" %(tmin, self.time_array[0], self.time_array[-1]))
-        if tmax < self.time_array[-1]:
+        if tmax > self.time_array[-1]:
             raise ValueError("tmax (%f) cannot be outside range of time values [%f, %f]" %(tmax, self.time_array[0], self.time_array[-1]))
         leftbisect = max(bisect.bisect_left(self.data_values, tmin) - 1, 0)
         rightbisect = min(bisect.bisect_right(self.data_values, tmax) + 1, self.time_array.shape[0]-1)
