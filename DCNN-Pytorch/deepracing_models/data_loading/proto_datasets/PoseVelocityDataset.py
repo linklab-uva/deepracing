@@ -95,17 +95,17 @@ class PoseVelocityDataset(Dataset):
             np.save(os.path.join(self.cache_dir, "lap_packet_times.npy"), lap_packet_times)
             np.save(os.path.join(self.cache_dir, "result_statuses.npy"), result_statuses)
 
-        Iclip = (motion_packet_times>(lap_packet_times[0] + 3.0))*(motion_packet_times<(lap_packet_times[-1] - 3.0))
 
+        self.position_splines : List[BSpline] = [make_interp_spline(motion_packet_times, all_positions[:,i]) for i in range(all_positions.shape[1])]
+        self.velocity_splines : List[BSpline] = [make_interp_spline(motion_packet_times, all_velocities[:,i]) for i in range(all_velocities.shape[1])]
+        self.quaternion_splines : List[RotSpline] = [RotSpline(motion_packet_times, Rot.from_quat(all_quaternions[:,i])) for i in range(all_quaternions.shape[1])]
+
+        Iclip = (motion_packet_times>(lap_packet_times[0] + 3.0))*(motion_packet_times<(lap_packet_times[-1] - 3.0))
         self.all_positions=all_positions[Iclip]
         self.all_velocities=all_velocities[Iclip]
         self.all_quaternions=all_quaternions[Iclip]
         self.motion_packet_times=motion_packet_times[Iclip]
         assert(self.motion_packet_times.shape[0] == self.all_positions.shape[0] == self.all_velocities.shape[0] == self.all_quaternions.shape[0])
-
-        self.position_splines : List[BSpline] = [make_interp_spline(motion_packet_times, all_positions[:,i]) for i in range(all_positions.shape[1])]
-        self.velocity_splines : List[BSpline] = [make_interp_spline(motion_packet_times, all_velocities[:,i]) for i in range(all_velocities.shape[1])]
-        self.quaternion_splines : List[RotSpline] = [RotSpline(motion_packet_times, Rot.from_quat(all_quaternions[:,i])) for i in range(all_quaternions.shape[1])]
 
         
         self.lap_packet_times=lap_packet_times
@@ -145,6 +145,7 @@ class PoseVelocityDataset(Dataset):
             past_velocities[i] = self.velocity_splines[i](tpast)
             past_quaternions[i] = self.quaternion_splines[i](tpast).as_quat()
             future_positions[i] = self.position_splines[i](tfuture)
+        ego_idx = self.player_car_idx
 
-        return {"current_packet_time" : current_packet_time, "valid_mask" : valid_mask, "past_positions" : past_positions, "past_velocities" : past_velocities, "past_quaternions": past_quaternions, "future_positions" : future_positions}
+        return {"ego_idx": ego_idx, "current_packet_time" : current_packet_time, "valid_mask" : valid_mask, "past_positions" : past_positions, "past_velocities" : past_velocities, "past_quaternions": past_quaternions, "future_positions" : future_positions}
     
