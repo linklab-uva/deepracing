@@ -1,10 +1,12 @@
 import bisect
 import numpy as np
+import torch
+from typing import Union
 
 
 class TimeIndex:
-    def __init__(self, time_array : np.ndarray, data_values : np.ndarray):
-        if np.any((time_array[1:]-time_array[:-1])<0):
+    def __init__(self, time_array : Union[np.ndarray, torch.Tensor], data_values : Union[np.ndarray, torch.Tensor]):
+        if torch.any(torch.as_tensor(time_array[1:]-time_array[:-1])<0):
             raise ValueError("time_array must be everywhere non-decreasing")
         self.time_array = time_array
         self.data_values = data_values
