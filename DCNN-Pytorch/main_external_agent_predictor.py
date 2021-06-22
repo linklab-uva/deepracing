@@ -72,14 +72,21 @@ def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePred
         pred_points = torch.matmul(Mpos, curves)
         deltas = pred_points - valid_future_positions
         squared_norms = torch.sum(torch.square(deltas), dim=2)
-        loss = torch.mean(squared_norms)
+        weights = torch.ones(squared_norms.shape[1], device=dev, dtype=dtype)
+        weights[10:] = torch.linspace(1.0, 0.1, steps=squared_norms.shape[1]-10, device=weights.device, dtype=weights.dtype)
+        weights = weights.unsqueeze(0).expand(squared_norms.shape[0], squared_norms.shape[1])
+        loss = torch.mean(weights*squared_norms)
+        # loss = torch.mean(squared_norms)
 
         optimizer.zero_grad()
         loss.backward() 
         # Weight and bias updates.
         optimizer.step()
         # logging information
-        lossf += loss.item()
+        curr_loss = loss.item()
+        lossf += curr_loss
+        if((i%5)==0):
+            experiment.log_metric("loss", curr_loss)
         t.set_postfix({"current_position_loss" : lossf/(i+1)})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
@@ -152,7 +159,7 @@ def go():
     
     main_dir = args.output_directory
 
-    experiment = comet_ml.Experiment(workspace="electric-turtle", project_name=project_name)
+    experiment = comet_ml.Experiment(workspace="electric-turtle", project_name=project_name, auto_metric_logging=False)
     output_directory = os.path.join(main_dir, experiment.get_key())
     if os.path.isdir(output_directory) :
         raise FileExistsError("%s already exists, this should not happen." %(output_directory) )
