@@ -102,7 +102,6 @@ def go():
     with open(model_config_file) as f:
         model_config = yaml.load(f, Loader = yaml.SafeLoader)
     
-    context_length = model_config["context_length"]
     bezier_order = model_config["bezier_order"]
     input_dim = model_config["input_dim"]
     output_dim = model_config["output_dim"]
@@ -127,7 +126,7 @@ def go():
         gpu = training_config["gpu"] 
     torch.cuda.set_device(gpu)    
     print("Using model config:\n%s" % (str(model_config)))
-    net = ExternalAgentCurvePredictor(context_length=context_length) 
+    net = ExternalAgentCurvePredictor(output_dim=output_dim, bezier_order=bezier_order, input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers, dropout=dropout, bidirectional=bidirectional) 
     print("net:\n%s" % (str(net)))
     net = net.float()
     
@@ -178,34 +177,22 @@ def go():
             modelfile = netpostfix % (postfix-1)
             optimizerfile = optimizerpostfix % (postfix-1)
             print("Running Epoch Number %d" %(postfix))
-            #dset.clearReaders()
-            try:
-                tick = time.time()
-                run_epoch(experiment, net, optimizer, dataloader)
-                tock = time.time()
-                print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
-                experiment.log_epoch_end(postfix)
-            except FileExistsError as e:
-                raise e
-            except Exception as e:
-                print("Restarting epoch %d because %s"%(postfix, str(e)))
-                modelin = os.path.join(output_directory, modelfile)
-                optimizerin = os.path.join(output_directory,optimizerfile)
-                net.load_state_dict(torch.load(modelin))
-                optimizer.load_state_dict(torch.load(optimizerin))
-                continue
 
-            modelout = os.path.join(output_directory,modelfile)
+            tick = time.time()
+            run_epoch(experiment, net, optimizer, dataloader)
+            tock = time.time()
+            print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
+            experiment.log_epoch_end(postfix)
+
+            modelout = os.path.join(output_directory, modelfile)
             with open(modelout,'wb') as f:
                 torch.save(net.state_dict(), f)
-            with open(modelout,'rb') as f:
-                experiment.log_asset(f,file_name=netpostfix %(postfix,) )
+            experiment.log_model("epoch_%d" % (postfix,), modelout)  
 
             optimizerout = os.path.join(output_directory, optimizerfile)
             with open(optimizerout,'wb') as f:
                 torch.save(optimizer.state_dict(), f)
-            with open(optimizerout,'rb') as f:
-                experiment.log_asset(f,file_name=optimizerpostfix %(postfix,) )
+            experiment.log_asset(optimizerout, optimizerfile)
             i = i + 1
 import logging
 if __name__ == '__main__':
