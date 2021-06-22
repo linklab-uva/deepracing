@@ -115,7 +115,6 @@ def go():
     momentum = training_config["momentum"]
     nesterov = training_config["nesterov"]
     project_name = training_config["project_name"]
-    project_name = training_config["project_name"]
     num_epochs = training_config["num_epochs"]
     num_workers = training_config["num_workers"]
    
