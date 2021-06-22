@@ -18,7 +18,7 @@ class ExternalAgentCurvePredictor(nn.Module):
         self.output_dim : int = output_dim
         self.input_dim : int = input_dim
         self.hidden_dim : int = hidden_dim
-        self.num_layers : int = 5
+        self.num_layers : int = num_layers
         self.bezier_order : int = bezier_order
         self.num_layers : int = num_layers
         self.dropout : float = dropout
