@@ -13,7 +13,7 @@ import math
 
 
 class ExternalAgentCurvePredictor(nn.Module):
-    def __init__(self, output_dim : int = 3, bezier_order : int = 3, input_dim : int = 10, hidden_dim : int =500, num_layers : int = 1, dropout : float = 0.0, bidirectional : bool =True):
+    def __init__(self, output_dim : int = 3, bezier_order : int = 3, input_dim : int = 10, hidden_dim : int = 500, num_layers : int = 1, dropout : float = 0.0, bidirectional : bool = True):
         super(ExternalAgentCurvePredictor, self).__init__()
         self.output_dim : int = output_dim
         self.input_dim : int = input_dim
@@ -25,20 +25,12 @@ class ExternalAgentCurvePredictor(nn.Module):
         self.bidirectional : bool = bidirectional
 
         self.lstm = nn.LSTM(self.input_dim, self.hidden_dim, self.num_layers, dropout=self.dropout, batch_first=True, bidirectional=self.bidirectional)
-        self.fc = nn.Linear(self.hidden_dim*(int(self.bidirectional)+1), (self.bezier_order+1)*self.output_dim)
+        self.fc = nn.Linear(self.hidden_dim*(int(self.bidirectional)+1), self.bezier_order*self.output_dim)
         # self.init_hidden = Parameter(0.01*torch.randn((int(self.bidirectional)+1)*self.num_layers, self.hidden_dim))
         # self.init_cell = Parameter(0.01*torch.randn((int(self.bidirectional)+1)*self.num_layers, self.hidden_dim))
 
     def forward(self, x):
         batch_size = x.shape[0]
-        # init_hidden = self.init_hidden.unsqueeze(1).repeat(1, batch_size, 1)
-        # init_cell = self.init_cell.unsqueeze(1).repeat(1, batch_size, 1)
         lstm_out, (hidden, cell) = self.lstm(x)#, (init_hidden,init_cell))
-       # print(lstm_out.shape)
-    #    print(hidden.shape, cell.shape)
-        # lstm_out = lstm_out.contiguous().view(-1, self.hidden_dim)
-        # out = self.fc(lstm_out)
-        # out = out.view(self.batch_size, -1)
         linear_out = self.fc(lstm_out[:,-1])
-
-        return linear_out.view(batch_size, self.bezier_order+1, self.output_dim)
+        return linear_out.view(batch_size, self.bezier_order, self.output_dim)

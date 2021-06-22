@@ -1,3 +1,4 @@
+from operator import pos
 import comet_ml
 import torch
 import torch.nn as NN
@@ -46,7 +47,6 @@ def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePred
     # we are only doing single-device training for now, so this works fine.
     dev = next(network.parameters()).device
     dtype = next(network.parameters()).dtype 
-    bezier_order = network.bezier_order
     lossf=0
     for (i, datadict) in t:
         valid_mask = datadict["valid_mask"] 
@@ -55,20 +55,21 @@ def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePred
         future_positions = datadict["future_positions"]
         tfuture = datadict["tfuture"]
 
-        valid_past_positions = (past_positions[valid_mask].double().cuda(0))[:,:,[0,2]]
-        valid_past_velocities = (past_velocities[valid_mask].double().cuda(0))[:,:,[0,2]]
-        valid_future_positions = (future_positions[valid_mask].double().cuda(0))[:,:,[0,2]]
-        valid_tfuture = tfuture[valid_mask].double().cuda(0)
+        valid_past_positions = (past_positions[valid_mask].type(dtype).to(dev))[:,:,[0,2]]
+        valid_past_velocities = (past_velocities[valid_mask].type(dtype).to(dev))[:,:,[0,2]]
+        valid_future_positions = (future_positions[valid_mask].type(dtype).to(dev))[:,:,[0,2]]
+        valid_tfuture = tfuture[valid_mask].type(dtype).to(dev)
 
         networkinput = torch.cat([valid_past_positions, valid_past_velocities], dim=2)
         output = network(networkinput)
+        curves = torch.cat([valid_future_positions[:,0].unsqueeze(1), output], dim=1)
         if debug:
             pass
 
         dt = valid_tfuture[:,-1]-valid_tfuture[:,0]
         s_torch_cur = (valid_tfuture - valid_tfuture[:,0,None])/dt[:,None]
         Mpos = mu.bezierM(s_torch_cur, network.bezier_order)
-        pred_points = torch.matmul(Mpos, output)
+        pred_points = torch.matmul(Mpos, curves)
         deltas = pred_points - valid_future_positions
         squared_norms = torch.sum(torch.square(deltas), dim=2)
         loss = torch.mean(squared_norms)
@@ -116,7 +117,6 @@ def go():
     nesterov = training_config["nesterov"]
     project_name = training_config["project_name"]
     num_epochs = training_config["num_epochs"]
-    num_workers = training_config["num_workers"]
    
     if args.gpu is not None:
         gpu = args.gpu
@@ -144,7 +144,7 @@ def go():
     else:
         dset = torch.utils.data.ConcatDataset(dsets)
     
-    dataloader = data_utils.DataLoader(dset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=(gpu>=0))
+    dataloader = data_utils.DataLoader(dset, batch_size=batch_size, shuffle=True, pin_memory=(gpu>=0))
 
     print("Dataloader of of length %d" %(len(dataloader)))
     if debug:
@@ -167,31 +167,27 @@ def go():
     experiment.log_asset(os.path.join(output_directory,"training_config.yaml"),file_name="training_config.yaml")
     experiment.log_asset(os.path.join(output_directory,"model_config.yaml"),file_name="model_config.yaml")
     i = 0
-    netpostfix = "epoch_%d_params.pt"
-    optimizerpostfix = "epoch_%d_optimizer.pt"
     with experiment.train():
         while i < num_epochs:
             time.sleep(2.0)
             postfix = i + 1
-            modelfile = netpostfix % (postfix-1)
-            optimizerfile = optimizerpostfix % (postfix-1)
             print("Running Epoch Number %d" %(postfix))
 
             tick = time.time()
             run_epoch(experiment, net, optimizer, dataloader)
             tock = time.time()
-            print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
             experiment.log_epoch_end(postfix)
+            print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
 
-            modelout = os.path.join(output_directory, modelfile)
-            with open(modelout,'wb') as f:
+            epoch_directory = os.path.join(output_directory, "epoch_%d" % (postfix,) )
+            os.makedirs(epoch_directory, exist_ok=True)
+
+            with open(os.path.join(epoch_directory, "params.pt"),'wb') as f:
                 torch.save(net.state_dict(), f)
-            experiment.log_model("epoch_%d" % (postfix,), modelout)  
-
-            optimizerout = os.path.join(output_directory, optimizerfile)
-            with open(optimizerout,'wb') as f:
+            with open(os.path.join(epoch_directory, "optimizer.pt"),'wb') as f:
                 torch.save(optimizer.state_dict(), f)
-            experiment.log_asset(optimizerout, optimizerfile)
+
+            experiment.log_model("epoch_%d" % (postfix,), epoch_directory, prepend_folder_name=False)  
             i = i + 1
 import logging
 if __name__ == '__main__':
