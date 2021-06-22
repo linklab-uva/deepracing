@@ -38,6 +38,7 @@ from deepracing.raceline_utils import loadBoundary
 from deepracing import searchForFile
 import deepracing.path_utils.geometric as geometric
 
+
 #torch.backends.cudnn.enabled = False
 def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePredictor, optimizer : torch.optim.Optimizer, dataloader : data_utils.DataLoader, debug : bool =False):
     num_samples=0.0
@@ -96,6 +97,7 @@ def go():
 
     parser.add_argument("--debug", action="store_true",  help="Don't actually push to comet, just testing")
     parser.add_argument("--gpu", type=int, default=None,  help="Override the GPU index specified in the config file")
+    parser.add_argument("--clean-after-epoch", action="store_true", help="Delete model files once they get uploaded to comet")
 
     
     args = parser.parse_args()
@@ -193,8 +195,9 @@ def go():
                 torch.save(net.state_dict(), f)
             with open(os.path.join(epoch_directory, "optimizer.pt"),'wb') as f:
                 torch.save(optimizer.state_dict(), f)
-
-            experiment.log_model("epoch_%d" % (postfix,), epoch_directory, prepend_folder_name=False)  
+            experiment.log_model("epoch_%d" % (postfix,), epoch_directory, prepend_folder_name=False, copy_to_tmp=True)
+            if argdict["clean-after-epoch"]:
+                shutil.rmtree(epoch_directory)
             i = i + 1
 import logging
 if __name__ == '__main__':
