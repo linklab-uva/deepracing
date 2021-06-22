@@ -33,7 +33,7 @@ def packetKey(packet) -> float:
     return packet.udp_packet.m_header.m_sessionTime
 class PoseVelocityDataset(Dataset):
     def __init__(self, dataset_root_directory : str):
-        super(PoseVelocityDataset, self).__init__()        
+        super(PoseVelocityDataset, self).__init__()      
         self.dataset_root_directory = dataset_root_directory
         self.udp_data_dir = os.path.join(self.dataset_root_directory, "udp_data")
         self.motion_data_dir = os.path.join(self.udp_data_dir, "motion_packets")
@@ -116,13 +116,6 @@ class PoseVelocityDataset(Dataset):
 
         self.lap_index : TimeIndex = TimeIndex(self.lap_packet_times, self.result_statuses)
         
-
-
-
-
-
-        
-
     def __len__(self):
         return self.motion_packet_times.shape[0]
 
