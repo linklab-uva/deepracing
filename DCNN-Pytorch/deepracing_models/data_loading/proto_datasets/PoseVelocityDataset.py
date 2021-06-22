@@ -62,15 +62,16 @@ class PoseVelocityDataset(Dataset):
             assert(np.all(result_statuses==result_statuses))
         else:
             all_motion_packets = sorted(getAllMotionPackets(self.motion_data_dir, self.dataset_config["use_json"]), key=packetKey)
-            motion_packet_times=np.asarray([packetKey(all_motion_packets[i]) for i in range(len(all_motion_packets))], dtype=np.float64)
             all_positions = np.nan*np.zeros((len(all_motion_packets), 20, 3), dtype=np.float64)
             all_velocities = np.nan*np.zeros((len(all_motion_packets), 20, 3), dtype=np.float64)
             all_quaternions = np.nan*np.zeros((len(all_motion_packets), 20, 4), dtype=np.float64)
+            motion_packet_times = np.empty(len(all_motion_packets), dtype=np.float64)
             for i in tqdm(range(len(all_motion_packets)), desc="Extracting positions, velocities, and quaternions"):
                 packet = all_motion_packets[i]
                 all_positions[i] = np.stack([extractPosition(packet.udp_packet, car_index=j) for j in range(20)])
                 all_velocities[i] = np.stack([extractVelocity(packet.udp_packet, car_index=j) for j in range(20)])
                 all_quaternions[i] = np.stack([extractRotation(packet.udp_packet, car_index=j) for j in range(20)])
+                motion_packet_times[i] = packetKey(packet)
             assert(np.all(all_positions==all_positions))
             assert(np.all(all_velocities==all_velocities))
             assert(np.all(all_quaternions==all_quaternions))
@@ -100,7 +101,7 @@ class PoseVelocityDataset(Dataset):
         self.velocity_splines : List[BSpline] = [make_interp_spline(motion_packet_times, all_velocities[:,i]) for i in range(all_velocities.shape[1])]
         self.quaternion_splines : List[RotSpline] = [RotSpline(motion_packet_times, Rot.from_quat(all_quaternions[:,i])) for i in range(all_quaternions.shape[1])]
 
-        Iclip = (motion_packet_times>(lap_packet_times[0] + 3.0))*(motion_packet_times<(lap_packet_times[-1] - 3.0))
+        Iclip = (motion_packet_times>(lap_packet_times[0] + 10.0))*(motion_packet_times<(lap_packet_times[-1] - 10.0))
         self.all_positions=all_positions[Iclip]
         self.all_velocities=all_velocities[Iclip]
         self.all_quaternions=all_quaternions[Iclip]
@@ -133,12 +134,12 @@ class PoseVelocityDataset(Dataset):
         allvalid[self.player_car_idx]=0
         valid_mask = allvalid.astype(np.bool8)
 
-        tpast = np.linspace(current_packet_time - 1.5, current_packet_time, 5)
+        tpast = np.linspace(current_packet_time - 1.75, current_packet_time, 5)
         past_positions = np.empty((20, tpast.shape[0], 3), dtype=np.float64)
         past_velocities = np.empty((20, tpast.shape[0], 3), dtype=np.float64)
         past_quaternions = np.empty((20, tpast.shape[0], 4), dtype=np.float64)
 
-        tfuture = np.linspace(current_packet_time, current_packet_time + 1.5, 3*tpast.shape[0])
+        tfuture = np.linspace(current_packet_time, current_packet_time + 1.75, 6*tpast.shape[0])
         future_positions = np.empty((past_positions.shape[0], tfuture.shape[0], 3), dtype=np.float64)
         for i in range(past_positions.shape[0]):
             past_positions[i] = self.position_splines[i](tpast)
@@ -146,6 +147,9 @@ class PoseVelocityDataset(Dataset):
             past_quaternions[i] = self.quaternion_splines[i](tpast).as_quat()
             future_positions[i] = self.position_splines[i](tfuture)
         ego_idx = self.player_car_idx
+        tpast_ = np.stack([tpast.copy() for asdf in range(past_positions.shape[0])])
+        tfuture_ = np.stack([tfuture.copy() for asdf in range(past_positions.shape[0])])
 
-        return {"ego_idx": ego_idx, "current_packet_time" : current_packet_time, "valid_mask" : valid_mask, "past_positions" : past_positions, "past_velocities" : past_velocities, "past_quaternions": past_quaternions, "future_positions" : future_positions}
+
+        return {"tpast": tpast_, "tfuture": tfuture_, "ego_idx": ego_idx, "current_packet_time" : current_packet_time, "valid_mask" : valid_mask, "past_positions" : past_positions, "past_velocities" : past_velocities, "past_quaternions": past_quaternions, "future_positions" : future_positions}
     

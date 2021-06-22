@@ -137,8 +137,7 @@ def getAllLapDataPackets(lapdata_packet_folder: str, use_json: bool = False):
    lapdata_packets = []
    if use_json:
       filepaths = [os.path.join(lapdata_packet_folder, f) for f in os.listdir(lapdata_packet_folder) if os.path.isfile(os.path.join(lapdata_packet_folder, f)) and str.lower(os.path.splitext(f)[1])==".json"]
-      print("Loading json files for lap data")
-      for filepath in tqdm(filepaths, desc="Loading json data", total=len(filepaths)):
+      for filepath in tqdm(filepaths, desc="Loading json files for lap data", total=len(filepaths)):
          with open(filepath, "r") as f:
             jsonstring = f.read()
          data = TimestampedPacketLapData_pb2.TimestampedPacketLapData()
@@ -146,8 +145,7 @@ def getAllLapDataPackets(lapdata_packet_folder: str, use_json: bool = False):
          lapdata_packets.append(data)
    else:
       filepaths = [os.path.join(lapdata_packet_folder, f) for f in os.listdir(lapdata_packet_folder) if os.path.isfile(os.path.join(lapdata_packet_folder, f)) and str.lower(os.path.splitext(f)[1])==".pb"]
-      print("Loading binary files for lap data")
-      for filepath in tqdm(filepaths, desc="Loading binary data", total=len(filepaths)):
+      for filepath in tqdm(filepaths, desc="Loading binary files for lap data", total=len(filepaths)):
          try:
             data = TimestampedPacketLapData_pb2.TimestampedPacketLapData()
             f = open(filepath,'rb')
