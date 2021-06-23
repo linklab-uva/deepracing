@@ -102,6 +102,7 @@ def go():
     
     args = parser.parse_args()
     argdict = vars(args)
+    print(argdict)
 
     training_config_file = argdict["training_config_file"]
     model_config_file = argdict["model_config_file"]
@@ -196,7 +197,7 @@ def go():
             with open(os.path.join(epoch_directory, "optimizer.pt"),'wb') as f:
                 torch.save(optimizer.state_dict(), f)
             experiment.log_model("epoch_%d" % (postfix,), epoch_directory, prepend_folder_name=False, copy_to_tmp=True)
-            if argdict["clean-after-epoch"]:
+            if argdict["clean_after_epoch"]:
                 shutil.rmtree(epoch_directory)
             i = i + 1
 import logging
