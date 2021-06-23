@@ -56,15 +56,21 @@ def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePred
         valid_mask = datadict["valid_mask"] 
         past_positions = datadict["past_positions"]
         past_velocities = datadict["past_velocities"]
+        past_quaternions = datadict["past_quaternions"]
         future_positions = datadict["future_positions"]
         tfuture = datadict["tfuture"]
 
         valid_past_positions = (past_positions[valid_mask].type(dtype).to(dev))[:,:,[0,2]]
         valid_past_velocities = (past_velocities[valid_mask].type(dtype).to(dev))[:,:,[0,2]]
+        valid_past_quaternions = past_quaternions[valid_mask].type(dtype).to(dev)
         valid_future_positions = (future_positions[valid_mask].type(dtype).to(dev))[:,:,[0,2]]
         valid_tfuture = tfuture[valid_mask].type(dtype).to(dev)
-
-        networkinput = torch.cat([valid_past_positions, valid_past_velocities], dim=2)
+        if network.input_dim==4:
+            networkinput = torch.cat([valid_past_positions, valid_past_velocities], dim=2)
+        elif network.input_dim==8:
+            networkinput = torch.cat([valid_past_positions, valid_past_velocities, valid_past_quaternions], dim=2)
+        else:
+            raise ValueError("Currently, only input dimensions of 4 and 8 are supported")
         output = network(networkinput)
         curves = torch.cat([valid_future_positions[:,0].unsqueeze(1), output], dim=1)
         if debug:
@@ -120,12 +126,18 @@ def go():
         model_config = yaml.load(f, Loader = yaml.SafeLoader)
     
     bezier_order = model_config["bezier_order"]
-    input_dim = model_config["input_dim"]
     output_dim = model_config["output_dim"]
     hidden_dim = model_config["hidden_dim"]
     num_layers = model_config["num_layers"]
     dropout = model_config["dropout"]
     bidirectional = model_config["bidirectional"]
+    include_rotations = model_config["include_rotations"]
+    if include_rotations:
+        input_dim = 8
+    else:
+        input_dim = 4
+    model_config["input_dim"] = input_dim
+
 
     batch_size = training_config["batch_size"]
     learning_rate = training_config["learning_rate"]
