@@ -91,7 +91,8 @@ def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePred
         lossf += curr_loss
         if((i%5)==0):
             experiment.log_metric("loss", curr_loss)
-        t.set_postfix({"current_position_loss" : lossf/(i+1)})
+        if use_tqdm:
+            t.set_postfix({"current_position_loss" : lossf/(i+1)})
 def go():
     parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
     parser.add_argument("training_config_file", type=str,  help="Training Configuration file to load")
