@@ -198,11 +198,17 @@ def go():
             epoch_directory = os.path.join(output_directory, "epoch_%d" % (postfix,) )
             os.makedirs(epoch_directory, exist_ok=True)
 
-            with open(os.path.join(epoch_directory, "params.pt"),'wb') as f:
+            paramsfile = os.path.join(epoch_directory, "params.pt")
+            with open(paramsfile,'wb') as f:
                 torch.save(net.state_dict(), f)
-            with open(os.path.join(epoch_directory, "optimizer.pt"),'wb') as f:
+
+            optimizerfile = os.path.join(epoch_directory, "optimizer.pt")
+            with open(optimizerfile,'wb') as f:
                 torch.save(optimizer.state_dict(), f)
-            experiment.log_model("epoch_%d" % (postfix,), epoch_directory, prepend_folder_name=False, copy_to_tmp=True)
+
+            experiment.log_asset(paramsfile, "epoch_%d_params.pt" % (postfix,), copy_to_tmp=True)
+            experiment.log_asset(optimizerfile, "epoch_%d_optimizer.pt" % (postfix,),  copy_to_tmp=True)
+
             if argdict["clean_after_epoch"]:
                 shutil.rmtree(epoch_directory)
 import logging
