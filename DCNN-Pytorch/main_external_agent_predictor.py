@@ -89,7 +89,7 @@ def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePred
         # logging information
         curr_loss = loss.item()
         lossf += curr_loss
-        if((i%5)==0):
+        if((i%15)==0):
             experiment.log_metric("loss", curr_loss)
         if use_tqdm:
             t.set_postfix({"current_position_loss" : lossf/(i+1)})
