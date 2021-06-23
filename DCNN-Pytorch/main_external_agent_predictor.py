@@ -40,9 +40,12 @@ import deepracing.path_utils.geometric as geometric
 
 
 #torch.backends.cudnn.enabled = False
-def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePredictor, optimizer : torch.optim.Optimizer, dataloader : data_utils.DataLoader, debug : bool =False):
+def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePredictor, optimizer : torch.optim.Optimizer, dataloader : data_utils.DataLoader, debug : bool = False, use_tqdm = False):
     num_samples=0.0
-    t = tqdm(enumerate(dataloader), total=len(dataloader))
+    if use_tqdm:
+        t = tqdm(enumerate(dataloader), total=len(dataloader))
+    else:
+        t = enumerate(dataloader)
     network.train()  # This is important to call before training!
     
     # we are only doing single-device training for now, so this works fine.
@@ -98,6 +101,7 @@ def go():
     parser.add_argument("--debug", action="store_true",  help="Don't actually push to comet, just testing")
     parser.add_argument("--gpu", type=int, default=None,  help="Override the GPU index specified in the config file")
     parser.add_argument("--clean-after-epoch", action="store_true", help="Delete model files once they get uploaded to comet")
+    parser.add_argument("--tqdm", action="store_true", help="Delete model files once they get uploaded to comet")
 
     
     args = parser.parse_args()
@@ -107,6 +111,7 @@ def go():
     training_config_file = argdict["training_config_file"]
     model_config_file = argdict["model_config_file"]
     debug = argdict["debug"]
+    use_tqdm = argdict["tqdm"]
 
     with open(training_config_file) as f:
         training_config = yaml.load(f, Loader = yaml.SafeLoader)
@@ -176,15 +181,15 @@ def go():
     experiment.log_asset(os.path.join(output_directory,"experiment_config.yaml"),file_name="experiment_config.yaml")
     experiment.log_asset(os.path.join(output_directory,"training_config.yaml"),file_name="training_config.yaml")
     experiment.log_asset(os.path.join(output_directory,"model_config.yaml"),file_name="model_config.yaml")
-    i = 0
+    
     with experiment.train():
-        while i < num_epochs:
+        for i in range(num_epochs):
             time.sleep(2.0)
             postfix = i + 1
             print("Running Epoch Number %d" %(postfix))
 
             tick = time.time()
-            run_epoch(experiment, net, optimizer, dataloader)
+            run_epoch(experiment, net, optimizer, dataloader, use_tqdm=use_tqdm)
             tock = time.time()
             experiment.log_epoch_end(postfix)
             print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
@@ -199,7 +204,6 @@ def go():
             experiment.log_model("epoch_%d" % (postfix,), epoch_directory, prepend_folder_name=False, copy_to_tmp=True)
             if argdict["clean_after_epoch"]:
                 shutil.rmtree(epoch_directory)
-            i = i + 1
 import logging
 if __name__ == '__main__':
     logging.basicConfig()
