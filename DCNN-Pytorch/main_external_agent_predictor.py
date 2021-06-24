@@ -148,6 +148,8 @@ def go():
     project_name = training_config["project_name"]
     num_epochs = training_config["num_epochs"]
     weighted_loss = training_config["weighted_loss"]
+    adam = training_config.get("adam",False)
+    training_config["adam"] = adam
    
     if args.gpu is not None:
         gpu = args.gpu
@@ -163,7 +165,10 @@ def go():
     if gpu>=0:
         print("moving stuff to GPU")
         net = net.cuda(gpu)
-    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum, nesterov=nesterov)
+    if adam:
+        optimizer : optim.Optimizer = optim.Adam(net.parameters(), lr = learning_rate)
+    else:
+        optimizer : optim.Optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum, nesterov=nesterov)
 
     dsets=[]
     for dataset in training_config["datasets"]:
