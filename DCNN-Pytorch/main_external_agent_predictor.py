@@ -40,7 +40,7 @@ import deepracing.path_utils.geometric as geometric
 
 
 #torch.backends.cudnn.enabled = False
-def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePredictor, optimizer : torch.optim.Optimizer, dataloader : data_utils.DataLoader, debug : bool = False, use_tqdm = False):
+def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePredictor, optimizer : torch.optim.Optimizer, dataloader : data_utils.DataLoader, weighted_loss : bool = False, debug : bool = False, use_tqdm = False):
     num_samples=0.0
     if use_tqdm:
         t = tqdm(enumerate(dataloader), total=len(dataloader))
@@ -82,11 +82,14 @@ def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePred
         pred_points = torch.matmul(Mpos, curves)
         deltas = pred_points - valid_future_positions
         squared_norms = torch.sum(torch.square(deltas), dim=2)
-        # weights = torch.ones(squared_norms.shape[1], device=dev, dtype=dtype)
-        # weights[10:] = torch.linspace(1.0, 0.1, steps=squared_norms.shape[1]-10, device=weights.device, dtype=weights.dtype)
-        # weights = weights.unsqueeze(0).expand(squared_norms.shape[0], squared_norms.shape[1])
-        # loss = torch.mean(weights*squared_norms)
-        loss = torch.mean(squared_norms)
+        if weighted_loss:
+            weights = torch.ones(squared_norms.shape[1], device=dev, dtype=dtype)
+            istart = int(round(weights.shape[0]/3))
+            weights[istart:] = torch.linspace(1.0, 0.1, steps=weights.shape[0]-istart, device=weights.device, dtype=weights.dtype)
+            weights = weights.unsqueeze(0).expand(squared_norms.shape[0], squared_norms.shape[1])
+            loss = torch.mean(weights*squared_norms)
+        else:
+            loss = torch.mean(squared_norms)
 
         optimizer.zero_grad()
         loss.backward() 
@@ -145,6 +148,7 @@ def go():
     nesterov = training_config["nesterov"]
     project_name = training_config["project_name"]
     num_epochs = training_config["num_epochs"]
+    weighted_loss = training_config["weighted_loss"]
    
     if args.gpu is not None:
         gpu = args.gpu
@@ -202,7 +206,7 @@ def go():
             print("Running Epoch Number %d" %(postfix))
 
             tick = time.time()
-            run_epoch(experiment, net, optimizer, dataloader, use_tqdm=use_tqdm)
+            run_epoch(experiment, net, optimizer, dataloader, use_tqdm=use_tqdm, weighted_loss = weighted_loss)
             tock = time.time()
             experiment.log_epoch_end(postfix)
             print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )
