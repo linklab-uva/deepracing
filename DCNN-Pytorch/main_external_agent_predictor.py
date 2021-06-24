@@ -83,10 +83,9 @@ def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePred
         deltas = pred_points - valid_future_positions
         squared_norms = torch.sum(torch.square(deltas), dim=2)
         if weighted_loss:
-            weights = torch.ones(squared_norms.shape[1], device=dev, dtype=dtype)
-            istart = int(round(weights.shape[0]/3))
-            weights[istart:] = torch.linspace(1.0, 0.1, steps=weights.shape[0]-istart, device=weights.device, dtype=weights.dtype)
-            weights = weights.unsqueeze(0).expand(squared_norms.shape[0], squared_norms.shape[1])
+            weights = torch.ones_like(squared_norms)
+            istart = int(round(weights.shape[1]/3))
+            weights[:,istart:] = torch.linspace(1.0, 0.1, steps=weights.shape[1]-istart, device=weights.device, dtype=weights.dtype)
             loss = torch.mean(weights*squared_norms)
         else:
             loss = torch.mean(squared_norms)
