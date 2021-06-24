@@ -84,7 +84,7 @@ def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePred
         squared_norms = torch.sum(torch.square(deltas), dim=2)
         if weighted_loss:
             weights = torch.ones_like(squared_norms)
-            istart = int(round(weights.shape[1]/3))
+            istart = int(round(weights.shape[1]/2))
             weights[:,istart:] = torch.linspace(1.0, 0.1, steps=weights.shape[1]-istart, device=weights.device, dtype=weights.dtype)
             loss = torch.mean(weights*squared_norms)
         else:
