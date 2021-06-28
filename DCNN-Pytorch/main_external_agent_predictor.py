@@ -40,7 +40,7 @@ import deepracing.path_utils.geometric as geometric
 
 
 #torch.backends.cudnn.enabled = False
-def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePredictor, optimizer : torch.optim.Optimizer, dataloader : data_utils.DataLoader, debug : bool = False, use_tqdm = False):
+def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePredictor, optimizer : torch.optim.Optimizer, dataloader : data_utils.DataLoader, weighted_loss : bool = False, debug : bool = False, use_tqdm = False):
     num_samples=0.0
     if use_tqdm:
         t = tqdm(enumerate(dataloader), total=len(dataloader))
@@ -56,15 +56,21 @@ def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePred
         valid_mask = datadict["valid_mask"] 
         past_positions = datadict["past_positions"]
         past_velocities = datadict["past_velocities"]
+        past_quaternions = datadict["past_quaternions"]
         future_positions = datadict["future_positions"]
         tfuture = datadict["tfuture"]
 
         valid_past_positions = (past_positions[valid_mask].type(dtype).to(dev))[:,:,[0,2]]
         valid_past_velocities = (past_velocities[valid_mask].type(dtype).to(dev))[:,:,[0,2]]
+        valid_past_quaternions = past_quaternions[valid_mask].type(dtype).to(dev)
         valid_future_positions = (future_positions[valid_mask].type(dtype).to(dev))[:,:,[0,2]]
         valid_tfuture = tfuture[valid_mask].type(dtype).to(dev)
-
-        networkinput = torch.cat([valid_past_positions, valid_past_velocities], dim=2)
+        if network.input_dim==4:
+            networkinput = torch.cat([valid_past_positions, valid_past_velocities], dim=2)
+        elif network.input_dim==8:
+            networkinput = torch.cat([valid_past_positions, valid_past_velocities, valid_past_quaternions], dim=2)
+        else:
+            raise ValueError("Currently, only input dimensions of 4 and 8 are supported")
         output = network(networkinput)
         curves = torch.cat([valid_future_positions[:,0].unsqueeze(1), output], dim=1)
         if debug:
@@ -76,11 +82,13 @@ def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePred
         pred_points = torch.matmul(Mpos, curves)
         deltas = pred_points - valid_future_positions
         squared_norms = torch.sum(torch.square(deltas), dim=2)
-        # weights = torch.ones(squared_norms.shape[1], device=dev, dtype=dtype)
-        # weights[10:] = torch.linspace(1.0, 0.1, steps=squared_norms.shape[1]-10, device=weights.device, dtype=weights.dtype)
-        # weights = weights.unsqueeze(0).expand(squared_norms.shape[0], squared_norms.shape[1])
-        # loss = torch.mean(weights*squared_norms)
-        loss = torch.mean(squared_norms)
+        if weighted_loss:
+            weights = torch.ones_like(squared_norms)
+            istart = int(round(weights.shape[1]/2))
+            weights[:,istart:] = torch.linspace(1.0, 0.1, steps=weights.shape[1]-istart, device=weights.device, dtype=weights.dtype)
+            loss = torch.mean(weights*squared_norms)
+        else:
+            loss = torch.mean(squared_norms)
 
         optimizer.zero_grad()
         loss.backward() 
@@ -120,12 +128,18 @@ def go():
         model_config = yaml.load(f, Loader = yaml.SafeLoader)
     
     bezier_order = model_config["bezier_order"]
-    input_dim = model_config["input_dim"]
     output_dim = model_config["output_dim"]
     hidden_dim = model_config["hidden_dim"]
     num_layers = model_config["num_layers"]
     dropout = model_config["dropout"]
     bidirectional = model_config["bidirectional"]
+    include_rotations = model_config["include_rotations"]
+    if include_rotations:
+        input_dim = 8
+    else:
+        input_dim = 4
+    model_config["input_dim"] = input_dim
+
 
     batch_size = training_config["batch_size"]
     learning_rate = training_config["learning_rate"]
@@ -133,6 +147,9 @@ def go():
     nesterov = training_config["nesterov"]
     project_name = training_config["project_name"]
     num_epochs = training_config["num_epochs"]
+    weighted_loss = training_config["weighted_loss"]
+    adam = training_config.get("adam",False)
+    training_config["adam"] = adam
    
     if args.gpu is not None:
         gpu = args.gpu
@@ -148,7 +165,10 @@ def go():
     if gpu>=0:
         print("moving stuff to GPU")
         net = net.cuda(gpu)
-    optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum, nesterov=nesterov)
+    if adam:
+        optimizer : optim.Optimizer = optim.Adam(net.parameters(), lr = learning_rate)
+    else:
+        optimizer : optim.Optimizer = optim.SGD(net.parameters(), lr = learning_rate, momentum=momentum, nesterov=nesterov)
 
     dsets=[]
     for dataset in training_config["datasets"]:
@@ -190,7 +210,7 @@ def go():
             print("Running Epoch Number %d" %(postfix))
 
             tick = time.time()
-            run_epoch(experiment, net, optimizer, dataloader, use_tqdm=use_tqdm)
+            run_epoch(experiment, net, optimizer, dataloader, use_tqdm=use_tqdm, weighted_loss = weighted_loss)
             tock = time.time()
             experiment.log_epoch_end(postfix)
             print("Finished epoch %d in %f seconds." % ( postfix , tock-tick ) )

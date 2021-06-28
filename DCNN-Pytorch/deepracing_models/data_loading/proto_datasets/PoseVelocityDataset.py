@@ -137,7 +137,11 @@ class PoseVelocityDataset(Dataset):
         for i in range(past_positions.shape[0]):
             past_positions[i] = self.position_splines[i](tpast)
             past_velocities[i] = self.velocity_splines[i](tpast)
-            past_quaternions[i] = self.quaternion_splines[i](tpast).as_quat()
+            q = self.quaternion_splines[i](tpast).as_quat()
+            for j in range(1, q.shape[0]):
+                if np.linalg.norm((-q[j]) - q[j-1])<np.linalg.norm(q[j] - q[j-1]):
+                    q[j]*=-1.0
+            past_quaternions[i] = q
             future_positions[i] = self.position_splines[i](tfuture)
         ego_idx = self.player_car_idx
         tpast_ = np.stack([tpast.copy() for asdf in range(past_positions.shape[0])])
