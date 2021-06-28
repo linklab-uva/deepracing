@@ -140,7 +140,6 @@ def go():
         input_dim = 4
     model_config["input_dim"] = input_dim
 
-
     batch_size = training_config["batch_size"]
     learning_rate = training_config["learning_rate"]
     momentum = training_config["momentum"]
