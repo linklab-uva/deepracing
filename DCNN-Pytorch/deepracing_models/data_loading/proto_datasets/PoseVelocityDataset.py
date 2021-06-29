@@ -106,7 +106,7 @@ class PoseVelocityDataset(Dataset):
         self.quaternion_splines : List[RotSpline] = [RotSpline(motion_packet_times, Rot.from_quat(all_quaternions[:,i])) for i in range(all_quaternions.shape[1])]
 
         # Iclip = (motion_packet_times>(lap_packet_times[0] + 10.0))*(motion_packet_times<(lap_packet_times[-1] - 10.0))
-        Iclip = (motion_packet_times>(lap_packet_times[0] + context_time + 0.25))*(motion_packet_times<(lap_packet_times[-1] - prediction_time - 0.25))
+        Iclip = (motion_packet_times>(lap_packet_times[0] + context_time + 0.5))*(motion_packet_times<(lap_packet_times[-1] - prediction_time - 0.5))
         self.all_positions=all_positions[Iclip]
         self.all_velocities=all_velocities[Iclip]
         self.all_quaternions=all_quaternions[Iclip]
