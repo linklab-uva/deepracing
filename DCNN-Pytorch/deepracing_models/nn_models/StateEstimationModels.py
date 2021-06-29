@@ -27,8 +27,8 @@ class ExternalAgentCurvePredictor(nn.Module):
         self.lstm = nn.LSTM(self.input_dim, self.hidden_dim, self.num_layers, dropout=self.dropout, batch_first=True, bidirectional=self.bidirectional)
         self.fc = nn.Linear(self.hidden_dim*(int(self.bidirectional)+1), self.bezier_order*self.output_dim)
         if learnable_initial_state:
-            self.init_hidden = Parameter(0.01*torch.randn((int(self.bidirectional)+1)*self.num_layers, self.hidden_dim))
-            self.init_cell = Parameter(0.01*torch.randn((int(self.bidirectional)+1)*self.num_layers, self.hidden_dim))
+            self.init_hidden = Parameter(0.001*torch.randn((int(self.bidirectional)+1)*self.num_layers, self.hidden_dim))
+            self.init_cell = Parameter(0.001*torch.randn((int(self.bidirectional)+1)*self.num_layers, self.hidden_dim))
         else:
             self.init_hidden = Parameter(torch.zeros((int(self.bidirectional)+1)*self.num_layers, self.hidden_dim), requires_grad=False)
             self.init_cell = Parameter(torch.zeros((int(self.bidirectional)+1)*self.num_layers, self.hidden_dim), requires_grad=False)
