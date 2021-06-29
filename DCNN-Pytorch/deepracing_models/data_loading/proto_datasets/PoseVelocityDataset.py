@@ -33,7 +33,7 @@ import torch.distributions as dist
 def packetKey(packet) -> float:
     return packet.udp_packet.m_header.m_sessionTime
 class PoseVelocityDataset(Dataset):
-    def __init__(self, dataset_root_directory : str, context_indices : int = 5, context_time : float = 1.75, prediction_time : float = 1.75, fake_length=1000):
+    def __init__(self, dataset_root_directory : str, context_indices : int = 5, context_time : float = 1.75, prediction_time : float = 1.75, fake_length=3000):
         super(PoseVelocityDataset, self).__init__()      
         self.dataset_root_directory = dataset_root_directory
         self.udp_data_dir = os.path.join(self.dataset_root_directory, "udp_data")
