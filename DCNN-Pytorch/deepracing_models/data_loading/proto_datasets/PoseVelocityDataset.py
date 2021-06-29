@@ -21,24 +21,27 @@ from scipy.spatial.transform import Rotation as Rot
 from scipy.spatial.transform import RotationSpline as RotSpline
 from scipy.interpolate import BSpline, make_interp_spline, make_lsq_spline
 from Pose3d_pb2 import Pose3d
-from typing import List
+from typing import List, Tuple, Sequence
 import torchvision.transforms as T
 import torchvision.transforms.functional as F
 from deepracing_models.data_loading.image_transforms import IdentifyTransform
 import json
 import yaml
 from deepracing_models.data_loading import TimeIndex
+import torch.distributions as dist
 
 def packetKey(packet) -> float:
     return packet.udp_packet.m_header.m_sessionTime
 class PoseVelocityDataset(Dataset):
-    def __init__(self, dataset_root_directory : str):
+    def __init__(self, dataset_root_directory : str, context_indices : int = 5, context_time : float = 1.75, fake_length=1000):
         super(PoseVelocityDataset, self).__init__()      
         self.dataset_root_directory = dataset_root_directory
         self.udp_data_dir = os.path.join(self.dataset_root_directory, "udp_data")
         self.motion_data_dir = os.path.join(self.udp_data_dir, "motion_packets")
         self.lap_data_dir = os.path.join(self.udp_data_dir, "lap_packets")
         self.cache_dir = os.path.join(dataset_root_directory, "__pose_vel_cache__")
+        self.context_indices = context_indices
+        self.context_time = context_time
         with open(os.path.join(self.dataset_root_directory, "f1_dataset_config.yaml"), "r") as f:
             self.dataset_config = yaml.load(f, Loader=yaml.SafeLoader)
 
@@ -101,12 +104,17 @@ class PoseVelocityDataset(Dataset):
         self.velocity_splines : List[BSpline] = [make_interp_spline(motion_packet_times, all_velocities[:,i]) for i in range(all_velocities.shape[1])]
         self.quaternion_splines : List[RotSpline] = [RotSpline(motion_packet_times, Rot.from_quat(all_quaternions[:,i])) for i in range(all_quaternions.shape[1])]
 
-        Iclip = (motion_packet_times>(lap_packet_times[0] + 10.0))*(motion_packet_times<(lap_packet_times[-1] - 10.0))
+        # Iclip = (motion_packet_times>(lap_packet_times[0] + 10.0))*(motion_packet_times<(lap_packet_times[-1] - 10.0))
+        Iclip = (motion_packet_times>(lap_packet_times[0] + context_time))*(motion_packet_times<(lap_packet_times[-1] - context_time))
         self.all_positions=all_positions[Iclip]
         self.all_velocities=all_velocities[Iclip]
         self.all_quaternions=all_quaternions[Iclip]
         self.motion_packet_times=motion_packet_times[Iclip]
         assert(self.motion_packet_times.shape[0] == self.all_positions.shape[0] == self.all_velocities.shape[0] == self.all_quaternions.shape[0])
+        
+        self.time_dist = dist.Uniform(self.motion_packet_times[0], self.motion_packet_times[-1])
+
+        self.fake_length = fake_length
 
         
         self.lap_packet_times=lap_packet_times
@@ -117,23 +125,25 @@ class PoseVelocityDataset(Dataset):
         self.lap_index : TimeIndex = TimeIndex(self.lap_packet_times, self.result_statuses)
         
     def __len__(self):
-        return self.motion_packet_times.shape[0]
+        return self.fake_length
 
     def __getitem__(self, idx):
-        current_packet_time = self.motion_packet_times[idx]
+        current_packet_time = self.time_dist.sample().item()
         _, statuses = self.lap_index.sample(current_packet_time - 3.0, current_packet_time + 3.0)
         valid = ~((statuses==0) + (statuses==1))
         allvalid = np.prod(valid, axis=0)
         allvalid[self.player_car_idx]=0
         valid_mask = allvalid.astype(np.bool8)
 
-        tpast = np.linspace(current_packet_time - 1.75, current_packet_time, 5)
+        tpast = np.linspace(current_packet_time - self.context_time, current_packet_time, self.context_indices)
         past_positions = np.empty((20, tpast.shape[0], 3), dtype=np.float64)
         past_velocities = np.empty((20, tpast.shape[0], 3), dtype=np.float64)
         past_quaternions = np.empty((20, tpast.shape[0], 4), dtype=np.float64)
 
-        tfuture = np.linspace(current_packet_time, current_packet_time + 1.75, 6*tpast.shape[0])
+        tfuture = np.linspace(current_packet_time, current_packet_time + self.context_time, 6*tpast.shape[0])
         future_positions = np.empty((past_positions.shape[0], tfuture.shape[0], 3), dtype=np.float64)
+        future_velocities = np.empty((past_positions.shape[0], tfuture.shape[0], 3), dtype=np.float64)
+        future_quaternions = np.empty((past_positions.shape[0], tfuture.shape[0], 4), dtype=np.float64)
         for i in range(past_positions.shape[0]):
             past_positions[i] = self.position_splines[i](tpast)
             past_velocities[i] = self.velocity_splines[i](tpast)
@@ -143,10 +153,18 @@ class PoseVelocityDataset(Dataset):
                     q[j]*=-1.0
             past_quaternions[i] = q
             future_positions[i] = self.position_splines[i](tfuture)
+            future_velocities[i] = self.velocity_splines[i](tfuture)
+            qfuture = self.quaternion_splines[i](tfuture).as_quat()
+            for j in range(1, qfuture.shape[0]):
+                if np.linalg.norm((-qfuture[j]) - qfuture[j-1])<np.linalg.norm(qfuture[j] - qfuture[j-1]):
+                    qfuture[j]*=-1.0
+            future_quaternions[i] = qfuture
         ego_idx = self.player_car_idx
         tpast_ = np.stack([tpast.copy() for asdf in range(past_positions.shape[0])])
         tfuture_ = np.stack([tfuture.copy() for asdf in range(past_positions.shape[0])])
 
+        
 
-        return {"tpast": tpast_, "tfuture": tfuture_, "ego_idx": ego_idx, "current_packet_time" : current_packet_time, "valid_mask" : valid_mask, "past_positions" : past_positions, "past_velocities" : past_velocities, "past_quaternions": past_quaternions, "future_positions" : future_positions}
+
+        return {"tpast": tpast_, "tfuture": tfuture_, "ego_idx": ego_idx, "current_packet_time" : current_packet_time, "valid_mask" : valid_mask, "past_positions" : past_positions, "past_velocities" : past_velocities, "past_quaternions": past_quaternions, "future_positions" : future_positions, "future_velocities": future_velocities, "future_quaternions": future_quaternions}
     
