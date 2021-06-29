@@ -134,6 +134,7 @@ def go():
     dropout = model_config["dropout"]
     bidirectional = model_config["bidirectional"]
     include_rotations = model_config["include_rotations"]
+    learnable_initial_state = model_config["learnable_initial_state"]
     if include_rotations:
         input_dim = 8
     else:
@@ -160,7 +161,7 @@ def go():
         gpu = training_config["gpu"] 
     torch.cuda.set_device(gpu)    
     print("Using model config:\n%s" % (str(model_config)))
-    net = ExternalAgentCurvePredictor(output_dim=output_dim, bezier_order=bezier_order, input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers, dropout=dropout, bidirectional=bidirectional) 
+    net = ExternalAgentCurvePredictor(output_dim=output_dim, bezier_order=bezier_order, input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers, dropout=dropout, bidirectional=bidirectional, learnable_initial_state=learnable_initial_state) 
     print("net:\n%s" % (str(net)))
     net = net.float()
     
