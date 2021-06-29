@@ -147,6 +147,9 @@ def go():
     project_name = training_config["project_name"]
     num_epochs = training_config["num_epochs"]
     weighted_loss = training_config["weighted_loss"]
+    prediction_time = training_config["prediction_time"]
+    context_time = training_config["context_time"]
+    context_indices = training_config.get("context_indices",5)
     adam = training_config.get("adam",False)
     training_config["adam"] = adam
    
@@ -172,7 +175,7 @@ def go():
     dsets=[]
     for dataset in training_config["datasets"]:
         root_folder = dataset["root_folder"]
-        current_dset = PD.PoseVelocityDataset(root_folder)
+        current_dset = PD.PoseVelocityDataset(root_folder, context_time=context_time, context_indices=context_indices, prediction_time=prediction_time)
         dsets.append(current_dset)
     if len(dsets)==1:
         dset = dsets[0]

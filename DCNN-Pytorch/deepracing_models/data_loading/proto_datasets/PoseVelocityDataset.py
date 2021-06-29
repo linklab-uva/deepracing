@@ -33,7 +33,7 @@ import torch.distributions as dist
 def packetKey(packet) -> float:
     return packet.udp_packet.m_header.m_sessionTime
 class PoseVelocityDataset(Dataset):
-    def __init__(self, dataset_root_directory : str, context_indices : int = 5, context_time : float = 1.75, fake_length=1000):
+    def __init__(self, dataset_root_directory : str, context_indices : int = 5, context_time : float = 1.75, prediction_time : float = 1.75, fake_length=1000):
         super(PoseVelocityDataset, self).__init__()      
         self.dataset_root_directory = dataset_root_directory
         self.udp_data_dir = os.path.join(self.dataset_root_directory, "udp_data")
@@ -42,6 +42,7 @@ class PoseVelocityDataset(Dataset):
         self.cache_dir = os.path.join(dataset_root_directory, "__pose_vel_cache__")
         self.context_indices = context_indices
         self.context_time = context_time
+        self.prediction_time = prediction_time
         with open(os.path.join(self.dataset_root_directory, "f1_dataset_config.yaml"), "r") as f:
             self.dataset_config = yaml.load(f, Loader=yaml.SafeLoader)
 
@@ -105,7 +106,7 @@ class PoseVelocityDataset(Dataset):
         self.quaternion_splines : List[RotSpline] = [RotSpline(motion_packet_times, Rot.from_quat(all_quaternions[:,i])) for i in range(all_quaternions.shape[1])]
 
         # Iclip = (motion_packet_times>(lap_packet_times[0] + 10.0))*(motion_packet_times<(lap_packet_times[-1] - 10.0))
-        Iclip = (motion_packet_times>(lap_packet_times[0] + context_time+0.25))*(motion_packet_times<(lap_packet_times[-1] - context_time-0.25))
+        Iclip = (motion_packet_times>(lap_packet_times[0] + context_time + 0.25))*(motion_packet_times<(lap_packet_times[-1] - prediction_time - 0.25))
         self.all_positions=all_positions[Iclip]
         self.all_velocities=all_velocities[Iclip]
         self.all_quaternions=all_quaternions[Iclip]
@@ -129,7 +130,7 @@ class PoseVelocityDataset(Dataset):
 
     def __getitem__(self, idx):
         current_packet_time = self.time_dist.sample().item()
-        _, statuses = self.lap_index.sample(current_packet_time - (self.context_time+0.25), current_packet_time + (self.context_time+0.25))
+        _, statuses = self.lap_index.sample(current_packet_time - (self.context_time+0.25), current_packet_time + (self.prediction_time+0.25))
         valid = ~((statuses==0) + (statuses==1))
         allvalid = np.prod(valid, axis=0)
         allvalid[self.player_car_idx]=0
@@ -140,7 +141,7 @@ class PoseVelocityDataset(Dataset):
         past_velocities = np.empty((20, tpast.shape[0], 3), dtype=np.float64)
         past_quaternions = np.empty((20, tpast.shape[0], 4), dtype=np.float64)
 
-        tfuture = np.linspace(current_packet_time, current_packet_time + self.context_time, 6*tpast.shape[0])
+        tfuture = np.linspace(current_packet_time, current_packet_time + self.prediction_time, 6*tpast.shape[0])
         future_positions = np.empty((past_positions.shape[0], tfuture.shape[0], 3), dtype=np.float64)
         future_velocities = np.empty((past_positions.shape[0], tfuture.shape[0], 3), dtype=np.float64)
         future_quaternions = np.empty((past_positions.shape[0], tfuture.shape[0], 4), dtype=np.float64)
