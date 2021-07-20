@@ -30,12 +30,14 @@ def contiguous_regions(condition):
 def lapMetrics(poses : np.ndarray, timestamps : np.ndarray, innerboundary_poly : Polygon, outerboundary_poly : Polygon, car_geom : deepracing.CarGeometry = deepracing.CarGeometry()):
     wheel_positions_global = np.matmul(poses, car_geom.wheelPositions(dtype=poses.dtype))[:,0:3]
     delta_poly : Polygon = outerboundary_poly.difference(innerboundary_poly)
-    violations = np.zeros_like(poses[:,0,0], dtype=bool)
+    violations = np.zeros_like(wheel_positions_global[:,0,0], dtype=bool)
+    wheels_on_track = np.zeros((wheel_positions_global.shape[0], 4), dtype=bool)
+    wheel_distances = np.zeros((wheel_positions_global.shape[0], 4), dtype=np.float64)
     for i in tqdm(range(wheel_positions_global.shape[0]), desc="Checking for boundary violations", total=wheel_positions_global.shape[0]):
         wheel_positions = wheel_positions_global[i]
-        wheel_distances = np.asarray([ delta_poly.distance(ShapelyPoint(wheel_positions[0, j], wheel_positions[2, j])) for j in range(4)])
-        wheels_on_track = np.asarray([ delta_poly.contains(ShapelyPoint(wheel_positions[0, j], wheel_positions[2, j])) for j in range(4)])
-        violations[i]=wheels_on_track.sum()<2
+        wheel_distances[i] = np.asarray([ delta_poly.distance(ShapelyPoint(wheel_positions[0, j], wheel_positions[2, j])) for j in range(4) ], dtype=np.float64)
+        wheels_on_track[i] = np.asarray([ delta_poly.contains(ShapelyPoint(wheel_positions[0, j], wheel_positions[2, j])) for j in range(4) ], dtype=bool)
+        violations[i]=wheels_on_track[i].sum()<2
             
 
 
