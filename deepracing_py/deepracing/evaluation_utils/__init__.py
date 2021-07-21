@@ -33,11 +33,14 @@ def lapMetrics(poses : np.ndarray, timestamps : np.ndarray, innerboundary_poly :
     violations = np.zeros_like(wheel_positions_global[:,0,0], dtype=bool)
     wheels_on_track = np.zeros((wheel_positions_global.shape[0], 4), dtype=bool)
     wheel_distances = np.zeros((wheel_positions_global.shape[0], 4), dtype=np.float64)
+    distances = np.zeros_like(wheel_positions_global[:,0,0], dtype=np.float64)
     for i in tqdm(range(wheel_positions_global.shape[0]), desc="Checking for boundary violations", total=wheel_positions_global.shape[0]):
         wheel_positions = wheel_positions_global[i]
         wheel_distances[i] = np.asarray([ delta_poly.distance(ShapelyPoint(wheel_positions[0, j], wheel_positions[2, j])) for j in range(4) ], dtype=np.float64)
         wheels_on_track[i] = np.asarray([ delta_poly.contains(ShapelyPoint(wheel_positions[0, j], wheel_positions[2, j])) for j in range(4) ], dtype=bool)
         violations[i]=wheels_on_track[i].sum()<2
+        if violations[i]:
+            distances[i]=np.min(wheel_distances[i,~wheels_on_track[i]])
             
 
 
@@ -74,8 +77,11 @@ def lapMetrics(poses : np.ndarray, timestamps : np.ndarray, innerboundary_poly :
         #     distances = np.array([innerboundary_poly.exterior.distance(ShapelyPoint(points[j,0], points[j,2])) for j in range(points.shape[0])])
         # else:
         #     distances = np.array([outerboundary_poly.distance(ShapelyPoint(points[j,0], points[j,2])) for j in range(points.shape[0])])
-        distances = np.array([delta_poly.distance(ShapelyPoint(points[j,0], points[j,2])) for j in range(points.shape[0])])
-        bfmeandists.append(float(np.mean(distances)))
-        bfmaxdists.append(float(np.max(distances)))
-
-    return all_violation_regions, {"number_boundary_failures" : all_violation_regions.shape[0], "time_between_failures": tbf, "boundary_failure_max_distances" : bfmaxdists, "boundary_failure_mean_distances" : bfmeandists, "boundary_failure_times" : bftimes}
+       # distances = np.array([delta_poly.distance(ShapelyPoint(points[j,0], points[j,2])) for j in range(points.shape[0])])
+        bfmeandists.append(float(np.mean(distances[idx])))
+        bfmaxdists.append(float(np.max(distances[idx])))
+    if violations.shape[0]>0:
+        ratio_on_track = 1.0 - np.sum(violations)/float(violations.shape[0])
+    else:
+        ratio_on_track = 1.0
+    return all_violation_regions, {"ratio_on_track": ratio_on_track, "number_boundary_failures" : all_violation_regions.shape[0], "time_between_failures": tbf, "boundary_failure_max_distances" : bfmaxdists, "boundary_failure_mean_distances" : bfmeandists, "boundary_failure_times" : bftimes}
