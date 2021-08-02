@@ -23,9 +23,10 @@ def signedDistances(waypoints, boundarypoints, boundarynormals):
     # print(closest_boundary_normals.shape)
 
     delta_vecs = waypoints - closest_boundary_points
-    distances = torch.norm(delta_vecs, p=2, dim=2)
     dotprods = torch.sum(delta_vecs*closest_boundary_normals, dim=2)
-    return closest_point_idx, torch.sign(dotprods)*distances
+    # distances = torch.norm(delta_vecs, p=2, dim=2)
+    # return closest_point_idx, torch.sign(dotprods)*distances
+    return closest_point_idx, dotprods
 class QuaternionDistance(nn.Module):
     def __init__(self):
         super(QuaternionDistance, self).__init__()
