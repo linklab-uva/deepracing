@@ -223,7 +223,7 @@ sqp = OptimWrapper(maxspeed, maxlinearaccel, maxcentripetalaccel, dsvec, radii)
 
 #method="trust-constr"
 method=argdict["method"]
-maxiter=10
+maxiter=20
 x0, res = sqp.optimize(maxiter=maxiter,method=method,disp=True, keep_feasible=True)#,eps=100.0)
 print(vars(res), flush=True)
 v0 = np.sqrt(x0)
