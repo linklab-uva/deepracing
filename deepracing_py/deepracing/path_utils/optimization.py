@@ -85,7 +85,7 @@ class OptimWrapper():
         return self.grad
         
     def functional(self, xcurr):
-        return (-np.mean(xcurr), self.grad)
+        return (-np.sum(xcurr), self.grad)
 
     def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False, keep_feasible=False):
         lb = 1.0

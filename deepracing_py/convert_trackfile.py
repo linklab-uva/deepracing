@@ -161,7 +161,7 @@ except:
 
 print("Output shape: %s" %(str(Xsamp.shape),))
 
-jsonout = argdict.get("out", default=os.path.abspath(os.path.join(trackdir,os.path.splitext(os.path.basename(trackfilein))[0] + ".json")))
+jsonout = argdict.get("out", os.path.abspath(os.path.join(trackdir,os.path.splitext(os.path.basename(trackfilein))[0] + ".json")))
 print("jsonout: %s" %(jsonout,))
 if isinnerboundary or outerboundary:
     jsondict = dict()
