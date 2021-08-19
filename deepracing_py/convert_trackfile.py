@@ -41,8 +41,8 @@ parser.add_argument("trackfile", help="Path to trackfile to convert",  type=str)
 parser.add_argument("ds", type=float, help="Sample the path at points this distance apart along the path")
 parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
 parser.add_argument("--maxv", default=86.0, type=float, help="Max linear speed the car can have")
-parser.add_argument("--maxa", default=35.0, type=float, help="Max linear acceleration the car can have")
-parser.add_argument("--maxacent", default=15.0, type=float, help="Max centripetal acceleration the car can have")
+parser.add_argument("--maxa", default=20.0, type=float, help="Max linear acceleration the car can have")
+parser.add_argument("--maxacent", default=22.5, type=float, help="Max centripetal acceleration the car can have")
 parser.add_argument("--method", default="SLSQP", type=str, help="Optimization method to use")
 #parser.add_argument("--negate_normals", action="store_true", help="Flip the sign all all of the computed normal vectors")
 args = parser.parse_args()
@@ -52,13 +52,14 @@ argdict = vars(args)
 #     normalsign = -1.0
 # else:
 #     normalsign = 1.0
-trackfilein = argdict["trackfile"]
+trackfilein = os.path.abspath(argdict["trackfile"])
 isracingline = "racingline" in os.path.basename(trackfilein)
-innerboundary = "innerlimit" in os.path.basename(trackfilein)
-outerboundary = not (isracingline or innerboundary)
+isinnerboundary = "innerlimit" in os.path.basename(trackfilein)
+outerboundary = not (isracingline or isinnerboundary)
 
 
-trackdir = os.path.dirname(trackfilein)
+trackdir = os.path.abspath(os.path.dirname(trackfilein))
+print("trackdir: %s" %(trackdir,))
 ds = argdict["ds"]
 k = argdict["k"]
 trackin = np.loadtxt(trackfilein,delimiter=",",skiprows=2)
@@ -105,7 +106,7 @@ rsamp = np.linspace(rin[0], rin[-1], num = int(round((Xin[-1,0]- Xin[0,0])/ds)))
 
 
 ref = np.array([0.0, 1.0, 0.0], dtype=np.float64)
-if innerboundary:
+if isinnerboundary:
     ref*=-1.0
 spline, Xsamp, unit_tangents, unit_normals = geometric.computeTangentsAndNormals(rin, Xin[:,1:], k=k, rsamp=rsamp, ref=ref)
 tangentspline : scipy.interpolate.BSpline = spline.derivative(nu=1)
@@ -176,9 +177,11 @@ try:
 except:
     plt.close()
 
+print("Output shape: %s" %(str(Xsamp.shape),))
 
-jsonout = os.path.join(trackdir,os.path.splitext(trackfilein)[0] + ".json")
-if innerboundary or outerboundary:
+jsonout = os.path.abspath(os.path.join(trackdir,os.path.splitext(os.path.basename(trackfilein))[0] + ".json"))
+print("jsonout: %s" %(jsonout,))
+if isinnerboundary or outerboundary:
     jsondict = dict()
     jsondict["rin"] = rin.tolist()
     jsondict["xin"] = xin.tolist()
@@ -213,7 +216,7 @@ print("Optimizing over a space of size: %d" %(rsamp.shape[0],), flush=True)
 
 dotsquares = np.sum(tangents*accels, axis=1)**2
 
-radii = (tangentnorms**3)/np.sqrt((tangentnorms**2)*(accelnorms**2) - dotsquares)
+radii = (tangentnorms**3)/(np.sqrt((tangentnorms**2)*(accelnorms**2) - dotsquares) + 1E-6)
 radii[0:int(round(92.0/ds))] = np.inf
 radii[-int(round(20.0/ds)):] = np.inf
 # radii[-2] = 0.5*(radii[-3] + radii[-1])
@@ -238,8 +241,9 @@ sqp = OptimWrapper(maxspeed, maxlinearaccel, maxcentripetalaccel, dsvec, radii)
 
 #method="trust-constr"
 method=argdict["method"]
-maxiter=75
-x0, res = sqp.optimize(maxiter=maxiter,method=method,disp=True)#,eps=100.0)
+maxiter=10
+x0, res = sqp.optimize(maxiter=maxiter,method=method,disp=True, keep_feasible=True)#,eps=100.0)
+print(vars(res), flush=True)
 v0 = np.sqrt(x0)
 velsquares = res.x
 vels = np.sqrt(velsquares)
@@ -247,6 +251,7 @@ vels = np.sqrt(velsquares)
 # resdict = vars(res)
 # print(resdict["x"])
 # print({key:resdict[key] for key in resdict.keys() if key!="x"})
+print(v0, flush=True)
 print(vels, flush=True)
 
 velinv = 1.0/vels
@@ -263,11 +268,19 @@ truesplineaccel : scipy.interpolate.BSpline = truespline.derivative(nu=2)
 
 
 
+
 nout = 4000
+tsampcheck = np.linspace(tparameterized[0], tparameterized[-1], num=radii.shape[0])
 tsamp = np.linspace(tparameterized[0], tparameterized[-1], num=nout)
 dsamp = np.linspace(rsamp[0], rsamp[-1], num=nout)
+
+splinevels = truesplinevel(tsampcheck)
+splinecentripetaccels = np.sum(np.square(splinevels), axis=1)/radii
+splinelinearaccels = truesplineaccel(tsampcheck)
 print("dt: %f" % (tsamp[-1] - tsamp[0],), flush=True)
 print("ds: %f" % (dsamp[-1] - dsamp[0],), flush=True)
+print("max centripetal acceleration: %f" % (np.max(splinecentripetaccels)), flush=True)
+print("max linear acceleration: %f" % (np.max(splinelinearaccels)), flush=True)
 
 psamp = truespline(tsamp)
 xtrue = psamp[:,0]
@@ -286,10 +299,10 @@ plt.xlim(np.max(xtrue)+10, np.min(xtrue)-10)
 plt.plot(positionsradii[:,0],positionsradii[:,2],'r')
 plt.scatter(xtrue[1:], ztrue[1:], c='b', marker='o', s = 16.0*np.ones_like(xtrue[1:]))
 plt.plot(xtrue[0], ztrue[0], 'g*')
-try:
-    plt.show()
-except:
-    plt.close()
+plt.show()
+# try:
+# except:
+#     plt.close()
 
 
 
