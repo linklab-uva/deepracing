@@ -25,6 +25,7 @@ parser.add_argument("--maxv", default=86.0, type=float, help="Max linear speed t
 parser.add_argument("--maxa", default=15.0, type=float, help="Max linear acceleration the car can have")
 parser.add_argument("--maxacent", default=22.5, type=float, help="Max centripetal acceleration the car can have")
 parser.add_argument("--method", default="SLSQP", type=str, help="Optimization method to use")
+parser.add_argument("--out", default=None, type=str, help="Where to put the output file. Default is the same directory as the input .track file")
 #parser.add_argument("--negate_normals", action="store_true", help="Flip the sign all all of the computed normal vectors")
 args = parser.parse_args()
 argdict = vars(args)
@@ -160,7 +161,7 @@ except:
 
 print("Output shape: %s" %(str(Xsamp.shape),))
 
-jsonout = os.path.abspath(os.path.join(trackdir,os.path.splitext(os.path.basename(trackfilein))[0] + ".json"))
+jsonout = argdict.get("out", default=os.path.abspath(os.path.join(trackdir,os.path.splitext(os.path.basename(trackfilein))[0] + ".json")))
 print("jsonout: %s" %(jsonout,))
 if isinnerboundary or outerboundary:
     jsondict = dict()
