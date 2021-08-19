@@ -1,39 +1,20 @@
 import numpy as np
 import numpy.linalg as la
 import scipy, scipy.integrate
-import skimage
-import PIL
 from PIL import Image as PILImage
-import TimestampedPacketMotionData_pb2
 import argparse
 import os
-import google.protobuf.json_format
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-import TimestampedImage_pb2
-import Pose3d_pb2
-import cv2
-import PoseSequenceLabel_pb2
-import bisect
-import FrameId_pb2
-import Vector3dStamped_pb2
 import scipy.interpolate
-import deepracing.arma_utils
-import yaml
 import json
 from functools import reduce
-import operator
-import math
 from deepracing.path_utils.optimization import OptimWrapper
 import deepracing.path_utils.geometric as geometric
-
-from shapely.geometry import Point as ShapelyPoint, MultiPoint#, Point2d as ShapelyPoint2d
 from shapely.geometry.polygon import Polygon
 from shapely.geometry import LinearRing
 
-from scipy.spatial.transform import Rotation as Rot
 
-import pickle as pkl
 
 
 parser = argparse.ArgumentParser()
