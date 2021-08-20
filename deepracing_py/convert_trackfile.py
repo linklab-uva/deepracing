@@ -20,7 +20,7 @@ from shapely.geometry import LinearRing
 parser = argparse.ArgumentParser()
 parser.add_argument("trackfile", help="Path to trackfile to convert",  type=str)
 parser.add_argument("ds", type=float, help="Sample the path at points this distance apart along the path")
-parser.add_argument("maxiter", type=float, help="Maximum iterations to run the solver")
+parser.add_argument("--maxiter", type=float, default=20, help="Maximum iterations to run the solver")
 parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
 parser.add_argument("--maxv", default=86.0, type=float, help="Max linear speed the car can have")
 parser.add_argument("--maxa", default=15.0, type=float, help="Max linear acceleration the car can have")
@@ -63,13 +63,23 @@ final_vector = Xin[0,1:] - Xin[-1,1:]
 final_distance = np.linalg.norm(final_vector)
 print("initial final distance: %f" %(final_distance,))
 final_unit_vector = final_vector/final_distance
-nstretch = 8
-rstretch =  np.linspace(final_distance/nstretch, 0.99*final_distance,nstretch)
-# rstretch =  np.linspace(final_distance/nstretch,((nstretch-1)/nstretch)*final_distance,nstretch)
-final_stretch = np.row_stack([Xin[-1,1:] + rstretch[i]*final_unit_vector for i in range(rstretch.shape[0])])
-final_r =  rstretch + Xin[-1,0]
-Xin = np.row_stack((Xin, np.column_stack((final_r,final_stretch))))
+if final_distance>ds:
+    extra_distance = final_distance-ds
+    nstretch = 4
+    rstretch =  np.linspace(extra_distance/final_distance, final_distance - ds, nstretch)
+    # rstretch =  np.linspace(final_distance/nstretch,((nstretch-1)/nstretch)*final_distance,nstretch)
+    final_stretch = np.row_stack([Xin[-1,1:] + rstretch[i]*final_unit_vector for i in range(rstretch.shape[0])])
+    final_r =  rstretch + Xin[-1,0]
+    Xin = np.row_stack((Xin, np.column_stack((final_r,final_stretch))))
+    final_vector = Xin[0,1:] - Xin[-1,1:]
+    final_distance = np.linalg.norm(final_vector)
+print("final final distance: %f" %(final_distance,))
 
+fig2 = plt.figure()
+plt.plot(Xin[0,1], Xin[0,3], 'g*')
+plt.plot(Xin[:,1], Xin[:,3])
+plt.title("Input Trackfile")
+plt.show()
 # rnormalized = Xin[:,0] - Xin[0,0]
 # rnormalized = rnormalized/rnormalized[-1]
 
@@ -145,7 +155,7 @@ zsamp = Xsamp[:,2]
 diffs = Xsamp[1:] - Xsamp[:-1]
 diffnorms = np.linalg.norm(diffs,axis=1)
 
-fig = plt.figure()
+fig2 = plt.figure()
 plt.xlim(np.max(xsamp)+10, np.min(xsamp)-10)
 # ax = fig.gca(projection='3d')
 # ax.scatter(x, y, z, c='r', marker='o', s =2.0*np.ones_like(x))
