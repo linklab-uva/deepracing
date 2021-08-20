@@ -20,6 +20,7 @@ from shapely.geometry import LinearRing
 parser = argparse.ArgumentParser()
 parser.add_argument("trackfile", help="Path to trackfile to convert",  type=str)
 parser.add_argument("ds", type=float, help="Sample the path at points this distance apart along the path")
+parser.add_argument("maxiter", type=float, help="Maximum iterations to run the solver")
 parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
 parser.add_argument("--maxv", default=86.0, type=float, help="Max linear speed the car can have")
 parser.add_argument("--maxa", default=15.0, type=float, help="Max linear acceleration the car can have")
@@ -226,7 +227,7 @@ sqp = OptimWrapper(maxspeed, maxlinearaccel, maxcentripetalaccel, dsvec, radii)
 
 #method="trust-constr"
 method=argdict["method"]
-maxiter=20
+maxiter=argdict["maxiter"]
 x0, res = sqp.optimize(maxiter=maxiter,method=method,disp=True, keep_feasible=True)#,eps=100.0)
 print(vars(res), flush=True)
 v0 = np.sqrt(x0)
