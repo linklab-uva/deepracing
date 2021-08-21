@@ -228,13 +228,15 @@ x0, res = sqp.optimize(maxiter=maxiter,method=method,disp=True, keep_feasible=Tr
 print(vars(res), flush=True)
 v0 = np.sqrt(x0)
 velsquares = res.x
+linear_accels = np.zeros_like(velsquares)
+linear_accels[0:-1] = (velsquares[1:]-velsquares[:-1])/(2.0*dsvec[0:-1])
+linear_accels[-1] = (velsquares[0]-velsquares[-1])/(2.0*dsvec[-1])
 vels = np.sqrt(velsquares)
-#vels[-1] = vels[-2]
-# resdict = vars(res)
-# print(resdict["x"])
-# print({key:resdict[key] for key in resdict.keys() if key!="x"})
-print(v0, flush=True)
+
+#print(v0, flush=True)
 print(vels, flush=True)
+print("max centripetal acceleration: %f" % (np.max(velsquares/radii)), flush=True)
+print("max linear acceleration: %f" % (np.max(np.abs(linear_accels))), flush=True)
 
 velinv = 1.0/vels
 #print(velinv)
@@ -261,8 +263,6 @@ splinecentripetaccels = np.sum(np.square(splinevels), axis=1)/radii
 splinelinearaccels = truesplineaccel(tsampcheck)
 print("dt: %f" % (tsamp[-1] - tsamp[0],), flush=True)
 print("ds: %f" % (dsamp[-1] - dsamp[0],), flush=True)
-print("max centripetal acceleration: %f" % (np.max(splinecentripetaccels)), flush=True)
-print("max linear acceleration: %f" % (np.max(np.abs(splinelinearaccels))), flush=True)
 
 psamp = truespline(tsamp)
 xtrue = psamp[:,0]
@@ -271,32 +271,17 @@ ztrue = psamp[:,2]
 final_stretch_samp = psamp[0] - psamp[-1]
 print("Final position distance: %f" % (np.linalg.norm(final_stretch_samp, ord=2),), flush=True)
 
-#print("Specified vels minus spline vels:\n" + str(unit_tangents*vels[:,np.newaxis]-truesplinevel(tparameterized)), flush=True)
 
 fig2 = plt.figure()
 plt.xlim(np.max(xtrue)+10, np.min(xtrue)-10)
-# ax = fig.gca(projection='3d')
-# ax.scatter(x, y, z, c='r', marker='o', s =2.0*np.ones_like(x))
-# ax.quiver(x, y, z, unit_normals[:,0], unit_normals[:,1], unit_normals[:,2], length=50.0, normalize=True)
 plt.plot(positionsradii[:,0],positionsradii[:,2],'r')
 plt.scatter(xtrue[1:], ztrue[1:], c='b', marker='o', s = 16.0*np.ones_like(xtrue[1:]))
 plt.plot(xtrue[0], ztrue[0], 'g*')
 plt.show()
-# try:
-# except:
-#     plt.close()
-
-
-
-# print(vels.shape)
-# print(tparameterized.shape)
-
-
-
-
 
 
 jsondict : dict = {}
+jsondict["speeds"] = vels.tolist()
 jsondict["r"] = rsamp.tolist()
 jsondict["t"] = tparameterized.tolist()
 jsondict["x"] = positionsradii[:,0].tolist()

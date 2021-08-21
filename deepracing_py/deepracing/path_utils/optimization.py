@@ -26,6 +26,7 @@ class LinearAccelConstraint():
      #   print(self.linearaccelmat.toarray()[[0,1,2,-3,-2,-1]])     
         self.buffer = np.zeros_like(self.ds)
     def eval(self, x):
+        print("Calling the LinearAccelConstraint eval function")
         self.buffer[0:-1] = (x[1:]-x[:-1])/(2.0*self.ds[:-1])
         self.buffer[-1]=(x[0]-x[-1])/(2.0*self.ds[-1])
         return self.buffer
@@ -34,12 +35,13 @@ class LinearAccelConstraint():
     def asSciPy(self, lb, ub, keep_feasible=False):
         return NonlinearConstraint(self.eval, lb, ub, jac = self.jac, keep_feasible=keep_feasible)
 
-class VectorDotConstraint():
+class DiagonalConstraint():
     def __init__(self, v: np.ndarray):
         self.v = v
         idx = np.arange(0, v.shape[0], dtype=np.int64, step=1)
         self.jacMat = scipy.sparse.bsr_matrix((self.v, (idx, idx)), shape=(v.shape[0], v.shape[0]))
     def eval(self, x):
+        print("Calling the DiagonalConstraint eval function")
         return self.v*x
     def jac(self, x):
         return self.jacMat
@@ -56,9 +58,9 @@ class OptimWrapper():
             self.ds = ds*np.ones_like(self.radii, dtype=dtype)
         else:
             self.ds = ds.astype(dtype)
-        self.grad = -np.ones_like(radii, dtype=dtype)/radii.shape[0]
+        self.grad = -np.ones_like(radii, dtype=dtype)#/radii.shape[0]
         self.tick = 0
-
+        self.iter_counter = 1
 
     def laNegCalc(self, xcurr):
         return np.matmul(self.linearaccelmat, -xcurr) - self.maxlinearaccel
@@ -71,9 +73,10 @@ class OptimWrapper():
         
     def functional(self, xcurr):
         tock = time.time()
-        print("Calling dat functional, it has been %f seconds since the last functional call" %(tock-self.tick,))
+        print("Calling dat functional with counter %d. It has been %f seconds since the last functional call" %(self.iter_counter, tock-self.tick))
         self.tick = tock
-        return (-np.mean(xcurr), self.grad)
+        self.iter_counter+=1
+        return (-np.sum(xcurr), self.grad)
 
     def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False, keep_feasible=False):
         lb = 1.0
@@ -81,15 +84,11 @@ class OptimWrapper():
         deltab = self.maxspeed-1.0
         if x0 is None:
             x0 = ((1.0+0.2*deltab)**2)*np.ones_like(self.radii, dtype=self.radii.dtype)
-        #linear_accel_constraint_torch = LinearConstraintTorch(torch.from_numpy(self.linearaccelmat.astype(np.float32)), keep_feasible=False)
-        #centripetal_accel_constraint_torch = LinearConstraintTorch(torch.from_numpy(self.acentripetalmat.astype(np.float32)), keep_feasible=False)
-        # constraints = (linear_accel_constraint_torch.asSciPy(-self.maxlinearaccel, self.maxlinearaccel), centripetal_accel_constraint_torch.asSciPy(0, self.maxcentripetalaccel))
-        #constraints = [linear_accel_constraint_torch.asSciPy(-self.maxlinearaccel*np.ones_like(x0), self.maxlinearaccel*np.ones_like(x0)), centripetal_accel_constraint_torch.asSciPy(np.zeros_like(x0), self.maxcentripetalaccel*np.ones_like(x0))]
-        vdc : VectorDotConstraint = VectorDotConstraint(1.0/self.radii)
+        centripetal_accel_constraint : DiagonalConstraint = DiagonalConstraint(1.0/self.radii)
         linear_accel_constraint : LinearAccelConstraint = LinearAccelConstraint(self.ds)
-        constraints = [linear_accel_constraint.asSciPy(-self.maxlinearaccel*np.ones_like(self.radii), self.maxlinearaccel*np.ones_like(self.radii), keep_feasible=keep_feasible), vdc.asSciPy(-np.ones_like(self.radii), self.maxcentripetalaccel*np.ones_like(self.radii), keep_feasible=keep_feasible)]
-
-        #constraints = [self.getCentripetalAccelConstraint(keep_feasible=keep_feasible), self.getPostitiveLinearAccelConstraint(keep_feasible=keep_feasible)]
+        constraints=[]
+        constraints.append(linear_accel_constraint.asSciPy(-self.maxlinearaccel*np.ones_like(self.radii), self.maxlinearaccel*np.ones_like(self.radii), keep_feasible=keep_feasible))
+        constraints.append(centripetal_accel_constraint.asSciPy(-50000*np.ones_like(self.radii), self.maxcentripetalaccel*np.ones_like(self.radii), keep_feasible=keep_feasible))
         if method in ["Newton-CG", "trust-ncg", "trust-krylov", "trust-constr"]:
             hessp = self.hessp
         else:
