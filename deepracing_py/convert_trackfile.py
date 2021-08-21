@@ -22,9 +22,9 @@ parser.add_argument("trackfile", help="Path to trackfile to convert",  type=str)
 parser.add_argument("ds", type=float, help="Sample the path at points this distance apart along the path")
 parser.add_argument("--maxiter", type=float, default=20, help="Maximum iterations to run the solver")
 parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
-parser.add_argument("--maxv", default=86.0, type=float, help="Max linear speed the car can have")
-parser.add_argument("--maxa", default=15.0, type=float, help="Max linear acceleration the car can have")
-parser.add_argument("--maxacent", default=22.5, type=float, help="Max centripetal acceleration the car can have")
+parser.add_argument("--maxv", default=100.0, type=float, help="Max linear speed the car can have")
+parser.add_argument("--maxa", default=14.0, type=float, help="Max linear acceleration the car can have")
+parser.add_argument("--maxacent", default=25.0, type=float, help="Max centripetal acceleration the car can have")
 parser.add_argument("--method", default="SLSQP", type=str, help="Optimization method to use")
 parser.add_argument("--out", default=None, type=str, help="Where to put the output file. Default is the same directory as the input .track file")
 #parser.add_argument("--negate_normals", action="store_true", help="Flip the sign all all of the computed normal vectors")
@@ -75,11 +75,12 @@ if final_distance>ds:
     final_distance = np.linalg.norm(final_vector)
 print("final final distance: %f" %(final_distance,))
 
-fig2 = plt.figure()
+fig1 = plt.figure()
 plt.plot(Xin[0,1], Xin[0,3], 'g*')
 plt.plot(Xin[:,1], Xin[:,3])
 plt.title("Input Trackfile")
 plt.show()
+del fig1
 # rnormalized = Xin[:,0] - Xin[0,0]
 # rnormalized = rnormalized/rnormalized[-1]
 
@@ -95,7 +96,8 @@ else:
 
 rin = Xin[:,0].copy()
 rin = rin-rin[0]
-rsamp = np.linspace(rin[0], rin[-1], num = int(round((Xin[-1,0]- Xin[0,0])/ds)))
+# rsamp = np.linspace(rin[0], rin[-1], num = int(round((Xin[-1,0]- Xin[0,0])/ds)))
+rsamp = np.arange(rin[0], rin[-1]+ds, step = ds)
 
 
 ref = np.array([0.0, 1.0, 0.0], dtype=np.float64)
@@ -112,24 +114,15 @@ polygon : Polygon = Polygon(lr)
 
 
 tangents = tangentspline(rsamp)
-#print(tangents.shape)
 tangentnorms = np.linalg.norm(tangents, ord=2, axis=1)
 unit_tangents = tangents/tangentnorms[:,np.newaxis]
 
 
 accels = accelspline(rsamp)
-#print(tangents.shape)
 accelnorms = np.linalg.norm(accels, ord=2, axis=1)
 unit_accels = accelnorms/accelnorms[:,np.newaxis]
 
 
-# v1 = np.cross(unit_tangents, ref)
-# v1 = v1/np.linalg.norm(v1, axis=1, ord=2)[:,np.newaxis]
-# v2 =  np.cross(v1, unit_tangents)
-# v2 = v2/np.linalg.norm(v2, axis=1, ord=2)[:,np.newaxis]
-
-# unit_normals = np.cross(v2, unit_tangents)
-# unit_normals = unit_normals/np.linalg.norm(unit_normals, axis=1, ord=2)[:,np.newaxis]
 
 
 normaltangentdots = np.sum(unit_tangents*unit_normals, axis=1)
@@ -195,30 +188,17 @@ if isinnerboundary or outerboundary:
     exit(0)
 
 
-#rsampradii = np.arange(rsamp[0], rsamp[-1]+ds, step=ds)
-#rsampradii = rsamp
-# rsampradii = np.linspace(rsamp[0], rsamp[-1], num=num_samples)
-#ds = rsampradii[1]-rsampradii[0]
 print("Optimizing over a space of size: %d" %(rsamp.shape[0],), flush=True)
 
 
-# tangentsradii = tangentspline(rsampradii)
-# tangentsradiinorms = np.linalg.norm(tangentsradii, ord=2, axis=1)
-# unittangentsradii = tangentsradii/tangentsradiinorms[:,np.newaxis]
-
-
-# accels = normalspline(rsampradii)
-# accelnorms = np.linalg.norm(accels, ord=2, axis=1)
-
-dotsquares = np.sum(tangents*accels, axis=1)**2
-
-radii = (tangentnorms**3)/(np.sqrt((tangentnorms**2)*(accelnorms**2) - dotsquares) + 1E-6)
-radii[0:int(round(92.0/ds))] = np.inf
-radii[-int(round(20.0/ds)):] = np.inf
+radii = (tangentnorms**3)/(np.linalg.norm(np.cross(tangents, accels, axis=1), ord=2, axis=1) + 1E-6)
+# radii[0:int(round(92.0/ds))] = np.inf
+# radii[-int(round(20.0/ds)):] = np.inf
 # radii[-2] = 0.5*(radii[-3] + radii[-1])
 #radii[-1] = 0.5*(radii[-2] + radii[0])
-radii[0] = radii[1]
-radii[-1] = radii[-2]
+# radii[0] = radii[1]
+idxrunup=-5
+radii[idxrunup:] = np.linspace(radii[idxrunup], radii[0], num=5)#[1:]
 
 rprint = 50
 print("First %d radii:\n%s" %(rprint, str(radii[0:rprint]),))
@@ -232,6 +212,12 @@ maxcentripetalaccel = argdict["maxacent"]
 dsvec = np.array((rsamp[1:] - rsamp[:-1]).tolist() + [np.linalg.norm(Xsamp[-1] - Xsamp[0])])
 #dsvec[-int(round(40/ds)):] = np.inf
 print("Final %d delta s:\n%s" %(rprint, str(dsvec[-rprint:]),))
+plt.close()
+del fig2
+
+#del track, trackin, xin, yin, zin, dotsquares, Xin, rin, diffs, diffnorms, accels, accelnorms, tangents, tangentnorms, unit_tangents, unit_normals #, rsamp, Xsamp
+
+print("yay")
 sqp = OptimWrapper(maxspeed, maxlinearaccel, maxcentripetalaccel, dsvec, radii)
 
 
@@ -276,7 +262,7 @@ splinelinearaccels = truesplineaccel(tsampcheck)
 print("dt: %f" % (tsamp[-1] - tsamp[0],), flush=True)
 print("ds: %f" % (dsamp[-1] - dsamp[0],), flush=True)
 print("max centripetal acceleration: %f" % (np.max(splinecentripetaccels)), flush=True)
-print("max linear acceleration: %f" % (np.max(splinelinearaccels)), flush=True)
+print("max linear acceleration: %f" % (np.max(np.abs(splinelinearaccels))), flush=True)
 
 psamp = truespline(tsamp)
 xtrue = psamp[:,0]

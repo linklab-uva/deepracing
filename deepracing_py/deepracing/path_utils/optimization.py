@@ -1,76 +1,63 @@
+from numpy.ma.core import asarray
 import scipy, numpy as np
 from scipy.optimize import LinearConstraint, minimize, Bounds, NonlinearConstraint
 
 import torch
 from torch import Tensor
 import scipy.sparse
-
-
-class LinearConstraintTorch():
-    def __init__(self, A : Tensor, keep_feasible=False, device = torch.device("cuda:0")):
-        self.keep_feasible = keep_feasible
-        self.device = device
-        self.A = A.to(self.device)
-        self.Anp = A.to(torch.device("cpu")).numpy().copy()
-        self.hessmat = np.zeros_like(self.Anp)
+import time
+class LinearAccelConstraint():
+    def __init__(self, ds: np.ndarray):
+        self.ds = ds
+        numpoints = self.ds.shape[0]
+        data = np.empty(2*numpoints, dtype=self.ds.dtype)
+        data[0:numpoints]=-np.ones_like(self.ds)/(2.0*self.ds)
+        data[numpoints:-1]=np.ones_like(self.ds[0:-1])/(2.0*self.ds[0:-1])
+        data[-1]=1.0/(2.0*self.ds[-1])
+        row = np.empty(2*numpoints, dtype=np.int64)
+        row[0:numpoints]=np.arange(0,numpoints, step=1, dtype=np.int64)
+        row[numpoints:-1]=np.arange(0,numpoints-1, step=1, dtype=np.int64)
+        row[-1]=numpoints-1
+        col = np.empty(2*numpoints, dtype=np.int64)
+        col[0:numpoints]=np.arange(0,numpoints, step=1, dtype=np.int64)
+        col[numpoints:-1]=np.arange(1,numpoints, step=1, dtype=np.int64)
+        col[-1]=0
+        self.linearaccelmat=scipy.sparse.bsr_matrix((data, (row,col)), shape=(numpoints, numpoints), dtype=self.ds.dtype)        
+        self.buffer = np.zeros_like(self.ds)
     def eval(self, x):
-        with torch.no_grad():
-            rtn = torch.matmul(self.A, torch.from_numpy(x).type_as(self.A).to(self.device)).to(torch.device("cpu")).numpy()
-        return rtn
+        self.buffer[0:-1] = (x[1:]-x[:-1])/(2.0*self.ds[:-1])
+        self.buffer[-1]=(x[0]-x[-1])/(2.0*self.ds[-1])
+        return self.buffer
     def jac(self, x):
-        return self.Anp
-    def hess(self, x, v):
-        return self.hessmat
-    def asSciPy(self, lb, ub):
-        return NonlinearConstraint(self.eval, lb, ub, jac = self.jac, keep_feasible=self.keep_feasible)
+        return self.linearaccelmat
+    def asSciPy(self, lb, ub, keep_feasible=False):
+        return NonlinearConstraint(self.eval, lb, ub, jac = self.jac, keep_feasible=keep_feasible)
+
+class VectorDotConstraint():
+    def __init__(self, v: np.ndarray):
+        self.v = v
+        idx = np.arange(0, v.shape[0], dtype=np.int64, step=1)
+        self.jacMat = scipy.sparse.bsr_matrix((self.v, (idx, idx)), shape=(v.shape[0], v.shape[0]))
+    def eval(self, x):
+        return self.v*x
+    def jac(self, x):
+        return self.jacMat
+    def asSciPy(self, lb, ub, keep_feasible=False):
+        return NonlinearConstraint(self.eval, lb, ub, jac = self.jac, keep_feasible=keep_feasible)
 
 class OptimWrapper():
-    def __init__(self, maxspeed : float, maxlinearaccel : float, maxcentripetalaccel : float, ds : float, radii : np.ndarray):
-        self.radii = radii
-        self.radii_inv = 1.0/radii
-        self.radii_inv_mat = np.diag(self.radii_inv)
+    def __init__(self, maxspeed : float, maxlinearaccel : float, maxcentripetalaccel : float, ds : float, radii : np.ndarray, dtype=np.float32):
+        self.radii = radii.astype(dtype)
         self.maxspeed = maxspeed
         self.maxlinearaccel = maxlinearaccel
         self.maxcentripetalaccel = maxcentripetalaccel
         if type(ds)==float:
-            self.ds = ds*np.ones_like(self.radii)
+            self.ds = ds*np.ones_like(self.radii, dtype=dtype)
         else:
-            self.ds = ds
-        numpoints = radii.shape[0]
-        self.linearaccelmat = np.eye(numpoints, dtype=np.float32)
-        np.fill_diagonal(self.linearaccelmat,-1.0)
-        np.fill_diagonal(self.linearaccelmat[:,1:],1.0)
-        self.linearaccelmat[-1,0] = 1.0
-        self.linearaccelmat*=(1.0/(2.0*self.ds))[:,np.newaxis]
-        # self.linearaccelmat = scipy.sparse.bsr_matrix(self.linearaccelmat)
+            self.ds = ds.astype(dtype)
+        self.grad = -np.ones_like(radii, dtype=dtype)#/radii.shape[0]
+        self.tick = 0
 
-        idx = np.arange(0, radii.shape[0], dtype=np.int64, step=1)
-        # self.acentripetalmat = scipy.sparse.bsr_matrix((1.0/radii, (idx, idx)), shape=(radii.shape[0], radii.shape[0]))
-        self.acentripetalmat = np.diag(1.0/radii)
-
-        self.grad = -np.ones_like(radii, dtype=np.float32)/radii.shape[0]
-        self.hess = np.zeros_like(radii, dtype=np.float32)
-        
-    def getPostitiveLinearAccelConstraint(self, keep_feasible=False):
-        return LinearConstraint(self.linearaccelmat, -self.maxlinearaccel, self.maxlinearaccel, keep_feasible=keep_feasible)
-        
-    def getNegativeLinearAccelConstraint(self, keep_feasible=False):
-        return LinearConstraint(self.linearaccelmat, -self.maxlinearaccel, self.maxlinearaccel, keep_feasible=keep_feasible)
-
-    def getCentripetalAccelConstraint(self, keep_feasible=False):
-        return LinearConstraint(self.acentripetalmat, -1E-8, self.maxcentripetalaccel, keep_feasible=keep_feasible)
-
-    def hessp(self, xcurr, p):
-        return self.hess
-
-    def caCalc(self, xcurr):
-        return xcurr/self.radii - self.maxcentripetalaccel
-
-    def caJac(self, xcurr):
-        return self.radii_inv_mat
-
-    def laCalc(self, xcurr):
-        return np.matmul(self.linearaccelmat, xcurr) - self.maxlinearaccel
 
     def laNegCalc(self, xcurr):
         return np.matmul(self.linearaccelmat, -xcurr) - self.maxlinearaccel
@@ -80,27 +67,33 @@ class OptimWrapper():
 
     def laNegJac(self, xcurr):
         return -self.linearaccelmat
-
-    def jac(self, xcurr):
-        return self.grad
         
     def functional(self, xcurr):
+        tock = time.time()
+        print("Calling dat functional, it has been %f seconds since the last functional call" %(tock-self.tick,))
+        self.tick = tock
         return (-np.sum(xcurr), self.grad)
 
     def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False, keep_feasible=False):
         lb = 1.0
         ub = self.maxspeed**2
+        deltab = self.maxspeed-1.0
         if x0 is None:
-            x0 = (((1.0+self.maxspeed)/8.0)**2)*np.ones_like(self.radii, dtype=np.float32)
+            x0 = ((1.0+0.2*deltab)**2)*np.ones_like(self.radii, dtype=self.radii.dtype)
         #linear_accel_constraint_torch = LinearConstraintTorch(torch.from_numpy(self.linearaccelmat.astype(np.float32)), keep_feasible=False)
         #centripetal_accel_constraint_torch = LinearConstraintTorch(torch.from_numpy(self.acentripetalmat.astype(np.float32)), keep_feasible=False)
         # constraints = (linear_accel_constraint_torch.asSciPy(-self.maxlinearaccel, self.maxlinearaccel), centripetal_accel_constraint_torch.asSciPy(0, self.maxcentripetalaccel))
         #constraints = [linear_accel_constraint_torch.asSciPy(-self.maxlinearaccel*np.ones_like(x0), self.maxlinearaccel*np.ones_like(x0)), centripetal_accel_constraint_torch.asSciPy(np.zeros_like(x0), self.maxcentripetalaccel*np.ones_like(x0))]
-        constraints = [self.getCentripetalAccelConstraint(keep_feasible=keep_feasible), self.getPostitiveLinearAccelConstraint(keep_feasible=keep_feasible)]
+        vdc : VectorDotConstraint = VectorDotConstraint(1.0/self.radii)
+        linear_accel_constraint : LinearAccelConstraint = LinearAccelConstraint(self.ds)
+        constraints = [linear_accel_constraint.asSciPy(-self.maxlinearaccel*np.ones_like(self.radii), self.maxlinearaccel*np.ones_like(self.radii), keep_feasible=keep_feasible), vdc.asSciPy(-np.ones_like(self.radii), self.maxcentripetalaccel*np.ones_like(self.radii), keep_feasible=keep_feasible)]
+
+        #constraints = [self.getCentripetalAccelConstraint(keep_feasible=keep_feasible), self.getPostitiveLinearAccelConstraint(keep_feasible=keep_feasible)]
         if method in ["Newton-CG", "trust-ncg", "trust-krylov", "trust-constr"]:
             hessp = self.hessp
         else:
             hessp = None
+        self.tick = time.time()
         return x0, minimize(self.functional, x0, method=method, jac=True, hessp=hessp, constraints=constraints, options = {"maxiter": maxiter, "disp": disp}, bounds=Bounds(lb, ub, keep_feasible=True))
 
 
