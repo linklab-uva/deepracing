@@ -22,7 +22,8 @@ class LinearAccelConstraint():
         col[0:numpoints]=np.arange(0,numpoints, step=1, dtype=np.int64)
         col[numpoints:-1]=np.arange(1,numpoints, step=1, dtype=np.int64)
         col[-1]=0
-        self.linearaccelmat=scipy.sparse.bsr_matrix((data, (row,col)), shape=(numpoints, numpoints), dtype=self.ds.dtype)        
+        self.linearaccelmat=scipy.sparse.bsr_matrix((data, (row,col)), shape=(numpoints, numpoints), dtype=self.ds.dtype)   
+     #   print(self.linearaccelmat.toarray()[[0,1,2,-3,-2,-1]])     
         self.buffer = np.zeros_like(self.ds)
     def eval(self, x):
         self.buffer[0:-1] = (x[1:]-x[:-1])/(2.0*self.ds[:-1])
@@ -55,7 +56,7 @@ class OptimWrapper():
             self.ds = ds*np.ones_like(self.radii, dtype=dtype)
         else:
             self.ds = ds.astype(dtype)
-        self.grad = -np.ones_like(radii, dtype=dtype)#/radii.shape[0]
+        self.grad = -np.ones_like(radii, dtype=dtype)/radii.shape[0]
         self.tick = 0
 
 
@@ -72,7 +73,7 @@ class OptimWrapper():
         tock = time.time()
         print("Calling dat functional, it has been %f seconds since the last functional call" %(tock-self.tick,))
         self.tick = tock
-        return (-np.sum(xcurr), self.grad)
+        return (-np.mean(xcurr), self.grad)
 
     def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False, keep_feasible=False):
         lb = 1.0
