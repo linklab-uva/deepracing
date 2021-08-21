@@ -262,10 +262,8 @@ splinecentripetaccels = np.sum(np.square(splinevels), axis=1)/radii
 splinelinearaccels = truesplineaccel(tsampcheck)
 print("dt: %f" % (tsamp[-1] - tsamp[0],), flush=True)
 print("ds: %f" % (dsamp[-1] - dsamp[0],), flush=True)
-<<<<<<< Updated upstream
-=======
 print("max linear acceleration: %f" % (np.max(np.abs(splinelinearaccels))), flush=True)
->>>>>>> Stashed changes
+
 
 psamp = truespline(tsamp)
 xtrue = psamp[:,0]
