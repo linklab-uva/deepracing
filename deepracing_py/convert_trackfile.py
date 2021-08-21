@@ -22,7 +22,7 @@ parser.add_argument("trackfile", help="Path to trackfile to convert",  type=str)
 parser.add_argument("ds", type=float, help="Sample the path at points this distance apart along the path")
 parser.add_argument("--maxiter", type=float, default=20, help="Maximum iterations to run the solver")
 parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
-parser.add_argument("--maxv", default=100.0, type=float, help="Max linear speed the car can have")
+parser.add_argument("--maxv", default=92.0, type=float, help="Max linear speed the car can have")
 parser.add_argument("--maxa", default=14.0, type=float, help="Max linear acceleration the car can have")
 parser.add_argument("--maxacent", default=25.0, type=float, help="Max centripetal acceleration the car can have")
 parser.add_argument("--method", default="SLSQP", type=str, help="Optimization method to use")
@@ -63,16 +63,16 @@ final_vector = Xin[0,1:] - Xin[-1,1:]
 final_distance = np.linalg.norm(final_vector)
 print("initial final distance: %f" %(final_distance,))
 final_unit_vector = final_vector/final_distance
-if final_distance>ds:
-    extra_distance = final_distance-ds
-    nstretch = 4
-    rstretch =  np.linspace(extra_distance/final_distance, final_distance - ds, nstretch)
-    # rstretch =  np.linspace(final_distance/nstretch,((nstretch-1)/nstretch)*final_distance,nstretch)
-    final_stretch = np.row_stack([Xin[-1,1:] + rstretch[i]*final_unit_vector for i in range(rstretch.shape[0])])
-    final_r =  rstretch + Xin[-1,0]
-    Xin = np.row_stack((Xin, np.column_stack((final_r,final_stretch))))
-    final_vector = Xin[0,1:] - Xin[-1,1:]
-    final_distance = np.linalg.norm(final_vector)
+# if final_distance>ds:
+#     extra_distance = final_distance-ds
+#     nstretch = 4
+#     rstretch =  np.linspace(extra_distance/final_distance, final_distance - ds, nstretch)
+#     # rstretch =  np.linspace(final_distance/nstretch,((nstretch-1)/nstretch)*final_distance,nstretch)
+#     final_stretch = np.row_stack([Xin[-1,1:] + rstretch[i]*final_unit_vector for i in range(rstretch.shape[0])])
+#     final_r =  rstretch + Xin[-1,0]
+#     Xin = np.row_stack((Xin, np.column_stack((final_r,final_stretch))))
+#     final_vector = Xin[0,1:] - Xin[-1,1:]
+#     final_distance = np.linalg.norm(final_vector)
 print("final final distance: %f" %(final_distance,))
 
 fig1 = plt.figure()
@@ -97,7 +97,7 @@ else:
 rin = Xin[:,0].copy()
 rin = rin-rin[0]
 # rsamp = np.linspace(rin[0], rin[-1], num = int(round((Xin[-1,0]- Xin[0,0])/ds)))
-rsamp = np.arange(rin[0], rin[-1]+ds, step = ds)
+rsamp = np.arange(rin[0], rin[-1], step = ds)
 
 
 ref = np.array([0.0, 1.0, 0.0], dtype=np.float64)
@@ -115,12 +115,12 @@ polygon : Polygon = Polygon(lr)
 
 tangents = tangentspline(rsamp)
 tangentnorms = np.linalg.norm(tangents, ord=2, axis=1)
-unit_tangents = tangents/tangentnorms[:,np.newaxis]
+#unit_tangents = tangents/tangentnorms[:,np.newaxis]
 
 
 accels = accelspline(rsamp)
-accelnorms = np.linalg.norm(accels, ord=2, axis=1)
-unit_accels = accelnorms/accelnorms[:,np.newaxis]
+#accelnorms = np.linalg.norm(accels, ord=2, axis=1)
+#unit_accels = accelnorms/accelnorms[:,np.newaxis]
 
 
 
@@ -198,13 +198,15 @@ radii = (tangentnorms**3)/(np.linalg.norm(np.cross(tangents, accels, axis=1), or
 #radii[-1] = 0.5*(radii[-2] + radii[0])
 # radii[0] = radii[1]
 idxrunup=-5
-radii[idxrunup:] = np.linspace(radii[idxrunup], radii[0], num=5)#[1:]
+radii[-5:] = np.linspace(radii[idxrunup], radii[0], num=5)#[1:]
+
 
 rprint = 50
 print("First %d radii:\n%s" %(rprint, str(radii[0:rprint]),))
 print("Final %d radii:\n%s" %(rprint, str(radii[-rprint:]),))
 
-
+print("Min radius: %f" % (np.min(radii)))
+print("Max radius: %f" % (np.max(radii)))
 
 maxspeed = argdict["maxv"]
 maxlinearaccel = argdict["maxa"]
@@ -228,15 +230,12 @@ x0, res = sqp.optimize(maxiter=maxiter,method=method,disp=True, keep_feasible=Tr
 print(vars(res), flush=True)
 v0 = np.sqrt(x0)
 velsquares = res.x
-linear_accels = np.zeros_like(velsquares)
-linear_accels[0:-1] = (velsquares[1:]-velsquares[:-1])/(2.0*dsvec[0:-1])
-linear_accels[-1] = (velsquares[0]-velsquares[-1])/(2.0*dsvec[-1])
+print("max centripetal acceleration: %f" % (np.max(velsquares/radii)), flush=True)
 vels = np.sqrt(velsquares)
 
 #print(v0, flush=True)
 print(vels, flush=True)
 print("max centripetal acceleration: %f" % (np.max(velsquares/radii)), flush=True)
-print("max linear acceleration: %f" % (np.max(np.abs(linear_accels))), flush=True)
 
 velinv = 1.0/vels
 #print(velinv)
@@ -263,6 +262,10 @@ splinecentripetaccels = np.sum(np.square(splinevels), axis=1)/radii
 splinelinearaccels = truesplineaccel(tsampcheck)
 print("dt: %f" % (tsamp[-1] - tsamp[0],), flush=True)
 print("ds: %f" % (dsamp[-1] - dsamp[0],), flush=True)
+<<<<<<< Updated upstream
+=======
+print("max linear acceleration: %f" % (np.max(np.abs(splinelinearaccels))), flush=True)
+>>>>>>> Stashed changes
 
 psamp = truespline(tsamp)
 xtrue = psamp[:,0]

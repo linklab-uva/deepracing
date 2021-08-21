@@ -78,5 +78,5 @@ print(net.state_dict())
 print()
 print()
 with open(outputweightfile, 'rb') as f:
-    net.load_state_dict(torch.load(f, map_location=torch.device("cpu")))
+    net.load_state_dict(torch.load(f, map_location=torch.device("cpu")), strict=False)
 print(net.state_dict())

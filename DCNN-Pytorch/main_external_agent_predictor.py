@@ -7,7 +7,7 @@ import torch.utils.data as data_utils
 import deepracing_models.data_loading.proto_datasets as PD
 from tqdm import tqdm as tqdm
 import deepracing_models.nn_models.LossFunctions as loss_functions
-from deepracing_models.nn_models.StateEstimationModels import ExternalAgentCurvePredictor
+from deepracing_models.nn_models.StateEstimationModels import ExternalAgentCurvePredictor, ProbabilisticExternalAgentCurvePredictor
 import numpy as np
 import torch.optim as optim
 import pickle
@@ -37,7 +37,7 @@ from deepracing_models.data_loading.image_transforms import GaussianBlur
 from deepracing.raceline_utils import loadBoundary
 from deepracing import searchForFile
 import deepracing.path_utils.geometric as geometric
-
+from typing import Union
 
 #torch.backends.cudnn.enabled = False
 def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePredictor, optimizer : torch.optim.Optimizer, dataloader : data_utils.DataLoader, weighted_loss : bool = False, debug : bool = False, use_tqdm = False):
@@ -71,8 +71,9 @@ def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePred
             networkinput = torch.cat([valid_past_positions, valid_past_velocities, valid_past_quaternions], dim=2)
         else:
             raise ValueError("Currently, only input dimensions of 4 and 8 are supported")
-        output = network(networkinput)
-        curves = torch.cat([valid_future_positions[:,0].unsqueeze(1), output], dim=1)
+        
+        means = network(networkinput)
+        curves = torch.cat([valid_future_positions[:,0].unsqueeze(1), means], dim=1)
         if debug:
             pass
 
@@ -82,13 +83,8 @@ def run_epoch(experiment : comet_ml.Experiment, network : ExternalAgentCurvePred
         pred_points = torch.matmul(Mpos, curves)
         deltas = pred_points - valid_future_positions
         squared_norms = torch.sum(torch.square(deltas), dim=2)
-        if weighted_loss:
-            weights = torch.ones_like(squared_norms)
-            istart = int(round(weights.shape[1]/2))
-            weights[:,istart:] = torch.linspace(1.0, 0.1, steps=weights.shape[1]-istart, device=weights.device, dtype=weights.dtype)
-            loss = torch.mean(weights*squared_norms)
-        else:
-            loss = torch.mean(squared_norms)
+        point_estimate_loss = torch.mean(squared_norms)
+        loss = point_estimate_loss
 
         optimizer.zero_grad()
         loss.backward() 
@@ -129,6 +125,7 @@ def go():
     
     bezier_order = model_config["bezier_order"]
     output_dim = model_config["output_dim"]
+    probabilistic = model_config["probabilistic"]
     hidden_dim = model_config["hidden_dim"]
     num_layers = model_config["num_layers"]
     dropout = model_config["dropout"]
@@ -161,7 +158,10 @@ def go():
         gpu = training_config["gpu"] 
     torch.cuda.set_device(gpu)    
     print("Using model config:\n%s" % (str(model_config)))
-    net = ExternalAgentCurvePredictor(output_dim=output_dim, bezier_order=bezier_order, input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers, dropout=dropout, bidirectional=bidirectional, learnable_initial_state=learnable_initial_state) 
+    if probabilistic:
+        net = ProbabilisticExternalAgentCurvePredictor(output_dim=output_dim, bezier_order=bezier_order, input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers, dropout=dropout, bidirectional=bidirectional, learnable_initial_state=learnable_initial_state) 
+    else:
+        net = ExternalAgentCurvePredictor(output_dim=output_dim, bezier_order=bezier_order, input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers, dropout=dropout, bidirectional=bidirectional, learnable_initial_state=learnable_initial_state) 
     print("net:\n%s" % (str(net)))
     net = net.float()
     

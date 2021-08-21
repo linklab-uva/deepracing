@@ -36,13 +36,14 @@ class LinearAccelConstraint():
         return NonlinearConstraint(self.eval, lb, ub, jac = self.jac, keep_feasible=keep_feasible)
 
 class DiagonalConstraint():
-    def __init__(self, v: np.ndarray):
-        self.v = v
-        idx = np.arange(0, v.shape[0], dtype=np.int64, step=1)
-        self.jacMat = scipy.sparse.bsr_matrix((self.v, (idx, idx)), shape=(v.shape[0], v.shape[0]))
+    def __init__(self, vector: np.ndarray):#, maxval : float):
+        self.vector = vector
+       # self.maxvals = maxval*np.ones_like(vector)
+        idx = np.arange(0, vector.shape[0], dtype=np.int64, step=1)
+        self.jacMat = scipy.sparse.bsr_matrix((vector, (idx, idx)), shape=(vector.shape[0], vector.shape[0]))
     def eval(self, x):
         print("Calling the DiagonalConstraint eval function")
-        return self.v*x
+        return self.vector*x# - self.maxvals
     def jac(self, x):
         return self.jacMat
     def asSciPy(self, lb, ub, keep_feasible=False):
@@ -70,7 +71,7 @@ class OptimWrapper():
 
     def laNegJac(self, xcurr):
         return -self.linearaccelmat
-        
+
     def functional(self, xcurr):
         tock = time.time()
         print("Calling dat functional with counter %d. It has been %f seconds since the last functional call" %(self.iter_counter, tock-self.tick))
@@ -79,12 +80,12 @@ class OptimWrapper():
         return (-np.sum(xcurr), self.grad)
 
     def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False, keep_feasible=False):
-        lb = 1.0
+        lb = 0.001
         ub = self.maxspeed**2
         deltab = self.maxspeed-1.0
         if x0 is None:
-            x0 = ((1.0+0.2*deltab)**2)*np.ones_like(self.radii, dtype=self.radii.dtype)
-        centripetal_accel_constraint : DiagonalConstraint = DiagonalConstraint(1.0/self.radii)
+            x0 = ((lb+0.2*deltab)**2)*np.ones_like(self.radii, dtype=self.radii.dtype)
+        centripetal_accel_constraint : DiagonalConstraint = DiagonalConstraint(1.0/self.radii)#, self.maxcentripetalaccel)
         linear_accel_constraint : LinearAccelConstraint = LinearAccelConstraint(self.ds)
         constraints=[]
         constraints.append(linear_accel_constraint.asSciPy(-self.maxlinearaccel*np.ones_like(self.radii), self.maxlinearaccel*np.ones_like(self.radii), keep_feasible=keep_feasible))
@@ -94,7 +95,7 @@ class OptimWrapper():
         else:
             hessp = None
         self.tick = time.time()
-        return x0, minimize(self.functional, x0, method=method, jac=True, hessp=hessp, constraints=constraints, options = {"maxiter": maxiter, "disp": disp}, bounds=Bounds(lb, ub, keep_feasible=True))
+        return x0, minimize(self.functional, x0, method=method, jac=True, hessp=hessp, constraints=constraints, options = {"maxiter": maxiter, "disp": disp}, bounds=Bounds(lb, ub, keep_feasible=keep_feasible))
 
 
 

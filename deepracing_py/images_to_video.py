@@ -32,7 +32,7 @@ parser.add_argument('--output_file', type=str, default="image_video.avi", requir
 parser.add_argument('--fps', type=float, default=60, required=False)
 args = parser.parse_args()
 folder = args.folder
-files = [os.path.join(folder,f) for f in os.listdir(folder) if os.path.isfile(os.path.join(folder, f)) and str.lower(os.path.join(folder, f).split(".")[-1])=="jpg"]
+files = [os.path.join(folder,f) for f in os.listdir(folder) if os.path.isfile(os.path.join(folder, f)) and str.lower(os.path.join(folder, f).split(".")[-1])=="png"]
 print("Got image files, sorting by file index")
 filessorted = sorted(files,key=sortkey)
 print("Making video.")

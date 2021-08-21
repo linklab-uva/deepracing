@@ -6,7 +6,7 @@ import deepracing_models.math_utils.quaternion as quat_utils
 
 device = torch.device("cpu")
 # device = torch.device("cuda:0")
-Nrots = 3
+Nrots = 1
 vecs : torch.Tensor = torch.randn(Nrots, 4, dtype=torch.float64, device=device)
 norms = torch.norm(vecs, p=2, dim=1)
 quat = vecs/norms[:,None]
