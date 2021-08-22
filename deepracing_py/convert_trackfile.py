@@ -84,13 +84,13 @@ else:
     minimumcurvatureguess=False
 if isracingline:
     bothboundaries = np.concatenate([innerboundary, outerboundary], axis=0)
-    print("Doing PCA projection")
+    print("Doing PCA projection", flush=True)
     pca = sklearn.decomposition.PCA(n_components=2)
     pca.fit(bothboundaries)
     Xin[:,1:] = pca.inverse_transform(pca.transform(Xin[:,1:]))
 final_vector = Xin[0,1:] - Xin[-1,1:]
 final_distance = np.linalg.norm(final_vector)
-print("initial final distance: %f" %(final_distance,))
+print("initial final distance: %f" %(final_distance,), flush=True)
 final_unit_vector = final_vector/final_distance
 if final_distance>ds:
     extra_distance = final_distance-ds
@@ -102,7 +102,7 @@ if final_distance>ds:
     Xin = np.row_stack((Xin, np.column_stack((final_r,final_stretch))))
     final_vector = Xin[0,1:] - Xin[-1,1:]
     final_distance = np.linalg.norm(final_vector)
-print("final final distance: %f" %(final_distance,))
+print("final final distance: %f" %(final_distance,), flush=True)
 
 fig1 = plt.figure()
 plt.plot(Xin[0,1], Xin[0,3], 'g*')
@@ -167,7 +167,7 @@ normaltangentdots = np.sum(unit_tangents*unit_normals, axis=1)
 if not np.all(np.abs(normaltangentdots)<=1E-6):
     raise ValueError("Something went wrong. one of the tangents is not normal to it's corresponding normal.")
 
-print("Max dot between normals and tangents: %f" % (np.max(normaltangentdots),) )
+print("Max dot between normals and tangents: %f" % (np.max(normaltangentdots),), flush=True )
 
 
 offset_points = Xsamp + unit_normals*1.0
@@ -203,13 +203,13 @@ try:
 except:
     plt.close()
 
-print("Output shape: %s" %(str(Xsamp.shape),))
+print("Output shape: %s" %(str(Xsamp.shape),), flush=True)
 
 jsonout = argdict["out"]
 if jsonout is None:
     jsonout = os.path.abspath(os.path.join(trackdir,os.path.splitext(os.path.basename(trackfilein))[0] + ".json"))
 
-print("jsonout: %s" %(jsonout,))
+print("jsonout: %s" %(jsonout,), flush=True)
 if isinnerboundary or isouterboundary:
     jsondict = dict()
     jsondict["rin"] = rin.tolist()
@@ -246,12 +246,12 @@ maxcentripetalaccel = argdict["maxacent"]
 
 
 rprint = 50
-print("First %d radii:\n%s" %(rprint, str(radii[0:rprint]),))
-print("Final %d radii:\n%s" %(rprint, str(radii[-rprint:]),))
+print("First %d radii:\n%s" %(rprint, str(radii[0:rprint]),), flush=True)
+print("Final %d radii:\n%s" %(rprint, str(radii[-rprint:]),), flush=True)
 
-print("Min radius: %f" % (np.min(radii)))
-print("Max radius: %f" % (np.max(radii)))
-print("radii.shape: %s", (str(radii.shape),))
+print("Min radius: %f" % (np.min(radii)), flush=True)
+print("Max radius: %f" % (np.max(radii)), flush=True)
+print("radii.shape: %s", (str(radii.shape),), flush=True)
 maxspeed = argdict["maxv"]
 maxlinearaccel = argdict["maxa"]
 dsvec = np.array((rsamp[1:] - rsamp[:-1]).tolist() + [np.linalg.norm(Xsamp[-1] - Xsamp[0])])
