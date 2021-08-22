@@ -83,9 +83,10 @@ else:
     Xin[:,0] = Xin[:,0] - Xin[0,0]
     minimumcurvatureguess=False
 if isracingline:
-    allpoints = np.concatenate([Xin[:,1:], innerboundary, outerboundary], axis=0)
+    bothboundaries = np.concatenate([innerboundary, outerboundary], axis=0)
+    print("Doing PCA projection")
     pca = sklearn.decomposition.PCA(n_components=2)
-    pca.fit(allpoints)
+    pca.fit(bothboundaries)
     Xin[:,1:] = pca.inverse_transform(pca.transform(Xin[:,1:]))
 final_vector = Xin[0,1:] - Xin[-1,1:]
 final_distance = np.linalg.norm(final_vector)
