@@ -26,7 +26,7 @@ class LinearAccelConstraint():
      #   print(self.linearaccelmat.toarray()[[0,1,2,-3,-2,-1]])     
         self.buffer = np.zeros_like(self.ds)
     def eval(self, x):
-        print("Calling the LinearAccelConstraint eval function")
+        print("Calling the LinearAccelConstraint eval function", flush=True)
         self.buffer[0:-1] = (x[1:]-x[:-1])/(2.0*self.ds[:-1])
         self.buffer[-1]=(x[0]-x[-1])/(2.0*self.ds[-1])
         return self.buffer
@@ -42,7 +42,7 @@ class DiagonalConstraint():
         idx = np.arange(0, vector.shape[0], dtype=np.int64, step=1)
         self.jacMat = scipy.sparse.bsr_matrix((vector, (idx, idx)), shape=(vector.shape[0], vector.shape[0]))
     def eval(self, x):
-        print("Calling the DiagonalConstraint eval function")
+        print("Calling the DiagonalConstraint eval function", flush=True)
         return self.vector*x# - self.maxvals
     def jac(self, x):
         return self.jacMat
@@ -74,7 +74,7 @@ class OptimWrapper():
 
     def functional(self, xcurr):
         tock = time.time()
-        print("Calling dat functional with counter %d. It has been %f seconds since the last functional call" %(self.iter_counter, tock-self.tick))
+        print("Calling dat functional with counter %d. It has been %f seconds since the last functional call" %(self.iter_counter, tock-self.tick), flush=True)
         self.tick = tock
         self.iter_counter+=1
         return (-np.sum(xcurr), self.grad)
