@@ -27,7 +27,7 @@ parser.add_argument("--k", default=3, type=int, help="Degree of spline interpola
 parser.add_argument("--maxv", default=105.0, type=float, help="Max linear speed the car can have")
 parser.add_argument("--maxa", default=12.75, type=float, help="Max linear acceleration the car can have (in m/s^2)")
 parser.add_argument("--maxb", default=30.0, type=float, help="Max linear braking the car can have (in m/s^2)")
-parser.add_argument("--maxacent", default=25.0, type=float, help="Max centripetal acceleration the car can have")
+parser.add_argument("--maxacent", default=25.0, type=float, help="Max centripetal acceleration the car can have (in m/s^2)")
 parser.add_argument("--method", default="SLSQP", type=str, help="Optimization method to use")
 parser.add_argument("--out", default=None, type=str, help="Where to put the output file. Default is the same directory as the input .track file")
 #parser.add_argument("--negate_normals", action="store_true", help="Flip the sign all all of the computed normal vectors")
