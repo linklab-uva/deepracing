@@ -24,9 +24,10 @@ parser.add_argument("trackfile", help="Path to trackfile to convert",  type=str)
 parser.add_argument("ds", type=float, help="Sample the path at points this distance apart along the path")
 parser.add_argument("--maxiter", type=float, default=20, help="Maximum iterations to run the solver")
 parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
-parser.add_argument("--maxv", default=92.0, type=float, help="Max linear speed the car can have")
-parser.add_argument("--maxa", default=20.0, type=float, help="Max linear acceleration the car can have")
-parser.add_argument("--maxacent", default=30.0, type=float, help="Max centripetal acceleration the car can have")
+parser.add_argument("--maxv", default=105.0, type=float, help="Max linear speed the car can have")
+parser.add_argument("--maxa", default=12.75, type=float, help="Max linear acceleration the car can have (in m/s^2)")
+parser.add_argument("--maxb", default=30.0, type=float, help="Max linear braking the car can have (in m/s^2)")
+parser.add_argument("--maxacent", default=25.0, type=float, help="Max centripetal acceleration the car can have (in m/s^2)")
 parser.add_argument("--method", default="SLSQP", type=str, help="Optimization method to use")
 parser.add_argument("--out", default=None, type=str, help="Where to put the output file. Default is the same directory as the input .track file")
 #parser.add_argument("--negate_normals", action="store_true", help="Flip the sign all all of the computed normal vectors")
@@ -254,6 +255,7 @@ print("Max radius: %f" % (np.max(radii)), flush=True)
 print("radii.shape: %s", (str(radii.shape),), flush=True)
 maxspeed = argdict["maxv"]
 maxlinearaccel = argdict["maxa"]
+maxbraking = argdict["maxb"]
 dsvec = np.array((rsamp[1:] - rsamp[:-1]).tolist() + [np.linalg.norm(Xsamp[-1] - Xsamp[0])])
 #dsvec[-int(round(40/ds)):] = np.inf
 print("Final %d delta s:\n%s" %(rprint, str(dsvec[-rprint:]),))
@@ -263,7 +265,7 @@ del fig2
 #del track, trackin, xin, yin, zin, dotsquares, Xin, rin, diffs, diffnorms, accels, accelnorms, tangents, tangentnorms, unit_tangents, unit_normals #, rsamp, Xsamp
 
 print("yay")
-sqp = OptimWrapper(maxspeed, maxlinearaccel, maxcentripetalaccel, dsvec, radii)
+sqp = OptimWrapper(maxspeed, maxlinearaccel, maxbraking, maxcentripetalaccel, dsvec, radii)
 
 
 #method="trust-constr"
