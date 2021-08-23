@@ -50,10 +50,11 @@ class DiagonalConstraint():
         return NonlinearConstraint(self.eval, lb, ub, jac = self.jac, keep_feasible=keep_feasible)
 
 class OptimWrapper():
-    def __init__(self, maxspeed : float, maxlinearaccel : float, maxcentripetalaccel : float, ds : float, radii : np.ndarray, dtype=np.float32):
+    def __init__(self, maxspeed : float, maxlinearaccel : float, maxbraking : float, maxcentripetalaccel : float, ds : float, radii : np.ndarray, dtype=np.float32):
         self.radii = radii.astype(dtype)
         self.maxspeed = maxspeed
         self.maxlinearaccel = maxlinearaccel
+        self.maxbraking = maxbraking
         self.maxcentripetalaccel = maxcentripetalaccel
         if type(ds)==float:
             self.ds = ds*np.ones_like(self.radii, dtype=dtype)
@@ -88,7 +89,7 @@ class OptimWrapper():
         centripetal_accel_constraint : DiagonalConstraint = DiagonalConstraint(1.0/self.radii)#, self.maxcentripetalaccel)
         linear_accel_constraint : LinearAccelConstraint = LinearAccelConstraint(self.ds)
         constraints=[]
-        constraints.append(linear_accel_constraint.asSciPy(-self.maxlinearaccel*np.ones_like(self.radii), self.maxlinearaccel*np.ones_like(self.radii), keep_feasible=keep_feasible))
+        constraints.append(linear_accel_constraint.asSciPy(-1.0*self.maxbraking*np.ones_like(self.radii), self.maxlinearaccel*np.ones_like(self.radii), keep_feasible=keep_feasible))
         constraints.append(centripetal_accel_constraint.asSciPy(-50000*np.ones_like(self.radii), self.maxcentripetalaccel*np.ones_like(self.radii), keep_feasible=keep_feasible))
         if method in ["Newton-CG", "trust-ncg", "trust-krylov", "trust-constr"]:
             hessp = self.hessp
