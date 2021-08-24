@@ -18,13 +18,12 @@ import deepracing
 
 
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument("trackfile", help="Path to trackfile to convert",  type=str)
 parser.add_argument("ds", type=float, help="Sample the path at points this distance apart along the path")
 parser.add_argument("--maxiter", type=float, default=20, help="Maximum iterations to run the solver")
 parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
-parser.add_argument("--maxv", default=105.0, type=float, help="Max linear speed the car can have")
+parser.add_argument("--maxv", default=94.0, type=float, help="Max linear speed the car can have")
 parser.add_argument("--maxa", default=12.75, type=float, help="Max linear acceleration the car can have (in m/s^2)")
 parser.add_argument("--maxb", default=30.0, type=float, help="Max linear braking the car can have (in m/s^2)")
 parser.add_argument("--method", default="SLSQP", type=str, help="Optimization method to use")
@@ -335,7 +334,7 @@ jsondict["rin"] = rin.tolist()
 jsondict["xin"] = xin.tolist()
 jsondict["yin"] = yin.tolist()
 jsondict["zin"] = zin.tolist()
-jsondict.update({key : argdict[key] for key in ["maxv", "maxa", "maxacent", "method", "k", "ds"]})
+jsondict.update({key : argdict[key] for key in ["maxv", "maxa", "maxb", "method", "k", "ds"]})
 assert(len(jsondict["r"]) == len(jsondict["t"]) == len(jsondict["x"]) == len(jsondict["y"]) == len(jsondict["z"]))
 
 
