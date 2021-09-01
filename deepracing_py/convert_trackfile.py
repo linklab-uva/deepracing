@@ -23,9 +23,7 @@ parser.add_argument("trackfile", help="Path to trackfile to convert",  type=str)
 parser.add_argument("ds", type=float, help="Sample the path at points this distance apart along the path")
 parser.add_argument("--maxiter", type=float, default=20, help="Maximum iterations to run the solver")
 parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
-parser.add_argument("--maxv", default=94.0, type=float, help="Max linear speed the car can have")
-parser.add_argument("--maxa", default=12.75, type=float, help="Max linear acceleration the car can have (in m/s^2)")
-parser.add_argument("--maxb", default=30.0, type=float, help="Max linear braking the car can have (in m/s^2)")
+parser.add_argument("--maxv", default=86.0, type=float, help="Max linear speed the car can have")
 parser.add_argument("--method", default="SLSQP", type=str, help="Optimization method to use")
 parser.add_argument("--out", default=None, type=str, help="Where to put the output file. Default is the same directory as the input .track file")
 #parser.add_argument("--negate_normals", action="store_true", help="Flip the sign all all of the computed normal vectors")
@@ -231,16 +229,6 @@ print("Optimizing over a space of size: %d" %(rsamp.shape[0],), flush=True)
 
 
 radii = (tangentnorms**3)/(np.linalg.norm(np.cross(tangents, accels, axis=1), ord=2, axis=1) + 1E-6)
-# if x0 is not None:
-#     violating=(x0/radii)>maxcentripetalaccel
-#     x0[violating]=radii[violating]*maxcentripetalaccel
-# radii[0:int(round(92.0/ds))] = np.inf
-# radii[-int(round(20.0/ds)):] = np.inf
-# radii[-2] = 0.5*(radii[-3] + radii[-1])
-#radii[-1] = 0.5*(radii[-2] + radii[0])
-# radii[0] = radii[1]
-#idxrunup=-5
-#radii[-5:] = np.linspace(radii[idxrunup], radii[0], num=5)#[1:]
 
 
 rprint = 50
@@ -251,8 +239,6 @@ print("Min radius: %f" % (np.min(radii)), flush=True)
 print("Max radius: %f" % (np.max(radii)), flush=True)
 print("radii.shape: %s", (str(radii.shape),), flush=True)
 maxspeed = argdict["maxv"]
-maxlinearaccel = argdict["maxa"]
-maxbraking = argdict["maxb"]
 dsvec = np.array((rsamp[1:] - rsamp[:-1]).tolist() + [np.linalg.norm(Xsamp[-1] - Xsamp[0])])
 #dsvec[-int(round(40/ds)):] = np.inf
 print("Final %d delta s:\n%s" %(rprint, str(dsvec[-rprint:]),))
@@ -262,13 +248,13 @@ del fig2
 #del track, trackin, xin, yin, zin, dotsquares, Xin, rin, diffs, diffnorms, accels, accelnorms, tangents, tangentnorms, unit_tangents, unit_normals #, rsamp, Xsamp
 
 print("yay")
-sqp = OptimWrapper(maxspeed, maxlinearaccel, maxbraking, dsvec, radii)
+sqp = OptimWrapper(maxspeed, dsvec, radii)
 
 
 #method="trust-constr"
 method=argdict["method"]
 maxiter=argdict["maxiter"]
-x0, res = sqp.optimize(maxiter=maxiter,method=method,disp=True, keep_feasible=True, x0=x0)#,eps=100.0)
+x0, res = sqp.optimize(maxiter=maxiter,method=method,disp=True, keep_feasible=False, x0=x0)#,eps=100.0)
 print(vars(res), flush=True)
 v0 = np.sqrt(x0)
 velsquares = res.x
@@ -334,7 +320,7 @@ jsondict["rin"] = rin.tolist()
 jsondict["xin"] = xin.tolist()
 jsondict["yin"] = yin.tolist()
 jsondict["zin"] = zin.tolist()
-jsondict.update({key : argdict[key] for key in ["maxv", "maxa", "maxb", "method", "k", "ds"]})
+jsondict.update({key : argdict[key] for key in ["maxv", "method", "k", "ds"]})
 assert(len(jsondict["r"]) == len(jsondict["t"]) == len(jsondict["x"]) == len(jsondict["y"]) == len(jsondict["z"]))
 
 
