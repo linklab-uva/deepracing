@@ -258,7 +258,6 @@ x0, res = sqp.optimize(maxiter=maxiter,method=method,disp=True, keep_feasible=Fa
 print(vars(res), flush=True)
 v0 = np.sqrt(x0)
 velsquares = res.x
-print("max centripetal acceleration: %f" % (np.max(velsquares/radii)), flush=True)
 vels = np.sqrt(velsquares)
 
 #print(v0, flush=True)
