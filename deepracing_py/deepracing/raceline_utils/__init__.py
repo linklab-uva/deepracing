@@ -54,6 +54,7 @@ def loadRaceline(raceline_file : str, dtype = torch.float32, device : torch.devi
         racelinedistsnp = np.array(raceline_dictionary["r"])
         racelinetimesnp = np.array(raceline_dictionary["t"])
         racelinetimes = torch.as_tensor(racelinetimesnp.copy(), dtype=dtype, device=device)
+        racelinespeeds = torch.as_tensor(raceline_dictionary["speeds"], dtype=dtype, device=device)
     elif racelinefile_ext==".csv":
         racelinenp = np.loadtxt(raceline_file, dtype=float, skiprows=1, delimiter=",")
         if clockwise:
@@ -71,6 +72,7 @@ def loadRaceline(raceline_file : str, dtype = torch.float32, device : torch.devi
         racelinenp = racelinenp[deltanonzero]
         #need a more extensible solution that just ignoring velocity (time) information
         racelinetimes = torch.as_tensor(racelinedistsnp.copy(), dtype=dtype, device=device)
+        racelinespeeds = torch.zeros_like(racelinetimes)
     else:
         raise ValueError("Only .json and .csv extensions are supported")
     racelinedists = torch.as_tensor(racelinedistsnp.copy(), dtype=dtype, device=device)
@@ -80,4 +82,4 @@ def loadRaceline(raceline_file : str, dtype = torch.float32, device : torch.devi
                               torch.as_tensor(racelinenp[:,2], dtype=dtype, device=device),\
                               torch.ones_like(racelinedists) ], dim=0)
     
-    return racelinetimes, racelinedists, raceline
+    return racelinetimes, racelinedists, raceline, racelinespeeds
