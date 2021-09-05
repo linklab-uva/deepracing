@@ -75,12 +75,11 @@ def main(args):
         cropfactors = cropsize.astype(np.float64)/(np.asarray(im.shape[0:2], dtype=np.float64)-topleft.astype(np.float64))
         print("Selected ROI:", flush=True)
         print((r,c,h,w), flush=True)
-    try:
+    if args.with_gui:
         cv2.imshow(windowname, cv2.cvtColor(im[topleft[0]:topleft[0]+cropsize[0], topleft[1]:topleft[1]+cropsize[1]], cv2.COLOR_RGB2BGR))
         cv2.waitKey(0)
         cv2.destroyWindow(windowname)
-    except:
-        pass
+
     print("Input Image Size: " + str(im.shape[0:2]), flush=True)
     print("Top-Left: " + str(topleft), flush=True)
     print("Crop Factors: " + str(cropfactors), flush=True)
@@ -132,6 +131,7 @@ if __name__ == '__main__':
     parser.add_argument("--mapsize", type=int, default=-1, help="Map size for the LMDB.")
     parser.add_argument('-R','--ROI', nargs=4, help='Region of Interest (ROI) to capture of the form [r, c, fr, fc] with (r,c) being the top-left corner of the ROI. fr fc are the ratios (in row and column dimension) of the remainder of the image to grab', default=None)
     parser.add_argument('--override', action="store_true", help='Delete existing DB if it already exists', default=None)
+    parser.add_argument('--with-gui', action="store_true", help='Delete existing DB if it already exists', default=None)
     parser.add_argument('--imext', type=str, default=".jpg", help='Load image files with this extension')
     args = parser.parse_args()
     main(args)
