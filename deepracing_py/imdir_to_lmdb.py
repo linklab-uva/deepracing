@@ -14,6 +14,7 @@ from deepracing.protobuf_utils import getAllImageFilePackets
 from tqdm import tqdm as tqdm
 from matplotlib import pyplot as plt
 import time
+import torchvision.transforms.functional as F, torchvision.transforms as TF
 
 def packetSortKey(packet):
     return packet.timestamp
@@ -76,7 +77,10 @@ def main(args):
         print("Selected ROI:", flush=True)
         print((r,c,h,w), flush=True)
     if args.with_gui:
-        cv2.imshow(windowname, cv2.cvtColor(im[topleft[0]:topleft[0]+cropsize[0], topleft[1]:topleft[1]+cropsize[1]], cv2.COLOR_RGB2BGR))
+        # imtestsize = list(cropsize)
+        imtestsize = [imrows, imcols]
+        imout = F.resized_crop(F.to_pil_image(im),topleft[0], topleft[1], cropsize[0], cropsize[1], size = imtestsize, interpolation=TF.InterpolationMode.LANCZOS)
+        cv2.imshow(windowname, cv2.cvtColor(np.asarray(imout), cv2.COLOR_RGB2BGR))
         cv2.waitKey(0)
         cv2.destroyWindow(windowname)
 
