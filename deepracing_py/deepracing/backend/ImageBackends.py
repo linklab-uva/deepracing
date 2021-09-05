@@ -76,14 +76,11 @@ class ImageLMDBWrapper():
     def readImages(self, image_files, keys, db_path, im_size, ROI=None, mapsize=int(1e10)):
         assert(len(image_files) > 0)
         assert(len(image_files) == len(keys))
-        if os.path.isdir(db_path):
-            raise IOError("Path " + db_path + " is already a directory")
-        os.makedirs(db_path)
-        cfgout = {"im_size": list(im_size), "num_images": len(image_files)}
-        if ROI is not None:
-            cfgout["ROI"] = list(ROI)
-        with open(os.path.join(db_path,"config.yaml"),"w") as f:
-            yaml.dump(cfgout,f,Dumper=yaml.SafeDumper)
+        # cfgout = {"im_size": list(im_size), "num_images": len(image_files)}
+        # if ROI is not None:
+        #     cfgout["ROI"] = list(ROI)
+        # with open(os.path.join(db_path,"config.yaml"),"w") as f:
+        #     yaml.dump(cfgout,f,Dumper=yaml.SafeDumper)
         env = lmdb.open(db_path, map_size=mapsize)
         print("Loading image data")
        # topil = TF.ToPILImage()
@@ -107,16 +104,14 @@ class ImageLMDBWrapper():
                     system_time = pb.timestamp/1000.0
                 except:
                     warnings.warn("Could not get a timestamp for image file: %s" %(imgfile,), ResourceWarning)
-
-
             imgin = deepracing.imutils.readImage(imgfile)
             impil = F.to_pil_image(imgin)
             if bool(ROI):
-                x = ROI[0]
-                y = ROI[1]
-                w = ROI[2]
-                h = ROI[3]
-                impilresize = F.resized_crop(impil,y,x,h,w,im_size,interpolation=PILImage.LANCZOS)
+                r = ROI[0]
+                c = ROI[1]
+                h = ROI[2]
+                w = ROI[3]
+                impilresize = F.resized_crop(impil,r,c,h,w,im_size,interpolation=PILImage.LANCZOS)
             else:
                 impilresize = F.resize(impil,im_size, interpolation=PILImage.LANCZOS)
             impilresize.save(os.path.join(cropped_images_dir, "%s.jpg" % (key,)))
