@@ -76,14 +76,8 @@ class ImageLMDBWrapper():
     def readImages(self, image_files, keys, db_path, im_size, ROI=None, mapsize=int(1e10)):
         assert(len(image_files) > 0)
         assert(len(image_files) == len(keys))
-        # cfgout = {"im_size": list(im_size), "num_images": len(image_files)}
-        # if ROI is not None:
-        #     cfgout["ROI"] = list(ROI)
-        # with open(os.path.join(db_path,"config.yaml"),"w") as f:
-        #     yaml.dump(cfgout,f,Dumper=yaml.SafeDumper)
         env = lmdb.open(db_path, map_size=mapsize)
-        print("Loading image data")
-       # topil = TF.ToPILImage()
+        print("Loading image data", flush=True)
         cropped_images_dir = os.path.join(os.path.dirname(db_path),"cropped_images")
         os.makedirs(cropped_images_dir,exist_ok=True)
         for i, key in tqdm(enumerate(keys), total=len(keys)):
