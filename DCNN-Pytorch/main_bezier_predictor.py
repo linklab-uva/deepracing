@@ -179,8 +179,10 @@ def go():
     dsets=[]
     raceline_file = dataset_config["raceline_file"]
     dset_tags = dataset_config["tags"]
+    dsets_root = dataset_config["root_dir"]
     for dataset in dataset_config["datasets"]:
-        current_dset = FD.LocalRacelineDataset(dataset["root_folder"], raceline_file, context_length=context_length, lookahead_time=lookahead_time)
+        dsetdir = os.path.join(dsets_root, dataset["subfolder"])
+        current_dset = FD.LocalRacelineDataset(dsetdir, raceline_file, context_length=context_length, lookahead_time=lookahead_time)
         dsets.append(current_dset)
 
     if len(dsets)==1:
