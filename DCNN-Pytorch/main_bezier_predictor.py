@@ -56,7 +56,9 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
         times = imagedict["t"].type(dtype).to(device=dev)
         input_images = imagedict["images"].type(dtype).to(device=dev)
         raceline_positions = (imagedict["raceline_positions"]).type(dtype).to(device=dev)
+        raceline_velocities = (imagedict["raceline_velocities"]).type(dtype).to(device=dev)
         batch_size = input_images.shape[0]
+        num_points = raceline_positions.shape[1]
         
         network_output = network(input_images)
         if fix_first_point:
@@ -74,10 +76,11 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
         
         pred_points = torch.matmul(Mpos, predictions)
 
-        Mderiv, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(pred_points, t=s)
+        Mderiv, pred_v_s = deepracing_models.math_utils.bezier.bezierDerivative(predictions, t=s)
+        pred_v_t = pred_v_s/dt[:,None,None]
 
-        
-        loss = loss_func(pred_points, raceline_positions[:,:,[0,2]])
+
+        loss = loss_func(pred_points, raceline_positions[:,:,[0,2]]) + 0.1*loss_func(pred_v_t, raceline_velocities[:,:,[0,2]])
 
         if debug:
             fig, (ax1, ax2) = plt.subplots(1, 2, sharey=False)
