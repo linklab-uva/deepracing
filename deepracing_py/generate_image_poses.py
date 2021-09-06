@@ -99,12 +99,12 @@ firstIndex = np.argmax(Imin)
 
 motion_packets = motion_packets[firstIndex:]
 motion_packets = sorted(motion_packets, key=deepracing.timestampedUdpPacketKey)
-session_times = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets])
+session_times = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets], dtype=np.float64)
 unique_session_times, unique_session_time_indices = np.unique(session_times, return_index=True)
 motion_packets = [motion_packets[i] for i in unique_session_time_indices]
 motion_packets = sorted(motion_packets, key=deepracing.timestampedUdpPacketKey)
-session_times = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets])
-system_times = np.array([packet.timestamp/1000.0 for packet in motion_packets])
+session_times = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets], dtype=np.float64)
+system_times = np.array([packet.timestamp/1000.0 for packet in motion_packets], dtype=np.float64)
 
 print("Range of session times: [%f,%f]" %(session_times[0], session_times[-1]))
 print("Range of udp system times: [%f,%f]" %(system_times[0], system_times[-1]))
@@ -171,6 +171,7 @@ for i in tqdm(range(len(image_tags))):
     image_keys.append(key)
     imagedict : dict = dict()
     imagedict["position"] = interpolated_positions[i].tolist()
+    imagedict["session_time"] = image_session_timestamps[i]
     imagedict["quaternion"] = interpolated_quaternions[i].as_quat().tolist()
     imagedict["linear_velocity"] = interpolated_velocities[i].tolist()
     imagedict["angular_velocity"] = interpolated_angular_velocities[i].tolist()
@@ -191,5 +192,5 @@ with open(dictionary_file, "w") as f:
 
 geometric_data_file = os.path.join(output_dir, "geometric_data.npz")
 with open(geometric_data_file, "wb") as f:
-    np.savez(f, interpolated_positions=interpolated_positions, interpolated_quaternions = interpolated_quaternions.as_quat(), interpolated_velocities=interpolated_velocities, interpolated_angular_velocities=interpolated_angular_velocities)
+    np.savez(f, interpolated_positions=interpolated_positions, interpolated_quaternions = interpolated_quaternions.as_quat(), interpolated_velocities=interpolated_velocities, interpolated_angular_velocities=interpolated_angular_velocities, image_session_timestamps=image_session_timestamps)
 
