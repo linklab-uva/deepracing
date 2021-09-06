@@ -53,9 +53,9 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
     bezier_order = network.params_per_dimension-1+int(fix_first_point)
 
     for (i, imagedict) in t:
-        times = imagedict[""]
+        times = imagedict["t"].type(dtype).to(device=dev)
         input_images = imagedict["images"].type(dtype).to(device=dev)
-        raceline_positions = (imagedict["raceline_positions"])[:,:,[0,2]].type(dtype).to(device=dev)
+        raceline_positions = (imagedict["raceline_positions"]).type(dtype).to(device=dev)
         batch_size = input_images.shape[0]
         
         network_output = network(input_images)
@@ -69,10 +69,11 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
         dt = times[:,-1]-times[:,0]
         s = (times - times[:,0,None])/dt[:,None]
 
-        Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(raceline_positions, bezier_order, t=s)
+        Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(raceline_positions[:,:,[0,2]], bezier_order, t=s)
+        
+        
         pred_points = torch.matmul(Mpos, predictions)
-
-        loss = loss_func(pred_points, raceline_positions)
+        loss = loss_func(pred_points, raceline_positions[:,:,[0,2]])
 
         if debug:
             fig, (ax1, ax2) = plt.subplots(1, 2, sharey=False)
@@ -82,8 +83,20 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
             for i in range(images_np.shape[0]):
                 ims.append([ax1.imshow(images_np[i])])
             ani = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat=True)
-            fit_points = torch.matmul(Mpos, controlpoints_fit)
+            fit_points = torch.matmul(Mpos, controlpoints_fit).cpu()
+            xmin = torch.min(raceline_positions[0,:,0]).item() -  10
+            xmax = torch.max(raceline_positions[0,:,0]).item() +  10
 
+            ymin = torch.min(raceline_positions[0,:,2]).item()
+            ymax = torch.max(raceline_positions[0,:,2]).item() +  2.5
+            ax2.set_xlim(xmax,xmin)
+            ax2.set_ylim(ymin,ymax)
+
+            rlpcpu = raceline_positions.cpu()
+            ax2.plot(rlpcpu[0,:,0], rlpcpu[0,:,2], 'g+', label="Ground Truth Waypoints")
+            ax2.plot(fit_points[0,:,0], fit_points[0,:,1], c="r", label="LSQ Fit")
+
+            plt.show()
         optimizer.zero_grad()
         loss.backward() 
         # Weight and bias updates.
@@ -175,7 +188,7 @@ def go():
     else:
         dset = torch.utils.data.ConcatDataset(dsets)
     
-    dataloader = data_utils.DataLoader(dset, batch_size=batch_size, shuffle=True, pin_memory=(gpu>=0))
+    dataloader = data_utils.DataLoader(dset, batch_size=batch_size, shuffle=True, pin_memory=(gpu>=0), num_workers=num_workers)
     print("Dataloader of of length %d" %(len(dataloader)))
     if debug:
         print("Using datasets:\n%s", (str(dataset_config)))
@@ -191,7 +204,6 @@ def go():
             raise FileExistsError("%s already exists, this should not happen." %(output_directory) )
         os.makedirs(output_directory)
         experiment.log_parameters(config)
-        experiment.log_parameters(dataset_config)
         if len(dset_tags)>0:
             experiment.add_tags(dset_tags)
         experiment_config = {"experiment_key": experiment.get_key()}
