@@ -28,12 +28,12 @@ def generate_linear_accel_mat(ds:  np.ndarray):
     return scipy.sparse.bsr_matrix((data, (row,col)), shape=(numpoints, numpoints), dtype=ds.dtype)
 
 class BrakingConstraint():
-    def __init__(self, ds: np.ndarray, max_speed : float):
+    def __init__(self, ds: np.ndarray, max_speed : float, factor=1.0):
         self.ds = ds
         self.linearaccelmat=generate_linear_accel_mat(ds)
         self.buffer = np.zeros_like(self.ds)
         speeds = np.asarray([        0.0, 20.0, 50.0, 84.0, max_speed+0.1])
-        braking_limits = np.asarray([9.8, 15.0, 35.0, 43.0, 43.0])*0.85
+        braking_limits = np.asarray([9.8, 15.0, 35.0, 43.0, 43.0])*factor
         self.braking_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, braking_limits, k=1)
         self.braking_spline_der : scipy.interpolate.BSpline = self.braking_spline.derivative()
         print(self.linearaccelmat.toarray()[[0,1,2,3,-4,-3,-2,-1]], flush=True)
@@ -60,12 +60,12 @@ class BrakingConstraint():
         return NonlinearConstraint(self.eval, np.zeros_like(self.ds), 1E15*np.ones_like(self.ds), jac = self.jac, keep_feasible=keep_feasible)
 
 class LinearAccelConstraint():
-    def __init__(self, ds: np.ndarray, max_speed : float):
+    def __init__(self, ds: np.ndarray, max_speed : float, factor=1.0):
         self.ds = ds
         self.linearaccelmat=generate_linear_accel_mat(ds)
         self.buffer = np.zeros_like(self.ds)
         speeds = np.asarray([              0.0,    42.5,   85.0,  max_speed+0.1])
-        forward_accel_limits = np.asarray([16.0,   16.0,   1.25,  0.0])*1.0
+        forward_accel_limits = np.asarray([16.0,   16.0,   1.25,  0.0])*factor
         self.forward_accel_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, forward_accel_limits, k=1)
         self.forward_accel_spline_der : scipy.interpolate.BSpline = self.forward_accel_spline.derivative()
         print(self.linearaccelmat.toarray()[[0,1,2,3,-4,-3,-2,-1]], flush=True)
@@ -92,13 +92,13 @@ class LinearAccelConstraint():
         return NonlinearConstraint(self.eval, -1E15*np.ones_like(self.ds), np.zeros_like(self.ds), jac = self.jac, keep_feasible=keep_feasible)
 
 class CentripetalAccelerationConstraint():
-    def __init__(self, radii: np.ndarray, maxspeed : float):
+    def __init__(self, radii: np.ndarray, maxspeed : float, factor=1.0):
         self.invradii = 1.0/radii
         self.idx = np.arange(0, radii.shape[0], dtype=np.int64, step=1)
         maxspeedmph = 2.2369362920544025*maxspeed
         print("Max speed in MPH: %f" % (maxspeedmph,), flush=True)
         speeds = np.asarray([0.0,  45.0,  77.5,   130.0,  170.0,  maxspeedmph+0.5], dtype=np.float64)/2.2369362920544025
-        maxcas = np.asarray([1.0,  2.00,  2.50,   2.75,   3.50,   4.00], dtype=np.float64)*9.81
+        maxcas = np.asarray([1.0,  2.00,  2.375,  3.00,   3.5,    4.0], dtype=np.float64)*9.81*factor
         self.caspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, maxcas, k=1)
         self.casplineder : scipy.interpolate.BSpline = self.caspline.derivative()
        
@@ -149,14 +149,14 @@ class OptimWrapper():
         self.iter_counter+=1
         return (-np.sum(xcurr), self.grad)
 
-    def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False, keep_feasible=False):
+    def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False, keep_feasible=False, accelfactor=1.0, brakefactor=1.0, cafactor=1.0):
         lb = np.square(18.0*np.ones_like(self.radii, dtype=self.radii.dtype))
         ub = np.square(self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
         if x0 is None:
-            x0 = np.square(0.99*self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
-        centripetal_accel_constraint : CentripetalAccelerationConstraint = CentripetalAccelerationConstraint(self.radii, self.maxspeed)
-        braking_constraint : BrakingConstraint = BrakingConstraint(self.ds, self.maxspeed)
-        linear_accel_constraint : LinearAccelConstraint = LinearAccelConstraint(self.ds, self.maxspeed)
+            x0 = np.square(0.95*self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
+        centripetal_accel_constraint : CentripetalAccelerationConstraint = CentripetalAccelerationConstraint(self.radii, self.maxspeed, factor=cafactor)
+        braking_constraint : BrakingConstraint = BrakingConstraint(self.ds, self.maxspeed, factor=brakefactor)
+        linear_accel_constraint : LinearAccelConstraint = LinearAccelConstraint(self.ds, self.maxspeed, factor=accelfactor)
         constraints=[]
         constraints.append(linear_accel_constraint.asSciPy(keep_feasible=keep_feasible))
         constraints.append(braking_constraint.asSciPy(keep_feasible=keep_feasible))

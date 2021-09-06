@@ -25,7 +25,10 @@ parser.add_argument("--maxiter", type=float, default=20, help="Maximum iteration
 parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
 parser.add_argument("--maxv", default=86.0, type=float, help="Max linear speed the car can have")
 parser.add_argument("--method", default="SLSQP", type=str, help="Optimization method to use")
-parser.add_argument("--out", default=None, type=str, help="Where to put the output file. Default is the same directory as the input .track file")
+parser.add_argument("--outfile", default=None, type=str, help="What to name the output file. Default is the same name as the input file")
+parser.add_argument("--accelfactor", default=1.0, type=float, help="Scale the max acceleration limits by this factor")
+parser.add_argument("--brakefactor", default=1.0, type=float, help="Scale the max braking limits by this factor")
+parser.add_argument("--cafactor", default=1.0, type=float,    help="Scale the max centripetal acceleration limits by this factor")
 #parser.add_argument("--negate_normals", action="store_true", help="Flip the sign all all of the computed normal vectors")
 args = parser.parse_args()
 argdict = vars(args)
@@ -202,8 +205,10 @@ except:
 
 print("Output shape: %s" %(str(Xsamp.shape),), flush=True)
 
-jsonout = argdict["out"]
-if jsonout is None:
+fileout = argdict["outfile"]
+if fileout is not None:
+    jsonout = os.path.abspath(os.path.join(trackdir,fileout))
+else:
     jsonout = os.path.abspath(os.path.join(trackdir,os.path.splitext(os.path.basename(trackfilein))[0] + ".json"))
 
 print("jsonout: %s" %(jsonout,), flush=True)
@@ -254,7 +259,10 @@ sqp = OptimWrapper(maxspeed, dsvec, radii)
 #method="trust-constr"
 method=argdict["method"]
 maxiter=argdict["maxiter"]
-x0, res = sqp.optimize(maxiter=maxiter,method=method,disp=True, keep_feasible=False, x0=x0)#,eps=100.0)
+accelfactor=argdict["accelfactor"]
+brakefactor=argdict["brakefactor"]
+cafactor=argdict["cafactor"]
+x0, res = sqp.optimize(maxiter=maxiter,method=method,disp=True, keep_feasible=False, x0=x0, accelfactor=accelfactor, brakefactor=brakefactor, cafactor=cafactor)
 print(vars(res), flush=True)
 v0 = np.sqrt(x0)
 velsquares = res.x
