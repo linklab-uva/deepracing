@@ -97,6 +97,7 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
             ax2.plot(fit_points[0,:,0], fit_points[0,:,1], c="r", label="LSQ Fit")
 
             plt.show()
+            plt.close("all")
         optimizer.zero_grad()
         loss.backward() 
         # Weight and bias updates.
