@@ -36,7 +36,7 @@ class BrakingConstraint():
         braking_limits = np.asarray([9.8, 15.0, 35.0, 43.0, 43.0])*factor
         self.braking_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, braking_limits, k=1)
         self.braking_spline_der : scipy.interpolate.BSpline = self.braking_spline.derivative()
-        print(self.linearaccelmat.toarray()[[0,1,2,3,-4,-3,-2,-1]], flush=True)
+        print(self.linearaccelmat.toarray(), flush=True)
 
     def eval(self, x):
         print(flush=True)
@@ -68,7 +68,7 @@ class LinearAccelConstraint():
         forward_accel_limits = np.asarray([16.0,   16.0,   1.25,  0.0])*factor
         self.forward_accel_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, forward_accel_limits, k=1)
         self.forward_accel_spline_der : scipy.interpolate.BSpline = self.forward_accel_spline.derivative()
-        print(self.linearaccelmat.toarray()[[0,1,2,3,-4,-3,-2,-1]], flush=True)
+     #   print(self.linearaccelmat.toarray()[[0,1,2,3,-4,-3,-2,-1]], flush=True)
 
     def eval(self, x):
         print(flush=True)
@@ -97,8 +97,8 @@ class CentripetalAccelerationConstraint():
         self.idx = np.arange(0, radii.shape[0], dtype=np.int64, step=1)
         maxspeedmph = 2.2369362920544025*maxspeed
         print("Max speed in MPH: %f" % (maxspeedmph,), flush=True)
-        speeds = np.asarray([0.0,  45.0,  77.5,   130.0,  170.0,  maxspeedmph+0.5], dtype=np.float64)/2.2369362920544025
-        maxcas = np.asarray([1.0,  2.00,  2.375,  3.00,   3.5,    4.0], dtype=np.float64)*9.81*factor
+        speeds = np.asarray([0.0,    45.0,   60.0,  130.0,  170.0,  maxspeedmph+0.5], dtype=np.float64)/2.2369362920544025
+        maxcas = np.asarray([1.875,  1.875,  2.0,   3.00,   4.0,    4.5], dtype=np.float64)*9.81*factor
         self.caspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, maxcas, k=1)
         self.casplineder : scipy.interpolate.BSpline = self.caspline.derivative()
        
