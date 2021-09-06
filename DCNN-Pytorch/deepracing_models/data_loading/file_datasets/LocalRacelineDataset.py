@@ -118,8 +118,6 @@ class LocalRacelineDataset(Dataset):
     def __getitem__(self, i):
         key_idx = int(str.split(self.keys[i], "_")[1])
         keys = ["image_%d"%(j,) for j in range(key_idx-self.context_length+1, key_idx+1)]
-        print(key_idx)
-        print(keys)
         image_pose = self.image_poses[i]
         image_pose_inv = self.inv_image_poses[i]
         _, iclosest = self.kdtree.query(image_pose[0:3,3])
