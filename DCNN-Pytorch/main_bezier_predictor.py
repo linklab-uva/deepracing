@@ -73,6 +73,10 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
         
         
         pred_points = torch.matmul(Mpos, predictions)
+
+        Mderiv, pred_vels = deepracing_models.math_utils.bezier.bezierDerivative(pred_points, t=s)
+
+        
         loss = loss_func(pred_points, raceline_positions[:,:,[0,2]])
 
         if debug:

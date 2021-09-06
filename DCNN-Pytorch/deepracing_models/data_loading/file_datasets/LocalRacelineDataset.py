@@ -103,6 +103,7 @@ class LocalRacelineDataset(Dataset):
         self.speedfit : np.ndarray = np.asarray(speedfit, dtype=dtype)
         self.posfit = np.column_stack([xfit, yfit, zfit]).astype(dtype)
         self.rlspline : BSpline = make_interp_spline(self.tfit, self.posfit) 
+        self.rlderspline : BSpline = self.rlspline.derivative()
 
         dt = 0.01
         self.tsamp : np.ndarray = np.arange(self.tfit[0], self.tfit[-1], step=dt, dtype=dtype)
@@ -125,11 +126,17 @@ class LocalRacelineDataset(Dataset):
         tf = t0+self.lookahead_time
         trtn = np.linspace(t0, tf, num=160, dtype=self.tfit.dtype)
 
+        
+
 
         pglobal = self.rlspline(trtn%self.tfit[-1]).astype(self.tfit.dtype)
         pglobal_aug = np.column_stack([pglobal, np.ones_like(pglobal[:,0])])
         plocal = np.matmul(pglobal_aug, image_pose_inv.transpose())[:,0:3]
 
+        vglobal = self.rlderspline(trtn%self.tfit[-1]).astype(self.tfit.dtype)
+        vlocal = np.matmul( vglobal, image_pose_inv[0:3,0:3].transpose() )
+
         pil_images = [F.to_pil_image(self.image_db_wrapper.getImage(key)[1].copy()) for key in keys]
         images = np.stack( [ F.to_tensor(img).numpy().astype(self.tfit.dtype) for img in pil_images ], axis=0 )
-        return {"pose": image_pose, "images": images, "t" : trtn, "raceline_positions" : plocal}
+        
+        return {"pose": image_pose, "images": images, "t" : trtn, "raceline_positions" : plocal, "raceline_velocities" : vlocal}
