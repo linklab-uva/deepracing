@@ -200,21 +200,23 @@ def go():
     else:
         experiment = comet_ml.Experiment(workspace="electric-turtle", project_name=project_name)
         output_directory = os.path.join(main_dir, experiment.get_key())
-        if os.path.isdir(output_directory) :
+        if os.path.isdir(output_directory):
             raise FileExistsError("%s already exists, this should not happen." %(output_directory) )
         os.makedirs(output_directory)
         experiment.log_parameters(config)
         if len(dset_tags)>0:
             experiment.add_tags(dset_tags)
         experiment_config = {"experiment_key": experiment.get_key()}
-        yaml.dump(experiment_config, stream=open(os.path.join(output_directory,"experiment_config.yaml"),"w"), Dumper=yaml.SafeDumper)
-        yaml.dump(dataset_config, stream=open(os.path.join(output_directory,"dataset_config.yaml"), "w"), Dumper = yaml.SafeDumper)
-        yaml.dump(config, stream=open(os.path.join(output_directory,"model_config.yaml"), "w"), Dumper = yaml.SafeDumper)
+        with open(os.path.join(output_directory,"experiment_config.yaml"),"w") as f:
+            yaml.dump(experiment_config, stream=f, Dumper=yaml.SafeDumper)
+        with open(os.path.join(output_directory,"dataset_config.yaml"), "w") as f:
+            yaml.dump(dataset_config, stream=f, Dumper = yaml.SafeDumper)
+        with open(os.path.join(output_directory,"model_config.yaml"), "w") as f:
+            yaml.dump(config, stream=f, Dumper = yaml.SafeDumper)
         experiment.log_asset(os.path.join(output_directory,"dataset_config.yaml"),file_name="datasets.yaml")
         experiment.log_asset(os.path.join(output_directory,"experiment_config.yaml"),file_name="experiment_config.yaml")
         experiment.log_asset(os.path.join(output_directory,"model_config.yaml"),file_name="model_config.yaml")
         i = 0
-# def run_epoch(experiment, network, optimizer, dataloader, config, use_tqdm = False, debug=False, plot=False):
     if debug:
         run_epoch(experiment, net, optimizer, dataloader, config, loss_func, debug=True, use_tqdm=use_tqdm)
     else:
@@ -222,7 +224,7 @@ def go():
         optimizerpostfix = "epoch_%d_optimizer.pt"
         with experiment.train():
             for i in range(num_epochs):
-                time.sleep(2.0)
+                time.sleep(1.0)
                 postfix = i + 1
                 modelfile = "params.pt"
                 optimizerfile = "optimizer.pt"
