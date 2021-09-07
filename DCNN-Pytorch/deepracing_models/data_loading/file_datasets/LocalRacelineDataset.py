@@ -24,7 +24,7 @@ def sensibleKnots(t, degree):
     return knots
 
 class LocalRacelineDataset(Dataset):
-    def __init__(self, root_dir : str, raceline_file : str, context_length : int = 5, lookahead_time : float = 2.0, dtype=np.float32):
+    def __init__(self, root_dir : str, raceline_file : str, sample_count = 160, context_length : int = 5, lookahead_time : float = 2.0, dtype=np.float32):
         super(LocalRacelineDataset, self).__init__()
         poses_dir = os.path.join(root_dir, "image_poses")
         key_file = os.path.join(poses_dir, "image_files.txt")
@@ -39,7 +39,6 @@ class LocalRacelineDataset(Dataset):
             data = np.load(f)
             self.image_poses[:,0:3,3]=data["interpolated_positions"].astype(dtype).copy()
             self.image_poses[:,0:3,0:3]=Rot.from_quat(data["interpolated_quaternions"]).as_matrix().astype(dtype)
-        self.inv_image_poses = np.linalg.inv(self.image_poses)
 
         imagedbdir = os.path.join(root_dir, "images", "lmdb")
         self.image_db_wrapper : ImageLMDBWrapper = ImageLMDBWrapper()
@@ -113,6 +112,7 @@ class LocalRacelineDataset(Dataset):
 
         self.lookahead_time = lookahead_time
         self.context_length = context_length
+        self.sample_count=sample_count
 
     def __len__(self):
         return self.image_poses.shape[0] - 1 
@@ -120,23 +120,18 @@ class LocalRacelineDataset(Dataset):
         key_idx = int(str.split(self.keys[i], "_")[1])
         keys = ["image_%d"%(j,) for j in range(key_idx-self.context_length+1, key_idx+1)]
         image_pose = self.image_poses[i]
-        image_pose_inv = self.inv_image_poses[i]
         _, iclosest = self.kdtree.query(image_pose[0:3,3])
         t0 = self.tsamp[iclosest]
         tf = t0+self.lookahead_time
-        trtn = np.linspace(t0, tf, num=160, dtype=self.tfit.dtype)
+        trtn = np.linspace(t0, tf, num=self.sample_count, dtype=self.tfit.dtype)
 
         
 
 
         pglobal = self.rlspline(trtn%self.tfit[-1]).astype(self.tfit.dtype)
-        pglobal_aug = np.column_stack([pglobal, np.ones_like(pglobal[:,0])])
-        plocal = np.matmul(pglobal_aug, image_pose_inv.transpose())[:,0:3]
-
         vglobal = self.rlderspline(trtn%self.tfit[-1]).astype(self.tfit.dtype)
-        vlocal = np.matmul( vglobal, image_pose_inv[0:3,0:3].transpose() )
 
         pil_images = [F.to_pil_image(self.image_db_wrapper.getImage(key)[1].copy()) for key in keys]
         images = np.stack( [ F.to_tensor(img).numpy().astype(self.tfit.dtype) for img in pil_images ], axis=0 )
         
-        return {"pose": image_pose, "images": images, "t" : trtn, "raceline_positions" : plocal, "raceline_velocities" : vlocal}
+        return {"pose": image_pose, "images": images, "t" : trtn, "raceline_positions" : pglobal, "raceline_velocities" : vglobal}

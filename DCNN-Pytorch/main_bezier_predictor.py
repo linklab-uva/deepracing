@@ -55,10 +55,18 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
     for (i, imagedict) in t:
         times = imagedict["t"].type(dtype).to(device=dev)
         input_images = imagedict["images"].type(dtype).to(device=dev)
-        raceline_positions = (imagedict["raceline_positions"]).type(dtype).to(device=dev)
-        raceline_velocities = (imagedict["raceline_velocities"]).type(dtype).to(device=dev)
+
+        poses = imagedict["pose"].type(dtype).to(device=dev)
+        with torch.no_grad():
+            pose_inverses = torch.linalg.inv(poses)
+            raceline_positions_global = (imagedict["raceline_positions"]).type(dtype).to(device=dev)
+            raceline_positions_global_aug = torch.cat([raceline_positions_global, torch.ones_like(raceline_positions_global[:,:,0]).unsqueeze(2)], dim=2)
+            raceline_positions = torch.matmul(raceline_positions_global_aug, pose_inverses[:,0:3].transpose(1,2))
+
+            raceline_velocities_global = (imagedict["raceline_velocities"]).type(dtype).to(device=dev)
+            raceline_velocities = torch.matmul(raceline_velocities_global, pose_inverses[:,0:3,0:3].transpose(1,2))
+
         batch_size = input_images.shape[0]
-        num_points = raceline_positions.shape[1]
         
         network_output = network(input_images)
         if fix_first_point:
