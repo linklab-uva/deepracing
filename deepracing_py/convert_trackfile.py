@@ -84,10 +84,10 @@ else:
     minimumcurvatureguess=False
 if isracingline:
     bothboundaries = np.concatenate([innerboundary, outerboundary], axis=0)
-    print("Doing PCA projection", flush=True)
-    pca = sklearn.decomposition.PCA(n_components=2)
-    pca.fit(bothboundaries)
-    Xin[:,1:] = pca.inverse_transform(pca.transform(Xin[:,1:]))
+    # print("Doing PCA projection", flush=True)
+    # pca = sklearn.decomposition.PCA(n_components=2)
+    # pca.fit(bothboundaries)
+    # Xin[:,1:] = pca.inverse_transform(pca.transform(Xin[:,1:]))
 final_vector = Xin[0,1:] - Xin[-1,1:]
 final_distance = np.linalg.norm(final_vector)
 print("initial final distance: %f" %(final_distance,), flush=True)
@@ -235,6 +235,7 @@ print("Optimizing over a space of size: %d" %(rsamp.shape[0],), flush=True)
 
 radii = (tangentnorms**3)/(np.linalg.norm(np.cross(tangents, accels, axis=1), ord=2, axis=1) + 1E-6)
 
+radii[radii>20000.0]=np.inf
 
 rprint = 50
 print("First %d radii:\n%s" %(rprint, str(radii[0:rprint]),), flush=True)
@@ -295,8 +296,8 @@ dsamp = np.linspace(rsamp[0], rsamp[-1], num=nout)
 splinevels = truesplinevel(tsampcheck)
 splinecentripetaccels = np.sum(np.square(splinevels), axis=1)/radii
 splinelinearaccels = truesplineaccel(tsampcheck)
-print("dt: %f" % (tsamp[-1] - tsamp[0],), flush=True)
-print("ds: %f" % (dsamp[-1] - dsamp[0],), flush=True)
+print("Expected lap time: %f" % (tsamp[-1] - tsamp[0] + dsvec[-1]/vels[-1],), flush=True)
+print("Lap Distance: %f" % (dsamp[-1] - dsamp[0] + dsvec[-1],), flush=True)
 print("max linear acceleration: %f" % (np.max(np.abs(splinelinearaccels))), flush=True)
 
 
