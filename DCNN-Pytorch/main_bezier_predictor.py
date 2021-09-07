@@ -1,7 +1,5 @@
 import comet_ml
 import torch
-import torch.nn as NN
-import torch.nn.functional as F
 import torch.utils.data as data_utils
 import deepracing_models.data_loading.file_datasets as FD
 from tqdm import tqdm as tqdm
@@ -9,34 +7,13 @@ import deepracing_models.nn_models.LossFunctions as loss_functions
 import deepracing_models.nn_models.Models
 import numpy as np
 import torch.optim as optim
-import pickle
-from datetime import datetime
 import os
-import string
-import argparse
-import torchvision.transforms as transforms
 import yaml
-import shutil
-import skimage
-import skimage.io
-import deepracing
-from deepracing import trackNames
-import deepracing.backend
-import imageio
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
 import deepracing_models.math_utils.bezier
 import socket
-import json
-from comet_ml.api import API, APIExperiment
-import cv2
-import torchvision, torchvision.transforms as T
-from deepracing_models.data_loading.image_transforms import GaussianBlur
-from deepracing.raceline_utils import loadBoundary
-from deepracing import searchForFile
-import deepracing.path_utils.geometric as geometric
-import tempfile
 
 #torch.backends.cudnn.enabled = False
 def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use_tqdm = False, debug=False, plot=False):
@@ -90,7 +67,7 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
 
         loss = loss_func(pred_points, raceline_positions[:,:,[0,2]]) + 0.1*loss_func(pred_v_t, raceline_velocities[:,:,[0,2]])
 
-        if debug:
+        if debug and config["plot"]:
             fig, (ax1, ax2) = plt.subplots(1, 2, sharey=False)
             images_np = np.round(255.0*input_images[0].detach().cpu().numpy().copy().transpose(0,2,3,1)).astype(np.uint8)
             
@@ -119,29 +96,22 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
         optimizer.step()
         if use_tqdm:
             t.set_postfix({"current_loss" : loss.item()})
-def go():
-    parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
-    parser.add_argument("model_config_file", type=str,  help="Model Configuration file to load")
-    parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuration file to load")
-    parser.add_argument("output_directory", type=str, help="Where to save models.")
-    parser.add_argument("--debug", action="store_true",  help="Don't actually push to comet, just testing")
-    parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
-    parser.add_argument("--gpu", type=int, default=None,  help="Override the GPU index specified in the config file")
+def go(argdict : dict):
 
-    
-    args = parser.parse_args()
-
-    config_file = args.model_config_file
-    dataset_config_file = args.dataset_config_file
-    main_dir = args.output_directory
-    debug = args.debug
-    use_tqdm = args.tqdm
+    config_file = argdict["model_config_file"]
+    dataset_config_file = argdict["dataset_config_file"]
+    main_dir = argdict["output_directory"]
+    debug = argdict["debug"]
+    use_tqdm = argdict["tqdm"]
 
     with open(dataset_config_file) as f:
         dataset_config : dict = yaml.load(f, Loader = yaml.SafeLoader)
         
     with open(config_file) as f:
         config : dict = yaml.load(f, Loader = yaml.SafeLoader)
+    config.update({k : argdict[k] for k in ["debug", "plot", "tqdm"]})
+    if argdict["gpu"] is not None:
+        config["gpu"] = argdict["gpu"]
 
     context_length = config["context_length"]
     bezier_order = config["bezier_order"]
@@ -153,12 +123,9 @@ def go():
     project_name = config["project_name"]
     fix_first_point = config["fix_first_point"]
     lookahead_time = config["lookahead_time"]
-   
-    if args.gpu is not None:
-        gpu = args.gpu
-        config["gpu"]  = gpu
-    else:
-        gpu = config["gpu"] 
+    gpu = config["gpu"] 
+
+
     torch.cuda.set_device(gpu)
 
     num_epochs = config["num_epochs"]
@@ -266,8 +233,19 @@ def go():
                 with open(optimizerout,'rb') as f:
                     experiment.log_asset( f, file_name=optimizerpostfix %(postfix,) )
 
-import logging
 if __name__ == '__main__':
+    import logging
+    import argparse
     logging.basicConfig()
-    go()    
+    parser = argparse.ArgumentParser(description="Train AdmiralNet Pose Predictor")
+    parser.add_argument("model_config_file", type=str,  help="Model Configuration file to load")
+    parser.add_argument("dataset_config_file", type=str,  help="Dataset Configuration file to load")
+    parser.add_argument("output_directory", type=str, help="Where to save models.")
+    parser.add_argument("--debug", action="store_true",  help="Don't actually push to comet, just testing")
+    parser.add_argument("--plot", action="store_true",  help="Don't actually push to comet, just testing")
+    parser.add_argument("--tqdm", action="store_true",  help="Display tqdm progress bar on each epoch")
+    parser.add_argument("--gpu", type=int, default=None,  help="Override the GPU index specified in the config file")
+    args = parser.parse_args()
+    argdict : dict = vars(args)
+    go(argdict)    
     
