@@ -29,7 +29,6 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
     dtype = next(network.parameters()).dtype # we are only doing single-device training for now, so this works fine.
     fix_first_point = config["fix_first_point"]
     bezier_order = network.params_per_dimension-1+int(fix_first_point)
-    built_in_lstsq = "lstsq" in dir(torch.linalg)
     for (i, imagedict) in t:
         times = imagedict["t"].type(dtype).to(device=dev)
         input_images = imagedict["images"].type(dtype).to(device=dev)
@@ -45,7 +44,7 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
             raceline_velocities = torch.matmul(raceline_velocities_global, pose_inverses[:,0:3,0:3].transpose(1,2))
             dt = times[:,-1]-times[:,0]
             s = (times - times[:,0,None])/dt[:,None]
-            Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(raceline_positions[:,:,[0,2]], bezier_order, t=s, built_in_lstq=built_in_lstsq)
+            Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(raceline_positions[:,:,[0,2]], bezier_order, t=s)
             lsq_pos = torch.matmul(Mpos, controlpoints_fit)
             Mvel, lsq_v_s = deepracing_models.math_utils.bezier.bezierDerivative(controlpoints_fit, t=s)
             lsq_v_t = lsq_v_s/dt[:,None,None]
@@ -66,7 +65,7 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
 
         
         loss = loss_func(pred_points, raceline_positions[:,:,[0,2]]) + 0.1*loss_func(pred_v_t, lsq_v_t)
-
+        
         if debug and config["plot"]:
             a, (b, c) = plt.subplots(1, 2, sharey=False)
             fig : matplotlib.figure.Figure = a
