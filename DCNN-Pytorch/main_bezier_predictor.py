@@ -85,7 +85,7 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
             ymax = torch.max(raceline_positions[0,:,2]).item() +  2.5
 
             rlpcpu = raceline_positions.cpu()
-            predcpu = pred_points.cpu()
+            predcpu = pred_points.detach().cpu()
             ax2.plot(rlpcpu[0,:,0], rlpcpu[0,:,2], 'g+', label="Ground Truth Waypoints")
             ax2.plot(fit_points[0,:,0], fit_points[0,:,1], c="b", label="LSQ Fit")
             ax2.plot(predcpu[0,:,0], predcpu[0,:,1], c="r", label="Network Predictions")
