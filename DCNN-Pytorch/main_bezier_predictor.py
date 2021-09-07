@@ -130,10 +130,10 @@ def go():
     use_tqdm = args.tqdm
 
     with open(dataset_config_file) as f:
-        dataset_config = yaml.load(f, Loader = yaml.SafeLoader)
+        dataset_config : dict = yaml.load(f, Loader = yaml.SafeLoader)
         
     with open(config_file) as f:
-        config = yaml.load(f, Loader = yaml.SafeLoader)
+        config : dict = yaml.load(f, Loader = yaml.SafeLoader)
 
     context_length = config["context_length"]
     bezier_order = config["bezier_order"]
@@ -216,6 +216,11 @@ def go():
         experiment.log_parameters(config)
         if len(dset_tags)>0:
             experiment.add_tags(dset_tags)
+
+        config_tags=config.get("tags",[])
+        if (type(config_tags)==list) and len(config_tags)>0:
+            experiment.add_tags(config_tags)
+
         experiment_config = {"experiment_key": experiment.get_key()}
         with open(os.path.join(output_directory,"experiment_config.yaml"),"w") as f:
             yaml.dump(experiment_config, stream=f, Dumper=yaml.SafeDumper)
