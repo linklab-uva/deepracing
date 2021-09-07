@@ -42,6 +42,9 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
 
             raceline_velocities_global = (imagedict["raceline_velocities"]).type(dtype).to(device=dev)
             raceline_velocities = torch.matmul(raceline_velocities_global, pose_inverses[:,0:3,0:3].transpose(1,2))
+            dt = times[:,-1]-times[:,0]
+            s = (times - times[:,0,None])/dt[:,None]
+            Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(raceline_positions[:,:,[0,2]], bezier_order, t=s)
 
         batch_size = input_images.shape[0]
         
@@ -51,20 +54,11 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
             network_output_reshape = network_output.transpose(1,2)
             predictions = torch.cat((initial_zeros,network_output_reshape),dim=1)
         else:
-            predictions = network_output.transpose(1,2)
-
-        dt = times[:,-1]-times[:,0]
-        s = (times - times[:,0,None])/dt[:,None]
-
-        Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(raceline_positions[:,:,[0,2]], bezier_order, t=s)
-        
-        
+            predictions = network_output.transpose(1,2)        
         pred_points = torch.matmul(Mpos, predictions)
-
-        Mderiv, pred_v_s = deepracing_models.math_utils.bezier.bezierDerivative(predictions, t=s)
+        _, pred_v_s = deepracing_models.math_utils.bezier.bezierDerivative(predictions, t=s)
         pred_v_t = pred_v_s/dt[:,None,None]
-
-
+        
         loss = loss_func(pred_points, raceline_positions[:,:,[0,2]]) + 0.1*loss_func(pred_v_t, raceline_velocities[:,:,[0,2]])
 
         if debug and config["plot"]:
