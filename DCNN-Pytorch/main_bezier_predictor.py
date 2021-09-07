@@ -120,10 +120,10 @@ def go(argdict : dict):
     context_length = config["context_length"]
     bezier_order = config["bezier_order"]
     batch_size = config["batch_size"]
-    learning_rate = config["learning_rate"]
-    momentum = config["momentum"]
-    dampening = config["dampening"]
-    nesterov = config["nesterov"]
+    learning_rate = float(config["learning_rate"])
+    momentum = float(config["momentum"])
+    dampening = float(config["dampening"])
+    nesterov = bool(config["nesterov"])
     project_name = config["project_name"]
     fix_first_point = config["fix_first_point"]
     lookahead_time = config["lookahead_time"]
