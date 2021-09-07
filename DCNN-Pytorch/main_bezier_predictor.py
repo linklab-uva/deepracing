@@ -46,6 +46,7 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
             dt = times[:,-1]-times[:,0]
             s = (times - times[:,0,None])/dt[:,None]
             Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(raceline_positions[:,:,[0,2]], bezier_order, t=s, built_in_lstq=built_in_lstsq)
+            lsq_pos = torch.matmul(Mpos, controlpoints_fit)
             Mvel, lsq_v_s = deepracing_models.math_utils.bezier.bezierDerivative(controlpoints_fit, t=s)
             lsq_v_t = lsq_v_s/dt[:,None,None]
 
@@ -77,7 +78,6 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
             for i in range(images_np.shape[0]):
                 ims.append([ax1.imshow(images_np[i])])
             ani : animation.ArtistAnimation = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat=True)
-            fit_points = torch.matmul(Mpos, controlpoints_fit).cpu()
 
             xmin = torch.min(raceline_positions[0,:,0]).item() -  10
             xmax = torch.max(raceline_positions[0,:,0]).item() +  10
@@ -86,8 +86,9 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
 
             rlpcpu = raceline_positions.cpu()
             predcpu = pred_points.detach().cpu()
+            lsqcpu = lsq_pos.cpu()
             ax2.plot(rlpcpu[0,:,0], rlpcpu[0,:,2], 'g+', label="Ground Truth Waypoints")
-            ax2.plot(fit_points[0,:,0], fit_points[0,:,1], c="b", label="LSQ Fit")
+            ax2.plot(lsqcpu[0,:,0], lsqcpu[0,:,1], c="b", label="LSQ Fit")
             ax2.plot(predcpu[0,:,0], predcpu[0,:,1], c="r", label="Network Predictions")
             ax2.set_xlim(xmax,xmin)
             ax2.set_ylim(ymin,ymax)
