@@ -64,8 +64,8 @@ class LinearAccelConstraint():
         self.ds = ds
         self.linearaccelmat=generate_linear_accel_mat(ds)
         self.buffer = np.zeros_like(self.ds)
-        speeds = np.asarray([              0.0,    42.5,   85.0,  max_speed+0.1])
-        forward_accel_limits = np.asarray([16.0,   16.0,   1.25,  0.0])*factor
+        speeds = np.asarray([              0.0,    42.5,   85.0,  87.25,  max_speed+0.1])
+        forward_accel_limits = np.asarray([16.0,   16.0,   1.25,  0.25,  0.0])*factor
         self.forward_accel_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, forward_accel_limits, k=1)
         self.forward_accel_spline_der : scipy.interpolate.BSpline = self.forward_accel_spline.derivative()
      #   print(self.linearaccelmat.toarray()[[0,1,2,3,-4,-3,-2,-1]], flush=True)
@@ -150,7 +150,7 @@ class OptimWrapper():
         return (-np.sum(xcurr), self.grad)
 
     def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False, keep_feasible=False, accelfactor=1.0, brakefactor=1.0, cafactor=1.0):
-        lb = np.square(18.0*np.ones_like(self.radii, dtype=self.radii.dtype))
+        lb = np.square(15.0*np.ones_like(self.radii, dtype=self.radii.dtype))
         ub = np.square(self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
         if x0 is None:
             x0 = np.square(0.95*self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
