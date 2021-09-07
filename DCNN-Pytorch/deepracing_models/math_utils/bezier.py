@@ -36,10 +36,6 @@ def bezierArcLength(control_points, d0=None, N=59, simpsonintervals=4 ):
 
     
 def bezierM(t,n):
-    # M = torch.zeros(t.shape[0],t.shape[1],n+1).type_as(t)
-    # for j in range(M.shape[0]):
-    #     M[j]=torch.stack([Mtk(i,n,t[j]) for i in range(n+1)],dim=1)
-    # return M
     return torch.stack([Mtk(k,n,t) for k in range(n+1)],dim=2)
 def evalBezier(M,control_points):
     return torch.matmul(M,control_points)
@@ -68,14 +64,14 @@ def bezierLsqfit(points, n, t = None, M = None, built_in_lstq=False):
         M_ = M
     batch = M_.shape[0]
     if built_in_lstq:
-        return M_, torch.stack([torch.lstsq(points[i], M_[i])[0][0:n+1] for i in range(batch)],dim=0)
+        res = torch.linalg.lstsq(M_, points)
+        return M_, res.solution
     else:
         return M_, torch.matmul(pinv(M_), points)
 
 class BezierCurveModule(torch.nn.Module):
-    def __init__(self, control_points, mask = None):#move_first_point = False, move_last_point = False):
+    def __init__(self, control_points, mask = None):
         super(BezierCurveModule, self).__init__()
-      #  print(control_points.shape)
         if mask is None:
             self.mask = [True for asdf in range(control_points.shape[0])]
         else:
@@ -84,13 +80,10 @@ class BezierCurveModule(torch.nn.Module):
     @staticmethod
     def lsqFit(s, pts, n, mask=None):
         assert(s.shape[0]==pts.shape[0])
-        M, cntrlpoints = bezierLsqfit(points, n, t=s)
+        M, cntrlpoints = bezierLsqfit(pts, n, t=s)
         return M, BezierCurveModule(cntrlpoints[0], mask=mask)
     def allControlPoints(self):
         return torch.stack([p for p in self.control_points], dim=0).unsqueeze(0)
     def forward(self, M):
-        # if not ((s is not None) ^ (M is not None)):
-        #     raise ValueError("Either s or M must be set, but not both")
         points = self.allControlPoints()
-        #print(points.shape)
         return torch.matmul(M, points)
