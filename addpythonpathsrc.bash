@@ -15,5 +15,5 @@ echo $extrapythonpaths
 if [[ -z "${PYTHONPATH}" ]]; then
   export PYTHONPATH=${extrapythonpaths}
 else
-  export PYTHONPATH=${PYTHONPATH}:${extrapythonpaths}
+  export PYTHONPATH=${extrapythonpaths}:${PYTHONPATH}
 fi
