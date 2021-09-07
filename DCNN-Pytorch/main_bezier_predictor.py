@@ -9,6 +9,7 @@ import numpy as np
 import torch.optim as optim
 import os
 import yaml
+import matplotlib.figure, matplotlib.axes
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
@@ -28,7 +29,7 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
     dtype = next(network.parameters()).dtype # we are only doing single-device training for now, so this works fine.
     fix_first_point = config["fix_first_point"]
     bezier_order = network.params_per_dimension-1+int(fix_first_point)
-
+    built_in_lstsq = "lstsq" in dir(torch.linalg)
     for (i, imagedict) in t:
         times = imagedict["t"].type(dtype).to(device=dev)
         input_images = imagedict["images"].type(dtype).to(device=dev)
@@ -44,7 +45,9 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
             raceline_velocities = torch.matmul(raceline_velocities_global, pose_inverses[:,0:3,0:3].transpose(1,2))
             dt = times[:,-1]-times[:,0]
             s = (times - times[:,0,None])/dt[:,None]
-            Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(raceline_positions[:,:,[0,2]], bezier_order, t=s)
+            Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(raceline_positions[:,:,[0,2]], bezier_order, t=s, built_in_lstq=built_in_lstsq)
+            Mvel, lsq_v_s = deepracing_models.math_utils.bezier.bezierDerivative(controlpoints_fit, t=s)
+            lsq_v_t = lsq_v_s/dt[:,None,None]
 
         batch_size = input_images.shape[0]
         
@@ -56,31 +59,38 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
         else:
             predictions = network_output.transpose(1,2)        
         pred_points = torch.matmul(Mpos, predictions)
-        _, pred_v_s = deepracing_models.math_utils.bezier.bezierDerivative(predictions, t=s)
+
+        _, pred_v_s = deepracing_models.math_utils.bezier.bezierDerivative(predictions,  M=Mvel)
         pred_v_t = pred_v_s/dt[:,None,None]
+
         
-        loss = loss_func(pred_points, raceline_positions[:,:,[0,2]]) + 0.1*loss_func(pred_v_t, raceline_velocities[:,:,[0,2]])
+        loss = loss_func(pred_points, raceline_positions[:,:,[0,2]]) + 0.1*loss_func(pred_v_t, lsq_v_t)
 
         if debug and config["plot"]:
-            fig, (ax1, ax2) = plt.subplots(1, 2, sharey=False)
+            a, (b, c) = plt.subplots(1, 2, sharey=False)
+            fig : matplotlib.figure.Figure = a
+            ax1 : matplotlib.axes.Axes = b
+            ax2 : matplotlib.axes.Axes = c
             images_np = np.round(255.0*input_images[0].detach().cpu().numpy().copy().transpose(0,2,3,1)).astype(np.uint8)
             
             ims = []
             for i in range(images_np.shape[0]):
                 ims.append([ax1.imshow(images_np[i])])
-            ani = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat=True)
+            ani : animation.ArtistAnimation = animation.ArtistAnimation(fig, ims, interval=250, blit=True, repeat=True)
             fit_points = torch.matmul(Mpos, controlpoints_fit).cpu()
+
             xmin = torch.min(raceline_positions[0,:,0]).item() -  10
             xmax = torch.max(raceline_positions[0,:,0]).item() +  10
-
             ymin = torch.min(raceline_positions[0,:,2]).item()
             ymax = torch.max(raceline_positions[0,:,2]).item() +  2.5
-            ax2.set_xlim(xmax,xmin)
-            ax2.set_ylim(ymin,ymax)
 
             rlpcpu = raceline_positions.cpu()
+            predcpu = pred_points.cpu()
             ax2.plot(rlpcpu[0,:,0], rlpcpu[0,:,2], 'g+', label="Ground Truth Waypoints")
-            ax2.plot(fit_points[0,:,0], fit_points[0,:,1], c="r", label="LSQ Fit")
+            ax2.plot(fit_points[0,:,0], fit_points[0,:,1], c="b", label="LSQ Fit")
+            ax2.plot(predcpu[0,:,0], predcpu[0,:,1], c="r", label="Network Predictions")
+            ax2.set_xlim(xmax,xmin)
+            ax2.set_ylim(ymin,ymax)
 
             plt.show()
             plt.close("all")
