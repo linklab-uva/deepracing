@@ -201,5 +201,14 @@ with open(dictionary_file, "w") as f:
 
 geometric_data_file = os.path.join(output_dir, "geometric_data.npz")
 with open(geometric_data_file, "wb") as f:
-    np.savez(f, interpolated_positions=interpolated_positions, interpolated_quaternions = interpolated_quaternions, interpolated_velocities=interpolated_velocities, interpolated_angular_velocities=interpolated_angular_velocities, image_session_timestamps=image_session_timestamps)
+    np.savez(f, interpolated_positions=interpolated_positions, \
+                interpolated_quaternions = interpolated_quaternions, \
+                interpolated_velocities=interpolated_velocities, \
+                interpolated_angular_velocities=interpolated_angular_velocities, \
+                image_session_timestamps=image_session_timestamps, \
+                udp_positions=positions, \
+                udp_rotations=rotations.as_quat(), \
+                udp_velocities=velocities, \
+                udp_session_times=session_times, \
+            )
 
