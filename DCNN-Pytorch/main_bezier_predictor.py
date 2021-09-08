@@ -35,11 +35,11 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
 
         poses = imagedict["pose"].type(dtype).to(device=dev)
         with torch.no_grad():
-            # pose_inverses = torch.linalg.inv(poses)
+            pose_inverses = torch.linalg.inv(poses)
             
-            poses[:,0:3,0:3] = poses[:,0:3,0:3].transpose(1,2)
-            poses[:,0:3,3] = torch.matmul(poses[:,0:3,0:3], -poses[:,0:3,3].unsqueeze(2))[:,:,0]
-            pose_inverses = poses
+            # poses[:,0:3,0:3] = poses[:,0:3,0:3].transpose(1,2)
+            # poses[:,0:3,3] = torch.matmul(poses[:,0:3,0:3], -poses[:,0:3,3].unsqueeze(2))[:,:,0]
+            # pose_inverses = poses
 
             raceline_positions_global = (imagedict["positions"]).type(dtype).to(device=dev)
             raceline_positions_global_aug = torch.cat([raceline_positions_global, torch.ones_like(raceline_positions_global[:,:,0]).unsqueeze(2)], dim=2)
