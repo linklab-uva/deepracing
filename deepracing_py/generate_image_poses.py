@@ -67,10 +67,10 @@ os.makedirs(output_dir)
 spectating_flags = [bool(packet.udp_packet.m_isSpectating) for packet in session_packets]
 spectating = any(spectating_flags)
 car_indices = [int(packet.udp_packet.m_spectatorCarIndex) for packet in session_packets]
-# print(spectating_flags)
-# print(car_indices)
-# print(spectating)
+
 car_indices_set = set(car_indices)
+print(car_indices_set)
+print(car_indices)
 if spectating:
     if len(car_indices_set)>1:
         raise ValueError("Spectated datasets are only supported if you only spectate 1 car the entire time.")
@@ -140,15 +140,24 @@ print("Range of image session times after clipping: [%f,%f]" %(image_session_tim
 position_interpolant = scipy.interpolate.make_interp_spline(session_times, positions)
 rotation_interpolant = RotSpline(session_times, rotations)
 velocity_interpolant = scipy.interpolate.make_interp_spline(session_times, velocities)
-angular_velocities = np.array([extractAngularVelocity(packet.udp_packet) for packet in motion_packets])
-angular_velocity_interpolant = scipy.interpolate.make_interp_spline(session_times, angular_velocities)
 
 
 interpolated_positions = position_interpolant(image_session_timestamps)
 interpolated_velocities = velocity_interpolant(image_session_timestamps)
-interpolated_angular_velocities = angular_velocity_interpolant(image_session_timestamps)
-interpolated_quaternions = rotation_interpolant(image_session_timestamps)
-# interpolated_angular_velocities = rotation_interpolant(image_session_timestamps,order=1)
+interpolated_rotations = rotation_interpolant(image_session_timestamps)
+interpolated_quaternions = interpolated_rotations.as_quat()
+if spectating:
+    interpolated_angular_velocities = rotation_interpolant(image_session_timestamps,order=1)
+else:
+    angular_velocities = np.array([extractAngularVelocity(packet.udp_packet) for packet in motion_packets])
+    angular_velocity_interpolant = scipy.interpolate.make_interp_spline(session_times, angular_velocities)
+    interpolated_angular_velocities = angular_velocity_interpolant(image_session_timestamps)
+
+fig = plt.figure()
+plt.scatter(interpolated_positions[:,0], interpolated_positions[:,2])
+plt.show()
+plt.close("all")
+
 
 print()
 print(len(image_tags))
@@ -172,7 +181,7 @@ for i in tqdm(range(len(image_tags))):
     imagedict : dict = dict()
     imagedict["position"] = interpolated_positions[i].tolist()
     imagedict["session_time"] = image_session_timestamps[i]
-    imagedict["quaternion"] = interpolated_quaternions[i].as_quat().tolist()
+    imagedict["quaternion"] = interpolated_quaternions[i].tolist()
     imagedict["linear_velocity"] = interpolated_velocities[i].tolist()
     imagedict["angular_velocity"] = interpolated_angular_velocities[i].tolist()
     output_dict[key] = imagedict
@@ -192,5 +201,5 @@ with open(dictionary_file, "w") as f:
 
 geometric_data_file = os.path.join(output_dir, "geometric_data.npz")
 with open(geometric_data_file, "wb") as f:
-    np.savez(f, interpolated_positions=interpolated_positions, interpolated_quaternions = interpolated_quaternions.as_quat(), interpolated_velocities=interpolated_velocities, interpolated_angular_velocities=interpolated_angular_velocities, image_session_timestamps=image_session_timestamps)
+    np.savez(f, interpolated_positions=interpolated_positions, interpolated_quaternions = interpolated_quaternions, interpolated_velocities=interpolated_velocities, interpolated_angular_velocities=interpolated_angular_velocities, image_session_timestamps=image_session_timestamps)
 
