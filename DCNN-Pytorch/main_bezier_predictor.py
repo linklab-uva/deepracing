@@ -35,12 +35,17 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
 
         poses = imagedict["pose"].type(dtype).to(device=dev)
         with torch.no_grad():
-            pose_inverses = torch.linalg.inv(poses)
-            raceline_positions_global = (imagedict["raceline_positions"]).type(dtype).to(device=dev)
+            # pose_inverses = torch.linalg.inv(poses)
+            
+            poses[:,0:3,0:3] = poses[:,0:3,0:3].transpose(1,2)
+            poses[:,0:3,3] = torch.matmul(poses[:,0:3,0:3], -poses[:,0:3,3].unsqueeze(2))[:,:,0]
+            pose_inverses = poses
+
+            raceline_positions_global = (imagedict["positions"]).type(dtype).to(device=dev)
             raceline_positions_global_aug = torch.cat([raceline_positions_global, torch.ones_like(raceline_positions_global[:,:,0]).unsqueeze(2)], dim=2)
             raceline_positions = torch.matmul(raceline_positions_global_aug, pose_inverses[:,0:3].transpose(1,2))
 
-            raceline_velocities_global = (imagedict["raceline_velocities"]).type(dtype).to(device=dev)
+            raceline_velocities_global = (imagedict["velocities"]).type(dtype).to(device=dev)
             raceline_velocities = torch.matmul(raceline_velocities_global, pose_inverses[:,0:3,0:3].transpose(1,2))
             dt = times[:,-1]-times[:,0]
             s = (times - times[:,0,None])/dt[:,None]
@@ -64,7 +69,7 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
         pred_v_t = pred_v_s/dt[:,None,None]
 
         
-        loss = loss_func(pred_points, raceline_positions[:,:,[0,2]]) + 0.1*loss_func(pred_v_t, lsq_v_t)
+        loss = loss_func(pred_points, raceline_positions[:,:,[0,2]])# + 0.1*loss_func(pred_v_t, lsq_v_t)
         
         if debug and config["plot"]:
             a, (b, c) = plt.subplots(1, 2, sharey=False)
@@ -164,12 +169,15 @@ def go(argdict : dict):
 
 
     dsets=[]
-    raceline_file = dataset_config["raceline_file"]
     dset_tags = dataset_config["tags"]
     dsets_root = dataset_config["root_dir"]
     for dataset in dataset_config["datasets"]:
         dsetdir = os.path.join(dsets_root, dataset["subfolder"])
-        current_dset = FD.LocalRacelineDataset(dsetdir, raceline_file, context_length=context_length, lookahead_time=lookahead_time)
+        sample_count = dataset.get("sample_count", dataset_config.get("sample_count", 160))
+        raceline_file = dataset.get("raceline_file", dataset_config.get("raceline_file", None))
+        if raceline_file is None:
+            raise ValueError("Could not find raceline file for dataset:\n%s" % (str(dataset),))
+        current_dset = FD.LocalRacelineDataset(dsetdir, raceline_file, context_length=context_length, lookahead_time=lookahead_time, sample_count=sample_count)
         dsets.append(current_dset)
 
     if len(dsets)==1:

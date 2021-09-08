@@ -134,4 +134,4 @@ class LocalRacelineDataset(Dataset):
         pil_images = [F.to_pil_image(self.image_db_wrapper.getImage(key)[1].copy()) for key in keys]
         images = np.stack( [ F.to_tensor(img).numpy().astype(self.tfit.dtype) for img in pil_images ], axis=0 )
         
-        return {"pose": image_pose, "images": images, "t" : trtn, "raceline_positions" : pglobal, "raceline_velocities" : vglobal}
+        return {"pose": image_pose, "images": images, "t" : trtn, "positions" : pglobal, "velocities" : vglobal}
