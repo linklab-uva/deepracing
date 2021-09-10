@@ -64,8 +64,8 @@ class LinearAccelConstraint():
         self.ds = ds
         self.linearaccelmat=generate_linear_accel_mat(ds)
         self.buffer = np.zeros_like(self.ds)
-        speeds = np.asarray([              0.0,    42.5,   85.0,  87.25,  max_speed+0.1])
-        forward_accel_limits = np.asarray([16.0,   16.0,   1.25,  0.25,  0.0])*factor
+        speeds = np.asarray([              0.0,    42.5,   85.0,  90.25,  max_speed+0.1])
+        forward_accel_limits = np.asarray([15.25,  15.25,  1.25,   0.0,   0.0])*factor
         self.forward_accel_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, forward_accel_limits, k=1)
         self.forward_accel_spline_der : scipy.interpolate.BSpline = self.forward_accel_spline.derivative()
      #   print(self.linearaccelmat.toarray()[[0,1,2,3,-4,-3,-2,-1]], flush=True)
@@ -97,8 +97,8 @@ class CentripetalAccelerationConstraint():
         self.idx = np.arange(0, radii.shape[0], dtype=np.int64, step=1)
         maxspeedmph = 2.2369362920544025*maxspeed
         print("Max speed in MPH: %f" % (maxspeedmph,), flush=True)
-        speeds = np.asarray([0.0,    45.0,   60.0,  130.0,  170.0,  maxspeedmph+0.5], dtype=np.float64)/2.2369362920544025
-        maxcas = np.asarray([1.875,  1.875,  2.0,   3.00,   4.0,    4.5], dtype=np.float64)*9.81*factor
+        speeds = np.asarray([0.0,    45.0,   60.0,  130.0,  170.0, 200.0,  maxspeedmph+0.5], dtype=np.float64)/2.2369362920544025
+        maxcas = np.asarray([1.875,  1.875,  2.0,   3.00,   4.0,   4.5 ,   4.5], dtype=np.float64)*9.81*factor
         self.caspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, maxcas, k=1)
         self.casplineder : scipy.interpolate.BSpline = self.caspline.derivative()
        
@@ -153,7 +153,7 @@ class OptimWrapper():
         lb = np.square(15.0*np.ones_like(self.radii, dtype=self.radii.dtype))
         ub = np.square(self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
         if x0 is None:
-            x0 = np.square(0.95*self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
+            x0 = np.square(0.925*self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
         centripetal_accel_constraint : CentripetalAccelerationConstraint = CentripetalAccelerationConstraint(self.radii, self.maxspeed, factor=cafactor)
         braking_constraint : BrakingConstraint = BrakingConstraint(self.ds, self.maxspeed, factor=brakefactor)
         linear_accel_constraint : LinearAccelConstraint = LinearAccelConstraint(self.ds, self.maxspeed, factor=accelfactor)

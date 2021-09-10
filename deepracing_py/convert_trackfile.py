@@ -235,7 +235,7 @@ print("Optimizing over a space of size: %d" %(rsamp.shape[0],), flush=True)
 
 radii = (tangentnorms**3)/(np.linalg.norm(np.cross(tangents, accels, axis=1), ord=2, axis=1) + 1E-6)
 
-radii[radii>20000.0]=np.inf
+# radii[radii>20000.0]=np.inf
 
 rprint = 50
 print("First %d radii:\n%s" %(rprint, str(radii[0:rprint]),), flush=True)
