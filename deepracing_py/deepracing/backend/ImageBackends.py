@@ -73,14 +73,18 @@ class ImageLMDBWrapper():
         self.encoding = encoding
         self.spare_txns=1
         self.internal_cache = {}
-    def readImages(self, image_files, keys, db_path, im_size, ROI=None, mapsize=int(1e10)):
+    def readImages(self, image_files, keys, db_path, im_size, ROI=None, mapsize=int(1e10), tqdm=True):
         assert(len(image_files) > 0)
         assert(len(image_files) == len(keys))
         env = lmdb.open(db_path, map_size=mapsize)
         print("Loading image data", flush=True)
         cropped_images_dir = os.path.join(os.path.dirname(db_path),"cropped_images")
         os.makedirs(cropped_images_dir,exist_ok=True)
-        for i, key in tqdm(enumerate(keys), total=len(keys)):
+        if tqdm:
+            t = tqdm(enumerate(keys), total=len(keys))
+        else:
+            t = enumerate(keys)
+        for i, key in t:
             imgfile = image_files[i]
             base, ext = os.path.splitext(imgfile)
             system_time = None

@@ -1,8 +1,6 @@
 import numpy as np
 import os
 import argparse
-import skimage
-import skimage.io
 import shutil
 import deepracing.imutils
 import deepracing.backend
@@ -41,6 +39,7 @@ def main(args):
     imrows = args.imrows
     imcols = args.imcols
     roi = args.ROI
+    tqdm = args.tqdm
     dbpath = os.path.join(img_folder,"lmdb")
     if(os.path.isdir(dbpath)):
         if args.override:
@@ -102,7 +101,7 @@ def main(args):
         os.makedirs(dbpath)
     with open(os.path.join(dbpath,"config.yaml"),"w") as f:
         yaml.dump({"original_image_size": list(im.shape[0:2]),"image_size": im_size[0:2].tolist(), "topleft": topleft.tolist(), "cropfactors": cropfactors.tolist()}, f, Dumper=yaml.SafeDumper)
-    db.readImages(img_files, keys, dbpath, im_size[0:2].tolist(), ROI=(topleft[0],topleft[1],cropsize[0],cropsize[1]), mapsize=mapsize)
+    db.readImages(img_files, keys, dbpath, im_size[0:2].tolist(), ROI=(topleft[0],topleft[1],cropsize[0],cropsize[1]), mapsize=mapsize, tqdm = tqdm)
     print("Done creating LMDB", flush=True)
     db.readDatabase(dbpath, mapsize=mapsize, max_spare_txns=32)
     windowname="DB Image"
@@ -137,5 +136,6 @@ if __name__ == '__main__':
     parser.add_argument('--override', action="store_true", help='Delete existing DB if it already exists', default=None)
     parser.add_argument('--with-gui', action="store_true", help='Delete existing DB if it already exists', default=None)
     parser.add_argument('--imext', type=str, default=".jpg", help='Load image files with this extension')
+    parser.add_argument('--tqdm', action="store_true", help="Display tqdm progress bar", default=None)
     args = parser.parse_args()
     main(args)
