@@ -222,6 +222,9 @@ if isinnerboundary or isouterboundary:
     jsondict["x"] = xsamp.tolist()
     jsondict["y"] = ysamp.tolist()
     jsondict["z"] = zsamp.tolist()
+    jsondict["nx"] = unit_normals[:,0].tolist()
+    jsondict["ny"] = unit_normals[:,1].tolist()
+    jsondict["nz"] = unit_normals[:,2].tolist()
     jsondict["k"] = k
     jsondict["ds"] = ds
     
