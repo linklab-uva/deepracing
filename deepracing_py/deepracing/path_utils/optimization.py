@@ -33,7 +33,7 @@ class BrakingConstraint():
         self.linearaccelmat=generate_linear_accel_mat(ds)
         self.buffer = np.zeros_like(self.ds)
         speeds = np.asarray([        0.0, 20.0, 50.0, 84.0, max_speed+0.1])
-        braking_limits = np.asarray([9.8, 15.0, 35.0, 43.0, 43.0])*factor
+        braking_limits = np.asarray([9.8, 13.5, 33.5, 41.5, 41.5])*factor
         self.braking_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, braking_limits, k=1)
         self.braking_spline_der : scipy.interpolate.BSpline = self.braking_spline.derivative()
         print(self.linearaccelmat.toarray(), flush=True)
@@ -64,8 +64,8 @@ class LinearAccelConstraint():
         self.ds = ds
         self.linearaccelmat=generate_linear_accel_mat(ds)
         self.buffer = np.zeros_like(self.ds)
-        speeds = np.asarray([              0.0,    42.5,   85.0,  90.25,  max_speed+0.1])
-        forward_accel_limits = np.asarray([15.25,  15.25,  1.25,   0.0,   0.0])*factor
+        speeds = np.asarray([              0.0,    42.5,   87.5,  92.5,  max_speed+0.1])
+        forward_accel_limits = np.asarray([15.25,  15.25,  2.5,   0.0,   0.0])*factor
         self.forward_accel_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, forward_accel_limits, k=1)
         self.forward_accel_spline_der : scipy.interpolate.BSpline = self.forward_accel_spline.derivative()
      #   print(self.linearaccelmat.toarray()[[0,1,2,3,-4,-3,-2,-1]], flush=True)
@@ -98,7 +98,7 @@ class CentripetalAccelerationConstraint():
         maxspeedmph = 2.2369362920544025*maxspeed
         print("Max speed in MPH: %f" % (maxspeedmph,), flush=True)
         speeds = np.asarray([0.0,    45.0,   60.0,  130.0,  170.0, 200.0,  maxspeedmph+0.5], dtype=np.float64)/2.2369362920544025
-        maxcas = np.asarray([1.875,  1.875,  2.0,   3.00,   4.0,   4.5 ,   4.5], dtype=np.float64)*9.81*factor
+        maxcas = np.asarray([1.500,  1.500,  1.8,   2.75,   4.0,   4.5 ,   4.5], dtype=np.float64)*9.81*factor
         self.caspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, maxcas, k=1)
         self.casplineder : scipy.interpolate.BSpline = self.caspline.derivative()
        
