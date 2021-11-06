@@ -34,33 +34,32 @@ def quaternionToMatrix(quaternions: torch.Tensor):
         print(quaternions)
         raise ValueError("input quaternions must be normalized")
 
-    qi = quaternions[:,0]
-    qj = quaternions[:,1]
-    qk = quaternions[:,2]
     qw = quaternions[:,3]
-
     qtilde = quaternions[:,0:3]
-    I3 = torch.eye(3, dtype=qtilde.dtype, device=qtilde.device).unsqueeze(0).expand(Nquats,3,3)
-    Q = torch.zeros_like(I3)
+    qi = qtilde[:,0]
+    qj = qtilde[:,1]
+    qk = qtilde[:,2]
+    
+    eye3 = torch.eye(3, dtype=qtilde.dtype, device=qtilde.device).unsqueeze(0).expand(Nquats,3,3)
+    ctilde = torch.zeros_like(eye3)
 
-    Q[:,0,1] = -qk
-    Q[:,0,2] = qj
+    ctilde[:,0,1] = -qk
+    ctilde[:,0,2] = qj
 
-    Q[:,1,0] = qk
-    Q[:,1,2] = -qi
+    ctilde[:,1,0] = qk
+    ctilde[:,1,2] = -qi
 
-    Q[:,2,0] = -qj
-    Q[:,2,1] = qi
-
+    ctilde[:,2,0] = -qj
+    ctilde[:,2,1] = qi
 
     qtilde_unsqueeze = qtilde.unsqueeze(2)
 
-
     dots =  torch.sum(qtilde*qtilde, dim=1)
-    a = (torch.square(qw) - dots)[:,None,None]*I3
+
+    a = (torch.square(qw) - dots)[:,None,None]*eye3
 
     b = 2.0*torch.matmul(qtilde_unsqueeze, qtilde_unsqueeze.transpose(1,2))
 
-    c = 2*qw[:,None,None]*Q
+    c = 2*qw[:,None,None]*ctilde
 
     return a + b + c
