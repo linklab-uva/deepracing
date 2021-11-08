@@ -12,7 +12,6 @@
 //
 //*********************************************************
 
-#include "pch.h"
 #include "SimpleCapture.h"
 
 using namespace winrt;

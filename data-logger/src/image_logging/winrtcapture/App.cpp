@@ -12,7 +12,6 @@
 //
 //*********************************************************
 
-#include "pch.h"
 #include "App.h"
 #include "SimpleCapture.h"
 
