@@ -2,7 +2,7 @@
 //
 // Copyright (c) Microsoft. All rights reserved.
 // This code is licensed under the MIT License (MIT).
-// THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+// THE SOFTWARE IS PROVIDED ï¿½AS ISï¿½, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
 // INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
 // IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
@@ -54,6 +54,7 @@ SimpleCapture::SimpleCapture(
         2,
 		size);
     m_session = m_framePool.CreateCaptureSession(m_item);
+    m_session.IsCursorCaptureEnabled(false);
     m_lastSize = size;
 	m_frameArrived = m_framePool.FrameArrived(auto_revoke, { this, &SimpleCapture::OnFrameArrived });
 }
@@ -116,13 +117,13 @@ void SimpleCapture::OnFrameArrived(
         }
 
         {
-           // winrt::com_ptr<ID3D11Texture2D> frameSurface = GetDXGIInterfaceFromObject<ID3D11Texture2D>(frame.Surface());
+            winrt::com_ptr<ID3D11Texture2D> frameSurface = GetDXGIInterfaceFromObject<ID3D11Texture2D>(frame.Surface());
             
             com_ptr<ID3D11Texture2D> backBuffer;
             check_hresult(m_swapChain->GetBuffer(0, guid_of<ID3D11Texture2D>(), backBuffer.put_void()));
             
 
-           // m_d3dContext->CopyResource(backBuffer.get(), frameSurface.get());
+            m_d3dContext->CopyResource(backBuffer.get(), frameSurface.get());
         }
     }
 
