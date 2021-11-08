@@ -2,9 +2,8 @@
 #include <winrt/Windows.UI.Composition.h>
 #include <windows.ui.composition.interop.h>
 #include <d2d1_1.h>
-#include <f1_datalogger/image_logging/visibility_control.h>
 
-inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateCompositionGraphicsDevice(
+inline auto CreateCompositionGraphicsDevice(
     winrt::Windows::UI::Composition::Compositor const& compositor,
     ::IUnknown* device)
 {
@@ -17,7 +16,7 @@ inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateCompositionGraphicsDevice(
     return graphicsDevice;
 }
 
-inline void F1_DATALOGGER_IMAGE_LOGGING_PUBLIC ResizeSurface(
+inline void ResizeSurface(
     winrt::Windows::UI::Composition::CompositionDrawingSurface const& surface,
     winrt::Windows::Foundation::Size const& size)
 {
@@ -28,7 +27,7 @@ inline void F1_DATALOGGER_IMAGE_LOGGING_PUBLIC ResizeSurface(
     winrt::check_hresult(surfaceInterop->Resize(newSize));
 }
 
-inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC SurfaceBeginDraw(
+inline auto SurfaceBeginDraw(
     winrt::Windows::UI::Composition::CompositionDrawingSurface const& surface)
 {
     auto surfaceInterop = surface.as<ABI::Windows::UI::Composition::ICompositionDrawingSurfaceInterop>();
@@ -39,14 +38,14 @@ inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC SurfaceBeginDraw(
     return context;
 }
 
-inline void F1_DATALOGGER_IMAGE_LOGGING_PUBLIC SurfaceEndDraw(
+inline void SurfaceEndDraw(
     winrt::Windows::UI::Composition::CompositionDrawingSurface const& surface)
 {
     auto surfaceInterop = surface.as<ABI::Windows::UI::Composition::ICompositionDrawingSurfaceInterop>();
     winrt::check_hresult(surfaceInterop->EndDraw());
 }
 
-inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateCompositionSurfaceForSwapChain(
+inline auto CreateCompositionSurfaceForSwapChain(
     winrt::Windows::UI::Composition::Compositor const& compositor,
     ::IUnknown* swapChain)
 {

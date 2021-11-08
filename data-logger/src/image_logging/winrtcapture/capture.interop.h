@@ -2,9 +2,8 @@
 #include <winrt/Windows.Graphics.Capture.h>
 #include <windows.graphics.capture.interop.h>
 #include <windows.graphics.capture.h>
-#include <f1_datalogger/image_logging/visibility_control.h>
 
-inline auto F1_DATALOGGER_IMAGE_LOGGING_PUBLIC CreateCaptureItemForWindow(HWND hwnd)
+inline auto CreateCaptureItemForWindow(HWND hwnd)
 {
 	auto activation_factory = winrt::get_activation_factory<winrt::Windows::Graphics::Capture::GraphicsCaptureItem>();
 	auto interop_factory = activation_factory.as<IGraphicsCaptureItemInterop>();
