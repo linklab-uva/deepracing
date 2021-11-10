@@ -12,8 +12,7 @@
 //
 //*********************************************************
 
-#include "SimpleCapture.h"
-
+#include "f1_datalogger/image_logging/winrt/SimpleCapture.h"
 using namespace winrt;
 using namespace Windows;
 using namespace Windows::Foundation;
@@ -26,7 +25,7 @@ using namespace Windows::Foundation::Numerics;
 using namespace Windows::UI;
 using namespace Windows::UI::Composition;
 
-SimpleCapture::SimpleCapture(
+deepf1::winrtcapture::SimpleCapture::SimpleCapture(
     IDirect3DDevice const& device,
     GraphicsCaptureItem const& item)
 {
@@ -34,13 +33,13 @@ SimpleCapture::SimpleCapture(
     m_device = device;
 
 	// Set up 
-    auto d3dDevice = GetDXGIInterfaceFromObject<ID3D11Device>(m_device);
-    d3dDevice->GetImmediateContext(m_d3dContext.put());
+    m_d3dDevice = GetDXGIInterfaceFromObject<ID3D11Device>(m_device);
+    m_d3dDevice->GetImmediateContext(m_d3dContext.put());
 
 	auto size = m_item.Size();
 
     m_swapChain = CreateDXGISwapChain(
-        d3dDevice, 
+        m_d3dDevice, 
 		static_cast<uint32_t>(size.Width),
 		static_cast<uint32_t>(size.Height),
         static_cast<DXGI_FORMAT>(DirectXPixelFormat::B8G8R8A8UIntNormalized),
@@ -59,13 +58,14 @@ SimpleCapture::SimpleCapture(
 }
 
 // Start sending capture frames
-void SimpleCapture::StartCapture()
+void deepf1::winrtcapture::SimpleCapture::StartCapture()
 {
     CheckClosed();
+    m_oclCtx=cv::directx::ocl::initializeContextFromD3D11Device(m_d3dDevice.get());
     m_session.StartCapture();
 }
 
-ICompositionSurface SimpleCapture::CreateSurface(
+ICompositionSurface deepf1::winrtcapture::SimpleCapture::CreateSurface(
     Compositor const& compositor)
 {
     CheckClosed();
@@ -73,7 +73,7 @@ ICompositionSurface SimpleCapture::CreateSurface(
 }
 
 // Process captured frames
-void SimpleCapture::Close()
+void deepf1::winrtcapture::SimpleCapture::Close()
 {
     auto expected = false;
     if (m_closed.compare_exchange_strong(expected, true))
@@ -89,7 +89,7 @@ void SimpleCapture::Close()
     }
 }
 
-void SimpleCapture::OnFrameArrived(
+void deepf1::winrtcapture::SimpleCapture::OnFrameArrived(
     Direct3D11CaptureFramePool const& sender,
     winrt::Windows::Foundation::IInspectable const&)
 {
@@ -114,16 +114,33 @@ void SimpleCapture::OnFrameArrived(
                 static_cast<DXGI_FORMAT>(DirectXPixelFormat::B8G8R8A8UIntNormalized), 
                 0);
         }
-
+        std::chrono::duration<uint64_t, std::nano> dur = std::chrono::duration_cast< std::chrono::duration<uint64_t, std::nano> >(frame.SystemRelativeTime());
+        std::chrono::high_resolution_clock::time_point stamp(dur);
+        D3D11_TEXTURE2D_DESC desc;
         {
             winrt::com_ptr<ID3D11Texture2D> frameSurface = GetDXGIInterfaceFromObject<ID3D11Texture2D>(frame.Surface());
-            
-            com_ptr<ID3D11Texture2D> backBuffer;
+            winrt::com_ptr<ID3D11Texture2D> backBuffer;
             check_hresult(m_swapChain->GetBuffer(0, guid_of<ID3D11Texture2D>(), backBuffer.put_void()));
-            
-
             m_d3dContext->CopyResource(backBuffer.get(), frameSurface.get());
+            backBuffer->GetDesc(&desc);
+            desc.Usage = D3D11_USAGE_STAGING;
+            desc.BindFlags = 0;
+            desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+            desc.MiscFlags = 0;
+            m_d3dDevice->CreateTexture2D(&desc, nullptr, m_stagingTexture.put());
+            m_d3dContext->CopyResource(m_stagingTexture.get(), backBuffer.get());
+            std::lock_guard<std::mutex> lk(m_imagemutex);
+            m_d3dContext->Map(
+                    m_stagingTexture.get(),
+                    0,
+                    D3D11_MAP_READ,
+                    0,
+                    &m_mapInfo);
+            m_mat = cv::Mat(desc.Height,desc.Width, CV_8UC4, m_mapInfo.pData, m_mapInfo.RowPitch);   
         }
+        cv::namedWindow("image", cv::WINDOW_AUTOSIZE);
+        cv::imshow("image", getCurrentImage());
+        cv::waitKey(1);
     }
 
     DXGI_PRESENT_PARAMETERS presentParameters = { 0 };
@@ -139,3 +156,10 @@ void SimpleCapture::OnFrameArrived(
     }
 }
 
+cv::Mat deepf1::winrtcapture::SimpleCapture::getCurrentImage()
+{
+    std::lock_guard<std::mutex> lk(m_imagemutex);
+    cv::Mat rtn;
+    m_mat.copyTo(rtn);
+    return rtn;
+}

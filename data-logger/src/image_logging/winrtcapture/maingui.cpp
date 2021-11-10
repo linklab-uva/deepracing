@@ -13,7 +13,7 @@
 //*********************************************************
 
 #include "App.h"
-#include "SimpleCapture.h"
+#include "f1_datalogger/image_logging/winrt/SimpleCapture.h"
 #include <ShObjIdl.h>
 #include "Win32WindowEnumeration.h"
 

@@ -1,22 +1,34 @@
-find_package(WIL REQUIRED)
 
-add_executable(winrtcapture 
-	main.cpp
+add_library(${PROJECT_NAME}_winrtcapture 
+SimpleCapture.cpp
+)
+target_include_directories(${PROJECT_NAME}_winrtcapture 
+PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:include>
+    $<INSTALL_INTERFACE:include/f1_datalogger/image_logging/winrt>
+)
+target_compile_options(${PROJECT_NAME}_winrtcapture  PUBLIC "/Zc:__cplusplus")
+target_compile_definitions(${PROJECT_NAME}_winrtcapture 
+	PUBLIC _UNICODE UNICODE _AFXDLL _BIND_TO_CURRENT_CRT_VERSION _BIND_TO_CURRENT_MFC_VERSION "_WIN32_WINNT=${win32_ver}"
+    PRIVATE F1_DATALOGGER_IMAGE_LOGGING_BUILDING_DLL
+)
+target_link_libraries(${PROJECT_NAME}_winrtcapture 
+    PUBLIC Dwmapi windowsapp ${OpenCV_LIBRARIES} 
+)
+
+add_executable(winrtcapture_example
+	maingui.cpp
 	App.cpp
-	SimpleCapture.cpp
 )
-target_link_libraries(winrtcapture PRIVATE WIL::WIL Dwmapi windowsapp)
-target_link_options(winrtcapture PRIVATE "/manifestdependency:type=\'win32\' name=\'Microsoft.Windows.Common-Controls\' processorArchitecture=\'*\' language=\'*\' version=\'6.0.0.0\' publicKeyToken=\'6595b64144ccf1df\'")
-set_target_properties(winrtcapture PROPERTIES OUTPUT_NAME ${PROJECT_NAME}_graphics_capture_example WIN32_EXECUTABLE ON)
-target_include_directories(winrtcapture
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
-)
-target_compile_definitions(winrtcapture
-	PRIVATE _UNICODE UNICODE _AFXDLL _BIND_TO_CURRENT_CRT_VERSION _BIND_TO_CURRENT_MFC_VERSION
-)
-
-install(TARGETS winrtcapture
+target_link_libraries(winrtcapture_example PRIVATE ${PROJECT_NAME}_winrtcapture)
+set_target_properties(winrtcapture_example PROPERTIES OUTPUT_NAME ${PROJECT_NAME}_graphics_capture_example WIN32_EXECUTABLE ON)
+install(TARGETS winrtcapture_example
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
+)
+install(FILES 
+    common.h composition.interop.h d3dHelpers.h direct3d11.interop.h capture.interop.h Win32WindowEnumeration.h
+    DESTINATION include/f1_datalogger/image_logging/winrt
 )

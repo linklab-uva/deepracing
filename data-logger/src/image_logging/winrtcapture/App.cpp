@@ -13,7 +13,7 @@
 //*********************************************************
 
 #include "App.h"
-#include "SimpleCapture.h"
+#include "f1_datalogger/image_logging/winrt/SimpleCapture.h"
 
 using namespace winrt;
 using namespace Windows::System;
@@ -63,10 +63,10 @@ void App::StartCapture(HWND hwnd)
 
 	auto item = CreateCaptureItemForWindow(hwnd);
 
-    m_capture = std::make_unique<SimpleCapture>(m_device, item);
+    m_capture = std::make_unique<deepf1::winrtcapture::SimpleCapture>(m_device, item);
 
-    auto surface = m_capture->CreateSurface(m_compositor);
-    m_brush.Surface(surface);
+    // auto surface = m_capture->CreateSurface(m_compositor);
+    // m_brush.Surface(surface);
 
     m_capture->StartCapture();
 }

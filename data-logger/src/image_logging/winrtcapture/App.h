@@ -1,6 +1,12 @@
 #pragma once
 #include "common.h"
-class SimpleCapture;
+namespace deepf1
+{
+namespace winrtcapture
+{
+    class SimpleCapture;
+}
+}
 
 class App
 {
@@ -20,5 +26,5 @@ private:
     winrt::Windows::UI::Composition::CompositionSurfaceBrush m_brush{ nullptr };
 
     winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DDevice m_device{ nullptr };
-    std::unique_ptr<SimpleCapture> m_capture{ nullptr };
+    std::unique_ptr<deepf1::winrtcapture::SimpleCapture> m_capture{ nullptr };
 };
