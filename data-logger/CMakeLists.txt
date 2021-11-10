@@ -65,11 +65,7 @@ if(BUILD_DATALOGGER)
     option(YAML_CPP_DLL "Set this if YAML CPP was compiled as a DLL" ON)
     option(GUI_TOOLS "Attempt to build the GUI tools" OFF)
     set(BOOST_REQUIRED_COMPONENTS
-    date_time
     program_options
-    regex
-    system
-    thread
     )
     include(CheckCXXSourceCompiles)
     check_cxx_source_compiles("#include <filesystem>
@@ -77,14 +73,8 @@ if(BUILD_DATALOGGER)
     if(NOT HAS_STDCXXFS)
         list(APPEND BOOST_REQUIRED_COMPONENTS filesystem)
     endif(NOT HAS_STDCXXFS)
-    # set( Boost_USE_STATIC_LIBS (NOT ${BUILD_SHARED_LIBS}) )
-    set(Boost_USE_STATIC_LIBS OFF)
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        set(Boost_USE_DEBUG_LIBS ON)
-    else()
-        set(Boost_USE_DEBUG_LIBS OFF)
-    endif()
-    find_package(Boost CONFIG COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
+
+    find_package(Boost CONFIG QUIET COMPONENTS ${BOOST_REQUIRED_COMPONENTS})
     if(Boost_FOUND)
         message(STATUS "Found boost via cmake config at ${Boost_DIR}")
     else()
@@ -161,6 +151,10 @@ if(BUILD_DATALOGGER)
     )
     if(BUILD_CONTROLLERS)
         list(APPEND install_targets ${PROJECT_NAME}_controllers)
+    endif()
+    
+    if(WIN32 AND GUI_TOOLS)
+        list(APPEND install_targets ${PROJECT_NAME}_winrtcapture)
     endif()
     
     install(DIRECTORY include/${PROJECT_NAME}

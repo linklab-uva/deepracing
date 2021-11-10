@@ -12,18 +12,9 @@ target_compile_definitions(${PROJECT_NAME}_image_utils PRIVATE F1_DATALOGGER_IMA
 
 if(WIN32 AND GUI_TOOLS)
     add_subdirectory(winrtcapture)
-    add_subdirectory(qtcapture)
 endif()
-set(USE_WINRT_GRAPHICS OFF)
-configure_file(graphics_capture_config.h.in ${CMAKE_BINARY_DIR}/graphics_config/f1_datalogger/image_logging/graphics_capture_config.h @ONLY)
-if(USE_WINRT_GRAPHICS)
-    add_library(${PROJECT_NAME}_image_logging windowsrt/f1_framegrab_manager.cpp)
-    target_link_libraries(${PROJECT_NAME}_image_logging winrt_capture_lib)
-    target_compile_definitions(${PROJECT_NAME}_image_logging PUBLIC USE_WINRT_GRAPHICS)
-else()
-    add_library(${PROJECT_NAME}_image_logging screencapturelite/f1_framegrab_manager.cpp)
-    target_link_libraries(${PROJECT_NAME}_image_logging ${screen_capture_lite_PLATFORM_LIBS})
-endif()
+add_library(${PROJECT_NAME}_image_logging screencapturelite/f1_framegrab_manager.cpp)
+target_link_libraries(${PROJECT_NAME}_image_logging ${screen_capture_lite_PLATFORM_LIBS})
 target_link_libraries(${PROJECT_NAME}_image_logging ${PROJECT_NAME}_image_utils)
 target_include_directories(${PROJECT_NAME}_image_logging 
     PRIVATE
@@ -33,10 +24,6 @@ target_include_directories(${PROJECT_NAME}_image_logging
         $<INSTALL_INTERFACE:include>
 )
 target_compile_definitions(${PROJECT_NAME}_image_logging PRIVATE F1_DATALOGGER_IMAGE_LOGGING_BUILDING_DLL)
-install(FILES ${CMAKE_BINARY_DIR}/graphics_config/f1_datalogger/image_logging/graphics_capture_config.h
-    DESTINATION include/f1_datalogger/image_logging
-)
-
 
 set(${PROJECT_NAME}_image_logging_common_src
 common/multi_threaded_framegrab_handler.cpp

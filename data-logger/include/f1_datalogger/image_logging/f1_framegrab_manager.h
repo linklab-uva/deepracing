@@ -10,16 +10,8 @@
 #include "f1_datalogger/image_logging/framegrab_handler.h"
 #include <chrono>
 #include <f1_datalogger/image_logging/visibility_control.h>
-#include <f1_datalogger/image_logging/graphics_capture_config.h>
-#ifdef WINRT_GRAPHICS_CAPTURE
-  #include <OpencvCapture.h>
-  #include <Win32WindowEnumeration.h>
-  #include <winrt_utils.h>
-#else
-  #include <ScreenCapture.h>
-  namespace scl = SL::Screen_Capture;
-
-#endif
+#include <ScreenCapture.h>
+namespace scl = SL::Screen_Capture;
 
 
 namespace deepf1
