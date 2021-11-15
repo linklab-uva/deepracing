@@ -110,7 +110,7 @@ print("Range of session times: [%f,%f]" %(session_times[0], session_times[-1]))
 print("Range of udp system times: [%f,%f]" %(system_times[0], system_times[-1]))
 print("Range of image system times: [%f,%f]" %(image_timestamps[0], image_timestamps[-1]))
 
-poses = [extractPose(packet.udp_packet, car_index=car_index) for packet in motion_packets]
+poses = [extractPose(packet.udp_packet, car_index=car_index, zforward=False) for packet in motion_packets]
 velocities = np.array([extractVelocity(packet.udp_packet, car_index=car_index) for packet in motion_packets])
 positions = np.array([pose[0] for pose in poses])
 position_diffs = np.diff(positions, axis=0)
