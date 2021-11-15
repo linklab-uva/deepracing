@@ -24,7 +24,7 @@ def sensibleKnots(t, degree):
     return knots
 
 class LocalRacelineDataset(Dataset):
-    def __init__(self, root_dir : str, raceline_file : str, sample_count = 160, context_length : int = 5, lookahead_time : float = 2.0, dtype=np.float32):
+    def __init__(self, root_dir : str, raceline_file : str, sample_count = 160, context_length : int = 5, lookahead_time : float = 2.0, dtype=np.float64):
         super(LocalRacelineDataset, self).__init__()
         poses_dir = os.path.join(root_dir, "image_poses")
         key_file = os.path.join(poses_dir, "image_files.txt")
@@ -32,9 +32,7 @@ class LocalRacelineDataset(Dataset):
             self.keys = [key.replace("\n","") for key in f.readlines()]
 
         npz_file = os.path.join(poses_dir, "geometric_data.npz")
-        self.image_poses = np.empty((len(self.keys), 4, 4), dtype=dtype)
-        self.image_poses[:,-1] = 0.0
-        self.image_poses[:,-1,-1] = 1.0
+        self.image_poses = np.asarray([np.eye(4, dtype=dtype) for asdf in range(len(self.keys))])
         with open(npz_file, "rb") as f:
             data = np.load(f)
             self.image_poses[:,0:3,3]=data["interpolated_positions"].astype(dtype).copy()
@@ -101,10 +99,10 @@ class LocalRacelineDataset(Dataset):
         self.rfit : np.ndarray = np.asarray(rfit, dtype=dtype)
         self.speedfit : np.ndarray = np.asarray(speedfit, dtype=dtype)
         self.posfit = np.column_stack([xfit, yfit, zfit]).astype(dtype)
-        self.rlspline : BSpline = make_interp_spline(self.tfit, self.posfit) 
+        self.rlspline : BSpline = make_interp_spline(self.tfit, self.posfit, bc_type="natural") 
         self.rlderspline : BSpline = self.rlspline.derivative()
 
-        dt = 0.01
+        dt = 0.0075
         self.tsamp : np.ndarray = np.arange(self.tfit[0], self.tfit[-1], step=dt, dtype=dtype)
         self.possamp : np.ndarray = self.rlspline(self.tsamp).astype(dtype)
         print(self.tsamp.shape)
@@ -124,9 +122,6 @@ class LocalRacelineDataset(Dataset):
         t0 = self.tsamp[iclosest]
         tf = t0+self.lookahead_time
         trtn = np.linspace(t0, tf, num=self.sample_count, dtype=self.tfit.dtype)
-
-        
-
 
         pglobal = self.rlspline(trtn%self.tfit[-1]).astype(self.tfit.dtype)
         vglobal = self.rlderspline(trtn%self.tfit[-1]).astype(self.tfit.dtype)
