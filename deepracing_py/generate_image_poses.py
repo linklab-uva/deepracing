@@ -39,12 +39,13 @@ def poseSequenceLabelKey(label):
 parser = argparse.ArgumentParser()
 parser.add_argument("db_path", help="Path to root directory of DB",  type=str)
 parser.add_argument("--output_dir", help="Output directory for the labels. relative to the database folder",  default="image_poses", required=False)
+parser.add_argument("--zforward", help="Use the old-school z-forward convention for orientation of poses",  action="store_true", required=False)
 
 
 
 args = parser.parse_args()
 
-
+zforward : bool = args.zforward
 root_dir = args.db_path
 with open(os.path.join(root_dir,"f1_dataset_config.yaml"),"r") as f:
     config = yaml.load(f,Loader=yaml.SafeLoader)
@@ -110,7 +111,7 @@ print("Range of session times: [%f,%f]" %(session_times[0], session_times[-1]))
 print("Range of udp system times: [%f,%f]" %(system_times[0], system_times[-1]))
 print("Range of image system times: [%f,%f]" %(image_timestamps[0], image_timestamps[-1]))
 
-poses = [extractPose(packet.udp_packet, car_index=car_index, zforward=False) for packet in motion_packets]
+poses = [extractPose(packet.udp_packet, car_index=car_index, zforward=zforward) for packet in motion_packets]
 velocities = np.array([extractVelocity(packet.udp_packet, car_index=car_index) for packet in motion_packets])
 positions = np.array([pose[0] for pose in poses])
 position_diffs = np.diff(positions, axis=0)
@@ -198,6 +199,16 @@ with open(image_files, "w") as f:
 dictionary_file = os.path.join(output_dir, "image_poses.json")
 with open(dictionary_file, "w") as f:
     json.dump(output_dict, f, indent=3)
+
+metadata : dict = {
+    "zforward" : zforward,
+    "trackname" : trackNames[track_ids[0]],
+    "networkgame" : session_packets[0].udp_packet.m_networkGame>0,
+    "spectating" : spectating
+}
+metadata_file = os.path.join(output_dir, "metadata.json")
+with open(metadata_file, "w") as f:
+    json.dump(metadata, f, indent=3)
 
 geometric_data_file = os.path.join(output_dir, "geometric_data.npz")
 with open(geometric_data_file, "wb") as f:
