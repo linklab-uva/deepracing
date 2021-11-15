@@ -49,7 +49,7 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
             raceline_velocities = torch.matmul(raceline_velocities_global, pose_inverses[:,0:3,0:3].transpose(1,2))
             dt = times[:,-1]-times[:,0]
             s = (times - times[:,0,None])/dt[:,None]
-            Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(raceline_positions[:,:,[0,2]], bezier_order, t=s)
+            Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(raceline_positions[:,:,[0,1]], bezier_order, t=s)
             lsq_pos = torch.matmul(Mpos, controlpoints_fit)
             Mvel, lsq_v_s = deepracing_models.math_utils.bezier.bezierDerivative(controlpoints_fit, t=s)
             lsq_v_t = lsq_v_s/dt[:,None,None]
@@ -69,7 +69,7 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
         pred_v_t = pred_v_s/dt[:,None,None]
 
         
-        loss = loss_func(pred_points, raceline_positions[:,:,[0,2]])# + 0.1*loss_func(pred_v_t, lsq_v_t)
+        loss = loss_func(pred_points, raceline_positions[:,:,[0,1]])# + 0.1*loss_func(pred_v_t, lsq_v_t)
         
         if debug and config["plot"]:
             a, (b, c) = plt.subplots(1, 2, sharey=False)
@@ -85,17 +85,16 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
 
             xmin = torch.min(raceline_positions[0,:,0]).item() -  10
             xmax = torch.max(raceline_positions[0,:,0]).item() +  10
-            ymin = torch.min(raceline_positions[0,:,2]).item()
-            ymax = torch.max(raceline_positions[0,:,2]).item() +  2.5
+            ymax = torch.max(torch.abs(raceline_positions[0,:,1])).item() +  2.5
 
             rlpcpu = raceline_positions.cpu()
             predcpu = pred_points.detach().cpu()
             lsqcpu = lsq_pos.cpu()
-            ax2.plot(rlpcpu[0,:,0], rlpcpu[0,:,2], 'g+', label="Ground Truth Waypoints")
-            ax2.plot(lsqcpu[0,:,0], lsqcpu[0,:,1], c="b", label="LSQ Fit")
-            ax2.plot(predcpu[0,:,0], predcpu[0,:,1], c="r", label="Network Predictions")
-            ax2.set_xlim(xmax,xmin)
-            ax2.set_ylim(ymin,ymax)
+            ax2.plot(rlpcpu[0,:,1], rlpcpu[0,:,0], 'g+', label="Ground Truth Waypoints")
+            ax2.plot(lsqcpu[0,:,1], lsqcpu[0,:,0], c="b", label="LSQ Fit")
+            ax2.plot(predcpu[0,:,1], predcpu[0,:,0], c="r", label="Network Predictions")
+            ax2.set_xlim(ymax,-ymax)
+            ax2.set_ylim(xmin,xmax)
 
             plt.show()
             plt.close("all")
