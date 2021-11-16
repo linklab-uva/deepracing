@@ -40,7 +40,7 @@ from Pose3d_pb2 import Pose3d
 from typing import List
 import torchvision.transforms as T
 import torchvision.transforms.functional as F
-from deepracing_models.data_loading.image_transforms import IdentifyTransform
+from deepracing_models.data_loading.image_transforms import IdentityTransform
 import json
 import scipy.interpolate
 from scipy.interpolate import make_lsq_spline, BSpline
@@ -73,7 +73,7 @@ class PoseSequenceDataset(Dataset):
             self.db_keys = [keystring.replace('\n','') for keystring in keystrings]
         self.num_images = len(self.db_keys)
         self.position_indices = position_indices
-        self.transforms = [IdentifyTransform()] + extra_transforms
+        self.transforms = [IdentityTransform()] + extra_transforms
     def __len__(self):
         return (self.num_images - self.context_length - 1)*len(self.transforms)
     def __getitem__(self, input_index):

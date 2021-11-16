@@ -276,7 +276,7 @@ def extractPosition(packet , car_index = None):
    position = np.array((motion_data.m_worldPositionX, motion_data.m_worldPositionY, motion_data.m_worldPositionZ), dtype=np.float64)
    return position 
 
-def extractRotation(packet : PacketMotionData_pb2.PacketMotionData, car_index = None, zforward=True):
+def extractRotation(packet : PacketMotionData_pb2.PacketMotionData, car_index = None, zforward=False):
    if car_index is None:
       idx = packet.m_header.m_playerCarIndex
    else:
@@ -295,7 +295,7 @@ def extractRotation(packet : PacketMotionData_pb2.PacketMotionData, car_index = 
    quat = Rot.from_matrix(rotationmat).as_quat()
    return quat
 
-def extractPose(packet : PacketMotionData_pb2.PacketMotionData, car_index = None, zforward=True):
+def extractPose(packet : PacketMotionData_pb2.PacketMotionData, car_index = None, zforward=False):
    if car_index is None:
       idx = packet.m_header.m_playerCarIndex
    else:
