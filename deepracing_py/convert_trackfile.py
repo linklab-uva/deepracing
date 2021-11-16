@@ -240,7 +240,7 @@ radii = (tangentnorms**3)/(np.linalg.norm(np.cross(tangents, accels, axis=1), or
 
 # radii[radii>20000.0]=np.inf
 
-rprint = 50
+rprint = 100
 print("First %d radii:\n%s" %(rprint, str(radii[0:rprint]),), flush=True)
 print("Final %d radii:\n%s" %(rprint, str(radii[-rprint:]),), flush=True)
 
