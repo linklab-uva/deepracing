@@ -40,7 +40,7 @@ from Pose3d_pb2 import Pose3d
 from typing import List
 import torchvision.transforms as T
 import torchvision.transforms.functional as F
-from deepracing_models.data_loading.image_transforms import IdentifyTransform, AddGaussianNoise
+from deepracing_models.data_loading.image_transforms import IdentityTransform, AddGaussianNoise
 import json
 import scipy.interpolate
 from scipy.interpolate import make_lsq_spline, BSpline, make_interp_spline
@@ -66,7 +66,7 @@ class MultiAgentDataset(Dataset):
             self.db_keys = [keystring.replace('\n','') for keystring in keystrings]
         self.num_images = len(self.db_keys)
         self.position_indices = position_indices
-        self.transforms = [IdentifyTransform()] + extra_transforms
+        self.transforms = [IdentityTransform()] + extra_transforms
         self.return_other_agents = return_other_agents
         self.track_name = track_name
         self.downsample = downsample

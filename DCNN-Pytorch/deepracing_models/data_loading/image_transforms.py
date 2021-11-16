@@ -1,13 +1,13 @@
 import torchvision, torchvision.transforms.functional as F, torch
 from PIL.ImageFilter import GaussianBlur as GBPIL
 import PIL, PIL.Image
-class IdentifyTransform(torchvision.transforms.Lambda):
+class IdentityTransform(torchvision.transforms.Lambda):
     '''
     Does nothing, just returns the provided image as-is
     
     ''' 
     def __init__(self):
-        super(IdentifyTransform, self).__init__(lambda image: image)
+        super(IdentityTransform, self).__init__(lambda image: image)
 class AddGaussianNoise(object):
     '''
     Optionally add some white noise to an image.
@@ -31,7 +31,7 @@ class GaussianBlur(object):
     Calls PIL's GaussianBlur filter with the specified radius
     ''' 
     def __init__(self, radius):
-        #super(IdentifyTransform, self).__init__(lambda image: image)
+        #super(IdentityTransform, self).__init__(lambda image: image)
         self.gbPIL = GBPIL(radius=radius)
     def __call__(self, img):
         return img.filter(self.gbPIL)

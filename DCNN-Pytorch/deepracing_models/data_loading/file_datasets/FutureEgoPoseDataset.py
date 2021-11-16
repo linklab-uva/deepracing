@@ -11,7 +11,7 @@ from deepracing.backend import  ImageLMDBWrapper
 from scipy.spatial.transform import Rotation as Rot
 import torchvision.transforms as T
 import torchvision.transforms.functional as F
-from deepracing_models.data_loading.image_transforms import IdentifyTransform, AddGaussianNoise
+from deepracing_models.data_loading.image_transforms import IdentityTransform, AddGaussianNoise
 from scipy.interpolate import BSpline, make_interp_spline
 import os
 import json

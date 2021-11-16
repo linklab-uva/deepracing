@@ -24,7 +24,7 @@ from Pose3d_pb2 import Pose3d
 from typing import List, Tuple, Sequence
 import torchvision.transforms as T
 import torchvision.transforms.functional as F
-from deepracing_models.data_loading.image_transforms import IdentifyTransform
+from deepracing_models.data_loading.image_transforms import IdentityTransform
 import json
 import yaml
 from deepracing_models.data_loading import TimeIndex
