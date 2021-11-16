@@ -11,7 +11,7 @@ from deepracing.backend import  ImageLMDBWrapper
 from scipy.spatial.transform import Rotation as Rot
 import torchvision.transforms as T
 import torchvision.transforms.functional as F
-from deepracing_models.data_loading.image_transforms import IdentifyTransform, AddGaussianNoise
+from deepracing_models.data_loading.image_transforms import IdentityTransform, AddGaussianNoise
 from scipy.interpolate import BSpline, make_interp_spline
 import os
 import json
@@ -24,7 +24,7 @@ def sensibleKnots(t, degree):
     return knots
 
 class LocalRacelineDataset(Dataset):
-    def __init__(self, root_dir : str, raceline_file : str, sample_count = 160, context_length : int = 5, lookahead_time : float = 2.0, dtype=np.float64):
+    def __init__(self, root_dir : str, raceline_file : str, sample_count = 160, context_length : int = 5, lookahead_time : float = 2.0, dtype=np.float32):
         super(LocalRacelineDataset, self).__init__()
         poses_dir = os.path.join(root_dir, "image_poses")
         key_file = os.path.join(poses_dir, "image_files.txt")
