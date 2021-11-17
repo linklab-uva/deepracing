@@ -28,7 +28,7 @@ dsvec : np.ndarray = None
 spline : scipy.interpolate.BSpline = None
 jsonout : str = None
 def writeRacelineToFile(argdict : dict, velsquares : np.ndarray):
-    global rin, xin, yin, zin, rsamp, spline, jsonout
+    global rin, xin, yin, zin, rsamp, spline, jsonout, radii, dsvec
     vels = np.sqrt(velsquares)
 
     velinv = 1.0/vels
@@ -63,12 +63,12 @@ def writeRacelineToFile(argdict : dict, velsquares : np.ndarray):
     print("Final position distance: %f" % (np.linalg.norm(final_stretch_samp, ord=2),), flush=True)
 
 
-    fig2 = plt.figure()
-    plt.xlim(np.max(xtrue)+10, np.min(xtrue)-10)
-    plt.plot(positionsradii[:,0],positionsradii[:,2],'r')
-    plt.scatter(xtrue[1:], ztrue[1:], c='b', marker='o', s = 16.0*np.ones_like(xtrue[1:]))
-    plt.plot(xtrue[0], ztrue[0], 'g*')
-    plt.show()
+    # fig2 = plt.figure()
+    # plt.xlim(np.max(xtrue)+10, np.min(xtrue)-10)
+    # plt.plot(positionsradii[:,0],positionsradii[:,2],'r')
+    # plt.scatter(xtrue[1:], ztrue[1:], c='b', marker='o', s = 16.0*np.ones_like(xtrue[1:]))
+    # plt.plot(xtrue[0], ztrue[0], 'g*')
+    # plt.show()
 
 
     jsondict : dict = {}
@@ -92,7 +92,7 @@ def writeRacelineToFile(argdict : dict, velsquares : np.ndarray):
 
 
 def go(argdict):
-    global rin, xin, yin, zin, rsamp, spline, jsonout
+    global rin, xin, yin, zin, rsamp, spline, jsonout, radii, dsvec
     # if argdict["negate_normals"]:
     #     normalsign = -1.0
     # else:
@@ -239,9 +239,9 @@ def go(argdict):
     yin = Xin[:,2]
     zin = Xin[:,3]
 
-    xsamp = Xsamp[:,0]
-    ysamp = Xsamp[:,1]
-    zsamp = Xsamp[:,2]
+    xsamp : np.ndarray = Xsamp[:,0]
+    ysamp : np.ndarray = Xsamp[:,1]
+    zsamp : np.ndarray = Xsamp[:,2]
 
     diffs = Xsamp[1:] - Xsamp[:-1]
     diffnorms = np.linalg.norm(diffs,axis=1)
