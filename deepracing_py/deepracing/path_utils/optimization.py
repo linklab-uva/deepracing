@@ -64,8 +64,8 @@ class LinearAccelConstraint():
         self.ds = ds
         self.linearaccelmat=generate_linear_accel_mat(ds)
         self.buffer = np.zeros_like(self.ds)
-        speeds = np.asarray([              0.0,    42.5,   87.5,  92.5,  max_speed+0.1])
-        forward_accel_limits = np.asarray([16.5,   16.5,   3.0,   0.0,   0.0])*factor
+        speeds = np.asarray([              0.0,    55.5,   87.5,  max_speed,  2.0*max_speed])
+        forward_accel_limits = np.asarray([14.5,   14.5,   3.0,   0.0,   0.0])*factor
         self.forward_accel_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, forward_accel_limits, k=1)
         self.forward_accel_spline_der : scipy.interpolate.BSpline = self.forward_accel_spline.derivative()
      #   print(self.linearaccelmat.toarray()[[0,1,2,3,-4,-3,-2,-1]], flush=True)
@@ -149,11 +149,11 @@ class OptimWrapper():
         self.iter_counter+=1
         return (-np.sum(xcurr), self.grad)
 
-    def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False, keep_feasible=False, accelfactor=1.0, brakefactor=1.0, cafactor=1.0):
+    def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False, keep_feasible=False, accelfactor=1.0, brakefactor=1.0, cafactor=1.0, callback=None):
         lb = np.square(15.0*np.ones_like(self.radii, dtype=self.radii.dtype))
         ub = np.square(self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
         if x0 is None:
-            x0 = np.square(0.925*self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
+            x0 = np.square(0.99*self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
         centripetal_accel_constraint : CentripetalAccelerationConstraint = CentripetalAccelerationConstraint(self.radii, self.maxspeed, factor=cafactor)
         braking_constraint : BrakingConstraint = BrakingConstraint(self.ds, self.maxspeed, factor=brakefactor)
         linear_accel_constraint : LinearAccelConstraint = LinearAccelConstraint(self.ds, self.maxspeed, factor=accelfactor)
@@ -166,7 +166,7 @@ class OptimWrapper():
         else:
             hessp = None
         self.tick = time.time()
-        return x0, minimize(self.functional, x0, method=method, jac=True, hessp=hessp, constraints=constraints, options = {"maxiter": maxiter, "disp": disp}, bounds=Bounds(lb, ub, keep_feasible=keep_feasible))
+        return x0, minimize(self.functional, x0, method=method, jac=True, hessp=hessp, constraints=constraints, options = {"maxiter": maxiter, "disp": disp}, bounds=Bounds(lb, ub, keep_feasible=keep_feasible), callback=callback)
 
 
 
