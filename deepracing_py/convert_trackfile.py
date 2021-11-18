@@ -56,11 +56,11 @@ def writeRacelineToFile(argdict : dict, velsquares : np.ndarray):
     print("max centripetal acceleration: %f" % (np.max(np.abs(splinecentripetaccels))), flush=True)
 
 
-    psamp = truespline(tsamp)
-    xtrue = psamp[:,0]
-    ztrue = psamp[:,2]
-    final_stretch_samp = psamp[0] - psamp[-1]
-    print("Final position distance: %f" % (np.linalg.norm(final_stretch_samp, ord=2),), flush=True)
+    # psamp = truespline(tsamp)
+    # xtrue = psamp[:,0]
+    # ztrue = psamp[:,2]
+    # final_stretch_samp = psamp[0] - psamp[-1]
+    # print("Final position distance: %f" % (np.linalg.norm(final_stretch_samp, ord=2),), flush=True)
 
 
     # fig2 = plt.figure()
@@ -72,6 +72,7 @@ def writeRacelineToFile(argdict : dict, velsquares : np.ndarray):
 
 
     jsondict : dict = {}
+    jsondict["radii"] = radii.tolist()
     jsondict["speeds"] = vels.tolist()
     jsondict["r"] = rsamp.tolist()
     jsondict["t"] = tparameterized.tolist()
@@ -83,7 +84,7 @@ def writeRacelineToFile(argdict : dict, velsquares : np.ndarray):
     jsondict["yin"] = yin.tolist()
     jsondict["zin"] = zin.tolist()
     jsondict.update({key : argdict[key] for key in ["maxv", "method", "k", "ds"]})
-    assert(len(jsondict["r"]) == len(jsondict["t"]) == len(jsondict["x"]) == len(jsondict["y"]) == len(jsondict["z"]))
+    assert(len(jsondict["radii"]) == len(jsondict["r"]) == len(jsondict["t"]) == len(jsondict["x"]) == len(jsondict["y"]) == len(jsondict["z"]))
 
 
     with open(jsonout,"w") as f:
