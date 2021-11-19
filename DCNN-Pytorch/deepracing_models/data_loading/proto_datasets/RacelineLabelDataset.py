@@ -40,7 +40,7 @@ from Pose3d_pb2 import Pose3d
 from typing import List
 import torchvision.transforms as T
 import torchvision.transforms.functional as F
-from deepracing_models.data_loading.image_transforms import IdentifyTransform
+from deepracing_models.data_loading.image_transforms import IdentityTransform
 import json
 import scipy.interpolate
 from scipy.interpolate import make_lsq_spline, BSpline
@@ -75,7 +75,7 @@ class RacelineLabelDataset(Dataset):
         self.num_images = len(self.db_keys)
         self.length = self.num_images - 2 - context_length
         self.position_indices = position_indices
-        self.transforms = [IdentifyTransform()] + extra_transforms
+        self.transforms = [IdentityTransform()] + extra_transforms
         with open(raceline_json_file,"r") as f:
             rldict = json.load(f)
         self.raceline_global = np.row_stack([np.array(rldict["x"],dtype=np.float64), np.array(rldict["y"],dtype=np.float64), np.array(rldict["z"],dtype=np.float64),  np.ones_like(np.array(rldict["z"],dtype=np.float64))])

@@ -61,8 +61,8 @@ deepf1::winrtcapture::SimpleCapture::SimpleCapture(
 void deepf1::winrtcapture::SimpleCapture::StartCapture()
 {
     CheckClosed();
-    m_oclCtx=cv::directx::ocl::initializeContextFromD3D11Device(m_d3dDevice.get());
     m_session.StartCapture();
+    cv::namedWindow("image", cv::WindowFlags::WINDOW_AUTOSIZE);
 }
 
 ICompositionSurface deepf1::winrtcapture::SimpleCapture::CreateSurface(
@@ -136,11 +136,14 @@ void deepf1::winrtcapture::SimpleCapture::OnFrameArrived(
                     D3D11_MAP_READ,
                     0,
                     &m_mapInfo);
-            m_mat = cv::Mat(desc.Height,desc.Width, CV_8UC4, m_mapInfo.pData, m_mapInfo.RowPitch);   
+            m_mat = cv::Mat(desc.Height, desc.Width, CV_8UC4, m_mapInfo.pData, m_mapInfo.RowPitch);   
         }
-        cv::namedWindow("image", cv::WINDOW_AUTOSIZE);
-        cv::imshow("image", getCurrentImage());
-        cv::waitKey(1);
+        double prop = cv::getWindowProperty("image", cv::WindowPropertyFlags::WND_PROP_VISIBLE);
+        if (prop>0)
+        {
+            cv::imshow("image", getCurrentImage());
+            cv::waitKey(1);
+        }
     }
 
     DXGI_PRESENT_PARAMETERS presentParameters = { 0 };
@@ -158,8 +161,10 @@ void deepf1::winrtcapture::SimpleCapture::OnFrameArrived(
 
 cv::Mat deepf1::winrtcapture::SimpleCapture::getCurrentImage()
 {
-    std::lock_guard<std::mutex> lk(m_imagemutex);
     cv::Mat rtn;
-    m_mat.copyTo(rtn);
+    {
+        std::lock_guard<std::mutex> lk(m_imagemutex);
+        m_mat.copyTo(rtn);
+    }
     return rtn;
 }

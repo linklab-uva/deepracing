@@ -11,10 +11,10 @@ PUBLIC
 target_compile_options(${PROJECT_NAME}_winrtcapture  PUBLIC "/Zc:__cplusplus")
 target_compile_definitions(${PROJECT_NAME}_winrtcapture 
 	PUBLIC _UNICODE UNICODE _AFXDLL _BIND_TO_CURRENT_CRT_VERSION _BIND_TO_CURRENT_MFC_VERSION "_WIN32_WINNT=${win32_ver}"
-    PRIVATE F1_DATALOGGER_IMAGE_LOGGING_BUILDING_DLL
+    PRIVATE F1_DATALOGGER_WINRT_CAPTURE_BUILDING_DLL
 )
 target_link_libraries(${PROJECT_NAME}_winrtcapture 
-    PUBLIC Dwmapi windowsapp ${OpenCV_LIBRARIES} 
+    PUBLIC Dwmapi windowsapp opencv_core opencv_highgui
 )
 
 add_executable(winrtcapture_example
