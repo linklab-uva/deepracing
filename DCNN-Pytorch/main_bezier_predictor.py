@@ -176,7 +176,11 @@ def go(argdict : dict):
         raceline_file = dataset.get("raceline_file", dataset_config.get("raceline_file", None))
         if raceline_file is None:
             raise ValueError("Could not find raceline file for dataset:\n%s" % (str(dataset),))
-        current_dset = FD.LocalRacelineDataset(dsetdir, raceline_file, context_length=context_length, lookahead_time=lookahead_time, sample_count=sample_count)
+        if use_float:
+            dsettype = np.float32
+        else:
+            dsettype = np.float64
+        current_dset = FD.LocalRacelineDataset(dsetdir, raceline_file, dtype=dsettype, context_length=context_length, lookahead_time=lookahead_time, sample_count=sample_count)
         dsets.append(current_dset)
 
     if len(dsets)==1:
