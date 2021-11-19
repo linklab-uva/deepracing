@@ -123,10 +123,11 @@ class LocalRacelineDataset(Dataset):
         tf = t0+self.lookahead_time
         trtn = np.linspace(t0, tf, num=self.sample_count, dtype=self.tfit.dtype)
 
-        pglobal = self.rlspline(trtn%self.tfit[-1]).astype(self.tfit.dtype)
-        vglobal = self.rlderspline(trtn%self.tfit[-1]).astype(self.tfit.dtype)
+        pglobal : np.ndarray = self.rlspline(trtn%self.tfit[-1]).astype(self.tfit.dtype)
+        vglobal : np.ndarray = self.rlderspline(trtn%self.tfit[-1]).astype(self.tfit.dtype)
 
-        pil_images = [F.to_pil_image(self.image_db_wrapper.getImage(key)[1].copy()) for key in keys]
-        images = np.stack( [ F.to_tensor(img).numpy().astype(self.tfit.dtype) for img in pil_images ], axis=0 )
+       # pil_images = [F.to_pil_image(self.image_db_wrapper.getImage(key)[1].copy()) for key in keys]
+        # images = np.stack( [ F.to_tensor(img).numpy().astype(self.tfit.dtype) for img in pil_images ], axis=0 )
+        images = torch.stack( [ F.to_tensor(self.image_db_wrapper.getImage(key)[1].copy()) for key in keys ], dim=0 )
         
         return {"pose": image_pose, "images": images, "t" : trtn, "positions" : pglobal, "velocities" : vglobal}
