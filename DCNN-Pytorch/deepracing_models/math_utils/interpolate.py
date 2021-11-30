@@ -14,13 +14,13 @@ class LinearInterpolator(torch.nn.Module):
         xdeltas[xdeltas<0]=float("inf")
         idxi = torch.argmin(xdeltas, dim=2, keepdim=False)
         idxf = idxi + 1
-        speedsi=torch.stack([x_points[i,idxi[i]] for i in range(batch)], dim=0)
-        speedsf=torch.stack([x_points[i,idxf[i]] for i in range(batch)], dim=0)
-        limitsi=torch.stack([y_points[i,idxi[i]] for i in range(batch)], dim=0)
-        limitsf=torch.stack([y_points[i,idxf[i]] for i in range(batch)], dim=0)
-        dx = speedsf-speedsi
-        dy = limitsf-limitsi
-        ds = (x_samp-speedsi)/dx
-        return limitsi+ds*dy
+        xi=torch.stack([x_points[i,idxi[i]] for i in range(batch)], dim=0)
+        xf=torch.stack([x_points[i,idxf[i]] for i in range(batch)], dim=0)
+        yi=torch.stack([y_points[i,idxi[i]] for i in range(batch)], dim=0)
+        yf=torch.stack([y_points[i,idxf[i]] for i in range(batch)], dim=0)
+        dx = xf-xi
+        dy = yf-yi
+        ds = (x_samp-xi)/dx
+        return yi+ds*dy
 
 
