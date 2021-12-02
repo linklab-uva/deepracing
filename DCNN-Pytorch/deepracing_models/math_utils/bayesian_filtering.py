@@ -3,7 +3,7 @@ import torch.nn, torch.nn.parameter
 from deepracing_models.math_utils.interpolate import LinearInterpolator
 import deepracing_models.math_utils as mu
 class BayesianFilter(torch.nn.Module):
-    def __init__(self, speeds: torch.Tensor, braking_limits : torch.Tensor, num_points : int, bezier_order: int, num_samples : int\
+    def __init__(self, speeds: torch.Tensor, braking_limits : torch.Tensor, num_points : int, bezier_order: int, num_samples : int, \
                         beta_speed = 0.1, beta_ca = 1.0, beta_brake=1.0, beta_boundary=1.0, boundary_allowance=0.0):
         super(BayesianFilter,self).__init__()
         self.braking_limit_interp : LinearInterpolator = LinearInterpolator(speeds, braking_limits, requires_grad=False)
