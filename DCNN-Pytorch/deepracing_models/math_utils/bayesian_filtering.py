@@ -2,8 +2,11 @@ import torch
 import torch.nn, torch.nn.parameter
 from deepracing_models.math_utils.interpolate import LinearInterpolator
 import deepracing_models.math_utils as mu
+from deepracing_models.nn_models.LossFunctions import BoundaryLoss
+import torch.nn.functional as F
 class BayesianFilter(torch.nn.Module):
     def __init__(self, speeds: torch.Tensor, braking_limits : torch.Tensor, num_points : int, bezier_order: int, num_samples : int, \
+                        inner_boundary : torch.Tensor, inner_boundary_normals : torch.Tensor, outer_boundary : torch.Tensor, outer_boundary_normals : torch.Tensor, \
                         beta_speed = 0.1, beta_ca = 1.0, beta_brake=1.0, beta_boundary=1.0, boundary_allowance=0.0, \
                         max_centripetal_acceleration=19.6):
         super(BayesianFilter,self).__init__()
@@ -16,8 +19,16 @@ class BayesianFilter(torch.nn.Module):
         self.beta_speed : torch.nn.parameter.Parameter =  torch.nn.parameter.Parameter(torch.as_tensor(beta_speed, dtype=s.dtype), requires_grad=False)
         self.beta_boundary : torch.nn.parameter.Parameter =  torch.nn.parameter.Parameter(torch.as_tensor(beta_boundary, dtype=s.dtype), requires_grad=False)
         self.beta_brake : torch.nn.parameter.Parameter =  torch.nn.parameter.Parameter(torch.as_tensor(beta_brake, dtype=s.dtype), requires_grad=False)
-        self.beta_ca : torch.nn.parameter.Parameter =  torch.nn.parameter.Parameter(torch.as_tensor(beta_ca, dtype=torch.float64), requires_grad=False)
+        self.beta_ca : torch.nn.parameter.Parameter =  torch.nn.parameter.Parameter(torch.as_tensor(beta_ca, dtype=s.dtype), requires_grad=False)
         self.max_centripetal_acceleration = max_centripetal_acceleration
+
+        self.boundary_allowance = boundary_allowance
+        self.boundary_loss : BoundaryLoss = BoundaryLoss(time_reduction="all", batch_reduction="all", relu_type="Leaky", alpha=1.0, beta=1.0)
+        self.inner_boundary : torch.nn.parameter.Parameter =  torch.nn.parameter.Parameter(torch.as_tensor(inner_boundary, dtype=s.dtype).unsqueeze(0), requires_grad=False)
+        self.inner_boundary_normals : torch.nn.parameter.Parameter =  torch.nn.parameter.Parameter(torch.as_tensor(inner_boundary_normals, dtype=s.dtype).unsqueeze(0), requires_grad=False)
+        self.outer_boundary : torch.nn.parameter.Parameter =  torch.nn.parameter.Parameter(torch.as_tensor(outer_boundary, dtype=s.dtype).unsqueeze(0), requires_grad=False)
+        self.outer_boundary_normals : torch.nn.parameter.Parameter =  torch.nn.parameter.Parameter(torch.as_tensor(outer_boundary_normals, dtype=s.dtype).unsqueeze(0), requires_grad=False)
+    
     def forward(self, curve : torch.Tensor, deltaT : float):
         curve_unsqueeze = curve.unsqueeze(0)
         curves = curve_unsqueeze+torch.randn_like(curve_unsqueeze.expand(self.num_samples,-1,-1))
@@ -48,7 +59,22 @@ class BayesianFilter(torch.nn.Module):
         # ca_scores = torch.clip(torch.exp(-2.0*max_ca_deltas.double()), 0.0, 1.0)
         ca_scores = torch.clip(torch.exp(self.beta_ca*max_ca_deltas.double()), 0.0, 1.0)
 
-        score_products = ca_scores*braking_scores#*boundary_scores*speed_scores
+        curve_points = torch.matmul(self.bezierM[0], curves)
+        _, ib_distances = self.boundary_loss(curve_points, self.inner_boundary.expand(curve_points.shape[0], -1, -1), self.inner_boundary_normals.expand(curve_points.shape[0], -1, -1))
+        ib_max_distances, _ = torch.max(ib_distances, dim=1)
+        ib_max_distances=F.relu(ib_max_distances - self.boundary_allowance)
+
+        _, ob_distances = self.boundary_loss(curve_points, self.outer_boundary.expand(curve_points.shape[0], -1, -1), self.outer_boundary_normals.expand(curve_points.shape[0], -1, -1))
+        ob_max_distances, _ = torch.max(ob_distances, dim=1)
+        ob_max_distances=F.relu(ob_max_distances - self.boundary_allowance)
+
+        all_distances = torch.stack([ib_max_distances, ob_max_distances], dim=0)
+
+        overall_max_distances, _ = torch.max(all_distances, dim=0)
+
+        boundary_scores = torch.clip( torch.exp(-10.0*overall_max_distances.double()), 1E-32, 1.0)
+
+        score_products = ca_scores*braking_scores*boundary_scores#*speed_scores
         probs = (score_products/torch.sum(score_products))
 
         return torch.sum(probs[:,None,None]*curves.double(), dim=0).type(self.bezierM.dtype)
