@@ -4,7 +4,8 @@ from deepracing_models.math_utils.interpolate import LinearInterpolator
 import deepracing_models.math_utils as mu
 class BayesianFilter(torch.nn.Module):
     def __init__(self, speeds: torch.Tensor, braking_limits : torch.Tensor, num_points : int, bezier_order: int, num_samples : int, \
-                        beta_speed = 0.1, beta_ca = 1.0, beta_brake=1.0, beta_boundary=1.0, boundary_allowance=0.0):
+                        beta_speed = 0.1, beta_ca = 1.0, beta_brake=1.0, beta_boundary=1.0, boundary_allowance=0.0, \
+                        max_centripetal_acceleration=19.6):
         super(BayesianFilter,self).__init__()
         self.braking_limit_interp : LinearInterpolator = LinearInterpolator(speeds, braking_limits, requires_grad=False)
         self.num_samples : int = num_samples
@@ -16,6 +17,7 @@ class BayesianFilter(torch.nn.Module):
         self.beta_boundary : torch.nn.parameter.Parameter =  torch.nn.parameter.Parameter(torch.as_tensor(beta_boundary, dtype=s.dtype), requires_grad=False)
         self.beta_brake : torch.nn.parameter.Parameter =  torch.nn.parameter.Parameter(torch.as_tensor(beta_brake, dtype=s.dtype), requires_grad=False)
         self.beta_ca : torch.nn.parameter.Parameter =  torch.nn.parameter.Parameter(torch.as_tensor(beta_ca, dtype=torch.float64), requires_grad=False)
+        self.max_centripetal_acceleration = max_centripetal_acceleration
     def forward(self, curve : torch.Tensor, deltaT : float):
         curve_unsqueeze = curve.unsqueeze(0)
         curves = curve_unsqueeze+torch.randn_like(curve_unsqueeze.expand(self.num_samples,-1,-1))
@@ -49,4 +51,4 @@ class BayesianFilter(torch.nn.Module):
         score_products = ca_scores*braking_scores#*boundary_scores*speed_scores
         probs = (score_products/torch.sum(score_products))
 
-        return torch.sum(probs[:,None,None]*curves.double(), dim=0, keepdim=True).type(self.bezierM.dtype)
+        return torch.sum(probs[:,None,None]*curves.double(), dim=0).type(self.bezierM.dtype)
