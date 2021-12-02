@@ -31,7 +31,7 @@ class BayesianFilter(torch.nn.Module):
     
     def forward(self, curve : torch.Tensor, deltaT : float):
         curve_unsqueeze = curve.unsqueeze(0)
-        curves = curve_unsqueeze+torch.randn_like(curve_unsqueeze.expand(self.num_samples,-1,-1))
+        curves = curve_unsqueeze+torch.randn(self.num_samples, curve.shape[0], curve.shape[1], dtype=curve.dtype, device=curve.device)
         _, v_s = mu.bezierDerivative(curves, M=self.bezierMderiv[0])
         v_t=v_s/deltaT
         speeds = torch.norm(v_t,dim=2,p=2)
