@@ -37,6 +37,14 @@ class BayesianFilter(torch.nn.Module):
         speeds = torch.norm(v_t,dim=2,p=2)
         unit_tangents = v_t/speeds[:,:,None]
 
+        average_speeds = torch.mean(speeds,dim=1)
+        # max_average_speed = torch.max(average_speeds)
+        # initial_speeds = speeds[:,0]
+        # max_initial_speed = torch.max(initial_speeds)
+        # speed_scores = torch.exp(-12.5*(1.0-(average_speeds/max_average_speed)))
+        speed_scores = F.softmax(self.beta_speed*average_speeds, dim=0)
+        #speed_scores = speed_scores/torch.max(speed_scores)
+
         _, a_s = mu.bezierDerivative(curves, M=self.bezierM2ndderiv.expand(curves.shape[0],-1,-1), order=2)
         a_t=a_s/(deltaT*deltaT)
         linear_accels = torch.sum(a_t*unit_tangents, dim=2)
@@ -57,7 +65,7 @@ class BayesianFilter(torch.nn.Module):
         max_ca_deltas = torch.relu(ca_maxes - self.max_centripetal_acceleration)
         # max_ca_deltas, _ = torch.max(ca_deltas, dim=1)
         # ca_scores = torch.clip(torch.exp(-2.0*max_ca_deltas.double()), 0.0, 1.0)
-        ca_scores = torch.clip(torch.exp(self.beta_ca*max_ca_deltas.double()), 0.0, 1.0)
+        ca_scores = torch.clip(torch.exp(-self.beta_ca*max_ca_deltas.double()), 0.0, 1.0)
 
         curve_points = torch.matmul(self.bezierM[0], curves)
         _, ib_distances = self.boundary_loss(curve_points, self.inner_boundary.expand(curve_points.shape[0], -1, -1), self.inner_boundary_normals.expand(curve_points.shape[0], -1, -1))
@@ -72,9 +80,9 @@ class BayesianFilter(torch.nn.Module):
 
         overall_max_distances, _ = torch.max(all_distances, dim=0)
 
-        boundary_scores = torch.clip( torch.exp(-10.0*overall_max_distances.double()), 1E-32, 1.0)
+        boundary_scores = torch.clip( torch.exp(-self.beta_boundary*overall_max_distances.double()), 1E-32, 1.0)
 
-        score_products = ca_scores*braking_scores*boundary_scores#*speed_scores
+        score_products = ca_scores*braking_scores*boundary_scores*speed_scores
         probs = (score_products/torch.sum(score_products))
 
         return torch.sum(probs[:,None,None]*curves.double(), dim=0).type(self.bezierM.dtype)
