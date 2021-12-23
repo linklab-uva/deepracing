@@ -13,7 +13,11 @@ import deepracing.protobuf_utils
 from tqdm import tqdm as tqdm
 import yaml
 import matplotlib.pyplot as plt
-
+def sensibleKnots(t, degree):
+    numsamples = t.shape[0]
+    knots = [ t[int(numsamples/4)], t[int(numsamples/2)], t[int(3*numsamples/4)] ]
+    knots = np.r_[(t[0],)*(degree+1),  knots,  (t[-1],)*(degree+1)]
+    return knots
 
 def udpPacketKey(packet):
     return packet.udp_packet.m_header.m_sessionTime
@@ -53,21 +57,20 @@ telemetry_session_times = np.array([packet.udp_packet.m_header.m_sessionTime for
 
 motion_packets : List[TimestampedPacketMotionData_pb2.TimestampedPacketMotionData] = sorted(deepracing.protobuf_utils.getAllMotionPackets(motion_folder, use_json), key=udpPacketKey)
 motion_session_times = np.array([packet.udp_packet.m_header.m_sessionTime for packet in motion_packets])
-position_vectors = np.asarray([deepracing.protobuf_utils.extractPosition(packet.udp_packet) for packet in motion_packets])
-position_pca = sklearn.decomposition.PCA(n_components=2)
-position_pca.fit(position_vectors)
-position_vectors=position_pca.inverse_transform(position_pca.transform(position_vectors))
-position_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(motion_session_times, position_vectors, k=3)
-# velocityspline : scipy.interpolate.BSpline = position_spline.derivative()
-# velocity_vectors = velocityspline(motion_session_times)
+motion_session_times=motion_session_times-motion_session_times[0]
+idx = motion_session_times>3.0
+motion_session_times = motion_session_times[idx]
+motion_packets = [p for (i,p) in enumerate(motion_packets) if idx[i]]
 
 velocity_vectors = np.asarray([deepracing.protobuf_utils.extractVelocity(packet.udp_packet) for packet in motion_packets])
-velocity_pca = sklearn.decomposition.PCA(n_components=2)
-velocity_pca.fit(velocity_vectors)
-velocity_vectors=velocity_pca.inverse_transform(velocity_pca.transform(velocity_vectors))
-velocityspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(motion_session_times, velocity_vectors, k=1)
-
+#velocity_pca = sklearn.decomposition.PCA(n_components=2)
+#velocity_pca.fit(velocity_vectors)
+#velocity_vectors=velocity_pca.inverse_transform(velocity_pca.transform(velocity_vectors))
 speeds = np.linalg.norm(velocity_vectors, ord=2, axis=1)
+k=3
+velocityspline : scipy.interpolate.BSpline = scipy.interpolate.make_lsq_spline(motion_session_times, speeds, sensibleKnots(motion_session_times, k), k=k)
+# velocityspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(motion_session_times, velocity_vectors, k=1)
+
 idx = speeds>18.5
 motion_session_times = motion_session_times[idx]
 velocity_vectors = velocity_vectors[idx]
@@ -99,5 +102,11 @@ brakefig = plt.figure()
 plt.scatter(speeds[idxbrake], linear_accelerations[idxbrake])
 plt.xlabel("Speeds (m/s)")
 plt.ylabel("Linear Braking (m/s^2)")
+xmax = np.max(speeds[idxbrake])
+xmin = np.min(speeds[idxbrake])
+plt.xlim(xmax+1.0, xmin-1.0)
+ymax = np.max(linear_accelerations[idxbrake])
+ymin = np.min(linear_accelerations[idxbrake])
+plt.ylim(ymax+1.0, ymin-1.0)
 
 plt.show()

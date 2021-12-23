@@ -51,20 +51,15 @@ class BayesianFilter(torch.nn.Module):
         linear_accel_vecs = unit_tangents*linear_accels[:,:,None]
         braking_limits = self.braking_limit_interp(speeds)
         braking_constraint_violations = torch.clip(linear_accels - braking_limits, -1.0E9, 0.0)
-        # worst_braking_violations, _ = torch.min(braking_constraint_violations, dim=1)
-        # braking_scores = torch.clip(torch.exp(2.0*worst_braking_violations.double()), 0.0, 1.0)
-        mean_braking_violations = torch.mean(braking_constraint_violations, dim=1)
-        # braking_scores = torch.clip(torch.exp(2.0*mean_braking_violations.double()), 0.0, 1.0)
-        braking_scores = torch.clip(torch.exp(self.beta_brake*mean_braking_violations.double()), 0.0, 1.0)
+        worst_braking_violations, _ = torch.min(braking_constraint_violations, dim=1)
+        # mean_braking_violations = torch.mean(braking_constraint_violations, dim=1)
+        braking_scores = torch.clip(torch.exp(self.beta_brake*worst_braking_violations.double()), 0.0, 1.0)
         
                 
         centripetal_accel_vecs = a_t - linear_accel_vecs
         centripetal_accels = torch.norm(centripetal_accel_vecs, p=2, dim=2)
-        # centripetal_accels[centripetal_accels!=centripetal_accels] = 0.0
         ca_maxes, _ = torch.max(centripetal_accels, dim=1)
         max_ca_deltas = torch.relu(ca_maxes - self.max_centripetal_acceleration)
-        # max_ca_deltas, _ = torch.max(ca_deltas, dim=1)
-        # ca_scores = torch.clip(torch.exp(-2.0*max_ca_deltas.double()), 0.0, 1.0)
         ca_scores = torch.clip(torch.exp(-self.beta_ca*max_ca_deltas.double()), 0.0, 1.0)
 
         curve_points = torch.matmul(self.bezierM[0], curves)
