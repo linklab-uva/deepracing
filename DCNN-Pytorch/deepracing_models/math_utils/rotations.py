@@ -19,7 +19,7 @@ def pointDirectionToPose(positions : torch.Tensor, forward_vectors : torch.Tenso
 
     return poses
 
-def quaternionToMatrix(quaternions: torch.Tensor):
+def quaternionToMatrix(quaternions: torch.Tensor, check_norms=True):
     if quaternions.ndim == 1:
         return quaternionToMatrix(quaternions.unsqueeze(0))[0]
     elif quaternions.ndim == 2:
@@ -28,11 +28,11 @@ def quaternionToMatrix(quaternions: torch.Tensor):
     else:
         raise ValueError("Invalid input shape. input must be eiter a single quaternion (size 4) or a batch of quaternions [N x 4]")
 
-    Nquats = quaternions.shape[0]
-    norms = torch.norm(quaternions, p=2, dim=1)
-    if not torch.allclose(norms, torch.ones_like(norms)):
-        print(quaternions)
-        raise ValueError("input quaternions must be normalized")
+    if check_norms:
+        norms = torch.norm(quaternions, p=2, dim=1)
+        if not torch.allclose(norms, torch.ones_like(norms)):
+            print(quaternions)
+            raise ValueError("input quaternions must be normalized")
 
     qw = quaternions[:,3]
     qtilde = quaternions[:,0:3]
@@ -40,6 +40,7 @@ def quaternionToMatrix(quaternions: torch.Tensor):
     qj = qtilde[:,1]
     qk = qtilde[:,2]
     
+    Nquats = quaternions.shape[0]
     eye3 = torch.eye(3, dtype=qtilde.dtype, device=qtilde.device).unsqueeze(0).expand(Nquats,3,3)
     ctilde = torch.zeros_like(eye3)
 
