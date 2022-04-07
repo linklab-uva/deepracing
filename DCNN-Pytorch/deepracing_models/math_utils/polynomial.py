@@ -63,5 +63,4 @@ def polyroots(c):
     if num_coefficients == 2:
         return -c[:,0]/c[:,1]
     companion : torch.Tensor = polycompanion(c)
-    L_complex : torch.Tensor = torch.linalg.eigvals(companion)
-    return L_complex
+    return torch.linalg.eigvals(companion)
