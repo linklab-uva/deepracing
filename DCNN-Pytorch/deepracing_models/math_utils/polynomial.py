@@ -59,7 +59,7 @@ def polyroots(c):
     """
     # c is a trimmed copy
     num_coefficients : int = int(c.shape[1])
-    if len(c) < 2:
+    if num_coefficients < 2:
         raise ValueError("Polynomial of degree 0 not supported.")
     if num_coefficients == 2:
         return ((-c[:,0]/c[:,1]) + 0.0J*torch.zeros_like(c[:,0])).unsqueeze(1)
