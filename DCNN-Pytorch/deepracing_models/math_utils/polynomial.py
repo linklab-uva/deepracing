@@ -1,4 +1,5 @@
 import torch
+
 def polycompanion(c : torch.Tensor):
     """
     Exactly the same as the NumPy functions (https://numpy.org/doc/stable/reference/generated/numpy.polynomial.polynomial.polyroots.html) except operates on batches of polynomials.
@@ -30,7 +31,7 @@ def polycompanion(c : torch.Tensor):
     mat[:, :, -1] = -monic_coefficients[:,:-1]
     for i in range(0, mat.shape[1]-1):
         mat[:,i+1,i]=1.0
-    return mat
+    return mat.transpose(1,2)
 
 
 def polyroots(c):
@@ -61,6 +62,6 @@ def polyroots(c):
     if len(c) < 2:
         raise ValueError("Polynomial of degree 0 not supported.")
     if num_coefficients == 2:
-        return -c[:,0]/c[:,1]
+        return ((-c[:,0]/c[:,1]) + 0.0J*torch.zeros_like(c[:,0])).unsqueeze(1)
     companion : torch.Tensor = polycompanion(c)
     return torch.linalg.eigvals(companion)

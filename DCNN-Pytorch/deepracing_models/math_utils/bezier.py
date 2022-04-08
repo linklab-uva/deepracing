@@ -1,7 +1,28 @@
 import numpy as np
+import math
 import torch, torch.nn
 from scipy.special import comb as nChoosek
 from deepracing_models.math_utils.fitting import pinv
+
+def polynomialFormConversion(k : int, dtype=torch.float64, device=torch.device("cpu")):
+    topolyform : torch.Tensor = torch.zeros((k+1,k+1), dtype=dtype, device=device)
+    kfactorial : float = math.factorial(k)
+    topolyform[0,0]=topolyform[-1,-1]=1.0
+    for i in range(1, k+1):
+        outerfactor = kfactorial/math.factorial(k-i)
+        for j in range(0,i+1):
+            topolyform[i,j]=outerfactor/(math.factorial(j)*math.factorial(i-j))
+            if ((i+j)%2)!=0:
+                topolyform[i,j]*=-1.0
+            # else:
+                # rtn[i,j]=1.0/(math.factorial(j)*math.factorial(i-j))
+        # rtn[i]*=outerfactor
+    tobezierform = torch.linalg.inv(topolyform)
+    for i in range(0,k+1):
+        for j in range(0,k+1):
+            if j>i:
+                tobezierform[i,j]=0.0
+    return topolyform, tobezierform
 def Mtk(k,n,t):
     return torch.pow(t,k)*torch.pow(1-t,(n-k))*nChoosek(n,k)
 def bezierArcLength(control_points, d0=None, N=59, simpsonintervals=4 ):
