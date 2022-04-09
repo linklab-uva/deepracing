@@ -14,9 +14,8 @@ def polynomialFormConversion(k : int, dtype=torch.float64, device=torch.device("
             topolyform[i,j]=outerfactor/(math.factorial(j)*math.factorial(i-j))
             if ((i+j)%2)!=0:
                 topolyform[i,j]*=-1.0
-            # else:
-                # rtn[i,j]=1.0/(math.factorial(j)*math.factorial(i-j))
-        # rtn[i]*=outerfactor
+    #inverse of a lower triangular matrix is also lower triangular.
+    #force elements above the main diagonal to be zero
     tobezierform = torch.linalg.inv(topolyform)
     for i in range(0,k+1):
         for j in range(0,k+1):
