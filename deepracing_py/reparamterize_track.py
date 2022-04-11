@@ -143,16 +143,16 @@ def go(argdict : dict):
             plt.plot(ob_samp[:,1], ob_samp[:,0])
             plt.show()
 
-    delta_outer_rl : np.ndarray = oboutposes[:,0:3,3] - racelineposes[:,0:3,3]
-    delta_outer_rl = delta_outer_rl/(np.linalg.norm(delta_outer_rl, ord=2, axis=1)[:,np.newaxis])
+    # delta_outer_rl : np.ndarray = oboutposes[:,0:3,3] - racelineposes[:,0:3,3]
+    # delta_outer_rl = delta_outer_rl/(np.linalg.norm(delta_outer_rl, ord=2, axis=1)[:,np.newaxis])
 
-    delta_rl_inner : np.ndarray = racelineposes[:,0:3,3] - iboutposes[:,0:3,3]  
-    delta_rl_inner = delta_rl_inner/(np.linalg.norm(delta_rl_inner, ord=2, axis=1)[:,np.newaxis])
+    # delta_rl_inner : np.ndarray = racelineposes[:,0:3,3] - iboutposes[:,0:3,3]  
+    # delta_rl_inner = delta_rl_inner/(np.linalg.norm(delta_rl_inner, ord=2, axis=1)[:,np.newaxis])
 
-    dots = np.sum(delta_outer_rl*delta_rl_inner, axis=1)
-    print(dots)
-    print(np.min(dots))
-    print(np.max(dots))
+    # dots = np.sum(delta_outer_rl*delta_rl_inner, axis=1)
+    # print(dots)
+    # print(np.min(dots))
+    # print(np.max(dots))
 
 
 
@@ -165,18 +165,21 @@ def go(argdict : dict):
 
 
 
-    print(oboutposes[2])
+    # print(oboutposes[2])
     fig : matplotlib.figure.Figure = plt.figure()
     plt.plot(racelinex[0], racelinez[0], "g*")
-    # plt.plot(racelinex, racelinez)
     plt.quiver(raceline[:,0], raceline[:,2], racelinetangentvecs[:,0], racelinetangentvecs[:,2], angles="xy", scale=30.0)
     plt.quiver(iboutposes[:,0,3], iboutposes[:,2,3], iboutposes[:,0,0], iboutposes[:,2,0], angles="xy", scale=30.0, color="red")
     plt.quiver(oboutposes[:,0,3], oboutposes[:,2,3], oboutposes[:,0,0], oboutposes[:,2,0], angles="xy", scale=30.0, color="green")
-    # plt.plot(innerboundaryaug[0], innerboundaryaug[2], c="black")
-    # plt.plot(outerboundaryx, outerboundaryz, c="black")
-    # plt.xlim(maxx, minx)
     plt.ylim(maxz, minz)
     plt.show()
+
+    raceline_dir : str = os.path.dirname(racelinefile)
+    with open(os.path.join(raceline_dir, trackname+"_reparameterized.npz"), "wb") as f:
+        np.savez(f, racelineposes=racelineposes, iboutposes=iboutposes, oboutposes=oboutposes)
+
+
+
 
 
 if __name__=="__main__":
