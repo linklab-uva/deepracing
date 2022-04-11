@@ -105,7 +105,7 @@ def go(argdict : dict):
             ib_local_s[1:]=np.cumsum(np.linalg.norm(ib_samp[1:] - ib_samp[:-1], ord=2, axis=1))
             ib_local_s=ib_local_s-ib_local_s[int(ib_local_s.shape[0]/2)]
             ib_local_spline : scipy.interpolate.CubicSpline = scipy.interpolate.CubicSpline(ib_local_s, ib_samp) 
-            ib_roots : np.ndarray = ib_local_spline.roots(extrapolate=False)[0]
+            ib_roots : np.ndarray = ib_local_spline.roots(extrapolate=False, discontinuity=False)[0]
             ib_root_idx : int = np.argmin(np.abs(ib_roots))
             ib_root : np.ndarray = ib_roots[ib_root_idx]
             ib_root_point : np.ndarray = ib_local_spline(ib_root)
@@ -129,7 +129,7 @@ def go(argdict : dict):
             ob_local_s[1:]=np.cumsum(np.linalg.norm(ob_samp[1:] - ob_samp[:-1], ord=2, axis=1))
             ob_local_s=ob_local_s-ob_local_s[int(ob_local_s.shape[0]/2)]
             ob_local_spline : scipy.interpolate.CubicSpline = scipy.interpolate.CubicSpline(ob_local_s, ob_samp) 
-            ob_roots : np.ndarray = ob_local_spline.roots(extrapolate=False)[0]
+            ob_roots : np.ndarray = ob_local_spline.roots(extrapolate=False, discontinuity=False)[0]
             ob_root_idx : int = np.argmin(np.abs(ob_roots))
             ob_root : np.ndarray = ob_roots[ob_root_idx]
             ob_root_point : np.ndarray = ob_local_spline(ob_root)
@@ -179,6 +179,10 @@ def go(argdict : dict):
     plt.quiver(iboutpoints[:,0], iboutpoints[:,2], racelinetangentvecs[:,0], racelinetangentvecs[:,2], angles="xy", scale=30.0, color="red")
     plt.quiver(oboutpoints[:,0], oboutpoints[:,2], racelinetangentvecs[:,0], racelinetangentvecs[:,2], angles="xy", scale=30.0, color="green")
     plt.ylim(maxz, minz)
+    fig2 : matplotlib.figure.Figure = plt.figure()
+    plt.plot(tsamp, iboffsets, label="Inner Boundary Offsets")
+    plt.plot(tsamp, oboffsets, label="Outer Boundary Offsets")
+    plt.legend()
     plt.show()
 
     raceline_dir : str = os.path.dirname(racelinefile)
