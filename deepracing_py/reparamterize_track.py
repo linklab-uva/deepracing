@@ -79,9 +79,9 @@ def go(argdict : dict):
     racelineposes[:,0:3,3]=raceline
     # print(racelineposes)
 
-    iboutposes : np.ndarray = np.zeros_like(racelineposes)
-    oboutposes : np.ndarray = np.zeros_like(racelineposes)
-    iboutposes[:,3,3] = oboutposes[:,3,3] = 1.0
+    iboffsets : np.ndarray = np.zeros_like(racelineposes[:,0,0])
+    oboffsets : np.ndarray = np.zeros_like(racelineposes[:,0,0])
+    
 
     ib_kdtree : KDTree = KDTree(innerboundaryaug[0:3].T)
     ob_kdtree : KDTree = KDTree(outerboundaryaug[0:3].T)
@@ -99,18 +99,20 @@ def go(argdict : dict):
             # ibdistances : np.ndarray = np.linalg.norm(iblocal, ord=2, axis=1)
             # closest_ib_index : int = np.argmin(ibdistances)
             closest_ib_index : int = ib_kdtree.query(currentrlpose[0:3,3])[1]
-            ib_idx_samp : np.ndarray = np.arange(closest_ib_index-200, closest_ib_index+200, step=1, dtype=np.int64)%innerboundaryaug.shape[1]
+            ib_idx_samp : np.ndarray = np.arange(closest_ib_index-300, closest_ib_index+301, step=1, dtype=np.int64)%innerboundaryaug.shape[1]
             ib_samp : np.ndarray = (np.matmul(tmat, innerboundaryaug[:,ib_idx_samp])[0:3]).T
             ib_local_s : np.ndarray = np.zeros_like(ib_samp[:,0])
             ib_local_s[1:]=np.cumsum(np.linalg.norm(ib_samp[1:] - ib_samp[:-1], ord=2, axis=1))
+            ib_local_s=ib_local_s-ib_local_s[int(ib_local_s.shape[0]/2)]
             ib_local_spline : scipy.interpolate.CubicSpline = scipy.interpolate.CubicSpline(ib_local_s, ib_samp) 
             ib_roots : np.ndarray = ib_local_spline.roots(extrapolate=False)[0]
-            ib_local_pose : np.ndarray = np.eye(4, dtype=racelineposes.dtype)
-            ib_root : float = np.min(ib_roots[ib_roots>0])
-            # print(ib_roots)
-            ib_local_pose[0:3,3] = ib_local_spline(ib_root)
-            ib_local_pose[2,3] = 0.0
-            iboutposes[i] = np.matmul(currentrlpose, ib_local_pose)
+            ib_root_idx : int = np.argmin(np.abs(ib_roots))
+            ib_root : np.ndarray = ib_roots[ib_root_idx]
+            ib_root_point : np.ndarray = ib_local_spline(ib_root)
+            # print()
+            # print(ib_root)
+            # print(ib_root_point)
+            iboffsets[i] = ib_root_point[1]
             # print()
             # print(ib_local_pose)
             # print(iboutposes[i,0:3,3])
@@ -121,17 +123,20 @@ def go(argdict : dict):
             # ob_idx_samp : np.ndarray = np.arange(closest_ob_index-200, closest_ob_index+200, step=1, dtype=np.int64)%oblocal.shape[0]
             # ob_samp : np.ndarray = oblocal[ob_idx_samp]
             closest_ob_index : int = ob_kdtree.query(currentrlpose[0:3,3])[1]
-            ob_idx_samp : np.ndarray = np.arange(closest_ob_index-200, closest_ob_index+200, step=1, dtype=np.int64)%outerboundaryaug.shape[1]
+            ob_idx_samp : np.ndarray = np.arange(closest_ob_index-300, closest_ob_index+301, step=1, dtype=np.int64)%outerboundaryaug.shape[1]
             ob_samp : np.ndarray = (np.matmul(tmat, outerboundaryaug[:,ob_idx_samp])[0:3]).T
             ob_local_s : np.ndarray = np.zeros_like(ob_samp[:,0])
             ob_local_s[1:]=np.cumsum(np.linalg.norm(ob_samp[1:] - ob_samp[:-1], ord=2, axis=1))
+            ob_local_s=ob_local_s-ob_local_s[int(ob_local_s.shape[0]/2)]
             ob_local_spline : scipy.interpolate.CubicSpline = scipy.interpolate.CubicSpline(ob_local_s, ob_samp) 
             ob_roots : np.ndarray = ob_local_spline.roots(extrapolate=False)[0]
-            ob_root : float = np.min(ob_roots[ob_roots>0])
-            ob_local_pose : np.ndarray = np.eye(4, dtype=racelineposes.dtype)
-            ob_local_pose[0:3,3] = ob_local_spline(ob_root)
-            ob_local_pose[2,3] = 0.0
-            oboutposes[i] = np.matmul(currentrlpose, ob_local_pose)
+            ob_root_idx : int = np.argmin(np.abs(ob_roots))
+            ob_root : np.ndarray = ob_roots[ob_root_idx]
+            ob_root_point : np.ndarray = ob_local_spline(ob_root)
+            # print(ob_root)
+            # print(ob_root_point)
+            oboffsets[i] = ob_root_point[1]
+
             # print()
             # print(oboutposes[i,0:3,3])
             # raise Exception("blah")
@@ -143,16 +148,19 @@ def go(argdict : dict):
             plt.plot(ob_samp[:,1], ob_samp[:,0])
             plt.show()
 
-    # delta_outer_rl : np.ndarray = oboutposes[:,0:3,3] - racelineposes[:,0:3,3]
-    # delta_outer_rl = delta_outer_rl/(np.linalg.norm(delta_outer_rl, ord=2, axis=1)[:,np.newaxis])
+    iboutpoints : np.ndarray = raceline + racelineposes[:,0:3,1]*(iboffsets[:,np.newaxis])
+    oboutpoints : np.ndarray = raceline + racelineposes[:,0:3,1]*(oboffsets[:,np.newaxis])
 
-    # delta_rl_inner : np.ndarray = racelineposes[:,0:3,3] - iboutposes[:,0:3,3]  
-    # delta_rl_inner = delta_rl_inner/(np.linalg.norm(delta_rl_inner, ord=2, axis=1)[:,np.newaxis])
+    delta_outer_rl : np.ndarray = oboutpoints - racelineposes[:,0:3,3]
+    delta_outer_rl = delta_outer_rl/(np.linalg.norm(delta_outer_rl, ord=2, axis=1)[:,np.newaxis])
 
-    # dots = np.sum(delta_outer_rl*delta_rl_inner, axis=1)
-    # print(dots)
-    # print(np.min(dots))
-    # print(np.max(dots))
+    delta_rl_inner : np.ndarray = racelineposes[:,0:3,3] - iboutpoints
+    delta_rl_inner = delta_rl_inner/(np.linalg.norm(delta_rl_inner, ord=2, axis=1)[:,np.newaxis])
+
+    dots = np.sum(delta_outer_rl*delta_rl_inner, axis=1)
+    print(dots)
+    print(np.min(dots))
+    print(np.max(dots))
 
 
 
@@ -164,19 +172,18 @@ def go(argdict : dict):
 
 
 
-
     # print(oboutposes[2])
     fig : matplotlib.figure.Figure = plt.figure()
     plt.plot(racelinex[0], racelinez[0], "g*")
     plt.quiver(raceline[:,0], raceline[:,2], racelinetangentvecs[:,0], racelinetangentvecs[:,2], angles="xy", scale=30.0)
-    plt.quiver(iboutposes[:,0,3], iboutposes[:,2,3], iboutposes[:,0,0], iboutposes[:,2,0], angles="xy", scale=30.0, color="red")
-    plt.quiver(oboutposes[:,0,3], oboutposes[:,2,3], oboutposes[:,0,0], oboutposes[:,2,0], angles="xy", scale=30.0, color="green")
+    plt.quiver(iboutpoints[:,0], iboutpoints[:,2], racelinetangentvecs[:,0], racelinetangentvecs[:,2], angles="xy", scale=30.0, color="red")
+    plt.quiver(oboutpoints[:,0], oboutpoints[:,2], racelinetangentvecs[:,0], racelinetangentvecs[:,2], angles="xy", scale=30.0, color="green")
     plt.ylim(maxz, minz)
     plt.show()
 
     raceline_dir : str = os.path.dirname(racelinefile)
     with open(os.path.join(raceline_dir, trackname+"_reparameterized.npz"), "wb") as f:
-        np.savez(f, racelineposes=racelineposes, iboutposes=iboutposes, oboutposes=oboutposes)
+        np.savez(f, racelineposes=racelineposes, iboffsets=iboffsets, oboffsets=oboffsets)
 
 
 
