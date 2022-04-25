@@ -1,3 +1,4 @@
+from posixpath import isabs
 from typing import List
 import os
 import numpy as np
@@ -12,11 +13,14 @@ trackNames=["Australia", "France", "China", "Bahrain", "Spain", "Monaco",\
             "Russia", "Mexico", "Azerbaijan", "Bahrain_short", "Britan_short",\
             "USA_short", "Japan_short", "Rice242"]
 def searchForFile(filename : str, searchdirs : List[str]):
+    if os.path.isabs(filename):
+        return filename
     for searchdir in searchdirs:
-        entries = os.scandir(searchdir)
-        for entry in entries:
-            if os.path.isfile(entry.path) and entry.name==filename:
-                return entry.path
+        if os.path.isdir(searchdir):
+            entries = os.scandir(searchdir)
+            for entry in entries:
+                if os.path.isfile(entry.path) and entry.name==filename:
+                    return entry.path
     return None 
 
 class CarGeometry():
