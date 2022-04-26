@@ -151,6 +151,8 @@ def go(argdict):
         pca = sklearn.decomposition.PCA(n_components=2)
         pca.fit(allpoints)
         print(pca.components_)
+        normalvec : np.ndarray = np.cross(pca.components_[0], pca.components_[1])
+        print(normalvec)
         print(pca.explained_variance_ratio_)
         print(np.sum(pca.explained_variance_ratio_))
         Xin[:,1:] = pca.inverse_transform(pca.transform(Xin[:,1:]))
