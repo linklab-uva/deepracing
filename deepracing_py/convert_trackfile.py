@@ -182,8 +182,7 @@ def go(argdict):
         plt.plot(innerboundary[:,0], innerboundary[:,2], c="black")
         plt.plot(outerboundary[:,0], outerboundary[:,2], c="black")
     plt.title("Input Trackfile")
-    plt.show()
-    del fig1
+
     # rnormalized = Xin[:,0] - Xin[0,0]
     # rnormalized = rnormalized/rnormalized[-1]
 
@@ -261,7 +260,7 @@ def go(argdict):
     diffnorms = np.linalg.norm(diffs,axis=1)
 
     fig2 = plt.figure()
-    plt.xlim(np.max(xsamp)+10, np.min(xsamp)-10)
+    plt.ylim(np.max(zsamp)+10, np.min(zsamp)-10)
     # ax = fig.gca(projection='3d')
     # ax.scatter(x, y, z, c='r', marker='o', s =2.0*np.ones_like(x))
     # ax.quiver(x, y, z, unit_normals[:,0], unit_normals[:,1], unit_normals[:,2], length=50.0, normalize=True)
