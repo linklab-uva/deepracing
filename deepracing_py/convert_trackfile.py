@@ -9,11 +9,11 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import scipy.interpolate
 import json
-from functools import reduce
 from deepracing.path_utils.optimization import OptimWrapper
 import deepracing.path_utils.geometric as geometric
 from shapely.geometry.polygon import Polygon
 from shapely.geometry import LinearRing
+from typing import List
 import sklearn.decomposition
 import deepracing
 from functools import partial
@@ -111,10 +111,12 @@ def go(argdict):
     ds = argdict["ds"]
     k = argdict["k"]
     if isracingline:
-        with open(deepracing.searchForFile(trackname+"_innerlimit.json", str.split(os.getenv("F1_TRACK_DIRS", os.pathsep))), "r") as f:
+        searchdirs : List[str] = str.split(os.getenv("F1_TRACK_DIRS"), os.pathsep)
+        print(searchdirs)
+        with open(deepracing.searchForFile(trackname+"_innerlimit.json", searchdirs), "r") as f:
             d = json.load(f)
         innerboundary = np.column_stack([d[k] for k in ["x","y","z"]])
-        with open(deepracing.searchForFile(trackname+"_outerlimit.json", str.split(os.getenv("F1_TRACK_DIRS", os.pathsep))), "r") as f:
+        with open(deepracing.searchForFile(trackname+"_outerlimit.json", searchdirs), "r") as f:
             d = json.load(f)
         outerboundary = np.column_stack([d[k] for k in ["x","y","z"]])
         del d
@@ -144,11 +146,14 @@ def go(argdict):
         Xin[:,0] = Xin[:,0] - Xin[0,0]
         minimumcurvatureguess=False
     if isracingline:
-        bothboundaries = np.concatenate([innerboundary, outerboundary], axis=0)
-        # print("Doing PCA projection", flush=True)
-        # pca = sklearn.decomposition.PCA(n_components=2)
-        # pca.fit(bothboundaries)
-        # Xin[:,1:] = pca.inverse_transform(pca.transform(Xin[:,1:]))
+        allpoints = np.concatenate([innerboundary, outerboundary, Xin[:,[1,2,3]]], axis=0)
+        print("Doing PCA projection", flush=True)
+        pca = sklearn.decomposition.PCA(n_components=2)
+        pca.fit(allpoints)
+        print(pca.components_)
+        print(pca.explained_variance_ratio_)
+        print(np.sum(pca.explained_variance_ratio_))
+        Xin[:,1:] = pca.inverse_transform(pca.transform(Xin[:,1:]))
     final_vector = Xin[0,1:] - Xin[-1,1:]
     final_distance = np.linalg.norm(final_vector)
     print("initial final distance: %f" %(final_distance,), flush=True)
@@ -166,8 +171,11 @@ def go(argdict):
     print("final final distance: %f" %(final_distance,), flush=True)
 
     fig1 = plt.figure()
+    zmin : float = np.min(Xin[:,3])
+    zmax : float = np.max(Xin[:,3])
     plt.plot(Xin[0,1], Xin[0,3], 'g*')
     plt.plot(Xin[:,1], Xin[:,3], c="blue")
+    plt.ylim(zmax+10.0, zmin-10.0)
     if isracingline:
         plt.plot(innerboundary[:,0], innerboundary[:,2], c="black")
         plt.plot(outerboundary[:,0], outerboundary[:,2], c="black")
@@ -200,7 +208,7 @@ def go(argdict):
     ref = np.array([0.0, 1.0, 0.0], dtype=np.float64)
     if isinnerboundary:
         ref*=-1.0
-    spline, Xsamp, unit_tangents, unit_normals = geometric.computeTangentsAndNormals(rin, Xin[:,1:], k=k, rsamp=rsamp, ref=ref)
+    spline, Xsamp, speeds, unit_tangents, unit_normals = geometric.computeTangentsAndNormals(rin, Xin[:,1:], k=k, rsamp=rsamp, ref=ref)
     tangentspline : scipy.interpolate.BSpline = spline.derivative(nu=1)
     accelspline : scipy.interpolate.BSpline = spline.derivative(nu=2)
 
@@ -220,6 +228,9 @@ def go(argdict):
     longitudinal_accelmags = np.sum(accels*unit_tangents, axis=1)
     longitudinal_accels = unit_tangents*longitudinal_accelmags[:,np.newaxis]
     lateral_accels = accels - longitudinal_accels
+    lateral_accelmags = np.linalg.norm(lateral_accels, ord=2, axis=1)
+    speedsquares : np.ndarray = np.square(speeds)
+
 
 
 
@@ -299,8 +310,9 @@ def go(argdict):
     print("Optimizing over a space of size: %d" %(rsamp.shape[0],), flush=True)
 
 
-    radii = (tangentnorms**3)/np.linalg.norm(np.cross(tangents, accels, axis=1), ord=2, axis=1)
-    radii[radii>10000.0]=np.inf
+    # radii = (tangentnorms**3)/np.linalg.norm(np.cross(tangents, accels, axis=1), ord=2, axis=1)
+    radii = speedsquares/lateral_accelmags
+    radii[radii>5000.0]=np.inf
 
     rprint = 100
     print("First %d radii:\n%s" %(rprint, str(radii[0:rprint]),), flush=True)
