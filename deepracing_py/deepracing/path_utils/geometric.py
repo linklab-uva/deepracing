@@ -13,8 +13,8 @@ def computeTangentsAndNormals(r, X, k = 3, rsamp = None, ref = np.array([0.0,1.0
         rsamp_ = rsamp.copy()
     points = spline(rsamp_)
     tangents = tangentspline(rsamp_)
-    tangentnorms = np.linalg.norm(tangents, ord=2, axis=1)
-    unit_tangents = tangents/tangentnorms[:,np.newaxis]
+    speeds = np.linalg.norm(tangents, ord=2, axis=1)
+    unit_tangents = tangents/speeds[:,np.newaxis]
 
     numpoints = points.shape[0]
     ref_ = np.stack([ref for asdf in range(numpoints)])
@@ -26,7 +26,7 @@ def computeTangentsAndNormals(r, X, k = 3, rsamp = None, ref = np.array([0.0,1.0
     normals = np.cross(v2, unit_tangents)
     unit_normals = normals/np.linalg.norm(normals, axis=1, ord=2)[:,np.newaxis]
 
-    return spline, points, unit_tangents, unit_normals
+    return spline, points, speeds, unit_tangents, unit_normals
 
 
     
