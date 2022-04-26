@@ -150,7 +150,7 @@ class OptimWrapper():
         return (-np.sum(xcurr), self.grad)
 
     def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False, keep_feasible=False, accelfactor=1.0, brakefactor=1.0, cafactor=1.0, callback=None):
-        lb = np.square(15.0*np.ones_like(self.radii, dtype=self.radii.dtype))
+        lb = np.square(17.0*np.ones_like(self.radii, dtype=self.radii.dtype))
         ub = np.square(self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
         if x0 is None:
             x0 = np.square(0.99*self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
