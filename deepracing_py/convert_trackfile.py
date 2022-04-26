@@ -314,9 +314,11 @@ def go(argdict):
 
     # radii = (tangentnorms**3)/np.linalg.norm(np.cross(tangents, accels, axis=1), ord=2, axis=1)
     radii = speedsquares/lateral_accelmags
+    rprint = 100
+    radii[0:30] = radii[-30:] = np.inf
     radii[radii>5000.0]=np.inf
 
-    rprint = 100
+
     print("First %d radii:\n%s" %(rprint, str(radii[0:rprint]),), flush=True)
     print("Final %d radii:\n%s" %(rprint, str(radii[-rprint:]),), flush=True)
 
