@@ -1,3 +1,4 @@
+from types import NoneType
 from typing import Any
 import numpy as np
 import numpy.linalg as la
@@ -148,7 +149,7 @@ def go(argdict):
     if isracingline:
         allpoints = np.concatenate([innerboundary, outerboundary, Xin[:,[1,2,3]]], axis=0)
         print("Doing PCA projection", flush=True)
-        pca = sklearn.decomposition.PCA(n_components=2)
+        pca : sklearn.decomposition.PCA = sklearn.decomposition.PCA(n_components=2)
         pca.fit(allpoints)
         print(pca.components_)
         normalvec : np.ndarray = np.cross(pca.components_[0], pca.components_[1])
@@ -156,6 +157,10 @@ def go(argdict):
         print(pca.explained_variance_ratio_)
         print(np.sum(pca.explained_variance_ratio_))
         Xin[:,1:] = pca.inverse_transform(pca.transform(Xin[:,1:]))
+        innerboundary = pca.inverse_transform(pca.transform(innerboundary))
+        outerboundary = pca.inverse_transform(pca.transform(outerboundary))
+    else:
+        pca = None
     final_vector = Xin[0,1:] - Xin[-1,1:]
     final_distance = np.linalg.norm(final_vector)
     print("initial final distance: %f" %(final_distance,), flush=True)
@@ -314,8 +319,10 @@ def go(argdict):
     # radii = (tangentnorms**3)/np.linalg.norm(np.cross(tangents, accels, axis=1), ord=2, axis=1)
     radii = speedsquares/lateral_accelmags
     rprint = 100
-    radii[0:30] = radii[-30:] = np.inf
-    radii[radii>5000.0]=np.inf
+    idxhardcode = int(round(125.0/ds))
+    print("idxhardcode: %d" %(idxhardcode,), flush=True)
+    radii[0:idxhardcode] = radii[-idxhardcode:] = np.inf
+    radii[radii>2500.0]=np.inf
 
 
     print("First %d radii:\n%s" %(rprint, str(radii[0:rprint]),), flush=True)
