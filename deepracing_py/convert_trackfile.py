@@ -161,6 +161,7 @@ def go(argdict):
         outerboundary = pca.inverse_transform(pca.transform(outerboundary))
     else:
         pca = None
+        normalvec : np.ndarray = np.asarray([0.0,1.0,0.0], dtype=Xin.dtype)
     final_vector = Xin[0,1:] - Xin[-1,1:]
     final_distance = np.linalg.norm(final_vector)
     print("initial final distance: %f" %(final_distance,), flush=True)
@@ -227,26 +228,18 @@ def go(argdict):
     tangents = tangentspline(rsamp)
     tangentnorms = np.linalg.norm(tangents, ord=2, axis=1)
     unit_tangents = tangents/tangentnorms[:,np.newaxis]
-
-
+    unit_normals = np.cross(np.stack([normalvec for asdf in range(unit_tangents.shape[0])], axis=0), unit_tangents)
     accels = accelspline(rsamp)
-    accelnorms = np.linalg.norm(accels, ord=2, axis=1)
-    longitudinal_accelmags = np.sum(accels*unit_tangents, axis=1)
-    longitudinal_accels = unit_tangents*longitudinal_accelmags[:,np.newaxis]
-    lateral_accels = accels - longitudinal_accels
-    lateral_accelmags = np.linalg.norm(lateral_accels, ord=2, axis=1)
+    # accelnorms = np.linalg.norm(accels, ord=2, axis=1)
+    # longitudinal_accelmags = np.sum(accels*unit_tangents, axis=1)
+    # longitudinal_accels = unit_tangents*longitudinal_accelmags[:,np.newaxis]
+    # lateral_accels = accels - longitudinal_accels
+    # lateral_accelmags = np.linalg.norm(lateral_accels, ord=2, axis=1)
+    lateral_accelmags = np.abs(np.sum(accels*unit_normals, axis=1))
     speedsquares : np.ndarray = np.square(speeds)
-
-
-
-
-
     normaltangentdots = np.sum(unit_tangents*unit_normals, axis=1)
-    # print(normaltangentdots)
-    # print(normaltangentdots.shape)
     if not np.all(np.abs(normaltangentdots)<=1E-6):
         raise ValueError("Something went wrong. one of the tangents is not normal to it's corresponding normal.")
-
     print("Max dot between normals and tangents: %f" % (np.max(normaltangentdots),), flush=True )
 
 
