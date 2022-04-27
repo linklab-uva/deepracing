@@ -34,7 +34,7 @@ class BrakingConstraint():
         # speeds = np.asarray([        0.0, 25.0, 30.0, 40.0, 60.0, 84.0, 150.0])
         # braking_limits = np.asarray([7.5, 7.5,  16.5, 21.0, 34.5, 40.0, 40.0])*factor
         speeds : np.ndarray = np.flip(np.asarray([          125.0,  84.0,  46.0,  25.0,  0.00 ], dtype=ds.dtype))
-        braking_limits : np.ndarray  = np.flip(np.asarray([ 42.50,  42.5,  35.0,  18.0,  16.0 ], dtype=ds.dtype)*factor)
+        braking_limits : np.ndarray  = np.flip(np.asarray([ 41.00,  41.0,  35.0,  18.0,  16.0 ], dtype=ds.dtype)*factor)
 
         self.braking_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, braking_limits, k=1)
         self.braking_spline_der : scipy.interpolate.BSpline = self.braking_spline.derivative()
