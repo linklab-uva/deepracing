@@ -66,8 +66,8 @@ class LinearAccelConstraint():
         self.ds = ds
         self.linearaccelmat=generate_linear_accel_mat(ds)
         self.buffer = np.zeros_like(self.ds)
-        speeds = np.asarray([              0.000,  45.00,  88.8,  150.0])
-        forward_accel_limits = np.asarray([14.75,  14.75,  0.00,  0.000])*factor
+        speeds = np.asarray([              0.00,  36.0,  88.8,  150.0])
+        forward_accel_limits = np.asarray([17.5,  17.5,  0.00,  0.000])*factor
         self.forward_accel_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, forward_accel_limits, k=1)
         self.forward_accel_spline_der : scipy.interpolate.BSpline = self.forward_accel_spline.derivative()
      #   print(self.linearaccelmat.toarray()[[0,1,2,3,-4,-3,-2,-1]], flush=True)
