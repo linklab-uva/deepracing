@@ -4,7 +4,6 @@ from numpy.ma.core import asarray
 import scipy, numpy as np
 import scipy.interpolate
 from scipy.optimize import LinearConstraint, minimize, Bounds, NonlinearConstraint
-
 import torch
 from torch import Tensor
 import scipy.sparse
@@ -32,8 +31,11 @@ class BrakingConstraint():
         self.ds = ds
         self.linearaccelmat=generate_linear_accel_mat(ds)
         self.buffer = np.zeros_like(self.ds)
-        speeds = np.asarray([        0.0, 25.0, 30.0, 40.0, 60.0, 84.0, 150.0])
-        braking_limits = np.asarray([7.5, 7.5,  16.5, 21.0, 34.5, 40.0, 40.0])*factor
+        # speeds = np.asarray([        0.0, 25.0, 30.0, 40.0, 60.0, 84.0, 150.0])
+        # braking_limits = np.asarray([7.5, 7.5,  16.5, 21.0, 34.5, 40.0, 40.0])*factor
+        speeds : np.ndarray = np.flip(np.asarray([          125.0,  84.0,  46.0,  25.0,  0.00 ], dtype=ds.dtype))
+        braking_limits : np.ndarray  = np.flip(np.asarray([ 42.50,  42.5,  35.0,  18.0,  16.0 ], dtype=ds.dtype)*factor)
+
         self.braking_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, braking_limits, k=1)
         self.braking_spline_der : scipy.interpolate.BSpline = self.braking_spline.derivative()
         print(self.linearaccelmat.toarray(), flush=True)
@@ -64,8 +66,8 @@ class LinearAccelConstraint():
         self.ds = ds
         self.linearaccelmat=generate_linear_accel_mat(ds)
         self.buffer = np.zeros_like(self.ds)
-        speeds = np.asarray([              0.0,    124.15,  194.5,  198.25, 300.0])/2.23694
-        forward_accel_limits = np.asarray([14.5,   14.5,    1.25,   0.0,   0.0])*factor
+        speeds = np.asarray([              0.000,  45.00,  88.8,  150.0])
+        forward_accel_limits = np.asarray([14.25,  14.25,  0.00,  0.000])*factor
         self.forward_accel_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, forward_accel_limits, k=1)
         self.forward_accel_spline_der : scipy.interpolate.BSpline = self.forward_accel_spline.derivative()
      #   print(self.linearaccelmat.toarray()[[0,1,2,3,-4,-3,-2,-1]], flush=True)
@@ -97,8 +99,8 @@ class CentripetalAccelerationConstraint():
         self.idx = np.arange(0, radii.shape[0], dtype=np.int64, step=1)
         maxspeedmph = 2.2369362920544025*maxspeed
         print("Max speed in MPH: %f" % (maxspeedmph,), flush=True)
-        speeds = np.asarray([0.0,  45.0,   60.0,  130.0,  170.0,  190.0,  225.0], dtype=np.float64)/2.2369362920544025
-        maxcas = np.asarray([1.5,  1.75,   2.0,   3.0,    3.5,    4.0,    4.0], dtype=np.float64)*9.81*factor
+        speeds = np.asarray([0.0,  45.0,   60.0,  130.0,  170.0,  190.0,  225.0], dtype=np.float64)/2.2369362920544025 #mph to m/s
+        maxcas = np.asarray([1.5,  1.75,   2.25,  3.25,   3.25,   3.5,    3.5], dtype=np.float64)*9.81*factor #Gforce to m/s^2
         self.caspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, maxcas, k=1)
         self.casplineder : scipy.interpolate.BSpline = self.caspline.derivative()
        
