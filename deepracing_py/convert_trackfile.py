@@ -156,7 +156,6 @@ def go(argdict):
         pca.fit(allpoints)
         print(pca.components_)
         normalvec : np.ndarray = np.cross(pca.components_[0], pca.components_[1])
-        print(normalvec)
         print(pca.explained_variance_ratio_)
         print(np.sum(pca.explained_variance_ratio_))
         Xin[:,1:] = pca.inverse_transform(pca.transform(Xin[:,1:]))
@@ -172,7 +171,7 @@ def go(argdict):
         normalvec=normalvec/np.linalg.norm(normalvec, ord=2)
         if normalvec[1]<0:
             normalvec*=-1.0
-        print(normalvec)
+    print(normalvec)
     fig1 = plt.figure()
     zmin : float = np.min(Xin[:,3])
     zmax : float = np.max(Xin[:,3])
