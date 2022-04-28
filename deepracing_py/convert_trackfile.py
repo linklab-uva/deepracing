@@ -119,7 +119,8 @@ def go(argdict):
             d = json.load(f)
         outerboundary = np.column_stack([d[k] for k in ["x","y","z"]])
         del d
-    if str.lower(os.path.splitext(trackfilein)[1])==".csv":
+    trackfileext = str.lower(os.path.splitext(trackfilein)[1])
+    if trackfileext==".csv":
         trackin = np.loadtxt(trackfilein,delimiter=";")
         trackin = trackin[:-1]
         Xin = np.zeros((trackin.shape[0],4))
@@ -127,9 +128,13 @@ def go(argdict):
         Xin[:,1] = trackin[:,1]
         Xin[:,2] = 0.5*(np.mean(innerboundary[:,1]) + np.mean(outerboundary[:,1]))#np.zeros_like(trackin[:,1])
         Xin[:,3] = trackin[:,2]
-        # x0 = np.square(0.75*np.asarray(trackin[:,-2]))
         x0 = None
         minimumcurvatureguess=True
+    elif trackfileext==".json":
+        with open(trackfilein, "r") as f:
+            d = json.load(f)
+        Xin = np.column_stack([ np.asarray(d[k], dtype=np.float64) for k in ["rin", "xin", "yin", "zin"]])
+        x0 = None
     else:
         trackin = np.loadtxt(trackfilein,delimiter=",",skiprows=2)
         I = np.argsort(trackin[:,0])
@@ -144,7 +149,7 @@ def go(argdict):
         x0 = None
         Xin[:,0] = Xin[:,0] - Xin[0,0]
         minimumcurvatureguess=False
-    if isracingline:
+    if isracingline and argdict["pca"]:
         allpoints = np.concatenate([innerboundary, outerboundary, Xin[:,[1,2,3]]], axis=0)
         print("Doing PCA projection", flush=True)
         pca : sklearn.decomposition.PCA = sklearn.decomposition.PCA(n_components=2)
@@ -159,23 +164,15 @@ def go(argdict):
         outerboundary = pca.inverse_transform(pca.transform(outerboundary))
     else:
         pca = None
-        normalvec : np.ndarray = np.asarray([0.0,1.0,0.0], dtype=Xin.dtype)
-    final_vector = Xin[0,1:] - Xin[-1,1:]
-    final_distance = np.linalg.norm(final_vector)
-    print("initial final distance: %f" %(final_distance,), flush=True)
-    final_unit_vector = final_vector/final_distance
-    if final_distance>ds:
-        extra_distance = final_distance-ds
-        nstretch = 4
-        rstretch =  np.linspace(extra_distance/final_distance, final_distance - ds, nstretch)
-        # rstretch =  np.linspace(final_distance/nstretch,((nstretch-1)/nstretch)*final_distance,nstretch)
-        final_stretch = np.row_stack([Xin[-1,1:] + rstretch[i]*final_unit_vector for i in range(rstretch.shape[0])])
-        final_r =  rstretch + Xin[-1,0]
-        Xin = np.row_stack((Xin, np.column_stack((final_r,final_stretch))))
-        final_vector = Xin[0,1:] - Xin[-1,1:]
-        final_distance = np.linalg.norm(final_vector)
-    print("final final distance: %f" %(final_distance,), flush=True)
-
+        normalvec : np.ndarray = np.ones(3, dtype=Xin.dtype)
+        Amat : np.ndarray = np.column_stack([Xin[:,1], Xin[:,3], np.ones_like(Xin[:,1])])
+        planecoefs : np.ndarray = np.matmul(np.linalg.pinv(Amat), -Xin[:,2])
+        normalvec[0]=planecoefs[0]
+        normalvec[2]=planecoefs[1]
+        normalvec=normalvec/np.linalg.norm(normalvec, ord=2)
+        if normalvec[1]<0:
+            normalvec*=-1.0
+        print(normalvec)
     fig1 = plt.figure()
     zmin : float = np.min(Xin[:,3])
     zmax : float = np.max(Xin[:,3])
@@ -356,6 +353,6 @@ if __name__=="__main__":
     parser.add_argument("--accelfactor", default=1.0, type=float, help="Scale the max acceleration limits by this factor")
     parser.add_argument("--brakefactor", default=1.0, type=float, help="Scale the max braking limits by this factor")
     parser.add_argument("--cafactor", default=1.0, type=float,    help="Scale the max centripetal acceleration limits by this factor")
-    #parser.add_argument("--negate_normals", action="store_true", help="Flip the sign all all of the computed normal vectors")
+    parser.add_argument("--pca", action="store_true",  help="Project the raceline onto a PCA of the boundaries")
     args = parser.parse_args()
     go(vars(args))
