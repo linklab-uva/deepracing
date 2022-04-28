@@ -1,5 +1,3 @@
-from types import NoneType
-from typing import Any
 import numpy as np
 import numpy.linalg as la
 import scipy, scipy.integrate
