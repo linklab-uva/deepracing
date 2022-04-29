@@ -100,7 +100,7 @@ class CentripetalAccelerationConstraint():
         maxspeedmph = 2.2369362920544025*maxspeed
         print("Max speed in MPH: %f" % (maxspeedmph,), flush=True)
         speeds = np.asarray([0.0,  45.0,  60.0,  130.0,  170.0,  190.0,  225.0], dtype=np.float64)/2.2369362920544025 #mph to m/s
-        maxcas = np.asarray([1.5,  2.00,  2.50,  3.500,  3.500,  3.500,  3.500], dtype=np.float64)*9.81*factor #Gforce to m/s^2
+        maxcas = np.asarray([2.0,  2.00,  2.50,  3.500,  3.500,  3.500,  3.500], dtype=np.float64)*9.81*factor #Gforce to m/s^2
         self.caspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, maxcas, k=1)
         self.casplineder : scipy.interpolate.BSpline = self.caspline.derivative()
        
