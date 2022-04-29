@@ -151,11 +151,11 @@ class OptimWrapper():
         self.iter_counter+=1
         return (-np.sum(xcurr), self.grad)
 
-    def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False, keep_feasible=False, accelfactor=1.0, brakefactor=1.0, cafactor=1.0, callback=None):
-        lb = np.square(17.0*np.ones_like(self.radii, dtype=self.radii.dtype))
+    def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False, keep_feasible=False, accelfactor=1.0, brakefactor=1.0, cafactor=1.0, callback=None, initial_guess_ratio=0.99):
+        lb = np.square(10.0*np.ones_like(self.radii, dtype=self.radii.dtype))
         ub = np.square(self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
         if x0 is None:
-            x0 = np.square(0.99*self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
+            x0 = np.square(initial_guess_ratio*self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
         centripetal_accel_constraint : CentripetalAccelerationConstraint = CentripetalAccelerationConstraint(self.radii, self.maxspeed, factor=cafactor)
         braking_constraint : BrakingConstraint = BrakingConstraint(self.ds, self.maxspeed, factor=brakefactor)
         linear_accel_constraint : LinearAccelConstraint = LinearAccelConstraint(self.ds, self.maxspeed, factor=accelfactor)

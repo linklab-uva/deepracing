@@ -309,7 +309,8 @@ def go(argdict):
     brakefactor=argdict["brakefactor"]
     cafactor=argdict["cafactor"]
     #x0, res=
-    sqp.optimize(callback = partial(writeRacelineToFile, argdict), maxiter=maxiter, method=method,disp=True, keep_feasible=False, x0=x0, accelfactor=accelfactor, brakefactor=brakefactor, cafactor=cafactor)
+    sqp.optimize(callback = partial(writeRacelineToFile, argdict), maxiter=maxiter, method=method,disp=True, \
+        keep_feasible=False, x0=x0, accelfactor=accelfactor, brakefactor=brakefactor, cafactor=cafactor, initial_guess_ratio=argdict["initialguessratio"])
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
@@ -320,6 +321,7 @@ if __name__=="__main__":
     parser.add_argument("--maxv", default=86.0, type=float, help="Max linear speed the car can have")
     parser.add_argument("--method", default="SLSQP", type=str, help="Optimization method to use")
     parser.add_argument("--outfile", default=None, type=str, help="What to name the output file. Default is the same name as the input file")
+    parser.add_argument("--initialguessratio", default=0.98, type=float, help="Scale factors used to determine initial guess")
     parser.add_argument("--accelfactor", default=1.0, type=float, help="Scale the max acceleration limits by this factor")
     parser.add_argument("--brakefactor", default=1.0, type=float, help="Scale the max braking limits by this factor")
     parser.add_argument("--cafactor", default=1.0, type=float,    help="Scale the max centripetal acceleration limits by this factor")
