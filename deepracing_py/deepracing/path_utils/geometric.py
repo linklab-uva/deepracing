@@ -4,15 +4,15 @@ import scipy.integrate as integrate
 import scipy.interpolate as interp
 
 
-def computeTangentsAndNormals(r, X, k = 3, rsamp = None, ref = np.array([0.0,1.0,0.0], dtype=np.float64), bc_type = None):
-    spline : interp.BSpline = interp.make_interp_spline(r, X, k=k, bc_type=bc_type)
-    tangentspline : scipy.interpolate.BSpline = spline.derivative(nu=1)
-    if rsamp is None:
-        rsamp_ = r.copy()
-    else:
-        rsamp_ = rsamp.copy()
-    points = spline(rsamp_)
-    tangents = tangentspline(rsamp_)
+def computeTangentsAndNormals(r, X, k = 3, ds = 1.0, ref = np.array([0.0,1.0,0.0], dtype=np.float64)):
+    finaldelta = np.linalg.norm(X[-1] - X[0], ord=2)
+    Xaug = np.concatenate([X, X[0].reshape(1,-1)], axis=0)
+    raug = np.concatenate([r, np.asarray([r[-1]+finaldelta])], axis=0)
+    spline : interp.BSpline = interp.make_interp_spline(raug, Xaug, k=k, bc_type="periodic")
+    tangentspline : interp.BSpline = spline.derivative(nu=1)
+    rsamp = np.arange(raug[0], raug[-1]-ds, step = ds)
+    points = spline(rsamp)
+    tangents = tangentspline(rsamp)
     speeds = np.linalg.norm(tangents, ord=2, axis=1)
     unit_tangents = tangents/speeds[:,np.newaxis]
 
@@ -26,7 +26,7 @@ def computeTangentsAndNormals(r, X, k = 3, rsamp = None, ref = np.array([0.0,1.0
     normals = np.cross(v2, unit_tangents)
     unit_normals = normals/np.linalg.norm(normals, axis=1, ord=2)[:,np.newaxis]
 
-    return spline, points, speeds, unit_tangents, unit_normals
+    return spline, points, speeds, unit_tangents, unit_normals, rsamp
 
 
     

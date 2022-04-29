@@ -183,54 +183,16 @@ def go(argdict):
         plt.plot(outerboundary[:,0], outerboundary[:,2], c="black")
     plt.title("Input Trackfile")
 
-    # rnormalized = Xin[:,0] - Xin[0,0]
-    # rnormalized = rnormalized/rnormalized[-1]
-
-    #bc_type=([(3, np.zeros(3))], [(3, np.zeros(3))])
     bc_type=None
-    # bc_type="natural"
-
-    finalidx = -1
-    if finalidx is None:
-        finalextrassamps = 0
-    else:
-        finalextrassamps = abs(finalidx)
-
     rin = Xin[:,0].copy()
     rin = rin-rin[0]
-    # rsamp = np.linspace(rin[0], rin[-1], num = int(round((Xin[-1,0]- Xin[0,0])/ds)))
-    # if minimumcurvatureguess:
-    #     rsamp = rin
-    # else:
-    #     rsamp = np.arange(rin[0], rin[-1], step = ds)
-    rsamp = np.arange(rin[0], rin[-1], step = ds)
-
 
     ref = np.array([0.0, 1.0, 0.0], dtype=np.float64)
     if isinnerboundary:
         ref*=-1.0
-    spline, Xsamp, speeds, unit_tangents, unit_normals = geometric.computeTangentsAndNormals(rin, Xin[:,1:], k=k, rsamp=rsamp, ref=ref)
-    tangentspline : scipy.interpolate.BSpline = spline.derivative(nu=1)
-    accelspline : scipy.interpolate.BSpline = spline.derivative(nu=2)
-
-
-    lr = LinearRing([(Xin[i,1], Xin[i,3]) for i in range(0,Xin.shape[0])])
-    polygon : Polygon = Polygon(lr)
-    #assert(polygon.is_valid)
-
-
-    tangents = tangentspline(rsamp)
-    tangentnorms = np.linalg.norm(tangents, ord=2, axis=1)
-    unit_tangents = tangents/tangentnorms[:,np.newaxis]
-    unit_normals = np.cross(np.stack([normalvec for asdf in range(unit_tangents.shape[0])], axis=0), unit_tangents)
-    accels = accelspline(rsamp)
-    # accelnorms = np.linalg.norm(accels, ord=2, axis=1)
-    # longitudinal_accelmags = np.sum(accels*unit_tangents, axis=1)
-    # longitudinal_accels = unit_tangents*longitudinal_accelmags[:,np.newaxis]
-    # lateral_accels = accels - longitudinal_accels
-    # lateral_accelmags = np.linalg.norm(lateral_accels, ord=2, axis=1)
-    lateral_accelmags = np.abs(np.sum(accels*unit_normals, axis=1))
-    speedsquares : np.ndarray = np.square(speeds)
+    spline, Xsamp, speeds, unit_tangents, unit_normals, rsamp = geometric.computeTangentsAndNormals(rin, Xin[:,1:], k=k, ref=ref, ds=ds)
+    print("Final delta: %f", (np.linalg.norm(Xsamp[0]-Xsamp[-1], ord=2),))
+    
     normaltangentdots = np.sum(unit_tangents*unit_normals, axis=1)
     if not np.all(np.abs(normaltangentdots)<=1E-6):
         raise ValueError("Something went wrong. one of the tangents is not normal to it's corresponding normal.")
@@ -259,6 +221,7 @@ def go(argdict):
     plt.scatter(xin, zin, c='b', marker='o', s = 16.0*np.ones_like(Xin[:,1]))
     # plt.scatter(x, z, c='r', marker='o', s = 4.0*np.ones_like(x))
     plt.plot(xsamp, zsamp, 'r')
+    plt.plot(xsamp, zsamp, 'r*')
     plt.plot(xsamp[0], zsamp[0], 'g*')
     if not isracingline:
         plt.quiver(xsamp, zsamp, unit_normals[:,0], unit_normals[:,2], angles="xy", scale=4.0, scale_units="inches")
@@ -302,11 +265,13 @@ def go(argdict):
 
     print("Optimizing over a space of size: %d" %(rsamp.shape[0],), flush=True)
 
-
-    # radii = (tangentnorms**3)/np.linalg.norm(np.cross(tangents, accels, axis=1), ord=2, axis=1)
-    radii = speedsquares/lateral_accelmags
+    tangentspline : scipy.interpolate.BSpline = spline.derivative(nu=1)
+    accelspline : scipy.interpolate.BSpline = spline.derivative(nu=2)
+    firstderivatives : np.ndarray = tangentspline(rsamp)
+    secondderivatives : np.ndarray = accelspline(rsamp)
+    radii = np.power(np.linalg.norm(firstderivatives, ord=2, axis=1), 3)/np.linalg.norm(np.cross(firstderivatives, secondderivatives), ord=2, axis=1)
     rprint = 100
-    idxhardcode = int(round(125.0/ds))
+    idxhardcode = int(round(100.0/ds))
     print("idxhardcode: %d" %(idxhardcode,), flush=True)
     radii[0:idxhardcode] = radii[-idxhardcode:] = np.inf
     radii[radii>2500.0]=np.inf
