@@ -274,7 +274,7 @@ def go(argdict):
     idxhardcode = int(round(100.0/ds))
     print("idxhardcode: %d" %(idxhardcode,), flush=True)
     radii[0:idxhardcode] = radii[-idxhardcode:] = np.inf
-    radii[radii>2500.0]=np.inf
+    radii[radii>1000.0]=np.inf
 
 
     print("First %d radii:\n%s" %(rprint, str(radii[0:rprint]),), flush=True)
@@ -287,8 +287,10 @@ def go(argdict):
     dsvec = np.array((rsamp[1:] - rsamp[:-1]).tolist() + [np.linalg.norm(Xsamp[-1] - Xsamp[0])])
     #dsvec[-int(round(40/ds)):] = np.inf
     print("Final %d delta s:\n%s" %(rprint, str(dsvec[-rprint:]),))
-    plt.close()
-    del fig2
+    fig3  = plt.figure()
+    plt.plot(rsamp, radii)
+    plt.show()
+    
 
     #del track, trackin, xin, yin, zin, dotsquares, Xin, rin, diffs, diffnorms, accels, accelnorms, tangents, tangentnorms, unit_tangents, unit_normals #, rsamp, Xsamp
 
