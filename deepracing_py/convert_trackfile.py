@@ -150,7 +150,7 @@ def go(argdict):
         Xin[:,0] = Xin[:,0] - Xin[0,0]
         minimumcurvatureguess=False
     if isracingline and argdict["pca"]:
-        allpoints = np.concatenate([innerboundary, outerboundary, Xin[:,[1,2,3]]], axis=0)
+        allpoints = np.concatenate([innerboundary, outerboundary], axis=0)
         print("Doing PCA projection", flush=True)
         pca : sklearn.decomposition.PCA = sklearn.decomposition.PCA(n_components=2)
         pca.fit(allpoints)
@@ -221,7 +221,7 @@ def go(argdict):
     plt.scatter(xin, zin, c='b', marker='o', s = 16.0*np.ones_like(Xin[:,1]))
     # plt.scatter(x, z, c='r', marker='o', s = 4.0*np.ones_like(x))
     plt.plot(xsamp, zsamp, 'r')
-    plt.plot(xsamp, zsamp, 'r*')
+    # plt.plot(xsamp, zsamp, 'r*')
     plt.plot(xsamp[0], zsamp[0], 'g*')
     if not isracingline:
         plt.quiver(xsamp, zsamp, unit_normals[:,0], unit_normals[:,2], angles="xy", scale=4.0, scale_units="inches")
@@ -272,7 +272,8 @@ def go(argdict):
     secondderivatives : np.ndarray = accelspline(rsamp)
     secondderivativenorms : np.ndarray = np.linalg.norm(secondderivatives, ord=2, axis=1)
     derivdots : np.ndarray = np.sum(firstderivatives*secondderivatives, axis=1)
-    radii = np.power(firstderivativenorms, 3)/np.sqrt(np.square(firstderivativenorms)*np.square(secondderivativenorms) - np.square(derivdots))
+    # radii = np.power(firstderivativenorms, 3)/np.sqrt(np.square(firstderivativenorms)*np.square(secondderivativenorms) - np.square(derivdots))
+    radii = np.power(firstderivativenorms, 3)/np.linalg.norm(np.cross(firstderivatives, secondderivatives), ord=2, axis=1)
     rprint = 100
     idxhardcode = int(round(100.0/ds))
     print("idxhardcode: %d" %(idxhardcode,), flush=True)
