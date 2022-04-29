@@ -101,9 +101,9 @@ def go(argdict):
     trackname, identifier = str.split(os.path.splitext(os.path.basename(trackfilein))[0],"_")
 
 
-    isracingline = identifier in {"racingline","minimumcurvature"} 
     isinnerboundary = "innerlimit" in os.path.basename(trackfilein)
-    isouterboundary = not (isracingline or isinnerboundary)
+    isouterboundary = "outerlimit" in os.path.basename(trackfilein)
+    isracingline = not (isinnerboundary or isouterboundary)
 
     trackdir = os.path.abspath(os.path.dirname(trackfilein))
     print("trackdir: %s" %(trackdir,))
