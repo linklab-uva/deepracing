@@ -98,7 +98,7 @@ def go(argdict):
     # else:
     #     normalsign = 1.0
     trackfilein = os.path.abspath(argdict["trackfile"])
-    trackname, identifier = str.split(os.path.splitext(os.path.basename(trackfilein))[0],"_")
+    trackname = str.split(os.path.splitext(os.path.basename(trackfilein))[0],"_")[0]
 
 
     isinnerboundary = "innerlimit" in os.path.basename(trackfilein)
