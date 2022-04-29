@@ -268,8 +268,11 @@ def go(argdict):
     tangentspline : scipy.interpolate.BSpline = spline.derivative(nu=1)
     accelspline : scipy.interpolate.BSpline = spline.derivative(nu=2)
     firstderivatives : np.ndarray = tangentspline(rsamp)
+    firstderivativenorms : np.ndarray = np.linalg.norm(firstderivatives, ord=2, axis=1)
     secondderivatives : np.ndarray = accelspline(rsamp)
-    radii = np.power(np.linalg.norm(firstderivatives, ord=2, axis=1), 3)/np.linalg.norm(np.cross(firstderivatives, secondderivatives), ord=2, axis=1)
+    secondderivativenorms : np.ndarray = np.linalg.norm(secondderivatives, ord=2, axis=1)
+    derivdots : np.ndarray = np.sum(firstderivatives*secondderivatives, axis=1)
+    radii = np.power(firstderivativenorms, 3)/np.sqrt(np.square(firstderivativenorms)*np.square(secondderivativenorms) - np.square(derivdots))
     rprint = 100
     idxhardcode = int(round(100.0/ds))
     print("idxhardcode: %d" %(idxhardcode,), flush=True)
