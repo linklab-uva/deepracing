@@ -1,3 +1,4 @@
+from typing import Callable
 from matplotlib.pyplot import sci
 from numpy.core.numeric import ones_like
 from numpy.ma.core import asarray
@@ -128,7 +129,7 @@ class CentripetalAccelerationConstraint():
         # return NonlinearConstraint(self.eval, -5.0*9.81*np.ones_like(self.invradii), np.zeros_like(self.invradii), jac = self.jac, keep_feasible=keep_feasible)
 
 class OptimWrapper():
-    def __init__(self, maxspeed : float, ds : float, radii : np.ndarray, dtype=np.float32):
+    def __init__(self, maxspeed : float, ds : float, radii : np.ndarray, dtype=np.float32, callback  = None):
         self.radii = radii.astype(dtype)
         self.maxspeed = maxspeed
         if type(ds)==float:
@@ -138,8 +139,11 @@ class OptimWrapper():
         self.grad = -np.ones_like(radii, dtype=dtype)
         self.tick = 0
         self.iter_counter = 1
+        self.callback = callback
         
     def functional(self, xcurr):
+        if (self.callback is not None) and self.iter_counter>2:
+            self.callback(xcurr)
         tock = time.time()
         print(flush=True)
         speeds = np.sqrt(xcurr)
@@ -151,7 +155,7 @@ class OptimWrapper():
         self.iter_counter+=1
         return (-np.sum(xcurr), self.grad)
 
-    def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False, keep_feasible=False, accelfactor=1.0, brakefactor=1.0, cafactor=1.0, callback=None, initial_guess_ratio=0.99):
+    def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False, keep_feasible=False, accelfactor=1.0, brakefactor=1.0, cafactor=1.0, initial_guess_ratio=0.99):
         lb = np.square(10.0*np.ones_like(self.radii, dtype=self.radii.dtype))
         ub = np.square(self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
         if x0 is None:
@@ -168,7 +172,7 @@ class OptimWrapper():
         else:
             hessp = None
         self.tick = time.time()
-        return x0, minimize(self.functional, x0, method=method, jac=True, hessp=hessp, constraints=constraints, options = {"maxiter": maxiter, "disp": disp}, bounds=Bounds(lb, ub, keep_feasible=keep_feasible), callback=callback)
+        return x0, minimize(self.functional, x0, method=method, jac=True, hessp=hessp, constraints=constraints, options = {"maxiter": maxiter, "disp": disp}, bounds=Bounds(lb, ub, keep_feasible=keep_feasible))
 
 
 

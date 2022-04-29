@@ -299,7 +299,8 @@ def go(argdict):
     #del track, trackin, xin, yin, zin, dotsquares, Xin, rin, diffs, diffnorms, accels, accelnorms, tangents, tangentnorms, unit_tangents, unit_normals #, rsamp, Xsamp
 
     print("yay")
-    sqp = OptimWrapper(maxspeed, dsvec, radii)
+    writefunction = partial(writeRacelineToFile, argdict)
+    sqp = OptimWrapper(maxspeed, dsvec, radii, callback = writefunction)
 
 
     #method="trust-constr"
@@ -308,9 +309,9 @@ def go(argdict):
     accelfactor=argdict["accelfactor"]
     brakefactor=argdict["brakefactor"]
     cafactor=argdict["cafactor"]
-    #x0, res=
-    sqp.optimize(callback = partial(writeRacelineToFile, argdict), maxiter=maxiter, method=method,disp=True, \
-        keep_feasible=False, x0=x0, accelfactor=accelfactor, brakefactor=brakefactor, cafactor=cafactor, initial_guess_ratio=argdict["initialguessratio"])
+    x0, optimres = sqp.optimize(maxiter=maxiter, method=method, disp=True, keep_feasible=False, \
+                 x0=x0, accelfactor=accelfactor, brakefactor=brakefactor, cafactor=cafactor, initial_guess_ratio=argdict["initialguessratio"])
+    writefunction(optimres.x)
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
