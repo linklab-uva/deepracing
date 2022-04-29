@@ -221,7 +221,7 @@ def go(argdict):
     plt.scatter(xin, zin, c='b', marker='o', s = 16.0*np.ones_like(Xin[:,1]))
     # plt.scatter(x, z, c='r', marker='o', s = 4.0*np.ones_like(x))
     plt.plot(xsamp, zsamp, 'r')
-    # plt.plot(xsamp, zsamp, 'r*')
+    plt.plot(xsamp, zsamp, 'r*')
     plt.plot(xsamp[0], zsamp[0], 'g*')
     if not isracingline:
         plt.quiver(xsamp, zsamp, unit_normals[:,0], unit_normals[:,2], angles="xy", scale=4.0, scale_units="inches")
@@ -278,7 +278,7 @@ def go(argdict):
     idxhardcode = int(round(100.0/ds))
     print("idxhardcode: %d" %(idxhardcode,), flush=True)
     radii[0:idxhardcode] = radii[-idxhardcode:] = np.inf
-    radii[radii>1000.0]=np.inf
+    radii[radii>400.0]=np.inf
 
 
     print("First %d radii:\n%s" %(rprint, str(radii[0:rprint]),), flush=True)
