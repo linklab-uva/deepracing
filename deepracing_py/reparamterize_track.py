@@ -15,7 +15,7 @@ from tqdm import tqdm
 def go(argdict : dict):
     searchdirs = str.split(os.getenv("F1_TRACK_DIRS"), os.pathsep)
     trackname : str = argdict["trackname"]
-    racelinefile : str = deepracing.searchForFile(trackname+"_minimumcurvaturebaseline.json", searchdirs)
+    racelinefile : str = deepracing.searchForFile(trackname+"_baseline.json", searchdirs)
     with open(racelinefile, "r") as f:
         racelinedict : dict = json.load(f)
 
@@ -44,8 +44,6 @@ def go(argdict : dict):
     outerboundaryaug : np.ndarray = np.stack([outerboundaryx, outerboundaryy, outerboundaryz, np.ones_like(outerboundaryz)], axis=0)
 
     allpoints : np.ndarray = np.concatenate([raceline, innerboundaryaug[0:3].T, outerboundaryaug[0:3].T], axis=0)
-    minx : float = np.min(allpoints[:,0])-10.0
-    maxx : float = np.max(allpoints[:,0])+10.0
     minz : float = np.min(allpoints[:,2])-10.0
     maxz : float = np.max(allpoints[:,2])+10.0
     meany : float = np.mean(allpoints[:,1])
@@ -57,9 +55,16 @@ def go(argdict : dict):
     racelinesplineder : scipy.interpolate.BSpline = racelinespline.derivative()
     racelinespline2ndder : scipy.interpolate.BSpline = racelinesplineder.derivative()
     
-    tsamp : np.ndarray = racelinet
-    # tsamp : np.ndarray = np.linspace(racelinet[0], racelinet[-1], num=10000)
-    # racelinesamp : np.ndarray = racelinespline(tsamp)
+    # tsamp : np.ndarray = racelinet
+    tsamp : np.ndarray = np.linspace(racelinet[0], racelinet[-1]+0.0375, num=10000)
+    raceline : np.ndarray = racelinespline(tsamp)
+    fig2 : matplotlib.figure.Figure = plt.figure()
+    plt.plot(raceline[0,0], raceline[0,2], "g*")
+    plt.plot(raceline[:,0], raceline[:,2], color="blue")
+    plt.plot(innerboundaryaug[0], innerboundaryaug[2], color="black", alpha=0.5)
+    plt.plot(outerboundaryaug[0], outerboundaryaug[2], color="black", alpha=0.5)
+    plt.ylim(maxz+10.0, minz-10.0)
+    plt.show()
 
 
     racelinevelvecs : np.ndarray = racelinesplineder(tsamp)
@@ -75,9 +80,8 @@ def go(argdict : dict):
     racelineposes[:,-1,-1] = 1.0
     racelineposes[:,0:3,0]=racelinetangentvecs
     racelineposes[:,0:3,1]=racelinelateralvecs
-    racelineposes[:,0:3,2]=ref#np.cross(racelineposes[:,0:3,0], racelineposes[:,0:3,1])
+    racelineposes[:,0:3,2]=ref
     racelineposes[:,0:3,3]=raceline
-    # print(racelineposes)
 
     iboffsets : np.ndarray = np.zeros_like(racelineposes[:,0,0])
     oboffsets : np.ndarray = np.zeros_like(racelineposes[:,0,0])
@@ -86,18 +90,12 @@ def go(argdict : dict):
     ib_kdtree : KDTree = KDTree(innerboundaryaug[0:3].T)
     ob_kdtree : KDTree = KDTree(outerboundaryaug[0:3].T)
 
-    for i in range(racelineposes.shape[0]):
+    for i in tqdm(range(racelineposes.shape[0])):
         try:
             currentrlpose : np.ndarray = racelineposes[i]
             tmat : np.ndarray = np.linalg.inv(currentrlpose)
-            racelinesamp : np.ndarray = racelineposes[np.arange(0, 25, step=1, dtype=np.int64), :, 3]
-            racelinelocal : np.ndarray = np.matmul(racelinesamp, tmat.T )[:,0:3]
-            # print(racelinelocal)
 
 
-            # iblocal : np.ndarray = (np.matmul(tmat, innerboundaryaug)[0:3]).T
-            # ibdistances : np.ndarray = np.linalg.norm(iblocal, ord=2, axis=1)
-            # closest_ib_index : int = np.argmin(ibdistances)
             closest_ib_index : int = ib_kdtree.query(currentrlpose[0:3,3])[1]
             ib_idx_samp : np.ndarray = np.arange(closest_ib_index-300, closest_ib_index+301, step=1, dtype=np.int64)%innerboundaryaug.shape[1]
             ib_samp : np.ndarray = (np.matmul(tmat, innerboundaryaug[:,ib_idx_samp])[0:3]).T
@@ -109,19 +107,8 @@ def go(argdict : dict):
             ib_root_idx : int = np.argmin(np.abs(ib_roots))
             ib_root : np.ndarray = ib_roots[ib_root_idx]
             ib_root_point : np.ndarray = ib_local_spline(ib_root)
-            # print()
-            # print(ib_root)
-            # print(ib_root_point)
             iboffsets[i] = ib_root_point[1]
-            # print()
-            # print(ib_local_pose)
-            # print(iboutposes[i,0:3,3])
 
-            # oblocal : np.ndarray = (np.matmul(tmat, outerboundaryaug)[0:3]).T
-            # obdistances : np.ndarray = np.linalg.norm(oblocal, ord=2, axis=1)
-            # closest_ob_index : int = np.argmin(obdistances)
-            # ob_idx_samp : np.ndarray = np.arange(closest_ob_index-200, closest_ob_index+200, step=1, dtype=np.int64)%oblocal.shape[0]
-            # ob_samp : np.ndarray = oblocal[ob_idx_samp]
             closest_ob_index : int = ob_kdtree.query(currentrlpose[0:3,3])[1]
             ob_idx_samp : np.ndarray = np.arange(closest_ob_index-300, closest_ob_index+301, step=1, dtype=np.int64)%outerboundaryaug.shape[1]
             ob_samp : np.ndarray = (np.matmul(tmat, outerboundaryaug[:,ob_idx_samp])[0:3]).T
@@ -133,15 +120,12 @@ def go(argdict : dict):
             ob_root_idx : int = np.argmin(np.abs(ob_roots))
             ob_root : np.ndarray = ob_roots[ob_root_idx]
             ob_root_point : np.ndarray = ob_local_spline(ob_root)
-            # print(ob_root)
-            # print(ob_root_point)
             oboffsets[i] = ob_root_point[1]
 
-            # print()
-            # print(oboutposes[i,0:3,3])
-            # raise Exception("blah")
         except Exception as e:
             print(e)
+            racelinesamp : np.ndarray = racelineposes[np.arange(0, 25, step=1, dtype=np.int64), :, 3]
+            racelinelocal : np.ndarray = np.matmul(racelinesamp, tmat.T)[:,0:3]
             fig : matplotlib.figure.Figure = plt.figure()
             plt.plot(racelinelocal[:,1], racelinelocal[:,0])
             plt.plot(ib_samp[:,1], ib_samp[:,0])
@@ -173,13 +157,13 @@ def go(argdict : dict):
 
 
     # print(oboutposes[2])
-    fig : matplotlib.figure.Figure = plt.figure()
+    fig2 : matplotlib.figure.Figure = plt.figure()
     plt.plot(racelinex[0], racelinez[0], "g*")
     plt.quiver(raceline[:,0], raceline[:,2], racelinetangentvecs[:,0], racelinetangentvecs[:,2], angles="xy", scale=30.0)
     plt.quiver(iboutpoints[:,0], iboutpoints[:,2], racelinetangentvecs[:,0], racelinetangentvecs[:,2], angles="xy", scale=30.0, color="red")
     plt.quiver(oboutpoints[:,0], oboutpoints[:,2], racelinetangentvecs[:,0], racelinetangentvecs[:,2], angles="xy", scale=30.0, color="green")
     plt.ylim(maxz, minz)
-    fig2 : matplotlib.figure.Figure = plt.figure()
+    fig3 : matplotlib.figure.Figure = plt.figure()
     plt.plot(tsamp, iboffsets, label="Inner Boundary Offsets")
     plt.plot(tsamp, oboffsets, label="Outer Boundary Offsets")
     plt.legend()
