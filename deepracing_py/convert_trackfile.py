@@ -16,6 +16,7 @@ from typing import List
 import sklearn.decomposition
 import deepracing
 from functools import partial
+from tqdm import tqdm
 
 rin : np.ndarray = None 
 xin : np.ndarray = None
@@ -26,18 +27,30 @@ radii : np.ndarray = None
 dsvec : np.ndarray = None
 spline : scipy.interpolate.BSpline = None
 jsonout : str = None
+def sensibleKnots(t, degree):
+    numsamples = t.shape[0]
+    knots = [ t[int(numsamples/4)], t[int(numsamples/2)], t[int(3*numsamples/4)] ]
+    knots = np.r_[(t[0],)*(degree+1),  knots,  (t[-1],)*(degree+1)]
+    return knots
 def writeRacelineToFile(argdict : dict, velsquares : np.ndarray):
     global rin, xin, yin, zin, rsamp, spline, jsonout, radii, dsvec
     vels = np.sqrt(velsquares)
+    # velinv = 1.0/vels
+    # invspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(rsamp, velinv, k=2)
+    # invsplinead : scipy.interpolate.BSpline = invspline.antiderivative()
+    # tparameterized = invsplinead(rsamp)
+    # tparameterized = tparameterized - tparameterized[0]
 
-    velinv = 1.0/vels
-    invspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(rsamp, velinv, k=2)
-    invsplinead : scipy.interpolate.BSpline = invspline.antiderivative()
-    tparameterized = invsplinead(rsamp)
-    tparameterized = tparameterized - tparameterized[0]
     positionsradii = spline(rsamp)
+    tparameterized : np.ndarray = np.zeros_like(vels)
+    for i in range(1, tparameterized.shape[0]):
+        tparameterized[i] = (rsamp[i] - rsamp[i-1])/vels[i-1] + tparameterized[i-1]
 
-    truespline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(tparameterized, positionsradii, bc_type="natural")
+    finaldelta = np.linalg.norm(positionsradii[0] - positionsradii[-1], ord=2)
+    positionsclosed = np.concatenate([positionsradii, positionsradii[0].reshape(1,-1)], axis=0)
+    tclosed = np.concatenate([tparameterized, np.asarray([ tparameterized[-1] + finaldelta/vels[-1] ]) ])
+
+    truespline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(tclosed, positionsclosed, bc_type="periodic")
     truesplinevel : scipy.interpolate.BSpline = truespline.derivative(nu=1)
     truesplineaccel : scipy.interpolate.BSpline = truespline.derivative(nu=2)
 
@@ -49,7 +62,7 @@ def writeRacelineToFile(argdict : dict, velsquares : np.ndarray):
     splinevels = truesplinevel(tsampcheck)
     splinecentripetaccels = np.sum(np.square(splinevels), axis=1)/radii
     splinelinearaccels = truesplineaccel(tsampcheck)
-    print("Expected lap time: %f" % (tsamp[-1] - tsamp[0] + dsvec[-1]/vels[-1],), flush=True)
+    print("Expected lap time: %f" % (tclosed[-1],), flush=True)
     print("Lap Distance: %f" % (dsamp[-1] - dsamp[0] + dsvec[-1],), flush=True)
     print("max linear acceleration: %f" % (np.max(np.abs(splinelinearaccels))), flush=True)
     print("max centripetal acceleration: %f" % (np.max(np.abs(splinecentripetaccels))), flush=True)
@@ -236,10 +249,15 @@ def go(argdict):
     print("Output shape: %s" %(str(Xsamp.shape),), flush=True)
 
     fileout = argdict["outfile"]
-    if fileout is not None:
-        jsonout = os.path.abspath(os.path.join(trackdir,fileout))
+    if (fileout is not None) and os.path.isabs(fileout):
+        jsonout = fileout
     else:
-        jsonout = os.path.abspath(os.path.join(trackdir,os.path.splitext(os.path.basename(trackfilein))[0] + ".json"))
+        resultdir = os.path.join(trackdir, "results")
+        os.makedirs(resultdir, exist_ok=True)
+        if (fileout is not None):
+            jsonout = os.path.abspath(os.path.join(resultdir,fileout))
+        else:
+            jsonout = os.path.abspath(os.path.join(resultdir,os.path.splitext(os.path.basename(trackfilein))[0] + ".json"))
 
     print("jsonout: %s" %(jsonout,), flush=True)
     if isinnerboundary or isouterboundary:
@@ -264,21 +282,31 @@ def go(argdict):
 
 
     print("Optimizing over a space of size: %d" %(rsamp.shape[0],), flush=True)
-
-    tangentspline : scipy.interpolate.BSpline = spline.derivative(nu=1)
-    accelspline : scipy.interpolate.BSpline = spline.derivative(nu=2)
-    firstderivatives : np.ndarray = tangentspline(rsamp)
-    firstderivativenorms : np.ndarray = np.linalg.norm(firstderivatives, ord=2, axis=1)
-    secondderivatives : np.ndarray = accelspline(rsamp)
-    secondderivativenorms : np.ndarray = np.linalg.norm(secondderivatives, ord=2, axis=1)
-    derivdots : np.ndarray = np.sum(firstderivatives*secondderivatives, axis=1)
-    # radii = np.power(firstderivativenorms, 3)/np.sqrt(np.square(firstderivativenorms)*np.square(secondderivativenorms) - np.square(derivdots))
-    radii = np.power(firstderivativenorms, 3)/np.linalg.norm(np.cross(firstderivatives, secondderivatives), ord=2, axis=1)
+    radii = np.inf*np.ones_like(rsamp)
+    # searchrange : float = 30.0
+    # dI : int = int(round(searchrange/ds))
+    dI : int = 3
+    for i in tqdm(range(Xsamp.shape[0]), desc="Estimating radii of curvature"):
+        ilocal : np.ndarray = np.arange(i-dI, i+dI+1, step=1, dtype=np.int64)%(Xsamp.shape[0])
+        Xlocal : np.ndarray = Xsamp[ilocal].T
+        Xlocal = Xlocal-(Xlocal[:,dI])[:,np.newaxis]
+        xvec = Xlocal[:,dI+1] - Xlocal[:,dI-1]
+        xvec = xvec/np.linalg.norm(xvec, ord=2)
+        yvec = np.cross(normalvec, xvec)
+        yvec = yvec/np.linalg.norm(yvec, ord=2)
+        zvec = np.cross(xvec,yvec)
+        Xlocal = np.matmul(np.row_stack([xvec,yvec,zvec]), Xlocal)
+        polynomial : np.ndarray = np.polyfit(Xlocal[0], Xlocal[1], 3)
+        polynomialderiv : np.ndarray = np.polyder(polynomial)
+        polynomial2ndderiv : np.ndarray = np.polyder(polynomialderiv)
+        fprime : float = float(np.polyval(polynomialderiv, Xlocal[0,dI]))
+        fprimeprime : float = float(np.polyval(polynomial2ndderiv, Xlocal[0,dI]))
+        radii[i]=((1.0 + fprime**2)**1.5)/np.abs(fprimeprime)
     rprint = 100
     idxhardcode = int(round(100.0/ds))
     print("idxhardcode: %d" %(idxhardcode,), flush=True)
     radii[0:idxhardcode] = radii[-idxhardcode:] = np.inf
-    radii[radii>400.0]=np.inf
+    radii[radii>250.0]=np.inf
 
 
     print("First %d radii:\n%s" %(rprint, str(radii[0:rprint]),), flush=True)
