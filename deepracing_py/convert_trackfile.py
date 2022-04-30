@@ -285,7 +285,7 @@ def go(argdict):
     radii = np.inf*np.ones_like(rsamp)
     # searchrange : float = 30.0
     # dI : int = int(round(searchrange/ds))
-    dI : int = 3
+    dI : int = 2
     for i in tqdm(range(Xsamp.shape[0]), desc="Estimating radii of curvature"):
         ilocal : np.ndarray = np.arange(i-dI, i+dI+1, step=1, dtype=np.int64)%(Xsamp.shape[0])
         Xlocal : np.ndarray = Xsamp[ilocal].T
