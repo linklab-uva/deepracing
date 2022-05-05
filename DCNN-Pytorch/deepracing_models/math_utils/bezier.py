@@ -1,10 +1,11 @@
+from typing import Tuple
 import numpy as np
 import math
 import torch, torch.nn
 from scipy.special import comb as nChoosek
 from deepracing_models.math_utils.fitting import pinv
 
-def polynomialFormConversion(k : int, dtype=torch.float64, device=torch.device("cpu")):
+def polynomialFormConversion(k : int, dtype=torch.float64, device=torch.device("cpu")) -> Tuple[torch.Tensor, torch.Tensor]:
     topolyform : torch.Tensor = torch.zeros((k+1,k+1), dtype=dtype, device=device)
     kfactorial : float = math.factorial(k)
     topolyform[0,0]=topolyform[-1,-1]=1.0
