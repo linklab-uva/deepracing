@@ -50,10 +50,11 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
             raceline_speeds = torch.norm(raceline_velocities, p=2, dim=2)
             dt = times[:,-1]-times[:,0]
             s = (times - times[:,0,None])/dt[:,None]
-            Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(raceline_positions[:,:,[0,1]], bezier_order, t=s)
-            lsq_pos = torch.matmul(Mpos, controlpoints_fit)
-            Mvel, lsq_v_s = deepracing_models.math_utils.bezier.bezierDerivative(controlpoints_fit, t=s)
-            lsq_v_t = lsq_v_s/dt[:,None,None]
+            Mpos = deepracing_models.math_utils.bezier.bezierM(s, bezier_order)
+            # Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(raceline_positions[:,:,[0,1]], bezier_order, t=s)
+            # lsq_pos = torch.matmul(Mpos, controlpoints_fit)
+            # Mvel, lsq_v_s = deepracing_models.math_utils.bezier.bezierDerivative(controlpoints_fit, t=s)
+            # lsq_v_t = lsq_v_s/dt[:,None,None]
 
         batch_size = input_images.shape[0]
         
@@ -66,8 +67,8 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
             predictions = network_output.transpose(1,2)        
         pred_points = torch.matmul(Mpos, predictions)
 
-        _, pred_v_s = deepracing_models.math_utils.bezier.bezierDerivative(predictions,  M=Mvel)
-        pred_v_t = pred_v_s/dt[:,None,None]
+        # _, pred_v_s = deepracing_models.math_utils.bezier.bezierDerivative(predictions,  M=Mvel)
+        # pred_v_t = pred_v_s/dt[:,None,None]
 
         
         loss = loss_func(pred_points, raceline_positions[:,:,[0,1]])# + 0.1*loss_func(pred_v_t, lsq_v_t)
@@ -88,12 +89,13 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
             xmax = torch.max(raceline_positions[0,:,0]).item() +  10
             ymax = torch.max(torch.abs(raceline_positions[0,:,1])).item() +  2.5
 
-            rlpcpu = raceline_positions.cpu()
-            predcpu = pred_points.detach().cpu()
-            lsqcpu = lsq_pos.cpu()
-            ax2.plot(rlpcpu[0,:,1], rlpcpu[0,:,0], 'g+', label="Ground Truth Waypoints")
-            ax2.plot(lsqcpu[0,:,1], lsqcpu[0,:,0], c="b", label="LSQ Fit")
-            ax2.plot(predcpu[0,:,1], predcpu[0,:,0], c="r", label="Network Predictions")
+            rlpcpu = raceline_positions[0].cpu()
+            predcpu = pred_points[0].detach().cpu()
+            Mpos_fit, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(raceline_positions[0,:,[0,1]].cpu().unsqueeze(0), bezier_order, t=s[0].cpu().unsqueeze(0))
+            lsqcpu = torch.matmul(Mpos_fit[0], controlpoints_fit[0])
+            ax2.plot(rlpcpu[:,1], rlpcpu[:,0], 'g+', label="Ground Truth Waypoints")
+            ax2.plot(lsqcpu[:,1], lsqcpu[:,0], c="b", label="LSQ Fit")
+            ax2.plot(predcpu[:,1], predcpu[:,0], c="r", label="Network Predictions")
             ax2.set_xlim(ymax,-ymax)
             ax2.set_ylim(xmin,xmax)
 
