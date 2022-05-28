@@ -45,9 +45,9 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
             raceline_positions_global_aug = torch.cat([raceline_positions_global, torch.ones_like(raceline_positions_global[:,:,0]).unsqueeze(2)], dim=2)
             raceline_positions = torch.matmul(raceline_positions_global_aug, pose_inverses[:,0:3].transpose(1,2))
 
-            raceline_velocities_global = (imagedict["velocities"]).type(dtype).to(device=dev)
-            raceline_velocities = torch.matmul(raceline_velocities_global, pose_inverses[:,0:3,0:3].transpose(1,2))
-            raceline_speeds = torch.norm(raceline_velocities, p=2, dim=2)
+            # raceline_velocities_global = (imagedict["velocities"]).type(dtype).to(device=dev)
+            # raceline_velocities = torch.matmul(raceline_velocities_global, pose_inverses[:,0:3,0:3].transpose(1,2))
+            # raceline_speeds = torch.norm(raceline_velocities, p=2, dim=2)
             dt = times[:,-1]-times[:,0]
             s = (times - times[:,0,None])/dt[:,None]
             Mpos = deepracing_models.math_utils.bezier.bezierM(s, bezier_order)
