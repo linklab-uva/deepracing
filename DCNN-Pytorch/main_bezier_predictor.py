@@ -47,6 +47,7 @@ def run_epoch(experiment, network, optimizer, dataloader, config, loss_func, use
 
             raceline_velocities_global = (imagedict["velocities"]).type(dtype).to(device=dev)
             raceline_velocities = torch.matmul(raceline_velocities_global, pose_inverses[:,0:3,0:3].transpose(1,2))
+            raceline_speeds = torch.norm(raceline_velocities, p=2, dim=2)
             dt = times[:,-1]-times[:,0]
             s = (times - times[:,0,None])/dt[:,None]
             Mpos, controlpoints_fit = deepracing_models.math_utils.bezier.bezierLsqfit(raceline_positions[:,:,[0,1]], bezier_order, t=s)
@@ -174,13 +175,18 @@ def go(argdict : dict):
         dsetdir = os.path.join(dsets_root, dataset["subfolder"])
         sample_count = dataset.get("sample_count", dataset_config.get("sample_count", 160))
         raceline_file = dataset.get("raceline_file", dataset_config.get("raceline_file", None))
-        if raceline_file is None:
-            raise ValueError("Could not find raceline file for dataset:\n%s" % (str(dataset),))
         if use_float:
             dsettype = np.float32
         else:
             dsettype = np.float64
-        current_dset = FD.LocalRacelineDataset(dsetdir, raceline_file, dtype=dsettype, context_length=context_length, lookahead_time=lookahead_time, sample_count=sample_count)
+        if raceline_file is None:
+            current_dset = FD.FutureEgoPoseDataset(dsetdir, dtype=dsettype, context_length=context_length, lookahead_time=lookahead_time, sample_count=sample_count)
+            if not ("Ego Behavioral Cloning" in dset_tags):
+                dset_tags.append("Ego Behavioral Cloning")
+        else:
+            current_dset = FD.LocalRacelineDataset(dsetdir, raceline_file, dtype=dsettype, context_length=context_length, lookahead_time=lookahead_time, sample_count=sample_count)
+            if not ("Raceline Prediction" in dset_tags):
+                dset_tags.append("Raceline Prediction")
         dsets.append(current_dset)
 
     if len(dsets)==1:
