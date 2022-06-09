@@ -202,6 +202,7 @@ if(ament_cmake_FOUND)
         set(USING_VJOY OFF)
     endif()
     ament_package(CONFIG_EXTRAS cmake/find_deps.cmake.in)
+    install(FILES ${CMAKE_SOURCE_DIR}/cmake/windows_stuff.cmake DESTINATION share/${PROJECT_NAME}/cmake/)
 else()
     install(EXPORT ${PROJECT_NAME}-export
     FILE
@@ -217,6 +218,7 @@ else()
     configure_file(${PROJECT_NAME}-config.cmake.in ${PROJECT_NAME}-config.cmake @ONLY)
 
     install(FILES ${CMAKE_BINARY_DIR}/${PROJECT_NAME}-config.cmake DESTINATION cmake/)
+    install(FILES ${CMAKE_SOURCE_DIR}/cmake/windows_stuff.cmake DESTINATION cmake/f1_datalogger/)
     install(FILES ${source_scripts} DESTINATION share/${PROJECT_NAME})
 
 
