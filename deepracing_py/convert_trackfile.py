@@ -199,12 +199,12 @@ def go(argdict):
     bc_type=None
     rin = Xin[:,0].copy()
     rin = rin-rin[0]
-
     ref = np.array([0.0, 1.0, 0.0], dtype=np.float64)
     if isinnerboundary:
         ref*=-1.0
     spline, Xsamp, speeds, unit_tangents, unit_normals, rsamp = geometric.computeTangentsAndNormals(rin, Xin[:,1:], k=k, ref=ref, ds=ds)
     print("Final delta: %f", (np.linalg.norm(Xsamp[0]-Xsamp[-1], ord=2),))
+    print(rsamp)
     
     normaltangentdots = np.sum(unit_tangents*unit_normals, axis=1)
     if not np.all(np.abs(normaltangentdots)<=1E-6):
@@ -282,10 +282,19 @@ def go(argdict):
 
 
     print("Optimizing over a space of size: %d" %(rsamp.shape[0],), flush=True)
+    # splineder : scipy.interpolate.BSpline = spline.derivative()
+    # spline2ndder : scipy.interpolate.BSpline = splineder.derivative()
+
+    # firstderivs : np.ndarray = splineder(rsamp)
+    # firstderivnorms : np.ndarray = np.linalg.norm(firstderivs, ord=2, axis=1)
+    # secondderivs : np.ndarray = spline2ndder(rsamp)
+    # secondderivnorms : np.ndarray = np.linalg.norm(secondderivs, ord=2, axis=1)
+    # radii = np.power(firstderivnorms,3)/np.sqrt(np.square(firstderivnorms)*np.square(secondderivnorms) - np.square(np.sum(firstderivs*secondderivs, axis=1)))
+
     radii = np.inf*np.ones_like(rsamp)
-    # searchrange : float = 30.0
-    # dI : int = int(round(searchrange/ds))
-    dI : int = 2
+    searchrange : float = 30.0
+    dI : int = int(round(searchrange/ds))
+    # dI : int = 4
     for i in tqdm(range(Xsamp.shape[0]), desc="Estimating radii of curvature"):
         ilocal : np.ndarray = np.arange(i-dI, i+dI+1, step=1, dtype=np.int64)%(Xsamp.shape[0])
         Xlocal : np.ndarray = Xsamp[ilocal].T
@@ -303,10 +312,10 @@ def go(argdict):
         fprimeprime : float = float(np.polyval(polynomial2ndderiv, Xlocal[0,dI]))
         radii[i]=((1.0 + fprime**2)**1.5)/np.abs(fprimeprime)
     rprint = 100
-    idxhardcode = int(round(100.0/ds))
-    print("idxhardcode: %d" %(idxhardcode,), flush=True)
-    radii[0:idxhardcode] = radii[-idxhardcode:] = np.inf
-    radii[radii>250.0]=np.inf
+    # idxhardcode = int(round(100.0/ds))
+    # print("idxhardcode: %d" %(idxhardcode,), flush=True)
+    # radii[0:idxhardcode] = radii[-idxhardcode:] = np.inf
+    radii[radii>350.0]=np.inf
 
 
     print("First %d radii:\n%s" %(rprint, str(radii[0:rprint]),), flush=True)
