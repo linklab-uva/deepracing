@@ -158,9 +158,8 @@ def go(argdict):
         # Xin[:,2] = np.mean(track[:,3])
         Xin[:-1,2] = track[:,3]
         Xin[:-1,3] = track[:,2]
-        Xin[:-1,0] = r
+        Xin[:-1,0] = r - r[0]
         x0 = None
-        Xin[:-1,0] = Xin[:-1,0] - Xin[0,0]
         Xin[-1,0] = Xin[-2,0] + np.linalg.norm(Xin[-2,1:] - Xin[0,1:], ord=2)
         Xin[-1,1:] = Xin[0,1:]
 
@@ -295,9 +294,8 @@ def go(argdict):
     # radii = np.power(firstderivnorms,3)/np.sqrt(np.square(firstderivnorms)*np.square(secondderivnorms) - np.square(np.sum(firstderivs*secondderivs, axis=1)))
 
     radii = np.inf*np.ones_like(rsamp)
-    searchrange : float = 30.0
-    dI : int = int(round(searchrange/ds))
-    # dI : int = 4
+    searchrange : float = 15.0
+    dI : int = int(round(searchrange/ds))# dI : int = 4
     for i in tqdm(range(Xsamp.shape[0]), desc="Estimating radii of curvature"):
         ilocal : np.ndarray = np.arange(i-dI, i+dI+1, step=1, dtype=np.int64)%(Xsamp.shape[0])
         Xlocal : np.ndarray = Xsamp[ilocal].T
