@@ -153,14 +153,17 @@ def go(argdict):
         I = np.argsort(trackin[:,0])
         track = trackin[I].copy()
         r = track[:,0].copy()
-        Xin = np.zeros((track.shape[0],4))
-        Xin[:,1] = track[:,1]
+        Xin = np.zeros((track.shape[0]+1,4))
+        Xin[:-1,1] = track[:,1]
         # Xin[:,2] = np.mean(track[:,3])
-        Xin[:,2] = track[:,3]
-        Xin[:,3] = track[:,2]
-        Xin[:,0] = r
+        Xin[:-1,2] = track[:,3]
+        Xin[:-1,3] = track[:,2]
+        Xin[:-1,0] = r
         x0 = None
-        Xin[:,0] = Xin[:,0] - Xin[0,0]
+        Xin[:-1,0] = Xin[:-1,0] - Xin[0,0]
+        Xin[-1,0] = Xin[-2,0] + np.linalg.norm(Xin[-2,1:] - Xin[0,1:], ord=2)
+        Xin[-1,1:] = Xin[0,1:]
+
         minimumcurvatureguess=False
     if isracingline and argdict["pca"]:
         allpoints = np.concatenate([innerboundary, outerboundary], axis=0)
