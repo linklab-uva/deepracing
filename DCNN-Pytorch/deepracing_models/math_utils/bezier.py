@@ -56,12 +56,12 @@ def bezierArcLength(control_points, d0=None, N=59, simpsonintervals=4 ):
         
 
     
-def bezierM(t,n):
+def bezierM(t,n) -> torch.Tensor:
     return torch.stack([Mtk(k,n,t) for k in range(n+1)],dim=2)
 def evalBezier(M,control_points):
     return torch.matmul(M,control_points)
     
-def bezierDerivative(control_points, t = None, M = None, order = 1 ):
+def bezierDerivative(control_points, t = None, M = None, order = 1 ) -> Tuple[torch.Tensor, torch.Tensor]:
     if (bool(t is not None) ^ bool(M is not None)):
         n = control_points.shape[1]-1
         if t is not None:
@@ -76,7 +76,7 @@ def bezierDerivative(control_points, t = None, M = None, order = 1 ):
     else:
         raise ValueError("One of t or M must be set, but not both")
 
-def bezierLsqfit(points, n, t = None, M = None, built_in_lstq=False):
+def bezierLsqfit(points, n, t = None, M = None, built_in_lstq=False, minimum_singular_value=0.0, fix_first_point = False) -> Tuple[torch.Tensor, torch.Tensor]:
     if ((t is None) and (M is None)) or ((t is not None) and (M is not None)):
         raise ValueError("One of t or M must be set, but not both")
     if M is None:
@@ -85,10 +85,17 @@ def bezierLsqfit(points, n, t = None, M = None, built_in_lstq=False):
         M_ = M
     batch = M_.shape[0]
     if built_in_lstq:
-        res = torch.linalg.lstsq(M_, points)
-        return M_, res.solution
+        if fix_first_point:
+            res = torch.cat([torch.zeros_like(points[:,0,:]).unsqueeze(1), torch.linalg.lstsq(M_[:,:,1:], points).solution], dim=1)
+        else:
+            res = torch.linalg.lstsq(M_, points).solution
+        return M_, res
     else:
-        return M_, torch.matmul(pinv(M_), points)
+        if fix_first_point:
+            res = torch.cat([torch.zeros_like(points[:,0,:]).unsqueeze(1), torch.matmul(pinv(M_[:,:,1:], minimum_singular_value=minimum_singular_value), points)], dim=1)
+        else:
+            res = torch.matmul(pinv(M_, minimum_singular_value=minimum_singular_value), points)
+        return M_, res
 
 class BezierCurveModule(torch.nn.Module):
     def __init__(self, control_points, mask = None):
