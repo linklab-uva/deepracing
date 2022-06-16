@@ -69,7 +69,7 @@ def writeRacelineToFile(argdict : dict, velsquares : np.ndarray):
         v0square : float = velsquares[i]
         vfsquare : float = velsquares[i+1]
         a0 : float = (vfsquare-v0square)/(2.0*ds)
-        if np.abs(a0)>1E-2:
+        if np.abs(a0)>1E-4:
             deltat : float = (-v0 + np.sqrt(v0square + 2.0*a0*ds))/a0
         else:
             deltat : float = ds/v0
