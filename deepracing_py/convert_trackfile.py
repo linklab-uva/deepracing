@@ -42,30 +42,42 @@ def writeRacelineToFile(argdict : dict, velsquares : np.ndarray):
     # tparameterized = tparameterized - tparameterized[0]
 
     positionsradii = spline(rsamp)
-    tparameterized : np.ndarray = np.zeros_like(vels)
-    for i in range(1, tparameterized.shape[0]):
-        tparameterized[i] = (rsamp[i] - rsamp[i-1])/vels[i-1] + tparameterized[i-1]
+    # tparameterized : np.ndarray = np.zeros_like(vels)
+    # for i in range(1, tparameterized.shape[0]):
+    #     tparameterized[i] = (rsamp[i] - rsamp[i-1])/vels[i-1] + tparameterized[i-1]
 
-    finaldelta = np.linalg.norm(positionsradii[0] - positionsradii[-1], ord=2)
-    positionsclosed = np.concatenate([positionsradii, positionsradii[0].reshape(1,-1)], axis=0)
-    tclosed = np.concatenate([tparameterized, np.asarray([ tparameterized[-1] + finaldelta/vels[-1] ]) ])
+    # finaldelta = np.linalg.norm(positionsradii[0] - positionsradii[-1], ord=2)
+    # positionsclosed = np.concatenate([positionsradii, positionsradii[0].reshape(1,-1)], axis=0)
+    # tclosed = np.concatenate([tparameterized, np.asarray([ tparameterized[-1] + finaldelta/vels[-1] ]) ])
 
-    truespline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(tclosed, positionsclosed, bc_type="periodic")
-    truesplinevel : scipy.interpolate.BSpline = truespline.derivative(nu=1)
-    truesplineaccel : scipy.interpolate.BSpline = truespline.derivative(nu=2)
+    # truespline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(tclosed, positionsclosed, bc_type="periodic")
+    # truesplinevel : scipy.interpolate.BSpline = truespline.derivative(nu=1)
+    # truesplineaccel : scipy.interpolate.BSpline = truespline.derivative(nu=2)
 
-    nout = 4000
-    tsampcheck = np.linspace(tparameterized[0], tparameterized[-1], num=radii.shape[0])
-    tsamp = np.linspace(tparameterized[0], tparameterized[-1], num=nout)
-    dsamp = np.linspace(rsamp[0], rsamp[-1], num=nout)
+    # nout = 4000
+    # tsampcheck = np.linspace(tparameterized[0], tparameterized[-1], num=radii.shape[0])
+    # tsamp = np.linspace(tparameterized[0], tparameterized[-1], num=nout)
+    # dsamp = np.linspace(rsamp[0], rsamp[-1], num=nout)
 
-    splinevels = truesplinevel(tsampcheck)
-    splinecentripetaccels = np.sum(np.square(splinevels), axis=1)/radii
-    splinelinearaccels = truesplineaccel(tsampcheck)
-    print("Expected lap time: %f" % (tclosed[-1],), flush=True)
-    print("Lap Distance: %f" % (dsamp[-1] - dsamp[0] + dsvec[-1],), flush=True)
-    print("max linear acceleration: %f" % (np.max(np.abs(splinelinearaccels))), flush=True)
-    print("max centripetal acceleration: %f" % (np.max(np.abs(splinecentripetaccels))), flush=True)
+    # splinevels = truesplinevel(tsampcheck)
+    # splinecentripetaccels = np.sum(np.square(splinevels), axis=1)/radii
+    # splinelinearaccels = truesplineaccel(tsampcheck)
+    tparameterized : np.ndarray = np.zeros_like(rsamp)
+    for i in range(rsamp.shape[0]-1):
+        ds : float = rsamp[i+1] - rsamp[i]
+        v0 : float = vels[i]
+        v0square : float = velsquares[i]
+        vfsquare : float = velsquares[i+1]
+        a0 : float = (vfsquare-v0square)/(2.0*ds)
+        try:
+            deltat : float = (-v0 + np.sqrt(v0square + 2.0*a0*ds))/a0
+        except Exception as e:
+            deltat : float = ds/v0
+        tparameterized[i+1] = tparameterized[i]+deltat
+    print("Expected lap time: %f" % (tparameterized[-1],), flush=True)
+    # print("Lap Distance: %f" % (dsamp[-1] - dsamp[0] + dsvec[-1],), flush=True)
+    # print("max linear acceleration: %f" % (np.max(np.abs(splinelinearaccels))), flush=True)
+    # print("max centripetal acceleration: %f" % (np.max(np.abs(splinecentripetaccels))), flush=True)
 
 
     # psamp = truespline(tsamp)
