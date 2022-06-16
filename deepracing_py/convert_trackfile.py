@@ -305,6 +305,7 @@ def go(argdict):
         yvec = np.cross(normalvec, xvec)
         yvec = yvec/np.linalg.norm(yvec, ord=2)
         zvec = np.cross(xvec,yvec)
+        zvec = zvec/np.linalg.norm(zvec, ord=2)
         Xlocal = np.matmul(np.row_stack([xvec,yvec,zvec]), Xlocal)
         polynomial : np.ndarray = np.polyfit(Xlocal[0], Xlocal[1], 3)
         polynomialderiv : np.ndarray = np.polyder(polynomial)
