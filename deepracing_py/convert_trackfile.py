@@ -329,7 +329,7 @@ def go(argdict):
     # idxhardcode = int(round(100.0/ds))
     # print("idxhardcode: %d" %(idxhardcode,), flush=True)
     # radii[0:idxhardcode] = radii[-idxhardcode:] = np.inf
-    radii[radii>450.0]=450.0
+    radii[radii>1000.0]=1000.0
     radii[radii<1.0]=1.0
 
 
