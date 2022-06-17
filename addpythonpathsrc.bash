@@ -8,9 +8,8 @@ cd `dirname ${SCRIPT_PATH}` > /dev/null
 SCRIPT_PATH=`pwd`;
 popd  > /dev/null
 
-echo $SCRIPT_PATH
 extrapythonpaths=$SCRIPT_PATH/deepracing_py:$SCRIPT_PATH/DCNN-Pytorch
-echo $extrapythonpaths
+echo "Adding $extrapythonpaths to PYTHONPATH"
 
 if [[ -z "${PYTHONPATH}" ]]; then
   export PYTHONPATH=${extrapythonpaths}
