@@ -305,7 +305,7 @@ def go(argdict):
     # secondderivnorms : np.ndarray = np.linalg.norm(secondderivs, ord=2, axis=1)
     # radii = np.power(firstderivnorms,3)/np.sqrt(np.square(firstderivnorms)*np.square(secondderivnorms) - np.square(np.sum(firstderivs*secondderivs, axis=1)))
 
-    radii = np.inf*np.ones_like(rsamp)
+    radii = np.ones_like(rsamp)
     searchrange : float = 15.0
     dI : int = int(round(searchrange/ds))# dI : int = 4
     for i in tqdm(range(Xsamp.shape[0]), desc="Estimating radii of curvature"):
@@ -329,7 +329,8 @@ def go(argdict):
     # idxhardcode = int(round(100.0/ds))
     # print("idxhardcode: %d" %(idxhardcode,), flush=True)
     # radii[0:idxhardcode] = radii[-idxhardcode:] = np.inf
-    radii[radii>350.0]=np.inf
+    radii[radii>450.0]=450.0
+    radii[radii<1.0]=1.0
 
 
     print("First %d radii:\n%s" %(rprint, str(radii[0:rprint]),), flush=True)
