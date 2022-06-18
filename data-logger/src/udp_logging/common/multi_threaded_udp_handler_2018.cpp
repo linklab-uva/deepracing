@@ -116,7 +116,7 @@ inline bool MultiThreadedUDPHandler2018::isReady()
 
 template<class ProtoType, class F1Type, class timeunit>
 inline void dispositionProto(ProtoType& data_pb, F1Type& timestamped_packet_f1, const unsigned int& sleeptime,
-const deepf1::TimePoint& begin, const fs::path& output_dir, tbb::atomic<unsigned long>& counter, bool use_json)
+const deepf1::TimePoint& begin, const fs::path& output_dir,std::atomic<std::uint64_t>& counter, bool use_json)
 {
   data_pb.mutable_udp_packet()->CopyFrom(deepf1::twenty_eighteen::TwentyEighteenUDPStreamUtils::toProto(timestamped_packet_f1.data));
   std::chrono::duration<double, timeunit> dt = timestamped_packet_f1.timestamp - begin;
@@ -127,7 +127,7 @@ const deepf1::TimePoint& begin, const fs::path& output_dir, tbb::atomic<unsigned
     json_options.add_whitespace = true;
     json_options.always_print_primitive_fields = true;
     std::string json_string;
-    fs::path filename = output_dir / fs::path("packet_" + std::to_string(counter.fetch_and_increment()) + ".json");
+    fs::path filename = output_dir / fs::path("packet_" + std::to_string(counter.fetch_add(1, std::memory_order_relaxed)) + ".json");
     google::protobuf::util::Status rc = google::protobuf::util::MessageToJsonString(data_pb, &json_string, json_options);
     std::ofstream ostream(filename.string(), std::fstream::out | std::fstream::trunc);
     ostream << json_string << std::endl;
@@ -137,7 +137,7 @@ const deepf1::TimePoint& begin, const fs::path& output_dir, tbb::atomic<unsigned
   }
   else
   {
-    fs::path filename = output_dir / fs::path("packet_" + std::to_string(counter.fetch_and_increment()) + ".pb");
+    fs::path filename = output_dir / fs::path("packet_" + std::to_string(counter.fetch_add(1, std::memory_order_relaxed)) + ".pb");
     std::ofstream ostream(filename.string(), std::fstream::out | std::fstream::trunc | std::fstream::binary);
     data_pb.SerializeToOstream(&ostream);
     ostream.flush();

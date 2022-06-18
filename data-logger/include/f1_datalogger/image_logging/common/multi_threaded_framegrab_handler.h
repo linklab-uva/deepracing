@@ -10,6 +10,7 @@
 #include "f1_datalogger/image_logging/framegrab_handler.h"
 #include <tbb/concurrent_queue.h>
 #include <tbb/task_group.h>
+#include <atomic>
 #include <mutex>
 #include <memory>
 #include <f1_datalogger/image_logging/visibility_control.h>
@@ -51,7 +52,7 @@ private:
   bool running_;
   std::chrono::high_resolution_clock::time_point begin_;
   unsigned int thread_count_;
-  tbb::atomic<unsigned long> counter_;
+  std::atomic<std::uint64_t> counter_;
   std::mutex queue_mutex_;
   const std::string images_folder_;
   void workerFunc_();

@@ -17,6 +17,7 @@
 #include <filesystem>
 #include <tbb/concurrent_queue.h>
 #include <tbb/task_group.h>
+#include <atomic>
 #include <yaml-cpp/yaml.h>
 #include "f1_datalogger/proto/TimestampedPacketCarTelemetryData.pb.h"
 #include "f1_datalogger/udp_logging/utils/udp_stream_utils.h"
@@ -87,7 +88,7 @@ public:
       if(telemetry_data_queue_->try_pop(data))
       {
      //   std::cerr<<"Writing a packet to disk"<<std::endl;
-        unsigned long counter = telemetry_counter.fetch_and_increment();
+        std::uint64_t counter = telemetry_counter.fetch_add(1, std::memory_order_relaxed);
         std::chrono::duration<double, std::milli> dt = (data.timestamp - begin);
         deepf1::twenty_eighteen::protobuf::TimestampedPacketCarTelemetryData data_pb;
         data_pb.set_timestamp(dt.count());
@@ -128,7 +129,7 @@ private:
   const fs::path output_dir_;
   std::shared_ptr< tbb::task_group > thread_pool_ ;
   std::shared_ptr< tbb::concurrent_queue<deepf1::twenty_eighteen::TimestampedPacketCarTelemetryData> > telemetry_data_queue_;
-  tbb::atomic<unsigned long> telemetry_counter;
+  std::atomic<std::uint64_t> telemetry_counter;
 };
 int main(int argc, char** argv)
 {

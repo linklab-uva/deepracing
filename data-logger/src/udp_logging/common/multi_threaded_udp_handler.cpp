@@ -74,7 +74,7 @@ void MultiThreadedUDPHandler::workerFunc_()
         continue;
       }
     }
-    unsigned long counter = counter_.fetch_and_increment();
+    std::uint64_t counter = counter_.fetch_add(1, std::memory_order_relaxed);
     fs::path  udp_folder(data_folder_);
     google::protobuf::uint64 delta = (google::protobuf::uint64)(std::chrono::duration_cast<std::chrono::milliseconds>(data.timestamp - begin_).count());
 	  //std::cout << "Got some udp data. Clock Delta = " << delta << std::endl;

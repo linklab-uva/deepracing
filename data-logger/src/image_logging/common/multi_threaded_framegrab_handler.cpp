@@ -128,7 +128,7 @@ void MultiThreadedFrameGrabHandler::workerFunc_()
         continue;
       }
     }
-    unsigned long counter = counter_.fetch_and_increment();
+    std::uint64_t counter = counter_.fetch_add(1, std::memory_order_relaxed);
 	  //std::cout << "Got some image data. Clock Delta = " << delta << std::endl;
     std::string file_prefix = "image_" + std::to_string(counter);
     std::string image_file( file_prefix + "." + image_extension_);

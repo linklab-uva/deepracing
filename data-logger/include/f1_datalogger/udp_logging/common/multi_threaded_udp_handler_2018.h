@@ -90,7 +90,7 @@ private:
   std::shared_ptr< tbb::concurrent_queue<deepf1::twenty_eighteen::TimestampedPacketMotionData> > motion_data_queue_;
   std::shared_ptr< tbb::concurrent_queue<deepf1::twenty_eighteen::TimestampedPacketParticipantsData> > participant_data_queue_;
   std::shared_ptr< tbb::concurrent_queue<deepf1::twenty_eighteen::TimestampedPacketSessionData> > session_data_queue_;
-  tbb::atomic<unsigned long> setups_counter,status_counter,telemetry_counter,lapdata_counter,
+  std::atomic<std::uint64_t> setups_counter,status_counter,telemetry_counter,lapdata_counter,
                               motion_counter,participants_counter,session_counter;
 
   bool ready_;
