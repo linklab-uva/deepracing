@@ -18,5 +18,5 @@ class ProbabilisticBezierCurve(torch.nn.Module):
             pointscovarout : torch.Tensor = torch.sum(msquare[:,:,None,None]*covariance, dim=1)
             return pointsout, pointscovarout
         else:
-            _, deriv_mean, deriv_covariance = deepracing_models.math_utils.bezierDerivative(mean, M=M, order=order, covariance=covariance)
-            return deriv_mean, deriv_covariance
+            _, deriv_mean, deriv_covariance = deepracing_models.math_utils.bezierDerivative(mean.unsqueeze(0), M=M.unsqueeze(0), covariance=covariance.unsqueeze(0), order=order)
+            return deriv_mean[0], deriv_covariance[0]
