@@ -9,10 +9,14 @@ class ProbabilisticBezierCurve(torch.nn.Module):
         self.mean : torch.nn.ParameterList = torch.nn.ParameterList([ torch.nn.parameter.Parameter(mean[i], requires_grad=True) for i in range(mean.shape[0]) ])
         self.covarmanifold : geoopt.SymmetricPositiveDefinite = geoopt.SymmetricPositiveDefinite()
         self.covariance : torch.nn.ParameterList = torch.nn.ParameterList([ geoopt.ManifoldParameter(self.covarmanifold.projx(covariance[i]), requires_grad=True, manifold=self.covarmanifold) for i in range(covariance.shape[0]) ])
-    def forward(self, M : torch.Tensor):
+    def forward(self, M : torch.Tensor, order=None):
         mean : torch.Tensor = torch.stack([p for p in self.mean], dim=0)
         covariance : torch.Tensor = torch.stack([p for p in self.covariance], dim=0)
-        pointsout : torch.Tensor = torch.matmul(M, mean)
-        msquare : torch.Tensor = torch.square(M)
-        pointscovarout : torch.Tensor = torch.sum(msquare[:,:,None,None]*covariance, dim=1)
-        return pointsout, pointscovarout
+        if order is None:
+            pointsout : torch.Tensor = torch.matmul(M, mean)
+            msquare : torch.Tensor = torch.square(M)
+            pointscovarout : torch.Tensor = torch.sum(msquare[:,:,None,None]*covariance, dim=1)
+            return pointsout, pointscovarout
+        else:
+            _, deriv_mean, deriv_covariance = deepracing_models.math_utils.bezierDerivative(mean, M=M, order=order, covariance=covariance)
+            return deriv_mean, deriv_covariance
