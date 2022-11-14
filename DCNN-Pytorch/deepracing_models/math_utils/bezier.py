@@ -1,10 +1,9 @@
-from typing import Tuple
+from typing import Tuple, Union
 import numpy as np
 import math
 import torch, torch.nn
 from scipy.special import comb as nChoosek
 from deepracing_models.math_utils.fitting import pinv
-
 def polynomialFormConversion(k : int, dtype=torch.float64, device=torch.device("cpu")) -> Tuple[torch.Tensor, torch.Tensor]:
     topolyform : torch.Tensor = torch.zeros((k+1,k+1), dtype=dtype, device=device)
     kfactorial : float = math.factorial(k)
@@ -61,18 +60,38 @@ def bezierM(t,n) -> torch.Tensor:
 def evalBezier(M,control_points):
     return torch.matmul(M,control_points)
     
-def bezierDerivative(control_points, t = None, M = None, order = 1 ) -> Tuple[torch.Tensor, torch.Tensor]:
+def bezierDerivative(control_points : torch.Tensor, t = None, M = None, order = 1, covariance : Union[None, torch.Tensor] = None )\
+     -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
     if (bool(t is not None) ^ bool(M is not None)):
+        b = control_points.shape[0]
         n = control_points.shape[1]-1
         if t is not None:
             Mderiv = bezierM(t,n-order)
         else:
             Mderiv = M
-        pdiff =  control_points[:,1:] - control_points[:,:-1]
-        for i in range(1,order):
-            pdiff =  pdiff[:,1:] - pdiff[:,:-1]
+        # pdiff =  control_points[:,1:] - control_points[:,:-1]
+        # for i in range(1,order):
+        #     pdiff =  pdiff[:,1:] - pdiff[:,:-1]
+        if order%2==0:
+            pascalrow : torch.Tensor = torch.as_tensor([np.power(-1.0, i)*nChoosek(order,i) for i in range(order+1)], dtype=control_points.dtype, device=control_points.device)
+        else:
+            pascalrow : torch.Tensor = torch.as_tensor([np.power(-1.0, i+1)*nChoosek(order,i) for i in range(order+1)], dtype=control_points.dtype, device=control_points.device)
+        pascalmatrix : torch.Tensor = torch.zeros([b, control_points.shape[1] - order, control_points.shape[1] ], dtype=pascalrow.dtype, device=pascalrow.device)
+        for i in range(0, pascalmatrix.shape[1]):
+            pascalmatrix[:,i,i:i+pascalrow.shape[0]] = pascalrow
+        pdiff : torch.Tensor = torch.matmul(pascalmatrix, control_points)
         factor = torch.prod(torch.linspace(n,n-order+1,order))
-        return Mderiv, factor*torch.matmul(Mderiv, pdiff)
+        deriv_values = factor*torch.matmul(Mderiv, pdiff)
+        if covariance is None:
+            return Mderiv, deriv_values
+        d = control_points.shape[2]
+        numpoints = Mderiv.shape[1]
+        pascalmatrix_square : torch.Tensor = torch.square(pascalmatrix)
+        covariance_flat : torch.Tensor = covariance.view(b,n+1,-1)
+        pdiff_covar_flat : torch.Tensor = torch.matmul(pascalmatrix_square, covariance_flat)
+        msquare = torch.square(Mderiv)
+        covarout = torch.square(factor)*torch.matmul(msquare, pdiff_covar_flat).view(b,numpoints,d,d)
+        return Mderiv, deriv_values, covarout
     else:
         raise ValueError("One of t or M must be set, but not both")
 
