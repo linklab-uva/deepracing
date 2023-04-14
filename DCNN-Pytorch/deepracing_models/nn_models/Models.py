@@ -11,7 +11,7 @@ import math
 import collections
 
 ### 
-# MixNet model is a modified version of work published by Philip Karle & Technical University of Munich on August 22, 2022 under GNU General Public License V3.
+# MixNet model is a modified version of work published by Phillip Karle & Technical University of Munich on August 22, 2022 under GNU General Public License V3.
 # Modified on various dates starting April 14, 2023
 ###  
 class MixNet(nn.Module):
