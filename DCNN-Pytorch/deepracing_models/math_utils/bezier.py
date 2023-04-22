@@ -53,7 +53,68 @@ def bezierArcLength(control_points, d0=None, N=59, simpsonintervals=4 ):
     derivsamp = deriv[:,[i*simpsonintervals for i in range(N+1)]]
     return Mderivsamp, tsamp, derivsamp, speedsamp, distances
         
+def compositeBezierSpline_periodic_(x : torch.Tensor, Y : torch.Tensor):
+    k=3
+    if torch.linalg.norm(Y[-1] - Y[0], ord=2)>1E-5:
+        raise ValueError("Y[-1] and Y[0] must be the same value for a periodic spline")
+    if x.shape[0]!=Y.shape[0]:
+        raise ValueError("x and Y must be equal in size in dimension 0. x.shape[0]=%d, but Y.shape[0]=%d" % (x.shape[0], Y.shape[0])) 
+    points = Y[:-1]
+    numpoints = points.shape[0]
+    d = points.shape[1]
+    numparams = (k-1)*numpoints*d
+    dxvec = x[1:]-x[:-1]
+    dx2vec = dxvec*dxvec
 
+    first_order_design_matrix : torch.Tensor = torch.zeros((int(numparams/2), numparams), dtype=x.dtype, device=x.device)
+    first_order_bvec : torch.Tensor = torch.zeros_like(first_order_design_matrix[:,0])
+
+    second_order_design_matrix : torch.Tensor = torch.zeros_like(first_order_design_matrix)
+    second_order_bvec : torch.Tensor = torch.zeros_like(first_order_design_matrix[:,0])
+    for i in range(0, first_order_design_matrix.shape[0], d):
+        C0index = int(i/d)
+        C1index = int(C0index+1)
+        dx0 = dxvec[C0index%numpoints]
+        dx1 = dxvec[C1index%numpoints]
+
+        jstart_first_order = d*(2*C0index+1)
+        dr0inv = (1/dx0)*torch.eye(d, dtype=x.dtype, device=x.device)
+        first_order_design_matrix[i:i+d, jstart_first_order:jstart_first_order+d] = dr0inv
+        dr1inv = (1/dx1)*torch.eye(d, dtype=x.dtype, device=x.device)
+        jstart2_first_order = (jstart_first_order+d)%numparams
+        first_order_design_matrix[i:i+d, jstart2_first_order:jstart2_first_order+d] = dr1inv
+
+        first_order_bvec[i:i+d] = torch.matmul(dr0inv + dr1inv, points[C1index%numpoints])
+        
+        jstart_second_order = d*2*C0index
+        jstart2_second_order = (jstart_second_order+d)%numparams
+        jstart3_second_order = (jstart2_second_order+d)%numparams
+        jstart4_second_order = (jstart3_second_order+d)%numparams
+
+        dx0square = dx2vec[C0index%numpoints]
+        dx0squareinv =  (1/dx0square)*torch.eye(d, dtype=x.dtype, device=x.device)
+        second_order_design_matrix[i:i+d, jstart_second_order:jstart_second_order+d] = dx0squareinv
+        second_order_design_matrix[i:i+d, jstart2_second_order:jstart2_second_order+d] = -2*dx0squareinv
+
+        dx1square = dx2vec[C1index%numpoints]
+        dx1square =  (1/dx1square)*torch.eye(d, dtype=x.dtype, device=x.device)
+        second_order_design_matrix[i:i+d, jstart3_second_order:jstart3_second_order+d] = 2*dx1square
+        second_order_design_matrix[i:i+d, jstart4_second_order:jstart4_second_order+d] = -dx1square
+
+        second_order_bvec[i:i+d] = torch.matmul(dx1square - dx0squareinv, points[C1index%numpoints])
+    A = torch.cat([first_order_design_matrix, second_order_design_matrix], dim=0)
+    b = torch.cat([first_order_bvec, second_order_bvec], dim=0)
+
+    res : torch.Tensor = torch.linalg.solve(A, b.unsqueeze(1))[:,0]
+
+    all_curves = torch.cat([points.unsqueeze(1), res.reshape(numpoints , k-1, d), points[torch.linspace(1, numpoints, numpoints, dtype=torch.int64)%numpoints].unsqueeze(1)], dim=1)
+
+    # all_curves = torch.zeros((numpoints, k+1, d), dtype=points.dtype, device=points.device)
+    # all_curves[:,0] = points
+    # all_curves[:,1:k] = res.reshape(all_curves[:,1:k].shape)
+    # all_curves[:,-1] = points[torch.linspace(1, numpoints, numpoints, dtype=torch.int64)%numpoints]
+
+    return all_curves
     
 def bezierM(t,n) -> torch.Tensor:
     return torch.stack([Mtk(k,n,t) for k in range(n+1)],dim=2)
