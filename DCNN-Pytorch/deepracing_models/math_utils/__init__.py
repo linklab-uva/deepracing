@@ -22,6 +22,6 @@ def closedPathAsBezierSpline(Y : torch.Tensor) -> Tuple[torch.Tensor, torch.Tens
     euclidean_distances[1:] = torch.cumsum( delta_euclidean_distances, 0 )
     euclidean_spline = bezier.compositeBezierSpline_periodic_(euclidean_distances,Y)
     arclengths = torch.zeros_like(Y[:,0])
-    _, _, _, _, distances = bezierArcLength(euclidean_spline)
+    _, _, _, _, distances = bezierArcLength(euclidean_spline, N=5, simpsonintervals=20)
     arclengths[1:] = torch.cumsum(distances[:,-1], 0)
     return arclengths, bezier.compositeBezierSpline_periodic_(arclengths,Y)
