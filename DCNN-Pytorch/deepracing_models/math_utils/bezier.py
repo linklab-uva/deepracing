@@ -115,7 +115,7 @@ def compositeBezierSpline_periodic_(x : torch.Tensor, Y : torch.Tensor):
     # all_curves[:,-1] = points[torch.linspace(1, numpoints, numpoints, dtype=torch.int64)%numpoints]
 
     return all_curves
-    
+
 def bezierM(t,n) -> torch.Tensor:
     return torch.stack([Mtk(k,n,t) for k in range(n+1)],dim=2)
 def evalBezier(M,control_points):
@@ -130,9 +130,13 @@ def bezierDerivative(control_points : torch.Tensor, t = None, M = None, order = 
             Mderiv = bezierM(t,n-order)
         else:
             Mderiv = M
-        # pdiff =  control_points[:,1:] - control_points[:,:-1]
-        # for i in range(1,order):
-        #     pdiff =  pdiff[:,1:] - pdiff[:,:-1]
+        if covariance is None:
+            pdiff =  control_points[:,1:] - control_points[:,:-1]
+            for i in range(1,order):
+                pdiff =  pdiff[:,1:] - pdiff[:,:-1]
+            factor = torch.prod(torch.linspace(n,n-order+1,order))
+            deriv_values = factor*torch.matmul(Mderiv, pdiff)
+            return Mderiv, deriv_values
         if order%2==0:
             pascalrow : torch.Tensor = torch.as_tensor([np.power(-1.0, i)*nChoosek(order,i) for i in range(order+1)], dtype=control_points.dtype, device=control_points.device)
         else:
@@ -143,8 +147,6 @@ def bezierDerivative(control_points : torch.Tensor, t = None, M = None, order = 
         pdiff : torch.Tensor = torch.matmul(pascalmatrix, control_points)
         factor = torch.prod(torch.linspace(n,n-order+1,order))
         deriv_values = factor*torch.matmul(Mderiv, pdiff)
-        if covariance is None:
-            return Mderiv, deriv_values
         d = control_points.shape[2]
         numpoints = Mderiv.shape[1]
         pascalmatrix_square : torch.Tensor = torch.square(pascalmatrix)
