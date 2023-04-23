@@ -97,11 +97,11 @@ def compositeBezierSpline_periodic_(x : torch.Tensor, Y : torch.Tensor):
         second_order_design_matrix[i:i+d, jstart2_second_order:jstart2_second_order+d] = -2*dx0squareinv
 
         dx1square = dx2vec[C1index%numpoints]
-        dx1square =  (1/dx1square)*torch.eye(d, dtype=x.dtype, device=x.device)
-        second_order_design_matrix[i:i+d, jstart3_second_order:jstart3_second_order+d] = 2*dx1square
-        second_order_design_matrix[i:i+d, jstart4_second_order:jstart4_second_order+d] = -dx1square
+        dx1squareinv =  (1/dx1square)*torch.eye(d, dtype=x.dtype, device=x.device)
+        second_order_design_matrix[i:i+d, jstart3_second_order:jstart3_second_order+d] = 2*dx1squareinv
+        second_order_design_matrix[i:i+d, jstart4_second_order:jstart4_second_order+d] = -dx1squareinv
 
-        second_order_bvec[i:i+d] = torch.matmul(dx1square - dx0squareinv, points[C1index%numpoints])
+        second_order_bvec[i:i+d] = torch.matmul(dx1squareinv - dx0squareinv, points[C1index%numpoints])
     A = torch.cat([first_order_design_matrix, second_order_design_matrix], dim=0)
     b = torch.cat([first_order_bvec, second_order_bvec], dim=0)
 
