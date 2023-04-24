@@ -52,7 +52,37 @@ def bezierArcLength(control_points, d0=None, N=59, simpsonintervals=4 ):
     speedsamp = speeds[:,[i*simpsonintervals for i in range(N+1)]]
     derivsamp = deriv[:,[i*simpsonintervals for i in range(N+1)]]
     return Mderivsamp, tsamp, derivsamp, speedsamp, distances
-        
+
+def compositeBezierSpline_with_boundary_conditions_(x : torch.Tensor, Y : torch.Tensor, boundary_conditions : torch.Tensor):
+    k=3        
+    d = Y.shape[1]
+    if boundary_conditions.shape[0]!=2:
+        raise ValueError("Must have two boundary conditions. boundary_conditions tensor is only %dx%d" % (boundary_conditions.shape[0], boundary_conditions.shape[1]))
+    if boundary_conditions.shape[1]!=d:
+        raise ValueError("Invalid shape of boundary conditions: %s for" +
+                         "knots of dimension %d.  boundary_conditions must of size 2x%d, an initial"+
+                          " velocity and acceleration, each being %dD." % (str(boundary_conditions.shape), d, d, d))
+    V0 : torch.Tensor = boundary_conditions[0]
+    A0 : torch.Tensor = boundary_conditions[1]
+
+    numcurves = Y.shape[0]-1
+    dxvec = x[1:]-x[:-1]
+    dx2vec = dxvec*dxvec
+    bezier_control_points : torch.Tensor = torch.zeros((numcurves, k+1, d), dtype=Y.dtype, device=Y.device)
+    bezier_control_points[0,0] = Y[0]
+    bezier_control_points[0,1] = (dxvec[0]/k)*V0 + Y[0]
+    bezier_control_points[0,2] = (dx2vec[0]/(k*(k-1)))*A0 + 2*bezier_control_points[0,1] - Y[0]
+    bezier_control_points[0,3] = Y[1]
+
+    for i in range(1, numcurves):
+        bezier_control_points[i,0] = Y[i]
+        bezier_control_points[i,1] = Y[i] + (dxvec[i]/dxvec[i-1])*(Y[i]-bezier_control_points[i-1,2])
+        bezier_control_points[i,2] = (dx2vec[i]/dx2vec[i-1])*(Y[i] - 2.0*bezier_control_points[i-1,2] + bezier_control_points[i-1,1]) + 2.0*bezier_control_points[i,1] - Y[i] 
+        bezier_control_points[i,3] = Y[i+1]
+    return bezier_control_points
+
+
+
 def compositeBezierSpline_periodic_(x : torch.Tensor, Y : torch.Tensor):
     k=3
     if torch.linalg.norm(Y[-1] - Y[0], ord=2)>1E-5:
@@ -130,31 +160,39 @@ def bezierDerivative(control_points : torch.Tensor, t = None, M = None, order = 
             Mderiv = bezierM(t,n-order)
         else:
             Mderiv = M
-        if covariance is None:
-            pdiff =  control_points[:,1:] - control_points[:,:-1]
-            for i in range(1,order):
-                pdiff =  pdiff[:,1:] - pdiff[:,:-1]
-            factor = torch.prod(torch.linspace(n,n-order+1,order))
-            deriv_values = factor*torch.matmul(Mderiv, pdiff)
-            return Mderiv, deriv_values
-        if order%2==0:
-            pascalrow : torch.Tensor = torch.as_tensor([np.power(-1.0, i)*nChoosek(order,i) for i in range(order+1)], dtype=control_points.dtype, device=control_points.device)
-        else:
-            pascalrow : torch.Tensor = torch.as_tensor([np.power(-1.0, i+1)*nChoosek(order,i) for i in range(order+1)], dtype=control_points.dtype, device=control_points.device)
-        pascalmatrix : torch.Tensor = torch.zeros([b, control_points.shape[1] - order, control_points.shape[1] ], dtype=pascalrow.dtype, device=pascalrow.device)
-        for i in range(0, pascalmatrix.shape[1]):
-            pascalmatrix[:,i,i:i+pascalrow.shape[0]] = pascalrow
-        pdiff : torch.Tensor = torch.matmul(pascalmatrix, control_points)
+        pdiff =  control_points[:,1:] - control_points[:,:-1]
+        if covariance is not None:
+            covardiff = covariance[:,1:] + covariance[:,:-1]
+        for i in range(1,order):
+            pdiff =  pdiff[:,1:] - pdiff[:,:-1]
+            if covariance is not None:
+                covardiff = covardiff[:,1:] + covardiff[:,:-1]
         factor = torch.prod(torch.linspace(n,n-order+1,order))
         deriv_values = factor*torch.matmul(Mderiv, pdiff)
-        d = control_points.shape[2]
-        numpoints = Mderiv.shape[1]
-        pascalmatrix_square : torch.Tensor = torch.square(pascalmatrix)
-        covariance_flat : torch.Tensor = covariance.view(b,n+1,-1)
-        pdiff_covar_flat : torch.Tensor = torch.matmul(pascalmatrix_square, covariance_flat)
-        msquare = torch.square(Mderiv)
-        covarout = torch.square(factor)*torch.matmul(msquare, pdiff_covar_flat).view(b,numpoints,d,d)
-        return Mderiv, deriv_values, covarout
+        if covariance is None:
+            return Mderiv, deriv_values
+        else:
+            covar_deriv = torch.square(factor)*torch.sum(Mderiv[:,:,:,None,None]*covardiff, dim=2)
+            return Mderiv, deriv_values, covar_deriv    
+        
+        # if order%2==0:
+        #     pascalrow : torch.Tensor = torch.as_tensor([np.power(-1.0, i)*nChoosek(order,i) for i in range(order+1)], dtype=control_points.dtype, device=control_points.device)
+        # else:
+        #     pascalrow : torch.Tensor = torch.as_tensor([np.power(-1.0, i+1)*nChoosek(order,i) for i in range(order+1)], dtype=control_points.dtype, device=control_points.device)
+        # pascalmatrix : torch.Tensor = torch.zeros([b, control_points.shape[1] - order, control_points.shape[1] ], dtype=pascalrow.dtype, device=pascalrow.device)
+        # for i in range(0, pascalmatrix.shape[1]):
+        #     pascalmatrix[:,i,i:i+pascalrow.shape[0]] = pascalrow
+        # pdiff : torch.Tensor = torch.matmul(pascalmatrix, control_points)
+        # factor = torch.prod(torch.linspace(n,n-order+1,order))
+        # deriv_values = factor*torch.matmul(Mderiv, pdiff)
+        # d = control_points.shape[2]
+        # numpoints = Mderiv.shape[1]
+        # pascalmatrix_square : torch.Tensor = torch.square(pascalmatrix)
+        # covariance_flat : torch.Tensor = covariance.view(b,n+1,-1)
+        # pdiff_covar_flat : torch.Tensor = torch.matmul(pascalmatrix_square, covariance_flat)
+        # msquare = torch.square(Mderiv)
+        # covarout = torch.square(factor)*torch.matmul(msquare, pdiff_covar_flat).view(b,numpoints,d,d)
+        # return Mderiv, deriv_values, covarout
     else:
         raise ValueError("One of t or M must be set, but not both")
 
@@ -186,7 +224,7 @@ class BezierCurveModule(torch.nn.Module):
             self.mask = [True for asdf in range(control_points.shape[0])]
         else:
             self.mask = mask
-        self.control_points = torch.nn.ParameterList([ torch.nn.Parameter(control_points[i], requires_grad=self.mask[i]) for i in range(len(self.mask)) ])
+        self.control_points : torch.nn.ParameterList = torch.nn.ParameterList([ torch.nn.Parameter(control_points[i], requires_grad=self.mask[i]) for i in range(len(self.mask)) ])
     @staticmethod
     def lsqFit(s, pts, n, mask=None):
         assert(s.shape[0]==pts.shape[0])
