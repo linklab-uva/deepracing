@@ -3,6 +3,7 @@
 #include <ViGEm/Client.h>
 #include <sstream>
 #include <f1_datalogger/controllers/vigem_interface.h>
+#include <format>
 
 namespace deepf1
 {
@@ -13,9 +14,8 @@ namespace deepf1
     if (!VIGEM_SUCCESS(return_code))
     {
       vigem_free(vigem_client_);
-      std::stringstream error_stream;
-      error_stream << "Unable to connect to driver. Error code: 0x" << std::hex << return_code << std::endl;
-      throw std::runtime_error(error_stream.str());
+      std::string err_msg = std::format("Unable to connect to driver. Error code: {:#08x}", (uint32_t)return_code);
+      throw std::runtime_error(err_msg);
     }
     uuid_ = 0;
   }
@@ -58,16 +58,14 @@ namespace deepf1
   }
   std::shared_ptr<F1Interface> MultiagentF1InterfaceFactory::createInterface(unsigned int device_id)
   {
-    std::shared_ptr<VigemInterface> rtn(new VigemInterface(device_id, vigem_client_));
+    std::shared_ptr<VigemInterface> rtn(new VigemInterface(device_id, vigem_client_, uuid_++));
     const VIGEM_ERROR return_code = vigem_target_add(vigem_client_, rtn->vigem_target_);
     if (!VIGEM_SUCCESS(return_code))
     {
       vigem_target_free(rtn->vigem_target_);
-      std::stringstream error_stream;
-      error_stream << "Target plugin failed with error code: 0x" << std::hex << return_code << std::endl;
-      throw std::runtime_error(error_stream.str());
+      std::string err_msg = std::format("Target plugin failed with error code: {:#08x}", (uint32_t)return_code);
+      throw std::runtime_error(err_msg);
     }
-    rtn->id_=uuid_++;
     created_interfaces_[rtn->id_]=rtn;
     return rtn;
   }

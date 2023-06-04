@@ -21,9 +21,10 @@ namespace deepf1 {
 
 
 	private:
-	  VigemInterface(const unsigned int& device_type, _VIGEM_CLIENT_T* client_ptr);
+	  VigemInterface(const unsigned int& device_type, _VIGEM_CLIENT_T* client_ptr, uint64_t id);
 	  _VIGEM_TARGET_T* vigem_target_;
 	  _VIGEM_CLIENT_T* vigem_client_;
+	  uint8_t device_type_;
 	  uint64_t id_;
 	};
 	
