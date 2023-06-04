@@ -4,4 +4,12 @@
 struct _VIGEM_CLIENT_T;
 //forward declare the vigem target class
 struct _VIGEM_TARGET_T;
+
+
+
+enum VIGEM_DEVICE_TYPE{
+    Xbox360=1,
+    DualShock4=2
+};
+
 #endif

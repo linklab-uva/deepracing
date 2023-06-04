@@ -39,6 +39,8 @@ if(UNIX)
 elseif(MSVC)
 	target_compile_definitions(${PROJECT_NAME}_controllers PRIVATE "WIN32_LEAN_AND_MEAN" "NOGDI")
 endif()
+set_target_properties(${PROJECT_NAME}_controllers PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED TRUE)
+
 target_link_libraries(${PROJECT_NAME}_controllers
 PUBLIC
 	${PROJECT_NAME}_eigen_utils

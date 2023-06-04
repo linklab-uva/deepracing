@@ -6,14 +6,20 @@
 #include <thread>
 #include <windows.h>
 #include <ViGEm/Client.h>
+#include <format>
 
-deepf1::VigemInterface::VigemInterface(const unsigned int& device_id) 
+deepf1::VigemInterface::VigemInterface(const unsigned int& device_type) 
 {	
-	if (device_id==1){
+	if (device_type==VIGEM_DEVICE_TYPE::Xbox360){
 		vigem_target_ = vigem_target_x360_alloc();
 	}
-	else{
+	else if (device_type==VIGEM_DEVICE_TYPE::DualShock4){
 		vigem_target_ = vigem_target_ds4_alloc();
+	}
+	else{
+		std::string err_msg = std::format("Invalid device type: {}. Valid options are {} (Xbox360 controller) or {} (DualShock4 controller))", 
+			device_type, (unsigned int)VIGEM_DEVICE_TYPE::Xbox360, (unsigned int)VIGEM_DEVICE_TYPE::DualShock4);
+		throw std::runtime_error(err_msg);
 	}
 	id_ = 0;
 }

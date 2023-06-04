@@ -16,7 +16,7 @@ namespace deepf1 {
 		void setCommands(const F1ControlCommand& command) override;
 		void pushDRS() override;
 	private:
-		VigemInterface(const unsigned int& device_id);
+		VigemInterface(const unsigned int& device_type);
 		_VIGEM_TARGET_T* vigem_target_;
 		_VIGEM_CLIENT_T* vigem_client_;
 		uint64_t id_;
