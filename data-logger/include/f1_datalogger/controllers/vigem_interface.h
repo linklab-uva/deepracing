@@ -17,7 +17,7 @@ namespace deepf1 {
 	  void setCommands(const F1ControlCommand& command) override;
 	  void pushDRS() override;
 
-	  void setStateDirectly(_XINPUT_STATE* gamepad_state);
+	  void setStateDirectly(_XINPUT_STATE& gamepad_state);
 
 
 	private:

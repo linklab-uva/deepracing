@@ -39,8 +39,8 @@ void VigemInterface::setCommands(const F1ControlCommand& command)
 {
 
 }
-void VigemInterface::setStateDirectly(_XINPUT_STATE* gamepad_state)
+void VigemInterface::setStateDirectly(_XINPUT_STATE& gamepad_state)
 {
-	vigem_target_x360_update(vigem_client_, vigem_target_, *reinterpret_cast<XUSB_REPORT*>(&(gamepad_state->Gamepad)));
+	vigem_target_x360_update(vigem_client_, vigem_target_, *reinterpret_cast<XUSB_REPORT*>(&(gamepad_state.Gamepad)));
 }
 } // namespace deepf1
