@@ -8,7 +8,10 @@
 #include <ViGEm/Client.h>
 #include <format>
 
-deepf1::VigemInterface::VigemInterface(const unsigned int& device_type) 
+namespace deepf1
+{
+	
+VigemInterface::VigemInterface(const unsigned int& device_type) 
 {	
 	if (device_type==VIGEM_DEVICE_TYPE::Xbox360){
 		vigem_target_ = vigem_target_x360_alloc();
@@ -23,15 +26,17 @@ deepf1::VigemInterface::VigemInterface(const unsigned int& device_type)
 	}
 	id_ = 0;
 }
-deepf1::VigemInterface::~VigemInterface()
+VigemInterface::~VigemInterface()
 {
 
 }
-void deepf1::VigemInterface::pushDRS()
+void VigemInterface::pushDRS()
 {
 
 }
-void deepf1::VigemInterface::setCommands(const F1ControlCommand& command)
+void VigemInterface::setCommands(const F1ControlCommand& command)
 {
 
 }
+
+} // namespace deepf1

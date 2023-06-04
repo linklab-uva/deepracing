@@ -21,9 +21,9 @@ namespace deepf1
   }
   MultiagentF1InterfaceFactory::~MultiagentF1InterfaceFactory()
   {
-    for(std::pair<uint64_t, std::shared_ptr<deepf1::VigemInterface>> pair : created_interfaces_)
+    for(std::pair<uint64_t, std::shared_ptr<VigemInterface>> pair : created_interfaces_)
     {
-      std::shared_ptr<deepf1::VigemInterface> interface = pair.second;
+      std::shared_ptr<VigemInterface> interface = pair.second;
       if (!(interface->vigem_target_==nullptr))
       {
         vigem_target_remove(vigem_client_, interface->vigem_target_);
@@ -56,9 +56,9 @@ namespace deepf1
     }
     return false;
   }
-  std::shared_ptr<deepf1::F1Interface> MultiagentF1InterfaceFactory::createInterface(unsigned int device_id)
+  std::shared_ptr<F1Interface> MultiagentF1InterfaceFactory::createInterface(unsigned int device_id)
   {
-    std::shared_ptr<deepf1::VigemInterface> rtn(new deepf1::VigemInterface(device_id));
+    std::shared_ptr<VigemInterface> rtn(new VigemInterface(device_id));
     const VIGEM_ERROR return_code = vigem_target_add(vigem_client_, rtn->vigem_target_);
     if (!VIGEM_SUCCESS(return_code))
     {
