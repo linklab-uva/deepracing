@@ -58,7 +58,7 @@ namespace deepf1
   }
   std::shared_ptr<F1Interface> MultiagentF1InterfaceFactory::createInterface(unsigned int device_id)
   {
-    std::shared_ptr<VigemInterface> rtn(new VigemInterface(device_id));
+    std::shared_ptr<VigemInterface> rtn(new VigemInterface(device_id, vigem_client_));
     const VIGEM_ERROR return_code = vigem_target_add(vigem_client_, rtn->vigem_target_);
     if (!VIGEM_SUCCESS(return_code))
     {
