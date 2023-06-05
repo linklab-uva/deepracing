@@ -22,7 +22,7 @@ namespace deepf1 {
 
 	private:
 	  VigemInterface(const unsigned int& device_type, _VIGEM_CLIENT_T* client_ptr, uint64_t id);
-	  void setStateInternal_(const XINPUT_STATE& gamepad_state);
+	  void setStateInternal_();
 	  PVIGEM_TARGET vigem_target_;
 	  PVIGEM_CLIENT vigem_client_;
 	  uint8_t device_type_;

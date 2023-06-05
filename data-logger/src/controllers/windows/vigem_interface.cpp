@@ -41,16 +41,16 @@ void VigemInterface::setCommands(const F1ControlCommand& command)
 {
 	std::scoped_lock<std::mutex> lock(update_mutex_);
 	deepf1::toXinputInplace(command, current_controller_state_.Gamepad);
-	setStateInternal_(current_controller_state_);
+	setStateInternal_();
 }
 void VigemInterface::setStateDirectly(const XINPUT_STATE& gamepad_state)
 {
 	
 	std::scoped_lock<std::mutex> lock(update_mutex_);
 	current_controller_state_ = gamepad_state;
-	setStateInternal_(gamepad_state);
+	setStateInternal_();
 }
-void VigemInterface::setStateInternal_(const XINPUT_STATE& gamepad_state)
+void VigemInterface::setStateInternal_()
 {
 	switch (device_type_)
 	{
