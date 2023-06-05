@@ -35,6 +35,15 @@ VigemInterface::~VigemInterface()
 }
 void VigemInterface::pushDRS()
 {
+	std::scoped_lock<std::mutex> lock(update_mutex_);
+	current_controller_state_.Gamepad.wButtons=0;
+	setStateInternal_();
+	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+	current_controller_state_.Gamepad.wButtons=XINPUT_GAMEPAD_A;
+	setStateInternal_();
+	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+	current_controller_state_.Gamepad.wButtons=0;
+	setStateInternal_();
 
 }
 void VigemInterface::setCommands(const F1ControlCommand& command)
