@@ -17,11 +17,12 @@ namespace deepf1 {
 	  void setCommands(const F1ControlCommand& command) override;
 	  void pushDRS() override;
 
-	  void setStateDirectly(XINPUT_STATE& gamepad_state);
+	  void setStateDirectly(const XINPUT_STATE& gamepad_state);
 
 
 	private:
 	  VigemInterface(const unsigned int& device_type, _VIGEM_CLIENT_T* client_ptr, uint64_t id);
+	  void setStateInternal_(const XINPUT_STATE& gamepad_state);
 	  PVIGEM_TARGET vigem_target_;
 	  PVIGEM_CLIENT vigem_client_;
 	  uint8_t device_type_;

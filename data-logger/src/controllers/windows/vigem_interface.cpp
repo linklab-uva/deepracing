@@ -5,6 +5,8 @@
 #include <exception>
 #include <thread>
 #include <format>
+#include <f1_datalogger/controllers/internal/vigem_utils.h>
+
 namespace deepf1
 {
 	
@@ -37,16 +39,23 @@ void VigemInterface::pushDRS()
 }
 void VigemInterface::setCommands(const F1ControlCommand& command)
 {
-
+	std::scoped_lock<std::mutex> lock(update_mutex_);
+	deepf1::toXinputInplace(command, current_controller_state_.Gamepad);
+	setStateInternal_(current_controller_state_);
 }
-void VigemInterface::setStateDirectly(XINPUT_STATE& gamepad_state)
+void VigemInterface::setStateDirectly(const XINPUT_STATE& gamepad_state)
+{
+	
+	std::scoped_lock<std::mutex> lock(update_mutex_);
+	current_controller_state_ = gamepad_state;
+	setStateInternal_(gamepad_state);
+}
+void VigemInterface::setStateInternal_(const XINPUT_STATE& gamepad_state)
 {
 	switch (device_type_)
 	{
 	case VIGEM_DEVICE_TYPE::Xbox360:
 	{
-		std::scoped_lock<std::mutex> lock(update_mutex_);
-		current_controller_state_ = gamepad_state;
 		vigem_target_x360_update(vigem_client_, vigem_target_, *reinterpret_cast<XUSB_REPORT*>(&(current_controller_state_.Gamepad)));	
 	}
 		break;
