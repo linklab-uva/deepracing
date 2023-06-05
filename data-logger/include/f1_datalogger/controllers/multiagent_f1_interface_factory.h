@@ -14,7 +14,7 @@ namespace deepf1
     MultiagentF1InterfaceFactory();
     ~MultiagentF1InterfaceFactory();
     std::shared_ptr<F1Interface> createInterface(unsigned int device_id = 1);
-    bool disconnectInterface(std::shared_ptr<F1Interface> interface);
+    bool disconnectInterface(std::shared_ptr<F1Interface> iface);
 
   private:
     _VIGEM_CLIENT_T* vigem_client_;

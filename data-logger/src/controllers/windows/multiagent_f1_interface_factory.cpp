@@ -23,11 +23,11 @@ namespace deepf1
   {
     for(std::pair<uint64_t, std::shared_ptr<VigemInterface>> pair : created_interfaces_)
     {
-      std::shared_ptr<VigemInterface> interface = pair.second;
-      if (!(interface->vigem_target_==nullptr))
+      std::shared_ptr<VigemInterface> iface = pair.second;
+      if (!(iface->vigem_target_==nullptr))
       {
-        vigem_target_remove(vigem_client_, interface->vigem_target_);
-        vigem_target_free(interface->vigem_target_);
+        vigem_target_remove(vigem_client_, iface->vigem_target_);
+        vigem_target_free(iface->vigem_target_);
       }
     }
     if (!(vigem_client_==nullptr))
@@ -36,13 +36,13 @@ namespace deepf1
       vigem_free(vigem_client_);
     }
   }
-  bool MultiagentF1InterfaceFactory::disconnectInterface(std::shared_ptr<F1Interface> interface)
+  bool MultiagentF1InterfaceFactory::disconnectInterface(std::shared_ptr<F1Interface> iface)
   {
-    if(!interface)
+    if(!iface)
     {
       return false;
     }
-    std::shared_ptr<VigemInterface> downcasted = std::static_pointer_cast<VigemInterface>(interface);
+    std::shared_ptr<VigemInterface> downcasted = std::static_pointer_cast<VigemInterface>(iface);
     if(!downcasted)
     {
       return false;
@@ -67,6 +67,7 @@ namespace deepf1
       throw std::runtime_error(err_msg);
     }
     created_interfaces_[rtn->id_]=rtn;
+    rtn->setStateDirectly(rtn->current_controller_state_);
     return rtn;
   }
 }
