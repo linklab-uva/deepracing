@@ -26,7 +26,7 @@ void toXinputInplace(const F1ControlCommand& f1_interface_command, XINPUT_GAMEPA
         }
         else
         {
-            rtn.sThumbLX = (SHORT)std::round(32768.0*steering);
+            rtn.sThumbLX = (SHORT)std::round(32767.0*steering);
         }
     }
     if(!std::isnan<double>(f1_interface_command.throttle))
