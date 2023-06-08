@@ -18,6 +18,7 @@ namespace deepf1 {
 	  void pushDRS() override;
 
 	  void setStateDirectly(const XINPUT_STATE& gamepad_state);
+	  XINPUT_STATE getCurrentState();
 
 
 	private:

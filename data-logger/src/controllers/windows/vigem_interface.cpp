@@ -33,6 +33,10 @@ VigemInterface::~VigemInterface()
 {
 
 }
+XINPUT_STATE VigemInterface::getCurrentState()
+{
+	return XINPUT_STATE(current_controller_state_);
+}
 void VigemInterface::pushDRS()
 {
 	std::scoped_lock<std::mutex> lock(update_mutex_);
@@ -65,6 +69,7 @@ void VigemInterface::setStateInternal_()
 	{
 	case VIGEM_DEVICE_TYPE::Xbox360:
 	{
+		//std::scoped_lock<std::mutex> lock(update_mutex_);
 		vigem_target_x360_update(vigem_client_, vigem_target_, *reinterpret_cast<XUSB_REPORT*>(&(current_controller_state_.Gamepad)));	
 	}
 		break;
