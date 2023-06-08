@@ -5,20 +5,20 @@ class PyF1Interface {
     public:
     PyF1Interface(unsigned int device_id=1)
     {
-        interface = deepf1::F1InterfaceFactory::getDefaultInterface(device_id);
+        iface = deepf1::F1InterfaceFactory::getDefaultInterface(device_id);
     }
     void pushDRS()
     {
-        interface->pushDRS();
+        iface->pushDRS();
     }
     void setControl(float steering, float throttle, float brake)
     {
         current_control = deepf1::F1ControlCommand(steering, throttle, brake);
-        interface->setCommands(current_control);
+        iface->setCommands(current_control);
     }
     private:
         deepf1::F1ControlCommand current_control;
-        std::shared_ptr<deepf1::F1Interface> interface;
+        std::shared_ptr<deepf1::F1Interface> iface;
 
 };
 namespace py = pybind11;

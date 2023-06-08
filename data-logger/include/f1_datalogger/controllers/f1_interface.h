@@ -4,6 +4,8 @@
 
 #include "f1_datalogger/controllers/visibility_control.h"
 
+#include <windows.h>
+#include <Xinput.h>
 
 namespace deepf1 {
 	struct F1_DATALOGGER_CONTROLS_PUBLIC F1ControlCommand
@@ -27,6 +29,8 @@ namespace deepf1 {
 	{
 	public:
 		virtual void setCommands(const F1ControlCommand& command) = 0;
+		virtual void setStateDirectly(const XINPUT_STATE& command) = 0;
+		virtual XINPUT_STATE getCurrentState() = 0;
 		virtual void pushDRS() = 0;
 	};
 }
