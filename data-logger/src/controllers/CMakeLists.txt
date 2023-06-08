@@ -38,7 +38,7 @@ add_library(${PROJECT_NAME}_controllers ${controllers_SRCS})
 if(UNIX)
 	set_target_properties(${PROJECT_NAME}_controllers PROPERTIES POSITION_INDEPENDENT_CODE ON)
 elseif(MSVC)
-	target_compile_definitions(${PROJECT_NAME}_controllers PRIVATE "WIN32_LEAN_AND_MEAN" "NOGDI")
+	target_compile_definitions(${PROJECT_NAME}_controllers PRIVATE "WIN32_LEAN_AND_MEAN" "NOGDI" PUBLIC "_USE_MATH_DEFINES")
 endif()
 set_target_properties(${PROJECT_NAME}_controllers PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED TRUE)
 
