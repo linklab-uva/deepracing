@@ -96,7 +96,10 @@ def decodePCDHeader(headerlines : list[str], align=False) -> Tuple[np.dtype, int
 
     numpoints_string : str = headerlines[_POINTS_TAG_LINE].replace("POINTS","").strip()
     numpoints : int = int(numpoints_string)
-
+    
+    if not (numpoints==(height*width)):
+        raise ValueError("Got non-dense PCD file with height %d and width %d, but containing %d points. Number of points should equal height*width" % (height, width, numpoints))
+        
     numpytuples : list[Tuple] = []
     for i in range(numfields):  
         name = fieldnames[i]
@@ -107,8 +110,9 @@ def decodePCDHeader(headerlines : list[str], align=False) -> Tuple[np.dtype, int
         if key not in _NUMPY_TYPEMAP.keys():
             raise ValueError("Got invalid combination of type %s and size %d for field %s, only supported combinations are %s" % (typestr, size, name, str(list(_NUMPY_TYPEMAP.keys()))))
         numpytuples.append((name, _NUMPY_TYPEMAP[key], (count,)))
+        
     numpytype = np.dtype(numpytuples, align=align)
-    return numpytype, height, width, numpoints
+    return numpytype, height, width
 
 def loadPCD(filepath : str, align=False) -> np.ndarray:
 
@@ -117,14 +121,12 @@ def loadPCD(filepath : str, align=False) -> np.ndarray:
         data_tag = headerlines[_DATA_TAG_LINE].replace("DATA","").strip() 
         if data_tag not in {"binary", "ascii"}:
             raise ValueError("Invalid DATA tag %s. Supported types are \"ascii\" or \"binary\"" % (data_tag,))
-        numpytype, height, width, numpoints = decodePCDHeader(headerlines, align=(align and (data_tag=="ascii")))
-        if not (numpoints==(height*width)):
-            raise ValueError("Got non-dense PCD file with height %d and width %d, but containing %d points. Number of points should equal height*width" % (height, width, numpoints))
+        numpytype, height, width = decodePCDHeader(headerlines, align=(align and (data_tag=="ascii")))
         if data_tag=="binary":
             structured_numpy_array = np.frombuffer(f, dtype=numpytype)
         else:
             structured_numpy_array = np.loadtxt(f, dtype=numpytype, encoding="ascii", delimiter=" ")
-    return numpytype, structured_numpy_array
+    return numpytype, structured_numpy_array, height, width
             
 def numpyToPCD(x : np.ndarray, points : np.ndarray, filepath : str, 
                x_name : str = "time", viewpoint_pos : np.ndarray = np.zeros(3), viewpoint_rot : Rotation = Rotation.identity()):
