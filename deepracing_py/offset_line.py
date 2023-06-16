@@ -31,12 +31,12 @@ def go(argdict : dict):
     
     rsamp : np.ndarray = np.arange(0.0, tracklength, step=argdict["dr"])
     
-    ibsamp = innerbound_lapdistance_spline(rsamp)
-    obsamp = outerbound_lapdistance_spline(rsamp)
+    ibsamp : np.ndarray = innerbound_lapdistance_spline(rsamp)
+    obsamp : np.ndarray = outerbound_lapdistance_spline(rsamp)
 
-    all_points = np.concatenate([ibsamp, obsamp], axis=0)
+    all_points : np.ndarray = np.concatenate([ibsamp, obsamp], axis=0)
 
-    ymean = np.mean(all_points[:,1])
+    ymean : float = float(np.mean(all_points[:,1]))
 
     ibsamp[:,1] = ymean
     obsamp[:,1] = ymean
@@ -45,27 +45,39 @@ def go(argdict : dict):
     deltavecs = obsamp - ibsamp
     unitdeltavecs = deltavecs/np.linalg.norm(deltavecs, ord=2, axis=1)[:,np.newaxis]
 
-    outline = centerline + argdict["offset"]*unitdeltavecs
 
-
-    fig : matplotlib.figure.Figure = plt.figure()
-    plt.plot(innerbound[:,0], innerbound[:,2], label="Inner Bound")
-    plt.plot(outerbound[:,0], outerbound[:,2], label="Outer Bound")
-    plt.plot(outline[:,0], outline[:,2], label="Output")
-    plt.legend()
-    plt.show()
 
     viewpoint_pos : np.ndarray = np.asarray(metadatadict["startingline_pose"]["position"])
     viewpoint_quat : np.ndarray = np.asarray(metadatadict["startingline_pose"]["quaternion"])
     viewpoint_rot : Rotation = Rotation.from_quat(viewpoint_quat)
-    deepracing.path_utils.numpyToPCD(rsamp, outline, argdict["outfile"], x_name="lapdistance", viewpoint_pos=viewpoint_pos, viewpoint_rot=viewpoint_rot)
+    fig : matplotlib.figure.Figure = plt.figure()
+    plt.plot(innerbound[:,0], innerbound[:,2], label="Inner Bound")
+    plt.plot(outerbound[:,0], outerbound[:,2], label="Outer Bound")
+
+    for offset in np.arange(-3.5, 4.0, step=0.5, dtype=centerline.dtype):
+        outline = centerline + offset*unitdeltavecs
+        if offset<0.0:
+            outfile = "centerline_minus%s.pcd" % (str(-offset).replace(".","_"),)
+            label = "Offset %f" % (offset,)
+        elif offset>0.0:
+            outfile = "centerline_plus%s.pcd" % (str(offset).replace(".","_"),)
+            label = "Offset %f" % (offset,)
+        else:
+            outfile = "centerline.pcd"
+            label = "Centerline"
+        deepracing.path_utils.numpyToPCD(rsamp, outline, outfile, x_name="lapdistance", viewpoint_pos=viewpoint_pos, viewpoint_rot=viewpoint_rot)
+        plt.scatter(outline[:,0], outline[:,2], label=label)
+
+    plt.legend()
+    plt.axis("equal")
+    plt.show()
+
     
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("trackmap",  type=str, help="Path to .pcd file to generate optimal line from")
     parser.add_argument("--k", type=int, default=3, help="Degree of splines to use")
     parser.add_argument("--dr", type=float, default=1.0, help="Spacing to sample the boundary lines")
-    parser.add_argument("--offset", type=float, default=0.0, help="Offset from the centerline to use")
     parser.add_argument("--outfile", type=str, default="offset_line.pcd", help="Where to put the resulting pcd")
     args = parser.parse_args()
     go(vars(args))
