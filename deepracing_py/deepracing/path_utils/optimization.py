@@ -35,7 +35,7 @@ class BrakingConstraint():
         # speeds = np.asarray([        0.0, 25.0, 30.0, 40.0, 60.0, 84.0, 150.0])
         # braking_limits = np.asarray([7.5, 7.5,  16.5, 21.0, 34.5, 40.0, 40.0])*factor
         speeds : np.ndarray = np.flip(np.asarray([         125.0,  84.00,  46.00,  17.5,  0.00 ], dtype=ds.dtype))
-        braking_limits : np.ndarray  = np.flip(np.array([  40.00,  40.00,  32.75,  16.75, 14.5 ],  dtype=ds.dtype)*factor)
+        braking_limits : np.ndarray  = np.flip(-np.array([ 40.00,  40.00,  32.75,  16.75, 14.5 ],  dtype=ds.dtype)*factor)
 
         self.braking_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, braking_limits, k=1)
         self.braking_spline_der : scipy.interpolate.BSpline = self.braking_spline.derivative()
@@ -47,7 +47,7 @@ class BrakingConstraint():
         accels = self.linearaccelmat*x
         speeds = np.sqrt(x)
         braking_limits = self.braking_spline(speeds)
-        self.buffer = accels + braking_limits
+        self.buffer = braking_limits - accels 
         imin = np.argmin(self.buffer)
         print("Min constraint value: %f" % (self.buffer[imin],), flush=True)
         print("Braking limit at min constraint value: %f" % (braking_limits[imin],), flush=True)
@@ -58,9 +58,9 @@ class BrakingConstraint():
     def jac(self, x):
         speeds = np.sqrt(x)
         slopes = self.braking_spline_der(speeds)
-        return self.linearaccelmat + scipy.sparse.dia_matrix( ( np.asarray( [(slopes/(2.0*speeds))] ) , np.array([0], dtype=np.int64) ), shape=(x.shape[0], x.shape[0]) )
+        return -self.linearaccelmat + scipy.sparse.dia_matrix( ( np.asarray( [(slopes/(2.0*speeds))] ) , np.array([0], dtype=np.int64) ), shape=(x.shape[0], x.shape[0]) )
     def asSciPy(self, keep_feasible=False):
-        return NonlinearConstraint(self.eval, np.zeros_like(self.ds), 1E15*np.ones_like(self.ds), jac = self.jac, keep_feasible=keep_feasible)
+        return NonlinearConstraint(self.eval, -1E15*np.ones_like(self.ds), np.zeros_like(self.ds), jac = self.jac, keep_feasible=keep_feasible)
 
 class LinearAccelConstraint():
     def __init__(self, ds: np.ndarray, max_speed : float, factor=1.0):
