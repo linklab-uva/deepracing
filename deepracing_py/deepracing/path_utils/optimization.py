@@ -35,7 +35,7 @@ class BrakingConstraint():
         # speeds = np.asarray([        0.0, 25.0, 30.0, 40.0, 60.0, 84.0, 150.0])
         # braking_limits = np.asarray([7.5, 7.5,  16.5, 21.0, 34.5, 40.0, 40.0])*factor
         speeds : np.ndarray = np.flip(np.asarray([         125.0,  84.00,  46.00,  17.5,  0.00 ], dtype=ds.dtype))
-        braking_limits : np.ndarray  = np.flip(-np.array([ 40.00,  40.00,  32.75,  16.75, 14.5 ],  dtype=ds.dtype)*factor)
+        braking_limits : np.ndarray  = np.flip(-np.array([ 40.00,  39.00,  32.75,  16.75, 14.5 ],  dtype=ds.dtype)*factor)
 
         self.braking_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, braking_limits, k=1)
         self.braking_spline_der : scipy.interpolate.BSpline = self.braking_spline.derivative()
@@ -95,9 +95,9 @@ class LinearAccelConstraint():
         return NonlinearConstraint(self.eval, -1E15*np.ones_like(self.ds), np.zeros_like(self.ds), jac = self.jac, keep_feasible=keep_feasible)
 
 class CentripetalAccelerationConstraint():
-    def __init__(self, radii: np.ndarray, maxspeed : float, factor=1.0):
-        self.invradii = 1.0/radii
-        self.idx = np.arange(0, radii.shape[0], dtype=np.int64, step=1)
+    def __init__(self, kappas : np.ndarray, maxspeed : float, factor=1.0):
+        self.kappas = kappas
+        self.idx = np.arange(0, kappas.shape[0], dtype=np.int64, step=1)
         maxspeedmph = 2.2369362920544025*maxspeed
         print("Max speed in MPH: %f" % (maxspeedmph,), flush=True)
         speeds = np.asarray([0.00,  45.0,  60.0,  130.0,  170.0,  190.0,  225.0], dtype=np.float64)/2.2369362920544025 #mph to m/s
@@ -109,7 +109,7 @@ class CentripetalAccelerationConstraint():
         print(flush=True)
         print("Calling the CentripetalAccelerationConstraint eval function", flush=True)
         speeds = np.sqrt(x)
-        centripetal_accels = x*self.invradii
+        centripetal_accels = x*self.kappas
         limits = self.caspline(speeds)
         rtn = centripetal_accels - limits
         imax = np.argmax(rtn)
@@ -117,16 +117,16 @@ class CentripetalAccelerationConstraint():
         print("Centripetal acceleration limit at max constraint value: %f" % (limits[imax],), flush=True)
         print("Centripetal acceleration at max constraint value: %f" % (centripetal_accels[imax],), flush=True)
         print("Speed at max constraint value: %f" % (speeds[imax],), flush=True)
-        print("Radius of curvature at max constraint value: %f" % (1.0/self.invradii[imax],), flush=True)
+        print("Radius of curvature at max constraint value: %f" % (1.0/self.kappas[imax],), flush=True)
         print(flush=True)
         return rtn
     def jac(self, x):
         speeds = np.sqrt(x)
         slopes = self.casplineder(speeds)
-        return scipy.sparse.dia_matrix( ( np.asarray( [self.invradii - (slopes/(2.0*speeds))] ) , np.array([0], dtype=np.int64) ), shape=(x.shape[0], x.shape[0]))
+        return scipy.sparse.dia_matrix( ( np.asarray( [self.kappas - (slopes/(2.0*speeds))] ) , np.array([0], dtype=np.int64) ), shape=(x.shape[0], x.shape[0]))
     def asSciPy(self, keep_feasible=False):
-        return NonlinearConstraint(self.eval, -1E15*np.ones_like(self.invradii), np.zeros_like(self.invradii), jac = self.jac, keep_feasible=keep_feasible)
-        # return NonlinearConstraint(self.eval, -5.0*9.81*np.ones_like(self.invradii), np.zeros_like(self.invradii), jac = self.jac, keep_feasible=keep_feasible)
+        return NonlinearConstraint(self.eval, -1E15*np.ones_like(self.kappas), np.zeros_like(self.kappas), jac = self.jac, keep_feasible=keep_feasible)
+        # return NonlinearConstraint(self.eval, -5.0*9.81*np.ones_like(self.kappas), np.zeros_like(self.kappas), jac = self.jac, keep_feasible=keep_feasible)
 
 class OptimWrapper():
     def __init__(self, maxspeed : float, ds : float, radii : np.ndarray, dtype=np.float32, callback  = None):
