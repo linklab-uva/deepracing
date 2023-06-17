@@ -158,7 +158,7 @@ class OptimWrapper():
         return np.zeros_like(xcurr)
 
     def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False, keep_feasible=False, accelfactor=1.0, brakefactor=1.0, cafactor=1.0, initial_guess_ratio=0.99):
-        lb = np.square(10.0*np.ones_like(self.radii, dtype=self.radii.dtype))
+        lb = np.square(0.001*np.ones_like(self.radii, dtype=self.radii.dtype))
         ub = np.square(self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
         if x0 is None:
             x0 = np.square(initial_guess_ratio*self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
