@@ -85,7 +85,8 @@ def go(argdict : dict):
     accelfactor=argdict["accelfactor"]
     brakefactor=argdict["brakefactor"]
     cafactor=argdict["cafactor"]
-    x0, optimres = sqp.optimize(maxiter=maxiter, method=method, disp=True, keep_feasible=False, \
+    hard_constraints=argdict["hard_constraints"]
+    x0, optimres = sqp.optimize(maxiter=maxiter, method=method, disp=True, keep_feasible=hard_constraints, \
                  x0=x0, accelfactor=accelfactor, brakefactor=brakefactor, cafactor=cafactor, initial_guess_ratio=argdict["initialguessratio"])
     writer.writeLine(optimres.x)
 
@@ -103,5 +104,6 @@ if __name__=="__main__":
     parser.add_argument("--brakefactor", default=1.0, type=float, help="Scale the max braking limits by this factor")
     parser.add_argument("--cafactor", default=1.0, type=float,    help="Scale the max centripetal acceleration limits by this factor")
     parser.add_argument("--pca", action="store_true",  help="Project the raceline onto a PCA of the boundaries")
+    parser.add_argument("--hard-constraints", action="store_true",  help="Enforce hard constraints in the optimization")
     args = parser.parse_args()
     go(vars(args))
