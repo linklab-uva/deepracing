@@ -32,6 +32,13 @@ namespace f1_datalogger
     std::ostream& operator << (std::ostream& os, const PointXYZLapdistance& p);
 }
 
+POINT_CLOUD_REGISTER_POINT_STRUCT(f1_datalogger::PointXYZLapdistance,
+    (float, x, x)
+    (float, y, y)
+    (float, z, z)
+    (float, lapdistance, lapdistance)
+)
+POINT_CLOUD_REGISTER_POINT_WRAPPER(f1_datalogger::PointXYZLapdistance, f1_datalogger::_PointXYZLapdistance)
 
 
 #endif
