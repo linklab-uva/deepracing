@@ -77,7 +77,7 @@ def go(argdict : dict):
     writer : Writer = Writer(argdict, points)
     sqp = deepracing.path_utils.optimization.OptimWrapper(maxspeed, dsvec, kappas, callback = writer.writeLine)
 
-    x0 : np.ndarray = ((0.1*maxspeed)**2)*np.ones_like(rsamp)
+    x0 : np.ndarray = ((argdict["initialguessratio"]*maxspeed)**2)*np.ones_like(rsamp)
 
     #method="trust-constr"
     method=argdict["method"]
