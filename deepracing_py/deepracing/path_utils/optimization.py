@@ -48,8 +48,8 @@ class BrakingConstraint():
         speeds = np.sqrt(x)
         braking_limits = self.braking_spline(speeds)
         self.buffer = braking_limits - accels 
-        imin = np.argmin(self.buffer)
-        print("Min constraint value: %f" % (self.buffer[imin],), flush=True)
+        imin = np.argmax(self.buffer)
+        print("Max constraint value: %f" % (self.buffer[imin],), flush=True)
         print("Braking limit at min constraint value: %f" % (braking_limits[imin],), flush=True)
         print("Linear acceleration at min constraint value: %f" % (accels[imin],), flush=True)
         print("Speed at min constraint value: %f" % (speeds[imin],), flush=True)
