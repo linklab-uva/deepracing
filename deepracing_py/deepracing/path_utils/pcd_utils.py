@@ -8,7 +8,7 @@ from scipy.spatial.transform import Rotation
 #U - represents unsigned types uint8 (unsigned char), uint16 (unsigned short), uint32 (unsigned int)
 #F - represents float types
 
-_NUMPY_TYPEMAP : dict[Tuple[str,int], np.dtype] = dict()
+_NUMPY_TYPEMAP : dict = dict()
 
 _NUMPY_TYPEMAP[("I", 1)] = np.int8
 _NUMPY_TYPEMAP[("I", 2)] = np.int16
