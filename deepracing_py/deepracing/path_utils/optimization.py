@@ -154,6 +154,8 @@ class OptimWrapper():
         self.tick = tock
         self.iter_counter+=1
         return (-np.sum(xcurr), self.grad)
+    def hessp(self, xcurr, p):
+        return np.zeros_like(xcurr)
 
     def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False, keep_feasible=False, accelfactor=1.0, brakefactor=1.0, cafactor=1.0, initial_guess_ratio=0.99):
         lb = np.square(10.0*np.ones_like(self.radii, dtype=self.radii.dtype))
