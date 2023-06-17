@@ -62,7 +62,7 @@ _NUM_PCD_HEADER_LINES=10
 # POINTS 2640
 # DATA ascii
 
-def decodePCDHeader(headerlines : list[str], align=False) -> Tuple[np.dtype, int]:
+def decodePCDHeader(headerlines : list[str], align=False):
     fields_string = headerlines[_FIELDS_TAG_LINE].replace("FIELDS","").strip()
     fieldnames : list[str] = fields_string.split(" ")
     numfields = len(fieldnames)
