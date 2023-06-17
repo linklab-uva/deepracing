@@ -62,27 +62,27 @@ _NUM_PCD_HEADER_LINES=10
 # POINTS 2640
 # DATA ascii
 
-def decodePCDHeader(headerlines : list[str], align=False):
+def decodePCDHeader(headerlines : list, align=False):
     fields_string = headerlines[_FIELDS_TAG_LINE].replace("FIELDS","").strip()
-    fieldnames : list[str] = fields_string.split(" ")
+    fieldnames : list = fields_string.split(" ")
     numfields = len(fieldnames)
 
     sizes_string : str = headerlines[_SIZE_TAG_LINE].replace("SIZE","").strip()
-    sizes : list[int] = [int(s) for s in sizes_string.split(" ")]
+    sizes : list = [int(s) for s in sizes_string.split(" ")]
     numsizes = len(sizes)
 
     if numsizes!=numfields:
         raise ValueError("Got FIELDS tag: %s with %d elements, but SIZE tag %s with %d elements" % (fields_string, numfields, sizes_string, numsizes))
 
     types_string : str = headerlines[_TYPE_TAG_LINE].replace("TYPE","").strip()
-    types : list[str] = types_string.split(" ")
+    types : list = types_string.split(" ")
     numtypes = len(types)
 
     if numtypes!=numfields:
         raise ValueError("Got FIELDS tag: %s with %d elements, but TYPE tag %s with %d elements" % (fields_string, numfields, types_string, numtypes))
 
     counts_string : str = headerlines[_COUNT_TAG_LINE].replace("COUNT","").strip()
-    counts : list[int] = [int(s) for s in counts_string.split(" ")]
+    counts : list = [int(s) for s in counts_string.split(" ")]
     numcounts = len(counts)
 
     if numcounts!=numfields:
@@ -100,7 +100,7 @@ def decodePCDHeader(headerlines : list[str], align=False):
     if not (numpoints==(height*width)):
         raise ValueError("Got non-dense PCD file with height %d and width %d, but containing %d points. Number of points should equal height*width" % (height, width, numpoints))
         
-    numpytuples : list[Tuple] = []
+    numpytuples : list = []
     for i in range(numfields):  
         name = fieldnames[i]
         typestr = types[i]
@@ -117,7 +117,7 @@ def decodePCDHeader(headerlines : list[str], align=False):
 def loadPCD(filepath : str, align=False) -> np.ndarray:
 
     with open(filepath, "rb") as f:
-        headerlines : list[str] = [f.readline().decode("ascii").strip() for asdf in range(_NUM_PCD_HEADER_LINES)]
+        headerlines : list = [f.readline().decode("ascii").strip() for asdf in range(_NUM_PCD_HEADER_LINES)]
         data_tag = headerlines[_DATA_TAG_LINE].replace("DATA","").strip() 
         if data_tag not in {"binary", "ascii"}:
             raise ValueError("Invalid DATA tag %s. Supported types are \"ascii\" or \"binary\"" % (data_tag,))
