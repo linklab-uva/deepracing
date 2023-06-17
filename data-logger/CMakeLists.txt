@@ -41,14 +41,20 @@ set(THIRD_PARTY_REPOS ${CMAKE_SOURCE_DIR}/third_party)
 
 
 
+find_package(PCL CONFIG REQUIRED)
+add_library(pcltypes src/pcl_types.cpp)
+target_link_libraries(pcltypes PRIVATE ${PCL_LIBRARIES})
+target_include_directories(pcltypes PUBLIC ${PCL_INCLUDE_DIRS})
+set_target_properties(pcltypes PROPERTIES OUTPUT_NAME ${PROJECT_NAME}_pcltypes)
+
 set(protobuf_MODULE_COMPATIBLE TRUE)
 find_package(Protobuf REQUIRED)
-
 add_subdirectory( proto/${PROJECT_NAME}/proto )
 set(PROTO_INCLUDE_DIR ${CMAKE_BINARY_DIR}/proto)
 if(WIN32)
     configure_file(scripts/windows/addpythonpath.build.bat.in ${CMAKE_BINARY_DIR}/addpythonpath.bat @ONLY)
     configure_file(scripts/windows/addpythonpath.build.ps1.in ${CMAKE_BINARY_DIR}/addpythonpath.ps1 @ONLY)
+    set_target_properties(pcltypes PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
 else()
     configure_file(scripts/bash/addpythonpath.build.bash.in ${CMAKE_BINARY_DIR}/addpythonpath.bash @ONLY)
 endif()
@@ -127,6 +133,8 @@ if(BUILD_DATALOGGER)
     ${Boost_TARGETS}
     INTERFACE
     ${screen_capture_lite_PLATFORM_LIBS}
+    PRIVATE
+    pcltypes
     )
     if(BUILD_CONTROLLERS)
         add_subdirectory( src/controllers )
@@ -149,6 +157,7 @@ if(BUILD_DATALOGGER)
         ${PROJECT_NAME}_image_utils
         headers
         screen_capture_lite
+        pcltypes
     )
     if(BUILD_CONTROLLERS)
         list(APPEND install_targets ${PROJECT_NAME}_controllers)
@@ -166,6 +175,7 @@ else()
     set(install_targets
             ${PROJECT_NAME}_proto 
             headers
+            pcltypes
         )
     install(DIRECTORY include/${PROJECT_NAME}/car_data
         DESTINATION include/${PROJECT_NAME}
