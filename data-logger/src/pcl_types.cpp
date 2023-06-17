@@ -6,8 +6,7 @@ namespace f1_datalogger
   operator << (std::ostream& os, const PointXYZLapdistance& p)
   {
     os << "(";
-    os << p.x << "," << p.y << "," << p.z << p.lapdistance << std::endl;
-    os << ")";
+    os << p.x << "," << p.y << "," << p.z << "," << p.lapdistance << ")";
     return (os);
   }
 } 
