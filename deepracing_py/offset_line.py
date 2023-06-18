@@ -54,7 +54,7 @@ def go(argdict : dict):
     plt.plot(outerbound[:,0], outerbound[:,2], label="Outer Bound")
 
     for offset in np.arange(-3.5, 4.0, step=0.5, dtype=centerline.dtype):
-        outpath = (centerline + offset*unitdeltavecs).astype(np.float64)
+        outpath = (centerline + offset*unitdeltavecs).astype(np.float32)
         if offset<0.0:
             outfile = "centerline_minus%s.pcd" % (str(-offset).replace(".","_"),)
             label = "Offset %f" % (offset,)
