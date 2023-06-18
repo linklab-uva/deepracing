@@ -24,6 +24,11 @@ _NUMPY_TYPEMAP[("U", 8)] = np.uint64
 
 _NUMPY_TYPEMAP[("F", 4)] = np.float32
 _NUMPY_TYPEMAP[("F", 8)] = np.float64
+
+
+_NUMPY_INVERSE_TYPEMAP : dict = {_NUMPY_TYPEMAP[k] : k for k in _NUMPY_TYPEMAP.keys()}
+
+
 # _NUMPY_TYPEMAP[("F", 16)] = np.float128
 
 # Valid PCD files have the following header keys in this specific order:
@@ -127,7 +132,61 @@ def loadPCD(filepath : str, align=False) -> np.ndarray:
         else:
             structured_numpy_array = np.loadtxt(f, dtype=numpytype, encoding="ascii", delimiter=" ")
     return numpytype, structured_numpy_array, height, width
-            
+
+def structurednumpyToPCD(points : np.ndarray, filepath : str, viewpoint_pos : np.ndarray = np.zeros(3), viewpoint_rot : Rotation = Rotation.identity(), binary=False):
+    
+    headerlines : list = ["asdf" for asdf in range(_NUM_PCD_HEADER_LINES)]
+    headerlines[_VERSION_TAG_LINE] = "VERSION 0.7\n"
+    headerlines[_FIELDS_TAG_LINE] = "FIELDS "
+    headerlines[_SIZE_TAG_LINE] = "SIZE "
+    headerlines[_TYPE_TAG_LINE] = "TYPE "
+    headerlines[_COUNT_TAG_LINE] = "COUNT "
+
+    numpytype : np.dtype = points.dtype
+    for i in range(len(numpytype.names)):
+        name : str = numpytype.names[i]
+        headerlines[_FIELDS_TAG_LINE]+=name
+        fieldtype, _ = numpytype.fields[name]
+        subtype, subshape = fieldtype.subdtype
+        subtypestring = subtype.str.replace("<","")
+        headerlines[_SIZE_TAG_LINE]+=subtypestring[1]
+        headerlines[_TYPE_TAG_LINE]+=subtypestring[0].upper()
+        if type(subshape)==tuple:
+            headerlines[_COUNT_TAG_LINE]+=str(subshape[0])
+        else:
+            headerlines[_COUNT_TAG_LINE]+=str(subshape)
+        if i==len(numpytype.names)-1:
+            headerlines[_FIELDS_TAG_LINE]+="\n"
+            headerlines[_SIZE_TAG_LINE]+="\n"
+            headerlines[_TYPE_TAG_LINE]+="\n"
+            headerlines[_COUNT_TAG_LINE]+="\n"
+        else:
+            headerlines[_FIELDS_TAG_LINE]+=" "
+            headerlines[_SIZE_TAG_LINE]+=" "
+            headerlines[_TYPE_TAG_LINE]+=" "
+            headerlines[_COUNT_TAG_LINE]+=" "
+    if points.ndim==1:
+        height = 1
+        width = points.shape[0]
+    else:
+        height, width = points.shape[0], points.shape[1]
+    headerlines[_WIDTH_TAG_LINE] = "WIDTH %d\n" % (width,)
+    headerlines[_HEIGHT_TAG_LINE] = "HEIGHT %d\n" % (height,)
+    viewpoint_pose = np.concatenate([viewpoint_rot.as_quat(), viewpoint_pos])
+    headerlines[_VIEWPOINT_TAG_LINE] = "VIEWPOINT %.3f %.3f %.3f %.3f %.3f %.3f %.3f\n" % tuple(viewpoint_pose.tolist())
+    headerlines[_POINTS_TAG_LINE] = "POINTS %d\n" % (width*height,)
+    if binary:
+        headerlines[_DATA_TAG_LINE] = "DATA binary\n"
+        with open(filepath, "wb") as f:
+            f.writelines([l.encode("ascii") for l in headerlines])
+            f.write(points.tobytes())
+    else:
+        headerlines[_DATA_TAG_LINE] = "DATA ascii\n"
+        with open(filepath, "w") as f:
+            f.writelines(headerlines)
+            np.savetxt(f, points, fmt="%.4f", delimiter=" ", newline="\n", encoding="ascii")
+
+
 def numpyToPCD(x : np.ndarray, points : np.ndarray, filepath : str, 
                x_name : str = "time", viewpoint_pos : np.ndarray = np.zeros(3), viewpoint_rot : Rotation = Rotation.identity()):
 
