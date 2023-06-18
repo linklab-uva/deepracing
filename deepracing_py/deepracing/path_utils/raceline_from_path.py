@@ -70,13 +70,14 @@ def optimizeLine(argdict : dict):
     # print(spline_tangent(arclengths[-istraight:]))
     # print(np.min(np.concatenate([radii[-istraight:], radii[:istraight]])))
     # print(np.min(radii))
+    minspeed : float = argdict["minv"]
     maxspeed : float = argdict["maxv"]
     dsvec : np.ndarray = dsin*np.ones_like(rsamp)
     dsvec[-1] = np.linalg.norm(spline_arclength(rsamp[-1]) - spline_arclength(rsamp[0]), ord=2)
     points : np.ndarray = spline_arclength(rsamp)
     writer : Writer = Writer(argdict, points)
     print("Building the sqp object", flush=True)
-    sqp = deepracing.path_utils.optimization.OptimWrapper(maxspeed, dsvec, kappas, callback = writer.writeLine, debug=argdict["debug"])
+    sqp = deepracing.path_utils.optimization.OptimWrapper(minspeed, maxspeed, dsvec, kappas, callback = writer.writeLine, debug=argdict["debug"])
     print("Built the sqp object", flush=True)
 
     x0 : np.ndarray = ((argdict["initialguessratio"]*maxspeed)**2)*np.ones_like(rsamp)
@@ -99,7 +100,7 @@ if __name__=="__main__":
     parser.add_argument("--ds", type=float, default=2.0, help="Sample the path at points this distance apart along the path")
     parser.add_argument("--maxiter", type=float, default=20, help="Maximum iterations to run the solver")
     parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
-    parser.add_argument("--minv", default=10.0, type=float, help="Min linear speed the car can have")
+    parser.add_argument("--minv", default=5.0, type=float, help="Min linear speed the car can have")
     parser.add_argument("--maxv", default=86.0, type=float, help="Max linear speed the car can have")
     parser.add_argument("--method", default="SLSQP", type=str, help="Optimization method to use")
     parser.add_argument("--outfile", default="raceline_optimized.pcd", type=str, help="What to name the output file. Default is the same name as the input file")

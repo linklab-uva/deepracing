@@ -135,8 +135,9 @@ class CentripetalAccelerationConstraint():
         # return NonlinearConstraint(self.eval, -5.0*9.81*np.ones_like(self.kappas), np.zeros_like(self.kappas), jac = self.jac, keep_feasible=keep_feasible)
 
 class OptimWrapper():
-    def __init__(self, maxspeed : float, ds : float, radii : np.ndarray, dtype=np.float32, callback  = None, debug : bool = False):
+    def __init__(self, minspeed : float, maxspeed : float, ds : float, radii : np.ndarray, dtype=np.float32, callback  = None, debug : bool = False):
         self.radii = radii.astype(dtype)
+        self.minspeed = minspeed
         self.maxspeed = maxspeed
         if type(ds)==float:
             self.ds = ds*np.ones_like(self.radii, dtype=dtype)
@@ -166,7 +167,7 @@ class OptimWrapper():
         return np.zeros_like(xcurr)
 
     def optimize(self, x0 = None , method="SLSQP", maxiter=20, disp=False, keep_feasible=False, accelfactor=1.0, brakefactor=1.0, cafactor=1.0, initial_guess_ratio=0.99):
-        lb = np.square(0.001*np.ones_like(self.radii, dtype=self.radii.dtype))
+        lb = np.square(self.minspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
         ub = np.square(self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
         if x0 is None:
             x0 = np.square(initial_guess_ratio*self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
