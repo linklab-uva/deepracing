@@ -48,14 +48,13 @@ def go(argdict : dict):
 
 
     viewpoint_pos : np.ndarray = np.asarray(metadatadict["startingline_pose"]["position"])
-    viewpoint_quat : np.ndarray = np.asarray(metadatadict["startingline_pose"]["quaternion"])
-    viewpoint_rot : Rotation = Rotation.from_quat(viewpoint_quat)
+    viewpoint_rot : Rotation = Rotation.from_quat(metadatadict["startingline_pose"]["quaternion"])
     fig : matplotlib.figure.Figure = plt.figure()
     plt.plot(innerbound[:,0], innerbound[:,2], label="Inner Bound")
     plt.plot(outerbound[:,0], outerbound[:,2], label="Outer Bound")
 
     for offset in np.arange(-3.5, 4.0, step=0.5, dtype=centerline.dtype):
-        outline = centerline + offset*unitdeltavecs
+        outpath = (centerline + offset*unitdeltavecs).astype(np.float64)
         if offset<0.0:
             outfile = "centerline_minus%s.pcd" % (str(-offset).replace(".","_"),)
             label = "Offset %f" % (offset,)
@@ -65,8 +64,14 @@ def go(argdict : dict):
         else:
             outfile = "centerline.pcd"
             label = "Centerline"
-        deepracing.path_utils.numpyToPCD(rsamp, outline, outfile, x_name="lapdistance", viewpoint_pos=viewpoint_pos, viewpoint_rot=viewpoint_rot)
-        plt.scatter(outline[:,0], outline[:,2], label=label)
+        numpytype : np.dtype = np.dtype([("x", outpath.dtype, (1,)), ("y", outpath.dtype, (1,)), ("z", outpath.dtype, (1,)), ("lapdistance", outpath.dtype, (1,))], align=False)
+        structuredarray : np.ndarray = np.zeros(outpath.shape[0], dtype=numpytype)
+        structuredarray["x"] = outpath[:,0,None]
+        structuredarray["y"] = outpath[:,1,None]
+        structuredarray["z"] = outpath[:,2,None]
+        structuredarray["lapdistance"] = (rsamp.astype(outpath.dtype))[:,None]
+        deepracing.path_utils.structurednumpyToPCD(structuredarray, outfile, viewpoint_pos=viewpoint_pos, viewpoint_rot=viewpoint_rot, binary=False)
+        plt.scatter(outpath[:,0], outpath[:,2], label=label)
 
     plt.legend()
     plt.axis("equal")
