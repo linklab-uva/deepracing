@@ -40,10 +40,16 @@ set(THIRD_PARTY_REPOS ${CMAKE_SOURCE_DIR}/third_party)
 
 
 
+add_library(headers INTERFACE)
+target_include_directories(headers
+INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/>
+    $<INSTALL_INTERFACE:include/>
+)
 
 find_package(PCL CONFIG REQUIRED)
 add_library(pcltypes src/pcl_types.cpp)
-target_link_libraries(pcltypes PRIVATE ${PCL_LIBRARIES})
+target_link_libraries(pcltypes PUBLIC headers PRIVATE ${PCL_LIBRARIES})
 target_include_directories(pcltypes PUBLIC ${PCL_INCLUDE_DIRS})
 set_target_properties(pcltypes PROPERTIES OUTPUT_NAME ${PROJECT_NAME}_pcltypes)
 
@@ -59,12 +65,6 @@ else()
     configure_file(scripts/bash/addpythonpath.build.bash.in ${CMAKE_BINARY_DIR}/addpythonpath.bash @ONLY)
 endif()
 
-add_library(headers INTERFACE)
-target_include_directories(headers
-INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include/>
-    $<INSTALL_INTERFACE:include/>
-)
 option(BUILD_DATALOGGER "Builds the datalogger libraries and executables. If set to OFF, only builds the ability to interact with existing protobuf datasets" OFF)
 option(BUILD_CONTROLLERS "Builds the controllers library for pushing commands back into the F1 game" OFF)
 if(BUILD_DATALOGGER)
