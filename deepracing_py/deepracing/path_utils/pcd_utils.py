@@ -133,7 +133,7 @@ def loadPCD(filepath : str, align=False) -> np.ndarray:
             structured_numpy_array = np.loadtxt(f, dtype=numpytype, encoding="ascii", delimiter=" ")
     return numpytype, structured_numpy_array, height, width
 
-def structurednumpyToPCD(points : np.ndarray, filepath : str, viewpoint_pos : np.ndarray = np.zeros(3), viewpoint_rot : Rotation = Rotation.identity(), binary=False):
+def structurednumpyToPCD(points : np.ndarray, filepath : str, fmt="%.4f", viewpoint_pos : np.ndarray = np.zeros(3), viewpoint_rot : Rotation = Rotation.identity(), binary=False):
     
     headerlines : list = ["asdf" for asdf in range(_NUM_PCD_HEADER_LINES)]
     headerlines[_VERSION_TAG_LINE] = "VERSION 0.7\n"
@@ -184,7 +184,7 @@ def structurednumpyToPCD(points : np.ndarray, filepath : str, viewpoint_pos : np
         headerlines[_DATA_TAG_LINE] = "DATA ascii\n"
         with open(filepath, "w") as f:
             f.writelines(headerlines)
-            np.savetxt(f, points, fmt="%.4f", delimiter=" ", newline="\n", encoding="ascii")
+            np.savetxt(f, points, fmt=fmt, delimiter=" ", newline="\n", encoding="ascii")
 
 
 def numpyToPCD(x : np.ndarray, points : np.ndarray, filepath : str, 
