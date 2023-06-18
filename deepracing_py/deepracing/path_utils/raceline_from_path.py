@@ -12,14 +12,15 @@ class Writer:
         self.points : np.ndarray = points
     def writeLine(self, xcurr : np.ndarray):
         fileout = self.argdict["outfile"]
-        deepracing.path_utils.numpyToPCD(np.sqrt(xcurr), self.points, fileout, x_name="velocity")
+        deepracing.path_utils.numpyToPCD(np.sqrt(xcurr), self.points, fileout, x_name="speed")
 
 def normwrapper(r : float, spline : scipy.interpolate.BSpline):
     return np.linalg.norm(spline(r), ord=2, axis=1)
 def normwrapperlambda(spline : scipy.interpolate.BSpline):
     return lambda r : np.linalg.norm(spline(r), ord=2, axis=1)
 
-def go(argdict : dict):
+def optimizeLine(argdict : dict):
+    print("Hello!", flush=True)
 
     inputfile = argdict["filepath"]
     numpytype, structured_array, _, _ = deepracing.path_utils.loadPCD(inputfile, align=True)
@@ -51,31 +52,32 @@ def go(argdict : dict):
     spline_tangent : scipy.interpolate.BSpline = spline_arclength.derivative()
     spline_curvature : scipy.interpolate.BSpline = spline_tangent.derivative()
 
-    print(spline_tangent(arclengths[0]))
-    print(spline_tangent(arclengths[-1]))
-    print(spline_tangent(arclengths[-2]))
+    # print(spline_tangent(arclengths[0]))
+    # print(spline_tangent(arclengths[-1]))
+    # print(spline_tangent(arclengths[-2]))
     
     dsin : float = argdict["ds"]
     rsamp : np.ndarray = np.arange(0.0, arclengths[-1], step = dsin)
-    print(rsamp[-1], arclengths[-1])
+    # print(rsamp[-1], arclengths[-1])
     curvaturve_vecs : np.ndarray = spline_curvature(rsamp)
     kappas : np.ndarray = np.linalg.norm(curvaturve_vecs, ord=2, axis=1)
     iclamp : int = int(round(200/dsin))
     kappas[-iclamp:] = kappas[:iclamp] = 0.0
-    radii = 1.0/kappas
-
-    istraight : float = int(round(1000/dsin))
+    # radii = 1.0/(kappas + 1E-5)
+    # istraight : float = int(round(1000/dsin))
     # print(np.concatenate([kappas[-100:], kappas[:100]]))
-    print(np.concatenate([radii[-istraight:], radii[:istraight]]))
+    # print(np.concatenate([radii[-istraight:], radii[:istraight]]))
     # print(spline_tangent(arclengths[-istraight:]))
-    print(np.min(np.concatenate([radii[-istraight:], radii[:istraight]])))
-    print(np.min(radii))
+    # print(np.min(np.concatenate([radii[-istraight:], radii[:istraight]])))
+    # print(np.min(radii))
     maxspeed : float = argdict["maxv"]
     dsvec : np.ndarray = dsin*np.ones_like(rsamp)
     dsvec[-1] = np.linalg.norm(spline_arclength(rsamp[-1]) - spline_arclength(rsamp[0]), ord=2)
     points : np.ndarray = spline_arclength(rsamp)
     writer : Writer = Writer(argdict, points)
-    sqp = deepracing.path_utils.optimization.OptimWrapper(maxspeed, dsvec, kappas, callback = writer.writeLine)
+    print("Building the sqp object", flush=True)
+    sqp = deepracing.path_utils.optimization.OptimWrapper(maxspeed, dsvec, kappas, callback = writer.writeLine, debug=argdict["debug"])
+    print("Built the sqp object", flush=True)
 
     x0 : np.ndarray = ((argdict["initialguessratio"]*maxspeed)**2)*np.ones_like(rsamp)
 
@@ -86,6 +88,7 @@ def go(argdict : dict):
     brakefactor=argdict["brakefactor"]
     cafactor=argdict["cafactor"]
     hard_constraints=argdict["hard_constraints"]
+    print("Running the optimization", flush=True)
     x0, optimres = sqp.optimize(maxiter=maxiter, method=method, disp=True, keep_feasible=hard_constraints, \
                  x0=x0, accelfactor=accelfactor, brakefactor=brakefactor, cafactor=cafactor, initial_guess_ratio=argdict["initialguessratio"])
     writer.writeLine(optimres.x)
@@ -93,9 +96,10 @@ def go(argdict : dict):
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("filepath", help="Path to .pcd file to generate optimal line from",  type=str)
-    parser.add_argument("ds", type=float, help="Sample the path at points this distance apart along the path")
+    parser.add_argument("--ds", type=float, default=2.0, help="Sample the path at points this distance apart along the path")
     parser.add_argument("--maxiter", type=float, default=20, help="Maximum iterations to run the solver")
     parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
+    parser.add_argument("--minv", default=10.0, type=float, help="Min linear speed the car can have")
     parser.add_argument("--maxv", default=86.0, type=float, help="Max linear speed the car can have")
     parser.add_argument("--method", default="SLSQP", type=str, help="Optimization method to use")
     parser.add_argument("--outfile", default="raceline_optimized.pcd", type=str, help="What to name the output file. Default is the same name as the input file")
@@ -105,5 +109,6 @@ if __name__=="__main__":
     parser.add_argument("--cafactor", default=1.0, type=float,    help="Scale the max centripetal acceleration limits by this factor")
     parser.add_argument("--pca", action="store_true",  help="Project the raceline onto a PCA of the boundaries")
     parser.add_argument("--hard-constraints", action="store_true",  help="Enforce hard constraints in the optimization")
+    parser.add_argument("--debug", action="store_true",  help="Print current state of the optimization on each iteration for debugging")
     args = parser.parse_args()
-    go(vars(args))
+    optimizeLine(vars(args))

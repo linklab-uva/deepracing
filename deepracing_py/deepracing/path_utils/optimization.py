@@ -28,7 +28,7 @@ def generate_linear_accel_mat(ds:  np.ndarray):
     return scipy.sparse.bsr_matrix((data, (row,col)), shape=(numpoints, numpoints), dtype=ds.dtype)
 
 class BrakingConstraint():
-    def __init__(self, ds: np.ndarray, max_speed : float, factor=1.0):
+    def __init__(self, ds: np.ndarray, max_speed : float, factor=1.0, debug : bool = False):
         self.ds = ds
         self.linearaccelmat=generate_linear_accel_mat(ds)
         self.buffer = np.zeros_like(self.ds)
@@ -40,6 +40,7 @@ class BrakingConstraint():
         self.braking_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, braking_limits, k=1)
         self.braking_spline_der : scipy.interpolate.BSpline = self.braking_spline.derivative()
         print(self.linearaccelmat.toarray(), flush=True)
+        self.debug : bool = debug
 
     def eval(self, x):
         print(flush=True)
@@ -49,11 +50,12 @@ class BrakingConstraint():
         braking_limits = self.braking_spline(speeds)
         self.buffer = braking_limits - accels 
         imin = np.argmax(self.buffer)
-        print("Max constraint value: %f" % (self.buffer[imin],), flush=True)
-        print("Braking limit at min constraint value: %f" % (braking_limits[imin],), flush=True)
-        print("Linear acceleration at min constraint value: %f" % (accels[imin],), flush=True)
-        print("Speed at min constraint value: %f" % (speeds[imin],), flush=True)
-        print(flush=True)
+        if self.debug:
+            print("Max constraint value: %f" % (self.buffer[imin],), flush=True)
+            print("Braking limit at min constraint value: %f" % (braking_limits[imin],), flush=True)
+            print("Linear acceleration at min constraint value: %f" % (accels[imin],), flush=True)
+            print("Speed at min constraint value: %f" % (speeds[imin],), flush=True)
+            print(flush=True)
         return self.buffer
     def jac(self, x):
         speeds = np.sqrt(x)
@@ -63,7 +65,7 @@ class BrakingConstraint():
         return NonlinearConstraint(self.eval, -1E15*np.ones_like(self.ds), np.zeros_like(self.ds), jac = self.jac, keep_feasible=keep_feasible)
 
 class LinearAccelConstraint():
-    def __init__(self, ds: np.ndarray, max_speed : float, factor=1.0):
+    def __init__(self, ds: np.ndarray, max_speed : float, factor=1.0, debug : bool = False):
         self.ds = ds
         self.linearaccelmat=generate_linear_accel_mat(ds)
         self.buffer = np.zeros_like(self.ds)
@@ -71,6 +73,7 @@ class LinearAccelConstraint():
         forward_accel_limits = np.asarray([17.5,  17.25,  0.00,  0.000])*factor
         self.forward_accel_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, forward_accel_limits, k=1)
         self.forward_accel_spline_der : scipy.interpolate.BSpline = self.forward_accel_spline.derivative()
+        self.debug : bool = debug
      #   print(self.linearaccelmat.toarray()[[0,1,2,3,-4,-3,-2,-1]], flush=True)
 
     def eval(self, x):
@@ -81,11 +84,12 @@ class LinearAccelConstraint():
         max_accels = self.forward_accel_spline(speeds)
         self.buffer = accels - max_accels
         imax = np.argmax(self.buffer)
-        print("Max constraint value : %f" % (self.buffer[imax],), flush=True)
-        print("Linear acceleration limit at max constraint value: %f" % (max_accels[imax],), flush=True)
-        print("Linear acceleration at max constraint value: %f" % (accels[imax],), flush=True)
-        print("Speed at max constraint value: %f" % (speeds[imax],), flush=True)
-        print(flush=True)
+        if self.debug:
+            print("Max constraint value : %f" % (self.buffer[imax],), flush=True)
+            print("Linear acceleration limit at max constraint value: %f" % (max_accels[imax],), flush=True)
+            print("Linear acceleration at max constraint value: %f" % (accels[imax],), flush=True)
+            print("Speed at max constraint value: %f" % (speeds[imax],), flush=True)
+            print(flush=True)
         return self.buffer
     def jac(self, x):
         speeds = np.sqrt(x)
@@ -95,7 +99,7 @@ class LinearAccelConstraint():
         return NonlinearConstraint(self.eval, -1E15*np.ones_like(self.ds), np.zeros_like(self.ds), jac = self.jac, keep_feasible=keep_feasible)
 
 class CentripetalAccelerationConstraint():
-    def __init__(self, kappas : np.ndarray, maxspeed : float, factor=1.0):
+    def __init__(self, kappas : np.ndarray, maxspeed : float, factor=1.0, debug : bool = False):
         self.kappas = kappas
         self.idx = np.arange(0, kappas.shape[0], dtype=np.int64, step=1)
         maxspeedmph = 2.2369362920544025*maxspeed
@@ -104,6 +108,7 @@ class CentripetalAccelerationConstraint():
         maxcas = np.asarray([1.75,  2.00,  2.50,  3.250,  3.250,  3.500,  3.500], dtype=np.float64)*9.81*factor #Gforce to m/s^2
         self.caspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, maxcas, k=1)
         self.casplineder : scipy.interpolate.BSpline = self.caspline.derivative()
+        self.debug : bool = debug
        
     def eval(self, x):
         print(flush=True)
@@ -113,12 +118,13 @@ class CentripetalAccelerationConstraint():
         limits = self.caspline(speeds)
         rtn = centripetal_accels - limits
         imax = np.argmax(rtn)
-        print("Max constraint value: %f" % (rtn[imax],), flush=True)
-        print("Centripetal acceleration limit at max constraint value: %f" % (limits[imax],), flush=True)
-        print("Centripetal acceleration at max constraint value: %f" % (centripetal_accels[imax],), flush=True)
-        print("Speed at max constraint value: %f" % (speeds[imax],), flush=True)
-        print("Radius of curvature at max constraint value: %f" % (1.0/self.kappas[imax],), flush=True)
-        print(flush=True)
+        if self.debug:
+            print("Max constraint value: %f" % (rtn[imax],), flush=True)
+            print("Centripetal acceleration limit at max constraint value: %f" % (limits[imax],), flush=True)
+            print("Centripetal acceleration at max constraint value: %f" % (centripetal_accels[imax],), flush=True)
+            print("Speed at max constraint value: %f" % (speeds[imax],), flush=True)
+            print("Radius of curvature at max constraint value: %f" % (1.0/self.kappas[imax],), flush=True)
+            print(flush=True)
         return rtn
     def jac(self, x):
         speeds = np.sqrt(x)
@@ -129,7 +135,7 @@ class CentripetalAccelerationConstraint():
         # return NonlinearConstraint(self.eval, -5.0*9.81*np.ones_like(self.kappas), np.zeros_like(self.kappas), jac = self.jac, keep_feasible=keep_feasible)
 
 class OptimWrapper():
-    def __init__(self, maxspeed : float, ds : float, radii : np.ndarray, dtype=np.float32, callback  = None):
+    def __init__(self, maxspeed : float, ds : float, radii : np.ndarray, dtype=np.float32, callback  = None, debug : bool = False):
         self.radii = radii.astype(dtype)
         self.maxspeed = maxspeed
         if type(ds)==float:
@@ -140,17 +146,19 @@ class OptimWrapper():
         self.tick = 0
         self.iter_counter = 1
         self.callback = callback
+        self.debug : bool = debug
         
     def functional(self, xcurr):
         if (self.callback is not None) and self.iter_counter>2:
             self.callback(xcurr)
         tock = time.time()
-        print(flush=True)
         speeds = np.sqrt(xcurr)
-        print("Calling dat functional with counter %d. Current min speed: %f. Current max speed: %f. It has been %f seconds since the last functional call" %(self.iter_counter, np.min(speeds), np.max(speeds), tock-self.tick), flush=True)
         idx = np.arange(-35,36,step=1,dtype=np.int64)
-        print("Speeds around start-finish:\n%s" % (str(speeds[idx]),), flush=True)
-        print(flush=True)
+        if self.debug:
+            print(flush=True)
+            print("Calling dat functional with counter %d. Current min speed: %f. Current max speed: %f. It has been %f seconds since the last functional call" %(self.iter_counter, np.min(speeds), np.max(speeds), tock-self.tick), flush=True)
+            print("Speeds around start-finish:\n%s" % (str(speeds[idx]),), flush=True)
+            print(flush=True)
         self.tick = tock
         self.iter_counter+=1
         return (-np.sum(xcurr), self.grad)
@@ -162,9 +170,9 @@ class OptimWrapper():
         ub = np.square(self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
         if x0 is None:
             x0 = np.square(initial_guess_ratio*self.maxspeed*np.ones_like(self.radii, dtype=self.radii.dtype))
-        centripetal_accel_constraint : CentripetalAccelerationConstraint = CentripetalAccelerationConstraint(self.radii, self.maxspeed, factor=cafactor)
-        braking_constraint : BrakingConstraint = BrakingConstraint(self.ds, self.maxspeed, factor=brakefactor)
-        linear_accel_constraint : LinearAccelConstraint = LinearAccelConstraint(self.ds, self.maxspeed, factor=accelfactor)
+        centripetal_accel_constraint : CentripetalAccelerationConstraint = CentripetalAccelerationConstraint(self.radii, self.maxspeed, factor=cafactor, debug=self.debug)
+        braking_constraint : BrakingConstraint = BrakingConstraint(self.ds, self.maxspeed, factor=brakefactor, debug=self.debug)
+        linear_accel_constraint : LinearAccelConstraint = LinearAccelConstraint(self.ds, self.maxspeed, factor=accelfactor, debug=self.debug)
         constraints=[]
         constraints.append(linear_accel_constraint.asSciPy(keep_feasible=keep_feasible))
         constraints.append(braking_constraint.asSciPy(keep_feasible=keep_feasible))
