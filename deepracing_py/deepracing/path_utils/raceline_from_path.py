@@ -38,6 +38,7 @@ def optimizeLine(argdict : dict):
 
     k = argdict["k"]
     scaled_input = lapdistance_aug# / lapdistance_aug[-1]
+    ymean = np.mean(racelinepath_aug[:,1])
     spline_in : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(scaled_input, racelinepath_aug[:,[0,2]], k=k, bc_type="periodic")
     
     arclengths : np.ndarray = np.zeros_like(scaled_input)
@@ -75,7 +76,8 @@ def optimizeLine(argdict : dict):
     dsvec : np.ndarray = dsin*np.ones_like(rsamp)
     dsvec[-1] = np.linalg.norm(spline_arclength(rsamp[-1]) - spline_arclength(rsamp[0]), ord=2)
     points : np.ndarray = spline_arclength(rsamp)
-    writer : Writer = Writer(argdict, points)
+    points_withy = np.stack([points[:,0], ymean*np.ones_like(points[:,0]), points[:,1]], axis=1)
+    writer : Writer = Writer(argdict, points_withy)
     print("Building the sqp object", flush=True)
     sqp = deepracing.path_utils.optimization.OptimWrapper(minspeed, maxspeed, dsvec, kappas, callback = writer.writeLine, debug=argdict["debug"])
     print("Built the sqp object", flush=True)
