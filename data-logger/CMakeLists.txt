@@ -181,6 +181,9 @@ else()
         DESTINATION include/${PROJECT_NAME}
         FILES_MATCHING PATTERN "*.h"
     )
+    install(FILES include/${PROJECT_NAME}/pcl_types.h
+        DESTINATION include/${PROJECT_NAME}
+    )
     install(FILES 
         include/${PROJECT_NAME}/filesystem_helper.h
         include/${PROJECT_NAME}/proto_dll_macro.h
