@@ -55,17 +55,19 @@ def optimizeLines(argdict : dict):
             current_dict["cafactor"] = 0.8
             dicts.append(dict(current_dict))
 
-            current_dict["outfile"] = os.path.join(argdict["output_dir"], filebase+"_optimized_aggressive.pcd")
-            current_dict["accelfactor"] = 1.1
-            current_dict["brakefactor"] = 1.1
-            current_dict["cafactor"] = 1.1
+            current_dict["outfile"] = os.path.join(argdict["output_dir"], filebase+"_optimized_hypersafe.pcd")
+            current_dict["accelfactor"] = 0.7
+            current_dict["brakefactor"] = 0.7
+            current_dict["cafactor"] = 0.7
             dicts.append(dict(current_dict))
 
-            current_dict["outfile"] = os.path.join(argdict["output_dir"], filebase+"_optimized_superaggressive.pcd")
-            current_dict["accelfactor"] = 1.2
-            current_dict["brakefactor"] = 1.2
-            current_dict["cafactor"] = 1.2
+            current_dict["outfile"] = os.path.join(argdict["output_dir"], filebase+"_optimized_ultrasafe.pcd")
+            current_dict["accelfactor"] = 0.6
+            current_dict["brakefactor"] = 0.6
+            current_dict["cafactor"] = 0.6
             dicts.append(dict(current_dict))
+
+
         r = pool.map_async(optimizeLine, dicts, error_callback=errorcb)
         pool.close()
         pool.join()
