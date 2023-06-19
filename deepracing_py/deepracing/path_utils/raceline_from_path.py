@@ -1,3 +1,4 @@
+from typing import Union
 import numpy as np
 import numpy.linalg as la
 import scipy, scipy.integrate
@@ -7,17 +8,36 @@ import matplotlib.pyplot as plt
 import scipy.interpolate
 import deepracing.path_utils.optimization 
 class Writer:
-    def __init__(self, argdict : dict, points : np.ndarray):
+    def __init__(self, argdict : dict, rsamp : np.ndarray, points : np.ndarray):
         self.argdict : dict = argdict
+        self.rsamp : np.ndarray = rsamp
         self.points : np.ndarray = points
+        self.subtypeout = np.float32
+        self.subtypes = []
+        self.subtypes.append(("x", self.subtypeout, (1,)))
+        self.subtypes.append(("y", self.subtypeout, (1,)))
+        self.subtypes.append(("z", self.subtypeout, (1,)))
+        self.subtypes.append(("arclength", self.subtypeout, (1,)))
+        self.subtypes.append(("speed", self.subtypeout, (1,)))
+        self.numpytype = np.dtype(self.subtypes)
+        self.structured_array : np.ndarray = np.ndarray(self.points.shape[0], dtype=self.numpytype)
+        self.structured_array["x"] = self.points[:,0,None].astype(self.subtypeout)
+        self.structured_array["y"] = self.points[:,1,None].astype(self.subtypeout)
+        self.structured_array["z"] = self.points[:,2,None].astype(self.subtypeout)
+        self.structured_array["arclength"] = self.rsamp[:,None].astype(self.subtypeout)
     def writeLine(self, xcurr : np.ndarray):
         fileout = self.argdict["outfile"]
-        deepracing.path_utils.numpyToPCD(np.sqrt(xcurr), self.points, fileout, x_name="speed")
+        self.structured_array["speed"] = np.sqrt(xcurr[:,None]).astype(self.subtypeout)
+        deepracing.path_utils.structurednumpyToPCD(self.structured_array, fileout)
 
-def normwrapper(r : float, spline : scipy.interpolate.BSpline):
-    return np.linalg.norm(spline(r), ord=2, axis=1)
+def normwrapper(r : Union[float, np.ndarray], spline : scipy.interpolate.BSpline):
+    if type(r)==float:
+        return np.linalg.norm(spline(r), ord=2) 
+    elif type(r)==np.ndarray:
+        return np.linalg.norm(spline(r), ord=2, axis=1)
+    raise ValueError("Invalid type: " + str(type(r)))
 def normwrapperlambda(spline : scipy.interpolate.BSpline):
-    return lambda r : np.linalg.norm(spline(r), ord=2, axis=1)
+    return lambda r : np.linalg.norm(spline(r), ord=2) if type(r)==float else np.linalg.norm(spline(r), ord=2, axis=1) 
 
 def optimizeLine(argdict : dict):
     print("Hello!", flush=True)
@@ -37,52 +57,45 @@ def optimizeLine(argdict : dict):
         racelinepath_aug : np.ndarray = racelinepath
 
     k = argdict["k"]
-    scaled_input = lapdistance_aug# / lapdistance_aug[-1]
-    ymean = np.mean(racelinepath_aug[:,1])
+    scaled_input = lapdistance_aug
     spline_in : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(scaled_input, racelinepath_aug[:,[0,2]], k=k, bc_type="periodic")
     
     arclengths : np.ndarray = np.zeros_like(scaled_input)
-    integrand = normwrapperlambda(spline_in.derivative())
     for i in range(1, arclengths.shape[0]):
-        xsamp = np.linspace(scaled_input[i-1], scaled_input[i], num=15)
-        ysamp = integrand(xsamp)
+        xsamp = np.linspace(scaled_input[i-1], scaled_input[i], num=31)
+        ysamp = normwrapper(xsamp, spline_in.derivative())
         arclengths[i] = arclengths[i-1] + scipy.integrate.simpson(ysamp, x=xsamp)
-
-    
+        # dr, _ = scipy.integrate.fixed_quad(normwrapper, scaled_input[i-1], scaled_input[i], args=(spline_in.derivative(),))
+        # arclengths[i] = arclengths[i-1] + dr
+    print(arclengths)
+    yspline_arclength : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(arclengths, racelinepath_aug[:,1], k=k, bc_type="periodic")
     spline_arclength : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(arclengths, racelinepath_aug[:,[0,2]], k=k, bc_type="periodic")
     spline_tangent : scipy.interpolate.BSpline = spline_arclength.derivative()
     spline_curvature : scipy.interpolate.BSpline = spline_tangent.derivative()
 
-    # print(spline_tangent(arclengths[0]))
-    # print(spline_tangent(arclengths[-1]))
-    # print(spline_tangent(arclengths[-2]))
     
     dsin : float = argdict["ds"]
-    rsamp : np.ndarray = np.arange(0.0, arclengths[-1], step = dsin)
+    num_evenly_spaced_points : int = int(round(arclengths[-1]/dsin))
+    rsamp : np.ndarray = np.linspace(0.0, arclengths[-1], num = num_evenly_spaced_points)[:-1]
+    actual_ds = float(rsamp[1] - rsamp[0])
+    # rsamp : np.ndarray = np.arange(0.0, arclengths[-1], step = dsin)
     # print(rsamp[-1], arclengths[-1])
     curvaturve_vecs : np.ndarray = spline_curvature(rsamp)
     kappas : np.ndarray = np.linalg.norm(curvaturve_vecs, ord=2, axis=1)
-    iclamp : int = int(round(200/dsin))
-    kappas[-iclamp:] = kappas[:iclamp] = 0.0
-    # radii = 1.0/(kappas + 1E-5)
-    # istraight : float = int(round(1000/dsin))
-    # print(np.concatenate([kappas[-100:], kappas[:100]]))
-    # print(np.concatenate([radii[-istraight:], radii[:istraight]]))
-    # print(spline_tangent(arclengths[-istraight:]))
-    # print(np.min(np.concatenate([radii[-istraight:], radii[:istraight]])))
-    # print(np.min(radii))
+    idxclamp = (rsamp<200) + (rsamp>(arclengths[-1]-200))
+    kappas[idxclamp] = 0.0
     minspeed : float = argdict["minv"]
     maxspeed : float = argdict["maxv"]
-    dsvec : np.ndarray = dsin*np.ones_like(rsamp)
-    dsvec[-1] = np.linalg.norm(spline_arclength(rsamp[-1]) - spline_arclength(rsamp[0]), ord=2)
+    dsvec : np.ndarray = actual_ds*np.ones_like(rsamp)
     points : np.ndarray = spline_arclength(rsamp)
-    points_withy = np.stack([points[:,0], ymean*np.ones_like(points[:,0]), points[:,1]], axis=1)
-    writer : Writer = Writer(argdict, points_withy)
+    points_withy = np.stack([points[:,0], yspline_arclength(rsamp), points[:,1]], axis=1)
+    writer : Writer = Writer(argdict, rsamp, points_withy)
     print("Building the sqp object", flush=True)
     sqp = deepracing.path_utils.optimization.OptimWrapper(minspeed, maxspeed, dsvec, kappas, callback = writer.writeLine, debug=argdict["debug"])
     print("Built the sqp object", flush=True)
 
-    x0 : np.ndarray = ((argdict["initialguessratio"]*maxspeed)**2)*np.ones_like(rsamp)
+    x0speed : float = np.clip(argdict["initialguessratio"]*maxspeed, minspeed+.1, maxspeed-.1)
+    x0 : np.ndarray = (x0speed**2)*np.ones_like(rsamp)
 
     #method="trust-constr"
     method=argdict["method"]

@@ -163,6 +163,8 @@ class OptimWrapper():
         self.tick = tock
         self.iter_counter+=1
         return (-np.sum(xcurr), self.grad)
+    def hess(self, xcurr : np.ndarray):
+        return np.zeros((xcurr.shape[0], xcurr.shape[0]), dtype=xcurr.dtype)
     def hessp(self, xcurr, p):
         return np.zeros_like(xcurr)
 
@@ -179,11 +181,13 @@ class OptimWrapper():
         constraints.append(braking_constraint.asSciPy(keep_feasible=keep_feasible))
         constraints.append(centripetal_accel_constraint.asSciPy(keep_feasible=keep_feasible))
         if method in ["Newton-CG", "trust-ncg", "trust-krylov", "trust-constr"]:
+            hess = self.hess
             hessp = self.hessp
         else:
+            hess = None
             hessp = None
         self.tick = time.time()
-        return x0, minimize(self.functional, x0, method=method, jac=True, hessp=hessp, constraints=constraints, options = {"maxiter": maxiter, "disp": disp}, bounds=Bounds(lb, ub, keep_feasible=keep_feasible))
+        return x0, minimize(self.functional, x0, method=method, jac=True, hess=hess, constraints=constraints, options = {"maxiter": maxiter, "disp": disp}, bounds=Bounds(lb, ub, keep_feasible=keep_feasible))
 
 
 
