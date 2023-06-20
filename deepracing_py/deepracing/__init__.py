@@ -16,6 +16,7 @@ class TrackMap():
         self.outer_boundary : np.ndarray = None
         self.raceline : np.ndarray = None
         self.directory : str = None
+        self.name : str = None
         self.linemap : dict = dict()
         if directory is not None:
             self.loadFromDirectory(directory, align=align)
@@ -30,6 +31,7 @@ class TrackMap():
         self.startinglinewidth = metadatadict["startinglinewidth"]
         self.length = metadatadict["tracklength"]
         self.directory = directory
+        self.name = os.path.basename(directory)
         for root, _, files in os.walk(directory, topdown = True):
             for name in files:
                 base, ext = os.path.splitext(name)
@@ -74,7 +76,9 @@ def searchForTrackmap(trackname : str, searchdirs : List[str], align=False):
         for root, directories, _ in os.walk(searchdir, topdown = True):
             for directory in directories:
                 full_directory = os.path.join(root,directory)
+                print("searching %s in %s" % (directory,root))
                 if directory==trackname and os.path.isfile(os.path.join(full_directory,"DEEPRACING_TRACKMAP")) and os.path.isfile(os.path.join(full_directory,"metadata.yaml")):
+                    print("Yay!")
                     return TrackMap(os.path.join(root,directory), align=align)
     return None
 
