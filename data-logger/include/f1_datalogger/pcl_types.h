@@ -5,6 +5,33 @@
 
 namespace f1_datalogger
 {
+    struct EIGEN_ALIGN16 _PointXYZArclength
+    {
+        PCL_ADD_POINT4D; // This adds the members x,y,z which can also be accessed using the point (which is float[4])
+        union
+        {
+        struct
+        {
+            float arclength;
+        };
+        float data_c[4];
+        };
+        PCL_MAKE_ALIGNED_OPERATOR_NEW
+    };
+    
+    struct PointXYZArclength : public _PointXYZArclength
+    {
+        inline constexpr PointXYZArclength (const _PointXYZArclength &p) : PointXYZArclength{p.x, p.y, p.z, p.arclength} {}
+
+        inline constexpr PointXYZArclength (float _arclength = 0.f) : PointXYZArclength(0.f, 0.f, 0.f, _arclength) {}
+
+        inline constexpr PointXYZArclength (float _x, float _y, float _z, float _arclength = 0.f) : _PointXYZArclength{{{_x, _y, _z, 1.0f}}, {{_arclength}}} {}
+        
+        friend std::ostream& operator << (std::ostream& os, const PointXYZArclength& p);
+    };
+    std::ostream& operator << (std::ostream& os, const PointXYZArclength& p);
+
+
     struct EIGEN_ALIGN16 _PointXYZLapdistance
     {
         PCL_ADD_POINT4D; // This adds the members x,y,z which can also be accessed using the point (which is float[4])
@@ -85,6 +112,14 @@ namespace f1_datalogger
     };
     std::ostream& operator << (std::ostream& os, const PointXYZTime& p);
 }
+
+POINT_CLOUD_REGISTER_POINT_STRUCT(f1_datalogger::PointXYZArclength,
+    (float, x, x)
+    (float, y, y)
+    (float, z, z)
+    (float, arclength, arclength)
+)
+POINT_CLOUD_REGISTER_POINT_WRAPPER(f1_datalogger::PointXYZArclength, f1_datalogger::_PointXYZArclength)
 
 POINT_CLOUD_REGISTER_POINT_STRUCT(f1_datalogger::PointXYZLapdistance,
     (float, x, x)

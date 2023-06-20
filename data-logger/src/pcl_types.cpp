@@ -30,5 +30,15 @@ namespace f1_datalogger
     return (os);
   }
 
+  
+  std::ostream& 
+  operator << (std::ostream& os, const PointXYZArclength& p)
+  {
+    os << "(";
+    os << p.x << "," << p.y << "," << p.z << "," << p.arclength;
+    os << ")";
+    return (os);
+  }
+
 
 } 
