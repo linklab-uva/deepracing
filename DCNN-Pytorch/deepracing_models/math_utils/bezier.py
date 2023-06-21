@@ -4,6 +4,8 @@ import math
 import torch, torch.nn
 from scipy.special import comb as nChoosek
 from deepracing_models.math_utils.fitting import pinv
+from ..math_utils.polynomial import polyroots
+
 def polynomialFormConversion(k : int, dtype=torch.float64, device=torch.device("cpu")) -> Tuple[torch.Tensor, torch.Tensor]:
     topolyform : torch.Tensor = torch.zeros((k+1,k+1), dtype=dtype, device=device)
     kfactorial : float = math.factorial(k)
@@ -22,6 +24,20 @@ def polynomialFormConversion(k : int, dtype=torch.float64, device=torch.device("
             if j>i:
                 tobezierform[i,j]=0.0
     return topolyform, tobezierform
+
+def bezierPolyRoots(bezier_coefficients : torch.Tensor, scaled_basis = False):
+    N = bezier_coefficients.shape[0]
+    k = bezier_coefficients.shape[1]-1
+    topolyform, _ = polynomialFormConversion(k, dtype = bezier_coefficients.dtype, device=bezier_coefficients.device)
+    topolyform = topolyform.unsqueeze(0).expand(N, k+1, k+1)
+    if scaled_basis:
+        binoms = torch.as_tensor([nChoosek(k, i) for i in range(k+1)], dtype = bezier_coefficients.dtype, device=bezier_coefficients.device)
+        unscaled = bezier_coefficients/binoms
+        standard_form = torch.matmul(topolyform, unscaled.unsqueeze(-1)).squeeze(-1)
+    else:
+        standard_form = torch.matmul(topolyform, bezier_coefficients.unsqueeze(-1)).squeeze(-1)
+    return polyroots(standard_form)
+
 def Mtk(k,n,t):
     return torch.pow(t,k)*torch.pow(1-t,(n-k))*nChoosek(n,k)
 def bezierArcLength(control_points, d0=None, N=59, simpsonintervals=4 ):
@@ -216,6 +232,30 @@ def bezierLsqfit(points, n, t = None, M = None, built_in_lstq=False, minimum_sin
         else:
             res = torch.matmul(pinv(M_, minimum_singular_value=minimum_singular_value), points)
         return M_, res
+
+def elevateBezierOrder(points : torch.Tensor, out : Union[None, torch.Tensor] = None) -> torch.Tensor:
+    originalshape : torch.Size = points.size()
+    
+    d = originalshape[-1]
+    k = originalshape[-2] - 1
+
+    points_flat = points.view(-1, k+1, d)
+    sizeout = list(originalshape)
+    sizeout[-2]+=1
+    if out is None:
+        out_flat = torch.empty([torch.prod(torch.as_tensor(originalshape[:-2])).item(), k+2, d], device=points.device, dtype=points.dtype)
+    else:
+        out_flat = out.view(-1 , k+2, d)
+    out_flat[:,0] = points_flat[:,0]
+    out_flat[:,-1] = points_flat[:,-1]
+    batchdim = out_flat.shape[0]
+    coefs = torch.linspace(1.0/(k+1), k/(k+1), steps=k, device=points.device, dtype=points.dtype).unsqueeze(0).expand(batchdim, k)
+    out_flat[:,1:-1] = points_flat[:,1:]*coefs[:,:,None] + points_flat[:,:-1]*((1.0-coefs)[:,:,None])
+    return out_flat.view(sizeout)
+    
+
+
+
 
 class BezierCurveModule(torch.nn.Module):
     def __init__(self, control_points, mask = None):

@@ -2,8 +2,9 @@ from typing import List, Tuple, Union
 from .bezier import bezierLsqfit
 from .bezier import bezierM
 from .bezier import bezierDerivative
+from .bezier import bezierPolyRoots
 from .fitting import pinv, fitAffine
-from .bezier import bezierArcLength as bezierArcLength, BezierCurveModule, polynomialFormConversion
+from .bezier import bezierArcLength as bezierArcLength, BezierCurveModule, polynomialFormConversion, elevateBezierOrder
 
 from .statistics import cov
 from .integrate import cumtrapz, simpson
@@ -119,7 +120,7 @@ class SimplePathHelper:
             s_euclidean_approx = self.__r_samp__[iclosest]%self.__curve__.xend_vec[-1]
             s_optim : torch.nn.parameter.Parameter = torch.nn.parameter.Parameter(torch.as_tensor([s_euclidean_approx], dtype=self.__r_samp__.dtype, device=self.__r_samp__.device), requires_grad=True)
         else:
-            s_optim : torch.nn.parameter.Parameter = torch.nn.parameter.Parameter(torch.as_tensor([s0], dtype=self.__r_samp__.dtype, device=self.__r_samp__.device)%self.__curve__.xend_vec[-1], requires_grad=True)
+            s_optim : torch.nn.parameter.Parameter = torch.nn.parameter.Parameter(torch.as_tensor([s0%self.__curve__.xend_vec[-1]], dtype=self.__r_samp__.dtype, device=self.__r_samp__.device)%self.__curve__.xend_vec[-1], requires_grad=True)
         sgd = torch.optim.SGD([s_optim], 1.0)
         s_init = s_optim[0].detach().clone()
         x0 = self.__curve__(s_optim.detach().clone())[0]

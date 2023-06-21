@@ -1,4 +1,50 @@
 import torch
+import torch.nn.functional as F
+from typing import Union
+
+def polydiv(c1 : torch.Tensor, c2 : torch.Tensor):
+     
+    if c2[-1] == 0:
+        raise ZeroDivisionError()
+    # note: this is more efficient than `pu._div(polymul, c1, c2)`
+    lc1 = c1.shape[0]
+    lc2 = c2.shape[0]
+    # print("lc1: %d" % (lc1,))
+    # print("lc2: %d" % (lc2,))
+    if lc1 < lc2:
+        return c1[:1]*0, c1
+    elif lc2 == 1:
+        return c1/c2[-1], c1[:1]*0
+    else:
+        dlen = lc1 - lc2
+        scl = c2[-1]
+        c2 = c2[:-1]/scl
+        i = dlen
+        j = lc1 - 1
+        while i >= 0:
+            c1[i:j] -= c2*c1[j]
+            i -= 1
+            j -= 1
+        return c1[j+1:]/scl, c1[:j+1]#pu.trimseq()
+    
+
+def polyproduct(a : torch.Tensor, b : torch.Tensor) -> torch.Tensor:
+    if not a.shape[:-1]==b.shape[:-1]:
+        raise ValueError("a and b must have same shape except in the last dimension. Got a of shape %s and b of shape %s" % (str(a.shape), str(b.shape)))           
+    if b.shape[-1]>a.shape[-1]:
+        return polyproduct(b,a)
+    origasize = a.size()
+    origbsize = b.size()
+
+    m = origasize[-1]
+    n = origbsize[-1]
+    outputsize = list(origasize)
+    outputsize[-1] = m+n-1 
+    aflat = a.reshape(-1, m)
+    bflat = b.reshape(-1, n)
+
+    bmat = torch.stack([F.pad(bflat, (i,m-i-1), "constant", 0) for i in range(m)], dim=1)
+    return torch.matmul(bmat.transpose(1,2), aflat.unsqueeze(-1)).squeeze(-1).view(outputsize)
 
 def polycompanion(c : torch.Tensor):
     """
