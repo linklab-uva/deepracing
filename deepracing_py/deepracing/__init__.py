@@ -36,7 +36,8 @@ class TrackMap():
             for name in files:
                 base, ext = os.path.splitext(name)
                 if ext==".pcd":
-                    _, line_track_, height, width = loadPCD(os.path.join(root, name), align=align)
+                    filepath = os.path.join(root, name)
+                    _, line_track_, height, width = loadPCD(filepath, align=align)
                     line_track : np.ndarray = line_track_
                     line_track_x : np.ndarray = line_track['x'].copy()
                     line_track_y : np.ndarray = line_track['y'].copy()
@@ -48,7 +49,7 @@ class TrackMap():
                     line_map["x"] = line_map_all[0].reshape(line_map["x"].shape)
                     line_map["y"] = line_map_all[1].reshape(line_map["y"].shape)
                     line_map["z"] = line_map_all[2].reshape(line_map["z"].shape)
-                    self.linemap[base] = {"line" : line_map, "height" : height, "width": width}
+                    self.linemap[base] = {"filepath" : filepath, "line" : line_map, "height" : height, "width": width}
 
         
 
