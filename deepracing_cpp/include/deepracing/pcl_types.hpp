@@ -1,9 +1,8 @@
-#ifndef F1_DATALOGGER_PCL_POINT_TYPES_H_
-#define F1_DATALOGGER_PCL_POINT_TYPES_H_
+#ifndef DEEPRACING_CPP_PCL_POINT_TYPES_HPP_
+#define DEEPRACING_CPP_PCL_POINT_TYPES_HPP_
 #include <pcl/point_types.h>
-#include <f1_datalogger/visibility_control.h>
 
-namespace f1_datalogger
+namespace deepracing
 {
     struct EIGEN_ALIGN16 _PointXYZArclength
     {
@@ -113,36 +112,36 @@ namespace f1_datalogger
     std::ostream& operator << (std::ostream& os, const PointXYZTime& p);
 }
 
-POINT_CLOUD_REGISTER_POINT_STRUCT(f1_datalogger::PointXYZArclength,
+POINT_CLOUD_REGISTER_POINT_STRUCT(deepracing::PointXYZArclength,
     (float, x, x)
     (float, y, y)
     (float, z, z)
     (float, arclength, arclength)
 )
-POINT_CLOUD_REGISTER_POINT_WRAPPER(f1_datalogger::PointXYZArclength, f1_datalogger::_PointXYZArclength)
+POINT_CLOUD_REGISTER_POINT_WRAPPER(deepracing::PointXYZArclength, deepracing::_PointXYZArclength)
 
-POINT_CLOUD_REGISTER_POINT_STRUCT(f1_datalogger::PointXYZLapdistance,
+POINT_CLOUD_REGISTER_POINT_STRUCT(deepracing::PointXYZLapdistance,
     (float, x, x)
     (float, y, y)
     (float, z, z)
     (float, lapdistance, lapdistance)
 )
-POINT_CLOUD_REGISTER_POINT_WRAPPER(f1_datalogger::PointXYZLapdistance, f1_datalogger::_PointXYZLapdistance)
+POINT_CLOUD_REGISTER_POINT_WRAPPER(deepracing::PointXYZLapdistance, deepracing::_PointXYZLapdistance)
 
-POINT_CLOUD_REGISTER_POINT_STRUCT(f1_datalogger::PointXYZSpeed,
+POINT_CLOUD_REGISTER_POINT_STRUCT(deepracing::PointXYZSpeed,
     (float, x, x)
     (float, y, y)
     (float, z, z)
     (float, speed, speed)
 )
-POINT_CLOUD_REGISTER_POINT_WRAPPER(f1_datalogger::PointXYZSpeed, f1_datalogger::_PointXYZSpeed)
+POINT_CLOUD_REGISTER_POINT_WRAPPER(deepracing::PointXYZSpeed, deepracing::_PointXYZSpeed)
 
-POINT_CLOUD_REGISTER_POINT_STRUCT(f1_datalogger::PointXYZTime,
+POINT_CLOUD_REGISTER_POINT_STRUCT(deepracing::PointXYZTime,
     (float, x, x)
     (float, y, y)
     (float, z, z)
     (float, time, time)
 )
-POINT_CLOUD_REGISTER_POINT_WRAPPER(f1_datalogger::PointXYZTime, f1_datalogger::_PointXYZTime)
+POINT_CLOUD_REGISTER_POINT_WRAPPER(deepracing::PointXYZTime, deepracing::_PointXYZTime)
 
 #endif

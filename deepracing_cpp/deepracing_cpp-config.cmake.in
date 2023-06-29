@@ -1,0 +1,3 @@
+# Imported targets
+include("${CMAKE_CURRENT_LIST_DIR}/find_deps.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@Targets.cmake")
