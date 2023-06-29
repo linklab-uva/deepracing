@@ -16,7 +16,8 @@ namespace twenty_twentythree{
 		CARTELEMETRY=6,
 		CARSTATUS=7,
 		FINAL_CLASSIFICATION=8,
-		LOBBY_INFO=9
+		LOBBY_INFO=9,
+		MOTION_DATA_EX=13
 	};
 
 	PACK(
