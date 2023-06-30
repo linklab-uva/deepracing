@@ -4,6 +4,10 @@ cmake_policy(VERSION ${_required_cmake})
 project(deepracing_cpp CXX)
 
 find_package(ament_cmake QUIET)
+if(NOT CMAKE_CXX_STANDARD)
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+endif()
 
 add_library(headers INTERFACE)
 target_include_directories(headers
@@ -15,16 +19,33 @@ set(targets_to_install)
 list(APPEND targets_to_install headers)
 
 find_package(PCL CONFIG REQUIRED)
+message(STATUS "Found PCL at ${PCL_DIR}")
 add_library(pcltypes SHARED src/pcl_types.cpp)
 target_link_libraries(pcltypes PUBLIC headers PRIVATE ${PCL_LIBRARIES})
-target_include_directories(pcltypes PUBLIC ${PCL_INCLUDE_DIRS})
+target_include_directories(pcltypes PRIVATE ${PCL_INCLUDE_DIRS})
 set_target_properties(pcltypes PROPERTIES OUTPUT_NAME ${PROJECT_NAME}_pcltypes)
 if(WIN32)
     set_target_properties(pcltypes PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
-    target_compile_definitions(pcltypes PRIVATE )
+    target_compile_definitions(pcltypes PUBLIC "WIN32_LEAN_AND_MEAN" "NOGDI")
 endif()
 list(APPEND targets_to_install pcltypes)
 set_target_properties(pcltypes PROPERTIES OUTPUT_NAME ${PROJECT_NAME}_pcltypes)
+
+
+find_package(Eigen3 CONFIG REQUIRED)
+find_package(yaml-cpp CONFIG REQUIRED)
+message(STATUS "Found yaml-cpp at ${yaml-cpp_DIR}")
+add_library(utils SHARED src/track_map.cpp)
+target_link_libraries(utils PUBLIC headers pcltypes yaml-cpp Eigen3::Eigen PRIVATE ${PCL_LIBRARIES})
+target_include_directories(utils PRIVATE ${PCL_INCLUDE_DIRS})
+set_target_properties(utils PROPERTIES OUTPUT_NAME ${PROJECT_NAME}_utils)
+if(WIN32)
+    target_compile_definitions(utils PRIVATE DEEPRACING_CPP_BUILDING_DLL)
+endif()
+list(APPEND targets_to_install utils)
+set_target_properties(utils PROPERTIES OUTPUT_NAME ${PROJECT_NAME}_utils CXX_STANDARD 17 CXX_STANDARD_REQUIRED TRUE)
+
+
 
 install(DIRECTORY include/deepracing/
     DESTINATION include/deepracing
@@ -38,9 +59,11 @@ install(TARGETS ${targets_to_install}
 )
 
 if(ament_cmake_FOUND)
+    set(${PROJECT_NAME}_BUILT_WITH_AMENT TRUE)
     ament_export_targets(${PROJECT_NAME}_export)
     ament_package(CONFIG_EXTRAS cmake/find_deps.cmake.in)
 else()
+    set(${PROJECT_NAME}_BUILT_WITH_AMENT FALSE)
     install(EXPORT ${PROJECT_NAME}_export
         FILE ${PROJECT_NAME}Targets.cmake
         NAMESPACE ${PROJECT_NAME}::
