@@ -2,9 +2,10 @@ from typing import Tuple, Union
 import numpy as np
 import math
 import torch, torch.nn
-from scipy.special import comb as nChoosek
+# from scipy.special import comb as nChoosek
 from deepracing_models.math_utils.fitting import pinv
 from ..math_utils.polynomial import polyroots
+import torch.jit
 
 def polynomialFormConversion(k : int, dtype=torch.float64, device=torch.device("cpu")) -> Tuple[torch.Tensor, torch.Tensor]:
     topolyform : torch.Tensor = torch.zeros((k+1,k+1), dtype=dtype, device=device)
@@ -38,8 +39,16 @@ def bezierPolyRoots(bezier_coefficients : torch.Tensor, scaled_basis = False):
         standard_form = torch.matmul(topolyform, bezier_coefficients.unsqueeze(-1)).squeeze(-1)
     return polyroots(standard_form)
 
-def Mtk(k,n,t):
-    return torch.pow(t,k)*torch.pow(1-t,(n-k))*nChoosek(n,k)
+@torch.jit.script
+def nChoosek(n : torch.Tensor, k : torch.Tensor):
+    return ((n + 1).lgamma() - (k + 1).lgamma() - ((n - k) + 1).lgamma()).exp()
+
+@torch.jit.script
+def Mtk(k : int, n : int, t : torch.Tensor):
+    ktensor = torch.as_tensor(k, dtype=t.dtype, device=t.device)
+    ntensor = torch.as_tensor(n, dtype=t.dtype, device=t.device)
+    return torch.pow(t,ktensor)*torch.pow(1-t,(ntensor-ktensor))*nChoosek(ntensor, ktensor)
+
 def bezierArcLength(control_points, d0=None, N=59, simpsonintervals=4 ):
     
     
@@ -101,6 +110,7 @@ def compositeBezierSpline_with_boundary_conditions_(x : torch.Tensor, Y : torch.
 
 
 
+@torch.jit.script
 def compositeBezierSpline_periodic_(x : torch.Tensor, Y : torch.Tensor):
     k=3
     if torch.linalg.norm(Y[-1] - Y[0], ord=2)>1E-5:
@@ -164,7 +174,8 @@ def compositeBezierSpline_periodic_(x : torch.Tensor, Y : torch.Tensor):
 
     return all_curves
 
-def bezierM(t,n) -> torch.Tensor:
+@torch.jit.script
+def bezierM(t : torch.Tensor, n : int) -> torch.Tensor:
     return torch.stack([Mtk(k,n,t) for k in range(n+1)],dim=2)
 def evalBezier(M,control_points):
     return torch.matmul(M,control_points)
