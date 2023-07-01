@@ -31,7 +31,7 @@ class TrackMap():
         self.startinglinewidth = metadatadict["startinglinewidth"]
         self.length = metadatadict["tracklength"]
         self.directory = directory
-        self.name = os.path.basename(directory)
+        self.name = metadatadict["name"]
         for root, _, files in os.walk(directory, topdown = True):
             for name in files:
                 base, ext = os.path.splitext(name)
@@ -50,6 +50,8 @@ class TrackMap():
                     line_map["y"] = line_map_all[1].reshape(line_map["y"].shape)
                     line_map["z"] = line_map_all[2].reshape(line_map["z"].shape)
                     self.linemap[base] = {"filepath" : filepath, "line" : line_map, "height" : height, "width": width}
+        self.inner_boundary = self.linemap["inner_boundary"]["line"]
+        self.outer_boundary = self.linemap["outer_boundary"]["line"]
 
         
 

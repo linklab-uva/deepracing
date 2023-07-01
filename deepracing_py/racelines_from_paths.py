@@ -30,7 +30,7 @@ def optimizeLines(argdict : dict):
     with multiprocessing.pool.Pool(processes=threads) as pool:
         # mapresult : multiprocessing.pool.MapResult = pool.map_async(dummyfunc, files)
         # mapresult.wait()
-        dicts : list = []
+        dicts : list[dict] = []
         for file in files:
             current_dict : dict = dict(optimdict)
             current_dict["filepath"] = file
