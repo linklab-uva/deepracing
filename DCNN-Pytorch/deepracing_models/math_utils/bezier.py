@@ -73,15 +73,17 @@ def compositeBezierSpline_with_boundary_conditions_(x : torch.Tensor, Y : torch.
     k=3        
     d = Y.shape[1]
     if boundary_conditions.shape[0]!=2:
-        raise ValueError("Must have two boundary conditions. boundary_conditions tensor is only %dx%d" % (boundary_conditions.shape[0], boundary_conditions.shape[1]))
+        raise ValueError("Must have four boundary conditions. boundary_conditions tensor is only %dx%d" % (boundary_conditions.shape[0], boundary_conditions.shape[1]))
     if boundary_conditions.shape[1]!=d:
         raise ValueError("Invalid shape of boundary conditions: %s for" +
-                         "knots of dimension %d.  boundary_conditions must of size 2x%d, an initial"+
-                          " velocity and acceleration, each being %dD." % (str(boundary_conditions.shape), d, d, d))
+                         "knots of dimension %d.  boundary_conditions must of size 4x%d, an initial"+
+                          " velocity and acceleration followed by a final velocity and acceleration, each being %dD." % (str(boundary_conditions.shape), d, d, d))
     V0 : torch.Tensor = boundary_conditions[0]
     A0 : torch.Tensor = boundary_conditions[1]
+    Vf : torch.Tensor = boundary_conditions[2]
+    Af : torch.Tensor = boundary_conditions[3]
 
-    numcurves = Y.shape[0]-1
+    numcurves = Y.shape[0]-1 
     dxvec = x[1:]-x[:-1]
     dx2vec = dxvec*dxvec
     bezier_control_points : torch.Tensor = torch.zeros((numcurves, k+1, d), dtype=Y.dtype, device=Y.device)

@@ -20,8 +20,10 @@ import torch.nn
 def compositeBezierSpline(x : torch.Tensor, Y : torch.Tensor, boundary_conditions : Union[str,torch.Tensor] = "periodic"):
     if boundary_conditions=="periodic":
         return bezier.compositeBezierSpline_periodic_(x,Y)
-    else:
+    elif type(boundary_conditions)==torch.Tensor:
         return bezier.compositeBezierSpline_with_boundary_conditions_(x, Y, boundary_conditions)
+    else:
+        raise ValueError("Currently, only supported values for boundary_conditions are the string \"periodic\" or a torch.Tensor of boundary values")
 
 
 def closedPathAsBezierSpline(Y : torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -32,11 +34,11 @@ def closedPathAsBezierSpline(Y : torch.Tensor) -> Tuple[torch.Tensor, torch.Tens
     euclidean_distances : torch.Tensor = torch.zeros_like(Yaug[:,0])
     delta_euclidean_distances = torch.norm( Yaug[1:]-Yaug[:-1] , dim=1 )
     euclidean_distances[1:] = torch.cumsum( delta_euclidean_distances, 0 )
-    euclidean_spline = bezier.compositeBezierSpline_periodic_(euclidean_distances,Yaug)
+    euclidean_spline = compositeBezierSpline(euclidean_distances,Yaug,boundary_conditions="periodic")
     arclengths = torch.zeros_like(Yaug[:,0])
     _, _, _, _, distances = bezierArcLength(euclidean_spline, N=2, simpsonintervals=20)
     arclengths[1:] = torch.cumsum(distances[:,-1], 0)
-    return arclengths, bezier.compositeBezierSpline_periodic_(arclengths,Yaug)
+    return arclengths, compositeBezierSpline(arclengths,Yaug,boundary_conditions="periodic")
 
 
 class CompositeBezierCurve(torch.nn.Module):
@@ -87,21 +89,22 @@ class CompositeBezierCurve(torch.nn.Module):
         control_point_deltas : torch.Tensor = (control_points_detached.shape[1]-1)*(control_points_detached[:,1:] - control_points_detached[:,:-1])/self.dx.detach()[:,None,None]
         return CompositeBezierCurve(self.x.detach(), control_point_deltas)
 
-class SimplePathHelper:
+class SimplePathHelper(torch.nn.Module):
     def __init__(self, points : torch.Tensor, dr_samp : float) -> None:
-        
+        super(SimplePathHelper, self).__init__()
         arclengths_, curve_control_points_ = closedPathAsBezierSpline(points)
-        self.__arclengths_in__ : torch.Tensor = arclengths_.clone()
-        self.__points_in__ : torch.Tensor = points.clone()
+        self.__arclengths_in__ : torch.nn.Parameter = torch.nn.Parameter(arclengths_.clone(), requires_grad=False)
+        self.__points_in__ : torch.nn.Parameter = torch.nn.Parameter(points.clone(), requires_grad=False)
 
-        self.__curve__ : CompositeBezierCurve = CompositeBezierCurve(arclengths_, curve_control_points_)
-        self.__curve_deriv__ : CompositeBezierCurve = self.__curve__.derivative()
-        self.__curve_2nd_deriv__ : CompositeBezierCurve = self.__curve_deriv__.derivative()
+        self.__curve__ : CompositeBezierCurve = CompositeBezierCurve(arclengths_, curve_control_points_).requires_grad_(False)
+        self.__curve_deriv__ : CompositeBezierCurve = self.__curve__.derivative().requires_grad_(False)
+        self.__curve_2nd_deriv__ : CompositeBezierCurve = self.__curve_deriv__.derivative().requires_grad_(False)
 
-        self.__r_samp__ : torch.Tensor = torch.arange(0.0, arclengths_[-1], step=dr_samp, dtype=points.dtype, device=points.device)
-        self.__points_samp__ : torch.Tensor = self.__curve__(self.__r_samp__)
-        self.__tangents_samp__ : torch.Tensor = self.__curve_deriv__(self.__r_samp__)
-        self.__normals_samp__ : torch.Tensor = self.__tangents_samp__[:,[1,0]]
+        self.__r_samp__ : torch.nn.Parameter = torch.nn.Parameter(torch.arange(0.0, arclengths_[-1], step=dr_samp, dtype=points.dtype, device=points.device), requires_grad=False)
+        self.__points_samp__ : torch.nn.Parameter = torch.nn.Parameter(self.__curve__(self.__r_samp__).detach().clone(), requires_grad=False)
+        tangents_samp : torch.Tensor = self.__curve_deriv__(self.__r_samp__).detach()
+        self.__tangents_samp__ : torch.nn.Parameter = torch.nn.Parameter(tangents_samp.clone(), requires_grad=False)
+        self.__normals_samp__ : torch.nn.Parameter = torch.nn.Parameter(tangents_samp[:,[1,0]].clone(), requires_grad=False)
         self.__normals_samp__[:,0]*=-1.0
 
 
@@ -114,14 +117,16 @@ class SimplePathHelper:
         return self.__curve__(s)
     def tangent(self, s : torch.Tensor):
         return self.__curve_deriv__(s)
-    def closest_point(self, p_query : torch.Tensor, s0 : Union[None, torch.Tensor] = None, max_iter = 10000) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, s : torch.Tensor):
+        return self.__curve__(s), self.__curve_deriv__(s)
+    def closest_point(self, p_query : torch.Tensor, s0 : Union[None, torch.Tensor] = None, lr = 1.0, max_iter = 10000) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         if s0 is None:
             iclosest = torch.argmin(torch.norm(self.__points_samp__ - p_query, p=2, dim=1))
             s_euclidean_approx = self.__r_samp__[iclosest]%self.__curve__.xend_vec[-1]
             s_optim : torch.nn.parameter.Parameter = torch.nn.parameter.Parameter(torch.as_tensor([s_euclidean_approx], dtype=self.__r_samp__.dtype, device=self.__r_samp__.device), requires_grad=True)
         else:
             s_optim : torch.nn.parameter.Parameter = torch.nn.parameter.Parameter(torch.as_tensor([s0%self.__curve__.xend_vec[-1]], dtype=self.__r_samp__.dtype, device=self.__r_samp__.device)%self.__curve__.xend_vec[-1], requires_grad=True)
-        sgd = torch.optim.SGD([s_optim], 1.0)
+        sgd = torch.optim.SGD([s_optim], lr)
         s_init = s_optim[0].detach().clone()
         x0 = self.__curve__(s_optim.detach().clone())[0]
         lossprev : torch.Tensor = None
