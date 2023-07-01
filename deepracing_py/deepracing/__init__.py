@@ -52,6 +52,7 @@ class TrackMap():
                     self.linemap[base] = {"filepath" : filepath, "line" : line_map, "height" : height, "width": width}
         self.inner_boundary = self.linemap["inner_boundary"]["line"]
         self.outer_boundary = self.linemap["outer_boundary"]["line"]
+        self.raceline = self.linemap["raceline"]["line"]
 
         
 
