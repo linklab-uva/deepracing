@@ -62,8 +62,8 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
         sforward_ib = self.sdelta + self.inner_boundary_corresponding_r[iend] 
         sforward_ob = self.sdelta + self.outer_boundary_corresponding_r[iend]
 
-        ibforward, ibtangentsforward = self.inner_boundary_helper(sforward_ib)
-        obforward, _ = self.outer_boundary_helper(sforward_ob)
+        ibforward, ibtangentsforward, _ = self.inner_boundary_helper(sforward_ib)
+        obforward, _, _ = self.outer_boundary_helper(sforward_ob)
         
         if self.orient_to_inner_boundary:
             tangent0 : torch.Tensor = ibtangentsforward[0]

@@ -101,12 +101,13 @@ class SimplePathHelper(torch.nn.Module):
         self.__curve_2nd_deriv__ : CompositeBezierCurve = self.__curve_deriv__.derivative().requires_grad_(False)
 
         self.__r_samp__ : torch.nn.Parameter = torch.nn.Parameter(torch.arange(0.0, arclengths_[-1], step=dr_samp, dtype=points.dtype, device=points.device), requires_grad=False)
-        points_samp : torch.Tensor = self.__curve__(self.__r_samp__)
-        self.__points_samp__ : torch.nn.Parameter = torch.nn.Parameter(points_samp.detach().clone(), requires_grad=False)
-        tangents_samp : torch.Tensor = self.__curve_deriv__(self.__r_samp__).detach()
-        self.__tangents_samp__ : torch.nn.Parameter = torch.nn.Parameter(tangents_samp.clone(), requires_grad=False)
-        self.__normals_samp__ : torch.nn.Parameter = torch.nn.Parameter(tangents_samp[:,[1,0]].clone(), requires_grad=False)
-        self.__normals_samp__[:,0]*=-1.0
+        points_samp : torch.Tensor = self.__curve__(self.__r_samp__).detach().clone()
+        self.__points_samp__ : torch.nn.Parameter = torch.nn.Parameter(points_samp, requires_grad=False)
+        tangents_samp : torch.Tensor = self.__curve_deriv__(self.__r_samp__).detach().clone()
+        self.__tangents_samp__ : torch.nn.Parameter = torch.nn.Parameter(tangents_samp, requires_grad=False)
+        normals_samp = tangents_samp[:,[1,0]].clone()
+        normals_samp[:,0]*=-1.0
+        self.__normals_samp__ : torch.nn.Parameter = torch.nn.Parameter(normals_samp, requires_grad=False)
 
 
 
@@ -119,7 +120,7 @@ class SimplePathHelper(torch.nn.Module):
     def tangent(self, s : torch.Tensor):
         return self.__curve_deriv__(s)
     def forward(self, s : torch.Tensor):
-        return self.__curve__(s), self.__curve_deriv__(s)
+        return self.__curve__(s), self.__curve_deriv__(s), self.__curve_2nd_deriv__(s)
     
 def closestPointToPath(path : SimplePathHelper, p_query : torch.Tensor, s0 : Union[None, torch.Tensor] = None, lr = 1.0, max_iter = 10000) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     if s0 is None:
@@ -130,13 +131,13 @@ def closestPointToPath(path : SimplePathHelper, p_query : torch.Tensor, s0 : Uni
         s_optim : torch.nn.parameter.Parameter = torch.nn.parameter.Parameter(torch.as_tensor([s0%path.__curve__.xend_vec[-1]], dtype=path.__r_samp__.dtype, device=path.__r_samp__.device)%path.__curve__.xend_vec[-1], requires_grad=True)
     sgd = torch.optim.SGD([s_optim], lr)
     s_init = s_optim[0].detach().clone()
-    x0, _ = path(s_optim.detach().clone())
+    x0, _, _ = path(s_optim.detach().clone())
     x0 :torch.Tensor = x0[0]
     lossprev : torch.Tensor = None
     loss : torch.Tensor = None
     for asdf in range(max_iter):
 
-        x_curr, tangent_curr = path(s_optim)
+        x_curr, _, _ = path(s_optim)
         delta = p_query - x_curr[0]
         loss = torch.norm(delta, p=2)
         sgd.zero_grad()
