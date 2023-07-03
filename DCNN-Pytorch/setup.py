@@ -19,6 +19,7 @@ setup(
    # url = "http://packages.python.org/an_example_pypi_project",
     packages=[package_name,
               os.path.join(package_name,"data_loading"),
+              os.path.join(package_name,"data_loading","file_datasets"),
               os.path.join(package_name,"data_loading","proto_datasets"),
               os.path.join(package_name,"endtoend_controls"),
               os.path.join(package_name,"math_utils"),
