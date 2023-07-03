@@ -81,6 +81,7 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
 
         outdict : dict = dict()
         outdict["target_position_history"] = (rotmatinv @ target_position_history.T).T + translationinv
+        outdict["target_positions_future"] = (rotmatinv @ target_positions_future.T).T + translationinv
         outdict["target_velocity_history"] = (rotmatinv @ target_velocity_history.T).T
         outdict["ego_position_history"] = (rotmatinv @ ego_position_history.T).T + translationinv
         outdict["ego_velocity_history"] = (rotmatinv @ ego_velocity_history.T).T
