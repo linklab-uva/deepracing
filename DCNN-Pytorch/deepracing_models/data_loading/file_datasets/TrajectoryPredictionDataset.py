@@ -20,6 +20,10 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
                  inner_boundary_corresponding_arclengths : np.ndarray,\
                  outer_boundary_helper : SmoothPathHelper,\
                  outer_boundary_corresponding_arclengths : np.ndarray,\
+                 centerline_helper : SmoothPathHelper,\
+                 centerline_corresponding_arclengths : np.ndarray,\
+                 raceline_helper : SmoothPathHelper,\
+                 raceline_corresponding_arclengths : np.ndarray,\
                  ego_vehicle_accelerations : typing.Union[np.ndarray,None] = None,\
                  target_vehicle_accelerations : typing.Union[np.ndarray,None] = None,\
                  orient_to_inner_boundary : bool = False):
@@ -29,8 +33,12 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
         self.target_vehicle_velocities : np.ndarray = target_vehicle_velocities.copy()
         self.inner_boundary_helper : SmoothPathHelper = inner_boundary_helper
         self.outer_boundary_helper : SmoothPathHelper = outer_boundary_helper
+        self.centerline_helper : SmoothPathHelper = centerline_helper
+        self.raceline_helper : SmoothPathHelper = raceline_helper
         self.inner_boundary_corresponding_arclengths = inner_boundary_corresponding_arclengths.copy()
         self.outer_boundary_corresponding_arclengths = outer_boundary_corresponding_arclengths.copy()
+        self.centerline_corresponding_arclengths = centerline_corresponding_arclengths.copy()
+        self.raceline_corresponding_arclengths = raceline_corresponding_arclengths.copy()
         if (ego_vehicle_accelerations is None) and (target_vehicle_accelerations is not None):
             raise ValueError("target_vehicle_accelerations was provided, but not ego_vehicle_accelerations. Must provide either both or neither")
         if (target_vehicle_accelerations is None) and (ego_vehicle_accelerations is not None):
@@ -63,8 +71,13 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
         r_ib : np.ndarray = self.rdelta + self.inner_boundary_corresponding_arclengths[idxnow]
         r_ob : np.ndarray = self.rdelta + self.outer_boundary_corresponding_arclengths[idxnow]
 
-        ib_slice : np.ndarray = self.inner_boundary_helper.point(r_ib)
-        ob_slice : np.ndarray = self.outer_boundary_helper.point(r_ob)
+        inner_boundary_input : np.ndarray = self.inner_boundary_helper.point(r_ib)
+        outer_boundary_input : np.ndarray = self.outer_boundary_helper.point(r_ob)
+
+        raceline_label : np.ndarray = self.raceline_helper.point(self.raceline_corresponding_arclengths[idxnow:ifutureend])
+        centerline_label : np.ndarray = self.centerline_helper.point(self.centerline_corresponding_arclengths[idxnow:ifutureend])
+        inner_boundary_label : np.ndarray = self.inner_boundary_helper.point(self.inner_boundary_corresponding_arclengths[idxnow:ifutureend])
+        outer_boundary_label : np.ndarray = self.outer_boundary_helper.point(self.outer_boundary_corresponding_arclengths[idxnow:ifutureend])
         
         
         if self.orient_to_inner_boundary:
@@ -81,12 +94,16 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
 
         outdict : dict = dict()
         outdict["target_position_history"] = (rotmatinv @ target_position_history.T).T + translationinv
-        outdict["target_positions_future"] = (rotmatinv @ target_positions_future.T).T + translationinv
+        outdict["target_position_future"] = (rotmatinv @ target_positions_future.T).T + translationinv
         outdict["target_velocity_history"] = (rotmatinv @ target_velocity_history.T).T
         outdict["ego_position_history"] = (rotmatinv @ ego_position_history.T).T + translationinv
         outdict["ego_velocity_history"] = (rotmatinv @ ego_velocity_history.T).T
-        outdict["inner_boundary"] = (rotmatinv @ ib_slice.T).T + translationinv
-        outdict["outer_boundary"] = (rotmatinv @ ob_slice.T).T + translationinv
+        outdict["inner_boundary_input"] = (rotmatinv @ inner_boundary_input.T).T + translationinv
+        outdict["outer_boundary_input"] = (rotmatinv @ outer_boundary_input.T).T + translationinv
+        outdict["raceline_label"] = (rotmatinv @ raceline_label.T).T + translationinv
+        outdict["centerline_label"] = (rotmatinv @ centerline_label.T).T + translationinv
+        outdict["inner_boundary_label"] = (rotmatinv @ inner_boundary_label.T).T + translationinv
+        outdict["outer_boundary_label"] = (rotmatinv @ outer_boundary_label.T).T + translationinv
         if self.target_vehicle_accelerations is not None:
             ego_acceleration_history : np.ndarray = self.ego_vehicle_accelerations[ihistorystart:ihistoryend]
             target_acceleration_history : np.ndarray = self.target_vehicle_accelerations[ihistorystart:ihistoryend]
