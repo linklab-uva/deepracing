@@ -12,82 +12,86 @@ from tqdm import tqdm
 import torch.jit
 
 class TrajectoryPredictionDataset(torch.utils.data.Dataset):
-    def __init__(self, timestamps : torch.Tensor,\
-                 ego_vehicle_positions : torch.Tensor,\
-                 ego_vehicle_velocities : torch.Tensor,\
-                 target_vehicle_positions : torch.Tensor,\
-                 target_vehicle_velocities : torch.Tensor,\
-                 inner_boundary_helper : SimplePathHelper,\
-                 outer_boundary_helper : SimplePathHelper,\
-                 ego_vehicle_accelerations : torch.Tensor = None,\
-                 target_vehicle_accelerations : torch.Tensor = None,
-                 orient_to_inner_boundary = False):
-        self.timestamps : torch.Tensor = timestamps
-        self.ego_vehicle_positions : torch.Tensor = ego_vehicle_positions.clone()
-        self.target_vehicle_positions : torch.Tensor = target_vehicle_positions.clone()
-        self.ego_vehicle_velocities : torch.Tensor = ego_vehicle_velocities.clone()
-        self.target_vehicle_velocities : torch.Tensor = target_vehicle_velocities.clone()
-        self.inner_boundary_helper : SimplePathHelper = inner_boundary_helper
-        self.outer_boundary_helper : SimplePathHelper = outer_boundary_helper
+    def __init__(self, ego_vehicle_positions : np.ndarray,\
+                 ego_vehicle_velocities : np.ndarray,\
+                 target_vehicle_positions : np.ndarray,\
+                 target_vehicle_velocities : np.ndarray,\
+                 inner_boundary_helper : SmoothPathHelper,\
+                 inner_boundary_corresponding_arclengths : np.ndarray,\
+                 outer_boundary_helper : SmoothPathHelper,\
+                 outer_boundary_corresponding_arclengths : np.ndarray,\
+                 ego_vehicle_accelerations : typing.Union[np.ndarray,None] = None,\
+                 target_vehicle_accelerations : typing.Union[np.ndarray,None] = None,\
+                 orient_to_inner_boundary : bool = False):
+        self.ego_vehicle_positions : np.ndarray = ego_vehicle_positions.copy()
+        self.target_vehicle_positions : np.ndarray = target_vehicle_positions.copy()
+        self.ego_vehicle_velocities : np.ndarray = ego_vehicle_velocities.copy()
+        self.target_vehicle_velocities : np.ndarray = target_vehicle_velocities.copy()
+        self.inner_boundary_helper : SmoothPathHelper = inner_boundary_helper
+        self.outer_boundary_helper : SmoothPathHelper = outer_boundary_helper
+        self.inner_boundary_corresponding_arclengths = inner_boundary_corresponding_arclengths.copy()
+        self.outer_boundary_corresponding_arclengths = outer_boundary_corresponding_arclengths.copy()
         if (ego_vehicle_accelerations is None) and (target_vehicle_accelerations is not None):
             raise ValueError("target_vehicle_accelerations was provided, but not ego_vehicle_accelerations. Must provide either both or neither")
         if (target_vehicle_accelerations is None) and (ego_vehicle_accelerations is not None):
             raise ValueError("ego_vehicle_accelerations was provided, but not target_vehicle_accelerations. Must provide either both or neither")
-        if ego_vehicle_accelerations is not None:
-            self.ego_vehicle_accelerations : torch.Tensor = ego_vehicle_accelerations.clone()
-            self.target_vehicle_accelerations : torch.Tensor = target_vehicle_accelerations.clone()
+        if (ego_vehicle_accelerations is not None) and (target_vehicle_accelerations is not None):
+            self.ego_vehicle_accelerations : np.ndarray = ego_vehicle_accelerations.copy()
+            self.target_vehicle_accelerations : np.ndarray = target_vehicle_accelerations.copy()
         else:
-            self.ego_vehicle_accelerations  = None
+            self.ego_vehicle_accelerations = None
             self.target_vehicle_accelerations = None
-
-
-        self.inner_boundary_corresponding_r : torch.Tensor = torch.zeros_like(self.target_vehicle_positions[:,0])
-        self.outer_boundary_corresponding_r : torch.Tensor = self.inner_boundary_corresponding_r.clone()
-
-        for i in tqdm(range(self.inner_boundary_corresponding_r.shape[0]), desc="Calculating closest points to the boundaries"):
-            pquery : np.ndarray = self.target_vehicle_positions[i]
-            _, _, r_ib, pclosest_ib  = deepracing_models.math_utils.closestPointToPath(self.inner_boundary_helper, pquery, lr = 0.5, max_iter = 5)
-            _, _, r_ob, pclosest_ob  = deepracing_models.math_utils.closestPointToPath(self.inner_boundary_helper, pquery, lr = 0.5, max_iter = 5)
-            self.inner_boundary_corresponding_r[i] = r_ib
-            self.outer_boundary_corresponding_r[i] = r_ob
-        self.sdelta = torch.linspace(0.0, 400.0, steps=30, dtype=self.target_vehicle_positions.dtype, device=self.target_vehicle_positions.device)
         self.orient_to_inner_boundary = orient_to_inner_boundary
-
-        
+        rforward = 400.0
+        dr = 20.0
+        self.rdelta : np.ndarray = np.arange(0.0, rforward+dr, step=dr, dtype=ego_vehicle_positions.dtype)     
     def __len__(self):
-        return self.target_vehicle_positions.shape[0]-60
+        return self.target_vehicle_positions.shape[0]-100
     def __getitem__(self, index):
-        istart = index
-        iend = istart + 30
-        sforward_ib = self.sdelta + self.inner_boundary_corresponding_r[iend] 
-        sforward_ob = self.sdelta + self.outer_boundary_corresponding_r[iend]
+        idxnow = index + 50
+        ihistorystart = idxnow - 30
+        ihistoryend = idxnow + 1
+        ifutureend = idxnow + 51
 
-        ibforward, ibtangentsforward, _ = self.inner_boundary_helper(sforward_ib)
-        obforward, _, _ = self.outer_boundary_helper(sforward_ob)
+        ego_position_history : np.ndarray = self.ego_vehicle_positions[ihistorystart:ihistoryend]
+        ego_velocity_history : np.ndarray = self.ego_vehicle_velocities[ihistorystart:ihistoryend]
+        target_position_history : np.ndarray = self.target_vehicle_positions[ihistorystart:ihistoryend]
+        target_velocity_history : np.ndarray = self.target_vehicle_velocities[ihistorystart:ihistoryend]
+        target_positions_future : np.ndarray = self.target_vehicle_positions[idxnow:ifutureend]
+        p0 : np.ndarray = target_positions_future[0]
+
+        r_ib : np.ndarray = self.rdelta + self.inner_boundary_corresponding_arclengths[idxnow]
+        r_ob : np.ndarray = self.rdelta + self.outer_boundary_corresponding_arclengths[idxnow]
+
+        ib_slice : np.ndarray = self.inner_boundary_helper.point(r_ib)
+        ob_slice : np.ndarray = self.outer_boundary_helper.point(r_ob)
+        
         
         if self.orient_to_inner_boundary:
-            tangent0 : torch.Tensor = ibtangentsforward[0]
+            tangent0 : np.ndarray = self.inner_boundary_helper.direction(float(r_ib[0]))
         else:    
-            vel0 : torch.Tensor = self.target_vehicle_velocities[iend]
-            tangent0 : torch.Tensor = vel0/(torch.linalg.norm(vel0, ord=2))
-        translation : torch.Tensor = self.target_vehicle_positions[iend]
+            vel0 : np.ndarray = target_velocity_history[-1]
+            tangent0 : np.ndarray = vel0/np.linalg.norm(vel0, ord=2, axis=0)
 
-        normal0 : torch.Tensor = tangent0[[1,0]]*torch.as_tensor([-1.0, 1.0], dtype=tangent0.dtype, device=tangent0.device)
-        rotmat : torch.Tensor = torch.stack([tangent0, normal0], axis=1)
+        rotmat : np.ndarray = np.stack([tangent0, tangent0[[1,0]]*np.asarray([-1.0, 1.0], dtype=tangent0.dtype)], axis=1)
 
-        rotmatinv = rotmat.transpose(0,1)
-        translationinv = torch.matmul(rotmatinv, -translation)
+        rotmatinv : np.ndarray = np.transpose(rotmat)
+        translationinv : np.ndarray = rotmatinv @ -p0
+
 
         outdict : dict = dict()
-        outdict["target_position_history"] = torch.matmul(rotmatinv, self.target_vehicle_positions[istart:iend+1].T).T + translationinv
-        outdict["target_velocity_history"] = torch.matmul(rotmatinv, self.target_vehicle_velocities[istart:iend+1].T).T
-        outdict["ego_position_history"] = torch.matmul(rotmatinv, self.ego_vehicle_positions[istart:iend+1].T).T + translationinv
-        outdict["ego_velocity_history"] = torch.matmul(rotmatinv, self.ego_vehicle_velocities[istart:iend+1].T).T
-        outdict["ibforward_local"] = torch.matmul(rotmatinv, ibforward.T).T + translationinv
-        outdict["obforward_local"] = torch.matmul(rotmatinv, obforward.T).T + translationinv
+        outdict["target_position_history"] = (rotmatinv @ target_position_history.T).T + translationinv
+        outdict["target_velocity_history"] = (rotmatinv @ target_velocity_history.T).T
+        outdict["ego_position_history"] = (rotmatinv @ ego_position_history.T).T + translationinv
+        outdict["ego_velocity_history"] = (rotmatinv @ ego_velocity_history.T).T
+        outdict["inner_boundary"] = (rotmatinv @ ib_slice.T).T + translationinv
+        outdict["outer_boundary"] = (rotmatinv @ ob_slice.T).T + translationinv
         if self.target_vehicle_accelerations is not None:
-            outdict["ego_acceleration_history"] = torch.matmul(rotmatinv, self.ego_vehicle_accelerations[istart:iend+1].T).T
-            outdict["target_acceleration_history"] = torch.matmul(rotmatinv, self.target_vehicle_accelerations[istart:iend+1].T).T
+            ego_acceleration_history : np.ndarray = self.ego_vehicle_accelerations[ihistorystart:ihistoryend]
+            target_acceleration_history : np.ndarray = self.target_vehicle_accelerations[ihistorystart:ihistoryend]
+            outdict["ego_acceleration_history"] = (rotmatinv @ ego_acceleration_history.T).T
+            outdict["target_acceleration_history"] = (rotmatinv @ target_acceleration_history.T).T
+        # outdict["trackname"]=self.trackname
         return outdict
         
         

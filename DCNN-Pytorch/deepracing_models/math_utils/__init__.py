@@ -120,8 +120,12 @@ class SimplePathHelper(torch.nn.Module):
     def tangent(self, s : torch.Tensor):
         return self.__curve_deriv__(s)
     def forward(self, s : torch.Tensor):
-        return self.__curve__(s), self.__curve_deriv__(s), self.__curve_2nd_deriv__(s)
+        return self.__curve__(s)#, self.__curve_deriv__(s), self.__curve_2nd_deriv__(s)
     
+
+def closestPointToPathNaive(path : SimplePathHelper, p_query : torch.Tensor):
+    iclosest = torch.argmin(torch.norm(path.__points_samp__ - p_query, p=2, dim=1))
+    return path.__r_samp__[iclosest]%path.__curve__.xend_vec[-1], path.__points_samp__[iclosest]
 def closestPointToPath(path : SimplePathHelper, p_query : torch.Tensor, s0 : Union[None, torch.Tensor] = None, lr = 1.0, max_iter = 10000) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     if s0 is None:
         iclosest = torch.argmin(torch.norm(path.__points_samp__ - p_query, p=2, dim=1))
@@ -131,13 +135,12 @@ def closestPointToPath(path : SimplePathHelper, p_query : torch.Tensor, s0 : Uni
         s_optim : torch.nn.parameter.Parameter = torch.nn.parameter.Parameter(torch.as_tensor([s0%path.__curve__.xend_vec[-1]], dtype=path.__r_samp__.dtype, device=path.__r_samp__.device)%path.__curve__.xend_vec[-1], requires_grad=True)
     sgd = torch.optim.SGD([s_optim], lr)
     s_init = s_optim[0].detach().clone()
-    x0, _, _ = path(s_optim.detach().clone())
-    x0 :torch.Tensor = x0[0]
+    x0 = path(s_optim.detach().clone())
+    x0 : torch.Tensor = x0[0]
     lossprev : torch.Tensor = None
     loss : torch.Tensor = None
     for asdf in range(max_iter):
-
-        x_curr, _, _ = path(s_optim)
+        x_curr = path(s_optim)
         delta = p_query - x_curr[0]
         loss = torch.norm(delta, p=2)
         sgd.zero_grad()
