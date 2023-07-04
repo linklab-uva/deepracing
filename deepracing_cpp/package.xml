@@ -8,6 +8,7 @@
   <license>Apache</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>jsoncpp</depend>
   <export>
     <build_type>ament_cmake</build_type>
   </export>
