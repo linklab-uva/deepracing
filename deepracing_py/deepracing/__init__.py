@@ -7,7 +7,7 @@ import yaml
 from .path_utils.pcd_utils import loadPCD
 
 class TrackMap():
-    def __init__(self, directory : str, align=False) -> None:
+    def __init__(self, directory : str, align=False, transform_to_map = True) -> None:
         self.starting_line_position : np.ndarray = None
         self.starting_line_rotation : Rotation = None
         self.length : float = None
@@ -19,8 +19,9 @@ class TrackMap():
         self.name : str = None
         self.linemap : dict = dict()
         if directory is not None:
-            self.loadFromDirectory(directory, align=align)
-    def loadFromDirectory(self, directory : str, align=False):
+            self.loadFromDirectory(directory, align=align, transform_to_map = transform_to_map)
+        self.frame_id : str = None
+    def loadFromDirectory(self, directory : str, align=False, transform_to_map = True):
         with open(os.path.join(directory, "metadata.yaml"), "r") as f:
             metadatadict : dict = yaml.load(f, Loader=yaml.SafeLoader)
         self.starting_line_position = np.asarray(metadatadict["startingline_pose"]["position"], dtype=np.float64)
@@ -32,6 +33,10 @@ class TrackMap():
         self.length = metadatadict["tracklength"]
         self.directory = directory
         self.name = metadatadict["name"]
+        if transform_to_map:
+            self.frame_id = "map"
+        else:
+            self.frame_id = "track"
         for root, _, files in os.walk(directory, topdown = True):
             for name in files:
                 base, ext = os.path.splitext(name)
@@ -39,17 +44,20 @@ class TrackMap():
                     filepath = os.path.join(root, name)
                     _, line_track_, height, width = loadPCD(filepath, align=align)
                     line_track : np.ndarray = line_track_
-                    line_track_x : np.ndarray = line_track['x'].copy()
-                    line_track_y : np.ndarray = line_track['y'].copy()
-                    line_track_z : np.ndarray = line_track['z'].copy()
-                    line_track_ones : np.ndarray = np.ones_like(line_track_z)
-                    line_track_all : np.ndarray = np.concatenate([line_track_x, line_track_y, line_track_z, line_track_ones], axis=1, dtype=line_track_x.dtype).T
-                    line_map_all : np.ndarray = np.matmul(transform.astype(line_track_all.dtype), line_track_all)
-                    line_map : np.ndarray = line_track.copy()
-                    line_map["x"] = line_map_all[0].reshape(line_map["x"].shape)
-                    line_map["y"] = line_map_all[1].reshape(line_map["y"].shape)
-                    line_map["z"] = line_map_all[2].reshape(line_map["z"].shape)
-                    self.linemap[base] = {"filepath" : filepath, "line" : line_map, "height" : height, "width": width}
+                    if transform_to_map:
+                        line_track_x : np.ndarray = line_track['x'].copy()
+                        line_track_y : np.ndarray = line_track['y'].copy()
+                        line_track_z : np.ndarray = line_track['z'].copy()  
+                        line_track_ones : np.ndarray = np.ones_like(line_track_z)
+                        line_track_all : np.ndarray = np.concatenate([line_track_x, line_track_y, line_track_z, line_track_ones], axis=1, dtype=line_track_x.dtype).T
+                        line_map_all : np.ndarray = np.matmul(transform.astype(line_track_all.dtype), line_track_all)
+                        line_map : np.ndarray = line_track.copy()
+                        line_map["x"] = line_map_all[0].reshape(line_map["x"].shape)
+                        line_map["y"] = line_map_all[1].reshape(line_map["y"].shape)
+                        line_map["z"] = line_map_all[2].reshape(line_map["z"].shape)
+                        self.linemap[base] = {"filepath" : filepath, "line" : line_map, "height" : height, "width": width}
+                    else:
+                        self.linemap[base] = {"filepath" : filepath, "line" : line_track, "height" : height, "width": width}
         self.inner_boundary = self.linemap["inner_boundary"]["line"]
         self.outer_boundary = self.linemap["outer_boundary"]["line"]
         self.raceline = self.linemap["raceline"]["line"]
@@ -75,7 +83,7 @@ def searchForFile(filename : str, searchdirs : List[str]):
                 if os.path.isfile(entry.path) and entry.name==filename:
                     return entry.path
     return None 
-def searchForTrackmap(trackname : str, searchdirs : List[str], align=False):
+def searchForTrackmap(trackname : str, searchdirs : List[str], align=False, transform_to_map = True):
     for searchdir in searchdirs:
         for root, directories, _ in os.walk(searchdir, topdown = True):
             for directory in directories:
@@ -83,7 +91,7 @@ def searchForTrackmap(trackname : str, searchdirs : List[str], align=False):
                 print("searching %s in %s" % (directory,root))
                 if directory==trackname and os.path.isfile(os.path.join(full_directory,"DEEPRACING_TRACKMAP")) and os.path.isfile(os.path.join(full_directory,"metadata.yaml")):
                     print("Yay!")
-                    return TrackMap(os.path.join(root,directory), align=align)
+                    return TrackMap(os.path.join(root,directory), align=align, transform_to_map = transform_to_map)
     return None
 
 class CarGeometry():
