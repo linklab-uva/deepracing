@@ -751,7 +751,6 @@ class AdmiralNetCurvePredictor(nn.Module):
             nn.Linear(1200, 500),
             self.tanh,
             nn.Linear(500, self.params_per_dimension)
-            #nn.Linear(2432, self.params_per_dimension)
             ]
         )
         

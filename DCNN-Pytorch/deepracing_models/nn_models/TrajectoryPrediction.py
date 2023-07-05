@@ -46,10 +46,11 @@ class BezierMixNet(nn.Module):
 
         encoderdict : dict = params["encoder"]
         # History encoder LSTM:
+        historylayers = encoderdict.get("num_layers", 1)
         self._enc_hist = torch.nn.LSTM(
             encoderdict["in_size"],
             encoderdict["hidden_size"],
-            encoderdict.get("num_layers", 1),
+            historylayers,
             batch_first=True,
         )
 
@@ -57,14 +58,14 @@ class BezierMixNet(nn.Module):
         self._enc_left_bound = torch.nn.LSTM(
             params["encoder"]["in_size"],
             params["encoder"]["hidden_size"],
-            encoderdict.get("num_layers", 1),
+            historylayers,
             batch_first=True,
         )
 
         self._enc_right_bound = torch.nn.LSTM(
             params["encoder"]["in_size"],
             params["encoder"]["hidden_size"],
-            encoderdict.get("num_layers", 1),
+            historylayers,
             batch_first=True,
         )
 
@@ -78,11 +79,21 @@ class BezierMixNet(nn.Module):
         self.num_output_control_points = num_output_control_points
         # Linear stack that outputs the unconstrained control points
         mixerdict : dict = params["control_points_linear_stack"]
-        self._mix_out_layers = self._get_linear_stack(
-            in_size=encoderdict["hidden_size"] * 3,
-            hidden_sizes=mixerdict["hidden_sizes"],
-            out_size=num_output_control_points*ambient_space_dimension,
-            name="control_point_producer",
+        # self._mix_out_layers = self._get_linear_stack(
+        #     in_size=encoderdict["hidden_size"] * 3,
+        #     hidden_sizes=mixerdict["hidden_sizes"],
+        #     out_size=num_output_control_points*ambient_space_dimension,
+        #     name="control_point_producer",
+        # )
+        self.hidden_out_size = encoderdict["hidden_size"] * historylayers
+        self.linear_input_size = self.hidden_out_size * 3
+        self._mix_out_layers = nn.Sequential(*[
+            nn.Linear(self.linear_input_size, 1200),
+            nn.PReLU(),
+            nn.Linear(1200, 500),
+            nn.PReLU(),
+            nn.Linear(500, num_output_control_points*ambient_space_dimension)
+            ]
         )
 
         prediction_time : float = params["prediction_time"]
@@ -93,7 +104,7 @@ class BezierMixNet(nn.Module):
         
         self._params : dict = params.copy()
 
-    def forward(self, history : torch.Tensor, left_bound : torch.Tensor, right_bound : torch.Tensor):
+    def forward(self, position_history : torch.Tensor, velocity_history : torch.Tensor, left_bound : torch.Tensor, right_bound : torch.Tensor):
         """Implements the forward pass of the model.
         args:
             hist: [tensor with shape=(batch_size, hist_len, 2)]
@@ -103,17 +114,18 @@ class BezierMixNet(nn.Module):
             control_points: [tensor with shape=(batch_size, k, d)]: The predicted control points
             k is how many points we need to predict given the initial value constraints, d is the dimension of the ambient euclidean space.
         """
-        batch = history.shape[0]
-        position_history : torch.Tensor = history[:,:,0:2]
-        velocity_history : torch.Tensor = history[:,:,2:]
+        batch = position_history.shape[0]
+        # history : torch.Tensor = torch.cat([position_history, velocity_history], dim=-1)
+        history : torch.Tensor = position_history
+        # velocity_history : torch.Tensor = history[:,:,2:]
 
         
-        p0 : torch.Tensor = position_history[:,-1]
-        initial_velocity : torch.Tensor = velocity_history[:,-1]
-        p1 : torch.Tensor = p0 + self.prediction_time*initial_velocity/self.bezier_order
+        # p0 : torch.Tensor = position_history[:,-1]
+        # initial_velocity : torch.Tensor = velocity_history[:,-1]
+        # p1 : torch.Tensor = p0 + self.prediction_time*initial_velocity/self.bezier_order
 
-        p0_unsqueeze : torch.Tensor = p0.unsqueeze(-2)
-        p1_unsqueeze : torch.Tensor = p1.unsqueeze(-2)
+        # p0_unsqueeze : torch.Tensor = p0.unsqueeze(-2)
+        # p1_unsqueeze : torch.Tensor = p1.unsqueeze(-2)
 
         # encoders:
         _, (hist_h, _) = self._enc_hist(self._ip_emb(history))
@@ -121,11 +133,17 @@ class BezierMixNet(nn.Module):
         _, (right_h, _) = self._enc_right_bound(
             self._boundary_emb(right_bound)
         )
-        enc = torch.squeeze(torch.cat((hist_h, left_h, right_h), 2), dim=0)
+        # print(hist_h.shape)
+        hist_h_flat : torch.Tensor = hist_h.transpose(0,1).reshape(batch, self.hidden_out_size)
+        left_h_flat : torch.Tensor = left_h.transpose(0,1).reshape(batch, self.hidden_out_size)
+        right_h_flat : torch.Tensor = right_h.transpose(0,1).reshape(batch, self.hidden_out_size)
+        # enc = torch.squeeze(torch.cat((hist_h, left_h, right_h), 2), dim=0)
+        enc = torch.cat((hist_h_flat, left_h_flat, right_h_flat), dim=-1)
+        # print(enc.shape)
 
         control_points_flat = self._mix_out_layers(enc)
         control_points_deltas = control_points_flat.view(batch, self.num_output_control_points, self.ambient_space_dimension)
-        control_points_predicted = p1_unsqueeze.expand_as(control_points_deltas) + control_points_deltas
+        control_points_predicted = control_points_deltas# + p1_unsqueeze.expand_as(control_points_deltas)
 
         #modify the rest of this machinery later
         # path mixture through softmax:
@@ -144,7 +162,7 @@ class BezierMixNet(nn.Module):
         # acc_out, _ = self._acc_decoder(dec_input)
         # acc_out = torch.squeeze(self._acc_out_layer(torch.relu(acc_out)), dim=2)
         # acc_out = torch.tanh(acc_out) * self._params["acc_decoder"]["max_acc"]
-        return torch.cat([p0_unsqueeze, p1_unsqueeze, control_points_predicted], dim=1)
+        return control_points_predicted
 
     def _get_linear_stack(
         self, in_size: int, hidden_sizes: list, out_size: int, name: str
