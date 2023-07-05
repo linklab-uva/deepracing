@@ -1,0 +1,21 @@
+{
+    "bezier_order" : 5,
+    "constrain_initial_velocity" : True,
+    "constrain_initial_acceleration" : False,
+    "velocity_input": True,
+    "acceleration_input": False,
+    "ambient_space_dimension" : 2,
+    "history_time" : 3.0,
+    "prediction_time" : 5.0,
+    "encoder": {
+        "in_size": 16,
+        "hidden_size": 64
+    },
+    "control_points_linear_stack": {
+        "hidden_sizes": [
+            256,
+            256,
+            32
+        ]
+    }
+}
