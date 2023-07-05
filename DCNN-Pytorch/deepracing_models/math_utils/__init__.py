@@ -3,6 +3,7 @@ from .bezier import bezierLsqfit
 from .bezier import bezierM
 from .bezier import bezierDerivative
 from .bezier import bezierPolyRoots
+from .bezier import evalBezier, evalBezierSinglePoint
 from .fitting import pinv, fitAffine
 from .bezier import bezierArcLength as bezierArcLength, BezierCurveModule, polynomialFormConversion, elevateBezierOrder
 
@@ -59,35 +60,21 @@ class CompositeBezierCurve(torch.nn.Module):
         self.x : torch.Tensor = torch.nn.Parameter(x.clone(), requires_grad=False)
 
 
-    def forward(self, x_eval : torch.Tensor):
+    def forward(self, x_eval : torch.Tensor, imin = None):
         x_true = x_eval%self.xend_vec[-1]
-        curve_indices = torch.searchsorted(self.xstart_vec, x_true, right=True)-1
-        idx_forward : torch.Tensor = torch.linspace(1, curve_indices.shape[0], steps=curve_indices.shape[0], dtype=torch.int64)
-        idx_forward[-1]=0
-        transition_booleans = curve_indices!=curve_indices[idx_forward]
-        transition_indices = torch.where(transition_booleans)[0]+1
-
-        x_final_idx = transition_indices[0] if transition_indices.shape[0]>0 else None
-        curveindex = curve_indices[0]
-        x_samp = x_true[0:x_final_idx]
-        curve = self.control_points[curveindex]
-        xmin = self.xstart_vec[curveindex]
-        s_samp = (x_samp - xmin)/self.dx[curveindex]
-        Msamp = bezierM(s_samp.unsqueeze(0), self.control_points.shape[1]-1)[0]
-        blocks : List[torch.Tensor] = [torch.matmul(Msamp, curve)]
-        for i in range(transition_indices.shape[0]):
-            x_final_idx, curveindex = (transition_indices[i+1], curve_indices[transition_indices[i]]) if i<transition_indices.shape[0]-1 else (None,curve_indices[-1])
-            x_samp = x_true[transition_indices[i]:x_final_idx]
-            curve = self.control_points[curveindex]
-            xmin = self.xstart_vec[curveindex]
-            s_samp = (x_samp - xmin)/self.dx[curveindex]
-            Msamp = bezierM(s_samp.unsqueeze(0), self.control_points.shape[1]-1)[0]
-            blocks.append(torch.matmul(Msamp, curve))
-        return torch.cat(blocks, dim=0)
+        if imin is None:
+            imin_ = (torch.bucketize(x_true.detach(), self.xend_vec.detach(), right=False) ) #% self.xend_vec[-1]
+        else:
+            imin_ = imin
+        xstart_select = self.xstart_vec[imin_]
+        dx_select = self.dx[imin_]
+        points_select = self.control_points[imin_]
+        s_select = (x_true - xstart_select)/dx_select
+        return evalBezierSinglePoint(s_select, points_select), imin_
     def derivative(self):
         control_points_detached = self.control_points.detach()
         control_point_deltas : torch.Tensor = (control_points_detached.shape[1]-1)*(control_points_detached[:,1:] - control_points_detached[:,:-1])/self.dx.detach()[:,None,None]
-        return CompositeBezierCurve(self.x.detach(), control_point_deltas)
+        return CompositeBezierCurve(self.x.detach().clone(), control_point_deltas)
 
 class SimplePathHelper(torch.nn.Module):
     def __init__(self, points : torch.Tensor, dr_samp : float) -> None:
@@ -101,26 +88,29 @@ class SimplePathHelper(torch.nn.Module):
         self.__curve_2nd_deriv__ : CompositeBezierCurve = self.__curve_deriv__.derivative().requires_grad_(False)
 
         self.__r_samp__ : torch.nn.Parameter = torch.nn.Parameter(torch.arange(0.0, arclengths_[-1], step=dr_samp, dtype=points.dtype, device=points.device), requires_grad=False)
-        points_samp : torch.Tensor = self.__curve__(self.__r_samp__).detach().clone()
+        
+        tup = self.__curve__(self.__r_samp__)
+        points_samp : torch.Tensor = tup[0].detach().clone()
         self.__points_samp__ : torch.nn.Parameter = torch.nn.Parameter(points_samp, requires_grad=False)
-        tangents_samp : torch.Tensor = self.__curve_deriv__(self.__r_samp__).detach().clone()
+
+        tup = self.__curve_deriv__(self.__r_samp__)
+        tangents_samp : torch.Tensor = tup[0].detach().clone()
         self.__tangents_samp__ : torch.nn.Parameter = torch.nn.Parameter(tangents_samp, requires_grad=False)
+
         normals_samp = tangents_samp[:,[1,0]].clone()
         normals_samp[:,0]*=-1.0
         self.__normals_samp__ : torch.nn.Parameter = torch.nn.Parameter(normals_samp, requires_grad=False)
-
-
-
-
-
     def offset_points(self, left_offset : float, right_offset: float) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.__points_samp__ + self.__normals_samp__*left_offset, self.__points_samp__ - self.__normals_samp__*right_offset
-    def eval(self, s : torch.Tensor):
-        return self.__curve__(s)
     def tangent(self, s : torch.Tensor):
-        return self.__curve_deriv__(s)
-    def forward(self, s : torch.Tensor):
-        return self.__curve__(s)#, self.__curve_deriv__(s), self.__curve_2nd_deriv__(s)
+        derivs, _ = self.__curve_deriv__(s)
+        return derivs
+    def forward(self, s : torch.Tensor, deriv=False):
+        positions, imin = self.__curve__(s)
+        if deriv:
+            derivs, _ = self.__curve_deriv__(s, imin=imin)
+            return positions, derivs
+        return positions, None
     
 
 def closestPointToPathNaive(path : SimplePathHelper, p_query : torch.Tensor):
