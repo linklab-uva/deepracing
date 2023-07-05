@@ -118,19 +118,15 @@ def closestPointToPathNaive(path : SimplePathHelper, p_query : torch.Tensor):
     return path.__r_samp__[iclosest]%path.__curve__.xend_vec[-1], path.__points_samp__[iclosest]
 def closestPointToPath(path : SimplePathHelper, p_query : torch.Tensor, s0 : Union[None, torch.Tensor] = None, lr = 1.0, max_iter = 10000) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     if s0 is None:
-        iclosest = torch.argmin(torch.norm(path.__points_samp__ - p_query, p=2, dim=1))
-        s_euclidean_approx = path.__r_samp__[iclosest]%path.__curve__.xend_vec[-1]
-        s_optim : torch.nn.parameter.Parameter = torch.nn.parameter.Parameter(torch.as_tensor([s_euclidean_approx], dtype=path.__r_samp__.dtype, device=path.__r_samp__.device), requires_grad=True)
+        snaive, _ = closestPointToPathNaive(path, p_query)
+        s_optim : torch.nn.parameter.Parameter = torch.nn.parameter.Parameter(torch.as_tensor([snaive], dtype=path.__r_samp__.dtype, device=path.__r_samp__.device), requires_grad=True)
     else:
         s_optim : torch.nn.parameter.Parameter = torch.nn.parameter.Parameter(torch.as_tensor([s0%path.__curve__.xend_vec[-1]], dtype=path.__r_samp__.dtype, device=path.__r_samp__.device)%path.__curve__.xend_vec[-1], requires_grad=True)
     sgd = torch.optim.SGD([s_optim], lr)
-    s_init = s_optim[0].detach().clone()
-    x0 = path(s_optim.detach().clone())
-    x0 : torch.Tensor = x0[0]
     lossprev : torch.Tensor = None
     loss : torch.Tensor = None
     for asdf in range(max_iter):
-        x_curr = path(s_optim)
+        x_curr, _ = path(s_optim)
         delta = p_query - x_curr[0]
         loss = torch.norm(delta, p=2)
         sgd.zero_grad()
@@ -141,4 +137,4 @@ def closestPointToPath(path : SimplePathHelper, p_query : torch.Tensor, s0 : Uni
             if torch.abs(delta_loss)<1E-8:
                 break
         lossprev = loss
-    return s_init, x0, s_optim.detach()[0], x_curr.detach()
+    return s_optim.detach()[0], x_curr.detach()
