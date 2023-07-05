@@ -12,8 +12,7 @@ from tqdm import tqdm
 import torch.jit
 
 class TrajectoryPredictionDataset(torch.utils.data.Dataset):
-    def __init__(self, ego_vehicle_positions : np.ndarray,\
-                 ego_vehicle_velocities : np.ndarray,\
+    def __init__(self,\
                  target_vehicle_positions : np.ndarray,\
                  target_vehicle_velocities : np.ndarray,\
                  inner_boundary_helper : SmoothPathHelper,\
@@ -24,12 +23,12 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
                  centerline_corresponding_arclengths : np.ndarray,\
                  raceline_helper : SmoothPathHelper,\
                  raceline_corresponding_arclengths : np.ndarray,\
+                 ego_vehicle_positions : np.ndarray = None,\
+                 ego_vehicle_velocities : np.ndarray = None,\
                  ego_vehicle_accelerations : typing.Union[np.ndarray,None] = None,\
                  target_vehicle_accelerations : typing.Union[np.ndarray,None] = None,\
                  orient_to_inner_boundary : bool = False):
-        self.ego_vehicle_positions : np.ndarray = ego_vehicle_positions.copy()
         self.target_vehicle_positions : np.ndarray = target_vehicle_positions.copy()
-        self.ego_vehicle_velocities : np.ndarray = ego_vehicle_velocities.copy()
         self.target_vehicle_velocities : np.ndarray = target_vehicle_velocities.copy()
         self.inner_boundary_helper : SmoothPathHelper = inner_boundary_helper
         self.outer_boundary_helper : SmoothPathHelper = outer_boundary_helper
@@ -49,10 +48,21 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
         else:
             self.ego_vehicle_accelerations = None
             self.target_vehicle_accelerations = None
+
+        if (ego_vehicle_velocities is None) and (ego_vehicle_positions is not None):
+            raise ValueError("ego_vehicle_positions was provided, but not ego_vehicle_velocities. Must provide either both or neither")
+        if (ego_vehicle_positions is None) and (ego_vehicle_velocities is not None):
+            raise ValueError("ego_vehicle_velocities was provided, but not ego_vehicle_positions. Must provide either both or neither")
+        if (ego_vehicle_positions is not None) and (ego_vehicle_velocities is not None):
+            self.ego_vehicle_positions : np.ndarray = ego_vehicle_positions.copy()
+            self.ego_vehicle_velocities : np.ndarray = ego_vehicle_velocities.copy()
+        else:
+            self.ego_vehicle_positions = None
+            self.ego_vehicle_velocities = None
         self.orient_to_inner_boundary = orient_to_inner_boundary
         rforward = 400.0
         dr = 20.0
-        self.rdelta : np.ndarray = np.arange(0.0, rforward+dr, step=dr, dtype=ego_vehicle_positions.dtype)     
+        self.rdelta : np.ndarray = np.arange(0.0, rforward+dr, step=dr, dtype=target_vehicle_positions.dtype)     
     def __len__(self):
         return self.target_vehicle_positions.shape[0]-100
     def __getitem__(self, index):
@@ -61,8 +71,6 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
         ihistoryend = idxnow + 1
         ifutureend = idxnow + 51
 
-        ego_position_history : np.ndarray = self.ego_vehicle_positions[ihistorystart:ihistoryend]
-        ego_velocity_history : np.ndarray = self.ego_vehicle_velocities[ihistorystart:ihistoryend]
         target_position_history : np.ndarray = self.target_vehicle_positions[ihistorystart:ihistoryend]
         target_velocity_history : np.ndarray = self.target_vehicle_velocities[ihistorystart:ihistoryend]
         target_positions_future : np.ndarray = self.target_vehicle_positions[idxnow:ifutureend]
@@ -96,8 +104,11 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
         outdict["target_position_history"] = (rotmatinv @ target_position_history.T).T + translationinv
         outdict["target_position_future"] = (rotmatinv @ target_positions_future.T).T + translationinv
         outdict["target_velocity_history"] = (rotmatinv @ target_velocity_history.T).T
-        outdict["ego_position_history"] = (rotmatinv @ ego_position_history.T).T + translationinv
-        outdict["ego_velocity_history"] = (rotmatinv @ ego_velocity_history.T).T
+        if self.ego_vehicle_positions is not None:
+            ego_position_history : np.ndarray = self.ego_vehicle_positions[ihistorystart:ihistoryend]
+            ego_velocity_history : np.ndarray = self.ego_vehicle_velocities[ihistorystart:ihistoryend]
+            outdict["ego_position_history"] = (rotmatinv @ ego_position_history.T).T + translationinv
+            outdict["ego_velocity_history"] = (rotmatinv @ ego_velocity_history.T).T
         outdict["inner_boundary_input"] = (rotmatinv @ inner_boundary_input.T).T + translationinv
         outdict["outer_boundary_input"] = (rotmatinv @ outer_boundary_input.T).T + translationinv
         outdict["raceline_label"] = (rotmatinv @ raceline_label.T).T + translationinv
