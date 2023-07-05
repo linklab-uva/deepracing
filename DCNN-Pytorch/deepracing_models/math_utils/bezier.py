@@ -2,7 +2,6 @@ from typing import Tuple, Union
 import numpy as np
 import math
 import torch, torch.nn
-# from scipy.special import comb as nChoosek
 from deepracing_models.math_utils.fitting import pinv
 from ..math_utils.polynomial import polyroots
 import torch.jit
@@ -26,31 +25,26 @@ def polynomialFormConversion(k : int, dtype=torch.float64, device=torch.device("
                 tobezierform[i,j]=0.0
     return topolyform, tobezierform
 
+from scipy.special import comb
+
 def bezierPolyRoots(bezier_coefficients : torch.Tensor, scaled_basis = False):
     N = bezier_coefficients.shape[0]
     k = bezier_coefficients.shape[1]-1
     topolyform, _ = polynomialFormConversion(k, dtype = bezier_coefficients.dtype, device=bezier_coefficients.device)
     topolyform = topolyform.unsqueeze(0).expand(N, k+1, k+1)
     if scaled_basis:
-        binoms = torch.as_tensor([nChoosek(k, i) for i in range(k+1)], dtype = bezier_coefficients.dtype, device=bezier_coefficients.device)
+        binoms = torch.as_tensor([comb(k, i, exact=True) for i in range(k+1)], dtype = bezier_coefficients.dtype, device=bezier_coefficients.device)
         unscaled = bezier_coefficients/binoms
         standard_form = torch.matmul(topolyform, unscaled.unsqueeze(-1)).squeeze(-1)
     else:
         standard_form = torch.matmul(topolyform, bezier_coefficients.unsqueeze(-1)).squeeze(-1)
     return polyroots(standard_form)
 
-@torch.jit.script
-def nChoosek(n : torch.Tensor, k : torch.Tensor):
-    return ((n + 1).lgamma() - (k + 1).lgamma() - ((n - k) + 1).lgamma()).exp()
 
-@torch.jit.script
 def Mtk(k : int, n : int, t : torch.Tensor):
-    ktensor = torch.as_tensor(k, dtype=t.dtype, device=t.device)
-    ntensor = torch.as_tensor(n, dtype=t.dtype, device=t.device)
-    return torch.pow(t,ktensor)*torch.pow(1-t,(ntensor-ktensor))*nChoosek(ntensor, ktensor)
+    return torch.pow(t,k)*torch.pow(1-t,(n-k))*comb(n, k, exact=True)
 
 def bezierArcLength(control_points, d0=None, N=59, simpsonintervals=4 ):
-    
     
     t=torch.stack([torch.linspace(0.0, 1.0, steps = simpsonintervals*N+1, dtype=control_points.dtype, device=control_points.device ) for i in range(control_points.shape[0])], dim=0)
     tsamp = t[:,[i*simpsonintervals for i in range(N+1)]]
@@ -109,8 +103,6 @@ def compositeBezierSpline_with_boundary_conditions_(x : torch.Tensor, Y : torch.
     return bezier_control_points
 
 
-
-@torch.jit.script
 def compositeBezierSpline_periodic_(x : torch.Tensor, Y : torch.Tensor):
     k=3
     if torch.linalg.norm(Y[-1] - Y[0], ord=2)>1E-5:
@@ -167,19 +159,19 @@ def compositeBezierSpline_periodic_(x : torch.Tensor, Y : torch.Tensor):
 
     all_curves = torch.cat([points.unsqueeze(1), res.reshape(numpoints , k-1, d), points[torch.linspace(1, numpoints, numpoints, dtype=torch.int64)%numpoints].unsqueeze(1)], dim=1)
 
-    # all_curves = torch.zeros((numpoints, k+1, d), dtype=points.dtype, device=points.device)
-    # all_curves[:,0] = points
-    # all_curves[:,1:k] = res.reshape(all_curves[:,1:k].shape)
-    # all_curves[:,-1] = points[torch.linspace(1, numpoints, numpoints, dtype=torch.int64)%numpoints]
-
     return all_curves
 
-@torch.jit.script
 def bezierM(t : torch.Tensor, n : int) -> torch.Tensor:
     return torch.stack([Mtk(k,n,t) for k in range(n+1)],dim=2)
-def evalBezier(M,control_points):
-    return torch.matmul(M,control_points)
-    
+
+def evalBezier(M : torch.Tensor, control_points : torch.Tensor):
+    return torch.matmul(M, control_points)
+
+def evalBezierSinglePoint(s : torch.Tensor, control_points : torch.Tensor):
+    num_control_points : int = control_points.shape[-2]
+    order_int : int = num_control_points - 1
+    return torch.matmul(bezierM(s.unsqueeze(-1), order_int), control_points).squeeze(1)
+ 
 def bezierDerivative(control_points : torch.Tensor, t = None, M = None, order = 1, covariance : Union[None, torch.Tensor] = None )\
      -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
     if (bool(t is not None) ^ bool(M is not None)):
