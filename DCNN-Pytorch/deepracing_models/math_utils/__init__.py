@@ -21,7 +21,7 @@ import torch
 import torch.nn
 
 class CompositeBezierCurve(torch.nn.Module):
-    def __init__(self, x : torch.Tensor, control_points : torch.Tensor) -> None:
+    def __init__(self, x : torch.Tensor, control_points : torch.Tensor, order : int = 0) -> None:
         super(CompositeBezierCurve, self).__init__()
 
         self.control_points : torch.nn.Parameter =  torch.nn.Parameter(control_points.clone(), requires_grad=False)
@@ -39,8 +39,12 @@ class CompositeBezierCurve(torch.nn.Module):
 
         self.d : int = self.control_points.shape[-1]
 
+        self.order : int = order
 
-    def forward(self, x_eval : torch.Tensor, idxmin_in : typing.Union[None,torch.Tensor] = None):
+
+
+
+    def forward(self, x_eval : torch.Tensor, idxbuckets : typing.Union[None,torch.Tensor] = None):
         x_true = (x_eval%self.xend_vec[-1]).view(1,-1)
         # if imin is None:
         #     imin_ = (torch.bucketize(x_true.detach(), self.xend_vec.detach(), right=False) ) #% self.xend_vec[-1]
@@ -51,13 +55,13 @@ class CompositeBezierCurve(torch.nn.Module):
         # points_select = self.control_points[imin_]
         # s_select = (x_true - xstart_select)/dx_select
         # return evalBezierSinglePoint(s_select, points_select), imin_
-        evalout, idxmin = compositeBezerEval(self.xstart_vec.unsqueeze(0), self.dx.unsqueeze(0), self.control_points.unsqueeze(0), x_true, idxmin=idxmin_in)
-        points_out_shape : list = list(x_eval.shape) + [self.d]
-        return evalout.view(points_out_shape), idxmin.view(x_eval.shape)
+        evalout, idxmin = compositeBezerEval(self.xstart_vec.unsqueeze(0), self.dx.unsqueeze(0), self.control_points.unsqueeze(0), x_true, idxbuckets=idxbuckets)
+        evalrtn = evalout.view(list(x_eval.shape) + [self.d])
+        return evalrtn, idxmin.view(x_eval.shape)
     def derivative(self):
         control_points_detached = self.control_points.detach()
         control_point_deltas : torch.Tensor = (control_points_detached.shape[1]-1)*(control_points_detached[:,1:] - control_points_detached[:,:-1])/self.dx.detach()[:,None,None]
-        return CompositeBezierCurve(self.x.detach().clone(), control_point_deltas)
+        return CompositeBezierCurve(self.x.detach().clone(), control_point_deltas, order=self.order+1)
 
 class SimplePathHelper(torch.nn.Module):
     def __init__(self, points : torch.Tensor, dr_samp : float) -> None:
@@ -89,9 +93,9 @@ class SimplePathHelper(torch.nn.Module):
         derivs, _ = self.__curve_deriv__(s)
         return derivs
     def forward(self, s : torch.Tensor, deriv=False):
-        positions, idxmin = self.__curve__(s)
+        positions, idxbuckets = self.__curve__(s)
         if deriv:
-            derivs, _ = self.__curve_deriv__(s, idxmin_in=idxmin)
+            derivs, _ = self.__curve_deriv__(s, idxbuckets=idxbuckets)
             return positions, derivs
         return positions, None
     

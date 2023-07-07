@@ -31,7 +31,7 @@ def closedPathAsBezierSpline(Y : torch.Tensor) -> Tuple[torch.Tensor, torch.Tens
     arclengths[1:] = torch.cumsum(distances[:,-1], 0)
     return arclengths, compositeBezierSpline(arclengths,Yaug,boundary_conditions="periodic")
 
-def compositeBezerEval(xstart : torch.Tensor, dx : torch.Tensor, control_points : torch.Tensor, x_eval : torch.Tensor, idxmin : typing.Union[torch.Tensor,None] = None) -> typing.Tuple[torch.Tensor, torch.Tensor]:
+def compositeBezerEval(xstart : torch.Tensor, dx : torch.Tensor, control_points : torch.Tensor, x_eval : torch.Tensor, idxbuckets : typing.Union[torch.Tensor,None] = None) -> typing.Tuple[torch.Tensor, torch.Tensor]:
 
     numpoints : int = x_eval.shape[-1]
     numsplinesegments : int = control_points.shape[-3]
@@ -46,25 +46,25 @@ def compositeBezerEval(xstart : torch.Tensor, dx : torch.Tensor, control_points 
     xend_onebatchdim = xstart_onebatchdim + dx_onebatchdim
 
 
-    if idxmin is None:
+    if idxbuckets is None:
         if batchsize == 1:
-            idxmin_ : torch.Tensor = torch.bucketize(x_eval_onebatchdim[0], xend_onebatchdim[0], right=False).view(1, numpoints)
+            idxbuckets_ : torch.Tensor = torch.bucketize(x_eval_onebatchdim[0], xend_onebatchdim[0], right=False).view(1, numpoints)
         else:
-            idxmin_ : torch.Tensor = torch.stack([torch.bucketize(x_eval_onebatchdim[i], xend_onebatchdim[i], right=False) for i in range(batchsize)], dim=0)
+            idxbuckets_ : torch.Tensor = torch.stack([torch.bucketize(x_eval_onebatchdim[i], xend_onebatchdim[i], right=False) for i in range(batchsize)], dim=0)
     else:
-        idxmin_ : torch.Tensor = idxmin.view(batchsize, numpoints)
+        idxbuckets_ : torch.Tensor = idxbuckets.view(batchsize, numpoints)
         
-    idxmin_exp = idxmin_.unsqueeze(-1).unsqueeze(-1).expand(batchsize, numpoints, kbezier+1, d)
-    corresponding_curves = torch.gather(control_points_onebatchdim, 1, idxmin_exp)
-    corresponding_xstart = torch.gather(xstart_onebatchdim, 1, idxmin_)
-    corresponding_dx = torch.gather(dx_onebatchdim, 1, idxmin_)
+    idxbuckets_exp = idxbuckets_.unsqueeze(-1).unsqueeze(-1).expand(batchsize, numpoints, kbezier+1, d)
+    corresponding_curves = torch.gather(control_points_onebatchdim, 1, idxbuckets_exp)
+    corresponding_xstart = torch.gather(xstart_onebatchdim, 1, idxbuckets_)
+    corresponding_dx = torch.gather(dx_onebatchdim, 1, idxbuckets_)
     s_eval = (x_eval_onebatchdim - corresponding_xstart)/corresponding_dx
     s_eval_unsqueeze = s_eval.unsqueeze(-1)
     Mbezier = bezierM(s_eval_unsqueeze.view(-1, 1), kbezier).view(batchsize, numpoints, 1, kbezier+1)
     pointseval = torch.matmul(Mbezier, corresponding_curves).squeeze(-2)
     idxmin_shape_out : list = list(x_eval.shape)
     shape_out : list = idxmin_shape_out + [d]
-    return pointseval.view(shape_out), idxmin_.view(idxmin_shape_out)
+    return pointseval.view(shape_out), idxbuckets_.view(idxmin_shape_out)
 
 def polynomialFormConversion(k : int, dtype=torch.float64, device=torch.device("cpu")) -> Tuple[torch.Tensor, torch.Tensor]:
     topolyform : torch.Tensor = torch.zeros((k+1,k+1), dtype=dtype, device=device)
