@@ -1,11 +1,13 @@
 from typing import List, Tuple, Union
+import typing
 from .bezier import bezierLsqfit
 from .bezier import bezierM
 from .bezier import bezierDerivative
 from .bezier import bezierPolyRoots
 from .bezier import evalBezier, evalBezierSinglePoint
+from .bezier import bezierArcLength, closedPathAsBezierSpline, polynomialFormConversion, elevateBezierOrder, compositeBezerEval
 from .fitting import pinv, fitAffine
-from .bezier import bezierArcLength as bezierArcLength, BezierCurveModule, polynomialFormConversion, elevateBezierOrder
+from .bezier import BezierCurveModule
 
 from .statistics import cov
 from .integrate import cumtrapz, simpson
@@ -17,30 +19,6 @@ from . import bezier
 import torch
 
 import torch.nn
-
-def compositeBezierSpline(x : torch.Tensor, Y : torch.Tensor, boundary_conditions : Union[str,torch.Tensor] = "periodic"):
-    if boundary_conditions=="periodic":
-        return bezier.compositeBezierSpline_periodic_(x,Y)
-    elif type(boundary_conditions)==torch.Tensor:
-        return bezier.compositeBezierSpline_with_boundary_conditions_(x, Y, boundary_conditions)
-    else:
-        raise ValueError("Currently, only supported values for boundary_conditions are the string \"periodic\" or a torch.Tensor of boundary values")
-
-
-def closedPathAsBezierSpline(Y : torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-    if not torch.all(Y[0]==Y[-1]):
-        Yaug : torch.Tensor = torch.cat([Y, Y[0].unsqueeze(0)], dim=0)
-    else:
-        Yaug : torch.Tensor = Y
-    euclidean_distances : torch.Tensor = torch.zeros_like(Yaug[:,0])
-    delta_euclidean_distances = torch.norm( Yaug[1:]-Yaug[:-1] , dim=1 )
-    euclidean_distances[1:] = torch.cumsum( delta_euclidean_distances, 0 )
-    euclidean_spline = compositeBezierSpline(euclidean_distances,Yaug,boundary_conditions="periodic")
-    arclengths = torch.zeros_like(Yaug[:,0])
-    _, _, _, _, distances = bezierArcLength(euclidean_spline, N=2, simpsonintervals=20)
-    arclengths[1:] = torch.cumsum(distances[:,-1], 0)
-    return arclengths, compositeBezierSpline(arclengths,Yaug,boundary_conditions="periodic")
-
 
 class CompositeBezierCurve(torch.nn.Module):
     def __init__(self, x : torch.Tensor, control_points : torch.Tensor) -> None:
@@ -59,18 +37,23 @@ class CompositeBezierCurve(torch.nn.Module):
 
         self.x : torch.Tensor = torch.nn.Parameter(x.clone(), requires_grad=False)
 
+        self.d : int = self.control_points.shape[-1]
 
-    def forward(self, x_eval : torch.Tensor, imin = None):
-        x_true = x_eval%self.xend_vec[-1]
-        if imin is None:
-            imin_ = (torch.bucketize(x_true.detach(), self.xend_vec.detach(), right=False) ) #% self.xend_vec[-1]
-        else:
-            imin_ = imin
-        xstart_select = self.xstart_vec[imin_]
-        dx_select = self.dx[imin_]
-        points_select = self.control_points[imin_]
-        s_select = (x_true - xstart_select)/dx_select
-        return evalBezierSinglePoint(s_select, points_select), imin_
+
+    def forward(self, x_eval : torch.Tensor, idxmin_in : typing.Union[None,torch.Tensor] = None):
+        x_true = (x_eval%self.xend_vec[-1]).view(1,-1)
+        # if imin is None:
+        #     imin_ = (torch.bucketize(x_true.detach(), self.xend_vec.detach(), right=False) ) #% self.xend_vec[-1]
+        # else:
+        #     imin_ = imin
+        # xstart_select = self.xstart_vec[imin_]
+        # dx_select = self.dx[imin_]
+        # points_select = self.control_points[imin_]
+        # s_select = (x_true - xstart_select)/dx_select
+        # return evalBezierSinglePoint(s_select, points_select), imin_
+        evalout, idxmin = compositeBezerEval(self.xstart_vec.unsqueeze(0), self.dx.unsqueeze(0), self.control_points.unsqueeze(0), x_true, idxmin=idxmin_in)
+        points_out_shape : list = list(x_eval.shape) + [self.d]
+        return evalout.view(points_out_shape), idxmin.view(x_eval.shape)
     def derivative(self):
         control_points_detached = self.control_points.detach()
         control_point_deltas : torch.Tensor = (control_points_detached.shape[1]-1)*(control_points_detached[:,1:] - control_points_detached[:,:-1])/self.dx.detach()[:,None,None]
@@ -106,9 +89,9 @@ class SimplePathHelper(torch.nn.Module):
         derivs, _ = self.__curve_deriv__(s)
         return derivs
     def forward(self, s : torch.Tensor, deriv=False):
-        positions, imin = self.__curve__(s)
+        positions, idxmin = self.__curve__(s)
         if deriv:
-            derivs, _ = self.__curve_deriv__(s, imin=imin)
+            derivs, _ = self.__curve_deriv__(s, idxmin_in=idxmin)
             return positions, derivs
         return positions, None
     

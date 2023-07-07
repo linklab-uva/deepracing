@@ -5,6 +5,66 @@ import torch, torch.nn
 from deepracing_models.math_utils.fitting import pinv
 from ..math_utils.polynomial import polyroots
 import torch.jit
+import typing
+
+
+def compositeBezierSpline(x : torch.Tensor, Y : torch.Tensor, boundary_conditions : Union[str,torch.Tensor] = "periodic"):
+    if boundary_conditions=="periodic":
+        return compositeBezierSpline_periodic_(x,Y)
+    elif type(boundary_conditions)==torch.Tensor:
+        return compositeBezierSpline_with_boundary_conditions_(x, Y, boundary_conditions)
+    else:
+        raise ValueError("Currently, only supported values for boundary_conditions are the string \"periodic\" or a torch.Tensor of boundary values")
+
+
+def closedPathAsBezierSpline(Y : torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    if not torch.all(Y[0]==Y[-1]):
+        Yaug : torch.Tensor = torch.cat([Y, Y[0].unsqueeze(0)], dim=0)
+    else:
+        Yaug : torch.Tensor = Y
+    euclidean_distances : torch.Tensor = torch.zeros_like(Yaug[:,0])
+    delta_euclidean_distances = torch.norm( Yaug[1:]-Yaug[:-1] , dim=1 )
+    euclidean_distances[1:] = torch.cumsum( delta_euclidean_distances, 0 )
+    euclidean_spline = compositeBezierSpline(euclidean_distances,Yaug,boundary_conditions="periodic")
+    arclengths = torch.zeros_like(Yaug[:,0])
+    _, _, _, _, distances = bezierArcLength(euclidean_spline, N=2, simpsonintervals=20)
+    arclengths[1:] = torch.cumsum(distances[:,-1], 0)
+    return arclengths, compositeBezierSpline(arclengths,Yaug,boundary_conditions="periodic")
+
+def compositeBezerEval(xstart : torch.Tensor, dx : torch.Tensor, control_points : torch.Tensor, x_eval : torch.Tensor, idxmin : typing.Union[torch.Tensor,None] = None) -> typing.Tuple[torch.Tensor, torch.Tensor]:
+
+    numpoints : int = x_eval.shape[-1]
+    numsplinesegments : int = control_points.shape[-3]
+    kbezier : int = control_points.shape[-2] - 1
+    d : int = control_points.shape[-1]
+
+    xstart_onebatchdim : torch.Tensor = xstart.view(-1, numsplinesegments)
+    batchsize : int = xstart_onebatchdim.shape[0]
+    x_eval_onebatchdim : torch.Tensor = x_eval.view(batchsize, numpoints)
+    control_points_onebatchdim : torch.Tensor = control_points.view(batchsize, numsplinesegments, kbezier+1, d)
+    dx_onebatchdim : torch.Tensor = dx.view(batchsize, numsplinesegments)
+    xend_onebatchdim = xstart_onebatchdim + dx_onebatchdim
+
+
+    if idxmin is None:
+        if batchsize == 1:
+            idxmin_ : torch.Tensor = torch.bucketize(x_eval_onebatchdim[0], xend_onebatchdim[0], right=False).view(1, numpoints)
+        else:
+            idxmin_ : torch.Tensor = torch.stack([torch.bucketize(x_eval_onebatchdim[i], xend_onebatchdim[i], right=False) for i in range(batchsize)], dim=0)
+    else:
+        idxmin_ : torch.Tensor = idxmin.view(batchsize, numpoints)
+        
+    idxmin_exp = idxmin_.unsqueeze(-1).unsqueeze(-1).expand(batchsize, numpoints, kbezier+1, d)
+    corresponding_curves = torch.gather(control_points_onebatchdim, 1, idxmin_exp)
+    corresponding_xstart = torch.gather(xstart_onebatchdim, 1, idxmin_)
+    corresponding_dx = torch.gather(dx_onebatchdim, 1, idxmin_)
+    s_eval = (x_eval_onebatchdim - corresponding_xstart)/corresponding_dx
+    s_eval_unsqueeze = s_eval.unsqueeze(-1)
+    Mbezier = bezierM(s_eval_unsqueeze.view(-1, 1), kbezier).view(batchsize, numpoints, 1, kbezier+1)
+    pointseval = torch.matmul(Mbezier, corresponding_curves).squeeze(-2)
+    idxmin_shape_out : list = list(x_eval.shape)
+    shape_out : list = idxmin_shape_out + [d]
+    return pointseval.view(shape_out), idxmin_.view(idxmin_shape_out)
 
 def polynomialFormConversion(k : int, dtype=torch.float64, device=torch.device("cpu")) -> Tuple[torch.Tensor, torch.Tensor]:
     topolyform : torch.Tensor = torch.zeros((k+1,k+1), dtype=dtype, device=device)
