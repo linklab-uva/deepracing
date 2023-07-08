@@ -62,9 +62,9 @@ def compositeBezerEval(xstart : torch.Tensor, dx : torch.Tensor, control_points 
     s_eval_unsqueeze = s_eval.unsqueeze(-1)
     Mbezier = bezierM(s_eval_unsqueeze.view(-1, 1), kbezier).view(batchsize, numpoints, 1, kbezier+1)
     pointseval = torch.matmul(Mbezier, corresponding_curves).squeeze(-2)
-    idxmin_shape_out : list = list(x_eval.shape)
-    shape_out : list = idxmin_shape_out + [d]
-    return pointseval.view(shape_out), idxbuckets_.view(idxmin_shape_out)
+    idxbuckets_shape_out : list = list(x_eval.shape)
+    shape_out : list = idxbuckets_shape_out + [d]
+    return pointseval.view(shape_out), idxbuckets_.view(idxbuckets_shape_out)
 
 def polynomialFormConversion(k : int, dtype=torch.float64, device=torch.device("cpu")) -> Tuple[torch.Tensor, torch.Tensor]:
     topolyform : torch.Tensor = torch.zeros((k+1,k+1), dtype=dtype, device=device)
