@@ -8,9 +8,10 @@ import matplotlib.pyplot as plt
 import scipy.interpolate
 import deepracing.path_utils.optimization 
 class Writer:
-    def __init__(self, argdict : dict, rsamp : np.ndarray, points : np.ndarray):
+    def __init__(self, argdict : dict, rsamp : np.ndarray, ldsamp : np.ndarray, points : np.ndarray):
         self.argdict : dict = argdict
         self.rsamp : np.ndarray = rsamp
+        self.ldsamp : np.ndarray = ldsamp
         self.points : np.ndarray = points
         self.subtypeout = np.float32
         self.subtypes = []
@@ -18,12 +19,14 @@ class Writer:
         self.subtypes.append(("y", self.subtypeout, (1,)))
         self.subtypes.append(("z", self.subtypeout, (1,)))
         self.subtypes.append(("arclength", self.subtypeout, (1,)))
+        self.subtypes.append(("lapdistance", self.subtypeout, (1,)))
         self.subtypes.append(("speed", self.subtypeout, (1,)))
         self.numpytype = np.dtype(self.subtypes)
-        self.structured_array : np.ndarray = np.ndarray(self.points.shape[0], dtype=self.numpytype)
+        self.structured_array : np.ndarray = np.zeros(self.points.shape[0], dtype=self.numpytype)
         self.structured_array["x"] = self.points[:,0,None].astype(self.subtypeout)
         self.structured_array["y"] = self.points[:,1,None].astype(self.subtypeout)
         self.structured_array["z"] = self.points[:,2,None].astype(self.subtypeout)
+        self.structured_array["lapdistance"] = self.ldsamp[:,None].astype(self.subtypeout)
         self.structured_array["arclength"] = self.rsamp[:,None].astype(self.subtypeout)
     def writeLine(self, xcurr : np.ndarray):
         fileout = self.argdict["outfile"]
@@ -72,12 +75,14 @@ def optimizeLine(argdict : dict):
     spline_arclength : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(arclengths, racelinepath_aug[:,[0,2]], k=k, bc_type="periodic")
     spline_tangent : scipy.interpolate.BSpline = spline_arclength.derivative()
     spline_curvature : scipy.interpolate.BSpline = spline_tangent.derivative()
+    spline_lapdistance : scipy.interpolate.Akima1DInterpolator = scipy.interpolate.Akima1DInterpolator(arclengths, lapdistance_aug)
 
     
     dsin : float = argdict["ds"]
     num_evenly_spaced_points : int = int(round(arclengths[-1]/dsin))
     rsamp : np.ndarray = np.linspace(0.0, arclengths[-1], num = num_evenly_spaced_points)[:-1]
     actual_ds = float(rsamp[1] - rsamp[0])
+    ldsamp : np.ndarray = spline_lapdistance(rsamp)
     # rsamp : np.ndarray = np.arange(0.0, arclengths[-1], step = dsin)
     # print(rsamp[-1], arclengths[-1])
     curvaturve_vecs : np.ndarray = spline_curvature(rsamp)
@@ -89,7 +94,7 @@ def optimizeLine(argdict : dict):
     dsvec : np.ndarray = actual_ds*np.ones_like(rsamp)
     points : np.ndarray = spline_arclength(rsamp)
     points_withy = np.stack([points[:,0], yspline_arclength(rsamp), points[:,1]], axis=1)
-    writer : Writer = Writer(argdict, rsamp, points_withy)
+    writer : Writer = Writer(argdict, rsamp, ldsamp, points_withy)
     print("Building the sqp object", flush=True)
     sqp = deepracing.path_utils.optimization.OptimWrapper(minspeed, maxspeed, dsvec, kappas, callback = writer.writeLine, debug=argdict["debug"])
     print("Built the sqp object", flush=True)
