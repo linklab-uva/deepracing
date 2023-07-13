@@ -4,53 +4,25 @@ import torch
 import collections
 
 ### 
-# MixNet model is a modified version of work published by Phillip Karle & Technical University of Munich on August 22, 2022 under GNU General Public License V3.
+# BezierMixNet is a modified version of MixNet, published by Phillip Karle & Technical University of Munich on August 22, 2022 under GNU General Public License V3.
 # Modified on various dates starting April 14, 2023
 ###  
 class BezierMixNet(nn.Module):
-    """Neural Network to predict the future trajectory of a vehicle based on its history.
-    It predicts mixing weights for mixing the boundaries, the centerline and the raceline.
-    Also, it predicts section wise constant accelerations and an initial velocity to
-    compute the velocity profile from.
-    """
 
-    def __init__(self, params : dict):
-        """Initializes a BezierMixNet object trained to predict Bezier curves."""
+    def __init__(self, params):
+        """Initializes a BezierMixNet object."""
         super(BezierMixNet, self).__init__()
 
+        self._params = params
 
-        
-        velocity_input : bool = params["velocity_input"]
-        acceleration_input : bool = params["acceleration_input"]
-        
         # Input embedding layer:
-        input_dimension = 2
-        if velocity_input:
-            input_dimension+=2
-        if acceleration_input:
-            input_dimension+=2
-        self._ip_emb = torch.nn.Linear(input_dimension, params["encoder"]["in_size"])
-        constrain_initial_velocity : bool = params["constrain_initial_velocity"]
-        constrain_initial_acceleration : bool = params["constrain_initial_acceleration"]
-        if constrain_initial_acceleration and (not constrain_initial_velocity):
-            raise ValueError("Constraining acceleration but not velocity is currently unsupported")
-        bezier_order : int = params["bezier_order"]
-        ambient_space_dimension : int = params["ambient_space_dimension"]
+        self._ip_emb = torch.nn.Linear(2, params["encoder"]["in_size"])
 
-        self.constrain_initial_velocity : bool = constrain_initial_velocity
-        self.constrain_initial_acceleration : bool = constrain_initial_acceleration
-        self.ambient_space_dimension : int = ambient_space_dimension
-        self.bezier_order : int = bezier_order
-
-        self._boundary_emb = torch.nn.Linear(ambient_space_dimension, params["encoder"]["in_size"])
-
-        encoderdict : dict = params["encoder"]
         # History encoder LSTM:
-        historylayers = encoderdict.get("num_layers", 1)
         self._enc_hist = torch.nn.LSTM(
-            encoderdict["in_size"],
-            encoderdict["hidden_size"],
-            historylayers,
+            params["encoder"]["in_size"],
+            params["encoder"]["hidden_size"],
+            1,
             batch_first=True,
         )
 
@@ -58,96 +30,92 @@ class BezierMixNet(nn.Module):
         self._enc_left_bound = torch.nn.LSTM(
             params["encoder"]["in_size"],
             params["encoder"]["hidden_size"],
-            historylayers,
+            1,
             batch_first=True,
         )
 
         self._enc_right_bound = torch.nn.LSTM(
             params["encoder"]["in_size"],
             params["encoder"]["hidden_size"],
-            historylayers,
+            1,
             batch_first=True,
         )
 
-        #There are order+1 points in total, but the first point is always the vehicle's initial position, which is known.
-        num_output_control_points : int = bezier_order
-        if constrain_initial_velocity:
-            num_output_control_points-=1
-        if constrain_initial_acceleration:
-            num_output_control_points-=1
-        
-        self.num_output_control_points = num_output_control_points
-        # Linear stack that outputs the unconstrained control points
-        mixerdict : dict = params["control_points_linear_stack"]
-        # self._mix_out_layers = self._get_linear_stack(
-        #     in_size=encoderdict["hidden_size"] * 3,
-        #     hidden_sizes=mixerdict["hidden_sizes"],
-        #     out_size=num_output_control_points*ambient_space_dimension,
-        #     name="control_point_producer",
-        # )
-        self.hidden_out_size = encoderdict["hidden_size"] * historylayers
-        self.linear_input_size = self.hidden_out_size * 3
-        self._mix_out_layers = nn.Sequential(*[
-            nn.Linear(self.linear_input_size, 1200),
-            nn.PReLU(),
-            nn.Linear(1200, 500),
-            nn.PReLU(),
-            nn.Linear(500, num_output_control_points*ambient_space_dimension)
-            ]
+        # Linear stack that outputs the path mixture ratios:
+        self._mix_out_layers = self._get_linear_stack(
+            in_size=params["encoder"]["hidden_size"] * 3,
+            hidden_sizes=params["mixer_linear_stack"]["hidden_sizes"],
+            out_size=params["mixer_linear_stack"]["out_size"],
+            name="mix",
         )
 
-        prediction_time : float = params["prediction_time"]
-        self.prediction_time : float = prediction_time
-        
-        history_time : float = params["history_time"]
-        self.history_time : float = history_time
-        
-        self._params : dict = params.copy()
+        # Linear stack for outputting the initial velocity:
+        # self._vel_out_layers = self._get_linear_stack(
+        #     in_size=params["encoder"]["hidden_size"],
+        #     hidden_sizes=params["init_vel_linear_stack"]["hidden_sizes"],
+        #     out_size=params["init_vel_linear_stack"]["out_size"],
+        #     name="vel",
+        # )
 
-    def forward(self, position_history : torch.Tensor, velocity_history : torch.Tensor, left_bound : torch.Tensor, right_bound : torch.Tensor):
+        # dynamic embedder between the encoder and the decoder:
+        self._dyn_embedder = nn.Linear(
+            params["encoder"]["hidden_size"] * 3, params["acc_decoder"]["in_size"]
+        )
+
+        # acceleration decoder:
+        self._acc_decoder = nn.LSTM(
+            params["acc_decoder"]["in_size"],
+            params["acc_decoder"]["hidden_size"],
+            1,
+            batch_first=True,
+        )
+
+        # output linear layer of the acceleration decoder:
+        self._acc_out_layer = nn.Linear(params["acc_decoder"]["hidden_size"], 1)
+
+        self._final_linear_layer = nn.Linear(4,4)
+        self._final_linear_layer.weight = torch.nn.Parameter(torch.eye(4) + 0.001*torch.randn(4,4))
+        self._final_linear_layer.bias = torch.nn.Parameter(0.001*torch.randn(4))
+        # migrating the model parameters to the chosen device:
+        if params["use_cuda"]>=0 and torch.cuda.is_available():
+            self.device = torch.device("cuda:%d" % (params["use_cuda"],))
+            print("Using CUDA as device for MixNet")
+        else:
+            self.device = torch.device("cpu")
+            print("Using CPU as device for MixNet")
+        
+        self.to(self.device)
+
+    def forward(self, hist, left_bound, right_bound):
         """Implements the forward pass of the model.
+
         args:
             hist: [tensor with shape=(batch_size, hist_len, 2)]
             left_bound: [tensor with shape=(batch_size, boundary_len, 2)]
             right_bound: [tensor with shape=(batch_size, boundary_len, 2)]
+
         returns:
-            control_points: [tensor with shape=(batch_size, k, d)]: The predicted control points
-            k is how many points we need to predict given the initial value constraints, d is the dimension of the ambient euclidean space.
+            mix_out: [tensor with shape=(batch_size, out_size)]: The path mixing ratios in the order:
+                left_ratio, right_ratio, center_ratio, race_ratio
+            vel_out: [tensor with shape=(batch_size, 1)]: The initial velocity of the velocity profile
+            acc_out: [tensor with shape=(batch_size, num_acc_sections)]: The accelerations in the sections
         """
-        batch = position_history.shape[0]
-        # history : torch.Tensor = torch.cat([position_history, velocity_history], dim=-1)
-        history : torch.Tensor = position_history
-        # velocity_history : torch.Tensor = history[:,:,2:]
-
-        
-        # p0 : torch.Tensor = position_history[:,-1]
-        # initial_velocity : torch.Tensor = velocity_history[:,-1]
-        # p1 : torch.Tensor = p0 + self.prediction_time*initial_velocity/self.bezier_order
-
-        # p0_unsqueeze : torch.Tensor = p0.unsqueeze(-2)
-        # p1_unsqueeze : torch.Tensor = p1.unsqueeze(-2)
 
         # encoders:
-        _, (hist_h, _) = self._enc_hist(self._ip_emb(history))
-        _, (left_h, _) = self._enc_left_bound(self._boundary_emb(left_bound))
+        _, (hist_h, _) = self._enc_hist(self._ip_emb(hist.to(self.device)))
+        _, (left_h, _) = self._enc_left_bound(self._ip_emb(left_bound.to(self.device)))
         _, (right_h, _) = self._enc_right_bound(
-            self._boundary_emb(right_bound)
+            self._ip_emb(right_bound.to(self.device))
         )
-        # print(hist_h.shape)
-        hist_h_flat : torch.Tensor = hist_h.transpose(0,1).reshape(batch, self.hidden_out_size)
-        left_h_flat : torch.Tensor = left_h.transpose(0,1).reshape(batch, self.hidden_out_size)
-        right_h_flat : torch.Tensor = right_h.transpose(0,1).reshape(batch, self.hidden_out_size)
-        # enc = torch.squeeze(torch.cat((hist_h, left_h, right_h), 2), dim=0)
-        enc = torch.cat((hist_h_flat, left_h_flat, right_h_flat), dim=-1)
-        # print(enc.shape)
 
-        control_points_flat = self._mix_out_layers(enc)
-        control_points_deltas = control_points_flat.view(batch, self.num_output_control_points, self.ambient_space_dimension)
-        control_points_predicted = control_points_deltas# + p1_unsqueeze.expand_as(control_points_deltas)
+        # concatenate and squeeze encodings: 
+        enc = torch.squeeze(torch.cat((hist_h, left_h, right_h), 2), dim=0)
 
-        #modify the rest of this machinery later
         # path mixture through softmax:
-        # mix_out = torch.softmax(self._mix_out_layers(enc), dim=1)
+        # mix_out_softmax = torch.softmax(self._mix_out_layers(enc), dim=1)
+        mix_out_softmax = F.sigmoid(self._mix_out_layers(enc))
+        # mix_out_softmax = self._mix_out_layers(enc)
+        mix_out = self._final_linear_layer(mix_out_softmax)
 
         # initial velocity:
         # vel_out = self._vel_out_layers(torch.squeeze(hist_h, dim=0))
@@ -155,14 +123,19 @@ class BezierMixNet(nn.Module):
         # vel_out = vel_out * self._params["init_vel_linear_stack"]["max_vel"]
 
         # acceleration decoding:
-        # dec_input = torch.relu(self._dyn_embedder(enc)).unsqueeze(dim=1)
-        # dec_input = dec_input.repeat(
-        #     1, self._params["acc_decoder"]["num_acc_sections"], 1
-        # )
-        # acc_out, _ = self._acc_decoder(dec_input)
-        # acc_out = torch.squeeze(self._acc_out_layer(torch.relu(acc_out)), dim=2)
-        # acc_out = torch.tanh(acc_out) * self._params["acc_decoder"]["max_acc"]
-        return control_points_predicted
+        dec_input = torch.relu(self._dyn_embedder(enc)).unsqueeze(dim=1)
+        dec_input = dec_input.repeat(
+            1, self._params["acc_decoder"]["num_acc_sections"], 1
+        )
+        acc_out, _ = self._acc_decoder(dec_input)
+        acc_out = torch.squeeze(self._acc_out_layer(torch.relu(acc_out)), dim=2)
+        acc_out = torch.tanh(acc_out) * self._params["acc_decoder"]["max_acc"]
+
+        return mix_out, acc_out
+
+    def load_model_weights(self, weights_path):
+        self.load_state_dict(torch.load(weights_path, map_location=self.device))
+        print("Successfully loaded model weights from {}".format(weights_path))
 
     def _get_linear_stack(
         self, in_size: int, hidden_sizes: list, out_size: int, name: str
