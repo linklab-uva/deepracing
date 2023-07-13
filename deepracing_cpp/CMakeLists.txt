@@ -18,6 +18,9 @@ INTERFACE
 set(targets_to_install)
 list(APPEND targets_to_install headers)
 
+add_library(deepracing_cpp_utils SHARED src/utils.cpp)
+target_link_libraries(deepracing_cpp_utils PUBLIC headers)
+
 find_package(PCL CONFIG REQUIRED)
 message(STATUS "Found PCL at ${PCL_DIR}")
 add_library(pcltypes SHARED src/pcl_types.cpp)
