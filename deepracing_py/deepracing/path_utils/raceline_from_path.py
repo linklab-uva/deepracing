@@ -99,7 +99,7 @@ def optimizeLine(argdict : dict):
     sqp = deepracing.path_utils.optimization.OptimWrapper(minspeed, maxspeed, dsvec, kappas, callback = writer.writeLine, debug=argdict["debug"])
     print("Built the sqp object", flush=True)
 
-    x0speed : float = np.clip(argdict["initialguessratio"]*maxspeed, minspeed+.1, maxspeed-.1)
+    x0speed : float = np.clip(argdict["initialguessratio"]*maxspeed, minspeed, maxspeed)
     x0 : np.ndarray = (x0speed**2)*np.ones_like(rsamp)
 
     #method="trust-constr"
@@ -119,8 +119,8 @@ if __name__=="__main__":
     parser.add_argument("filepath", help="Path to .pcd file to generate optimal line from",  type=str)
     parser.add_argument("--ds", type=float, default=2.0, help="Sample the path at points this distance apart along the path")
     parser.add_argument("--maxiter", type=float, default=20, help="Maximum iterations to run the solver")
-    parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
-    parser.add_argument("--minv", default=5.0, type=float, help="Min linear speed the car can have")
+    parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation")
+    parser.add_argument("--minv", default=2.0, type=float, help="Min linear speed the car can have")
     parser.add_argument("--maxv", default=86.0, type=float, help="Max linear speed the car can have")
     parser.add_argument("--method", default="SLSQP", type=str, help="Optimization method to use")
     parser.add_argument("--outfile", default="raceline_optimized.pcd", type=str, help="What to name the output file. Default is the same name as the input file")

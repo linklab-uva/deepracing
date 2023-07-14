@@ -80,7 +80,7 @@ if __name__=="__main__":
     parser.add_argument("--ds", type=float, default=2.5, help="Sample the path at points this distance apart along the path")
     parser.add_argument("--maxiter", type=float, default=20, help="Maximum iterations to run the solver")
     parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
-    parser.add_argument("--minv", default=5.0, type=float, help="Min linear speed the car can have")
+    parser.add_argument("--minv", default=2.0, type=float, help="Min linear speed the car can have")
     parser.add_argument("--maxv", default=90.0, type=float, help="Max linear speed the car can have")
     parser.add_argument("--method", default="SLSQP", type=str, help="Optimization method to use")
     parser.add_argument("--initialguessratio", default=0.98, type=float, help="Scale factors used to determine initial guess")
