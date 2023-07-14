@@ -68,11 +68,43 @@ def imageDataKey(data):
     return data.timestamp
 def timestampedUdpPacketKey(packet):
     return packet.udp_packet.m_header.m_sessionTime
-trackNames=["Australia", "France", "China", "Bahrain", "Spain", "Monaco",\
-            "Canada", "Britain", "Germany", "Hungary", "Belgium", "Italy",\
-            "Singapore", "Japan", "Abu_Dhabi", "USA", "Brazil", "Austria",\
-            "Russia", "Mexico", "Azerbaijan", "Bahrain_short", "Britan_short",\
-            "USA_short", "Japan_short", "Rice242"]
+trackNames={
+    0 : "Australia",
+    1 : "Canada",
+    2 : "China",
+    3 : "Bahrain",
+    4 : "Catalunya",
+    5 : "Monaco",
+    6 : "Montreal",
+    7 : "Britain",
+    8 : "Hockenheim",
+    9 : "Hungaroring",
+    10 : "Spa",
+    11 : "Monza",
+    12 : "Singapore",
+    13 : "Suzuka",
+    14 : "AbuDhabi",
+    15 : "TexasF1",
+    16 : "Brazil",
+    17 : "Austria",
+    18 : "Sochi",
+    19 : "Mexico",
+    20 : "Azerbaijan",
+    21 : "Sakhir Short",
+    22 : "Silverstone Short",
+    23 : "Texas Short",
+    24 : "Suzuka Short",
+    25 : "Hanoi",
+    26 : "Zandvoort",
+    27 : "Imola",
+    28 : "Portimao",
+    29 : "Jeddah",
+    30 : "Miami",
+    31 : "VegasF1",
+    32 : "Losail",
+    33 : "VegasIndycar",
+    34 : "TexasIndycar"
+}
 def searchForFile(filename : str, searchdirs : List[str]):
     if os.path.isabs(filename):
         return filename

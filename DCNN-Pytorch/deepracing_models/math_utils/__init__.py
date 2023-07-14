@@ -5,7 +5,7 @@ from .bezier import bezierM
 from .bezier import bezierDerivative
 from .bezier import bezierPolyRoots
 from .bezier import evalBezier, evalBezierSinglePoint
-from .bezier import bezierArcLength, closedPathAsBezierSpline, polynomialFormConversion, elevateBezierOrder, compositeBezerEval
+from .bezier import bezierArcLength, compositeBezierSpline, closedPathAsBezierSpline, polynomialFormConversion, elevateBezierOrder, compositeBezerEval
 from .fitting import pinv, fitAffine
 from .bezier import BezierCurveModule
 
@@ -33,13 +33,15 @@ class CompositeBezierCurve(torch.nn.Module):
         
         self.dx : torch.nn.Parameter =  torch.nn.Parameter(dx.clone(), requires_grad=False)
         self.xstart_vec : torch.nn.Parameter =  torch.nn.Parameter(x[:-1].clone(), requires_grad=False)
-        self.xend_vec : torch.nn.Parameter =  torch.nn.Parameter((x[:-1]+dx).clone(), requires_grad=False)
+        self.xend_vec : torch.nn.Parameter =  torch.nn.Parameter(x[1:].clone(), requires_grad=False)
 
-        self.x : torch.Tensor = torch.nn.Parameter(x.clone(), requires_grad=False)
+        self.x : torch.nn.Parameter = torch.nn.Parameter(x.clone(), requires_grad=False)
 
-        self.d : int = self.control_points.shape[-1]
+        self.d : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor(self.control_points.shape[-1], dtype=torch.int64), requires_grad=False)
 
-        self.order : int = order
+        self.order : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor(order, dtype=torch.int64), requires_grad=False)
+
+        self.bezier_order : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor(self.control_points.shape[-2]-1, dtype=torch.int64), requires_grad=False)
 
 
 
@@ -56,11 +58,11 @@ class CompositeBezierCurve(torch.nn.Module):
         # s_select = (x_true - xstart_select)/dx_select
         # return evalBezierSinglePoint(s_select, points_select), imin_
         evalout, idxmin = compositeBezerEval(self.xstart_vec.unsqueeze(0), self.dx.unsqueeze(0), self.control_points.unsqueeze(0), x_true, idxbuckets=idxbuckets)
-        evalrtn = evalout.view(list(x_eval.shape) + [self.d])
+        evalrtn = evalout.view(list(x_eval.shape) + [self.d.item()])
         return evalrtn, idxmin.view(x_eval.shape)
     def derivative(self):
         control_points_detached = self.control_points.detach()
-        control_point_deltas : torch.Tensor = (control_points_detached.shape[1]-1)*(control_points_detached[:,1:] - control_points_detached[:,:-1])/self.dx.detach()[:,None,None]
+        control_point_deltas : torch.Tensor = self.bezier_order*(control_points_detached[:,1:] - control_points_detached[:,:-1])/self.dx.detach()[:,None,None]
         return CompositeBezierCurve(self.x.detach().clone(), control_point_deltas, order=self.order+1)
 
 class SimplePathHelper(torch.nn.Module):

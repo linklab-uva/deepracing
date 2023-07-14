@@ -1,23 +1,28 @@
 {
-    "bezier_order" : 4,
-    "constrain_initial_velocity" : False,
-    "constrain_initial_acceleration" : False,
-    "velocity_input": False,
-    "acceleration_input": False,
-    "ambient_space_dimension" : 2,
-    "history_time" : 3.0,
-    "prediction_time" : 5.0,
+    "use_cuda": 0,
     "encoder": {
-        "in_size": 128,
-        "hidden_size": 256,
-        "num_layers" : 5
+        "in_size": 16,
+        "hidden_size": 64
     },
-    "control_points_linear_stack": {
+    "mixer_linear_stack": {
         "hidden_sizes": [
             256,
-            128,
-            128,
-            128
-        ]
+            256,
+            32
+        ],
+        "out_size": 4
+    },
+    "init_vel_linear_stack": {
+        "hidden_sizes": [
+            32
+        ],
+        "out_size": 1,
+        "max_vel": 90.0
+    },
+    "acc_decoder": {
+        "in_size": 16,
+        "hidden_size": 32,
+        "num_acc_sections": 25,
+        "max_acc": 30
     }
 }
