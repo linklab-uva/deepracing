@@ -23,6 +23,7 @@ def optimizeLines(argdict : dict):
     optimdict["pca"] = argdict["pca"]
     optimdict["hard_constraints"] = argdict["hard_constraints"]
     optimdict["debug"] = argdict["debug"]
+    optimdict["clamp_sf"] = argdict["clamp_sf"] 
     if argdict["threads"] is None:
         threads = 5*len(files)
     else:
@@ -87,5 +88,6 @@ if __name__=="__main__":
     parser.add_argument("--pca", action="store_true",  help="Project the raceline onto a PCA of the boundaries")
     parser.add_argument("--hard-constraints", action="store_true",  help="Enforce hard constraints in the optimization")
     parser.add_argument("--debug", action="store_true",  help="Print current state of the optimization on each iteration for debugging")
+    parser.add_argument("--clamp-sf", action="store_true",  help="Clamp the curvature values to 0 around the start-finish straight")
     args = parser.parse_args()
     optimizeLines(vars(args))
