@@ -23,6 +23,7 @@ def optimizeLines(argdict : dict):
     optimdict["pca"] = argdict["pca"]
     optimdict["hard_constraints"] = argdict["hard_constraints"]
     optimdict["debug"] = argdict["debug"]
+    optimdict["clamp_sf"] = argdict["clamp_sf"] 
     if argdict["threads"] is None:
         threads = 5*len(files)
     else:
@@ -80,12 +81,13 @@ if __name__=="__main__":
     parser.add_argument("--ds", type=float, default=2.5, help="Sample the path at points this distance apart along the path")
     parser.add_argument("--maxiter", type=float, default=20, help="Maximum iterations to run the solver")
     parser.add_argument("--k", default=3, type=int, help="Degree of spline interpolation, ignored if num_samples is 0")
-    parser.add_argument("--minv", default=5.0, type=float, help="Min linear speed the car can have")
+    parser.add_argument("--minv", default=2.0, type=float, help="Min linear speed the car can have")
     parser.add_argument("--maxv", default=90.0, type=float, help="Max linear speed the car can have")
     parser.add_argument("--method", default="SLSQP", type=str, help="Optimization method to use")
     parser.add_argument("--initialguessratio", default=0.98, type=float, help="Scale factors used to determine initial guess")
     parser.add_argument("--pca", action="store_true",  help="Project the raceline onto a PCA of the boundaries")
     parser.add_argument("--hard-constraints", action="store_true",  help="Enforce hard constraints in the optimization")
     parser.add_argument("--debug", action="store_true",  help="Print current state of the optimization on each iteration for debugging")
+    parser.add_argument("--clamp-sf", action="store_true",  help="Clamp the curvature values to 0 around the start-finish straight")
     args = parser.parse_args()
     optimizeLines(vars(args))
