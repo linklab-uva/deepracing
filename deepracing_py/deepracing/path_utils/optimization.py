@@ -41,21 +41,24 @@ class BrakingConstraint():
         self.braking_spline_der : scipy.interpolate.BSpline = self.braking_spline.derivative()
         print(self.linearaccelmat.toarray(), flush=True)
         self.debug : bool = debug
+        self.iter_counter : int = 1
 
     def eval(self, x):
-        print(flush=True)
-        print("Calling the BrakingConstraint eval function", flush=True)
+        if self.debug and (self.iter_counter==1 or ((self.iter_counter%10)==0)):
+            print(flush=True)
+            print("Calling the BrakingConstraint eval function", flush=True)
         accels = self.linearaccelmat*x
         speeds = np.sqrt(x)
         braking_limits = self.braking_spline(speeds)
         self.buffer = braking_limits - accels 
         imin = np.argmax(self.buffer)
-        if self.debug:
+        if self.debug and (self.iter_counter==1 or ((self.iter_counter%10)==0)):
             print("Max constraint value: %f" % (self.buffer[imin],), flush=True)
             print("Braking limit at min constraint value: %f" % (braking_limits[imin],), flush=True)
             print("Linear acceleration at min constraint value: %f" % (accels[imin],), flush=True)
             print("Speed at min constraint value: %f" % (speeds[imin],), flush=True)
             print(flush=True)
+        self.iter_counter+=1
         return self.buffer
     def jac(self, x):
         speeds = np.sqrt(x)
@@ -74,22 +77,25 @@ class LinearAccelConstraint():
         self.forward_accel_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, forward_accel_limits, k=1)
         self.forward_accel_spline_der : scipy.interpolate.BSpline = self.forward_accel_spline.derivative()
         self.debug : bool = debug
+        self.iter_counter : int = 1
      #   print(self.linearaccelmat.toarray()[[0,1,2,3,-4,-3,-2,-1]], flush=True)
 
     def eval(self, x):
-        print(flush=True)
-        print("Calling the LinearAccelConstraint eval function", flush=True)
+        if self.debug and (self.iter_counter==1 or ((self.iter_counter%10)==0)):
+            print(flush=True)
+            print("Calling the LinearAccelConstraint eval function", flush=True)
         accels = self.linearaccelmat*x
         speeds = np.sqrt(x)
         max_accels = self.forward_accel_spline(speeds)
         self.buffer = accels - max_accels
         imax = np.argmax(self.buffer)
-        if self.debug:
+        if self.debug and (self.iter_counter==1 or ((self.iter_counter%10)==0)):
             print("Max constraint value : %f" % (self.buffer[imax],), flush=True)
             print("Linear acceleration limit at max constraint value: %f" % (max_accels[imax],), flush=True)
             print("Linear acceleration at max constraint value: %f" % (accels[imax],), flush=True)
             print("Speed at max constraint value: %f" % (speeds[imax],), flush=True)
             print(flush=True)
+        self.iter_counter+=1
         return self.buffer
     def jac(self, x):
         speeds = np.sqrt(x)
@@ -104,27 +110,32 @@ class CentripetalAccelerationConstraint():
         self.idx = np.arange(0, kappas.shape[0], dtype=np.int64, step=1)
         maxspeedmph = 2.2369362920544025*maxspeed
         print("Max speed in MPH: %f" % (maxspeedmph,), flush=True)
-        speeds = np.asarray([0.00,  45.0,  60.0,  130.0,  170.0,  190.0,  225.0], dtype=np.float64)/2.2369362920544025 #mph to m/s
-        maxcas = np.asarray([1.75,  2.00,  2.50,  3.250,  3.250,  3.500,  3.500], dtype=np.float64)*9.81*factor #Gforce to m/s^2
-        self.caspline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(speeds, maxcas, k=1)
+        self.caspline : scipy.interpolate.BSpline = CentripetalAccelerationConstraint.limitspline(factor=factor)
         self.casplineder : scipy.interpolate.BSpline = self.caspline.derivative()
         self.debug : bool = debug
-       
+        self.iter_counter : int = 1
+    @staticmethod
+    def limitspline(factor = 1.0) -> scipy.interpolate.BSpline:
+        speeds = np.asarray([-100.00, 0.00,  45.0,  60.0,  130.0,  170.0,  190.0,  225.0], dtype=np.float64)/2.2369362920544025 #mph to m/s
+        maxcas = np.asarray([1.75,    1.75,  2.00,  2.50,  3.250,  3.250,  3.500,  3.500], dtype=np.float64)*9.81*factor #Gforce to m/s^2
+        return scipy.interpolate.make_interp_spline(speeds, maxcas, k=1)
     def eval(self, x):
-        print(flush=True)
-        print("Calling the CentripetalAccelerationConstraint eval function", flush=True)
+        if self.debug and (self.iter_counter==1 or ((self.iter_counter%10)==0)):
+            print(flush=True)
+            print("Calling the CentripetalAccelerationConstraint eval function", flush=True)
         speeds = np.sqrt(x)
         centripetal_accels = x*self.kappas
         limits = self.caspline(speeds)
         rtn = centripetal_accels - limits
         imax = np.argmax(rtn)
-        if self.debug:
+        if self.debug and (self.iter_counter==1 or ((self.iter_counter%10)==0)):
             print("Max constraint value: %f" % (rtn[imax],), flush=True)
             print("Centripetal acceleration limit at max constraint value: %f" % (limits[imax],), flush=True)
             print("Centripetal acceleration at max constraint value: %f" % (centripetal_accels[imax],), flush=True)
             print("Speed at max constraint value: %f" % (speeds[imax],), flush=True)
             print("Radius of curvature at max constraint value: %f" % (1.0/self.kappas[imax],), flush=True)
             print(flush=True)
+        self.iter_counter+=1
         return rtn
     def jac(self, x):
         speeds = np.sqrt(x)
@@ -154,11 +165,13 @@ class OptimWrapper():
             self.callback(xcurr)
         tock = time.time()
         speeds = np.sqrt(xcurr)
-        idx = np.arange(-35,36,step=1,dtype=np.int64)
-        if self.debug:
+        if self.debug and (self.iter_counter==1 or ((self.iter_counter%50)==0)):
+            idxmin = -int(200.0/self.ds[0])
+            idxmax = int(200.0/self.ds[0])
+            idx = np.arange(idxmin,idxmax,step=1,dtype=np.int64)
             print(flush=True)
             print("Calling dat functional with counter %d. Current min speed: %f. Current max speed: %f. It has been %f seconds since the last functional call" %(self.iter_counter, np.min(speeds), np.max(speeds), tock-self.tick), flush=True)
-            print("Speeds around start-finish:\n%s" % (str(speeds[idx]),), flush=True)
+            print("Speeds around start-finish:\n%s" % (str(speeds[idx]),))
             print(flush=True)
         self.tick = tock
         self.iter_counter+=1

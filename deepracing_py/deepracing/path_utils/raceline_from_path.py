@@ -79,24 +79,30 @@ def optimizeLine(argdict : dict):
     curvaturve_vecs : np.ndarray = racelinein_helper.spline_2nd_derivative(rsamp)[:,[0,2]]
     kappas : np.ndarray = np.linalg.norm(curvaturve_vecs, ord=2, axis=1)
     clamp : bool = argdict["clamp_sf"]
-    idxclamp = (rsamp<10.0) + (rsamp>(racelinein_helper.distances[-1]-10.0))
+    idxclamp = (rsamp<50.0) + (rsamp>(racelinein_helper.distances[-1]-10.0))
     if clamp:
         kappas[idxclamp] = 0.0
-    print("Curvatures around start-finish: %s" % (str(kappas[idxclamp]),), flush=True)
+    idxcheck = (rsamp<350.0) + (rsamp>(racelinein_helper.distances[-1]-350.0))
+    print("Curvatures around start-finish: %s" % (str(kappas[idxcheck]),), flush=True)
     writer : Writer = Writer(argdict, rsamp, points_withy, ldsamp = ldsamp)
     print("Building the sqp object", flush=True)
     sqp = deepracing.path_utils.optimization.OptimWrapper(minspeed, maxspeed, dsvec, kappas, callback = writer.writeLine, debug=argdict["debug"])
     print("Built the sqp object", flush=True)
 
-    x0speed : float = np.clip(argdict["initialguessratio"]*maxspeed, minspeed, maxspeed)
-    x0 : np.ndarray = (x0speed**2)*np.ones_like(rsamp)
+    cafactor=argdict["cafactor"]
+    initialguessratio = argdict["initialguessratio"]
+    if (initialguessratio is None) or initialguessratio<0.0:
+        maxcurvature = np.max(kappas)
+        x0 : np.ndarray = (cafactor*1.7*9.8/maxcurvature)*np.ones_like(rsamp)
+    else:
+        x0speed : float = np.clip(initialguessratio*maxspeed, minspeed, maxspeed)
+        x0 : np.ndarray = (x0speed**2)*np.ones_like(rsamp)
 
     #method="trust-constr"
     method=argdict["method"]
     maxiter=argdict["maxiter"]
     accelfactor=argdict["accelfactor"]
     brakefactor=argdict["brakefactor"]
-    cafactor=argdict["cafactor"]
     hard_constraints=argdict["hard_constraints"]
     print("Running the optimization", flush=True)
     x0, optimres = sqp.optimize(maxiter=maxiter, method=method, disp=True, keep_feasible=hard_constraints, \
@@ -113,7 +119,7 @@ if __name__=="__main__":
     parser.add_argument("--maxv", default=90.0, type=float, help="Max linear speed the car can have")
     parser.add_argument("--method", default="SLSQP", type=str, help="Optimization method to use")
     parser.add_argument("--outfile", default="raceline_optimized.pcd", type=str, help="What to name the output file. Default is the same name as the input file")
-    parser.add_argument("--initialguessratio", default=0.98, type=float, help="Scale factors used to determine initial guess")
+    parser.add_argument("--initialguessratio", default=None, type=float, help="Scale factors used to determine initial guess")
     parser.add_argument("--accelfactor", default=1.0, type=float, help="Scale the max acceleration limits by this factor")
     parser.add_argument("--brakefactor", default=1.0, type=float, help="Scale the max braking limits by this factor")
     parser.add_argument("--cafactor", default=1.0, type=float,    help="Scale the max centripetal acceleration limits by this factor")
