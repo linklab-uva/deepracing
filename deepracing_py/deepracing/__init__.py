@@ -1,10 +1,11 @@
 from posixpath import isabs
-from typing import List
+from typing import List, Union
 import os
 import numpy as np
 from scipy.spatial.transform import Rotation
 import yaml
 from .path_utils.pcd_utils import loadPCD
+from .path_utils import SmoothPathHelper
 
 class TrackMap():
     def __init__(self, directory : str, align=False, transform_to_map = True) -> None:
@@ -21,6 +22,20 @@ class TrackMap():
         if directory is not None:
             self.loadFromDirectory(directory, align=align, transform_to_map = transform_to_map)
         self.frame_id : str = None
+    def getPathHelper(self, key : str, dtype = np.float32, with_z = True) -> Union[SmoothPathHelper, None]:
+        try:
+            line_structured : np.ndarray = self.linemap[key]["line"]
+            if with_z:
+                line : np.ndarray = np.concatenate([line_structured["x"], line_structured["y"], line_structured["z"]], axis=1, dtype=dtype)
+            else:
+                line : np.ndarray = np.concatenate([line_structured["x"], line_structured["y"]], axis=1, dtype=dtype)
+            if "speed" in line_structured.dtype.names:
+                speeds : np.ndarray = np.squeeze(line_structured["speed"]).astype(dtype)
+            else:
+                speeds = None
+            return SmoothPathHelper(line, speeds=speeds)
+        except KeyError as e:
+            return None
     def loadFromDirectory(self, directory : str, align=False, transform_to_map = True):
         with open(os.path.join(directory, "metadata.yaml"), "r") as f:
             metadatadict : dict = yaml.load(f, Loader=yaml.SafeLoader)
