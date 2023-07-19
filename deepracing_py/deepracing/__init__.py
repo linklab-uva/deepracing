@@ -22,6 +22,7 @@ class TrackMap():
         if directory is not None:
             self.loadFromDirectory(directory, align=align, transform_to_map = transform_to_map)
         self.frame_id : str = None
+        self.clockwise : bool =None
     def getPathHelper(self, key : str, dtype = np.float32, with_z = True) -> Union[SmoothPathHelper, None]:
         try:
             line_structured : np.ndarray = self.linemap[key]["line"]
@@ -48,6 +49,7 @@ class TrackMap():
         self.length = metadatadict["tracklength"]
         self.directory = directory
         self.name = metadatadict["name"]
+        self.clockwise = metadatadict["clockwise"]
         if transform_to_map:
             self.frame_id = "map"
         else:
