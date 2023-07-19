@@ -20,7 +20,7 @@ class TrackMap():
         self.name : str = None
         self.linemap : dict = dict()
         self.frame_id : str = None
-        self.clockwise : bool =None
+        self.clockwise : bool = None
         if directory is not None:
             self.loadFromDirectory(directory, align=align, transform_to_map = transform_to_map)
     def getPathHelper(self, key : str, dtype = np.float32, with_z = True) -> Union[SmoothPathHelper, None]:
@@ -40,9 +40,7 @@ class TrackMap():
     def loadFromDirectory(self, directory : str, align=False, transform_to_map = True):
         with open(os.path.join(directory, "metadata.yaml"), "r") as f:
             metadatadict : dict = yaml.load(f, Loader=yaml.SafeLoader)
-        print(metadatadict)
         self.clockwise = metadatadict["clockwise"]
-        print(self.clockwise)
         self.starting_line_position = np.asarray(metadatadict["startingline_pose"]["position"], dtype=np.float64)
         self.starting_line_rotation = Rotation.from_quat(np.asarray(metadatadict["startingline_pose"]["quaternion"], dtype=np.float64))
         transform : np.ndarray = np.eye(4, dtype=np.float64)
