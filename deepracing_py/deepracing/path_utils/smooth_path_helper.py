@@ -100,6 +100,12 @@ class SmoothPathHelper:
     def closest_point(self, query_point : np.ndarray, bounds_delta=(3.0, 3.0) ) -> typing.Tuple[typing.Union[float,np.ndarray], np.ndarray]:
         _, iclosest = self.kdtree.query(query_point)
         rguess = self.distances[iclosest]
+        for i in range(0, rguess.shape[0]-1):
+            if rguess[i+1]<rguess[i]:
+                rguess[i+1:]+=self.distances[-1]
+                rguess-=self.distances[-1]
+                break
+        # assert(np.all((rguess[1:]-rguess[:-1])>0.0))
 
         if query_point.ndim==1:
             bounds = (rguess - bounds_delta[0], rguess + bounds_delta[1])
