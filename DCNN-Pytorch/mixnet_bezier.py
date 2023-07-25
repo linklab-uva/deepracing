@@ -27,7 +27,8 @@ print(netconfig)
 
 
 
-bagsdir = "/p/DeepRacing/deepracingbags/offsetlines"
+# bagsdir = "/p/DeepRacing/deepracingbags/offsetlines"
+bagsdir = "/media/trent/T7/bags/deepracingbags/offsetlines"
 dsetfiles = [
     os.path.join(bagsdir, "run1.bag_mixnet_data_hamilton_odom/metadata.yaml"),
     os.path.join(bagsdir, "run1.bag_mixnet_data_bottas_odom/metadata.yaml"),
@@ -56,7 +57,7 @@ for dsetmetadatafile in dsetfiles:
     dsets.append(MixNetDataset(data, 0.0, 31, dsetconfig["trackname"]))
 import time
 timestep = 0.1
-batch = 64
+batch = 16
 # bezier_order = config["bezier_order"]
 # prediction_time = config["prediction_time"]
 cuda=True
@@ -70,7 +71,7 @@ firstparam = next(net.parameters())
 dtype = firstparam.dtype
 device = firstparam.device
 nesterov = True
-lr = 5E-4
+lr = 5E-5
 # momentum = lr/10.0
 # optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = momentum, nesterov=(nesterov and (momentum>0.0)))
 optimizer = torch.optim.Adam(net.parameters(), lr = lr)#, weight_decay=1e-8)
@@ -82,15 +83,15 @@ _time_profile_matrix = torch.zeros( (numsamples_prediction-1, num_accel_sections
 ratio = int(numsamples_prediction/num_accel_sections)
 prediction_timestep = dsetconfigs[0]["timestep_prediction"]
 prediction_totaltime = dsetconfigs[0]["predictiontime"]
-tf = prediction_totaltime/num_accel_sections
-for i in range(num_accel_sections):
-    _time_profile_matrix[(i * ratio) : ((i + 1) * ratio), i] = torch.linspace(
-        prediction_timestep, tf, ratio, dtype=dtype, device=device
-    )
-    _time_profile_matrix[((i + 1) * ratio) :, i] = tf
-_time_profile_matrix = torch.cat([torch.zeros_like(_time_profile_matrix[0]).unsqueeze(0), _time_profile_matrix], dim=0)
-_time_profile_matrix = _time_profile_matrix.unsqueeze(0)
-print(_time_profile_matrix)
+time_per_segment = prediction_totaltime/num_accel_sections
+# for i in range(num_accel_sections):
+#     _time_profile_matrix[(i * ratio) : ((i + 1) * ratio), i] = torch.linspace(
+#         prediction_timestep, tf, ratio, dtype=dtype, device=device
+#     )
+#     _time_profile_matrix[((i + 1) * ratio) :, i] = tf
+# _time_profile_matrix = torch.cat([torch.zeros_like(_time_profile_matrix[0]).unsqueeze(0), _time_profile_matrix], dim=0)
+# _time_profile_matrix = _time_profile_matrix.unsqueeze(0)
+# print(_time_profile_matrix)
 
 # print(_time_profile_matrix)
 # print(_time_profile_matrix.shape)
@@ -102,8 +103,27 @@ averagevelocityloss = 1E9
 averagevelocityerror = 1E9
 epoch = 0
 fignumber = 1
+numsamples_prediction = dsetconfigs[0]["numsamples_prediction"]
+tsamp = torch.linspace(0.0, prediction_totaltime, dtype=dtype, device=device, steps=numsamples_prediction)
+tsamp_dense = tsamp.view(num_accel_sections, -1)
 
 kbezier = 4
+kbeziervel = 3
+points_per_segment = int(numsamples_prediction/num_accel_sections)
+HugeM_dense : torch.Tensor = torch.zeros([num_accel_sections, points_per_segment, num_accel_sections, kbeziervel+1], device=device, dtype=dtype)
+HugeM_dense_antideriv : torch.Tensor = torch.zeros([num_accel_sections, points_per_segment, num_accel_sections, kbeziervel+2], device=device, dtype=dtype)
+
+for i in range(num_accel_sections):
+    subt = tsamp_dense[i] - i*time_per_segment
+    subs = subt/time_per_segment
+    HugeM_dense[i, :, i] = deepracing_models.math_utils.bezierM(subs.unsqueeze(0), kbeziervel).squeeze(0)
+    HugeM_dense_antideriv[i, :, i] = deepracing_models.math_utils.bezierM(subs.unsqueeze(0), kbeziervel+1).squeeze(0)
+HugeM : torch.Tensor = HugeM_dense.view(tsamp.shape[0], (kbeziervel+1)*num_accel_sections).unsqueeze(0)
+HugeM_antideriv : torch.Tensor = HugeM_dense_antideriv.view(tsamp.shape[0], (kbeziervel+2)*num_accel_sections).unsqueeze(0)
+print(HugeM.shape)
+print(HugeM_antideriv.shape)
+# exit(0)
+
 while (averagepositionloss>1.0) or (averagevelocityerror>1.0):
     totalloss = 0.0
     total_position_loss = 0.0
@@ -155,39 +175,68 @@ while (averagepositionloss>1.0) or (averagevelocityerror>1.0):
             tangent_future = tangent_future.cpu().type(dtype)
         currentbatchsize = int(position_history.shape[0])
 
+
+        # print(tangent_future[:,0])
+        (mix_out, acc_out_) = net(position_history, left_bound_input, right_bound_input)
+        acc_out = torch.clamp(acc_out_ + speed_future[:,0].unsqueeze(-1), 5.0*torch.ones_like(speed_future[0,0]), 110.0*torch.ones_like(speed_future[0,0]))
+        
+        coefs_inferred = torch.zeros(currentbatchsize, num_accel_sections, 4, dtype=acc_out.dtype, device=acc_out.device)
+        coefs_inferred[:,0,0] = speed_future[:,0]
+        coefs_inferred[:,0,[1,2]] = acc_out[:,[0,1]]
+        coefs_inferred[:,1:,1] = acc_out[:,2:-1]#.view(coefs_inferred[1:,1].shape)
+        coefs_inferred[:,-1,-1] = acc_out[:,-1]
+        for j in range(coefs_inferred.shape[1]-1):
+            coefs_inferred[:, j,-1] = coefs_inferred[:, j+1,0] = \
+                0.5*(coefs_inferred[:, j,2] + coefs_inferred[:, j+1,1])
+            coefs_inferred[:, j+1,2] = 2.0*coefs_inferred[:, j+1,1] - 2.0*coefs_inferred[:, j, 2] + coefs_inferred[:, j, 1]
+        HugeMBatch=HugeM.expand(currentbatchsize, numsamples_prediction, -1)
+        coefs = coefs_inferred.view(currentbatchsize, -1).unsqueeze(-1)
+        speed_profile_out = torch.matmul(HugeMBatch, coefs).squeeze(-1)
+        # print(bcurves_r[:,:,-1])
+        # print(torch.stack([left_boundary_label[:,-1], right_boundary_label[:,-1], centerline_label[:,-1], raceline_label[:,-1]], dim=1))
+
+        # p0 = torch.zeros_like(coefs_inferred.detach()[:,:,0]).unsqueeze(-1)
+        # coefs_inferred_antideriv = deepracing_models.math_utils.bezier.bezierAntiDerivative(coefs_inferred.unsqueeze(-1), p0).squeeze(-1)
+        # HugeMAntiderivBatch=HugeM_antideriv.expand(currentbatchsize, numsamples_prediction, -1)
+        # antiderivs_predicted = (time_per_segment/(kbeziervel+1))*torch.matmul(HugeMAntiderivBatch, coefs_inferred_antideriv.view(currentbatchsize, -1).unsqueeze(-1)).squeeze(-1)
+        # arclengths_predicted = antiderivs_predicted
+        # for i in range(num_accel_sections-1):
+        #     arclengths_predicted[:,(i+1)*points_per_segment:(i+2)*points_per_segment]+=arclengths_predicted[:,(i+1)*points_per_segment-1,None]
+        # delta_r : torch.Tensor = arclengths_predicted[:,-1] - arclengths_predicted[:,0]
+        # future_arclength_rel : torch.Tensor = arclengths_predicted - arclengths_predicted[:,0,None]
+                   
         delta_r : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
         future_arclength_rel : torch.Tensor = future_arclength - future_arclength[:,0,None]
+
+        arclengths_out_s = future_arclength_rel/delta_r[:,None]
 
         known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2])
         known_control_points[:,0] = position_future[:,0]
         known_control_points[:,1] = known_control_points[:,0] + (delta_r[:,None]/kbezier)*tangent_future[:,0]
-
-        # print(tangent_future[:,0])
-        (mix_out, acc_out) = net(position_history, left_bound_input, right_bound_input)
         mixed_control_points = torch.sum(bcurves_r[:,:,2:]*mix_out[:,:,None,None], dim=1)# + known_control_points[:,1,None]
 
         predicted_bcurve = torch.cat([known_control_points, mixed_control_points], dim=1) 
 
-        time_profile_matrices = _time_profile_matrix.expand(currentbatchsize, _time_profile_matrix.shape[1], _time_profile_matrix.shape[2])
-        speed_profile_out = torch.ones_like(speed_future)*speed_future[:,0,None] + (time_profile_matrices @ acc_out.unsqueeze(-1)).squeeze(-1)
-        
-        accel_profile_out = (speed_profile_out[:,1:] - speed_profile_out[:,:-1])*prediction_timestep
-        dr_out = prediction_timestep*speed_profile_out[:,:-1] + (0.5*(prediction_timestep**2))*accel_profile_out
-        arclengths_out = torch.zeros_like(future_arclength)
-        arclengths_out[:,1:] = torch.cumsum(dr_out, 1)
-        arclengths_out_s = arclengths_out/(arclengths_out[:,-1,None])
+        # print(predicted_arclengths)
 
-        # arclengths_out_s = future_arclength_rel/delta_r[:,None]
+        # time_profile_matrices = _time_profile_matrix.expand(currentbatchsize, _time_profile_matrix.shape[1], _time_profile_matrix.shape[2])
+        # speed_profile_out = torch.ones_like(speed_future)*speed_future[:,0,None] + (time_profile_matrices @ acc_out.unsqueeze(-1)).squeeze(-1)
+        
+        # accel_profile_out = (speed_profile_out[:,1:] - speed_profile_out[:,:-1])*prediction_timestep
+        # dr_out = prediction_timestep*speed_profile_out[:,:-1] + (0.5*(prediction_timestep**2))*accel_profile_out
+        # arclengths_out = torch.zeros_like(future_arclength)
+        # arclengths_out[:,1:] = torch.cumsum(dr_out, 1)
+        # asdf = deepracing_models.math_utils.bezierArcLength(predicted_bcurve, N=49)
+        # arclengths_out_s = asdf[-1]
+        # print(arclengths_out_s)
+        # print(asdf)
+
+
+        loss_velocity : torch.Tensor = (lossfunc(speed_profile_out, speed_future))*(prediction_timestep**2)
         Mbezierout = deepracing_models.math_utils.bezierM(arclengths_out_s, kbezier)
-
         predicted_position_future = torch.matmul(Mbezierout, predicted_bcurve)
-
-
-        
         loss_position : torch.Tensor = (lossfunc(predicted_position_future, position_future))
-        loss_velocity : torch.Tensor = (prediction_timestep**2)*(lossfunc(speed_profile_out, speed_future))
-        arclength_loss : torch.Tensor = 0.1*F.mse_loss(arclengths_out, future_arclength_rel)
-        loss = loss_position + loss_velocity + arclength_loss
+        loss = loss_position + loss_velocity# + arclength_loss
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -200,40 +249,46 @@ while (averagepositionloss>1.0) or (averagevelocityerror>1.0):
         averagevelocityloss = total_velocity_loss/(i+1)
         averagevelocityerror = total_velocity_error/(i+1)
         tq.set_postfix({"average position loss" : averagepositionloss, "average velocity error" : averagevelocityerror, "average velocity loss" : averagevelocityloss, "average loss" : averageloss, "epoch": epoch})
-    if (averagepositionloss<9.0) and (epoch%25)==0:
-        position_history_cpu = position_history[0].cpu()
-        position_future_cpu = position_future[0].cpu()
-        predicted_position_future_cpu = predicted_position_future[0].detach().cpu()
-        left_bound_input_cpu = left_bound_input[0].cpu()
-        right_bound_input_cpu = right_bound_input[0].cpu()
-        left_bound_label_cpu = left_boundary_label[0].cpu()
-        right_bound_label_cpu = right_boundary_label[0].cpu()
-        centerline_label_cpu = centerline_label[0].cpu()
-        raceline_label_cpu = raceline_label[0].cpu()
-        fig : matplotlib.figure.Figure = plt.figure()
-        scale_array = 0.5
-        plt.plot(position_history_cpu[:,0], position_history_cpu[:,1], label="Position History")#, s=scale_array)
-        plt.plot(position_history_cpu[0,0], position_history_cpu[0,1], "g*", label="Position History Start")
-        plt.plot(position_history_cpu[-1,0], position_history_cpu[-1,1], "r*", label="Position History End")
-        plt.scatter(position_future_cpu[:,0], position_future_cpu[:,1], label="Ground Truth Future", s=scale_array)
-        plt.plot(predicted_position_future_cpu[:,0], predicted_position_future_cpu[:,1], label="Prediction")#, s=scale_array)
-        plt.plot(centerline_label_cpu[:,0], centerline_label_cpu[:,1], label="Centerline Label")#, s=scale_array)
-        plt.plot(raceline_label_cpu[:,0], raceline_label_cpu[:,1], label="Raceline Label")#, s=scale_array)
-        plt.plot([],[], label="Boundaries", color="navy")#, s=scale_array)
-        plt.legend()
-        # plt.plot(left_bound_input_cpu[:,0], left_bound_input_cpu[:,1], label="Left Bound Input", color="navy")
-        # plt.plot(right_bound_input_cpu[:,0], right_bound_input_cpu[:,1], label="Right Bound Input", color="navy")
-        plt.plot(left_bound_label_cpu[:,0], left_bound_label_cpu[:,1], label="Left Bound Label", color="navy")#, s=scale_array)
-        plt.plot(right_bound_label_cpu[:,0], right_bound_label_cpu[:,1], label="Right Bound Label", color="navy")#, s=scale_array)
-        plt.axis("equal")
-        print(mix_out)
-        fig.savefig(os.path.join(graphics_dir, "fig_%d.png" % fignumber))
-        fig.savefig(os.path.join(graphics_dir, "fig_%d.svg" % fignumber))
-        fig.savefig(os.path.join(graphics_dir, "fig_%d.pdf" % fignumber))
-        with open(os.path.join(graphics_dir, "fig_%d.pkl" % fignumber), "wb") as f:
-            pkl.dump(fig, f)
-        plt.close(fig=fig)
-        fignumber+=1
+        # print(i)
+        if True and epoch>10:
+            bcurves_r_cpu = bcurves_r[0].cpu()
+            position_history_cpu = position_history[0].cpu()
+            position_future_cpu = position_future[0].cpu()
+            predicted_position_future_cpu = predicted_position_future[0].detach().cpu()
+            left_bound_input_cpu = left_bound_input[0].cpu()
+            right_bound_input_cpu = right_bound_input[0].cpu()
+            left_bound_label_cpu = left_boundary_label[0].cpu()
+            right_bound_label_cpu = right_boundary_label[0].cpu()
+            centerline_label_cpu = centerline_label[0].cpu()
+            raceline_label_cpu = raceline_label[0].cpu()
+            predicted_bcurve_cpu = predicted_bcurve[0].detach().clone().cpu()
+            fig : matplotlib.figure.Figure = plt.figure()
+            scale_array = 5.0
+            plt.plot(position_history_cpu[:,0], position_history_cpu[:,1], label="Position History")#, s=scale_array)
+            plt.plot(position_history_cpu[0,0], position_history_cpu[0,1], "g*", label="Position History Start")
+            plt.plot(position_history_cpu[-1,0], position_history_cpu[-1,1], "r*", label="Position History End")
+            plt.scatter(position_future_cpu[:,0], position_future_cpu[:,1], label="Ground Truth Future", s=scale_array)
+            plt.plot(predicted_position_future_cpu[:,0], predicted_position_future_cpu[:,1], label="Prediction")#, s=scale_array)
+            plt.plot(centerline_label_cpu[:,0], centerline_label_cpu[:,1], label="Centerline Label")#, s=scale_array)
+            plt.plot(raceline_label_cpu[:,0], raceline_label_cpu[:,1], label="Raceline Label")#, s=scale_array)
+            plt.scatter(bcurves_r_cpu[0,:,0], bcurves_r_cpu[0,:,1], s=scale_array)
+            plt.scatter(bcurves_r_cpu[1,:,0], bcurves_r_cpu[1,:,1], s=scale_array)
+            plt.scatter(bcurves_r_cpu[2,:,0], bcurves_r_cpu[2,:,1], s=scale_array)
+            plt.scatter(bcurves_r_cpu[3,:,0], bcurves_r_cpu[3,:,1], s=scale_array)
+            plt.plot([],[], label="Boundaries", color="navy")#, s=scale_array)
+            plt.legend()
+            # plt.plot(left_bound_input_cpu[:,0], left_bound_input_cpu[:,1], label="Left Bound Input", color="navy")
+            # plt.plot(right_bound_input_cpu[:,0], right_bound_input_cpu[:,1], label="Right Bound Input", color="navy")
+            plt.plot(left_bound_label_cpu[:,0], left_bound_label_cpu[:,1], label="Left Bound Label", color="navy")#, s=scale_array)
+            plt.plot(right_bound_label_cpu[:,0], right_bound_label_cpu[:,1], label="Right Bound Label", color="navy")#, s=scale_array)
+            plt.axis("equal")
+            print(mix_out[0])
+            # print(predicted_bcurve_cpu)
+            print(left_boundary_label_arclength[0].cpu())
+            print(right_boundary_label_arclength[0].cpu())
+            print(centerline_label_arclength[0].cpu())
+            print(raceline_label_arclength[0].cpu())
+            plt.show()
         # plt.show()
     # scheduler.step()
 
