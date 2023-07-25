@@ -22,7 +22,7 @@
     "acc_decoder": {
         "in_size": 16,
         "hidden_size": 32,
-        "num_acc_sections": 25,
+        "num_acc_sections": 10,
         "max_acc": 30
     }
 }

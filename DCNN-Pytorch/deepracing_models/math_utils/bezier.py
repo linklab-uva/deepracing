@@ -232,6 +232,20 @@ def evalBezierSinglePoint(s : torch.Tensor, control_points : torch.Tensor):
     order_int : int = num_control_points - 1
     return torch.matmul(bezierM(s.unsqueeze(-1), order_int), control_points).squeeze(1)
  
+def bezierAntiDerivative(control_points : torch.Tensor, p0 : torch.Tensor) -> torch.Tensor:
+    shapeout : list = list(control_points.shape)
+    shapeout[-2]+=1
+    numpoints_in = control_points.shape[-2]
+    d = control_points.shape[-1]
+    control_points_flat = control_points.view(-1, numpoints_in, d)
+    p0flat = p0.view(-1, d)
+    batchflat = p0flat.shape[0]
+    cumsum_control_points = torch.cumsum(control_points_flat, 1) + p0flat.view(batchflat, 1, d).expand(batchflat, numpoints_in, d)
+    antideriv_control_points = torch.cat([p0flat.view(batchflat,1,d), cumsum_control_points], dim=1)
+    return antideriv_control_points.view(shapeout)
+
+    
+    
 def bezierDerivative(control_points : torch.Tensor, t = None, M = None, order = 1, covariance : Union[None, torch.Tensor] = None )\
      -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
     if (bool(t is not None) ^ bool(M is not None)):

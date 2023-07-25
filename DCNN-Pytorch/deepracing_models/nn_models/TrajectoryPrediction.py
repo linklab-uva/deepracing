@@ -73,7 +73,7 @@ class BezierMixNet(nn.Module):
         # output linear layer of the acceleration decoder:
         self._acc_out_layer = nn.Linear(params["acc_decoder"]["hidden_size"], 1)
 
-        self._final_linear_layer = nn.Linear(4,4)
+        self._final_linear_layer = nn.Linear(4,4, bias=True)
         self._final_linear_layer.weight = torch.nn.Parameter(torch.eye(4) + 0.001*torch.randn(4,4))
         self._final_linear_layer.bias = torch.nn.Parameter(0.001*torch.randn(4))
         # migrating the model parameters to the chosen device:
@@ -112,9 +112,10 @@ class BezierMixNet(nn.Module):
         enc = torch.squeeze(torch.cat((hist_h, left_h, right_h), 2), dim=0)
 
         # path mixture through softmax:
-        # mix_out_softmax = torch.softmax(self._mix_out_layers(enc), dim=1)
-        mix_out_softmax = F.sigmoid(self._mix_out_layers(enc))
+        mix_out_softmax = torch.softmax(self._mix_out_layers(enc), dim=1)
+        # mix_out_softmax = F.sigmoid(self._mix_out_layers(enc))
         # mix_out_softmax = self._mix_out_layers(enc)
+        # mix_out = mix_out_softmax
         mix_out = self._final_linear_layer(mix_out_softmax)
 
         # initial velocity:
@@ -125,7 +126,7 @@ class BezierMixNet(nn.Module):
         # acceleration decoding:
         dec_input = torch.relu(self._dyn_embedder(enc)).unsqueeze(dim=1)
         dec_input = dec_input.repeat(
-            1, self._params["acc_decoder"]["num_acc_sections"], 1
+            1, self._params["acc_decoder"]["num_acc_sections"] + 2, 1
         )
         acc_out, _ = self._acc_decoder(dec_input)
         acc_out = torch.squeeze(self._acc_out_layer(torch.relu(acc_out)), dim=2)
