@@ -74,7 +74,7 @@ firstparam = next(net.parameters())
 dtype = firstparam.dtype
 device = firstparam.device
 nesterov = True
-lr = 1E-3
+lr = 1E-5
 # momentum = lr/10.0
 # optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = momentum, nesterov=(nesterov and (momentum>0.0)))
 optimizer = torch.optim.Adam(net.parameters(), lr = lr)#, weight_decay=1e-8)
@@ -224,19 +224,19 @@ while (averagepositionloss>1.0) or (averagevelocityerror>1.0):
 
         arclengths_out_s = future_arclength_rel/delta_r[:,None]
 
-        # known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2])
-        known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:3])
+        known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2])
+        # known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:3])
         known_control_points[:,0] = position_future[:,0]
         known_control_points[:,1] = known_control_points[:,0] + (delta_r[:,None]/kbezier)*tangent_future[:,0]
 
-        n0 = (tangent_future[:,0])[:,[1,0]].clone()
-        n0[:,0]*=-1.0
-        signed_curvatures : torch.Tensor = angvel_future[:,0,2]/speed_future[:,0]
-        signed_curvature_vecs : torch.Tensor = n0*signed_curvatures[:,None]
-        known_control_points[:,2] = signed_curvature_vecs*(delta_r[:,None]**2/(kbezier*(kbezier-1))) + 2.0*known_control_points[:,1] - known_control_points[:,0]
+        # n0 = (tangent_future[:,0])[:,[1,0]].clone()
+        # n0[:,0]*=-1.0
+        # signed_curvatures : torch.Tensor = angvel_future[:,0,2]/speed_future[:,0]
+        # signed_curvature_vecs : torch.Tensor = n0*signed_curvatures[:,None]
+        # known_control_points[:,2] = signed_curvature_vecs*(delta_r[:,None]**2/(kbezier*(kbezier-1))) + 2.0*known_control_points[:,1] - known_control_points[:,0]
         
-        # mixed_control_points = torch.sum(bcurves_r[:,:,2:]*mix_out[:,:,None,None], dim=1)
-        mixed_control_points = torch.sum(bcurves_r[:,:,3:]*mix_out[:,:,None,None], dim=1)
+        mixed_control_points = torch.sum(bcurves_r[:,:,2:]*mix_out[:,:,None,None], dim=1)
+        # mixed_control_points = torch.sum(bcurves_r[:,:,3:]*mix_out[:,:,None,None], dim=1)
 
         predicted_bcurve = torch.cat([known_control_points, mixed_control_points], dim=1) 
 
