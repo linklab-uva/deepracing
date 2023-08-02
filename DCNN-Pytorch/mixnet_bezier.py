@@ -8,7 +8,6 @@ import yaml
 import os
 import numpy as np
 import pickle as pkl
-from path_server.smooth_path_helper import SmoothPathHelper
 import tqdm
 import matplotlib.figure
 import matplotlib.pyplot as plt
@@ -27,11 +26,11 @@ print(netconfig)
 
 
 
-bagsdir = "/p/DeepRacing/deepracingbags/offsetlines"
-# bagsdir = "/media/trent/T7/bags/deepracingbags/offsetlines"
+# bagsdir = "/p/DeepRacing/deepracingbags/offsetlines"
+bagsdir = "/media/trent/T7/bags/deepracingbags/offsetlines"
 dsetfiles = [
     os.path.join(bagsdir, "run1.bag_mixnet_data_hamilton_odom/metadata.yaml"),
-    os.path.join(bagsdir, "run1.bag_mixnet_data_bottas_odom/metadata.yaml"),
+    # os.path.join(bagsdir, "run1.bag_mixnet_data_bottas_odom/metadata.yaml"),
 ]
 graphics_dir = os.path.join(bagsdir, "graphics")
 if os.path.isdir(graphics_dir):
@@ -59,6 +58,7 @@ for dsetmetadatafile in dsetfiles:
         elif ext==".npz":
             datanp = np.load(f, allow_pickle=True)
             data : dict = {k : datanp[k].copy() for k in datanp.keys()}
+            print(data.keys())
         else:
             raise ValueError("Unknown extension %s" % (ext,))
     dsets.append(MixNetDataset(data, 0.0, 31, dsetconfig["trackname"]))
@@ -74,7 +74,7 @@ firstparam = next(net.parameters())
 dtype = firstparam.dtype
 device = firstparam.device
 nesterov = True
-lr = 1E-5
+lr = 1E-3
 # momentum = lr/10.0
 # optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = momentum, nesterov=(nesterov and (momentum>0.0)))
 optimizer = torch.optim.Adam(net.parameters(), lr = lr)#, weight_decay=1e-8)
@@ -106,26 +106,13 @@ averagevelocityloss = 1E9
 averagevelocityerror = 1E9
 epoch = 0
 fignumber = 1
+
 numsamples_prediction = dsetconfigs[0]["numsamples_prediction"]
 tsamp = torch.linspace(0.0, prediction_totaltime, dtype=dtype, device=device, steps=numsamples_prediction)
-tsamp_dense = tsamp.view(num_accel_sections, -1)
-
+tswitchingpoints = torch.linspace(0.0, prediction_totaltime, dtype=dtype, device=device, steps=num_accel_sections+1)
+dt = tswitchingpoints[1:] - tswitchingpoints[:-1]
 kbezier = 4
 kbeziervel = 3
-points_per_segment = int(numsamples_prediction/num_accel_sections)
-HugeM_dense : torch.Tensor = torch.zeros([num_accel_sections, points_per_segment, num_accel_sections, kbeziervel+1], device=device, dtype=dtype)
-HugeM_dense_antideriv : torch.Tensor = torch.zeros([num_accel_sections, points_per_segment, num_accel_sections, kbeziervel+2], device=device, dtype=dtype)
-
-for i in range(num_accel_sections):
-    subt = tsamp_dense[i] - i*time_per_segment
-    subs = subt/time_per_segment
-    HugeM_dense[i, :, i] = deepracing_models.math_utils.bezierM(subs.unsqueeze(0), kbeziervel).squeeze(0)
-    HugeM_dense_antideriv[i, :, i] = deepracing_models.math_utils.bezierM(subs.unsqueeze(0), kbeziervel+1).squeeze(0)
-HugeM : torch.Tensor = HugeM_dense.view(tsamp.shape[0], (kbeziervel+1)*num_accel_sections).unsqueeze(0)
-HugeM_antideriv : torch.Tensor = HugeM_dense_antideriv.view(tsamp.shape[0], (kbeziervel+2)*num_accel_sections).unsqueeze(0)
-print(HugeM.shape)
-print(HugeM_antideriv.shape)
-# exit(0)
 
 while (averagepositionloss>1.0) or (averagevelocityerror>1.0):
     totalloss = 0.0
@@ -184,32 +171,41 @@ while (averagepositionloss>1.0) or (averagevelocityerror>1.0):
         # print(tangent_future[:,0])
         (mix_out_, acc_out_) = net(position_history, left_bound_input, right_bound_input)
         one = torch.ones_like(speed_future[0,0])
-        mix_out = torch.clamp(mix_out_, -0.075*one, 1.10*one)
+        mix_out = torch.clamp(mix_out_, -0.5*one, 1.5*one)
         # + speed_future[:,0].unsqueeze(-1)
-        acc_out = acc_out_
+        acc_out = acc_out_ + speed_future[:,0].unsqueeze(-1)
         # acc_out = torch.clamp(acc_out_ + speed_future[:,0].unsqueeze(-1), 5.0*one, 110.0*one)
         
-        delta_r : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
-        future_arclength_rel : torch.Tensor = future_arclength - future_arclength[:,0,None]
 
         coefs_inferred = torch.zeros(currentbatchsize, num_accel_sections, 4, dtype=acc_out.dtype, device=acc_out.device)
         coefs_inferred[:,0,0] = speed_future[:,0]
         coefs_inferred[:,0,[1,2]] = acc_out[:,[0,1]]
-        coefs_inferred[:,1:,1] = acc_out[:,2:-1]#.view(coefs_inferred[1:,1].shape)
+        coefs_inferred[:,1:,1] = acc_out[:,2:-1]
         coefs_inferred[:,-1,-1] = acc_out[:,-1]
-        # coefs_inferred[:,-1,-1] = delta_r*(kbeziervel+1)/time_per_segment - torch.sum(coefs_inferred.view(currentbatchsize,-1)[:,:-1], dim=1)
-        # coefs_inferred[:,-1,-1] = delta_r*time_per_segment/(kbeziervel+1) - torch.sum(coefs_inferred.view(currentbatchsize,-1)[:,:-1], dim=1)
         for j in range(coefs_inferred.shape[1]-1):
             coefs_inferred[:, j,-1] = coefs_inferred[:, j+1,0] = \
                 0.5*(coefs_inferred[:, j,-2] + coefs_inferred[:, j+1,1])
             if kbeziervel>2:
                 coefs_inferred[:, j+1,-2] = 2.0*coefs_inferred[:, j+1,1] - 2.0*coefs_inferred[:, j, -2] + coefs_inferred[:, j, -3]
-        HugeMBatch=HugeM.expand(currentbatchsize, numsamples_prediction, -1)
-        coefs = coefs_inferred.view(currentbatchsize, -1).unsqueeze(-1)
-        speed_profile_out = torch.matmul(HugeMBatch, coefs).squeeze(-1)
+        # coefs = coefs_inferred.view(currentbatchsize, -1).unsqueeze(-1)
+        # speed_profile_out = torch.matmul(HugeMBatch, coefs).squeeze(-1)
+
+        tstart_batch = tswitchingpoints[:-1].unsqueeze(0).expand(currentbatchsize, num_accel_sections)
+        dt_batch = dt.unsqueeze(0).expand(currentbatchsize, num_accel_sections)
+        teval_batch = tsamp.unsqueeze(0).expand(currentbatchsize, numsamples_prediction)
+        speed_profile_out, idx_buckets = deepracing_models.math_utils.compositeBezerEval(tstart_batch, dt_batch, coefs_inferred.unsqueeze(-1), teval_batch)
+        
+        
+
+        coefs_flat = coefs_inferred.view(currentbatchsize, -1)
+        predicted_delta_r = (prediction_totaltime/((kbeziervel+1)*num_accel_sections))*torch.sum(coefs_flat, dim=1)
+
+
+        delta_r : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
+        future_arclength_rel : torch.Tensor = future_arclength - future_arclength[:,0,None]
+
+
         loss_velocity : torch.Tensor = (lossfunc(speed_profile_out, speed_future))*(prediction_timestep**2)
-        # print(bcurves_r[:,:,-1])
-        # print(torch.stack([left_boundary_label[:,-1], right_boundary_label[:,-1], centerline_label[:,-1], raceline_label[:,-1]], dim=1))
 
         # p0 = torch.zeros_like(coefs_inferred.detach()[:,:,0]).unsqueeze(-1)
         # coefs_inferred_antideriv = deepracing_models.math_utils.bezier.bezierAntiDerivative(coefs_inferred.unsqueeze(-1), p0).squeeze(-1)
