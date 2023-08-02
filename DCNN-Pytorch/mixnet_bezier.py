@@ -86,19 +86,6 @@ ratio = int(numsamples_prediction/num_accel_sections)
 prediction_timestep = dsetconfigs[0]["timestep_prediction"]
 prediction_totaltime = dsetconfigs[0]["predictiontime"]
 time_per_segment = prediction_totaltime/num_accel_sections
-# _time_profile_matrix = torch.zeros( (numsamples_prediction-1, num_accel_sections), dtype=dtype, device=device)
-# for i in range(num_accel_sections):
-#     _time_profile_matrix[(i * ratio) : ((i + 1) * ratio), i] = torch.linspace(
-#         prediction_timestep, tf, ratio, dtype=dtype, device=device
-#     )
-#     _time_profile_matrix[((i + 1) * ratio) :, i] = tf
-# _time_profile_matrix = torch.cat([torch.zeros_like(_time_profile_matrix[0]).unsqueeze(0), _time_profile_matrix], dim=0)
-# _time_profile_matrix = _time_profile_matrix.unsqueeze(0)
-# print(_time_profile_matrix)
-
-# print(_time_profile_matrix)
-# print(_time_profile_matrix.shape)
-# time.sleep(2.0)
 net.train()
 averageloss = 1E9
 averagepositionloss = 1E9

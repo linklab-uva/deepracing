@@ -73,16 +73,18 @@ class BezierMixNet(nn.Module):
         # output linear layer of the acceleration decoder:
         self._acc_out_layer = nn.Linear(params["acc_decoder"]["hidden_size"], 1)
 
-        self._final_linear_layer = nn.Linear(4,4, bias=True)
-        self._final_linear_layer.weight = torch.nn.Parameter(torch.eye(4) + 0.001*torch.randn(4,4))
-        self._final_linear_layer.bias = torch.nn.Parameter(0.001*torch.randn(4))
+        use_bias = True
+        self._final_linear_layer = nn.Linear(4,4, bias=use_bias)
+        self._final_linear_layer.weight = torch.nn.Parameter(torch.eye(4) + 0.0001*torch.randn(4,4))
+        if use_bias:
+            self._final_linear_layer.bias = torch.nn.Parameter(0.0001*torch.randn(4))
         # migrating the model parameters to the chosen device:
         if params["use_cuda"]>=0 and torch.cuda.is_available():
             self.device = torch.device("cuda:%d" % (params["use_cuda"],))
-            print("Using CUDA as device for MixNet")
+            print("Using CUDA as device for BezierMixNet")
         else:
             self.device = torch.device("cpu")
-            print("Using CPU as device for MixNet")
+            print("Using CPU as device for BezierMixNet")
         
         self.to(self.device)
 
