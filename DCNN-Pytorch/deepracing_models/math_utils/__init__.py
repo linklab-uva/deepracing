@@ -5,7 +5,7 @@ from .bezier import bezierM
 from .bezier import bezierDerivative
 from .bezier import bezierPolyRoots
 from .bezier import evalBezier, evalBezierSinglePoint
-from .bezier import bezierArcLength, compositeBezierSpline, closedPathAsBezierSpline, polynomialFormConversion, elevateBezierOrder, compositeBezerEval
+from .bezier import bezierArcLength, compositeBezierSpline, compositeBezierAntiderivative, closedPathAsBezierSpline, polynomialFormConversion, elevateBezierOrder, compositeBezerEval
 from .fitting import pinv, fitAffine
 from .bezier import BezierCurveModule
 
