@@ -203,8 +203,7 @@ while (averagepositionloss>1.0) or (averagevelocityerror>1.0):
         delta_r : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
         future_arclength_rel : torch.Tensor = future_arclength - future_arclength[:,0,None]
 
-        # coefs_antiderivative = deepracing_models.math_utils.compositeBezierAntiderivative(coefs_inferred.unsqueeze(-1), dt_batch)
-        # arclengths_out, _ = deepracing_models.math_utils.compositeBezerEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
+       
         # delta_r : torch.Tensor = arclengths_out[:,-1] - arclengths_out[:,0]
         # future_arclength_rel : torch.Tensor = arclengths_out - arclengths_out[:,0,None]
 
@@ -241,13 +240,15 @@ while (averagepositionloss>1.0) or (averagevelocityerror>1.0):
 
         predicted_bcurve = torch.cat([known_control_points, mixed_control_points], dim=1) 
 
-
+        coefs_antiderivative = deepracing_models.math_utils.compositeBezierAntiderivative(coefs_inferred.unsqueeze(-1), dt_batch)
+        arclengths_out, _ = deepracing_models.math_utils.compositeBezerEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
+        arclength_loss = lossfunc(arclengths_out, future_arclength_rel)
 
         Mbezierout = deepracing_models.math_utils.bezierM(arclengths_out_s, kbezier)
         predicted_position_future = torch.matmul(Mbezierout, predicted_bcurve)
 
         loss_position : torch.Tensor = lossfunc(predicted_position_future, position_future)
-        loss = loss_position + loss_velocity
+        loss = loss_position + 2.0*loss_velocity + arclength_loss
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
