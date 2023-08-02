@@ -7,7 +7,7 @@ import typing
 import deepracing_models
 import deepracing_models.math_utils
 from deepracing_models.math_utils import SimplePathHelper
-from path_server.smooth_path_helper import SmoothPathHelper
+from deepracing.path_utils.smooth_path_helper import SmoothPathHelper
 from tqdm import tqdm
 import torch.jit
 
