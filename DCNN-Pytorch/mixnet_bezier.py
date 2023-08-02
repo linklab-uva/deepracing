@@ -30,7 +30,7 @@ print(netconfig)
 bagsdir = "/media/trent/T7/bags/deepracingbags/offsetlines"
 dsetfiles = [
     os.path.join(bagsdir, "run1.bag_mixnet_data_hamilton_odom/metadata.yaml"),
-    # os.path.join(bagsdir, "run1.bag_mixnet_data_bottas_odom/metadata.yaml"),
+    os.path.join(bagsdir, "run1.bag_mixnet_data_bottas_odom/metadata.yaml"),
 ]
 graphics_dir = os.path.join(bagsdir, "graphics")
 if os.path.isdir(graphics_dir):
@@ -189,20 +189,25 @@ while (averagepositionloss>1.0) or (averagevelocityerror>1.0):
                 coefs_inferred[:, j+1,-2] = 2.0*coefs_inferred[:, j+1,1] - 2.0*coefs_inferred[:, j, -2] + coefs_inferred[:, j, -3]
         # coefs = coefs_inferred.view(currentbatchsize, -1).unsqueeze(-1)
         # speed_profile_out = torch.matmul(HugeMBatch, coefs).squeeze(-1)
-
         tstart_batch = tswitchingpoints[:-1].unsqueeze(0).expand(currentbatchsize, num_accel_sections)
         dt_batch = dt.unsqueeze(0).expand(currentbatchsize, num_accel_sections)
         teval_batch = tsamp.unsqueeze(0).expand(currentbatchsize, numsamples_prediction)
-        speed_profile_out, idx_buckets = deepracing_models.math_utils.compositeBezerEval(tstart_batch, dt_batch, coefs_inferred.unsqueeze(-1), teval_batch)
+        speed_profile_out, idxbuckets = deepracing_models.math_utils.compositeBezerEval(tstart_batch, dt_batch, coefs_inferred.unsqueeze(-1), teval_batch)
         
         
 
-        coefs_flat = coefs_inferred.view(currentbatchsize, -1)
-        predicted_delta_r = (prediction_totaltime/((kbeziervel+1)*num_accel_sections))*torch.sum(coefs_flat, dim=1)
+        # coefs_flat = coefs_inferred.view(currentbatchsize, -1)
+        # predicted_delta_r = (prediction_totaltime/((kbeziervel+1)*num_accel_sections))*torch.sum(coefs_flat, dim=1)
 
 
         delta_r : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
         future_arclength_rel : torch.Tensor = future_arclength - future_arclength[:,0,None]
+
+        # coefs_antiderivative = deepracing_models.math_utils.compositeBezierAntiderivative(coefs_inferred.unsqueeze(-1), dt_batch)
+        # arclengths_out, _ = deepracing_models.math_utils.compositeBezerEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
+        # delta_r : torch.Tensor = arclengths_out[:,-1] - arclengths_out[:,0]
+        # future_arclength_rel : torch.Tensor = arclengths_out - arclengths_out[:,0,None]
+
 
 
         loss_velocity : torch.Tensor = (lossfunc(speed_profile_out, speed_future))*(prediction_timestep**2)
