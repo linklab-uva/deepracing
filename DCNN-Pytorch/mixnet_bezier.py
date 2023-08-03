@@ -124,11 +124,11 @@ def trainmixnet(argdict : dict):
             
             netout = os.path.join(tempdir, "net.pt")
             torch.save(net.state_dict(), netout)
-            experiment.log_asset(netout, "network_epoch_%d.pt" % (epoch,), copy_to_tmp=False)   
+            experiment.log_asset(netout, "network_epoch_%d.pt" % (epoch,), copy_to_tmp=True)   
 
             optimizerout =  os.path.join(tempdir, "optimizer.pt")
             torch.save(optimizer.state_dict(), optimizerout)
-            experiment.log_asset(optimizerout, "optimizer_epoch_%d.pt" % (epoch,), copy_to_tmp=False)
+            experiment.log_asset(optimizerout, "optimizer_epoch_%d.pt" % (epoch,), copy_to_tmp=True)
         for (i, datatuple) in tq:
             position_history, position_future, tangent_future, speed_future, angvel_future, fut_inds_batch, future_arclength, \
                 left_bound_input, right_bound_input, \
