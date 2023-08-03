@@ -1,3 +1,6 @@
+import argparse
+import tempfile
+import comet_ml
 import deepracing_models.math_utils.bezier, deepracing_models.math_utils
 from deepracing_models.nn_models.TrajectoryPrediction import BezierMixNet
 from deepracing_models.data_loading import file_datasets as FD 
@@ -6,6 +9,7 @@ from torch.optim.lr_scheduler import ExponentialLR
 import torch.utils.data as torchdata
 import yaml
 import os
+import io
 import numpy as np
 import pickle as pkl
 import tqdm
@@ -19,23 +23,23 @@ import shutil
 # d = 2
 # num = 1
 
-thisfiledir = os.path.dirname(__file__)
-with open(os.path.join(thisfiledir, "default_configs", "bezier_mixnet.yaml"), "r") as f:
-    netconfig : dict = yaml.load(f, Loader=yaml.SafeLoader)
-print(netconfig)
+parser = argparse.ArgumentParser(description="Train Bezier version of MixNet")
+parser.add_argument("config_file", type=str,  help="Configuration file to load")
+parser.add_argument("--tempdir", type=str, default=None, help="Temporary directory to save model files before uploading to comet. Default is to use tempfile module to generate one")
+
+args = parser.parse_args()
+argdict : dict = vars(args)
+config_file = argdict["config_file"]
+with open(config_file, "r") as f:
+    allconfig : dict = yaml.load(f, Loader=yaml.SafeLoader)
+dataconfig = allconfig["data"]
+netconfig = allconfig["net"]
+trainerconfig = allconfig["trainer"]
 
 
 
-# bagsdir = "/p/DeepRacing/deepracingbags/offsetlines"
-bagsdir = "/media/trent/T7/bags/deepracingbags/offsetlines"
-dsetfiles = [
-    os.path.join(bagsdir, "run1.bag_mixnet_data_hamilton_odom/metadata.yaml"),
-    os.path.join(bagsdir, "run1.bag_mixnet_data_bottas_odom/metadata.yaml"),
-]
-graphics_dir = os.path.join(bagsdir, "graphics")
-if os.path.isdir(graphics_dir):
-    shutil.rmtree(graphics_dir)
-os.makedirs(graphics_dir)
+#bagsdir = "/media/trent/T7/bags/deepracingbags/offsetlines"
+dsetfiles = dataconfig["filepaths"]
 dsets = []
 dsetconfigs = []
 numsamples_prediction = None
@@ -62,22 +66,31 @@ for dsetmetadatafile in dsetfiles:
         else:
             raise ValueError("Unknown extension %s" % (ext,))
     dsets.append(MixNetDataset(data, 0.0, 31, dsetconfig["trackname"]))
-batch = 128
-cuda=True
-dataloader = torchdata.DataLoader(torchdata.ConcatDataset(dsets), batch_size=batch, pin_memory=cuda, shuffle=True)#, collate_fn=dsets[0].collate_fn)
+batch_size = trainerconfig["batch_size"]
+gpu_index=trainerconfig["gpu_index"]
+cuda=gpu_index>=0
+netconfig["gpu_index"]=gpu_index
+dataloader = torchdata.DataLoader(torchdata.ConcatDataset(dsets), batch_size=batch_size, pin_memory=cuda, shuffle=True)#, collate_fn=dsets[0].collate_fn)
 net : BezierMixNet = BezierMixNet(netconfig).double()
 lossfunc = torch.nn.MSELoss().double()
 if cuda:
-    net = net.cuda()
-    lossfunc = lossfunc.cuda()
+    net = net.cuda(gpu_index)
+    lossfunc = lossfunc.cuda(gpu_index)
 firstparam = next(net.parameters())
 dtype = firstparam.dtype
 device = firstparam.device
-nesterov = True
-lr = 1E-3
-# momentum = lr/10.0
-# optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = momentum, nesterov=(nesterov and (momentum>0.0)))
-optimizer = torch.optim.Adam(net.parameters(), lr = lr)#, weight_decay=1e-8)
+nesterov = trainerconfig["nesterov"]
+lr = float(trainerconfig["learning_rate"])
+betas = tuple(trainerconfig["betas"])
+weight_decay = trainerconfig["weight_decay"]
+optimizername = trainerconfig["optimizer"]
+if optimizername=="SGD":
+    momentum = trainerconfig["momentum"]
+    optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = momentum, nesterov=(nesterov and (momentum>0.0)))
+elif optimizername=="Adam":
+    optimizer = torch.optim.Adam(net.parameters(), lr = lr, betas=betas, weight_decay = weight_decay)
+else:
+    raise ValueError("Unknown optimizer %s" % (optimizername,))
 scheduler = ExponentialLR(optimizer, 0.9999)
 
 
@@ -91,7 +104,6 @@ averageloss = 1E9
 averagepositionloss = 1E9
 averagevelocityloss = 1E9
 averagevelocityerror = 1E9
-epoch = 0
 fignumber = 1
 
 numsamples_prediction = dsetconfigs[0]["numsamples_prediction"]
@@ -100,14 +112,35 @@ tswitchingpoints = torch.linspace(0.0, prediction_totaltime, dtype=dtype, device
 dt = tswitchingpoints[1:] - tswitchingpoints[:-1]
 kbezier = 4
 kbeziervel = 3
-
-while (averagepositionloss>1.0) or (averagevelocityerror>1.0):
+project_name="mixnet-bezier"
+api_key = os.getenv("COMET_API_KEY")
+if api_key is not None:
+    print(api_key)
+    experiment = comet_ml.Experiment(workspace="electric-turtle", project_name=project_name, api_key=api_key)
+else:
+    experiment = None
+    
+experiment.log_asset(config_file, "config.yaml")
+tempdirobj = None
+tempdir = argdict["tempdir"]
+if tempdir is None:
+    tempdirobj = tempfile.TemporaryDirectory()
+    tempdir = tempdirobj.name
+for epoch in range(1, trainerconfig["epochs"]+1):
     totalloss = 0.0
     total_position_loss = 0.0
     total_velocity_loss = 0.0
     total_velocity_error = 0.0
-    epoch+=1
     tq = tqdm.tqdm(enumerate(dataloader), desc="Yay")
+    if epoch%10==0:
+        
+        netout = os.path.join(tempdir, "net.pt")
+        torch.save(net.state_dict(), netout)
+        experiment.log_asset(netout, "network_epoch_%d.pt" % (epoch,), copy_to_tmp=False)   
+
+        optimizerout =  os.path.join(tempdir, "optimizer.pt")
+        torch.save(optimizer.state_dict(), optimizerout)
+        experiment.log_asset(optimizerout, "optimizer_epoch_%d.pt" % (epoch,), copy_to_tmp=False)
     for (i, datatuple) in tq:
         position_history, position_future, tangent_future, speed_future, angvel_future, fut_inds_batch, future_arclength, \
             left_bound_input, right_bound_input, \
@@ -180,62 +213,33 @@ while (averagepositionloss>1.0) or (averagevelocityerror>1.0):
         dt_batch = dt.unsqueeze(0).expand(currentbatchsize, num_accel_sections)
         teval_batch = tsamp.unsqueeze(0).expand(currentbatchsize, numsamples_prediction)
         speed_profile_out, idxbuckets = deepracing_models.math_utils.compositeBezerEval(tstart_batch, dt_batch, coefs_inferred.unsqueeze(-1), teval_batch)
+        loss_velocity : torch.Tensor = (lossfunc(speed_profile_out, speed_future))*(prediction_timestep**2)
+        experiment.log_metric("loss_velocity", loss_velocity.item())
         
-        
-
-        # coefs_flat = coefs_inferred.view(currentbatchsize, -1)
-        # predicted_delta_r = (prediction_totaltime/((kbeziervel+1)*num_accel_sections))*torch.sum(coefs_flat, dim=1)
-
 
         delta_r : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
         future_arclength_rel : torch.Tensor = future_arclength - future_arclength[:,0,None]
-
-       
-        # delta_r : torch.Tensor = arclengths_out[:,-1] - arclengths_out[:,0]
-        # future_arclength_rel : torch.Tensor = arclengths_out - arclengths_out[:,0,None]
-
-
-
-        loss_velocity : torch.Tensor = (lossfunc(speed_profile_out, speed_future))*(prediction_timestep**2)
-
-        # p0 = torch.zeros_like(coefs_inferred.detach()[:,:,0]).unsqueeze(-1)
-        # coefs_inferred_antideriv = deepracing_models.math_utils.bezier.bezierAntiDerivative(coefs_inferred.unsqueeze(-1), p0).squeeze(-1)
-        # HugeMAntiderivBatch=HugeM_antideriv.expand(currentbatchsize, numsamples_prediction, -1)
-        # antiderivs_predicted = (time_per_segment/(kbeziervel+1))*torch.matmul(HugeMAntiderivBatch, coefs_inferred_antideriv.view(currentbatchsize, -1).unsqueeze(-1)).squeeze(-1)
-        # arclengths_predicted = antiderivs_predicted.clone()
-        # for i in range(num_accel_sections-1):
-        #     arclengths_predicted[:,(i+1)*points_per_segment:(i+2)*points_per_segment]+=arclengths_predicted[:,(i+1)*points_per_segment-1,None]
-        # delta_r : torch.Tensor = arclengths_predicted[:,-1] - arclengths_predicted[:,0]
-        # future_arclength_rel : torch.Tensor = arclengths_predicted - arclengths_predicted[:,0,None]
-                   
-
         arclengths_out_s = future_arclength_rel/delta_r[:,None]
-
         known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2])
-        # known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:3])
         known_control_points[:,0] = position_future[:,0]
         known_control_points[:,1] = known_control_points[:,0] + (delta_r[:,None]/kbezier)*tangent_future[:,0]
-
-        # n0 = (tangent_future[:,0])[:,[1,0]].clone()
-        # n0[:,0]*=-1.0
-        # signed_curvatures : torch.Tensor = angvel_future[:,0,2]/speed_future[:,0]
-        # signed_curvature_vecs : torch.Tensor = n0*signed_curvatures[:,None]
-        # known_control_points[:,2] = signed_curvature_vecs*(delta_r[:,None]**2/(kbezier*(kbezier-1))) + 2.0*known_control_points[:,1] - known_control_points[:,0]
-        
         mixed_control_points = torch.sum(bcurves_r[:,:,2:]*mix_out[:,:,None,None], dim=1)
-        # mixed_control_points = torch.sum(bcurves_r[:,:,3:]*mix_out[:,:,None,None], dim=1)
-
         predicted_bcurve = torch.cat([known_control_points, mixed_control_points], dim=1) 
 
         coefs_antiderivative = deepracing_models.math_utils.compositeBezierAntiderivative(coefs_inferred.unsqueeze(-1), dt_batch)
         arclengths_out, _ = deepracing_models.math_utils.compositeBezerEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
-        arclength_loss = lossfunc(arclengths_out, future_arclength_rel)
+        loss_arclength = lossfunc(arclengths_out, future_arclength_rel)
+        experiment.log_metric("loss_arclength", loss_arclength.item())
 
         Mbezierout = deepracing_models.math_utils.bezierM(arclengths_out_s, kbezier)
         predicted_position_future = torch.matmul(Mbezierout, predicted_bcurve)
 
         loss_position : torch.Tensor = lossfunc(predicted_position_future, position_future)
-        loss = loss_position + 2.0*loss_velocity + arclength_loss
+        experiment.log_metric("loss_position", loss_position.item())
+        experiment.log_metric("velocity_error", loss_velocity.item()/(prediction_timestep**2))
+        
+
+        loss = loss_position + 2.0*loss_velocity #+ 10.0*loss_arclength #
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -248,8 +252,8 @@ while (averagepositionloss>1.0) or (averagevelocityerror>1.0):
         averagevelocityloss = total_velocity_loss/(i+1)
         averagevelocityerror = total_velocity_error/(i+1)
         tq.set_postfix({"average position loss" : averagepositionloss, "average velocity error" : averagevelocityerror, "average velocity loss" : averagevelocityloss, "average loss" : averageloss, "epoch": epoch})
-        # print(i)
-    if epoch>int(1E9):
+
+    if epoch%10==0:
         bcurves_r_cpu = bcurves_r[0].cpu()
         position_history_cpu = position_history[0].cpu()
         position_future_cpu = position_future[0].cpu()
@@ -281,13 +285,17 @@ while (averagepositionloss>1.0) or (averagevelocityerror>1.0):
         plt.plot(left_bound_label_cpu[:,0], left_bound_label_cpu[:,1], label="Left Bound Label", color="navy")#, s=scale_array)
         plt.plot(right_bound_label_cpu[:,0], right_bound_label_cpu[:,1], label="Right Bound Label", color="navy")#, s=scale_array)
         plt.axis("equal")
-        print(mix_out[0])
+        # print(mix_out[0])
         # print(predicted_bcurve_cpu)
-        print(left_boundary_label_arclength[0].cpu())
-        print(right_boundary_label_arclength[0].cpu())
-        print(centerline_label_arclength[0].cpu())
-        print(raceline_label_arclength[0].cpu())
-        plt.show()
+        # print(left_boundary_label_arclength[0].cpu())
+        # print(right_boundary_label_arclength[0].cpu())
+        # print(centerline_label_arclength[0].cpu())
+        # print(raceline_label_arclength[0].cpu())
+        # fig.savefig(os.path.join(tempdir, "plot.svg"))
+
+        experiment.log_figure(figure_name="epoch_%d" % (epoch,), figure=fig)
+        plt.close(fig=fig)
+        # plt.show()
         # plt.show()
     # scheduler.step()
 
