@@ -39,7 +39,7 @@
                 32
             ],
             out_size: 1,
-            max_vel: 90.0
+            max_vel: 100.0
         },
         acc_decoder: {
             in_size: 16,
