@@ -46,6 +46,15 @@ list(APPEND targets_to_install utils)
 set_target_properties(utils PROPERTIES OUTPUT_NAME ${PROJECT_NAME}_utils CXX_STANDARD 17 CXX_STANDARD_REQUIRED TRUE)
 
 
+set(protobuf_MODULE_COMPATIBLE TRUE)
+find_package(Protobuf QUIET)
+find_package(absl CONFIG QUIET)
+find_package(glog CONFIG QUIET)
+find_package(Python REQUIRED COMPONENTS Interpreter Development.Embed Development.Module)
+find_package(pybind11 CONFIG QUIET)
+if(Protobuf_FOUND AND absl_FOUND AND glog_FOUND AND pybind11_FOUND)
+    add_subdirectory(waymo_tensorflow)
+endif()
 
 install(DIRECTORY include/deepracing/
     DESTINATION include/deepracing
