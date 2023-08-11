@@ -110,14 +110,46 @@ target_include_directories(waymo_conversions
 
 find_package(pybind11 REQUIRED)
 
-pybind11_add_module(py_waymo_conversions pybind11_module.cpp)
+pybind11_add_module(py_waymo_conversions py_waymo_conversions.cpp)
 target_link_libraries(py_waymo_conversions
     PUBLIC
-        Python::Module
-        Python::Python
         pybind11::module
         pybind11::pybind11
         waymo_conversions
+        absl::absl_check
+        absl::absl_log
+        absl::algorithm
+        absl::base
+        absl::bind_front
+        absl::bits
+        absl::btree
+        absl::cleanup
+        absl::cord
+        absl::core_headers
+        absl::debugging
+        absl::die_if_null
+        absl::dynamic_annotations
+        absl::flags
+        absl::flat_hash_map
+        absl::flat_hash_set
+        absl::function_ref
+        absl::hash
+        absl::layout
+        absl::log_initialize
+        absl::log_severity
+        absl::memory
+        absl::node_hash_map
+        absl::node_hash_set
+        absl::optional
+        absl::span
+        absl::status
+        absl::statusor
+        absl::strings
+        absl::synchronization
+        absl::time
+        absl::type_traits
+        absl::utility
+        absl::variant
 )
 if(UNIX)
 	set_property(TARGET py_waymo_conversions PROPERTY POSITION_INDEPENDENT_CODE ON)
