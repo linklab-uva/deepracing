@@ -46,7 +46,7 @@ set(tf-proto-files
 )
 
 add_library(tf-proto-objects OBJECT ${tf-proto-files})
-# target_link_libraries(tf-proto-objects PRIVATE protobuf::libprotobuf)
+target_link_libraries(tf-proto-objects PRIVATE protobuf::libprotobuf)
 # target_link_libraries(tf-proto-objects PRIVATE tensorflow::tensorflow)
 target_include_directories(tf-proto-objects PUBLIC "$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}>")
 protobuf_generate(TARGET tf-proto-objects
@@ -81,7 +81,7 @@ set(waymo-proto-files
 )
 
 add_library(waymo-proto-objects OBJECT ${waymo-proto-files})
-# target_link_libraries(waymo-proto-objects PRIVATE protobuf::libprotobuf)
+target_link_libraries(waymo-proto-objects PRIVATE protobuf::libprotobuf)
 # target_link_libraries(waymo-proto-objects PRIVATE tensorflow::tensorflow)
 target_include_directories(waymo-proto-objects PUBLIC "$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}>")
 protobuf_generate(TARGET waymo-proto-objects
