@@ -2,21 +2,16 @@
 #include <waymo_open_dataset/data_conversion/scenario_conversion.h>
 #include <google/protobuf/util/json_util.h>
 
-pybind11::bytes scenario_to_tfexample(const pybind11::bytes& scenario_bytes) {
+pybind11::bytes scenario_to_tfexample(const pybind11::bytes& scenario_bytes, const pybind11::bytes& conversion_config_bytes) {
     waymo::open_dataset::Scenario scenario;
     scenario.ParseFromString(scenario_bytes);
-    // google::protobuf::util::JsonStringToMessage(scenario_json, &scenario);
-    // std::string scenario_json;
-    // google::protobuf::util::MessageToJsonString(scenario, &scenario_json);
-    // std::cout<<scenario_json<<std::endl;
     waymo::open_dataset::MotionExampleConversionConfig config;
+    config.ParseFromString(conversion_config_bytes);
     std::map<std::string,int> counters;
     absl::StatusOr<tensorflow::Example> converted_ptr = waymo::open_dataset::ScenarioToExample(scenario, config, &counters);
-    const tensorflow::Example& converted = *converted_ptr;
-    std::string out;
-    // google::protobuf::util::MessageToJsonString(converted, &out);
-    converted.SerializeToString(&out);
-    return pybind11::bytes(out);
+    std::string converted_str;
+    converted_ptr->SerializeToString(&converted_str);
+    return pybind11::bytes(converted_str);
 }
 
 PYBIND11_MODULE(py_waymo_conversions, m) {
