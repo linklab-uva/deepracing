@@ -31,7 +31,7 @@ def generateSpline(points : np.ndarray, k=3, simpson_subintervals = 12):
         x0 = splinex[i-1]
         x1 = splinex[i]
         xvec : np.ndarray = np.linspace(x0, x1, simpson_subintervals + 1)
-        spline_norms : np.ndarray = np.linalg.norm(fake_spline_der(xvec), axis=1)
+        spline_norms : np.ndarray = np.linalg.norm(fake_spline_der(xvec), ord=2.0, axis=1)
         true_distances[i] = true_distances[i-1] + scipy.integrate.simpson(spline_norms, xvec)
     return true_distances, points_aug, scipy.interpolate.make_interp_spline(true_distances, points_aug, k=k, bc_type="periodic")
 def generateTimestamps(distances : np.ndarray, speeds : np.ndarray):
