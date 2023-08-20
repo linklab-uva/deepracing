@@ -74,21 +74,22 @@ class SmoothPathHelper:
             self.r_of_t = None
             self.t_of_r = None
     def as_structured_array(self, subtype = np.float32) -> np.ndarray:
-        structured_type = [("x", subtype, (1,)), ("y", subtype, (1,)), ("arclength", subtype, (1,))]
+        structured_type = [("x", subtype, (1,)), ("y", subtype, (1,))]
+        if self.points.shape[1]>2:
+            structured_type.append(("z", subtype, (1,)))
+        structured_type.append(("arclength", subtype, (1,)))
         if self.speeds is not None:
             structured_type.append(("speed", subtype, (1,)))
             structured_type.append(("time", subtype, (1,)))
-        if self.points.shape[1]>2:
-            structured_type.append(("z", subtype, (1,)))
         structured_array = np.zeros(self.distances.shape[0], dtype=np.dtype(structured_type))
         structured_array["x"] = self.points[:,0,None]
         structured_array["y"] = self.points[:,1,None]
+        if self.points.shape[1]>2:
+            structured_array["z"] = self.points[:,2,None]
         structured_array["arclength"] = self.distances[:,None]
         if self.speeds is not None:
             structured_array["speed"] = self.speeds[:,None]
             structured_array["time"] = self.times[:,None]
-        if self.points.shape[1]>2:
-            structured_array["z"] = self.points[:,2,None]
         return structured_array
     
     def parameterize_time(self, speeds : np.ndarray):
