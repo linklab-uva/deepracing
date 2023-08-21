@@ -1,11 +1,7 @@
 {
     data:
     {
-        filepaths:
-        [
-            /p/DeepRacing/deepracingbags/offsetlines/run1.bag_mixnet_data_hamilton_odom/metadata.yaml,
-            /p/DeepRacing/deepracingbags/offsetlines/run1.bag_mixnet_data_bottas_odom/metadata.yaml
-        ]
+        dir: /p/DeepRacing/unpacked_datasets/online_multiplayer/deepracing_standard
     },
     trainer:
     {
@@ -18,7 +14,8 @@
         eps: 1E-8,
         weight_decay: 0.0,
         epochs: 500,
-        batch_size: 256
+        batch_size: 256,
+        kbezier: 4
     },
     net:
     {
