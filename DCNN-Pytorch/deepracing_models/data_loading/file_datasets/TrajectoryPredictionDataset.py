@@ -59,9 +59,8 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
                 self.data_dict[k] = torch.as_tensor(arr.copy(), dtype=dtype, device=device)
         self.directory : str = directory
         self.subset_flag : deepracing_models.data_loading.SubsetFlag = subset_flag
-    def fit_bezier_curves(self, kbezier : int, with_tqdm : bool = False, device=torch.device("cpu")):    
-        self.data_dict["reference_curves"] = torch.empty([self.len, 4, kbezier+1, 3], dtype=self.data_dict["hist"].dtype, device=self.data_dict["hist"].device)
-        
+    def fit_bezier_curves(self, kbezier : int, device=torch.device("cpu")):    
+               
         desc = "Fitting bezier curves for %s" % (self.directory,)
         print(desc, flush=True)
 
