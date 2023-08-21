@@ -83,7 +83,7 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
         
         print("Doing the lstsq fit, HERE WE GOOOOOO!", flush=True)
         _, all_curves_flat = deepracing_models.math_utils.bezierLsqfit(all_lines_flat, kbezier, t=all_s_flat)
-        self.data_dict["reference_curves"] = all_curves_flat.to(self.data_dict["reference_curves"].device).reshape(-1, 4, kbezier+1, all_lines.shape[-1])
+        self.data_dict["reference_curves"] = all_curves_flat.to(self.data_dict["hist"].device).reshape(-1, 4, kbezier+1, all_lines.shape[-1])
         print("Done", flush=True)
 
 
