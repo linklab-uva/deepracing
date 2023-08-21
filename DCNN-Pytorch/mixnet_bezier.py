@@ -125,7 +125,11 @@ def trainmixnet(argdict : dict):
         total_position_loss = 0.0
         total_velocity_loss = 0.0
         total_velocity_error = 0.0
-        tq = tqdm.tqdm(enumerate(dataloader), desc="Yay")
+        dataloader_enumerate = enumerate(dataloader)
+        if experiment is None:
+            tq = tqdm.tqdm(dataloader_enumerate, desc="Yay")
+        else:
+            tq = dataloader_enumerate
         if epoch%10==0:
             
             netout = os.path.join(tempdir, "net.pt")
