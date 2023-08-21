@@ -31,6 +31,14 @@ def errorcb(exception):
         print(elem, flush=True, file=sys.stderr)
 def trainmixnet(argdict : dict):
     config_file = argdict["config_file"]
+    project_name="mixnet-bezier"
+    api_key = os.getenv("COMET_API_KEY")
+    if api_key is not None:
+        print(api_key)
+        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name=project_name, api_key=api_key)
+        experiment.log_asset(config_file, "config.yaml")
+    else:
+        experiment = None
     with open(config_file, "r") as f:
         allconfig : dict = yaml.load(f, Loader=yaml.SafeLoader)
     dataconfig = allconfig["data"]
@@ -44,7 +52,7 @@ def trainmixnet(argdict : dict):
     dsets : list[FD.TrajectoryPredictionDataset] = []
     dsetconfigs = []
     numsamples_prediction = None
-    kbezier = 4
+    kbezier = trainerconfig["kbezier"]
     # if cuda:
     #     dev = torch.device("cuda:%d" % (gpu_index,))
     # else:
@@ -103,14 +111,6 @@ def trainmixnet(argdict : dict):
     tswitchingpoints = torch.linspace(0.0, prediction_totaltime, dtype=dtype, device=device, steps=num_accel_sections+1)
     dt = tswitchingpoints[1:] - tswitchingpoints[:-1]
     kbeziervel = 3
-    project_name="mixnet-bezier"
-    api_key = os.getenv("COMET_API_KEY")
-    if api_key is not None:
-        print(api_key)
-        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name=project_name, api_key=api_key)
-        experiment.log_asset(config_file, "config.yaml")
-    else:
-        experiment = None
     tempdirobj = None
     tempdir = argdict["tempdir"]
     if tempdir is None:
@@ -130,12 +130,12 @@ def trainmixnet(argdict : dict):
             
             netout = os.path.join(tempdir, "net.pt")
             torch.save(net.state_dict(), netout)
-            if api_key is not None:
+            if experiment is not None:
                 experiment.log_asset(netout, "network_epoch_%d.pt" % (epoch,), copy_to_tmp=False)   
 
             optimizerout =  os.path.join(tempdir, "optimizer.pt")
             torch.save(optimizer.state_dict(), optimizerout)
-            if api_key is not None:
+            if experiment is not None:
                 experiment.log_asset(optimizerout, "optimizer_epoch_%d.pt" % (epoch,), copy_to_tmp=False)
         for (i, dict_) in tq:
             datadict : dict[str,torch.Tensor] = dict_
@@ -222,7 +222,7 @@ def trainmixnet(argdict : dict):
             teval_batch = tsamp.unsqueeze(0).expand(currentbatchsize, numsamples_prediction)
             speed_profile_out, idxbuckets = deepracing_models.math_utils.compositeBezerEval(tstart_batch, dt_batch, coefs_inferred.unsqueeze(-1), teval_batch)
             loss_velocity : torch.Tensor = (lossfunc(speed_profile_out, speed_future))*(prediction_timestep**2)
-            if api_key is not None:
+            if experiment is not None:
                 experiment.log_metric("loss_velocity", loss_velocity.item())
             
 
@@ -238,14 +238,14 @@ def trainmixnet(argdict : dict):
             coefs_antiderivative = deepracing_models.math_utils.compositeBezierAntiderivative(coefs_inferred.unsqueeze(-1), dt_batch)
             arclengths_out, _ = deepracing_models.math_utils.compositeBezerEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
             loss_arclength = lossfunc(arclengths_out, future_arclength_rel)
-            if api_key is not None:
+            if experiment is not None:
                 experiment.log_metric("loss_arclength", loss_arclength.item())
 
             Mbezierout = deepracing_models.math_utils.bezierM(arclengths_out_s, kbezier)
             predicted_position_future = torch.matmul(Mbezierout, predicted_bcurve)
 
             loss_position : torch.Tensor = lossfunc(predicted_position_future, position_future)
-            if api_key is not None:
+            if experiment is not None:
                 experiment.log_metric("loss_position", loss_position.item())
                 experiment.log_metric("velocity_error", loss_velocity.item()/(prediction_timestep**2))
             
@@ -254,15 +254,16 @@ def trainmixnet(argdict : dict):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            total_position_loss += loss_position.item()
-            total_velocity_loss += loss_velocity.item()
-            total_velocity_error += loss_velocity.item()/(prediction_timestep**2)
-            totalloss += loss.item()
-            averageloss = totalloss/(i+1)
-            averagepositionloss = total_position_loss/(i+1)
-            averagevelocityloss = total_velocity_loss/(i+1)
-            averagevelocityerror = total_velocity_error/(i+1)
-            tq.set_postfix({"average position loss" : averagepositionloss, "average velocity error" : averagevelocityerror, "average velocity loss" : averagevelocityloss, "average loss" : averageloss, "epoch": epoch})
+            if experiment is None:
+                total_position_loss += loss_position.item()
+                total_velocity_loss += loss_velocity.item()
+                total_velocity_error += loss_velocity.item()/(prediction_timestep**2)
+                totalloss += loss.item()
+                averageloss = totalloss/(i+1)
+                averagepositionloss = total_position_loss/(i+1)
+                averagevelocityloss = total_velocity_loss/(i+1)
+                averagevelocityerror = total_velocity_error/(i+1)
+                tq.set_postfix({"average position loss" : averagepositionloss, "average velocity error" : averagevelocityerror, "average velocity loss" : averagevelocityloss, "average loss" : averageloss, "epoch": epoch})
 
         if epoch%10==0:
             bcurves_r_cpu = bcurves_r[0].cpu()
@@ -303,7 +304,7 @@ def trainmixnet(argdict : dict):
             # print(centerline_label_arclength[0].cpu())
             # print(raceline_label_arclength[0].cpu())
             # fig.savefig(os.path.join(tempdir, "plot.svg"))
-            if api_key is not None:
+            if experiment is not None:
                 experiment.log_figure(figure_name="epoch_%d" % (epoch,), figure=fig)
             plt.close(fig=fig)
             # plt.show()
