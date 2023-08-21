@@ -10,10 +10,26 @@ from tqdm import tqdm
 import torch.jit
 import os
 import yaml
-
+KEYS_WE_CARE_ABOUT : set= {
+    "hist",
+    "fut",
+    "fut_tangents",
+    "fut_speed",
+    "future_arclength",
+    "left_bd",
+    "right_bd",
+    "future_left_bd",
+    "future_right_bd",
+    "future_centerline",
+    "future_raceline",
+    "future_left_bd_arclength",
+    "future_right_bd_arclength",
+    "future_centerline_arclength",
+    "future_raceline_arclength"
+}
 class TrajectoryPredictionDataset(torch.utils.data.Dataset):
     def __init__(self, metadatafile : str, subset_flag : deepracing_models.data_loading.SubsetFlag,\
-                  kbezier=3, dtype=torch.float64, device=torch.device("cpu")):
+                  dtype=torch.float64, device=torch.device("cpu")):
         with open(metadatafile, "r") as f:
             self.metadata = yaml.load(f, Loader=yaml.SafeLoader)
         directory : str = os.path.dirname(metadatafile)
@@ -33,44 +49,44 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
             raise ValueError("Invalid subset_flag: %d" % (subset_flag,))
 
         self.data_dict : dict[str, torch.Tensor] = dict()
+        print("Loading data at %s" % (npfile,), flush=True)
         with open(npfile, "rb") as f:
             npdict : npio.NpzFile = np.load(f)
-            for k in npdict.keys():
+            for k in KEYS_WE_CARE_ABOUT:
                 arr : np.ndarray = npdict[k]
                 if not arr.shape[0] == self.len:
                     raise ValueError("Data array %s has length %d not consistent with metadata length %d" % (k, arr.shape[0], self.len))
                 self.data_dict[k] = torch.as_tensor(arr.copy(), dtype=dtype, device=device)
+        self.directory : str = directory
+        self.subset_flag : deepracing_models.data_loading.SubsetFlag = subset_flag
+    def fit_bezier_curves(self, kbezier : int, with_tqdm : bool = False, device=torch.device("cpu")):    
+        self.data_dict["reference_curves"] = torch.empty([self.len, 4, kbezier+1, 3], dtype=self.data_dict["hist"].dtype, device=self.data_dict["hist"].device)
         
-        self.data_dict["reference_curves"] = torch.empty([self.len, 4, kbezier+1, 3], dtype=dtype, device=device)
+        desc = "Fitting bezier curves for %s" % (self.directory,)
+        print(desc, flush=True)
 
-        for i in tqdm(range(self.len), desc="Fitting bezier curves"):
+        left_bd_r : torch.Tensor = self.data_dict["future_left_bd_arclength"]
+        right_bd_r : torch.Tensor = self.data_dict["future_right_bd_arclength"]
+        centerline_r : torch.Tensor = self.data_dict["future_centerline_arclength"]
+        raceline_r : torch.Tensor = self.data_dict["future_raceline_arclength"]
+        
+        all_r : torch.Tensor = torch.stack([left_bd_r, right_bd_r, centerline_r, raceline_r], dim=1).to(device)
+        all_r_flat : torch.Tensor = all_r.view(-1, all_r.shape[-1])
+        all_s_flat : torch.Tensor = (all_r_flat - all_r_flat[:,0,None])/((all_r_flat[:,-1] - all_r_flat[:,0])[:,None])
 
-            left_bd_r : torch.Tensor = self.data_dict["future_left_bd_arclength"][i]
-            left_bd_s = (left_bd_r - left_bd_r[0])/(left_bd_r[-1] - left_bd_r[0])
-            self.data_dict["future_left_bd_arclength"][i] = left_bd_r - left_bd_r[0]
+        left_bd : torch.Tensor = self.data_dict["future_left_bd"]
+        right_bd : torch.Tensor = self.data_dict["future_right_bd"]
+        centerline : torch.Tensor = self.data_dict["future_centerline"]
+        raceline : torch.Tensor = self.data_dict["future_raceline"]
 
-            right_bd_r : torch.Tensor = self.data_dict["future_right_bd_arclength"][i]
-            right_bd_s = (right_bd_r - right_bd_r[0])/(right_bd_r[-1] - right_bd_r[0])
-            self.data_dict["future_right_bd_arclength"][i] = right_bd_r - right_bd_r[0]
+        all_lines : torch.Tensor = torch.stack([left_bd, right_bd, centerline, raceline], dim=1).to(device)
+        all_lines_flat : torch.Tensor = all_lines.view(-1, all_lines.shape[-2], all_lines.shape[-1])
+        
+        print("Doing the lstsq fit, HERE WE GOOOOOO!", flush=True)
+        _, all_curves_flat = deepracing_models.math_utils.bezierLsqfit(all_lines_flat, kbezier, t=all_s_flat)
+        self.data_dict["reference_curves"] = all_curves_flat.to(self.data_dict["reference_curves"].device).reshape(-1, 4, kbezier+1, all_lines.shape[-1])
+        print("Done", flush=True)
 
-            centerline_r : torch.Tensor = self.data_dict["future_centerline_arclength"][i]
-            centerline_s = (centerline_r - centerline_r[0])/(centerline_r[-1] - centerline_r[0])
-            self.data_dict["future_centerline_arclength"][i] = centerline_r - centerline_r[0]
-
-            raceline_r : torch.Tensor = self.data_dict["future_raceline_arclength"][i]
-            raceline_s = (raceline_r - raceline_r[0])/(raceline_r[-1] - raceline_r[0])
-            self.data_dict["future_raceline_arclength"][i] = raceline_r - raceline_r[0]
-
-
-            left_bd : torch.Tensor = self.data_dict["future_left_bd"][i]
-            right_bd : torch.Tensor = self.data_dict["future_right_bd"][i]
-            centerline : torch.Tensor = self.data_dict["future_centerline"][i]
-            raceline : torch.Tensor = self.data_dict["future_raceline"][i]
-            all_lines : torch.Tensor = torch.stack([left_bd, right_bd, centerline, raceline], dim=0)
-
-            all_s : torch.Tensor = torch.stack([left_bd_s, right_bd_s, centerline_s, raceline_s], dim=0)
- 
-            self.data_dict["reference_curves"][i] = deepracing_models.math_utils.bezierLsqfit(all_lines, kbezier, t=all_s)[1]
 
     def __len__(self):
         return self.len
