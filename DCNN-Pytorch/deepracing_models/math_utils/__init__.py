@@ -5,7 +5,8 @@ from .bezier import bezierM
 from .bezier import bezierDerivative
 from .bezier import bezierPolyRoots
 from .bezier import evalBezier, evalBezierSinglePoint
-from .bezier import bezierArcLength, compositeBezierSpline, compositeBezierAntiderivative, closedPathAsBezierSpline, polynomialFormConversion, elevateBezierOrder, compositeBezerEval
+from .bezier import bezierArcLength, compositeBezierSpline, compositeBezierAntiderivative, compositeBezierFit
+from .bezier import closedPathAsBezierSpline, polynomialFormConversion, elevateBezierOrder, compositeBezierEval
 from .fitting import pinv, fitAffine
 from .bezier import BezierCurveModule
 
@@ -57,7 +58,7 @@ class CompositeBezierCurve(torch.nn.Module):
         # points_select = self.control_points[imin_]
         # s_select = (x_true - xstart_select)/dx_select
         # return evalBezierSinglePoint(s_select, points_select), imin_
-        evalout, idxmin = compositeBezerEval(self.xstart_vec.unsqueeze(0), self.dx.unsqueeze(0), self.control_points.unsqueeze(0), x_true, idxbuckets=idxbuckets)
+        evalout, idxmin = compositeBezierEval(self.xstart_vec.unsqueeze(0), self.dx.unsqueeze(0), self.control_points.unsqueeze(0), x_true, idxbuckets=idxbuckets)
         evalrtn = evalout.view(list(x_eval.shape) + [self.d.item()])
         return evalrtn, idxmin.view(x_eval.shape)
     def derivative(self):
