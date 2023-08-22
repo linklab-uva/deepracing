@@ -1,5 +1,11 @@
 import bisect
 import numpy as np
+from enum import Enum
+class SubsetFlag(Enum):
+    TRAIN = 1
+    TEST = 2
+    VAL = 3
+    ALL = 4
 
 
 class TimeIndex:

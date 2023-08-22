@@ -79,8 +79,8 @@ class BezierMixNet(nn.Module):
         if use_bias:
             self._final_linear_layer.bias = torch.nn.Parameter(0.0001*torch.randn(4))
         # migrating the model parameters to the chosen device:
-        if params["use_cuda"]>=0 and torch.cuda.is_available():
-            self.device = torch.device("cuda:%d" % (params["use_cuda"],))
+        if params["gpu_index"]>=0 and torch.cuda.is_available():
+            self.device = torch.device("cuda:%d" % (params["gpu_index"],))
             print("Using CUDA as device for BezierMixNet")
         else:
             self.device = torch.device("cpu")
