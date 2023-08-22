@@ -22,6 +22,7 @@ import glob
 import multiprocessing, multiprocessing.pool
 import traceback
 import sys
+from datetime import datetime
 # k=3
 # d = 2
 # num = 1
@@ -34,11 +35,24 @@ def trainmixnet(argdict : dict):
     project_name="mixnet-bezier"
     api_key = os.getenv("COMET_API_KEY")
     if api_key is not None:
-        print(api_key)
         experiment = comet_ml.Experiment(workspace="electric-turtle", project_name=project_name, api_key=api_key)
         experiment.log_asset(config_file, "config.yaml")
+        print(api_key)
     else:
         experiment = None
+    tempdirobj = None
+    tempdir = argdict["tempdir"]
+    if tempdir is None:
+        tempdirobj = tempfile.TemporaryDirectory()
+        tempdir_full = tempdirobj.name
+    else:
+        if experiment is not None:
+            tempdir_full = os.path.join(tempdir, experiment.name)
+        else:
+            tempdir_full = os.path.join(tempdir, datetime.now().strftime("%Y_%m_%d_%H:%M:%S"))
+        if os.path.isdir(tempdir_full):
+            shutil.rmtree(tempdir_full)
+        os.makedirs(tempdir_full)
     with open(config_file, "r") as f:
         allconfig : dict = yaml.load(f, Loader=yaml.SafeLoader)
     dataconfig = allconfig["data"]
@@ -111,15 +125,6 @@ def trainmixnet(argdict : dict):
     tswitchingpoints = torch.linspace(0.0, prediction_totaltime, dtype=dtype, device=device, steps=num_accel_sections+1)
     dt = tswitchingpoints[1:] - tswitchingpoints[:-1]
     kbeziervel = 3
-    tempdirobj = None
-    tempdir = argdict["tempdir"]
-    if tempdir is None:
-        tempdirobj = tempfile.TemporaryDirectory()
-        tempdir = tempdirobj.name
-    else:
-        if os.path.isdir(tempdir):
-            shutil.rmtree(tempdir)
-        os.makedirs(tempdir)
     for epoch in range(1, trainerconfig["epochs"]+1):
         totalloss = 0.0
         total_position_loss = 0.0
@@ -132,53 +137,36 @@ def trainmixnet(argdict : dict):
             tq = dataloader_enumerate
         if epoch%10==0:
             
-            netout = os.path.join(tempdir, "net.pt")
+            netout = os.path.join(tempdir_full, "net.pt")
             torch.save(net.state_dict(), netout)
             if experiment is not None:
                 experiment.log_asset(netout, "network_epoch_%d.pt" % (epoch,), copy_to_tmp=False)   
 
-            optimizerout =  os.path.join(tempdir, "optimizer.pt")
+            optimizerout =  os.path.join(tempdir_full, "optimizer.pt")
             torch.save(optimizer.state_dict(), optimizerout)
             if experiment is not None:
                 experiment.log_asset(optimizerout, "optimizer_epoch_%d.pt" % (epoch,), copy_to_tmp=False)
         for (i, dict_) in tq:
             datadict : dict[str,torch.Tensor] = dict_
 
-            position_history = datadict["hist"][:,:,[0,1]]
-            position_future = datadict["fut"][:,:,[0,1]]
-            tangent_future = datadict["fut_tangents"][:,:,[0,1]]
+            position_history = datadict["hist"]
+            position_future = datadict["fut"]
+            tangent_future = datadict["fut_tangents"]
             speed_future = datadict["fut_speed"]
             future_arclength = datadict["future_arclength"]
 
-            left_bound_input = datadict["left_bd"][:,:,[0,1]]
-            right_bound_input = datadict["right_bd"][:,:,[0,1]]
+            left_bound_input = datadict["left_bd"]
+            right_bound_input = datadict["right_bd"]
 
-            left_boundary_label = datadict["future_left_bd"]
-            right_boundary_label = datadict["future_right_bd"]
-            centerline_label = datadict["future_centerline"]
-            raceline_label = datadict["future_raceline"]
-
-            left_boundary_label_arclength = datadict["future_left_bd_arclength"]
-            right_boundary_label_arclength = datadict["future_right_bd_arclength"]
-            centerline_label_arclength = datadict["future_centerline_arclength"]
-            raceline_label_arclength = datadict["future_raceline_arclength"]
-            bcurves_r = datadict["reference_curves"][:,:,:,[0,1]]
+            bcurves_r = datadict["reference_curves"]
 
             if cuda:
                 position_history = position_history.cuda(gpu_index).type(dtype)
                 position_future = position_future.cuda(gpu_index).type(dtype)
                 speed_future = speed_future.cuda(gpu_index).type(dtype)
-                future_arclength = future_arclength.cuda(gpu_index).type(dtype)
                 left_bound_input = left_bound_input.cuda(gpu_index).type(dtype)
                 right_bound_input = right_bound_input.cuda(gpu_index).type(dtype)
-                left_boundary_label = left_boundary_label.cuda(gpu_index).type(dtype)
-                right_boundary_label = right_boundary_label.cuda(gpu_index).type(dtype)
-                centerline_label = centerline_label.cuda(gpu_index).type(dtype)
-                raceline_label = raceline_label.cuda(gpu_index).type(dtype)
-                left_boundary_label_arclength = left_boundary_label_arclength.cuda(gpu_index).type(dtype)
-                right_boundary_label_arclength = right_boundary_label_arclength.cuda(gpu_index).type(dtype)
-                centerline_label_arclength = centerline_label_arclength.cuda(gpu_index).type(dtype)
-                raceline_label_arclength = raceline_label_arclength.cuda(gpu_index).type(dtype)
+                future_arclength = future_arclength.cuda(gpu_index).type(dtype)
                 bcurves_r = bcurves_r.cuda(gpu_index).type(dtype)
                 tangent_future = tangent_future.cuda(gpu_index).type(dtype)
             else:
@@ -186,16 +174,8 @@ def trainmixnet(argdict : dict):
                 position_future = position_future.cpu().type(dtype)
                 speed_future = speed_future.cpu().type(dtype)
                 left_bound_input = left_bound_input.cpu().type(dtype)
-                future_arclength = future_arclength.cpu().type(dtype)
                 right_bound_input = right_bound_input.cpu().type(dtype)
-                left_boundary_label = left_boundary_label.cpu().type(dtype)
-                right_boundary_label = right_boundary_label.cpu().type(dtype)
-                centerline_label = centerline_label.cpu().type(dtype)
-                raceline_label = raceline_label.cpu().type(dtype)
-                left_boundary_label_arclength = left_boundary_label_arclength.cpu().type(dtype)
-                right_boundary_label_arclength = right_boundary_label_arclength.cpu().type(dtype)
-                centerline_label_arclength = centerline_label_arclength.cpu().type(dtype)
-                raceline_label_arclength = raceline_label_arclength.cpu().type(dtype)
+                future_arclength = future_arclength.cpu().type(dtype)
                 bcurves_r = bcurves_r.cpu().type(dtype)
                 tangent_future = tangent_future.cpu().type(dtype)
 
@@ -203,7 +183,7 @@ def trainmixnet(argdict : dict):
 
 
             # print(tangent_future[:,0])
-            (mix_out_, acc_out_) = net(position_history, left_bound_input, right_bound_input)
+            (mix_out_, acc_out_) = net(position_history[:,:,[0,1]], left_bound_input[:,:,[0,1]], right_bound_input[:,:,[0,1]])
             one = torch.ones_like(speed_future[0,0])
             mix_out = torch.clamp(mix_out_, -0.5*one, 1.5*one)
             # + speed_future[:,0].unsqueeze(-1)
@@ -224,7 +204,7 @@ def trainmixnet(argdict : dict):
             tstart_batch = tswitchingpoints[:-1].unsqueeze(0).expand(currentbatchsize, num_accel_sections)
             dt_batch = dt.unsqueeze(0).expand(currentbatchsize, num_accel_sections)
             teval_batch = tsamp.unsqueeze(0).expand(currentbatchsize, numsamples_prediction)
-            speed_profile_out, idxbuckets = deepracing_models.math_utils.compositeBezerEval(tstart_batch, dt_batch, coefs_inferred.unsqueeze(-1), teval_batch)
+            speed_profile_out, idxbuckets = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_inferred.unsqueeze(-1), teval_batch)
             loss_velocity : torch.Tensor = (lossfunc(speed_profile_out, speed_future))*(prediction_timestep**2)
             if experiment is not None:
                 experiment.log_metric("loss_velocity", loss_velocity.item())
@@ -240,7 +220,7 @@ def trainmixnet(argdict : dict):
             predicted_bcurve = torch.cat([known_control_points, mixed_control_points], dim=1) 
 
             coefs_antiderivative = deepracing_models.math_utils.compositeBezierAntiderivative(coefs_inferred.unsqueeze(-1), dt_batch)
-            arclengths_out, _ = deepracing_models.math_utils.compositeBezerEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
+            arclengths_out, _ = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
             loss_arclength = lossfunc(arclengths_out, future_arclength_rel)
             if experiment is not None:
                 experiment.log_metric("loss_arclength", loss_arclength.item())
@@ -274,13 +254,10 @@ def trainmixnet(argdict : dict):
             position_history_cpu = position_history[0].cpu()
             position_future_cpu = position_future[0].cpu()
             predicted_position_future_cpu = predicted_position_future[0].detach().cpu()
-            left_bound_input_cpu = left_bound_input[0].cpu()
-            right_bound_input_cpu = right_bound_input[0].cpu()
-            left_bound_label_cpu = left_boundary_label[0].cpu()
-            right_bound_label_cpu = right_boundary_label[0].cpu()
-            centerline_label_cpu = centerline_label[0].cpu()
-            raceline_label_cpu = raceline_label[0].cpu()
-            predicted_bcurve_cpu = predicted_bcurve[0].detach().clone().cpu()
+            left_bound_label_cpu = datadict["future_left_bd"][0].cpu()
+            right_bound_label_cpu = datadict["future_right_bd"][0].cpu()
+            centerline_label_cpu = datadict["future_centerline"][0].cpu()
+            raceline_label_cpu = datadict["future_raceline"][0].cpu()
             fig : matplotlib.figure.Figure = plt.figure()
             scale_array = 5.0
             plt.plot(position_history_cpu[:,0], position_history_cpu[:,1], label="Position History")#, s=scale_array)
@@ -290,10 +267,10 @@ def trainmixnet(argdict : dict):
             plt.plot(predicted_position_future_cpu[:,0], predicted_position_future_cpu[:,1], label="Prediction")#, s=scale_array)
             plt.plot(centerline_label_cpu[:,0], centerline_label_cpu[:,1], label="Centerline Label")#, s=scale_array)
             plt.plot(raceline_label_cpu[:,0], raceline_label_cpu[:,1], label="Raceline Label")#, s=scale_array)
-            plt.scatter(bcurves_r_cpu[0,:,0], bcurves_r_cpu[0,:,1], s=scale_array)
-            plt.scatter(bcurves_r_cpu[1,:,0], bcurves_r_cpu[1,:,1], s=scale_array)
-            plt.scatter(bcurves_r_cpu[2,:,0], bcurves_r_cpu[2,:,1], s=scale_array)
-            plt.scatter(bcurves_r_cpu[3,:,0], bcurves_r_cpu[3,:,1], s=scale_array)
+            # plt.scatter(bcurves_r_cpu[0,:,0], bcurves_r_cpu[0,:,1], s=scale_array)
+            # plt.scatter(bcurves_r_cpu[1,:,0], bcurves_r_cpu[1,:,1], s=scale_array)
+            # plt.scatter(bcurves_r_cpu[2,:,0], bcurves_r_cpu[2,:,1], s=scale_array)
+            # plt.scatter(bcurves_r_cpu[3,:,0], bcurves_r_cpu[3,:,1], s=scale_array)
             plt.plot([],[], label="Boundaries", color="navy")#, s=scale_array)
             plt.legend()
             # plt.plot(left_bound_input_cpu[:,0], left_bound_input_cpu[:,1], label="Left Bound Input", color="navy")
