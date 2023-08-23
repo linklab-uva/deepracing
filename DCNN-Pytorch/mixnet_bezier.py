@@ -56,7 +56,7 @@ def trainmixnet(argdict : dict):
         shutil.copy(config_file, tempdir_full)
         experiment.log_asset(os.path.join(tempdir_full, os.path.basename(config_file)), "config.yaml", copy_to_tmp=False)
     else:
-        os.mkdir(tempdir_full, "plots")
+        os.mkdir(os.path.join(tempdir_full, "plots"))
     with open(config_file, "r") as f:
         allconfig : dict = yaml.load(f, Loader=yaml.SafeLoader)
     dataconfig = allconfig["data"]
@@ -253,7 +253,7 @@ def trainmixnet(argdict : dict):
                 averagevelocityerror = total_velocity_error/(i+1)
                 tq.set_postfix({"average position loss" : averagepositionloss, "average velocity error" : averagevelocityerror, "average velocity loss" : averagevelocityloss, "average loss" : averageloss, "epoch": epoch})
 
-        if epoch%10==0:
+        if epoch%3==0:
             bcurves_r_cpu = bcurves_r[0].cpu()
             position_history_cpu = position_history[0].cpu()
             position_future_cpu = position_future[0].cpu()
