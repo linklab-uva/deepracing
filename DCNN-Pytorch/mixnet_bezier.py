@@ -55,6 +55,8 @@ def trainmixnet(argdict : dict):
     if experiment is not None:
         shutil.copy(config_file, tempdir_full)
         experiment.log_asset(os.path.join(tempdir_full, os.path.basename(config_file)), "config.yaml", copy_to_tmp=False)
+    else:
+        os.mkdir(tempdir_full, "plots")
     with open(config_file, "r") as f:
         allconfig : dict = yaml.load(f, Loader=yaml.SafeLoader)
     dataconfig = allconfig["data"]
@@ -294,6 +296,9 @@ def trainmixnet(argdict : dict):
             if experiment is not None:
                 experiment.log_figure(figure_name="positions_epoch_%d" % (epoch,), figure=fig)
                 experiment.log_figure(figure_name="speeds_epoch_%d" % (epoch,), figure=fig_velocity)
+            else:
+                fig.savefig(os.path.join(tempdir_full, "plots", "positions_epoch_%d.pdf" % (epoch,)))
+                fig_velocity.savefig(os.path.join(tempdir_full, "plots", "speeds_epoch_%d.pdf" % (epoch,)))
             plt.close(fig=fig)
             plt.close(fig=fig_velocity)
             
