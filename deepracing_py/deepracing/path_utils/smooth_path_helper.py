@@ -73,7 +73,8 @@ class SmoothPathHelper:
             self.speed_of_r = None
             self.r_of_t = None
             self.t_of_r = None
-    def as_structured_array(self, subtype = np.float32) -> np.ndarray:
+    def as_structured_array(self) -> np.ndarray:
+        subtype = self.points.dtype
         structured_type = [("x", subtype, (1,)), ("y", subtype, (1,))]
         if self.points.shape[1]>2:
             structured_type.append(("z", subtype, (1,)))
@@ -105,17 +106,15 @@ class SmoothPathHelper:
         self.r_of_t : scipy.interpolate.Akima1DInterpolator = scipy.interpolate.Akima1DInterpolator(self.times, self.distances)
         self.t_of_r : scipy.interpolate.Akima1DInterpolator = scipy.interpolate.Akima1DInterpolator(self.distances, self.times)
 
-    def __closest_point_functor__(self, r : typing.Union[float,np.ndarray], query_point : np.ndarray, hession_mat : np.ndarray):
-        if hession_mat is None:
+    def __closest_point_functor__(self, r : typing.Union[float,np.ndarray], query_point : np.ndarray):
+        if query_point.ndim==1:
             return np.linalg.norm(self.spline(r) - query_point, ord=2)
         deltas = self.spline(r) - query_point
         squared_deltas = np.square(deltas)
         grad = np.sum(deltas*self.spline_derivative(r), axis=1)
         scale = float(1.0/deltas.shape[0])
         return 0.5*scale*np.sum(squared_deltas), scale*grad
-    def __closest_point_hessian(self, r : np.ndarray, query_point : np.ndarray, hession_mat : np.ndarray):
-        return hession_mat
-    def closest_point(self, query_point : np.ndarray, bounds_delta=(3.0, 3.0) ) -> typing.Tuple[typing.Union[float,np.ndarray], np.ndarray]:
+    def closest_point(self, query_point : np.ndarray, bounds_delta=(3.0, 3.0), method="SLSQP") -> typing.Tuple[typing.Union[float,np.ndarray], np.ndarray]:
         _, iclosest = self.kdtree.query(query_point)
         rguess = self.distances[iclosest]
         if query_point.ndim==2:
@@ -126,14 +125,12 @@ class SmoothPathHelper:
                     break
         if query_point.ndim==1:
             bounds = (rguess - bounds_delta[0], rguess + bounds_delta[1])
-            res = minimize_scalar(self.__closest_point_functor__, bounds=bounds, args=(query_point, None), method="bounded")
+            res = minimize_scalar(self.__closest_point_functor__, bounds=bounds, args=(query_point,), method="bounded")
             rout : float = float(res.x)
         elif query_point.ndim==2:
             bounds : scipy.optimize.Bounds = scipy.optimize.Bounds(rguess - bounds_delta[0], rguess + bounds_delta[1])
-            hession_mat : np.ndarray = np.zeros([rguess.shape[0], rguess.shape[0]], dtype=rguess.dtype)
-            res = scipy.optimize.minimize(self.__closest_point_functor__, rguess,\
-                                           hess=self.__closest_point_hessian, bounds=bounds, tol=1E-8, \
-                                            jac=True, args=(query_point,hession_mat), method="SLSQP")
+            res = scipy.optimize.minimize(self.__closest_point_functor__, rguess, bounds=bounds, tol=1E-8, \
+                                            jac=True, args=(query_point,), method=method)
             rout : np.ndarray = res.x
         # delta = rguess - rout
         # if np.abs(delta)>bounds_delta[0] or np.abs(delta)>bounds_delta[1]:
