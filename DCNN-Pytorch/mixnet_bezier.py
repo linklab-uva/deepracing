@@ -36,7 +36,6 @@ def trainmixnet(argdict : dict):
     api_key = os.getenv("COMET_API_KEY")
     if api_key is not None:
         experiment = comet_ml.Experiment(workspace="electric-turtle", project_name=project_name, api_key=api_key)
-        experiment.log_asset(config_file, "config.yaml")
         print(api_key)
     else:
         experiment = None
@@ -53,6 +52,9 @@ def trainmixnet(argdict : dict):
         if os.path.isdir(tempdir_full):
             shutil.rmtree(tempdir_full)
         os.makedirs(tempdir_full)
+    if experiment is not None:
+        shutil.copy(config_file, tempdir_full)
+        experiment.log_asset(os.path.join(tempdir_full, os.path.basename(config_file)), "config.yaml", copy_to_tmp=False)
     with open(config_file, "r") as f:
         allconfig : dict = yaml.load(f, Loader=yaml.SafeLoader)
     dataconfig = allconfig["data"]

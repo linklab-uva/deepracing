@@ -68,8 +68,7 @@ def compositeBezierFit(points : torch.Tensor, t : torch.Tensor, numsegments : in
     # torch.set_printoptions(linewidth=500, precision=3)
     continuinty_constraits_per_segment = min(kbezier, 3)
     continuity_constraints = int(continuinty_constraits_per_segment*(numsegments-1))
-    endpoint_constraints = 1
-    total_constraints = continuity_constraints + endpoint_constraints
+    total_constraints = continuity_constraints + 1
     numcoefs = kbezier+1
     HugeM_dense : torch.Tensor = torch.zeros([numsegments, points_per_segment, numsegments, numcoefs], device=device, dtype=dtype)
     tswitchingpoints = torch.linspace(0.0, tsamp[-1].item(), steps=numsegments+1, dtype=dtype, device=device)
@@ -83,7 +82,7 @@ def compositeBezierFit(points : torch.Tensor, t : torch.Tensor, numsegments : in
     HugeM : torch.Tensor = HugeM_dense.view(tsamp.shape[0], numcoefs*numsegments)
     Q = torch.matmul(HugeM.t(), HugeM)
     E = torch.zeros(total_constraints, Q.shape[1], dtype=Q.dtype, device=Q.device)
-    d = torch.zeros(total_constraints, dtype=Q.dtype, device=Q.device)
+    d = torch.zeros(total_constraints, points.shape[-1], dtype=Q.dtype, device=Q.device)
     if continuinty_constraits_per_segment>=1:
         for i in range(int(continuity_constraints/continuinty_constraits_per_segment)):
             E[i, (i+1)*(kbezier+1)-1] = -1.0
