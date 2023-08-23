@@ -6,8 +6,10 @@ from scipy.spatial.transform import Rotation
 import yaml
 from .path_utils.pcd_utils import loadPCD
 from .path_utils import SmoothPathHelper
-from .py_waymo_conversions import scenario_to_tfexample
-
+try:
+    from .py_waymo_conversions import scenario_to_tfexample
+except ImportError:
+    pass
 class TrackMap():
     def __init__(self, directory : str, align=False, transform_to_map = True) -> None:
         self.starting_line_position : np.ndarray = None
