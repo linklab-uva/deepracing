@@ -34,13 +34,17 @@ def trainmixnet(argdict : dict):
     config_file = argdict["config_file"]
     project_name="mixnet-bezier"
     api_key = os.getenv("COMET_API_KEY")
-    if api_key is not None:
+    tempdir = argdict["tempdir"]
+    if (api_key is not None) and (not argdict["offline"]):
         experiment = comet_ml.Experiment(workspace="electric-turtle", project_name=project_name, api_key=api_key)
         print(api_key)
+    elif (api_key is not None) and (tempdir is not None) and argdict["offline"]:
+        offline_name = "mixnet_bezier_" + datetime.now().strftime("%Y_%m_%d_%H:%M:%S") 
+        experiment = comet_ml.OfflineExperiment(workspace="electric-turtle", project_name=project_name, api_key=api_key,\
+                                                offline_directory=tempdir)
+        experiment.set_name(offline_name)
     else:
         experiment = None
-    tempdirobj = None
-    tempdir = argdict["tempdir"]
     if tempdir is None:
         tempdirobj = tempfile.TemporaryDirectory()
         tempdir_full = tempdirobj.name
@@ -56,7 +60,7 @@ def trainmixnet(argdict : dict):
         shutil.copy(config_file, tempdir_full)
         experiment.log_asset(os.path.join(tempdir_full, os.path.basename(config_file)), "config.yaml", copy_to_tmp=False)
     else:
-        os.mkdir(tempdir_full, "plots")
+        os.mkdir(os.path.join(tempdir_full, "plots"))
     with open(config_file, "r") as f:
         allconfig : dict = yaml.load(f, Loader=yaml.SafeLoader)
     dataconfig = allconfig["data"]
@@ -271,21 +275,15 @@ def trainmixnet(argdict : dict):
             plt.plot(predicted_position_future_cpu[:,0], predicted_position_future_cpu[:,1], label="Prediction")#, s=scale_array)
             plt.plot(centerline_label_cpu[:,0], centerline_label_cpu[:,1], label="Centerline Label")#, s=scale_array)
             plt.plot(raceline_label_cpu[:,0], raceline_label_cpu[:,1], label="Raceline Label")#, s=scale_array)
-            # plt.scatter(bcurves_r_cpu[0,:,0], bcurves_r_cpu[0,:,1], s=scale_array)
-            # plt.scatter(bcurves_r_cpu[1,:,0], bcurves_r_cpu[1,:,1], s=scale_array)
-            # plt.scatter(bcurves_r_cpu[2,:,0], bcurves_r_cpu[2,:,1], s=scale_array)
-            # plt.scatter(bcurves_r_cpu[3,:,0], bcurves_r_cpu[3,:,1], s=scale_array)
             plt.plot([],[], label="Boundaries", color="navy")#, s=scale_array)
             plt.legend()
-            # plt.plot(left_bound_input_cpu[:,0], left_bound_input_cpu[:,1], label="Left Bound Input", color="navy")
-            # plt.plot(right_bound_input_cpu[:,0], right_bound_input_cpu[:,1], label="Right Bound Input", color="navy")
             plt.plot(left_bound_label_cpu[:,0], left_bound_label_cpu[:,1], label="Left Bound Label", color="navy")#, s=scale_array)
             plt.plot(right_bound_label_cpu[:,0], right_bound_label_cpu[:,1], label="Right Bound Label", color="navy")#, s=scale_array)
             plt.axis("equal")
             fig_velocity : matplotlib.figure.Figure = plt.figure()
             tsamp_cpu : np.ndarray = tsamp.cpu().numpy()
             plt.plot(tsamp_cpu, speed_future[0].cpu().numpy(), linestyle="dashed", label="Ground Truth Speed")
-            plt.plot(tsamp_cpu, speed_profile_out[0].cpu().numpy(), label="Predicted Speed")
+            plt.plot(tsamp_cpu, speed_profile_out[0].detach().cpu().numpy(), label="Predicted Speed")
             all_speeds = torch.cat([speed_future[0], speed_profile_out[0]], dim=0)
             plt.vlines(tswitchingpoints.cpu().numpy(), all_speeds.min().item() - 1.0, all_speeds.max().item() + 1.0,\
                        linestyle="dashed", color="grey", alpha=0.5)
@@ -313,6 +311,7 @@ if __name__=="__main__":
     parser.add_argument("config_file", type=str,  help="Configuration file to load")
     parser.add_argument("--tempdir", type=str, default=None, help="Temporary directory to save model files before uploading to comet. Default is to use tempfile module to generate one")
     parser.add_argument("--threads", type=int, default=1, help="How many threads for pre-processing bcurves")
+    parser.add_argument("--offline", action="store_true", help="Run as an offline comet experiment instead of uploading to comet.ml")
     args = parser.parse_args()
     argdict : dict = vars(args)
     trainmixnet(argdict)
