@@ -14,6 +14,7 @@ KEYS_WE_CARE_ABOUT : set= {
     "hist",
     "fut",
     "fut_tangents",
+    "fut_vel",
     "fut_speed",
     "future_arclength",
     "left_bd",
