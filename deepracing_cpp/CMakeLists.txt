@@ -52,8 +52,10 @@ find_package(absl CONFIG QUIET)
 find_package(glog CONFIG QUIET)
 find_package(Python REQUIRED COMPONENTS Interpreter Development.Embed Development.Module)
 find_package(pybind11 CONFIG QUIET)
+set(_waymo_tensorflow_conversion_ FALSE)
 if(Protobuf_FOUND AND absl_FOUND AND glog_FOUND AND pybind11_FOUND)
     add_subdirectory(waymo_tensorflow)
+    set(_waymo_tensorflow_conversion_ TRUE)
 endif()
 
 install(DIRECTORY include/deepracing/

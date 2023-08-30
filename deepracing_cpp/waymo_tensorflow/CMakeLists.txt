@@ -47,7 +47,6 @@ set(tf-proto-files
 
 add_library(tf-proto-objects OBJECT ${tf-proto-files})
 target_link_libraries(tf-proto-objects PRIVATE protobuf::libprotobuf)
-# target_link_libraries(tf-proto-objects PRIVATE tensorflow::tensorflow)
 target_include_directories(tf-proto-objects PUBLIC "$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}>")
 protobuf_generate(TARGET tf-proto-objects
     IMPORT_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
@@ -82,30 +81,33 @@ set(waymo-proto-files
 
 add_library(waymo-proto-objects OBJECT ${waymo-proto-files})
 target_link_libraries(waymo-proto-objects PRIVATE protobuf::libprotobuf)
-# target_link_libraries(waymo-proto-objects PRIVATE tensorflow::tensorflow)
 target_include_directories(waymo-proto-objects PUBLIC "$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}>")
 protobuf_generate(TARGET waymo-proto-objects
     IMPORT_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
     PROTOC_OUT_DIR ${CMAKE_BINARY_DIR}
 )
-
-set_target_properties(waymo-proto-objects PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
-set_target_properties(tf-proto-objects PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
-
-add_library(waymo_conversions SHARED ${waymo_dataset_dir}/src/waymo_open_dataset/data_conversion/scenario_conversion.cc)
+add_library(waymo_conversions STATIC ${waymo_dataset_dir}/src/waymo_open_dataset/data_conversion/scenario_conversion.cc)
 target_link_libraries(waymo_conversions 
     PUBLIC 
         protobuf::libprotobuf
         glog::glog 
         absl::any
+        absl::base
+        absl::flat_hash_map
+        absl::flat_hash_set
+        absl::function_ref
+        absl::status
+        absl::statusor
         tf-proto-objects
-        waymo-proto-objects 
+        waymo-proto-objects
+        headers 
 )
 target_include_directories(waymo_conversions 
     PUBLIC 
         "$<BUILD_INTERFACE:${waymo_dataset_dir}/src>"
         "$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}>"
 )
+set_target_properties(tf-proto-objects waymo-proto-objects waymo_conversions PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
 
 find_package(pybind11 REQUIRED)
@@ -116,40 +118,6 @@ target_link_libraries(py_waymo_conversions
         pybind11::module
         pybind11::pybind11
         waymo_conversions
-        absl::absl_check
-        absl::absl_log
-        absl::algorithm
-        absl::base
-        absl::bind_front
-        absl::bits
-        absl::btree
-        absl::cleanup
-        absl::cord
-        absl::core_headers
-        absl::debugging
-        absl::die_if_null
-        absl::dynamic_annotations
-        absl::flags
-        absl::flat_hash_map
-        absl::flat_hash_set
-        absl::function_ref
-        absl::hash
-        absl::layout
-        absl::log_initialize
-        absl::log_severity
-        absl::memory
-        absl::node_hash_map
-        absl::node_hash_set
-        absl::optional
-        absl::span
-        absl::status
-        absl::statusor
-        absl::strings
-        absl::synchronization
-        absl::time
-        absl::type_traits
-        absl::utility
-        absl::variant
 )
 if(UNIX)
 	set_property(TARGET py_waymo_conversions PROPERTY POSITION_INDEPENDENT_CODE ON)
@@ -162,8 +130,33 @@ target_compile_definitions(py_waymo_conversions PRIVATE NOMINMAX=1)
 target_compile_definitions(py_waymo_conversions PRIVATE VERSION_INFO="1.0.0")
 set_target_properties(py_waymo_conversions PROPERTIES PREFIX "${PYTHON_MODULE_PREFIX}")
 
-message(STATUS "Python3_SITELIB: ${Python3_SITELIB}")
-set(pymoduleinstall lib/python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}/site-packages/deepracing)
+
+install(DIRECTORY ${CMAKE_BINARY_DIR}/tensorflow
+    DESTINATION include/deepracing/tensorflow_protos
+    FILES_MATCHING PATTERN "*.pb.h*"
+)
+
+install(DIRECTORY ${CMAKE_BINARY_DIR}/waymo_open_dataset
+    DESTINATION include/deepracing/waymo_open_dataset_protos
+    FILES_MATCHING PATTERN "*.pb.h*"
+)
+
+install(FILES ${CMAKE_BINARY_DIR}/waymo_open_dataset_src/waymo-open-dataset-1.5.2/src/waymo_open_dataset/data_conversion/scenario_conversion.h
+    DESTINATION include/deepracing/waymo_open_dataset/
+)
+
+target_include_directories(waymo_conversions 
+    PUBLIC 
+        "$<INSTALL_INTERFACE:include/deepracing/tensorflow_protos>"
+        "$<INSTALL_INTERFACE:include/deepracing/waymo_open_dataset_protos>"
+)
+
+if(WIN32)
+    set(pymoduleinstall lib/site-packages/deepracing)
+else()
+    set(pymoduleinstall lib/python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}/site-packages/deepracing)
+endif()
+
 install(TARGETS py_waymo_conversions
     RUNTIME DESTINATION ${pymoduleinstall}
     LIBRARY DESTINATION ${pymoduleinstall}
