@@ -10,7 +10,7 @@ from tqdm import tqdm
 import torch.jit
 import os
 import yaml
-KEYS_WE_CARE_ABOUT : set= {
+KEYS_WE_CARE_ABOUT : set = {
     "hist",
     "fut",
     "fut_tangents",
@@ -26,7 +26,11 @@ KEYS_WE_CARE_ABOUT : set= {
     "future_left_bd_arclength",
     "future_right_bd_arclength",
     "future_centerline_arclength",
-    "future_raceline_arclength"
+    "future_raceline_arclength",
+    "thistory",
+    "tfuture",
+    "current_position",
+    "current_orientation" 
 }
 class TrajectoryPredictionDataset(torch.utils.data.Dataset):
     def __init__(self, metadatafile : str, subset_flag : deepracing_models.data_loading.SubsetFlag,\
@@ -91,5 +95,7 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
     def __len__(self):
         return self.len
     def __getitem__(self, index):
-        return {k : self.data_dict[k][index] for k in self.data_dict.keys()}
+        datadict = {k : self.data_dict[k][index] for k in self.data_dict.keys()}
+        datadict["trackname"] = self.metadata["trackname"]
+        return datadict
         
