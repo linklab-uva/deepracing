@@ -31,6 +31,8 @@ def closedPathAsBezierSpline(Y : torch.Tensor) -> Tuple[torch.Tensor, torch.Tens
     arclengths[1:] = torch.cumsum(distances[:,-1], 0)
     return arclengths, compositeBezierSpline(arclengths,Yaug,boundary_conditions="periodic")
 
+
+
 def compositeBezierAntiderivative(control_points : torch.Tensor, delta_t : torch.Tensor) -> torch.Tensor:
     numsplinesegments : int = control_points.shape[-3]
     kbezier_in : int = control_points.shape[-2]-1
@@ -108,13 +110,14 @@ def compositeBezierFit(points : torch.Tensor, t : torch.Tensor, numsegments : in
     lhs[:Q.shape[0],:Q.shape[0]] = Q
     lhs[Q.shape[0]:,:E.shape[1]] = E
     lhs[:E.shape[1], Q.shape[0]:] = E.t()
-    lhs_inv = pinv(lhs)
-    lhs_inv[torch.abs(lhs_inv)<1E-12]=0.0
     rhs = torch.cat([torch.matmul(HugeM.t(), points), d], dim=0)
-    coefs_and_lagrange = torch.matmul(lhs_inv, rhs)
+    # lhs_inv = pinv(lhs)
+    # lhs_inv[torch.abs(lhs_inv)<1E-12]=0.0
+    # coefs_and_lagrange = torch.matmul(lhs_inv, rhs)
+    coefs_and_lagrange = torch.linalg.solve(lhs, rhs)
     lagrange = coefs_and_lagrange[d.shape[0]:]
     coefs = coefs_and_lagrange[:-d.shape[0]]
-    return coefs, lagrange, tswitchingpoints
+    return coefs.view(numsegments, -1, points.shape[-1]), lagrange, tswitchingpoints
 
     
 def compositeBezierEval(xstart : torch.Tensor, dx : torch.Tensor, control_points : torch.Tensor, x_eval : torch.Tensor, idxbuckets : typing.Union[torch.Tensor,None] = None) -> typing.Tuple[torch.Tensor, torch.Tensor]:
