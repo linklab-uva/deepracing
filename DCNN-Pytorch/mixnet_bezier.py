@@ -23,6 +23,7 @@ import multiprocessing, multiprocessing.pool
 import traceback
 import sys
 from datetime import datetime
+from threading import Semaphore, ThreadError
 # k=3
 # d = 2
 # num = 1
@@ -30,6 +31,17 @@ from datetime import datetime
 def errorcb(exception):
     for elem in traceback.format_exception(exception):
         print(elem, flush=True, file=sys.stderr)
+def loadwrapper(dsets : list[FD.TrajectoryPredictionDataset], dsetconfigs : list[dict], metadatafile : str, kbezier : int, mutex : Semaphore, built_in_lstq=True):
+    with open(metadatafile, "r") as f:
+        dsetconfig = yaml.load(f, Loader=yaml.SafeLoader)
+    dset = FD.TrajectoryPredictionDataset(metadatafile, SubsetFlag.TRAIN, dtype=torch.float64)
+    dset.fit_bezier_curves(kbezier, built_in_lstq=built_in_lstq)
+    if mutex.acquire(blocking=True, timeout=2.0):
+        dsets.append(dset)
+        dsetconfigs.append(dsetconfig)
+        mutex.release()
+    else:
+        raise RuntimeError("Could not acquire mutex for dataset: %s" % (metadatafile,))
 def trainmixnet(argdict : dict):
     config_file = argdict["config_file"]
     project_name="mixnet-bezier"
@@ -72,7 +84,9 @@ def trainmixnet(argdict : dict):
     datadir = dataconfig["dir"]
     dsetfiles = glob.glob(os.path.join(datadir, "**", "metadata.yaml"), recursive=True)
     dsets : list[FD.TrajectoryPredictionDataset] = []
+    mutex : Semaphore = Semaphore()
     dsetconfigs = []
+    asyncresults = []
     numsamples_prediction = None
     kbezier = trainerconfig["kbezier"]
     # if cuda:
@@ -91,8 +105,11 @@ def trainmixnet(argdict : dict):
                             "has prediction length %d" % (metadatafile, dsetconfig["numsamples_prediction"], numsamples_prediction))
         dsetconfigs.append(dsetconfig)
         dsets.append(FD.TrajectoryPredictionDataset(metadatafile, SubsetFlag.TRAIN, dtype=torch.float64))
-        dsets[-1].fit_bezier_curves(kbezier)#, device=dev)
-            # threadpool.apply_async(dsets[-1].fit_bezier_curves, args=[kbezier,], kwds={"device" : dev}, error_callback=errorcb)
+        dsets[-1].fit_bezier_curves(kbezier, built_in_lstq=True)
+        #def loadwrapper(dsets : list[FD.TrajectoryPredictionDataset], dsetconfigs : list[dict], metadatafile : str, kbezier : int, mutex : Semaphore, built_in_lstq=True):
+        # loadargs=[dsets, dsetconfigs, metadatafile, kbezier, mutex]
+        # loadkwds = {"built_in_lstq" : True}
+        # asyncresults.append(threadpool.apply_async(loadwrapper, args=loadargs, kwds=loadkwds, error_callback=errorcb))
         # threadpool.close()
         # threadpool.join()   
     batch_size = trainerconfig["batch_size"]
