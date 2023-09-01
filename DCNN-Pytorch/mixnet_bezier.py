@@ -127,6 +127,7 @@ def trainmixnet(argdict : dict):
     averagepositionloss = 1E9
     averagevelocityloss = 1E9
     averagevelocityerror = 1E9
+    averagearclengtherror = 1E9
 
     numsamples_prediction = dsetconfigs[0]["numsamples_prediction"]
     tsamp = torch.linspace(0.0, prediction_totaltime, dtype=dtype, device=device, steps=numsamples_prediction)
@@ -138,6 +139,7 @@ def trainmixnet(argdict : dict):
         total_position_loss = 0.0
         total_velocity_loss = 0.0
         total_velocity_error = 0.0
+        total_arclength_error = 0.0
         dataloader_enumerate = enumerate(dataloader)
         if experiment is None:
             tq = tqdm.tqdm(dataloader_enumerate, desc="Yay")
@@ -229,7 +231,7 @@ def trainmixnet(argdict : dict):
 
             coefs_antiderivative = deepracing_models.math_utils.compositeBezierAntiderivative(coefs_inferred.unsqueeze(-1), dt_batch)
             arclengths_out, _ = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
-            loss_arclength = lossfunc(arclengths_out, future_arclength_rel)
+            loss_arclength : torch.Tensor = lossfunc(arclengths_out, future_arclength_rel)
             if experiment is not None:
                 experiment.log_metric("loss_arclength", loss_arclength.item())
 
@@ -250,12 +252,19 @@ def trainmixnet(argdict : dict):
                 total_position_loss += loss_position.item()
                 total_velocity_loss += loss_velocity.item()
                 total_velocity_error += loss_velocity.item()/(prediction_timestep**2)
+                total_arclength_error += loss_arclength.item()
                 totalloss += loss.item()
                 averageloss = totalloss/(i+1)
                 averagepositionloss = total_position_loss/(i+1)
                 averagevelocityloss = total_velocity_loss/(i+1)
                 averagevelocityerror = total_velocity_error/(i+1)
-                tq.set_postfix({"average position loss" : averagepositionloss, "average velocity error" : averagevelocityerror, "average velocity loss" : averagevelocityloss, "average loss" : averageloss, "epoch": epoch})
+                averagearclengtherror = total_arclength_error/(i+1)
+                tq.set_postfix({"average position loss" : averagepositionloss, 
+                                "average velocity error" : averagevelocityerror, 
+                                "average velocity loss" : averagevelocityloss, 
+                                "average arclength loss" : averagearclengtherror, 
+                                "average loss" : averageloss, 
+                                "epoch": epoch})
 
         if epoch%10==0:
             bcurves_r_cpu = bcurves_r[0].cpu()
