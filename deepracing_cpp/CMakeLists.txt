@@ -18,7 +18,8 @@ INTERFACE
 set(targets_to_install)
 list(APPEND targets_to_install headers)
 
-find_package(PCL CONFIG REQUIRED)
+set(_pcl_components_ common io)
+find_package(PCL CONFIG REQUIRED COMPONENTS ${_pcl_components_})
 message(STATUS "Found PCL at ${PCL_DIR}")
 add_library(pcltypes SHARED src/pcl_types.cpp)
 target_link_libraries(pcltypes PUBLIC headers PRIVATE ${PCL_LIBRARIES})
