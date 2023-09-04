@@ -105,7 +105,7 @@ def trainmixnet(argdict : dict):
                             "has prediction length %d" % (metadatafile, dsetconfig["numsamples_prediction"], numsamples_prediction))
         dsetconfigs.append(dsetconfig)
         dsets.append(FD.TrajectoryPredictionDataset(metadatafile, SubsetFlag.TRAIN, dtype=torch.float64))
-        dsets[-1].fit_bezier_curves(kbezier, built_in_lstq=True)
+        dsets[-1].fit_bezier_curves(kbezier, built_in_lstq=True, cache=True)
         #def loadwrapper(dsets : list[FD.TrajectoryPredictionDataset], dsetconfigs : list[dict], metadatafile : str, kbezier : int, mutex : Semaphore, built_in_lstq=True):
         # loadargs=[dsets, dsetconfigs, metadatafile, kbezier, mutex]
         # loadkwds = {"built_in_lstq" : True}
@@ -247,10 +247,16 @@ def trainmixnet(argdict : dict):
             predicted_bcurve = torch.cat([known_control_points, mixed_control_points], dim=1) 
 
             coefs_antiderivative = deepracing_models.math_utils.compositeBezierAntiderivative(coefs_inferred.unsqueeze(-1), dt_batch)
-            arclengths_out, _ = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
-            loss_arclength : torch.Tensor = lossfunc(arclengths_out, future_arclength_rel)
+            arclengths_pred, _ = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
+            loss_arclength : torch.Tensor = lossfunc(arclengths_pred, future_arclength_rel)
+            arclengths_pred_s = arclengths_pred/arclengths_pred[:,-1,None]
+            Marclengths_out : torch.Tensor = deepracing_models.math_utils.bezierM(arclengths_pred_s, kbezier)
+            pointsout : torch.Tensor = torch.matmul(Marclengths_out, predicted_bcurve)
+            displacements : torch.Tensor = pointsout - position_future
+            ade : torch.Tensor = torch.mean(torch.norm(displacements, p=2.0, dim=-1))
             if experiment is not None:
                 experiment.log_metric("loss_arclength", loss_arclength.item())
+                experiment.log_metric("mean_displacement_error", ade.item())
 
             Mbezierout = deepracing_models.math_utils.bezierM(arclengths_out_s, kbezier)
             predicted_position_future = torch.matmul(Mbezierout, predicted_bcurve)

@@ -64,8 +64,17 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
                 self.data_dict[k] = torch.as_tensor(arr.copy(), dtype=dtype, device=device)
         self.directory : str = directory
         self.subset_flag : deepracing_models.data_loading.SubsetFlag = subset_flag
-    def fit_bezier_curves(self, kbezier : int, device=torch.device("cpu"), built_in_lstq=False):    
-               
+    def fit_bezier_curves(self, kbezier : int, device=torch.device("cpu"), built_in_lstq=False, cache=False):    
+        cachefile = os.path.join(self.directory, "bcurve_order_%d.npz" % (kbezier,))
+        if cache and os.path.isfile(cachefile):
+            desc = "Loading bezier curves from cache file %s" % (cachefile,)
+            print(desc, flush=True)
+            with open(cachefile, "rb") as f:
+                npdict : npio.NpzFile = np.load(f)
+                self.data_dict["reference_curves"] = torch.as_tensor( 
+                    np.stack([npdict[k].copy() for k in ["left", "right", "center", "race"]], axis=1),
+                    device=self.data_dict["hist"].device, dtype=self.data_dict["hist"].dtype)
+            return
         desc = "Fitting bezier curves for %s" % (self.directory,)
         print(desc, flush=True)
 
@@ -89,6 +98,14 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
         print("Doing the lstsq fit, HERE WE GOOOOOO!", flush=True)
         _, all_curves_flat = deepracing_models.math_utils.bezierLsqfit(all_lines_flat, kbezier, t=all_s_flat, built_in_lstq=built_in_lstq)
         self.data_dict["reference_curves"] = all_curves_flat.to(self.data_dict["hist"].device).reshape(-1, 4, kbezier+1, all_lines.shape[-1])
+        npdict = {
+            "left" : self.data_dict["reference_curves"][:,0].cpu().numpy(),
+            "right" : self.data_dict["reference_curves"][:,1].cpu().numpy(),
+            "center" : self.data_dict["reference_curves"][:,2].cpu().numpy(),
+            "race" : self.data_dict["reference_curves"][:,3].cpu().numpy()
+        }
+        with open(cachefile, "wb") as f:
+            np.savez_compressed(f, **npdict)
         print("Done", flush=True)
 
 
