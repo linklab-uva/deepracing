@@ -104,8 +104,10 @@ def trainmixnet(argdict : dict):
                             "Dataset at %s has prediction length %d, but previous dataset " + \
                             "has prediction length %d" % (metadatafile, dsetconfig["numsamples_prediction"], numsamples_prediction))
         dsetconfigs.append(dsetconfig)
-        dsets.append(FD.TrajectoryPredictionDataset(metadatafile, SubsetFlag.TRAIN, dtype=torch.float64))
-        dsets[-1].fit_bezier_curves(kbezier, built_in_lstq=True, cache=True)
+        direct_load = True
+        dsets.append(FD.TrajectoryPredictionDataset(metadatafile, SubsetFlag.TRAIN, direct_load, dtype=torch.float64))
+        bcurve_cache = True
+        dsets[-1].fit_bezier_curves(kbezier, built_in_lstq=True, cache=bcurve_cache)
         #def loadwrapper(dsets : list[FD.TrajectoryPredictionDataset], dsetconfigs : list[dict], metadatafile : str, kbezier : int, mutex : Semaphore, built_in_lstq=True):
         # loadargs=[dsets, dsetconfigs, metadatafile, kbezier, mutex]
         # loadkwds = {"built_in_lstq" : True}
@@ -114,7 +116,7 @@ def trainmixnet(argdict : dict):
         # threadpool.join()   
     batch_size = trainerconfig["batch_size"]
     netconfig["gpu_index"]=gpu_index
-    dataloader = torchdata.DataLoader(torchdata.ConcatDataset(dsets), batch_size=batch_size, pin_memory=cuda, shuffle=True)#, collate_fn=dsets[0].collate_fn)
+    dataloader = torchdata.DataLoader(torchdata.ConcatDataset(dsets), num_workers=argdict["workers"], batch_size=batch_size, pin_memory=cuda, shuffle=True)#, collate_fn=dsets[0].collate_fn)
     net : BezierMixNet = BezierMixNet(netconfig).double()
     lossfunc = torch.nn.MSELoss().double()
     if cuda:
@@ -155,8 +157,8 @@ def trainmixnet(argdict : dict):
         totalloss = 0.0
         total_position_loss = 0.0
         total_velocity_loss = 0.0
-        total_velocity_error = 0.0
         total_arclength_error = 0.0
+        total_ade = 0.0
         dataloader_enumerate = enumerate(dataloader)
         if experiment is None:
             tq = tqdm.tqdm(dataloader_enumerate, desc="Yay")
@@ -232,9 +234,7 @@ def trainmixnet(argdict : dict):
             dt_batch = dt.unsqueeze(0).expand(currentbatchsize, num_accel_sections)
             teval_batch = tsamp.unsqueeze(0).expand(currentbatchsize, numsamples_prediction)
             speed_profile_out, idxbuckets = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_inferred.unsqueeze(-1), teval_batch)
-            loss_velocity : torch.Tensor = (lossfunc(speed_profile_out, speed_future))*(prediction_timestep**2)
-            if experiment is not None:
-                experiment.log_metric("loss_velocity", loss_velocity.item())
+            loss_velocity : torch.Tensor = (lossfunc(speed_profile_out, speed_future))#*(prediction_timestep**2)
             
 
             delta_r : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
@@ -250,13 +250,10 @@ def trainmixnet(argdict : dict):
             arclengths_pred, _ = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
             loss_arclength : torch.Tensor = lossfunc(arclengths_pred, future_arclength_rel)
             arclengths_pred_s = arclengths_pred/arclengths_pred[:,-1,None]
-            Marclengths_out : torch.Tensor = deepracing_models.math_utils.bezierM(arclengths_pred_s, kbezier)
-            pointsout : torch.Tensor = torch.matmul(Marclengths_out, predicted_bcurve)
+            Marclengths_pred : torch.Tensor = deepracing_models.math_utils.bezierM(arclengths_pred_s, kbezier)
+            pointsout : torch.Tensor = torch.matmul(Marclengths_pred, predicted_bcurve)
             displacements : torch.Tensor = pointsout - position_future
             ade : torch.Tensor = torch.mean(torch.norm(displacements, p=2.0, dim=-1))
-            if experiment is not None:
-                experiment.log_metric("loss_arclength", loss_arclength.item())
-                experiment.log_metric("mean_displacement_error", ade.item())
 
             Mbezierout = deepracing_models.math_utils.bezierM(arclengths_out_s, kbezier)
             predicted_position_future = torch.matmul(Mbezierout, predicted_bcurve)
@@ -264,29 +261,29 @@ def trainmixnet(argdict : dict):
             loss_position : torch.Tensor = lossfunc(predicted_position_future, position_future)
             if experiment is not None:
                 experiment.log_metric("loss_position", loss_position.item())
-                experiment.log_metric("velocity_error", loss_velocity.item()/(prediction_timestep**2))
-            
-
-            loss = loss_position + 2.0*loss_velocity #+ 10.0*loss_arclength #
+                experiment.log_metric("loss_arclength", loss_arclength.item())
+                experiment.log_metric("mean_displacement_error", ade.item())
+                experiment.log_metric("loss_velocity", loss_velocity.item())      
+            loss = loss_position + loss_velocity
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             if experiment is None:
                 total_position_loss += loss_position.item()
                 total_velocity_loss += loss_velocity.item()
-                total_velocity_error += loss_velocity.item()/(prediction_timestep**2)
                 total_arclength_error += loss_arclength.item()
+                total_ade += ade.item()
                 totalloss += loss.item()
                 averageloss = totalloss/(i+1)
                 averagepositionloss = total_position_loss/(i+1)
                 averagevelocityloss = total_velocity_loss/(i+1)
-                averagevelocityerror = total_velocity_error/(i+1)
                 averagearclengtherror = total_arclength_error/(i+1)
+                averageade = total_ade/(i+1)
                 tq.set_postfix({"average position loss" : averagepositionloss, 
-                                "average velocity error" : averagevelocityerror, 
                                 "average velocity loss" : averagevelocityloss, 
                                 "average arclength loss" : averagearclengtherror, 
                                 "average loss" : averageloss, 
+                                "average ade" : averageade, 
                                 "epoch": epoch})
 
         if epoch%10==0:
@@ -342,7 +339,7 @@ if __name__=="__main__":
     parser = argparse.ArgumentParser(description="Train Bezier version of MixNet")
     parser.add_argument("config_file", type=str,  help="Configuration file to load")
     parser.add_argument("--tempdir", type=str, default=None, help="Temporary directory to save model files before uploading to comet. Default is to use tempfile module to generate one")
-    parser.add_argument("--threads", type=int, default=1, help="How many threads for pre-processing bcurves")
+    parser.add_argument("--workers", type=int, default=0, help="How many threads for data loading")
     parser.add_argument("--offline", action="store_true", help="Run as an offline comet experiment instead of uploading to comet.ml")
     args = parser.parse_args()
     argdict : dict = vars(args)
