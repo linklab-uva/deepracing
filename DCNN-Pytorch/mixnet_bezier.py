@@ -218,7 +218,7 @@ def trainmixnet(argdict : dict):
             # acc_out = torch.clamp(acc_out_ + speed_future[:,0].unsqueeze(-1), 5.0*one, 110.0*one)
             
 
-            coefs_inferred = torch.zeros(currentbatchsize, num_accel_sections, 4, dtype=acc_out.dtype, device=acc_out.device)
+            coefs_inferred = torch.zeros(currentbatchsize, num_accel_sections, kbeziervel+1, dtype=acc_out.dtype, device=acc_out.device)
             coefs_inferred[:,0,0] = speed_future[:,0]
             coefs_inferred[:,0,[1,2]] = acc_out[:,[0,1]]
             coefs_inferred[:,1:,1] = acc_out[:,2:-1]
