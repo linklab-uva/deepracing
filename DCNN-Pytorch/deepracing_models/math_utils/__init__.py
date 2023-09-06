@@ -121,9 +121,8 @@ class SimplePathHelper(torch.nn.Module):
         control_points_transformed = control_points_transformed_flat.view(batchdim, control_points.shape[0], control_points.shape[1], control_points.shape[2])
 
 
-        kbezier = control_points.shape[1] - 1
-        xbezier = control_points_transformed[:,:,:,0]
-        polynom_roots = bezierPolyRoots(xbezier.reshape(-1, kbezier+1)).view(batchdim, control_points.shape[0], kbezier)
+        xbezier_flat = control_points_transformed[:,:,:,0].reshape(-1, control_points.shape[1])
+        polynom_roots = bezierPolyRoots(xbezier_flat).view(batchdim, control_points.shape[0], control_points.shape[1] - 1)
 
         matchmask = (torch.abs(polynom_roots.imag)<1E-5)*(polynom_roots.real>0.0)*(polynom_roots.real<1.0)
 
