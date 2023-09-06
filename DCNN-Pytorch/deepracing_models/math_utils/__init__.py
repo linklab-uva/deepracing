@@ -17,6 +17,7 @@ from .geometry import localRacelines
 
 from . import bezier
 
+
 import torch
 
 import torch.nn
@@ -101,6 +102,60 @@ class SimplePathHelper(torch.nn.Module):
             derivs, _ = self.__curve_deriv__(s, idxbuckets=idxbuckets)
             return positions, derivs
         return positions, None
+    
+    def x_axis_intersection(self, Pquery : torch.Tensor, Rquery : torch.Tensor):
+        
+        batchdim = Pquery.shape[0]
+        control_points = self.__curve__.control_points
+        arclengths_start = self.__curve__.x
+        delta_arclengths = self.__curve__.dx
+        
+        rotmat = Rquery.transpose(-2,-1).to(control_points.device).to(control_points.dtype)
+        pquery = Pquery.to(control_points.device).to(control_points.dtype)
+        ptransform = -torch.matmul(rotmat, pquery.unsqueeze(-1)).squeeze(-1)
+
+        control_points_exp = control_points.unsqueeze(0).expand([batchdim] + list(control_points.shape))
+        control_points_exp_flat = control_points_exp.view(batchdim, -1, control_points.shape[-1])
+        control_points_transformed_flat = torch.matmul(rotmat, control_points_exp_flat.transpose(-2,-1)).transpose(-2,-1) + ptransform[:,None]
+
+        control_points_transformed = control_points_transformed_flat.view(batchdim, control_points.shape[0], control_points.shape[1], control_points.shape[2])
+
+
+        kbezier = control_points.shape[1] - 1
+        xbezier = control_points_transformed[:,:,:,0]
+        polynom_roots = bezierPolyRoots(xbezier.reshape(-1, kbezier+1)).view(batchdim, control_points.shape[0], kbezier)
+
+        matchmask = (torch.abs(polynom_roots.imag)<1E-5)*(polynom_roots.real>0.0)*(polynom_roots.real<1.0)
+
+        idx=torch.arange(0, control_points.shape[0], step=1, dtype=torch.int64, device=control_points.device)
+        
+        selection_all = (torch.sum(matchmask, dim=-1)>=1)
+        
+        rintersect = torch.zeros(batchdim, device=control_points.device, dtype=control_points.dtype)
+        for i in range(batchdim):
+            selection = selection_all[i]
+            candidates_idx = idx[selection]
+            candidates = control_points_transformed[i,candidates_idx]
+            candidates_polyroots = polynom_roots[i,candidates_idx]
+            candidates_rstart = arclengths_start[candidates_idx]
+            candidates_dr = delta_arclengths[candidates_idx]
+            norms = torch.norm(candidates[:,[0,-1]], p=2.0, dim=2)
+            norm_means = torch.mean(norms, dim=1)
+            imin = torch.argmin(norm_means)
+
+            correctroots = candidates_polyroots[imin]
+            correctsval = correctroots[(torch.abs(correctroots.imag)<1E-5)*(correctroots.real>0.0)*(correctroots.real<1.0)].real.item()
+            correctdr = candidates_dr[imin]
+
+            correctrstart = candidates_rstart[imin]
+
+            rintersect[i] = correctrstart + correctsval*correctdr
+        return rintersect
+        # print(rintersect)
+
+
+        
+
     
 
 def closestPointToPathNaive(path : SimplePathHelper, p_query : torch.Tensor):
