@@ -118,7 +118,7 @@ class SimplePathHelper(torch.nn.Module):
         control_points_exp_flat = control_points_exp.view(batchdim, -1, control_points.shape[-1])
         control_points_transformed_flat = torch.matmul(rotmat, control_points_exp_flat.transpose(-2,-1)).transpose(-2,-1) + ptransform[:,None]
 
-        control_points_transformed = control_points_transformed_flat.view(batchdim, control_points.shape[0], control_points.shape[1], control_points.shape[2])
+        control_points_transformed = control_points_transformed_flat.view([batchdim] + list(control_points.shape))
 
 
         xbezier_flat = control_points_transformed[:,:,:,0].reshape(-1, control_points.shape[1])
