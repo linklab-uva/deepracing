@@ -103,7 +103,7 @@ class SimplePathHelper(torch.nn.Module):
             return positions, derivs
         return positions, None
     
-    def x_axis_intersection(self, Pquery : torch.Tensor, Rquery : torch.Tensor):
+    def y_axis_intersection(self, Pquery : torch.Tensor, Rquery : torch.Tensor):
         
         batchdim = Pquery.shape[0]
         control_points = self.__curve__.control_points
@@ -129,7 +129,7 @@ class SimplePathHelper(torch.nn.Module):
         idx=torch.arange(0, control_points.shape[0], step=1, dtype=torch.int64, device=control_points.device)
         
         selection_all = (torch.sum(matchmask, dim=-1)>=1)
-        
+
         rintersect = torch.zeros(batchdim, device=control_points.device, dtype=control_points.dtype)
         for i in range(batchdim):
             selection = selection_all[i]
