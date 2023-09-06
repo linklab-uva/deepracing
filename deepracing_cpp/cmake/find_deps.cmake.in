@@ -1,5 +1,5 @@
 include(CMakeFindDependencyMacro)
-find_dependency(PCL CONFIG)
+find_dependency(PCL CONFIG COMPONENTS @_pcl_components_@)
 find_dependency(yaml-cpp CONFIG)
 find_dependency(Eigen3 CONFIG)
 if(@PROJECT_NAME@_BUILT_WITH_AMENT)

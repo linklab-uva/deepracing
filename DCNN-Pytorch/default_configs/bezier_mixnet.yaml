@@ -9,13 +9,13 @@
         learning_rate: 1E-5,
         momentum: 0.0,
         nesterov: False,
-        gpu_index: 1,
+        gpu_index: 0,
         betas: [0.99, 0.9999], 
         eps: 1E-8,
         weight_decay: 0.0,
         epochs: 500,
         batch_size: 128,
-        kbezier: 6
+        kbezier: 3
     },
     net:
     {
