@@ -106,7 +106,7 @@ def cubic_formula(coefs : torch.Tensor):
     a = coefs[:,3] + 0j
     aeq0 = (torch.abs(a.real)<1E-9)*(torch.abs(a.imag)<1E-9)
     if torch.any(aeq0):
-        a[aeq0] = 1E-9 + 0j
+        a[aeq0] = 1E-16 + 0j
     
 
     delta_0 = b**2 - 3*a*c

@@ -8,7 +8,7 @@ from .bezier import evalBezier, evalBezierSinglePoint
 from .bezier import bezierArcLength, compositeBezierSpline, compositeBezierAntiderivative, compositeBezierFit
 from .bezier import closedPathAsBezierSpline, polynomialFormConversion, elevateBezierOrder, compositeBezierEval
 from .fitting import pinv, fitAffine
-from .bezier import BezierCurveModule
+from .bezier import BezierCurveModule, comb
 
 from .statistics import cov
 from .integrate import cumtrapz, simpson
@@ -20,7 +20,10 @@ from . import bezier
 
 import torch
 
+
 import torch.nn
+import torchaudio
+
 
 class CompositeBezierCurve(torch.nn.Module):
     def __init__(self, x : torch.Tensor, control_points : torch.Tensor, order : int = 0) -> None:
@@ -102,7 +105,69 @@ class SimplePathHelper(torch.nn.Module):
             derivs, _ = self.__curve_deriv__(s, idxbuckets=idxbuckets)
             return positions, derivs
         return positions, None
+    def closest_point(self, Pquery : torch.Tensor):
+        order_this = self.__curve__.bezier_order
+        order_deriv = order_this - 1
+        order_prod = order_this + order_deriv
+
+        control_points = self.__curve__.control_points
+        control_points_deriv = self.__curve_deriv__.control_points
+        batchdim = Pquery.shape[0]
+        control_point_0 = control_points[:,0]
+        distance_matrix = torch.cdist(Pquery, control_point_0)
+        idx_min = torch.argmin(distance_matrix, dim=1, keepdim=True)
+        idx_delta = torch.arange(-15, 16, step=1, dtype=torch.int64, device=Pquery.device)
+        idx_delta_exp = (idx_delta.unsqueeze(0).expand(Pquery.shape[0], idx_delta.shape[0]) + idx_min)%control_point_0.shape[0]
+
+        control_points_select = control_points[idx_delta_exp]
+        arclengths_start_select = self.__curve__.x[idx_delta_exp.view(-1)].view(Pquery.shape[0], idx_delta_exp.shape[1])
+        delta_arclengths_select = self.__curve__.dx[idx_delta_exp.view(-1)].view(Pquery.shape[0], idx_delta_exp.shape[1])
+        
+        control_points_delta = control_points_select - Pquery[:,None,None]
+        control_points_deriv_select = control_points_deriv[idx_delta_exp]
+
+        binomial_coefs = torch.as_tensor([comb(order_this, i) for i in range(order_this+1)], dtype=Pquery.dtype, device=Pquery.device)
+        binomial_coefs_deriv = torch.as_tensor([comb(order_deriv, i) for i in range(order_deriv+1)], dtype=Pquery.dtype, device=Pquery.device)
+        control_points_delta_scaled = control_points_delta*binomial_coefs[None,None,:,None]
+        control_points_deriv_scaled = control_points_deriv_select*binomial_coefs_deriv[None,None,:,None]
     
+        convolution = torchaudio.functional.convolve(control_points_delta_scaled.transpose(-2,-1), control_points_deriv_scaled.transpose(-2,-1)).transpose(-2,-1)
+        binomial_coefs_prod = torch.as_tensor([comb(order_prod, i) for i in range(order_prod+1)], dtype=Pquery.dtype, device=Pquery.device)
+        bezier_polys = torch.sum(convolution/binomial_coefs_prod[None,None,:,None], dim=-1)
+        polynom_roots = bezierPolyRoots(bezier_polys.view(-1, order_prod+1)).view(Pquery.shape[0], idx_delta.shape[0], order_prod)
+        matchmask = (torch.abs(polynom_roots.imag)<1E-5)*(polynom_roots.real>0.0)*(polynom_roots.real<1.0)
+        idx=torch.arange(0, idx_delta.shape[0], step=1, dtype=torch.int64, device=control_points.device)
+        selection_all = (torch.sum(matchmask, dim=-1)>=1)
+        rclosest = torch.empty_like(Pquery[:,0])
+
+        for i in range(batchdim):
+            selection = selection_all[i]
+            candidates_idx = idx[selection]
+            candidates = control_points_select[i,candidates_idx]
+            candidates_polyroots = polynom_roots[i,candidates_idx]
+            
+            candidates_rstart = arclengths_start_select[i,candidates_idx]
+            candidates_dr = delta_arclengths_select[i,candidates_idx]
+            
+            norms = torch.norm(candidates[:,[0,-1]], p=2.0, dim=2)
+            norm_means = torch.mean(norms, dim=1)
+            imin = torch.argmin(norm_means)
+
+            correctroots = candidates_polyroots[imin]
+            correctsval = correctroots[(torch.abs(correctroots.imag)<1E-5)*(correctroots.real>0.0)*(correctroots.real<1.0)].real.item()
+            correctdr = candidates_dr[imin]
+
+            correctrstart = candidates_rstart[imin]
+
+            rclosest[i] = correctrstart + correctsval*correctdr
+
+        return rclosest
+
+
+
+
+
+
     def y_axis_intersection(self, Pquery : torch.Tensor, Rquery : torch.Tensor):
         
         control_points = self.__curve__.control_points
