@@ -44,8 +44,6 @@ class CompositeBezierCurve(torch.nn.Module):
 
         self.d : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor(self.control_points.shape[-1], dtype=torch.int64), requires_grad=False)
 
-        self.order : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor(order, dtype=torch.int64), requires_grad=False)
-
         self.bezier_order : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor(self.control_points.shape[-2]-1, dtype=torch.int64), requires_grad=False)
 
 
@@ -67,8 +65,8 @@ class CompositeBezierCurve(torch.nn.Module):
         return evalrtn, idxmin.view(x_eval.shape)
     def derivative(self):
         control_points_detached = self.control_points.detach()
-        control_point_deltas : torch.Tensor = self.bezier_order*(control_points_detached[:,1:] - control_points_detached[:,:-1])/self.dx.detach()[:,None,None]
-        return CompositeBezierCurve(self.x.detach().clone(), control_point_deltas, order=self.order-1)
+        control_point_deltas : torch.Tensor = self.bezier_order.detach()*(control_points_detached[:,1:] - control_points_detached[:,:-1])/self.dx.detach()[:,None,None]
+        return CompositeBezierCurve(self.x.detach().clone(), control_point_deltas)
 
 class SimplePathHelper(torch.nn.Module):
     def __init__(self, points : torch.Tensor, dr_samp : float) -> None:
