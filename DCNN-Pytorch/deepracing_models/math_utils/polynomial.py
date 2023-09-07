@@ -78,7 +78,63 @@ def polycompanion(c : torch.Tensor):
     for i in range(0, mat.shape[1]-1):
         mat[:,i+1,i]=1.0
     return mat.transpose(1,2)
+def linear_formula(coefs : torch.Tensor):
+    b = coefs[:,0] + 0j
+    m = coefs[:,1] + 0j
+    roots = -b/m
+    return roots.unsqueeze(-1)
 
+def quadratic_formula(coefs : torch.Tensor):
+    c = coefs[:,0] + 0j
+    b = coefs[:,1] + 0j
+    a = coefs[:,2] + 0j
+    aeq0 = (torch.abs(a.real)<1E-9)*(torch.abs(a.imag)<1E-9)
+    a[aeq0] = 1E-9 + 0j
+
+    roots = torch.empty_like(coefs[:,0:2])
+    discriminant = b**2 - 4.0*a*c
+
+    roots[:,0] = -b + torch.sqrt(discriminant)
+    roots[:,1] = -b - torch.sqrt(discriminant)
+    
+    return roots
+
+def cubic_formula(coefs : torch.Tensor):
+    d = coefs[:,0] + 0j
+    c = coefs[:,1] + 0j
+    b = coefs[:,2] + 0j
+    a = coefs[:,3] + 0j
+    aeq0 = (torch.abs(a.real)<1E-9)*(torch.abs(a.imag)<1E-9)
+    if torch.any(aeq0):
+        a[aeq0] = 1E-9 + 0j
+    
+
+    delta_0 = b**2 - 3*a*c
+    delta_1 = 2*(b**3) - 9*a*b*c + 27*(a**2)*d
+    one_third = torch.ones_like(coefs[0,0])/3.0
+    Cvec = torch.pow( 0.5*(  delta_1   +   torch.sqrt(delta_1**2 - 4*(delta_0**3))    )  ,  one_third)
+    Ceq0=(torch.abs(Cvec.real)<1E-9)*(torch.abs(Cvec.imag)<1E-9)
+    if torch.any(Ceq0):
+        Cvec[Cvec==0] = torch.pow( 0.5*(  delta_1[Cvec==0]    -   torch.sqrt(delta_1[Cvec==0] **2 - 4*(delta_0[Cvec==0] **3))    )  , one_third)
+    Ceq0 = (torch.abs(Cvec.real)<1E-9)*(torch.abs(Cvec.imag)<1E-9)
+    Cnot0 = ~Ceq0
+
+    delta0_over_Cvec = torch.zeros_like(Cvec)
+    delta0_over_Cvec[Cnot0] = delta_0[Cnot0]/Cvec[Cnot0]
+
+    minus1_over_3a = -1.0/(3.0*a)
+    
+    roots = torch.empty_like(coefs[:,0:3]) + 0j
+    roots[:,0] = minus1_over_3a*(b + Cvec + delta0_over_Cvec)
+
+    one = torch.ones_like(coefs[0,0])
+    Xi = (-0.5 + 0.8660254037844386j)*one
+    Xisquare = Xi**2
+    
+    roots[:,1] = minus1_over_3a*(b + Xi*Cvec + delta0_over_Cvec/Xi)
+    roots[:,2] = minus1_over_3a*(b + Xisquare*Cvec + delta0_over_Cvec/Xisquare)
+
+    return roots
 
 def polyroots(c):
     """
@@ -108,6 +164,10 @@ def polyroots(c):
     if num_coefficients < 2:
         raise ValueError("Polynomial of degree 0 not supported.")
     if num_coefficients == 2:
-        return ((-c[:,0]/c[:,1]) + 0.0J*torch.zeros_like(c[:,0])).unsqueeze(1)
+        return linear_formula(c)
+    elif num_coefficients == 3:
+        return quadratic_formula(c)
+    elif num_coefficients == 4:
+        return cubic_formula(c)
     companion : torch.Tensor = polycompanion(c)
     return torch.linalg.eigvals(companion)

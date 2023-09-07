@@ -105,39 +105,65 @@ class SimplePathHelper(torch.nn.Module):
     
     def y_axis_intersection(self, Pquery : torch.Tensor, Rquery : torch.Tensor):
         
-        batchdim = Pquery.shape[0]
         control_points = self.__curve__.control_points
-        arclengths_start = self.__curve__.x
-        delta_arclengths = self.__curve__.dx
+
+        batchdim = Pquery.shape[0]
+        control_point_0 = control_points[:,0]
+        distance_matrix = torch.cdist(Pquery, control_point_0)
+        idx_min = torch.argmin(distance_matrix, dim=1, keepdim=True)
+        idx_delta = torch.arange(-15, 16, step=1, dtype=torch.int64)
+        idx_delta_exp = (idx_delta.unsqueeze(0).expand(Pquery.shape[0], idx_delta.shape[0]) + idx_min)%control_point_0.shape[0]
+
+        control_points_select = control_points[idx_delta_exp]#.view(-1)].view(Pquery.shape[0], idx_delta_exp.shape[1], control_points.shape[-2], control_points.shape[-1])
+
+        # arclengths_start = self.__curve__.x
+        # delta_arclengths = self.__curve__.dx
+
+        arclengths_start_select = self.__curve__.x[idx_delta_exp.view(-1)].view(Pquery.shape[0], idx_delta_exp.shape[1])
+        delta_arclengths_select = self.__curve__.dx[idx_delta_exp.view(-1)].view(Pquery.shape[0], idx_delta_exp.shape[1])
+
         
         rotmat = Rquery.transpose(-2,-1).to(control_points.device).to(control_points.dtype)
         pquery = Pquery.to(control_points.device).to(control_points.dtype)
         ptransform = -torch.matmul(rotmat, pquery.unsqueeze(-1)).squeeze(-1)
 
-        control_points_exp = control_points.unsqueeze(0).expand([batchdim] + list(control_points.shape))
+        # control_points_exp_all = control_points.unsqueeze(0).expand([batchdim] + list(control_points.shape))
+        # print(control_points_exp_all.shape)
+        # print(control_points_select.shape)
+        control_points_exp = control_points_select
+        # control_points_exp = control_points_exp_all
+
+
         control_points_exp_flat = control_points_exp.view(batchdim, -1, control_points.shape[-1])
         control_points_transformed_flat = torch.matmul(rotmat, control_points_exp_flat.transpose(-2,-1)).transpose(-2,-1) + ptransform[:,None]
 
-        control_points_transformed = control_points_transformed_flat.view([batchdim] + list(control_points.shape))
+        control_points_transformed = control_points_transformed_flat.view(control_points_exp.shape)
 
 
-        xbezier_flat = control_points_transformed[:,:,:,0].reshape(-1, control_points.shape[1])
-        polynom_roots = bezierPolyRoots(xbezier_flat).view(batchdim, control_points.shape[0], control_points.shape[1] - 1)
+        xbezier_flat = control_points_transformed[:,:,:,0].reshape(-1, control_points.shape[-2])
+        polynom_roots = bezierPolyRoots(xbezier_flat).view(batchdim, control_points_exp.shape[1], control_points.shape[-2] - 1)
 
         matchmask = (torch.abs(polynom_roots.imag)<1E-5)*(polynom_roots.real>0.0)*(polynom_roots.real<1.0)
 
-        idx=torch.arange(0, control_points.shape[0], step=1, dtype=torch.int64, device=control_points.device)
+        idx=torch.arange(0, control_points_exp.shape[1], step=1, dtype=torch.int64, device=control_points.device)
         
         selection_all = (torch.sum(matchmask, dim=-1)>=1)
 
-        rintersect = torch.zeros(batchdim, device=control_points.device, dtype=control_points.dtype)
+        rintersect = torch.empty_like(pquery[:,0])
+
+
         for i in range(batchdim):
             selection = selection_all[i]
             candidates_idx = idx[selection]
             candidates = control_points_transformed[i,candidates_idx]
             candidates_polyroots = polynom_roots[i,candidates_idx]
-            candidates_rstart = arclengths_start[candidates_idx]
-            candidates_dr = delta_arclengths[candidates_idx]
+
+            # candidates_rstart = arclengths_start[candidates_idx]
+            # candidates_dr = delta_arclengths[candidates_idx]
+            
+            candidates_rstart = arclengths_start_select[i,candidates_idx]
+            candidates_dr = delta_arclengths_select[i,candidates_idx]
+            
             norms = torch.norm(candidates[:,[0,-1]], p=2.0, dim=2)
             norm_means = torch.mean(norms, dim=1)
             imin = torch.argmin(norm_means)
@@ -149,8 +175,8 @@ class SimplePathHelper(torch.nn.Module):
             correctrstart = candidates_rstart[imin]
 
             rintersect[i] = correctrstart + correctsval*correctdr
+
         return rintersect
-        # print(rintersect)
 
 
         
