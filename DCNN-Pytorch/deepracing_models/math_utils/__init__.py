@@ -68,7 +68,7 @@ class CompositeBezierCurve(torch.nn.Module):
     def derivative(self):
         control_points_detached = self.control_points.detach()
         control_point_deltas : torch.Tensor = self.bezier_order*(control_points_detached[:,1:] - control_points_detached[:,:-1])/self.dx.detach()[:,None,None]
-        return CompositeBezierCurve(self.x.detach().clone(), control_point_deltas, order=self.order+1)
+        return CompositeBezierCurve(self.x.detach().clone(), control_point_deltas, order=self.order-1)
 
 class SimplePathHelper(torch.nn.Module):
     def __init__(self, points : torch.Tensor, dr_samp : float) -> None:
@@ -106,7 +106,7 @@ class SimplePathHelper(torch.nn.Module):
             return positions, derivs
         return positions, None
     def closest_point(self, Pquery : torch.Tensor):
-        order_this = self.__curve__.bezier_order
+        order_this = self.__curve__.bezier_order.item()
         order_deriv = order_this - 1
         order_prod = order_this + order_deriv
 
