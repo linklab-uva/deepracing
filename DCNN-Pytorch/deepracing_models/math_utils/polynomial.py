@@ -94,8 +94,8 @@ def quadratic_formula(coefs : torch.Tensor):
     roots = torch.empty_like(coefs[:,0:2])
     discriminant = b**2 - 4.0*a*c
 
-    roots[:,0] = -b + torch.sqrt(discriminant)
-    roots[:,1] = -b - torch.sqrt(discriminant)
+    roots[:,0] = 0.5*(-b + torch.sqrt(discriminant))/a
+    roots[:,1] = 0.5*(-b - torch.sqrt(discriminant))/a
     
     return roots
 
