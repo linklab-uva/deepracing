@@ -111,7 +111,7 @@ class SimplePathHelper(torch.nn.Module):
         control_point_0 = control_points[:,0]
         distance_matrix = torch.cdist(Pquery, control_point_0)
         idx_min = torch.argmin(distance_matrix, dim=1, keepdim=True)
-        idx_delta = torch.arange(-15, 16, step=1, dtype=torch.int64)
+        idx_delta = torch.arange(-15, 16, step=1, dtype=torch.int64, device=Pquery.device)
         idx_delta_exp = (idx_delta.unsqueeze(0).expand(Pquery.shape[0], idx_delta.shape[0]) + idx_min)%control_point_0.shape[0]
 
         control_points_select = control_points[idx_delta_exp]#.view(-1)].view(Pquery.shape[0], idx_delta_exp.shape[1], control_points.shape[-2], control_points.shape[-1])
