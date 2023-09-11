@@ -44,11 +44,16 @@ def loadwrapper(dsets : list[FD.TrajectoryPredictionDataset], dsetconfigs : list
         raise RuntimeError("Could not acquire mutex for dataset: %s" % (metadatafile,))
 def trainmixnet(argdict : dict):
     config_file = argdict["config_file"]
+    with open(config_file, "r") as f:
+        allconfig : dict = yaml.load(f, Loader=yaml.SafeLoader)
     project_name="mixnet-bezier"
     api_key = os.getenv("COMET_API_KEY")
     tempdir = argdict["tempdir"]
+    tags = allconfig["comet"]["tags"]
     if (api_key is not None) and (not argdict["offline"]):
         experiment = comet_ml.Experiment(workspace="electric-turtle", project_name=project_name, api_key=api_key)
+        for tag in tags:
+            experiment.add_tag(tag)
         print(api_key)
     elif (api_key is not None) and (tempdir is not None) and argdict["offline"]:
         offline_name = "mixnet_bezier_" + datetime.now().strftime("%Y_%m_%d_%H:%M:%S") 
@@ -73,8 +78,6 @@ def trainmixnet(argdict : dict):
         experiment.log_asset(os.path.join(tempdir_full, os.path.basename(config_file)), "config.yaml", copy_to_tmp=False)
     else:
         os.mkdir(os.path.join(tempdir_full, "plots"))
-    with open(config_file, "r") as f:
-        allconfig : dict = yaml.load(f, Loader=yaml.SafeLoader)
     dataconfig = allconfig["data"]
     netconfig = allconfig["net"]
     trainerconfig = allconfig["trainer"]
@@ -106,7 +109,7 @@ def trainmixnet(argdict : dict):
         dsetconfigs.append(dsetconfig)
         direct_load = True
         dsets.append(FD.TrajectoryPredictionDataset(metadatafile, SubsetFlag.TRAIN, direct_load, dtype=torch.float64))
-        bcurve_cache = True
+        bcurve_cache = False
         dsets[-1].fit_bezier_curves(kbezier, built_in_lstq=True, cache=bcurve_cache)
         #def loadwrapper(dsets : list[FD.TrajectoryPredictionDataset], dsetconfigs : list[dict], metadatafile : str, kbezier : int, mutex : Semaphore, built_in_lstq=True):
         # loadargs=[dsets, dsetconfigs, metadatafile, kbezier, mutex]
@@ -252,13 +255,13 @@ def trainmixnet(argdict : dict):
             arclengths_pred_s = arclengths_pred/arclengths_pred[:,-1,None]
             Marclengths_pred : torch.Tensor = deepracing_models.math_utils.bezierM(arclengths_pred_s, kbezier)
             pointsout : torch.Tensor = torch.matmul(Marclengths_pred, predicted_bcurve)
-            displacements : torch.Tensor = pointsout - position_future
+            displacements : torch.Tensor = pointsout[:,:,[0,1]] - position_future[:,:,[0,1]]
             ade : torch.Tensor = torch.mean(torch.norm(displacements, p=2.0, dim=-1))
 
             Mbezierout = deepracing_models.math_utils.bezierM(arclengths_out_s, kbezier)
             predicted_position_future = torch.matmul(Mbezierout, predicted_bcurve)
 
-            loss_position : torch.Tensor = lossfunc(predicted_position_future, position_future)
+            loss_position : torch.Tensor = lossfunc(predicted_position_future[:,:,[0,1]], position_future[:,:,[0,1]])
             if experiment is not None:
                 experiment.log_metric("loss_position", loss_position.item())
                 experiment.log_metric("loss_arclength", loss_arclength.item())

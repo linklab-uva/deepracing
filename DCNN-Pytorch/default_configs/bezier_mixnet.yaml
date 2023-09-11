@@ -1,12 +1,16 @@
 {
+    comet:
+    {
+        tags: []
+    },
     data:
     {
-        dir: /p/DeepRacing/unpacked_datasets/online_multiplayer/deepracing_standard
+        dir: /p/DeepRacing/unpacked_datasets_v2/online_multiplayer/deepracing_standard
     },
     trainer:
     {
         optimizer : Adam,
-        learning_rate: 1E-5,
+        learning_rate: 2E-5,
         momentum: 0.0,
         nesterov: False,
         gpu_index: 0,
@@ -14,8 +18,8 @@
         eps: 1E-8,
         weight_decay: 0.0,
         epochs: 500,
-        batch_size: 128,
-        kbezier: 3
+        batch_size: 64,
+        kbezier: 7
     },
     net:
     {
@@ -41,7 +45,7 @@
         acc_decoder: {
             in_size: 16,
             hidden_size: 32,
-            num_acc_sections: 5,
+            num_acc_sections: 10,
             max_acc: 100.0
         }
     }

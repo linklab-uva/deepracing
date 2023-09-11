@@ -106,9 +106,7 @@ class BezierMixNet(nn.Module):
         # encoders:
         _, (hist_h, _) = self._enc_hist(self._ip_emb(hist.to(self.device)))
         _, (left_h, _) = self._enc_left_bound(self._ip_emb(left_bound.to(self.device)))
-        _, (right_h, _) = self._enc_right_bound(
-            self._ip_emb(right_bound.to(self.device))
-        )
+        _, (right_h, _) = self._enc_right_bound(self._ip_emb(right_bound.to(self.device)))
 
         # concatenate and squeeze encodings: 
         enc = torch.squeeze(torch.cat((hist_h, left_h, right_h), 2), dim=0)
