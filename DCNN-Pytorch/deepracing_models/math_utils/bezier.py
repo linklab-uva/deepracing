@@ -27,8 +27,8 @@ def closedPathAsBezierSpline(Y : torch.Tensor) -> Tuple[torch.Tensor, torch.Tens
     euclidean_distances[1:] = torch.cumsum( delta_euclidean_distances, 0 )
     euclidean_spline = compositeBezierSpline(euclidean_distances,Yaug,boundary_conditions="periodic")
     arclengths = torch.zeros_like(Yaug[:,0])
-    _, _, _, _, distances = bezierArcLength(euclidean_spline, N=2, simpsonintervals=20)
-    arclengths[1:] = torch.cumsum(distances[:,-1], 0)
+    distances = bezierArcLength(euclidean_spline)
+    arclengths[1:] = torch.cumsum(distances, 0)
     return arclengths, compositeBezierSpline(arclengths,Yaug,boundary_conditions="periodic")
 
 
@@ -203,33 +203,31 @@ def bezierPolyRoots(bezier_coefficients : torch.Tensor, scaled_basis = False):
 def Mtk(k : int, n : int, t : torch.Tensor):
     return torch.pow(t,k)*torch.pow(1-t,(n-k))*comb(n, k, exact=True)
 
-def bezierArcLength(control_points, d0=None, N=59, simpsonintervals=4 ):
+from scipy.special import roots_legendre
+def bezierArcLength(control_points : torch.Tensor, quadrature_order = 7):
     
-    t=torch.stack([torch.linspace(0.0, 1.0, steps = simpsonintervals*N+1, dtype=control_points.dtype, device=control_points.device ) for i in range(control_points.shape[0])], dim=0)
-    tsamp = t[:,[i*simpsonintervals for i in range(N+1)]]
-
-    Mderiv, deriv = bezierDerivative(control_points, t=t, order=1)
-    Mderivsamp = Mderiv[:,[i*simpsonintervals for i in range(N+1)],:]
-
-    speeds = torch.norm(deriv,p=2,dim=2)
+    batchdim = control_points.shape[0]
     
+    kbezier = control_points.shape[-2] - 1
 
-    #want [1.0, 4.0, 2.0, 4.0, 1.0] for simpsonintervals=4
-    simpsonscale = torch.ones(speeds.shape[0], simpsonintervals+1, 1, dtype=speeds.dtype, device=speeds.device)
-    simpsonscale[:,[i for i in range(1,simpsonintervals,2)]] = 4.0
-    simpsonscale[:,[i for i in range(2,simpsonintervals,2)]] = 2.0
-    Vmat = torch.stack([ torch.stack([speeds[i,simpsonintervals*j:simpsonintervals*(j+1)+1] for j in range(0, N)], dim=0)   for i in range(speeds.shape[0])], dim=0)
+    roots, weights_np = roots_legendre(quadrature_order)
 
-    relmoves = torch.matmul(Vmat, simpsonscale)[:,:,0]
-    if d0 is None:
-        d0_ = torch.zeros(speeds.shape[0], dtype=speeds.dtype, device=speeds.device).unsqueeze(1)
-    else:
-        d0_ = d0.unsqueeze(1)
-    distances = torch.cat([d0_,d0_+torch.cumsum(relmoves,dim=1)/(3.0*simpsonintervals*N)],dim=1)
+    t = (0.5*torch.as_tensor(roots, dtype=control_points.dtype, device=control_points.device) + 0.5).unsqueeze(0).expand(batchdim, roots.shape[0])
     
-    speedsamp = speeds[:,[i*simpsonintervals for i in range(N+1)]]
-    derivsamp = deriv[:,[i*simpsonintervals for i in range(N+1)]]
-    return Mderivsamp, tsamp, derivsamp, speedsamp, distances
+    weights = torch.as_tensor(weights_np, dtype=control_points.dtype, device=control_points.device).unsqueeze(0).expand(batchdim, weights_np.shape[0])
+    
+    bezierMderiv = bezierM(t, kbezier-1)
+
+    quadrature_node_values = torch.matmul(bezierMderiv, kbezier*(control_points[:,1:] - control_points[:,:-1]))
+
+    quadrature_node_norms = torch.norm(quadrature_node_values, p=2.0, dim=-1)
+
+
+    return 0.5*torch.sum(weights*quadrature_node_norms, dim=1)
+
+
+
+    
 
 def compositeBezierSpline_with_boundary_conditions_(x : torch.Tensor, Y : torch.Tensor, boundary_conditions : torch.Tensor):
     k=3        

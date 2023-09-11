@@ -240,14 +240,18 @@ def trainmixnet(argdict : dict):
             loss_velocity : torch.Tensor = (lossfunc(speed_profile_out, speed_future))#*(prediction_timestep**2)
             
 
-            delta_r : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
+            # delta_r_gt : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
             future_arclength_rel : torch.Tensor = future_arclength - future_arclength[:,0,None]
-            arclengths_out_s = future_arclength_rel/delta_r[:,None]
+            # arclengths_out_s = future_arclength_rel/delta_r_gt[:,None]
             known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2])
+            mixed_control_points = torch.sum(bcurves_r*mix_out[:,:,None,None], dim=1)
+            delta_r : torch.Tensor = deepracing_models.math_utils.bezierArcLength(mixed_control_points, quadrature_order=9)
+            arclengths_out_s = future_arclength_rel/delta_r[:,None]
+
+
             known_control_points[:,0] = position_future[:,0]
             known_control_points[:,1] = known_control_points[:,0] + (delta_r[:,None]/kbezier)*tangent_future[:,0]
-            mixed_control_points = torch.sum(bcurves_r[:,:,2:]*mix_out[:,:,None,None], dim=1)
-            predicted_bcurve = torch.cat([known_control_points, mixed_control_points], dim=1) 
+            predicted_bcurve = torch.cat([known_control_points, mixed_control_points[:,2:]], dim=1) 
 
             coefs_antiderivative = deepracing_models.math_utils.compositeBezierAntiderivative(coefs_inferred.unsqueeze(-1), dt_batch)
             arclengths_pred, _ = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
