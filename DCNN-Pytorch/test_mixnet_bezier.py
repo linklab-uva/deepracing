@@ -62,7 +62,7 @@ def test(**kwargs):
     netconfig = config["net"]
     netconfig["gpu_index"]=gpu_index
     device = torch.device("cuda:%d" % (config["net"]["gpu_index"],))
-    net : BezierMixNet = BezierMixNet(config["net"]).double()
+    net : BezierMixNet = BezierMixNet(config["net"]).double().eval()
     with open(net_file, "rb") as f:
         state_dict = torch.load(f, map_location=device)
     net.load_state_dict(state_dict)
@@ -130,57 +130,57 @@ def test(**kwargs):
         tangent_future = tangent_future.cuda(gpu_index).type(dtype)
 
         currentbatchsize = int(position_history.shape[0])
+        with torch.no_grad():
+
+            # print(tangent_future[:,0])
+            (mix_out_, acc_out_) = net(position_history[:,:,[0,1]], left_bound_input[:,:,[0,1]], right_bound_input[:,:,[0,1]])
+            one = torch.ones_like(speed_future[0,0])
+            mix_out = torch.clamp(mix_out_, -0.5*one, 1.5*one)
+            # + speed_future[:,0].unsqueeze(-1)
+            acc_out = acc_out_ + speed_future[:,0].unsqueeze(-1)
+            # acc_out = torch.clamp(acc_out_ + speed_future[:,0].unsqueeze(-1), 5.0*one, 110.0*one)
+            
+
+            coefs_inferred = torch.zeros(currentbatchsize, num_accel_sections, kbeziervel+1, dtype=acc_out.dtype, device=acc_out.device)
+            coefs_inferred[:,0,0] = speed_future[:,0]
+            coefs_inferred[:,0,[1,2]] = acc_out[:,[0,1]]
+            coefs_inferred[:,1:,1] = acc_out[:,2:-1]
+            coefs_inferred[:,-1,-1] = acc_out[:,-1]
+            for j in range(coefs_inferred.shape[1]-1):
+                coefs_inferred[:, j,-1] = coefs_inferred[:, j+1,0] = \
+                    0.5*(coefs_inferred[:, j,-2] + coefs_inferred[:, j+1,1])
+                if kbeziervel>2:
+                    coefs_inferred[:, j+1,-2] = 2.0*coefs_inferred[:, j+1,1] - 2.0*coefs_inferred[:, j, -2] + coefs_inferred[:, j, -3]
+            tstart_batch = tswitchingpoints[:-1].unsqueeze(0).expand(currentbatchsize, num_accel_sections)
+            dt_batch = dt.unsqueeze(0).expand(currentbatchsize, num_accel_sections)
+            teval_batch = tsamp.unsqueeze(0).expand(currentbatchsize, numsamples_prediction)
+            speed_profile_out, idxbuckets = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_inferred.unsqueeze(-1), teval_batch)
+            
 
 
-        # print(tangent_future[:,0])
-        (mix_out_, acc_out_) = net(position_history[:,:,[0,1]], left_bound_input[:,:,[0,1]], right_bound_input[:,:,[0,1]])
-        one = torch.ones_like(speed_future[0,0])
-        mix_out = torch.clamp(mix_out_, -0.5*one, 1.5*one)
-        # + speed_future[:,0].unsqueeze(-1)
-        acc_out = acc_out_ + speed_future[:,0].unsqueeze(-1)
-        # acc_out = torch.clamp(acc_out_ + speed_future[:,0].unsqueeze(-1), 5.0*one, 110.0*one)
+            coefs_antiderivative = deepracing_models.math_utils.compositeBezierAntiderivative(coefs_inferred.unsqueeze(-1), dt_batch)
+            arclengths_pred, _ = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
+            arclengths_pred_s = arclengths_pred/arclengths_pred[:,-1,None]
+            Marclengths_pred : torch.Tensor = deepracing_models.math_utils.bezierM(arclengths_pred_s, kbezier)
+            mixed_control_points = torch.sum(bcurves_r[:,:,:,[0,1]]*mix_out[:,:,None,None], dim=1)
+
+            # delta_r : torch.Tensor = arclengths_pred[:,-1] - arclengths_pred[:,0]
+            # delta_r : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
+            delta_r : torch.Tensor = deepracing_models.math_utils.bezierArcLength(mixed_control_points, quadrature_order=9)
+
+
+            known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2,[0,1]])
+            known_control_points[:,0] = position_future[:,0,[0,1]]
+            known_control_points[:,1] = known_control_points[:,0] + (delta_r[:,None]/kbezier)*tangent_future[:,0,[0,1]]
+
+            predicted_bcurve = torch.cat([known_control_points, mixed_control_points[:,2:]], dim=1) 
+
+            pointsout : torch.Tensor = torch.matmul(Marclengths_pred, predicted_bcurve)
+            displacements : torch.Tensor = pointsout[:,:,[0,1]] - position_future[:,:,[0,1]]
+            displacement_norms = torch.norm(displacements, p=2.0, dim=-1)
+            ade : torch.Tensor = torch.mean(displacement_norms, dim=-1)
+            ade_list+=ade.cpu().numpy().tolist()
         
-
-        coefs_inferred = torch.zeros(currentbatchsize, num_accel_sections, kbeziervel+1, dtype=acc_out.dtype, device=acc_out.device)
-        coefs_inferred[:,0,0] = speed_future[:,0]
-        coefs_inferred[:,0,[1,2]] = acc_out[:,[0,1]]
-        coefs_inferred[:,1:,1] = acc_out[:,2:-1]
-        coefs_inferred[:,-1,-1] = acc_out[:,-1]
-        for j in range(coefs_inferred.shape[1]-1):
-            coefs_inferred[:, j,-1] = coefs_inferred[:, j+1,0] = \
-                0.5*(coefs_inferred[:, j,-2] + coefs_inferred[:, j+1,1])
-            if kbeziervel>2:
-                coefs_inferred[:, j+1,-2] = 2.0*coefs_inferred[:, j+1,1] - 2.0*coefs_inferred[:, j, -2] + coefs_inferred[:, j, -3]
-        tstart_batch = tswitchingpoints[:-1].unsqueeze(0).expand(currentbatchsize, num_accel_sections)
-        dt_batch = dt.unsqueeze(0).expand(currentbatchsize, num_accel_sections)
-        teval_batch = tsamp.unsqueeze(0).expand(currentbatchsize, numsamples_prediction)
-        speed_profile_out, idxbuckets = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_inferred.unsqueeze(-1), teval_batch)
-        
-
-
-        coefs_antiderivative = deepracing_models.math_utils.compositeBezierAntiderivative(coefs_inferred.unsqueeze(-1), dt_batch)
-        arclengths_pred, _ = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
-        arclengths_pred_s = arclengths_pred/arclengths_pred[:,-1,None]
-        Marclengths_pred : torch.Tensor = deepracing_models.math_utils.bezierM(arclengths_pred_s, kbezier)
-        mixed_control_points = torch.sum(bcurves_r*mix_out[:,:,None,None], dim=1)
-
-        # delta_r : torch.Tensor = arclengths_pred[:,-1] - arclengths_pred[:,0]
-        # delta_r : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
-        delta_r : torch.Tensor = deepracing_models.math_utils.bezierArcLength(mixed_control_points, quadrature_order=9)
-
-
-        known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2])
-        known_control_points[:,0] = position_future[:,0]
-        known_control_points[:,1] = known_control_points[:,0] + (delta_r[:,None]/kbezier)*tangent_future[:,0]
-
-        predicted_bcurve = torch.cat([known_control_points, mixed_control_points[:,2:]], dim=1) 
-
-        pointsout : torch.Tensor = torch.matmul(Marclengths_pred, predicted_bcurve)
-        displacements : torch.Tensor = pointsout[:,:,[0,1]] - position_future[:,:,[0,1]]
-        displacement_norms = torch.norm(displacements, p=2.0, dim=-1)
-        ade : torch.Tensor = torch.mean(displacement_norms)
-        ade_list.append(ade.item())
-        # tq.set_postfix({"ade" : ade.item()})
     ade_array = torch.as_tensor(ade_list, dtype=torch.float64)
     print(torch.mean(ade_array))
 
@@ -193,4 +193,5 @@ if __name__=="__main__":
     parser.add_argument("--workers", type=int, default=0, help="How many threads for data loading")
     args = parser.parse_args()
     argdict : dict = vars(args)
+    argdict["batch_size"] = 128
     test(**argdict)
