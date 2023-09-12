@@ -77,7 +77,7 @@ def test(**kwargs):
     num_accel_sections : int = netconfig["acc_decoder"]["num_acc_sections"]
     dsetconfigs : list[dict] = []
     dsets : list[FD.TrajectoryPredictionDataset] = []
-    for metadatafile in dsetfiles:
+    for metadatafile in dsetfiles[:]:
         with open(metadatafile, "r") as f:
             dsetconfig = yaml.load(f, Loader=yaml.SafeLoader)
         if numsamples_prediction is None:
@@ -106,6 +106,8 @@ def test(**kwargs):
     dataloader_enumerate = enumerate(dataloader)
     tq = tqdm.tqdm(dataloader_enumerate, desc="Yay", total=int(np.ceil(num_samples/batch_size)))
     ade_list = []
+    lateral_error_list = []
+    longitudinal_error_list = []
     for (i, dict_) in tq:
         datadict : dict[str,torch.Tensor] = dict_
 
@@ -178,11 +180,32 @@ def test(**kwargs):
             pointsout : torch.Tensor = torch.matmul(Marclengths_pred, predicted_bcurve)
             displacements : torch.Tensor = pointsout[:,:,[0,1]] - position_future[:,:,[0,1]]
             displacement_norms = torch.norm(displacements, p=2.0, dim=-1)
+
+            tangent_future_xy = tangent_future[:,:,[0,1]]/torch.norm(tangent_future[:,:,[0,1]], p=2.0, dim=-1, keepdim=True)
+            normal_future_xy = tangent_future_xy[:,:,[1,0]].clone()
+            normal_future_xy[:,:,0]*=-1.0
+
+            rotmats_decomposition = torch.stack([tangent_future_xy, normal_future_xy], axis=3).transpose(-2,-1)
+            translations_decomposition = torch.matmul(rotmats_decomposition, -position_future[:,:,[0,1]].unsqueeze(-1)).squeeze(-1)
+
+            decompositions = torch.matmul(rotmats_decomposition, pointsout[:,:,[0,1]].unsqueeze(-1)).squeeze(-1) + translations_decomposition
+            longitudinal_errors = decompositions[:,:,0]
+            lateral_errors = decompositions[:,:,1]
+
+            lateral_error_list+=torch.mean(lateral_errors, dim=1).cpu().numpy().tolist()
+            longitudinal_error_list+=torch.mean(longitudinal_errors, dim=1).cpu().numpy().tolist()
+
+
             ade : torch.Tensor = torch.mean(displacement_norms, dim=-1)
             ade_list+=ade.cpu().numpy().tolist()
         
+    lateral_error_array = torch.as_tensor(lateral_error_list, dtype=torch.float64)
+    longitudinal_error_array = torch.as_tensor(longitudinal_error_list, dtype=torch.float64)
     ade_array = torch.as_tensor(ade_list, dtype=torch.float64)
-    print(torch.mean(ade_array))
+    print("ADE: %f" % (torch.mean(ade_array).item(),))
+    print("mean lateral error: %f" % (torch.mean(torch.abs(lateral_error_array)).item(),))
+    print("mean longitudinal error: %f" % (torch.mean(torch.abs(longitudinal_error_array)).item(),))
+
 
 
 

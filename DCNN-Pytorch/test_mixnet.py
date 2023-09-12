@@ -81,7 +81,7 @@ def test(**kwargs):
     dsets : list[FD.TrajectoryPredictionDataset] = []
     track_dict : dict = dict()
     searchdirs = [os.path.join(ament_index_python.get_package_share_directory("deepracing_launch"), "maps")]
-    for metadatafile in dsetfiles[:4]:
+    for metadatafile in dsetfiles:
         with open(metadatafile, "r") as f:
             dsetconfig = yaml.load(f, Loader=yaml.SafeLoader)
         if numsamples_prediction is None:
@@ -131,6 +131,7 @@ def test(**kwargs):
     prediction_totaltime = dsetconfigs[0]["predictiontime"]
 
     tsamp = torch.linspace(0.0, prediction_totaltime, dtype=dtype, device=device, steps=numsamples_prediction)
+    ssamp = tsamp/tsamp[-1]
     time_spacing = (tsamp[1]-tsamp[0]).item()
     tswitchingpoints = torch.linspace(0.0, prediction_totaltime, dtype=dtype, device=device, steps=num_accel_sections+1)
     dt = tswitchingpoints[1:] - tswitchingpoints[:-1]
@@ -156,11 +157,14 @@ def test(**kwargs):
     dataloader_enumerate = enumerate(dataloader)
     tq = tqdm.tqdm(dataloader_enumerate, desc="Yay", total=int(np.ceil(num_samples/batch_size)))
     ade_list = []
+    lateral_error_list = []
+    longitudinal_error_list = []
     for (i, dict_) in tq:
         datadict : dict[str,torch.Tensor] = dict_
 
         position_history = datadict["hist"]#[:,:,[0,1]]
         position_future = datadict["fut"]#[:,:,[0,1]]
+        tangents_future = datadict["fut_tangents"]#[:,:,[0,1]]
 
         current_positions_full = datadict["current_position"]
         current_orientations_full = datadict["current_orientation"]
@@ -188,6 +192,10 @@ def test(**kwargs):
         right_bound_input = right_bound_input.cuda(gpu_index).type(dtype)
         current_positions = current_positions_full.cuda(gpu_index).type(dtype)
         rotmats = torch.as_tensor(rotations.as_matrix()).cuda(gpu_index).type(dtype)
+        tangents_future = tangents_future.cuda(gpu_index).type(dtype)
+        tangents_future_global = torch.matmul(rotmats, tangents_future.unsqueeze(-1)).squeeze(-1)[:,:,[0,1]]
+        tangents_future_global = tangents_future_global/torch.norm(tangents_future_global, p=2.0, dim=-1, keepdim=True)
+
 
         p0global = (torch.matmul(rotmats, position_future[:,0].unsqueeze(-1)).squeeze(-1) + current_positions)[:,[0,1]]
         position_future_global = torch.matmul(rotmats, position_future.transpose(-2,-1)).transpose(-2,-1)+current_positions[:,None]
@@ -240,6 +248,27 @@ def test(**kwargs):
                 # print(Iclosest)
 
                 # exit(0)
+            # batch_dim = position_future_global.shape[0]
+            # ssamp_batch = ssamp.unsqueeze(0).expand(batch_dim, ssamp.shape[0]).cuda(gpu_index).type(dtype)
+            normals_future_global = tangents_future_global[:,:,[1,0]].clone()
+            normals_future_global[:,:,0]*=-1.0
+
+            rotmats_decomposition = torch.stack([tangents_future_global, normals_future_global], axis=3).transpose(-2,-1)
+            translations_decomposition = torch.matmul(rotmats_decomposition, -position_future_global.unsqueeze(-1)).squeeze(-1)
+
+            decompositions = torch.matmul(rotmats_decomposition, position_predicted_global.unsqueeze(-1)).squeeze(-1) + translations_decomposition
+            longitudinal_errors = decompositions[:,:,0]
+            lateral_errors = decompositions[:,:,1]
+
+            lateral_error_list+=torch.mean(lateral_errors, dim=1).cpu().numpy().tolist()
+            longitudinal_error_list+=torch.mean(longitudinal_errors, dim=1).cpu().numpy().tolist()
+            # print(rotmats_decomposition.shape)
+            
+            # kbezierfit=7
+            # Mfuture, curves_future = deepracing_models.math_utils.bezierLsqfit(position_future_global, kbezierfit, t=ssamp_batch)
+            # curves_deriv = kbezierfit*(curves_future[:,1:] - curves_future[:,:-1])/prediction_totaltime
+
+
 
 
             # positions_out = left_bound_label*mix_out[:,0,None,None] + right_bound_label*mix_out[:,1,None,None] + center_line_label*mix_out[:,2,None,None] + optimal_line_label*mix_out[:,3,None,None]
@@ -253,6 +282,9 @@ def test(**kwargs):
 
 
 
+
+
+
             # print("Lateral error: %f" % (torch.mean(lateral_error).item(),))
 
             
@@ -260,8 +292,12 @@ def test(**kwargs):
             # acc_out = torch.clamp(acc_out_ + speed_future[:,0].unsqueeze(-1), 5.0*one, 110.0*one)
 
         
+    lateral_error_array = torch.as_tensor(lateral_error_list, dtype=torch.float64)
+    longitudinal_error_array = torch.as_tensor(longitudinal_error_list, dtype=torch.float64)
     ade_array = torch.as_tensor(ade_list, dtype=torch.float64)
-    print(torch.mean(ade_array))
+    print("ADE: %f" % (torch.mean(ade_array).item(),))
+    print("mean lateral error: %f" % (torch.mean(torch.abs(lateral_error_array)).item(),))
+    print("mean longitudinal error: %f" % (torch.mean(torch.abs(longitudinal_error_array)).item(),))
 
 
 
