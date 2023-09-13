@@ -19,6 +19,7 @@ KEYS_WE_CARE_ABOUT : set = {
     "fut_vel",
     "fut_speed",
     "future_arclength",
+    "future_arclength_2d",
     "left_bd",
     "right_bd",
     "future_left_bd",
