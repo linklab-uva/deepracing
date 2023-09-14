@@ -204,26 +204,41 @@ def Mtk(k : int, n : int, t : torch.Tensor):
     return torch.pow(t,k)*torch.pow(1-t,(n-k))*comb(n, k, exact=True)
 
 from scipy.special import roots_legendre
-def bezierArcLength(control_points : torch.Tensor, quadrature_order = 7):
+def bezierArcLength(control_points : torch.Tensor, quadrature_order = 7, num_segments = 4, sum=True):
     
     batchdim = control_points.shape[0]
-    
     kbezier = control_points.shape[-2] - 1
-
-    roots, weights_np = roots_legendre(quadrature_order)
-
-    t = (0.5*torch.as_tensor(roots, dtype=control_points.dtype, device=control_points.device) + 0.5).unsqueeze(0).expand(batchdim, roots.shape[0])
+    dim = control_points.shape[-1]
     
-    weights = torch.as_tensor(weights_np, dtype=control_points.dtype, device=control_points.device).unsqueeze(0).expand(batchdim, weights_np.shape[0])
+    dtype = control_points.dtype
+    device = control_points.device
+
+    ds = 1.0/num_segments
     
-    bezierMderiv = bezierM(t, kbezier-1)
+    a = torch.linspace(0.0, 1.0 - ds, steps=num_segments, dtype=dtype, device=device)
+    b = a + ds
 
-    quadrature_node_values = torch.matmul(bezierMderiv, kbezier*(control_points[:,1:] - control_points[:,:-1]))
+    roots_np, weights_np = roots_legendre(quadrature_order)
+    roots = torch.as_tensor(roots_np, dtype=dtype, device=device)
+    weights = torch.as_tensor(weights_np, dtype=dtype, device=device)
 
+    s_shifted = 0.5*ds*roots.unsqueeze(0).expand(num_segments, quadrature_order) + 0.5*(a+b)[:,None]
+
+    bezierMderiv = bezierM(s_shifted, kbezier-1)
+    bezierMderiv_exp = bezierMderiv.unsqueeze(0).expand(batchdim, num_segments, quadrature_order, kbezier)
+
+    control_points_deriv = kbezier*(control_points[:,1:] - control_points[:,:-1])
+    control_points_deriv_exp = control_points_deriv.unsqueeze(1).expand(batchdim, num_segments, kbezier, dim)
+
+    quadrature_node_values = torch.matmul(bezierMderiv_exp, control_points_deriv_exp)
     quadrature_node_norms = torch.norm(quadrature_node_values, p=2.0, dim=-1)
 
+    segment_sums = 0.5*ds*torch.sum(quadrature_node_norms*weights[None,None], dim=-1)
 
-    return 0.5*torch.sum(weights*quadrature_node_norms, dim=1)
+    if sum:
+        return torch.sum(segment_sums, dim=1)
+    
+    return segment_sums
 
 
 
@@ -318,8 +333,8 @@ def compositeBezierSpline_periodic_(x : torch.Tensor, Y : torch.Tensor):
 
     return all_curves
 
-def bezierM(t : torch.Tensor, n : int) -> torch.Tensor:
-    return torch.stack([Mtk(k,n,t) for k in range(n+1)],dim=2)
+def bezierM(s : torch.Tensor, n : int) -> torch.Tensor:
+    return torch.stack([Mtk(k,n,s) for k in range(n+1)],dim=2)
 
 def evalBezier(M : torch.Tensor, control_points : torch.Tensor):
     return torch.matmul(M, control_points)
@@ -392,7 +407,10 @@ def bezierLsqfit(points, n, t = None, M = None, built_in_lstq=False, minimum_sin
     if ((t is None) and (M is None)) or ((t is not None) and (M is not None)):
         raise ValueError("One of t or M must be set, but not both")
     if M is None:
-        M_ = bezierM(t,n)
+        t0 = t[:,0]
+        dt = t[:,-1] - t0
+        s = (t - t0[:,None])/dt[:,None]
+        M_ = bezierM(s,n)
     else:
         M_ = M
     batch = M_.shape[0]
