@@ -403,7 +403,7 @@ def bezierDerivative(control_points : torch.Tensor, t = None, M = None, order = 
     else:
         raise ValueError("One of t or M must be set, but not both")
 
-def bezierLsqfit(points, n, t = None, M = None, built_in_lstq=False, minimum_singular_value=0.0, fix_first_point = False) -> Tuple[torch.Tensor, torch.Tensor]:
+def bezierLsqfit(points, n, t = None, M = None, built_in_lstq = False, P0 : torch.Tensor | None = None, V0 : torch.Tensor | None = None) -> Tuple[torch.Tensor, torch.Tensor]:
     if ((t is None) and (M is None)) or ((t is not None) and (M is not None)):
         raise ValueError("One of t or M must be set, but not both")
     if M is None:
@@ -413,20 +413,38 @@ def bezierLsqfit(points, n, t = None, M = None, built_in_lstq=False, minimum_sin
         M_ = bezierM(s,n)
     else:
         M_ = M
-    batch = M_.shape[0]
-    if built_in_lstq:
-        if fix_first_point:
-            res = torch.cat([torch.zeros_like(points[:,0,:]).unsqueeze(1), torch.linalg.lstsq(M_[:,:,1:], points).solution], dim=1)
-        else:
-            res = torch.linalg.lstsq(M_, points).solution
-        return M_, res
-    else:
-        if fix_first_point:
-            res = torch.cat([torch.zeros_like(points[:,0,:]).unsqueeze(1), torch.matmul(pinv(M_[:,:,1:], minimum_singular_value=minimum_singular_value), points)], dim=1)
-        else:
-            res = torch.matmul(pinv(M_, minimum_singular_value=minimum_singular_value), points)
-        return M_, res
 
+    if (P0 is None) and (V0 is None):
+        res = torch.linalg.lstsq(M_, points)
+        return M_, res.solution
+    elif (V0 is not None) and (P0 is None):
+        raise ValueError("P0 must be provided to constrain V0")
+    
+    batch = points.shape[0]
+    ambient_dimension = points.shape[2]      
+    M_transpose = M_.transpose(-2, -1)
+
+    num_constraints = int(P0 is not None) + int(V0 is not None)
+
+    num_coefs = n + 1
+    matdim = num_coefs + num_constraints
+
+    lhs = torch.zeros([batch, matdim, matdim], dtype=M_.dtype, device=M_.device)
+    torch.matmul(M_transpose, M_, out=lhs[:, 0 : num_coefs, 0 : num_coefs])
+    lhs[:, num_coefs, 0] = lhs[:, 0, num_coefs] = 1.0
+    if (V0 is not None):
+        lhs[:, -1, 0] = lhs[:, 0, -1] = -1.0
+        lhs[:, -1, 1] = lhs[:, 1, -1] = 1.0
+
+    rhs = torch.zeros([batch, matdim, ambient_dimension], dtype=M_.dtype, device=M_.device)
+    torch.matmul(M_transpose, points, out=rhs[:,0:num_coefs])
+    rhs[:, num_coefs]=P0
+    if (V0 is not None):
+        rhs[:,-1]=V0/n
+
+    res = torch.linalg.lstsq(lhs, rhs)
+    return M_, res.solution[:,0:num_coefs]
+    
 def elevateBezierOrder(points : torch.Tensor, out : Union[None, torch.Tensor] = None) -> torch.Tensor:
     originalshape : torch.Size = points.size()
     
