@@ -9,15 +9,15 @@ import collections
 ###  
 class BezierMixNet(nn.Module):
 
-    def __init__(self, params):
+    def __init__(self, params : dict):
         """Initializes a BezierMixNet object."""
         super(BezierMixNet, self).__init__()
 
         self._params = params
+        input_dimension = params["input_dimension"]
 
-        # Input embedding layer:
-        self._ip_emb = torch.nn.Linear(2, params["encoder"]["in_size"])
 
+        self._inp_emb = torch.nn.Linear(input_dimension, params["encoder"]["in_size"])
         # History encoder LSTM:
         self._enc_hist = torch.nn.LSTM(
             params["encoder"]["in_size"],
@@ -48,14 +48,6 @@ class BezierMixNet(nn.Module):
             out_size=params["mixer_linear_stack"]["out_size"],
             name="mix",
         )
-
-        # Linear stack for outputting the initial velocity:
-        # self._vel_out_layers = self._get_linear_stack(
-        #     in_size=params["encoder"]["hidden_size"],
-        #     hidden_sizes=params["init_vel_linear_stack"]["hidden_sizes"],
-        #     out_size=params["init_vel_linear_stack"]["out_size"],
-        #     name="vel",
-        # )
 
         # dynamic embedder between the encoder and the decoder:
         self._dyn_embedder = nn.Linear(
@@ -92,7 +84,7 @@ class BezierMixNet(nn.Module):
         """Implements the forward pass of the model.
 
         args:
-            hist: [tensor with shape=(batch_size, hist_len, 2)]
+            hist: [tensor with shape=(batch_size, hist_len, hist_dim)]
             left_bound: [tensor with shape=(batch_size, boundary_len, 2)]
             right_bound: [tensor with shape=(batch_size, boundary_len, 2)]
 
@@ -104,9 +96,9 @@ class BezierMixNet(nn.Module):
         """
 
         # encoders:
-        _, (hist_h, _) = self._enc_hist(self._ip_emb(hist.to(self.device)))
-        _, (left_h, _) = self._enc_left_bound(self._ip_emb(left_bound.to(self.device)))
-        _, (right_h, _) = self._enc_right_bound(self._ip_emb(right_bound.to(self.device)))
+        _, (hist_h, _) = self._enc_hist(self._inp_emb(hist.to(self.device)))
+        _, (left_h, _) = self._enc_left_bound(self._inp_emb(left_bound.to(self.device)))
+        _, (right_h, _) = self._enc_right_bound(self._inp_emb(right_bound.to(self.device)))
 
         # concatenate and squeeze encodings: 
         enc = torch.squeeze(torch.cat((hist_h, left_h, right_h), 2), dim=0)
@@ -117,11 +109,6 @@ class BezierMixNet(nn.Module):
         # mix_out_softmax = self._mix_out_layers(enc)
         # mix_out = mix_out_softmax
         mix_out = self._final_linear_layer(mix_out_softmax)
-
-        # initial velocity:
-        # vel_out = self._vel_out_layers(torch.squeeze(hist_h, dim=0))
-        # vel_out = torch.sigmoid(vel_out)
-        # vel_out = vel_out * self._params["init_vel_linear_stack"]["max_vel"]
 
         # acceleration decoding:
         dec_input = torch.relu(self._dyn_embedder(enc)).unsqueeze(dim=1)
@@ -165,5 +152,3 @@ class BezierMixNet(nn.Module):
     def get_params(self):
         """Accessor for the params of the network."""
         return self._params
-
-

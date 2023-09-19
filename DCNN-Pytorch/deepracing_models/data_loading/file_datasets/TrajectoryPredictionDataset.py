@@ -14,18 +14,30 @@ import io
 
 KEYS_WE_CARE_ABOUT : set = {
     "hist",
+    "hist_vel",
+    "hist_spline_der",
     "fut",
     "fut_tangents",
     "fut_vel",
+    "fut_spline_der",
     "fut_speed",
     "future_arclength",
     "future_arclength_2d",
     "left_bd",
     "right_bd",
+
     "future_left_bd",
+    "future_left_bd_tangents",
+    
     "future_right_bd",
+    "future_right_bd_tangents",
+    
     "future_centerline",
+    "future_centerline_tangents",
+
     "future_raceline",
+    "future_raceline_tangents",
+    
     "future_left_bd_arclength",
     "future_right_bd_arclength",
     "future_centerline_arclength",
@@ -78,7 +90,7 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
     def __del__(self):
         if self.file_handle is not None:
             self.file_handle.close()
-    def fit_bezier_curves(self, kbezier : int, device=torch.device("cpu"), built_in_lstq=False, cache=False):    
+    def fit_bezier_curves(self, kbezier : int, device=torch.device("cpu"), cache=False):    
         cachefile = os.path.join(self.directory, "bcurve_order_%d.npz" % (kbezier,))
         if cache and os.path.isfile(cachefile):
             desc = "Loading bezier curves from cache file %s" % (cachefile,)
@@ -97,18 +109,37 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
         
         all_r = torch.stack([left_bd_r, right_bd_r, centerline_r, raceline_r], dim=1).to(device)
         all_r_flat = all_r.view(-1, all_r.shape[-1])
-        all_s_flat : torch.Tensor = (all_r_flat - all_r_flat[:,0,None])/((all_r_flat[:,-1] - all_r_flat[:,0])[:,None])
+        all_deltar_flat = all_r_flat[:,-1] - all_r_flat[:,0]
+        all_s_flat : torch.Tensor = (all_r_flat - all_r_flat[:,0,None])/(all_deltar_flat[:,None])
 
         left_bd = torch.as_tensor(self.data_dict["future_left_bd"], device=device)
+        left_bd_p0 = left_bd[:,0]
+        left_bd_t0 = torch.as_tensor(self.data_dict["future_left_bd_tangents"][:,0], device=device)
+
         right_bd = torch.as_tensor(self.data_dict["future_right_bd"], device=device)
+        right_bd_p0 = left_bd[:,0]
+        right_bd_t0 = torch.as_tensor(self.data_dict["future_right_bd_tangents"][:,0], device=device)
+
         centerline = torch.as_tensor(self.data_dict["future_centerline"], device=device)
+        centerline_p0 = left_bd[:,0]
+        centerline_t0 = torch.as_tensor(self.data_dict["future_centerline_tangents"][:,0], device=device)
+
         raceline = torch.as_tensor(self.data_dict["future_raceline"], device=device)
+        raceline_p0 = left_bd[:,0]
+        raceline_t0 = torch.as_tensor(self.data_dict["future_raceline_tangents"][:,0], device=device)
 
         all_lines : torch.Tensor = torch.stack([left_bd, right_bd, centerline, raceline], dim=1).to(device)
+        all_p0 : torch.Tensor = torch.stack([left_bd_p0, right_bd_p0, centerline_p0, raceline_p0], dim=1).to(device)
+        all_t0 : torch.Tensor = torch.stack([left_bd_t0, right_bd_t0, centerline_t0, raceline_t0], dim=1).to(device)
+
         all_lines_flat : torch.Tensor = all_lines.view(-1, all_lines.shape[-2], all_lines.shape[-1])
+        all_p0_flat : torch.Tensor = all_p0.view(-1, all_p0.shape[-1])
+        all_V0_flat : torch.Tensor = (all_t0.view(-1, all_t0.shape[-1]))*all_deltar_flat[:,None]
         
         print("Doing the lstsq fit, HERE WE GOOOOOO!", flush=True)
-        _, all_curves_flat = deepracing_models.math_utils.bezierLsqfit(all_lines_flat, kbezier, t=all_s_flat, built_in_lstq=built_in_lstq)
+        _, all_curves_flat = deepracing_models.math_utils.bezierLsqfit(
+            all_lines_flat, kbezier, t=all_s_flat, P0=all_p0_flat, V0=all_V0_flat
+            )
         all_curves_numpy : np.ndarray = all_curves_flat.reshape(-1, 4, kbezier+1, all_lines.shape[-1]).cpu().numpy()
         npdict = {
             "left" : all_curves_numpy[:,0],

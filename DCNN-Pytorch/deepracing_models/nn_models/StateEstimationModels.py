@@ -13,35 +13,6 @@ import math
 
 
 
-class ExternalAgentCurvePredictor(nn.Module):
-    def __init__(self, output_dim : int = 2, bezier_order : int = 3, input_dim : int = 10, hidden_dim : int = 500, num_layers : int = 1, dropout : float = 0.0, bidirectional : bool = True, learnable_initial_state : bool = False):
-        super(ExternalAgentCurvePredictor, self).__init__()
-        self.output_dim : int = output_dim
-        self.input_dim : int = input_dim
-        self.hidden_dim : int = hidden_dim
-        self.num_layers : int = num_layers
-        self.bezier_order : int = bezier_order
-        self.num_layers : int = num_layers
-        self.dropout : float = dropout
-        self.bidirectional : bool = bidirectional
-
-        self.lstm = nn.LSTM(self.input_dim, self.hidden_dim, self.num_layers, dropout=self.dropout, batch_first=True, bidirectional=self.bidirectional)
-        self.fc = nn.Linear(self.hidden_dim*(int(self.bidirectional)+1), self.bezier_order*self.output_dim)
-        if learnable_initial_state:
-            self.init_hidden = Parameter(0.001*torch.randn((int(self.bidirectional)+1)*self.num_layers, self.hidden_dim))
-            self.init_cell = Parameter(0.001*torch.randn((int(self.bidirectional)+1)*self.num_layers, self.hidden_dim))
-        else:
-            self.init_hidden = Parameter(torch.zeros((int(self.bidirectional)+1)*self.num_layers, self.hidden_dim), requires_grad=False)
-            self.init_cell = Parameter(torch.zeros((int(self.bidirectional)+1)*self.num_layers, self.hidden_dim), requires_grad=False)
-
-
-    def forward(self, x):
-        batch_size = x.shape[0]
-        init_hidden = self.init_hidden.unsqueeze(1).repeat(1,batch_size,1)
-        init_cell = self.init_cell.unsqueeze(1).repeat(1,batch_size,1)
-        lstm_out, (hidden, cell) = self.lstm(x, (init_hidden,init_cell))
-        linear_out = self.fc(lstm_out[:,-1])
-        return linear_out.view(batch_size, self.bezier_order, self.output_dim)
 
 class ProbabilisticExternalAgentCurvePredictor(nn.Module):
     def __init__(self, output_dim : int = 2, bezier_order : int = 3, input_dim : int = 10, hidden_dim : int = 500, num_layers : int = 1, dropout : float = 0.0, bidirectional : bool = True, learnable_initial_state : bool = False):

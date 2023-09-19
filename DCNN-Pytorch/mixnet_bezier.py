@@ -76,6 +76,10 @@ def trainmixnet(argdict : dict):
     if experiment is not None:
         shutil.copy(config_file, tempdir_full)
         experiment.log_asset(os.path.join(tempdir_full, os.path.basename(config_file)), "config.yaml", copy_to_tmp=False)
+        command_line_args_file = os.path.join(tempdir, "command_line_args.yaml")
+        with open(command_line_args_file, "w") as f:
+            yaml.dump(argdict, f, Dumper=yaml.SafeDumper)
+        experiment.log_asset(command_line_args_file, "command_line_args.yaml", copy_to_tmp=False)   
     else:
         os.mkdir(os.path.join(tempdir_full, "plots"))
     dataconfig = allconfig["data"]
@@ -92,12 +96,14 @@ def trainmixnet(argdict : dict):
     asyncresults = []
     numsamples_prediction = None
     kbezier = trainerconfig["kbezier"]
+
+
     # if cuda:
     #     dev = torch.device("cuda:%d" % (gpu_index,))
     # else:
     #     dev = torch.device("cpu")
     # with multiprocessing.pool.Pool(processes=argdict["threads"]) as threadpool:
-    for metadatafile in dsetfiles:
+    for metadatafile in dsetfiles[:2]:
         with open(metadatafile, "r") as f:
             dsetconfig = yaml.load(f, Loader=yaml.SafeLoader)
         if numsamples_prediction is None:
@@ -110,7 +116,7 @@ def trainmixnet(argdict : dict):
         direct_load = True
         dsets.append(FD.TrajectoryPredictionDataset(metadatafile, SubsetFlag.TRAIN, direct_load, dtype=torch.float64))
         bcurve_cache = False
-        dsets[-1].fit_bezier_curves(kbezier, built_in_lstq=True, cache=bcurve_cache)
+        dsets[-1].fit_bezier_curves(kbezier, cache=bcurve_cache)
         #def loadwrapper(dsets : list[FD.TrajectoryPredictionDataset], dsetconfigs : list[dict], metadatafile : str, kbezier : int, mutex : Semaphore, built_in_lstq=True):
         # loadargs=[dsets, dsetconfigs, metadatafile, kbezier, mutex]
         # loadkwds = {"built_in_lstq" : True}
@@ -128,15 +134,15 @@ def trainmixnet(argdict : dict):
     firstparam = next(net.parameters())
     dtype = firstparam.dtype
     device = firstparam.device
-    nesterov = trainerconfig["nesterov"]
     lr = float(trainerconfig["learning_rate"])
-    betas = tuple(trainerconfig["betas"])
-    weight_decay = trainerconfig["weight_decay"]
     optimizername = trainerconfig["optimizer"]
     if optimizername=="SGD":
         momentum = trainerconfig["momentum"]
+        nesterov = trainerconfig["nesterov"]
         optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = momentum, nesterov=(nesterov and (momentum>0.0)))
     elif optimizername=="Adam":
+        betas = tuple(trainerconfig["betas"])
+        weight_decay = trainerconfig["weight_decay"]
         optimizer = torch.optim.Adam(net.parameters(), lr = lr, betas=betas, weight_decay = weight_decay)
     else:
         raise ValueError("Unknown optimizer %s" % (optimizername,))
@@ -156,6 +162,15 @@ def trainmixnet(argdict : dict):
     tswitchingpoints = torch.linspace(0.0, prediction_totaltime, dtype=dtype, device=device, steps=num_accel_sections+1)
     dt = tswitchingpoints[1:] - tswitchingpoints[:-1]
     kbeziervel = 3
+    if experiment is not None:
+        hyper_params_to_comet = {
+            "kbezier" : kbezier,
+            "kbezier_vel" : kbeziervel,
+            "num_accel_sections" : num_accel_sections,
+            "prediction_time" : prediction_totaltime,
+            "time_switching_points" : tswitchingpoints.cpu().numpy().tolist()
+        }
+        experiment.log_parameters(hyper_params_to_comet)
     for epoch in range(1, trainerconfig["epochs"]+1):
         totalloss = 0.0
         total_position_loss = 0.0
@@ -178,25 +193,33 @@ def trainmixnet(argdict : dict):
             torch.save(optimizer.state_dict(), optimizerout)
             if experiment is not None:
                 experiment.log_asset(optimizerout, "optimizer_epoch_%d.pt" % (epoch,), copy_to_tmp=False)
+        coordinate_idx_history = torch.arange(0, netconfig["input_dimension"], step=1, dtype=torch.int64)
         for (i, dict_) in tq:
             datadict : dict[str,torch.Tensor] = dict_
 
-            position_history = datadict["hist"]
+            position_history = datadict["hist"][:,:,coordinate_idx_history]
+            velocity_history = datadict["hist_vel"][:,:,coordinate_idx_history]
+            # velocity_history = datadict["hist_spline_der"][:,:,coordinate_idx_history]
+
             position_future = datadict["fut"]
             tangent_future = datadict["fut_tangents"]
             vel_future = datadict["fut_vel"]
-            # coordinate_idx = [0,1,2]
-            # future_arclength = datadict["future_arclength"]
-            coordinate_idx = [0,1]
-            future_arclength = datadict["future_arclength_2d"]
+            # vel_future = datadict["fut_spline_der"]
 
-            left_bound_input = datadict["left_bd"]
-            right_bound_input = datadict["right_bd"]
+            coordinate_idx = [0,1,2]
+            future_arclength = datadict["future_arclength"]
+
+            # coordinate_idx = [0,1]
+            # future_arclength = datadict["future_arclength_2d"]
+
+            left_bound_input = datadict["left_bd"][:,:,coordinate_idx_history]
+            right_bound_input = datadict["right_bd"][:,:,coordinate_idx_history]
 
             bcurves_r = datadict["reference_curves"]
 
             if cuda:
                 position_history = position_history.cuda(gpu_index).type(dtype)
+                velocity_history = velocity_history.cuda(gpu_index).type(dtype)
                 position_future = position_future.cuda(gpu_index).type(dtype)
                 vel_future = vel_future.cuda(gpu_index).type(dtype)
                 left_bound_input = left_bound_input.cuda(gpu_index).type(dtype)
@@ -206,6 +229,7 @@ def trainmixnet(argdict : dict):
                 tangent_future = tangent_future.cuda(gpu_index).type(dtype)
             else:
                 position_history = position_history.cpu().type(dtype)
+                velocity_history = velocity_history.cpu().type(dtype)
                 position_future = position_future.cpu().type(dtype)
                 vel_future = vel_future.cpu().type(dtype)
                 left_bound_input = left_bound_input.cpu().type(dtype)
@@ -213,15 +237,21 @@ def trainmixnet(argdict : dict):
                 future_arclength = future_arclength.cpu().type(dtype)
                 bcurves_r = bcurves_r.cpu().type(dtype)
                 tangent_future = tangent_future.cpu().type(dtype)
+
             speed_future = torch.norm(vel_future[:,:,coordinate_idx], p=2.0, dim=-1)
 
             currentbatchsize = int(position_history.shape[0])
 
 
             # print(tangent_future[:,0])
-            (mix_out_, acc_out_) = net(position_history[:,:,[0,1]], left_bound_input[:,:,[0,1]], right_bound_input[:,:,[0,1]])
+            # if netconfig["with_velocity_input"]:
+            #     history_input = torch.cat([position_history, velocity_history], dim=-1)
+            # else:
+            #     history_input = position_history
+                
+            (mix_out_, acc_out_) = net(position_history, left_bound_input, right_bound_input)
             one = torch.ones_like(speed_future[0,0])
-            mix_out = torch.clamp(mix_out_, -0.5*one, 1.5*one)
+            mix_out = torch.clamp(mix_out_, -3.0*one, 3.0*one)
             # + speed_future[:,0].unsqueeze(-1)
             acc_out = acc_out_ + speed_future[:,0].unsqueeze(-1)
             # acc_out = torch.clamp(acc_out_ + speed_future[:,0].unsqueeze(-1), 5.0*one, 110.0*one)
@@ -229,7 +259,7 @@ def trainmixnet(argdict : dict):
 
             coefs_inferred = torch.zeros(currentbatchsize, num_accel_sections, kbeziervel+1, dtype=acc_out.dtype, device=acc_out.device)
             coefs_inferred[:,0,0] = speed_future[:,0]
-            coefs_inferred[:,0,[1,2]] = acc_out[:,coordinate_idx]
+            coefs_inferred[:,0,[1,2]] = acc_out[:,[0,1]]
             coefs_inferred[:,1:,1] = acc_out[:,2:-1]
             coefs_inferred[:,-1,-1] = acc_out[:,-1]
             for j in range(coefs_inferred.shape[1]-1):
@@ -240,19 +270,19 @@ def trainmixnet(argdict : dict):
             tstart_batch = tswitchingpoints[:-1].unsqueeze(0).expand(currentbatchsize, num_accel_sections)
             dt_batch = dt.unsqueeze(0).expand(currentbatchsize, num_accel_sections)
             teval_batch = tsamp.unsqueeze(0).expand(currentbatchsize, numsamples_prediction)
+
             speed_profile_out, idxbuckets = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_inferred.unsqueeze(-1), teval_batch)
             loss_velocity : torch.Tensor = (lossfunc(speed_profile_out, speed_future))#*(prediction_timestep**2)
             
 
-            delta_r : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
+            delta_r_gt : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
             future_arclength_rel : torch.Tensor = future_arclength - future_arclength[:,0,None]
-            arclengths_out_s = future_arclength_rel/delta_r[:,None]
+            arclengths_gt_s = future_arclength_rel/delta_r_gt[:,None]
 
             known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2,coordinate_idx])
             mixed_control_points = torch.sum(bcurves_r[:,:,:,coordinate_idx]*mix_out[:,:,None,None], dim=1)
             
-            # delta_r : torch.Tensor = deepracing_models.math_utils.bezierArcLength(mixed_control_points, quadrature_order=9)
-            # arclengths_out_s = future_arclength_rel/delta_r[:,None]
+            delta_r : torch.Tensor = deepracing_models.math_utils.bezierArcLength(mixed_control_points, quadrature_order=9)
 
 
             known_control_points[:,0] = position_future[:,0,coordinate_idx]
@@ -262,28 +292,34 @@ def trainmixnet(argdict : dict):
             coefs_antiderivative = deepracing_models.math_utils.compositeBezierAntiderivative(coefs_inferred.unsqueeze(-1), dt_batch)
             arclengths_pred, _ = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
             loss_arclength : torch.Tensor = lossfunc(arclengths_pred, future_arclength_rel)
-            arclengths_pred_s = arclengths_pred/arclengths_pred[:,-1,None]
-            Marclengths_pred : torch.Tensor = deepracing_models.math_utils.bezierM(arclengths_pred_s, kbezier)
+            
+            # arclengths_pred_s = (arclengths_pred/delta_r[:,None]).clamp(min=0.0, max=1.0)
+            arclengths_pred_s = arclengths_gt_s
 
+            Marclengths_pred : torch.Tensor = deepracing_models.math_utils.bezierM(arclengths_pred_s, kbezier)
             pointsout : torch.Tensor = torch.matmul(Marclengths_pred, predicted_bcurve)
             displacements : torch.Tensor = pointsout - position_future[:,:,coordinate_idx]
             ade : torch.Tensor = torch.mean(torch.norm(displacements, p=2.0, dim=-1))
 
-            Mbezierout = deepracing_models.math_utils.bezierM(arclengths_out_s, kbezier)
-            predicted_position_future = torch.matmul(Mbezierout, predicted_bcurve)
+            Mbezier_gt = deepracing_models.math_utils.bezierM(arclengths_gt_s, kbezier)
+            predicted_position_lateral_only = torch.matmul(Mbezier_gt, predicted_bcurve)
 
-            loss_position : torch.Tensor = lossfunc(predicted_position_future, position_future[:,:,coordinate_idx])
+            lateral_error : torch.Tensor = lossfunc(predicted_position_lateral_only, position_future[:,:,coordinate_idx])
             if experiment is not None:
-                experiment.log_metric("loss_position", loss_position.item())
+                experiment.log_metric("lateral_error", lateral_error.item())
                 experiment.log_metric("loss_arclength", loss_arclength.item())
                 experiment.log_metric("mean_displacement_error", ade.item())
-                experiment.log_metric("loss_velocity", loss_velocity.item())      
-            loss = loss_position + loss_velocity
+                experiment.log_metric("loss_velocity", loss_velocity.item())     
+            # if (not torch.isnan(ade)) and ade<1000:
+            #     loss = ade # + loss_arclength
+            # else: 
+            loss = lateral_error + loss_velocity
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             if experiment is None:
-                total_position_loss += loss_position.item()
+                total_position_loss += lateral_error.item()
                 total_velocity_loss += loss_velocity.item()
                 total_arclength_error += loss_arclength.item()
                 total_ade += ade.item()
@@ -304,7 +340,7 @@ def trainmixnet(argdict : dict):
             bcurves_r_cpu = bcurves_r[0].cpu()
             position_history_cpu = position_history[0].cpu()
             position_future_cpu = position_future[0].cpu()
-            predicted_position_future_cpu = predicted_position_future[0].detach().cpu()
+            predicted_position_future_cpu = predicted_position_lateral_only[0].detach().cpu()
             left_bound_label_cpu = datadict["future_left_bd"][0].cpu()
             right_bound_label_cpu = datadict["future_right_bd"][0].cpu()
             centerline_label_cpu = datadict["future_centerline"][0].cpu()

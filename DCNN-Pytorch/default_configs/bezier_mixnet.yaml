@@ -5,7 +5,7 @@
     },
     data:
     {
-        dir: /p/DeepRacing/unpacked_datasets_v2/online_multiplayer/deepracing_standard
+        dir: /p/DeepRacing/unpacked_datasets/filtered/v1/numpy_format
     },
     trainer:
     {
@@ -23,6 +23,8 @@
     },
     net:
     {
+        input_dimension : 2,
+        with_velocity_input : False,
         encoder: {
             in_size: 16,
             hidden_size: 32
@@ -35,17 +37,11 @@
             ],
             out_size: 4
         },
-        init_vel_linear_stack: {
-            hidden_sizes: [
-                32
-            ],
-            out_size: 1,
-            max_vel: 100.0
-        },
+
         acc_decoder: {
             in_size: 16,
             hidden_size: 32,
-            num_acc_sections: 10,
+            num_acc_sections: 5,
             max_acc: 100.0
         }
     }
