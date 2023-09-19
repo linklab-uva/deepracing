@@ -103,7 +103,7 @@ def trainmixnet(argdict : dict):
     # else:
     #     dev = torch.device("cpu")
     # with multiprocessing.pool.Pool(processes=argdict["threads"]) as threadpool:
-    for metadatafile in dsetfiles[:2]:
+    for metadatafile in dsetfiles:
         with open(metadatafile, "r") as f:
             dsetconfig = yaml.load(f, Loader=yaml.SafeLoader)
         if numsamples_prediction is None:
