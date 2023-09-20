@@ -64,6 +64,7 @@ class BezierMixNet(nn.Module):
 
         # output linear layer of the acceleration decoder:
         self._acc_out_layer = nn.Linear(params["acc_decoder"]["hidden_size"], 1)
+        self._acc_final_layer_tanh = params["acc_decoder"].get("final_layer_tanh", True)
 
         use_bias = True
         self._final_linear_layer = nn.Linear(4,4, bias=use_bias)
@@ -117,8 +118,8 @@ class BezierMixNet(nn.Module):
         )
         acc_out, _ = self._acc_decoder(dec_input)
         acc_out = torch.squeeze(self._acc_out_layer(torch.relu(acc_out)), dim=2)
-        acc_out = torch.tanh(acc_out) * self._params["acc_decoder"]["max_acc"]
-
+        if self._acc_final_layer_tanh:
+            acc_out = torch.tanh(acc_out) * self._params["acc_decoder"]["max_acc"]
         return mix_out, acc_out
 
     def load_model_weights(self, weights_path):
