@@ -51,7 +51,7 @@ def trainmixnet(argdict : dict):
     tempdir = argdict["tempdir"]
     tags = allconfig["comet"]["tags"]
     if (api_key is not None) and (not argdict["offline"]):
-        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name=project_name, api_key=api_key)
+        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name=project_name, api_key=api_key, auto_metric_logging=False, auto_param_logging=False)
         for tag in tags:
             experiment.add_tag(tag)
         print(api_key)
@@ -193,62 +193,34 @@ def trainmixnet(argdict : dict):
             torch.save(optimizer.state_dict(), optimizerout)
             if experiment is not None:
                 experiment.log_asset(optimizerout, "optimizer_epoch_%d.pt" % (epoch,), copy_to_tmp=False)
-        coordinate_idx_history = torch.arange(0, netconfig["input_dimension"], step=1, dtype=torch.int64)
+        coordinate_idx_history = list(range(netconfig["input_dimension"]))
+        coordinate_idx = list(range(2))
         for (i, dict_) in tq:
             datadict : dict[str,torch.Tensor] = dict_
 
-            position_history = datadict["hist"][:,:,coordinate_idx_history]
-            velocity_history = datadict["hist_vel"][:,:,coordinate_idx_history]
-            # velocity_history = datadict["hist_spline_der"][:,:,coordinate_idx_history]
+            position_history = datadict["hist"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
+            # velocity_history = datadict["hist_vel"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
+            # velocity_history = datadict["hist_spline_der"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
 
-            position_future = datadict["fut"]
-            tangent_future = datadict["fut_tangents"]
-            vel_future = datadict["fut_vel"]
-            # vel_future = datadict["fut_spline_der"]
+            position_future = datadict["fut"].cuda(gpu_index).type(dtype)
+            # vel_future = datadict["fut_vel"].cuda(gpu_index).type(dtype)
+            vel_future = datadict["fut_spline_der"].cuda(gpu_index).type(dtype)
 
-            coordinate_idx = [0,1,2]
-            future_arclength = datadict["future_arclength"]
-
-            # coordinate_idx = [0,1]
-            # future_arclength = datadict["future_arclength_2d"]
-
-            left_bound_input = datadict["left_bd"][:,:,coordinate_idx_history]
-            right_bound_input = datadict["right_bd"][:,:,coordinate_idx_history]
-
-            bcurves_r = datadict["reference_curves"]
-
-            if cuda:
-                position_history = position_history.cuda(gpu_index).type(dtype)
-                velocity_history = velocity_history.cuda(gpu_index).type(dtype)
-                position_future = position_future.cuda(gpu_index).type(dtype)
-                vel_future = vel_future.cuda(gpu_index).type(dtype)
-                left_bound_input = left_bound_input.cuda(gpu_index).type(dtype)
-                right_bound_input = right_bound_input.cuda(gpu_index).type(dtype)
-                future_arclength = future_arclength.cuda(gpu_index).type(dtype)
-                bcurves_r = bcurves_r.cuda(gpu_index).type(dtype)
-                tangent_future = tangent_future.cuda(gpu_index).type(dtype)
+            if coordinate_idx[-1]==2:
+                future_arclength = datadict["future_arclength"].cuda(gpu_index).type(dtype)
             else:
-                position_history = position_history.cpu().type(dtype)
-                velocity_history = velocity_history.cpu().type(dtype)
-                position_future = position_future.cpu().type(dtype)
-                vel_future = vel_future.cpu().type(dtype)
-                left_bound_input = left_bound_input.cpu().type(dtype)
-                right_bound_input = right_bound_input.cpu().type(dtype)
-                future_arclength = future_arclength.cpu().type(dtype)
-                bcurves_r = bcurves_r.cpu().type(dtype)
-                tangent_future = tangent_future.cpu().type(dtype)
+                future_arclength = datadict["future_arclength_2d"].cuda(gpu_index).type(dtype)
+
+            left_bound_input = datadict["left_bd"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
+            right_bound_input = datadict["right_bd"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
+
+            bcurves_r = datadict["reference_curves"].cuda(gpu_index).type(dtype)
 
             speed_future = torch.norm(vel_future[:,:,coordinate_idx], p=2.0, dim=-1)
+            tangent_future = vel_future[:,:,coordinate_idx]/speed_future[:,:,None]
 
             currentbatchsize = int(position_history.shape[0])
 
-
-            # print(tangent_future[:,0])
-            # if netconfig["with_velocity_input"]:
-            #     history_input = torch.cat([position_history, velocity_history], dim=-1)
-            # else:
-            #     history_input = position_history
-                
             (mix_out_, acc_out_) = net(position_history, left_bound_input, right_bound_input)
             one = torch.ones_like(speed_future[0,0])
             mix_out = torch.clamp(mix_out_, -3.0*one, 3.0*one)
@@ -282,19 +254,15 @@ def trainmixnet(argdict : dict):
             known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2,coordinate_idx])
             mixed_control_points = torch.sum(bcurves_r[:,:,:,coordinate_idx]*mix_out[:,:,None,None], dim=1)
             
-            delta_r : torch.Tensor = deepracing_models.math_utils.bezierArcLength(mixed_control_points, quadrature_order=9)
-
-
             known_control_points[:,0] = position_future[:,0,coordinate_idx]
-            known_control_points[:,1] = known_control_points[:,0] + (delta_r[:,None]/kbezier)*tangent_future[:,0,coordinate_idx]
+            known_control_points[:,1] = known_control_points[:,0] + (delta_r_gt[:,None]/kbezier)*tangent_future[:,0,coordinate_idx]
             predicted_bcurve = torch.cat([known_control_points, mixed_control_points[:,2:]], dim=1) 
 
             coefs_antiderivative = deepracing_models.math_utils.compositeBezierAntiderivative(coefs_inferred.unsqueeze(-1), dt_batch)
             arclengths_pred, _ = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
             loss_arclength : torch.Tensor = lossfunc(arclengths_pred, future_arclength_rel)
             
-            # arclengths_pred_s = (arclengths_pred/delta_r[:,None]).clamp(min=0.0, max=1.0)
-            arclengths_pred_s = arclengths_gt_s
+            arclengths_pred_s = (arclengths_pred/delta_r_gt[:,None]).clamp(min=0.0, max=1.0)
 
             Marclengths_pred : torch.Tensor = deepracing_models.math_utils.bezierM(arclengths_pred_s, kbezier)
             pointsout : torch.Tensor = torch.matmul(Marclengths_pred, predicted_bcurve)
