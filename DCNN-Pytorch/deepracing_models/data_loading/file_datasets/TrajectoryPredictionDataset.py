@@ -11,6 +11,7 @@ import torch.jit
 import os
 import yaml
 import io
+from multiprocessing.shared_memory import SharedMemory
 
 KEYS_WE_CARE_ABOUT : set = {
     "hist",
@@ -48,48 +49,75 @@ KEYS_WE_CARE_ABOUT : set = {
     "current_orientation" 
 }
 class TrajectoryPredictionDataset(torch.utils.data.Dataset):
-    def __init__(self, metadatafile : str, subset_flag : deepracing_models.data_loading.SubsetFlag, direct_load : bool,\
-                  dtype=torch.float64, device=torch.device("cpu")):
-        with open(metadatafile, "r") as f:
-            self.metadata = yaml.load(f, Loader=yaml.SafeLoader)
-        directory : str = os.path.dirname(metadatafile)
+    def __init__(self):
+        self.len : int = 0
+        self.metadata : dict = dict()
+        self.data_dict : dict[str,np.ndarray] = dict()
+        self.subset_flag : deepracing_models.data_loading.SubsetFlag | None = None
+        self.directory : str = None
+        self.reference_curves : np.ndarray | None = None
+        self.shared_mem_buffers = []
+    @staticmethod
+    def from_shared_memory(shared_memory_blocks : dict[str,tuple[str, list]], 
+                           metadata : dict,
+                           subset_flag : deepracing_models.data_loading.SubsetFlag,
+                           dtype : np.dtype = np.float64) -> 'TrajectoryPredictionDataset':
+        rtn : TrajectoryPredictionDataset = TrajectoryPredictionDataset()
+        rtn.subset_flag = subset_flag
+        rtn.metadata = metadata
         if subset_flag == deepracing_models.data_loading.SubsetFlag.TRAIN:
-            npfile : str = os.path.join(directory, self.metadata["train_data"])
-            self.len = self.metadata["num_train_samples"]
+            rtn.len = rtn.metadata["num_train_samples"]
         elif subset_flag == deepracing_models.data_loading.SubsetFlag.VAL:
-            npfile : str = os.path.join(directory, self.metadata["val_data"])
-            self.len = self.metadata["num_val_samples"]
+            rtn.len = rtn.metadata["num_val_samples"]
         elif subset_flag == deepracing_models.data_loading.SubsetFlag.TEST:
-            npfile : str = os.path.join(directory, self.metadata["test_data"])
-            self.len = self.metadata["num_test_samples"]
+            rtn.len = rtn.metadata["num_test_samples"]
         elif subset_flag == deepracing_models.data_loading.SubsetFlag.ALL:
-            npfile : str = os.path.join(directory, self.metadata["all_data"])
-            self.len = self.metadata["num_samples"]
+            rtn.len = rtn.metadata["num_samples"]
         else:
             raise ValueError("Invalid subset_flag: %d" % (subset_flag,))
-
-        print("Loading data at %s" % (npfile,), flush=True)
-        self.data_dict : npio.NpzFile | dict[str, torch.Tensor] = None
-        if direct_load:
-            self.file_handle = None
-            self.data_dict = dict()
-            with open(npfile, "rb") as f:
-                npdict : npio.NpzFile = np.load(f)
-                for k in KEYS_WE_CARE_ABOUT:
-                    arr : np.ndarray = npdict[k]
-                    if not arr.shape[0] == self.len:
-                        raise ValueError("Data key %s has length %d not consistent with metadata length %d" % (k, arr.shape[0], self.len))
-                    self.data_dict[k] = arr.copy()
+        for k in KEYS_WE_CARE_ABOUT:
+            name, shape = shared_memory_blocks[k]
+            if not (shape[0]==rtn.len):
+                raise ValueError("metadata indicates length %d, but shared memory block has first dimension %d" % (rtn.len, shape[0]))
+            shared_mem : SharedMemory = SharedMemory(name=name)
+            rtn.shared_mem_buffers.append(shared_mem)
+            rtn.data_dict[k] = np.frombuffer(buffer=shared_mem.buf, dtype=dtype).reshape(shape)
+        reference_curves_key = "reference_curves"
+        if reference_curves_key in shared_memory_blocks.keys():
+            name, shape = shared_memory_blocks[reference_curves_key]
+            shared_mem : SharedMemory = SharedMemory(name=name)
+            rtn.shared_mem_buffers.append(shared_mem)
+            rtn.reference_curves = np.frombuffer(buffer=shared_mem.buf, dtype=dtype).reshape(shape)
+        return rtn
+    @staticmethod
+    def from_file(metadatafile : str, subset_flag : deepracing_models.data_loading.SubsetFlag, dtype=np.float64) -> 'TrajectoryPredictionDataset':
+        rtn : TrajectoryPredictionDataset = TrajectoryPredictionDataset()
+        rtn.subset_flag = subset_flag
+        with open(metadatafile, "r") as f:
+            rtn.metadata = yaml.load(f, Loader=yaml.SafeLoader)
+        rtn.directory = os.path.dirname(metadatafile)
+        if subset_flag == deepracing_models.data_loading.SubsetFlag.TRAIN:
+            npfile : str = os.path.join(rtn.directory, rtn.metadata["train_data"])
+            rtn.len = rtn.metadata["num_train_samples"]
+        elif subset_flag == deepracing_models.data_loading.SubsetFlag.VAL:
+            npfile : str = os.path.join(rtn.directory, rtn.metadata["val_data"])
+            rtn.len = rtn.metadata["num_val_samples"]
+        elif subset_flag == deepracing_models.data_loading.SubsetFlag.TEST:
+            npfile : str = os.path.join(rtn.directory, rtn.metadata["test_data"])
+            rtn.len = rtn.metadata["num_test_samples"]
+        elif subset_flag == deepracing_models.data_loading.SubsetFlag.ALL:
+            npfile : str = os.path.join(rtn.directory, rtn.metadata["all_data"])
+            rtn.len = rtn.metadata["num_samples"]
         else:
-            self.file_handle = open(npfile, "rb")
-            self.data_dict : npio.NpzFile = np.load(self.file_handle)
-        self.directory : str = directory
-        self.subset_flag : deepracing_models.data_loading.SubsetFlag = subset_flag
-        self.reference_curves : np.ndarray | None = None
-        self.direct_load : bool = direct_load
-    def __del__(self):
-        if self.file_handle is not None:
-            self.file_handle.close()
+            raise ValueError("Invalid subset_flag: %d" % (subset_flag,))
+        with open(npfile, "rb") as f:
+            npdict : npio.NpzFile = np.load(f)
+            for k in KEYS_WE_CARE_ABOUT:
+                arr : np.ndarray = npdict[k]
+                if not arr.shape[0] == rtn.len:
+                    raise ValueError("Data key %s has length %d not consistent with metadata length %d" % (k, arr.shape[0], rtn.len))
+                rtn.data_dict[k] = arr.copy().astype(dtype)
+        return rtn
     def fit_bezier_curves(self, kbezier : int, device=torch.device("cpu"), cache=False):    
         cachefile = os.path.join(self.directory, "bcurve_order_%d.npz" % (kbezier,))
         if cache and os.path.isfile(cachefile):
@@ -151,7 +179,6 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
             np.savez_compressed(f, **npdict)
         self.reference_curves = all_curves_numpy.copy()
         print("Done", flush=True)
-
 
     def __len__(self):
         return self.len
