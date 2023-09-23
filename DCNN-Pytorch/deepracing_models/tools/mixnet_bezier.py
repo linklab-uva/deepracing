@@ -46,7 +46,7 @@ def load_datasets_from_files(search_dir : str, kbezier : int, bcurve_cache = Fal
     dsets : list[FD.TrajectoryPredictionDataset] = []
     dsetconfigs = []
     numsamples_prediction = None
-    for metadatafile in dsetfiles[:2]:
+    for metadatafile in dsetfiles:
         with open(metadatafile, "r") as f:
             dsetconfig = yaml.load(f, Loader=yaml.SafeLoader)
         if numsamples_prediction is None:
