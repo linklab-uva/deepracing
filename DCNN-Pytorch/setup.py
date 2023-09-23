@@ -26,6 +26,7 @@ setup(
               os.path.join(package_name,"nn_models"),
               os.path.join(package_name,"path_utils"),
               os.path.join(package_name,"probabilistic_models"),
+              os.path.join(package_name,"tools"),
               os.path.join(package_name,"training_utils"),
               ],
    # long_description=read('README'),
