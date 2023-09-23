@@ -31,78 +31,14 @@ from threading import Semaphore, ThreadError
 def errorcb(exception):
     for elem in traceback.format_exception(exception):
         print(elem, flush=True, file=sys.stderr)
-def loadwrapper(dsets : list[FD.TrajectoryPredictionDataset], dsetconfigs : list[dict], metadatafile : str, kbezier : int, mutex : Semaphore, built_in_lstq=True):
-    with open(metadatafile, "r") as f:
-        dsetconfig = yaml.load(f, Loader=yaml.SafeLoader)
-    dset = FD.TrajectoryPredictionDataset(metadatafile, SubsetFlag.TRAIN, dtype=torch.float64)
-    dset.fit_bezier_curves(kbezier, built_in_lstq=built_in_lstq)
-    if mutex.acquire(blocking=True, timeout=2.0):
-        dsets.append(dset)
-        dsetconfigs.append(dsetconfig)
-        mutex.release()
-    else:
-        raise RuntimeError("Could not acquire mutex for dataset: %s" % (metadatafile,))
-def trainmixnet(argdict : dict):
-    config_file = argdict["config_file"]
-    with open(config_file, "r") as f:
-        allconfig : dict = yaml.load(f, Loader=yaml.SafeLoader)
-    project_name="mixnet-bezier"
-    api_key = os.getenv("COMET_API_KEY")
-    tempdir = argdict["tempdir"]
-    tags = allconfig["comet"]["tags"]
-    if (api_key is not None) and (not argdict["offline"]):
-        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name=project_name, api_key=api_key, auto_metric_logging=False, auto_param_logging=False)
-        for tag in tags:
-            experiment.add_tag(tag)
-        print(api_key)
-    elif (api_key is not None) and (tempdir is not None) and argdict["offline"]:
-        offline_name = "mixnet_bezier_" + datetime.now().strftime("%Y_%m_%d_%H:%M:%S") 
-        experiment = comet_ml.OfflineExperiment(workspace="electric-turtle", project_name=project_name, api_key=api_key,\
-                                                offline_directory=tempdir)
-        experiment.set_name(offline_name)
-    else:
-        experiment = None
-    if tempdir is None:
-        tempdirobj = tempfile.TemporaryDirectory()
-        tempdir_full = tempdirobj.name
-    else:
-        if experiment is not None:
-            tempdir_full = os.path.join(tempdir, experiment.name)
-        else:
-            tempdir_full = os.path.join(tempdir, datetime.now().strftime("%Y_%m_%d_%H:%M:%S"))
-        if os.path.isdir(tempdir_full):
-            shutil.rmtree(tempdir_full)
-        os.makedirs(tempdir_full)
-    if experiment is not None:
-        shutil.copy(config_file, tempdir_full)
-        experiment.log_asset(os.path.join(tempdir_full, os.path.basename(config_file)), "config.yaml", copy_to_tmp=False)
-        command_line_args_file = os.path.join(tempdir, "command_line_args.yaml")
-        with open(command_line_args_file, "w") as f:
-            yaml.dump(argdict, f, Dumper=yaml.SafeDumper)
-        experiment.log_asset(command_line_args_file, "command_line_args.yaml", copy_to_tmp=False)   
-    else:
-        os.mkdir(os.path.join(tempdir_full, "plots"))
-    dataconfig = allconfig["data"]
-    netconfig = allconfig["net"]
-    trainerconfig = allconfig["trainer"]
-    gpu_index=trainerconfig["gpu_index"]
-    cuda=gpu_index>=0
-
-    datadir = dataconfig["dir"]
-    dsetfiles = glob.glob(os.path.join(datadir, "**", "metadata.yaml"), recursive=True)
+def load_datasets_from_shared_memory(shared_memory_dict : dict[str, tuple[str, dict]]):
     dsets : list[FD.TrajectoryPredictionDataset] = []
-    mutex : Semaphore = Semaphore()
+    return dsets
+def load_datasets_from_files(search_dir : str, kbezier : int, bcurve_cache = False):
+    dsetfiles = glob.glob(os.path.join(search_dir, "**", "metadata.yaml"), recursive=True)
+    dsets : list[FD.TrajectoryPredictionDataset] = []
     dsetconfigs = []
-    asyncresults = []
     numsamples_prediction = None
-    kbezier = trainerconfig["kbezier"]
-
-
-    # if cuda:
-    #     dev = torch.device("cuda:%d" % (gpu_index,))
-    # else:
-    #     dev = torch.device("cpu")
-    # with multiprocessing.pool.Pool(processes=argdict["threads"]) as threadpool:
     for metadatafile in dsetfiles:
         with open(metadatafile, "r") as f:
             dsetconfig = yaml.load(f, Loader=yaml.SafeLoader)
@@ -114,17 +50,85 @@ def trainmixnet(argdict : dict):
                             "has prediction length %d" % (metadatafile, dsetconfig["numsamples_prediction"], numsamples_prediction))
         dsetconfigs.append(dsetconfig)
         dsets.append(FD.TrajectoryPredictionDataset.from_file(metadatafile, SubsetFlag.TRAIN, dtype=torch.float64))
-        bcurve_cache = False
         dsets[-1].fit_bezier_curves(kbezier, cache=bcurve_cache)
-    batch_size = trainerconfig["batch_size"]
-    netconfig["gpu_index"]=gpu_index
-    dataloader = torchdata.DataLoader(torchdata.ConcatDataset(dsets), num_workers=argdict["workers"], batch_size=batch_size, pin_memory=cuda, shuffle=True)#, collate_fn=dsets[0].collate_fn)
-    net : BezierMixNet = BezierMixNet(netconfig).double()
-    lossfunc = torch.nn.MSELoss().double()
-    if cuda:
-        net = net.cuda(gpu_index)
+    return dsets
+
+def train(allconfig : dict[str,dict] = None,
+            tempdir : str = None,
+            num_epochs : int = 200,
+            workers : int = 0,
+            shared_memory_keys : dict[str, tuple[str, dict]] = None,
+            float64 = True,
+            api_key : str | None = None):
+    
+    if allconfig is None:
+        raise ValueError("keyword arg \"allconfig\" is mandatory")
+
+    if tempdir is None:
+        raise ValueError("keyword arg \"tempdir\" is mandatory")
+    
+
+    project_name="mixnet-bezier"
+    api_key = os.getenv("COMET_API_KEY")
+    tags = allconfig["comet"]["tags"]
+    if (api_key is not None):
+        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name=project_name, api_key=api_key, auto_metric_logging=False, auto_param_logging=False)
+        for tag in tags:
+            experiment.add_tag(tag)
+    else:
+        experiment = None
+    if experiment is not None:
+        tempdir_full = os.path.join(tempdir, experiment.name)
+    else:
+        tempdir_full = os.path.join(tempdir, "mixnet_bezier_" + datetime.now().strftime("%Y_%m_%d_%H:%M:%S"))
+
+    if os.path.isdir(tempdir_full):
+        shutil.rmtree(tempdir_full)
+
+    os.makedirs(tempdir_full)
+
+    if experiment is not None:
+        config_copy = os.path.join(tempdir_full, "config_copy.yaml")
+        with open(config_copy, "w") as f:
+            yaml.dump(allconfig, f, Dumper=yaml.SafeDumper)
+        experiment.log_asset(config_copy, "config.yaml", copy_to_tmp=False)
+    else:
+        os.mkdir(os.path.join(tempdir_full, "plots"))
+    
+    dataconfig = allconfig["data"]
+    netconfig = allconfig["network"]
+    trainerconfig = allconfig["trainer"]
+    kbezier : int = trainerconfig["kbezier"]
+    netconfig["kbezier"] : int = kbezier
+    if shared_memory_keys is None:
+        search_dir : str = dataconfig["dir"]
+        datasets = load_datasets_from_files(search_dir, kbezier)
+    else:
+        datasets = load_datasets_from_shared_memory(shared_memory_keys, kbezier)
+    network : BezierMixNet = BezierMixNet(netconfig)
+    lossfunc : torch.nn.MSELoss = torch.nn.MSELoss()
+    gpu_index : int = trainerconfig["gpu_index"]
+    if float64:
+        network = network.double()
+        lossfunc = lossfunc.double()
+    else:
+        network = network.float()
+        lossfunc = lossfunc.double()
+    use_cuda = gpu_index>=0
+    if use_cuda:
+        network = network.cuda(gpu_index)
         lossfunc = lossfunc.cuda(gpu_index)
-    firstparam = next(net.parameters())
+
+    concat_dataset : torchdata.ConcatDataset = torchdata.ConcatDataset(datasets)
+    dataloader : torchdata.DataLoader(concat_dataset, batch_size=trainerconfig["batch_size"], pin_memory=use_cuda, shuffle=True, num_workers=workers)
+
+    if type(num_epochs) is not int:
+        raise ValueError("keyword arg \"num_epochs\" must be an int")
+    
+    if experiment is not None:
+        print("Using comet. Experiment name: %s" % (experiment.get_name(),) )
+
+    firstparam = next(network.parameters())
     dtype = firstparam.dtype
     device = firstparam.device
     lr = float(trainerconfig["learning_rate"])
@@ -132,25 +136,24 @@ def trainmixnet(argdict : dict):
     if optimizername=="SGD":
         momentum = trainerconfig["momentum"]
         nesterov = trainerconfig["nesterov"]
-        optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = momentum, nesterov=(nesterov and (momentum>0.0)))
+        optimizer = torch.optim.SGD(network.parameters(), lr = lr, momentum = momentum, nesterov=(nesterov and (momentum>0.0)))
     elif optimizername=="Adam":
         betas = tuple(trainerconfig["betas"])
         weight_decay = trainerconfig["weight_decay"]
-        optimizer = torch.optim.Adam(net.parameters(), lr = lr, betas=betas, weight_decay = weight_decay)
+        optimizer = torch.optim.Adam(network.parameters(), lr = lr, betas=betas, weight_decay = weight_decay)
     else:
         raise ValueError("Unknown optimizer %s" % (optimizername,))
 
     num_accel_sections : int = netconfig["acc_decoder"]["num_acc_sections"]
-    prediction_timestep = dsetconfigs[0]["timestep_prediction"]
-    prediction_totaltime = dsetconfigs[0]["predictiontime"]
-    net.train()
+    prediction_totaltime = datasets[0].metadata["predictiontime"]
+    network.train()
     averageloss = 1E9
+
     averagepositionloss = 1E9
     averagevelocityloss = 1E9
-    averagevelocityerror = 1E9
     averagearclengtherror = 1E9
 
-    numsamples_prediction = dsetconfigs[0]["numsamples_prediction"]
+    numsamples_prediction = datasets[0].metadata["numsamples_prediction"]
     tsamp = torch.linspace(0.0, prediction_totaltime, dtype=dtype, device=device, steps=numsamples_prediction)
     tswitchingpoints = torch.linspace(0.0, prediction_totaltime, dtype=dtype, device=device, steps=num_accel_sections+1)
     dt = tswitchingpoints[1:] - tswitchingpoints[:-1]
@@ -177,8 +180,8 @@ def trainmixnet(argdict : dict):
             tq = dataloader_enumerate
         if epoch%10==0:
             
-            netout = os.path.join(tempdir_full, "net.pt")
-            torch.save(net.state_dict(), netout)
+            netout = os.path.join(tempdir_full, "network.pt")
+            torch.save(network.state_dict(), netout)
             if experiment is not None:
                 experiment.log_asset(netout, "network_epoch_%d.pt" % (epoch,), copy_to_tmp=False)   
 
@@ -214,7 +217,7 @@ def trainmixnet(argdict : dict):
 
             currentbatchsize = int(position_history.shape[0])
 
-            (mix_out_, acc_out_) = net(position_history, left_bound_input, right_bound_input)
+            (mix_out_, acc_out_) = network(position_history, left_bound_input, right_bound_input)
             one = torch.ones_like(speed_future[0,0])
             mix_out = torch.clamp(mix_out_, -3.0*one, 3.0*one)
             # + speed_future[:,0].unsqueeze(-1)
@@ -339,19 +342,23 @@ def trainmixnet(argdict : dict):
                 fig_velocity.savefig(os.path.join(tempdir_full, "plots", "speeds_epoch_%d.pdf" % (epoch,)))
             plt.close(fig=fig)
             plt.close(fig=fig_velocity)
-            
-            
-            # plt.show()
-            # plt.show()
-        # scheduler.step()
 
+def prepare_and_train(argdict : dict):
+    tempdir = argdict["tempdir"]
+    workers = argdict["workers"]
+    config_file = argdict["config_file"]
+    with open(config_file, "r") as f:
+        allconfig : dict = yaml.load(f, Loader=yaml.SafeLoader)
 
+    train(allconfig=allconfig, workers=workers, tempdir=tempdir)
+
+    
+            
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description="Train Bezier version of MixNet")
     parser.add_argument("config_file", type=str,  help="Configuration file to load")
-    parser.add_argument("--tempdir", type=str, default=None, help="Temporary directory to save model files before uploading to comet. Default is to use tempfile module to generate one")
+    parser.add_argument("--tempdir", type=str, required=True, help="Temporary directory to save model files before uploading to comet. Default is to use tempfile module to generate one")
     parser.add_argument("--workers", type=int, default=0, help="How many threads for data loading")
-    parser.add_argument("--offline", action="store_true", help="Run as an offline comet experiment instead of uploading to comet.ml")
     args = parser.parse_args()
     argdict : dict = vars(args)
-    trainmixnet(argdict)
+    prepare_and_train(argdict)
