@@ -31,9 +31,16 @@ from threading import Semaphore, ThreadError
 def errorcb(exception):
     for elem in traceback.format_exception(exception):
         print(elem, flush=True, file=sys.stderr)
-def load_datasets_from_shared_memory(shared_memory_dict : dict[str, tuple[str, dict]]):
+
+def load_datasets_from_shared_memory(
+        shared_memory_locations : list[ tuple[ dict[str, tuple[str, list]], dict ]  ],
+        dtype : np.dtype
+    ):
     dsets : list[FD.TrajectoryPredictionDataset] = []
+    for shm_dict, metadata_dict in shared_memory_locations:
+        dsets.append(FD.TrajectoryPredictionDataset.from_shared_memory(shm_dict, metadata_dict, SubsetFlag.TRAIN, dtype=dtype))
     return dsets
+
 def load_datasets_from_files(search_dir : str, kbezier : int, bcurve_cache = False):
     dsetfiles = glob.glob(os.path.join(search_dir, "**", "metadata.yaml"), recursive=True)
     dsets : list[FD.TrajectoryPredictionDataset] = []
@@ -58,7 +65,7 @@ def train(allconfig : dict[str,dict] = None,
             num_epochs : int = 200,
             workers : int = 0,
             shared_memory_keys : dict[str, tuple[str, dict]] = None,
-            float64 = True,
+            dtype : np.dtype | None = None,
             api_key : str | None = None):
     
     if allconfig is None:
@@ -104,16 +111,12 @@ def train(allconfig : dict[str,dict] = None,
         search_dir : str = dataconfig["dir"]
         datasets = load_datasets_from_files(search_dir, kbezier)
     else:
-        datasets = load_datasets_from_shared_memory(shared_memory_keys, kbezier)
-    network : BezierMixNet = BezierMixNet(netconfig)
-    lossfunc : torch.nn.MSELoss = torch.nn.MSELoss()
+        if dtype is None:
+            raise ValueError("If shared memory is specified, dtype must also be specified")
+        datasets = load_datasets_from_shared_memory(shared_memory_keys, dtype)
+    network : BezierMixNet = BezierMixNet(netconfig).double()
+    lossfunc : torch.nn.MSELoss = torch.nn.MSELoss().double()
     gpu_index : int = trainerconfig["gpu_index"]
-    if float64:
-        network = network.double()
-        lossfunc = lossfunc.double()
-    else:
-        network = network.float()
-        lossfunc = lossfunc.double()
     use_cuda = gpu_index>=0
     if use_cuda:
         network = network.cuda(gpu_index)
