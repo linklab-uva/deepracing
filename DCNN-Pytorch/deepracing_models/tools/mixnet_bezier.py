@@ -46,7 +46,7 @@ def load_datasets_from_files(search_dir : str, kbezier : int, bcurve_cache = Fal
     dsets : list[FD.TrajectoryPredictionDataset] = []
     dsetconfigs = []
     numsamples_prediction = None
-    for metadatafile in dsetfiles:
+    for metadatafile in dsetfiles[:2]:
         with open(metadatafile, "r") as f:
             dsetconfig = yaml.load(f, Loader=yaml.SafeLoader)
         if numsamples_prediction is None:
@@ -56,7 +56,7 @@ def load_datasets_from_files(search_dir : str, kbezier : int, bcurve_cache = Fal
                             "Dataset at %s has prediction length %d, but previous dataset " + \
                             "has prediction length %d" % (metadatafile, dsetconfig["numsamples_prediction"], numsamples_prediction))
         dsetconfigs.append(dsetconfig)
-        dsets.append(FD.TrajectoryPredictionDataset.from_file(metadatafile, SubsetFlag.TRAIN, dtype=torch.float64))
+        dsets.append(FD.TrajectoryPredictionDataset.from_file(metadatafile, SubsetFlag.TRAIN, dtype=np.float64))
         dsets[-1].fit_bezier_curves(kbezier, cache=bcurve_cache)
     return dsets
 
@@ -64,7 +64,7 @@ def train(allconfig : dict[str,dict] = None,
             tempdir : str = None,
             num_epochs : int = 200,
             workers : int = 0,
-            shared_memory_keys : dict[str, tuple[str, dict]] = None,
+            shared_memory_keys : list[ tuple[ dict[str, tuple[str, list]], dict ]  ] | None = None,
             dtype : np.dtype | None = None,
             api_key : str | None = None):
     
@@ -74,12 +74,22 @@ def train(allconfig : dict[str,dict] = None,
     if tempdir is None:
         raise ValueError("keyword arg \"tempdir\" is mandatory")
     
+    dataconfig = allconfig["data"]
+    netconfig = allconfig["net"]
+    trainerconfig = allconfig["trainer"]
+    kbezier : int = trainerconfig["kbezier"]
+    netconfig["kbezier"] = kbezier
+    netconfig["gpu_index"] = trainerconfig["gpu_index"]
 
     project_name="mixnet-bezier"
-    api_key = os.getenv("COMET_API_KEY")
     tags = allconfig["comet"]["tags"]
     if (api_key is not None):
-        experiment = comet_ml.Experiment(workspace="electric-turtle", project_name=project_name, api_key=api_key, auto_metric_logging=False, auto_param_logging=False)
+        experiment = comet_ml.Experiment(workspace="electric-turtle", 
+                                         project_name=project_name, 
+                                         api_key=api_key, 
+                                         auto_output_logging=False,
+                                         auto_metric_logging=False, 
+                                         auto_param_logging=False)
         for tag in tags:
             experiment.add_tag(tag)
     else:
@@ -102,11 +112,6 @@ def train(allconfig : dict[str,dict] = None,
     else:
         os.mkdir(os.path.join(tempdir_full, "plots"))
     
-    dataconfig = allconfig["data"]
-    netconfig = allconfig["network"]
-    trainerconfig = allconfig["trainer"]
-    kbezier : int = trainerconfig["kbezier"]
-    netconfig["kbezier"] : int = kbezier
     if shared_memory_keys is None:
         search_dir : str = dataconfig["dir"]
         datasets = load_datasets_from_files(search_dir, kbezier)
@@ -123,7 +128,7 @@ def train(allconfig : dict[str,dict] = None,
         lossfunc = lossfunc.cuda(gpu_index)
 
     concat_dataset : torchdata.ConcatDataset = torchdata.ConcatDataset(datasets)
-    dataloader : torchdata.DataLoader(concat_dataset, batch_size=trainerconfig["batch_size"], pin_memory=use_cuda, shuffle=True, num_workers=workers)
+    dataloader : torchdata.DataLoader = torchdata.DataLoader(concat_dataset, batch_size=trainerconfig["batch_size"], pin_memory=use_cuda, shuffle=True, num_workers=workers)
 
     if type(num_epochs) is not int:
         raise ValueError("keyword arg \"num_epochs\" must be an int")
@@ -192,18 +197,16 @@ def train(allconfig : dict[str,dict] = None,
             torch.save(optimizer.state_dict(), optimizerout)
             if experiment is not None:
                 experiment.log_asset(optimizerout, "optimizer_epoch_%d.pt" % (epoch,), copy_to_tmp=False)
+
         coordinate_idx_history = list(range(netconfig["input_dimension"]))
         coordinate_idx = list(range(2))
         for (i, dict_) in tq:
             datadict : dict[str,torch.Tensor] = dict_
 
             position_history = datadict["hist"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
-            # velocity_history = datadict["hist_vel"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
-            # velocity_history = datadict["hist_spline_der"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
 
             position_future = datadict["fut"].cuda(gpu_index).type(dtype)
             vel_future = datadict["fut_vel"].cuda(gpu_index).type(dtype)
-            # vel_future = datadict["fut_spline_der"].cuda(gpu_index).type(dtype)
 
             if coordinate_idx[-1]==2:
                 future_arclength = datadict["future_arclength"].cuda(gpu_index).type(dtype)
@@ -277,9 +280,6 @@ def train(allconfig : dict[str,dict] = None,
                 experiment.log_metric("loss_arclength", loss_arclength.item())
                 experiment.log_metric("mean_displacement_error", ade.item())
                 experiment.log_metric("loss_velocity", loss_velocity.item())     
-            # if (not torch.isnan(ade)) and ade<1000:
-            #     loss = ade # + loss_arclength
-            # else: 
             loss = lateral_error + loss_velocity
 
             optimizer.zero_grad()
@@ -352,8 +352,7 @@ def prepare_and_train(argdict : dict):
     config_file = argdict["config_file"]
     with open(config_file, "r") as f:
         allconfig : dict = yaml.load(f, Loader=yaml.SafeLoader)
-
-    train(allconfig=allconfig, workers=workers, tempdir=tempdir)
+    train(allconfig=allconfig, workers=workers, tempdir=tempdir, api_key=os.getenv("COMET_API_KEY"))
 
     
             
