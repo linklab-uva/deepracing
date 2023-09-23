@@ -1,11 +1,11 @@
 {
     comet:
     {
-        tags: []
+        tags: ["filtered_v2_data"]
     },
     data:
     {
-        dir: /p/DeepRacing/unpacked_datasets/filtered/v1/numpy_format
+        dir: /p/DeepRacing/unpacked_datasets/filtered/v2/numpy_format
     },
     trainer:
     {
@@ -24,6 +24,7 @@
     net:
     {
         input_dimension : 2,
+        final_layer_tanh : False,
         with_velocity_input : False,
         encoder: {
             in_size: 16,
