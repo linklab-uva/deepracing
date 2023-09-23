@@ -257,8 +257,8 @@ def test(**kwargs):
             translations_decomposition = torch.matmul(rotmats_decomposition, -position_future_global.unsqueeze(-1)).squeeze(-1)
 
             decompositions = torch.matmul(rotmats_decomposition, position_predicted_global.unsqueeze(-1)).squeeze(-1) + translations_decomposition
-            longitudinal_errors = decompositions[:,:,0]
-            lateral_errors = decompositions[:,:,1]
+            longitudinal_errors = torch.abs(decompositions[:,:,0])
+            lateral_errors = torch.abs(decompositions[:,:,1])
 
             lateral_error_list+=torch.mean(lateral_errors, dim=1).cpu().numpy().tolist()
             longitudinal_error_list+=torch.mean(longitudinal_errors, dim=1).cpu().numpy().tolist()

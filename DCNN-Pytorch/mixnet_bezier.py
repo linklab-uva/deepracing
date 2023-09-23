@@ -113,16 +113,9 @@ def trainmixnet(argdict : dict):
                             "Dataset at %s has prediction length %d, but previous dataset " + \
                             "has prediction length %d" % (metadatafile, dsetconfig["numsamples_prediction"], numsamples_prediction))
         dsetconfigs.append(dsetconfig)
-        direct_load = True
-        dsets.append(FD.TrajectoryPredictionDataset(metadatafile, SubsetFlag.TRAIN, direct_load, dtype=torch.float64))
+        dsets.append(FD.TrajectoryPredictionDataset.from_file(metadatafile, SubsetFlag.TRAIN, dtype=torch.float64))
         bcurve_cache = False
         dsets[-1].fit_bezier_curves(kbezier, cache=bcurve_cache)
-        #def loadwrapper(dsets : list[FD.TrajectoryPredictionDataset], dsetconfigs : list[dict], metadatafile : str, kbezier : int, mutex : Semaphore, built_in_lstq=True):
-        # loadargs=[dsets, dsetconfigs, metadatafile, kbezier, mutex]
-        # loadkwds = {"built_in_lstq" : True}
-        # asyncresults.append(threadpool.apply_async(loadwrapper, args=loadargs, kwds=loadkwds, error_callback=errorcb))
-        # threadpool.close()
-        # threadpool.join()   
     batch_size = trainerconfig["batch_size"]
     netconfig["gpu_index"]=gpu_index
     dataloader = torchdata.DataLoader(torchdata.ConcatDataset(dsets), num_workers=argdict["workers"], batch_size=batch_size, pin_memory=cuda, shuffle=True)#, collate_fn=dsets[0].collate_fn)

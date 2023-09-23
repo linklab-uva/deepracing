@@ -26,7 +26,7 @@ import torchaudio
 
 
 class CompositeBezierCurve(torch.nn.Module):
-    def __init__(self, x : torch.Tensor, control_points : torch.Tensor, order : int = 0) -> None:
+    def __init__(self, x : torch.Tensor, control_points : torch.Tensor) -> None:
         super(CompositeBezierCurve, self).__init__()
 
         self.control_points : torch.nn.Parameter =  torch.nn.Parameter(control_points.clone(), requires_grad=False)

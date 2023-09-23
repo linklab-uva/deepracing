@@ -26,7 +26,7 @@ def test(**kwargs):
     tempdir : str = kwargs["tempdir"]
     workers : int = kwargs["workers"]
     batch_size : int = kwargs.get("batch_size", 1)
-    gpu_index : int = kwargs.get("gpu_index", 0)
+    gpu_index : int = kwargs.get("gpu", 0)
     
     experiment_dir = os.path.join(tempdir, experiment)
     api : comet_ml.API = comet_ml.API(api_key=os.getenv("COMET_API_KEY"))
@@ -189,8 +189,8 @@ def test(**kwargs):
             translations_decomposition = torch.matmul(rotmats_decomposition, -position_future[:,:,[0,1]].unsqueeze(-1)).squeeze(-1)
 
             decompositions = torch.matmul(rotmats_decomposition, pointsout[:,:,[0,1]].unsqueeze(-1)).squeeze(-1) + translations_decomposition
-            longitudinal_errors = decompositions[:,:,0]
-            lateral_errors = decompositions[:,:,1]
+            longitudinal_errors = torch.abs(decompositions[:,:,0])
+            lateral_errors = torch.abs(decompositions[:,:,1])
 
             lateral_error_list+=torch.mean(lateral_errors, dim=1).cpu().numpy().tolist()
             longitudinal_error_list+=torch.mean(longitudinal_errors, dim=1).cpu().numpy().tolist()
@@ -203,8 +203,8 @@ def test(**kwargs):
     longitudinal_error_array = torch.as_tensor(longitudinal_error_list, dtype=torch.float64)
     ade_array = torch.as_tensor(ade_list, dtype=torch.float64)
     print("ADE: %f" % (torch.mean(ade_array).item(),))
-    print("mean lateral error: %f" % (torch.mean(torch.abs(lateral_error_array)).item(),))
-    print("mean longitudinal error: %f" % (torch.mean(torch.abs(longitudinal_error_array)).item(),))
+    print("mean lateral error: %f" % (torch.mean(lateral_error_array).item(),))
+    print("mean longitudinal error: %f" % (torch.mean(longitudinal_error_array).item(),))
 
 
 
@@ -214,6 +214,7 @@ if __name__=="__main__":
     parser.add_argument("--experiment", type=str, required=True, help="Which comet experiment to load")
     parser.add_argument("--tempdir", type=str, default="/bigtemp/ttw2xk/mixnet_bezier_dump", help="Temporary directory to save model files after downloading from comet.")
     parser.add_argument("--workers", type=int, default=0, help="How many threads for data loading")
+    parser.add_argument("--gpu", type=int, default=0, help="which gpu")
     args = parser.parse_args()
     argdict : dict = vars(args)
     argdict["batch_size"] = 128
