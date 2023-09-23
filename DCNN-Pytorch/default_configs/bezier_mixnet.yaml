@@ -5,7 +5,7 @@
     },
     data:
     {
-        dir: /p/DeepRacing/unpacked_datasets/filtered/v2/numpy_format
+        dir: /p/DeepRacing/unpacked_datasets/filtered/v3/numpy_format
     },
     trainer:
     {
