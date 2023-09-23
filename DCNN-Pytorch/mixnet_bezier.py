@@ -199,8 +199,8 @@ def train(allconfig : dict[str,dict] = None,
             # velocity_history = datadict["hist_spline_der"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
 
             position_future = datadict["fut"].cuda(gpu_index).type(dtype)
-            # vel_future = datadict["fut_vel"].cuda(gpu_index).type(dtype)
-            vel_future = datadict["fut_spline_der"].cuda(gpu_index).type(dtype)
+            vel_future = datadict["fut_vel"].cuda(gpu_index).type(dtype)
+            # vel_future = datadict["fut_spline_der"].cuda(gpu_index).type(dtype)
 
             if coordinate_idx[-1]==2:
                 future_arclength = datadict["future_arclength"].cuda(gpu_index).type(dtype)
