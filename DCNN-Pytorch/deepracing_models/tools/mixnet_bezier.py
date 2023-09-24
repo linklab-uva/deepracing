@@ -87,7 +87,6 @@ def train(allconfig : dict[str,dict] = None,
         experiment = comet_ml.Experiment(workspace="electric-turtle", 
                                          project_name=project_name, 
                                          api_key=api_key, 
-                                         auto_output_logging=False,
                                          auto_metric_logging=False, 
                                          auto_param_logging=False)
         for tag in tags:
