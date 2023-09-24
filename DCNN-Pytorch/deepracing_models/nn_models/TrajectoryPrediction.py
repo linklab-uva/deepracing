@@ -69,6 +69,16 @@ class BezierMixNet(nn.Module):
         use_bias = True
         self._final_linear_layer = nn.Linear(4,4, bias=use_bias)
         self._final_linear_layer.weight = torch.nn.Parameter(torch.eye(4) + 0.0001*torch.randn(4,4))
+        self.constrain_derivs : bool = self._params["acc_decoder"]["constrain_derivatives"]
+
+        num_accel_sections = self._params["acc_decoder"]["num_acc_sections"] 
+        num_transitions = num_accel_sections - 1
+        constraints_per_transition = int(self._params["acc_decoder"]["constrain_derivatives"]["first"])\
+              + int(self._params["acc_decoder"]["constrain_derivatives"]["second"]) + 1
+        coefs_per_segment = 4
+        
+        self.num_velocity_coefs : int = num_accel_sections*coefs_per_segment - constraints_per_transition*num_transitions - 1
+
         if use_bias:
             self._final_linear_layer.bias = torch.nn.Parameter(0.0001*torch.randn(4))
         # migrating the model parameters to the chosen device:
@@ -114,7 +124,7 @@ class BezierMixNet(nn.Module):
         # acceleration decoding:
         dec_input = torch.relu(self._dyn_embedder(enc)).unsqueeze(dim=1)
         dec_input = dec_input.repeat(
-            1, self._params["acc_decoder"]["num_acc_sections"] + 2, 1
+            1, self.num_velocity_coefs, 1
         )
         acc_out, _ = self._acc_decoder(dec_input)
         acc_out = torch.squeeze(self._acc_out_layer(torch.relu(acc_out)), dim=2)

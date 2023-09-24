@@ -80,7 +80,12 @@ def train(allconfig : dict[str,dict] = None,
     kbezier : int = trainerconfig["kbezier"]
     netconfig["kbezier"] = kbezier
     netconfig["gpu_index"] = trainerconfig["gpu_index"]
-
+    constraint_first_deriv = netconfig["acc_decoder"]["constrain_derivatives"]["first"]
+    constraint_second_deriv = netconfig["acc_decoder"]["constrain_derivatives"]["second"]
+    if constraint_first_deriv ^ constraint_second_deriv:
+        raise ValueError("Constraining one derivative but not both isn't done yet")
+    fully_constrained = constraint_first_deriv and constraint_second_deriv
+        
     project_name="mixnet-bezier"
     tags = allconfig["comet"]["tags"]
     if (api_key is not None):
@@ -228,21 +233,26 @@ def train(allconfig : dict[str,dict] = None,
             # + speed_future[:,0].unsqueeze(-1)
             acc_out = acc_out_ + speed_future[:,0].unsqueeze(-1)
             # acc_out = torch.clamp(acc_out_ + speed_future[:,0].unsqueeze(-1), 5.0*one, 110.0*one)
-            
-
             coefs_inferred = torch.zeros(currentbatchsize, num_accel_sections, kbeziervel+1, dtype=acc_out.dtype, device=acc_out.device)
             coefs_inferred[:,0,0] = speed_future[:,0]
             coefs_inferred[:,0,[1,2]] = acc_out[:,[0,1]]
-            coefs_inferred[:,1:,1] = acc_out[:,2:-1]
             coefs_inferred[:,-1,-1] = acc_out[:,-1]
-            for j in range(coefs_inferred.shape[1]-1):
-                coefs_inferred[:, j,-1] = coefs_inferred[:, j+1,0] = \
-                    0.5*(coefs_inferred[:, j,-2] + coefs_inferred[:, j+1,1])
-                if kbeziervel>2:
+            if fully_constrained:
+                coefs_inferred[:,1:,1] = acc_out[:,2:-1]
+                for j in range(coefs_inferred.shape[1]-1):
+                    coefs_inferred[:, j,-1] = coefs_inferred[:, j+1,0] = \
+                        0.5*(coefs_inferred[:, j,-2] + coefs_inferred[:, j+1,1])
                     coefs_inferred[:, j+1,-2] = 2.0*coefs_inferred[:, j+1,1] - 2.0*coefs_inferred[:, j, -2] + coefs_inferred[:, j, -3]
+            else:
+                setter_idx = [True, True, True, False]
+                coefs_inferred[:,1:,setter_idx] = acc_out[:,2:-1].view(coefs_inferred[:,1:,setter_idx].shape)
+                coefs_inferred[:,:-1,-1] = coefs_inferred[:,1:,0]     
+
+            
             tstart_batch = tswitchingpoints[:-1].unsqueeze(0).expand(currentbatchsize, num_accel_sections)
             dt_batch = dt.unsqueeze(0).expand(currentbatchsize, num_accel_sections)
             teval_batch = tsamp.unsqueeze(0).expand(currentbatchsize, numsamples_prediction)
+
 
             speed_profile_out, idxbuckets = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_inferred.unsqueeze(-1), teval_batch)
             loss_velocity : torch.Tensor = (lossfunc(speed_profile_out, speed_future))#*(prediction_timestep**2)
