@@ -43,7 +43,7 @@
             in_size: 16,
             hidden_size: 32,
             num_acc_sections: 5,
-            max_acc: 100.0,
+            max_acc: 90.0,
             constrain_derivatives : {
                 first : True,
                 second : True

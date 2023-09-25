@@ -176,8 +176,13 @@ def train(allconfig : dict[str,dict] = None,
             "kbezier_vel" : kbeziervel,
             "num_accel_sections" : num_accel_sections,
             "prediction_time" : prediction_totaltime,
-            "time_switching_points" : tswitchingpoints.cpu().numpy().tolist()
+            "time_switching_points" : tswitchingpoints.cpu().numpy().tolist(),
+            "constrain_first_deriv" : constraint_first_deriv,
+            "constraint_second_deriv" : constraint_second_deriv,
         }
+        hyper_params_to_comet["tracks"] = list(set([dset.metadata["trackname"] for dset in datasets]))
+        for dsetkey in ["numsamples_boundary", "numsamples_history", "numsamples_prediction", "predictiontime", "predictiontime", "historytime"]:
+            hyper_params_to_comet[dsetkey] = datasets[0].metadata[dsetkey]
         experiment.log_parameters(hyper_params_to_comet)
     for epoch in range(1, trainerconfig["epochs"]+1):
         totalloss = 0.0
@@ -190,6 +195,7 @@ def train(allconfig : dict[str,dict] = None,
             tq = tqdm.tqdm(dataloader_enumerate, desc="Yay")
         else:
             tq = dataloader_enumerate
+            experiment.set_epoch(epoch)
         if epoch%10==0:
             
             netout = os.path.join(tempdir_full, "network.pt")
@@ -235,18 +241,21 @@ def train(allconfig : dict[str,dict] = None,
             # acc_out = torch.clamp(acc_out_ + speed_future[:,0].unsqueeze(-1), 5.0*one, 110.0*one)
             coefs_inferred = torch.zeros(currentbatchsize, num_accel_sections, kbeziervel+1, dtype=acc_out.dtype, device=acc_out.device)
             coefs_inferred[:,0,0] = speed_future[:,0]
-            coefs_inferred[:,0,[1,2]] = acc_out[:,[0,1]]
-            coefs_inferred[:,-1,-1] = acc_out[:,-1]
             if fully_constrained:
+                coefs_inferred[:,0,[1,2]] = acc_out[:,[0,1]]
                 coefs_inferred[:,1:,1] = acc_out[:,2:-1]
+                coefs_inferred[:,-1,-1] = acc_out[:,-1]
                 for j in range(coefs_inferred.shape[1]-1):
                     coefs_inferred[:, j,-1] = coefs_inferred[:, j+1,0] = \
                         0.5*(coefs_inferred[:, j,-2] + coefs_inferred[:, j+1,1])
-                    coefs_inferred[:, j+1,-2] = 2.0*coefs_inferred[:, j+1,1] - 2.0*coefs_inferred[:, j, -2] + coefs_inferred[:, j, -3]
+                    if kbeziervel>2:
+                        coefs_inferred[:, j+1,-2] = 2.0*coefs_inferred[:, j+1,1] - 2.0*coefs_inferred[:, j, -2] + coefs_inferred[:, j, -3]
             else:
                 setter_idx = [True, True, True, False]
+                coefs_inferred[:,0,[1,2]] = acc_out[:,[0,1]]
                 coefs_inferred[:,1:,setter_idx] = acc_out[:,2:-1].view(coefs_inferred[:,1:,setter_idx].shape)
-                coefs_inferred[:,:-1,-1] = coefs_inferred[:,1:,0]     
+                coefs_inferred[:,:-1,-1] = coefs_inferred[:,1:,0]   
+                coefs_inferred[:,-1,-1] = acc_out[:,-1]  
 
             
             tstart_batch = tswitchingpoints[:-1].unsqueeze(0).expand(currentbatchsize, num_accel_sections)
@@ -261,6 +270,7 @@ def train(allconfig : dict[str,dict] = None,
             delta_r_gt : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
             future_arclength_rel : torch.Tensor = future_arclength - future_arclength[:,0,None]
             arclengths_gt_s = future_arclength_rel/delta_r_gt[:,None]
+            Mbezier_gt = deepracing_models.math_utils.bezierM(arclengths_gt_s, kbezier)
 
             known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2,coordinate_idx])
             mixed_control_points = torch.sum(bcurves_r[:,:,:,coordinate_idx]*mix_out[:,:,None,None], dim=1)
@@ -280,7 +290,6 @@ def train(allconfig : dict[str,dict] = None,
             displacements : torch.Tensor = pointsout - position_future[:,:,coordinate_idx]
             ade : torch.Tensor = torch.mean(torch.norm(displacements, p=2.0, dim=-1))
 
-            Mbezier_gt = deepracing_models.math_utils.bezierM(arclengths_gt_s, kbezier)
             predicted_position_lateral_only = torch.matmul(Mbezier_gt, predicted_bcurve)
 
             lateral_error : torch.Tensor = lossfunc(predicted_position_lateral_only, position_future[:,:,coordinate_idx])
