@@ -262,7 +262,6 @@ def train(allconfig : dict[str,dict] = None,
             dt_batch = dt.unsqueeze(0).expand(currentbatchsize, num_accel_sections)
             teval_batch = tsamp.unsqueeze(0).expand(currentbatchsize, numsamples_prediction)
 
-
             speed_profile_out, idxbuckets = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_inferred.unsqueeze(-1), teval_batch)
             loss_velocity : torch.Tensor = (lossfunc(speed_profile_out, speed_future))#*(prediction_timestep**2)
 
@@ -279,8 +278,6 @@ def train(allconfig : dict[str,dict] = None,
             mixed_control_points = torch.sum(bcurves_r[:,:,:,coordinate_idx]*mix_out[:,:,None,None], dim=1)
             mcp_deltar : torch.Tensor = deepracing_models.math_utils.bezierArcLength(mixed_control_points, num_segments = 10)
 
-            # known_control_points[:,0] = position_future[:,0,coordinate_idx]
-            # known_control_points[:,0] + 
             known_control_points[:,1] = (delta_r_gt[:,None]/kbezier)*tangent_future[:,0,coordinate_idx]
             predicted_bcurve = torch.cat([known_control_points, mixed_control_points[:,2:]], dim=1) 
             pred_deltar : torch.Tensor = deepracing_models.math_utils.bezierArcLength(predicted_bcurve, num_segments = 10)
