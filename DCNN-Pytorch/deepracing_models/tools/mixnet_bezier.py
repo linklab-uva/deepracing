@@ -265,22 +265,29 @@ def train(allconfig : dict[str,dict] = None,
 
             speed_profile_out, idxbuckets = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_inferred.unsqueeze(-1), teval_batch)
             loss_velocity : torch.Tensor = (lossfunc(speed_profile_out, speed_future))#*(prediction_timestep**2)
-            
-
-            delta_r_gt : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
-            future_arclength_rel : torch.Tensor = future_arclength - future_arclength[:,0,None]
-            arclengths_gt_s = future_arclength_rel/delta_r_gt[:,None]
-            Mbezier_gt = deepracing_models.math_utils.bezierM(arclengths_gt_s, kbezier)
-
-            known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2,coordinate_idx])
-            mixed_control_points = torch.sum(bcurves_r[:,:,:,coordinate_idx]*mix_out[:,:,None,None], dim=1)
-            
-            known_control_points[:,0] = position_future[:,0,coordinate_idx]
-            known_control_points[:,1] = known_control_points[:,0] + (delta_r_gt[:,None]/kbezier)*tangent_future[:,0,coordinate_idx]
-            predicted_bcurve = torch.cat([known_control_points, mixed_control_points[:,2:]], dim=1) 
 
             coefs_antiderivative = deepracing_models.math_utils.compositeBezierAntiderivative(coefs_inferred.unsqueeze(-1), dt_batch)
             arclengths_pred, _ = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
+            delta_r_pred = arclengths_pred[:,-1]
+            s_pred : torch.Tensor = arclengths_pred/delta_r_pred[:,None]
+
+            delta_r_gt : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
+            future_arclength_rel : torch.Tensor = future_arclength - future_arclength[:,0,None]
+            s_gt : torch.Tensor = future_arclength_rel/delta_r_gt[:,None]
+
+            known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2,coordinate_idx])
+            mixed_control_points = torch.sum(bcurves_r[:,:,:,coordinate_idx]*mix_out[:,:,None,None], dim=1)
+            mcp_deltar : torch.Tensor = deepracing_models.math_utils.bezierArcLength(mixed_control_points, num_segments = 10)
+
+            # known_control_points[:,0] = position_future[:,0,coordinate_idx]
+            # known_control_points[:,0] + 
+            known_control_points[:,1] = (delta_r_gt[:,None]/kbezier)*tangent_future[:,0,coordinate_idx]
+            predicted_bcurve = torch.cat([known_control_points, mixed_control_points[:,2:]], dim=1) 
+            pred_deltar : torch.Tensor = deepracing_models.math_utils.bezierArcLength(predicted_bcurve, num_segments = 10)
+
+            arclengths_gt_s = future_arclength_rel/delta_r_gt[:,None]
+            Mbezier_gt = deepracing_models.math_utils.bezierM(arclengths_gt_s, kbezier)
+
             loss_arclength : torch.Tensor = lossfunc(arclengths_pred, future_arclength_rel)
             
             arclengths_pred_s = (arclengths_pred/delta_r_gt[:,None]).clamp(min=0.0, max=1.0)
@@ -297,8 +304,11 @@ def train(allconfig : dict[str,dict] = None,
                 experiment.log_metric("lateral_error", lateral_error.item())
                 experiment.log_metric("loss_arclength", loss_arclength.item())
                 experiment.log_metric("mean_displacement_error", ade.item())
-                experiment.log_metric("loss_velocity", loss_velocity.item())     
-            loss = lateral_error + loss_velocity
+                experiment.log_metric("loss_velocity", loss_velocity.item())
+            if trainerconfig["ade_loss"] and (not torch.isnan(ade)) and ade<1000.0:     
+                loss = ade
+            else:
+                loss = lateral_error + loss_velocity
 
             optimizer.zero_grad()
             loss.backward()
