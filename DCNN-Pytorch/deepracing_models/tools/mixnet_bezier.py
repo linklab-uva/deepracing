@@ -80,11 +80,6 @@ def train(allconfig : dict[str,dict] = None,
     kbezier : int = trainerconfig["kbezier"]
     netconfig["kbezier"] = kbezier
     netconfig["gpu_index"] = trainerconfig["gpu_index"]
-    constraint_first_deriv = netconfig["acc_decoder"]["constrain_derivatives"]["first"]
-    constraint_second_deriv = netconfig["acc_decoder"]["constrain_derivatives"]["second"]
-    if constraint_first_deriv ^ constraint_second_deriv:
-        raise ValueError("Constraining one derivative but not both isn't done yet")
-    fully_constrained = constraint_first_deriv and constraint_second_deriv
         
     project_name="mixnet-bezier"
     tags = allconfig["comet"]["tags"]
@@ -169,22 +164,21 @@ def train(allconfig : dict[str,dict] = None,
     tsamp = torch.linspace(0.0, prediction_totaltime, dtype=dtype, device=device, steps=numsamples_prediction)
     tswitchingpoints = torch.linspace(0.0, prediction_totaltime, dtype=dtype, device=device, steps=num_accel_sections+1)
     dt = tswitchingpoints[1:] - tswitchingpoints[:-1]
-    kbeziervel = 3
+    kbeziervel = netconfig["acc_decoder"]["kbeziervel"]
     if experiment is not None:
         hyper_params_to_comet = {
             "kbezier" : kbezier,
             "kbezier_vel" : kbeziervel,
             "num_accel_sections" : num_accel_sections,
             "prediction_time" : prediction_totaltime,
-            "time_switching_points" : tswitchingpoints.cpu().numpy().tolist(),
-            "constrain_first_deriv" : constraint_first_deriv,
-            "constraint_second_deriv" : constraint_second_deriv,
+            "time_switching_points" : tswitchingpoints.cpu().numpy().tolist()
         }
         hyper_params_to_comet["tracks"] = list(set([dset.metadata["trackname"] for dset in datasets]))
         for dsetkey in ["numsamples_boundary", "numsamples_history", "numsamples_prediction", "predictiontime", "predictiontime", "historytime"]:
             hyper_params_to_comet[dsetkey] = datasets[0].metadata[dsetkey]
         experiment.log_parameters(hyper_params_to_comet)
     for epoch in range(1, trainerconfig["epochs"]+1):
+        print("Starting epoch %d" % (epoch,))
         totalloss = 0.0
         total_position_loss = 0.0
         total_velocity_loss = 0.0
@@ -236,26 +230,30 @@ def train(allconfig : dict[str,dict] = None,
             (mix_out_, acc_out_) = network(position_history, left_bound_input, right_bound_input)
             one = torch.ones_like(speed_future[0,0])
             mix_out = torch.clamp(mix_out_, -3.0*one, 3.0*one)
-            # + speed_future[:,0].unsqueeze(-1)
             acc_out = acc_out_ + speed_future[:,0].unsqueeze(-1)
-            # acc_out = torch.clamp(acc_out_ + speed_future[:,0].unsqueeze(-1), 5.0*one, 110.0*one)
+            
+
             coefs_inferred = torch.zeros(currentbatchsize, num_accel_sections, kbeziervel+1, dtype=acc_out.dtype, device=acc_out.device)
             coefs_inferred[:,0,0] = speed_future[:,0]
-            if fully_constrained:
-                coefs_inferred[:,0,[1,2]] = acc_out[:,[0,1]]
-                coefs_inferred[:,1:,1] = acc_out[:,2:-1]
-                coefs_inferred[:,-1,-1] = acc_out[:,-1]
-                for j in range(coefs_inferred.shape[1]-1):
-                    coefs_inferred[:, j,-1] = coefs_inferred[:, j+1,0] = \
-                        0.5*(coefs_inferred[:, j,-2] + coefs_inferred[:, j+1,1])
-                    if kbeziervel>2:
-                        coefs_inferred[:, j+1,-2] = 2.0*coefs_inferred[:, j+1,1] - 2.0*coefs_inferred[:, j, -2] + coefs_inferred[:, j, -3]
-            else:
+            if kbeziervel == 3:
                 setter_idx = [True, True, True, False]
                 coefs_inferred[:,0,[1,2]] = acc_out[:,[0,1]]
                 coefs_inferred[:,1:,setter_idx] = acc_out[:,2:-1].view(coefs_inferred[:,1:,setter_idx].shape)
                 coefs_inferred[:,:-1,-1] = coefs_inferred[:,1:,0]   
-                coefs_inferred[:,-1,-1] = acc_out[:,-1]  
+                coefs_inferred[:,-1,-1] = acc_out[:,-1] 
+            elif kbeziervel == 2:
+                setter_idx = [True, True, False]
+                coefs_inferred[:,0,1] = acc_out[:,0]
+                coefs_inferred[:,1:,setter_idx] = acc_out[:,1:-1].view(coefs_inferred[:,1:,setter_idx].shape)
+                coefs_inferred[:,:-1,-1] = coefs_inferred[:,1:,0]   
+                coefs_inferred[:,-1,-1] = acc_out[:,-1] 
+            elif kbeziervel == 1:
+                setter_idx = [True, False]
+                coefs_inferred[:,1:,setter_idx] = acc_out[:,0:-1].view(coefs_inferred[:,1:,setter_idx].shape)
+                coefs_inferred[:,:-1,-1] = coefs_inferred[:,1:,0]   
+                coefs_inferred[:,-1,-1] = acc_out[:,-1] 
+            else:
+                raise ValueError("Only order 1, 2, or 3 velocity segments are supported")
 
             
             tstart_batch = tswitchingpoints[:-1].unsqueeze(0).expand(currentbatchsize, num_accel_sections)
@@ -272,40 +270,59 @@ def train(allconfig : dict[str,dict] = None,
 
             delta_r_gt : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
             future_arclength_rel : torch.Tensor = future_arclength - future_arclength[:,0,None]
+            loss_arclength : torch.Tensor = lossfunc(arclengths_pred, future_arclength_rel)
             s_gt : torch.Tensor = future_arclength_rel/delta_r_gt[:,None]
 
-            known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2,coordinate_idx])
             mixed_control_points = torch.sum(bcurves_r[:,:,:,coordinate_idx]*mix_out[:,:,None,None], dim=1)
             mcp_deltar : torch.Tensor = deepracing_models.math_utils.bezierArcLength(mixed_control_points, num_segments = 10)
 
-            known_control_points[:,1] = (delta_r_gt[:,None]/kbezier)*tangent_future[:,0,coordinate_idx]
+            known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2,coordinate_idx])
+            # known_control_points[:,1] = (delta_r_gt[:,None]/kbezier)*tangent_future[:,0,coordinate_idx]
+            known_control_points[:,1] = (mcp_deltar[:,None]/kbezier)*tangent_future[:,0,coordinate_idx]
             predicted_bcurve = torch.cat([known_control_points, mixed_control_points[:,2:]], dim=1) 
+
+            # known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:1,coordinate_idx])
+            # predicted_bcurve = torch.cat([known_control_points, mixed_control_points[:,1:]], dim=1) 
             pred_deltar : torch.Tensor = deepracing_models.math_utils.bezierArcLength(predicted_bcurve, num_segments = 10)
 
             arclengths_gt_s = future_arclength_rel/delta_r_gt[:,None]
             Mbezier_gt = deepracing_models.math_utils.bezierM(arclengths_gt_s, kbezier)
 
-            loss_arclength : torch.Tensor = lossfunc(arclengths_pred, future_arclength_rel)
-            
-            arclengths_pred_s = (arclengths_pred/delta_r_gt[:,None]).clamp(min=0.0, max=1.0)
-
+            # arclengths_pred_s = (arclengths_pred/delta_r_gt[:,None]).clamp(min=0.0, max=1.0)
+            arclengths_pred_s = (arclengths_pred/pred_deltar[:,None]).clamp(min=0.0, max=1.0)
             Marclengths_pred : torch.Tensor = deepracing_models.math_utils.bezierM(arclengths_pred_s, kbezier)
+
+
+            normal_future = tangent_future[:,:,[1,0]].clone()
+            normal_future[:,:,0]*=-1.0
+
             pointsout : torch.Tensor = torch.matmul(Marclengths_pred, predicted_bcurve)
             displacements : torch.Tensor = pointsout - position_future[:,:,coordinate_idx]
             ade : torch.Tensor = torch.mean(torch.norm(displacements, p=2.0, dim=-1))
 
-            predicted_position_lateral_only = torch.matmul(Mbezier_gt, predicted_bcurve)
+            # predicted_bcurve_exp = predicted_bcurve.unsqueeze(1).expand( [ predicted_bcurve.shape[0], pointsout.shape[1] ] + list(predicted_bcurve.shape[1:]) )
+            # transformrotmats = torch.cat([tangent_future.unsqueeze(-2), normal_future.unsqueeze(-2)], dim=-2)
+            # transformpoints = torch.matmul(transformrotmats, -position_future[:,:,coordinate_idx].unsqueeze(-1)).squeeze(-1)
+            # predicted_bcurve_transformed = torch.matmul(transformrotmats, predicted_bcurve_exp.transpose(-2,-1)).transpose(-2,-1) + transformpoints[:,:,None]
+            # xpolynoms = predicted_bcurve_transformed[:,:,:,0]   
+            # xpolynoms_flat = xpolynoms.view(-1, xpolynoms.shape[-1])
+            # polyroots = deepracing_models.math_utils.bezierPolyRoots(xpolynoms_flat)
 
-            lateral_error : torch.Tensor = lossfunc(predicted_position_lateral_only, position_future[:,:,coordinate_idx])
+            pointsout_lateral_only = torch.matmul(Mbezier_gt, predicted_bcurve)
+            lateral_error : torch.Tensor = lossfunc(pointsout_lateral_only, position_future[:,:,coordinate_idx])
+
+            true_lateral_error : torch.Tensor = torch.abs(torch.sum(displacements * normal_future, dim=-1))
+            true_long_error : torch.Tensor = torch.abs(torch.sum(displacements * tangent_future, dim=-1))
+
             if experiment is not None:
                 experiment.log_metric("lateral_error", lateral_error.item())
                 experiment.log_metric("loss_arclength", loss_arclength.item())
                 experiment.log_metric("mean_displacement_error", ade.item())
                 experiment.log_metric("loss_velocity", loss_velocity.item())
             if trainerconfig["ade_loss"] and (not torch.isnan(ade)) and ade<1000.0:     
-                loss = ade
+                loss = ade + 5.0*loss_velocity
             else:
-                loss = lateral_error + loss_velocity
+                loss = lateral_error + 5.0*loss_velocity
 
             optimizer.zero_grad()
             loss.backward()
@@ -321,18 +338,23 @@ def train(allconfig : dict[str,dict] = None,
                 averagevelocityloss = total_velocity_loss/(i+1)
                 averagearclengtherror = total_arclength_error/(i+1)
                 averageade = total_ade/(i+1)
-                tq.set_postfix({"average position loss" : averagepositionloss, 
-                                "average velocity loss" : averagevelocityloss, 
-                                "average arclength loss" : averagearclengtherror, 
-                                "average loss" : averageloss, 
-                                "average ade" : averageade, 
-                                "epoch": epoch})
+                tq.set_postfix({
+                                # "lateral_error" : lateral_error.item(), 
+                                "loss_velocity" : loss_velocity.item(), 
+                                "loss_arclength" : loss_arclength.item(), 
+                                "mean_displacement_error" : ade.item(), 
+                                "true_lateral_error" : torch.mean(true_lateral_error).item(), 
+                                "true_long_error" : torch.mean(true_long_error).item()
+                                # "average ade" : averageade, 
+                                # "epoch": epoch
+                                }
+                                )
 
-        if epoch%10==0:
+        if epoch%5==0:
             bcurves_r_cpu = bcurves_r[0].cpu()
             position_history_cpu = position_history[0].cpu()
             position_future_cpu = position_future[0].cpu()
-            predicted_position_future_cpu = predicted_position_lateral_only[0].detach().cpu()
+            predicted_position_future_cpu = pointsout_lateral_only[0].detach().cpu()
             left_bound_label_cpu = datadict["future_left_bd"][0].cpu()
             right_bound_label_cpu = datadict["future_right_bd"][0].cpu()
             centerline_label_cpu = datadict["future_centerline"][0].cpu()
@@ -366,6 +388,9 @@ def train(allconfig : dict[str,dict] = None,
                 experiment.log_figure(figure_name="positions_epoch_%d" % (epoch,), figure=fig)
                 experiment.log_figure(figure_name="speeds_epoch_%d" % (epoch,), figure=fig_velocity)
             else:
+                with open(os.path.join(tempdir_full, "plots", "prints_epoch_%d.txt" % (epoch,)), "w") as f:
+                    print(mix_out[0], file=f)
+                    print(acc_out[0], file=f, flush=True)
                 fig.savefig(os.path.join(tempdir_full, "plots", "positions_epoch_%d.pdf" % (epoch,)))
                 fig_velocity.savefig(os.path.join(tempdir_full, "plots", "speeds_epoch_%d.pdf" % (epoch,)))
             plt.close(fig=fig)
