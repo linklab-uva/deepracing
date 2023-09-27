@@ -145,15 +145,15 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
         left_bd_t0 = torch.as_tensor(self.data_dict["future_left_bd_tangents"][:,0], device=device)
 
         right_bd = torch.as_tensor(self.data_dict["future_right_bd"], device=device)
-        right_bd_p0 = left_bd[:,0]
+        right_bd_p0 = right_bd[:,0]
         right_bd_t0 = torch.as_tensor(self.data_dict["future_right_bd_tangents"][:,0], device=device)
 
         centerline = torch.as_tensor(self.data_dict["future_centerline"], device=device)
-        centerline_p0 = left_bd[:,0]
+        centerline_p0 = centerline[:,0]
         centerline_t0 = torch.as_tensor(self.data_dict["future_centerline_tangents"][:,0], device=device)
 
         raceline = torch.as_tensor(self.data_dict["future_raceline"], device=device)
-        raceline_p0 = left_bd[:,0]
+        raceline_p0 = raceline[:,0]
         raceline_t0 = torch.as_tensor(self.data_dict["future_raceline_tangents"][:,0], device=device)
 
         all_lines : torch.Tensor = torch.stack([left_bd, right_bd, centerline, raceline], dim=1).to(device)
