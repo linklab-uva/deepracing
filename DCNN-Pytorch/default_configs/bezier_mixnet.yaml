@@ -1,30 +1,31 @@
 {
     comet:
     {
-        tags: ["filtered_v2_data"]
+        tags: ["filtered_v2_data", "trained_on_lambda", "reworked_ade_computation"]
     },
     data:
     {
-        dir: /p/DeepRacing/unpacked_datasets/filtered/v2/numpy_format
+        dir: /p/DeepRacing/unpacked_datasets/aligned_to_ego/v1/deepracing_standard
     },
     trainer:
     {
         optimizer : Adam,
-        learning_rate: 2E-5,
+        learning_rate: 5E-4,
         momentum: 0.0,
         nesterov: False,
-        gpu_index: 0,
+        gpu_index: 1,
         betas: [0.99, 0.9999], 
         eps: 1E-8,
         weight_decay: 0.0,
         epochs: 500,
-        batch_size: 64,
-        kbezier: 7
+        batch_size: 128,
+        kbezier: 7,
+        ade_loss : True
     },
     net:
     {
         input_dimension : 2,
-        final_layer_tanh : False,
+        final_layer_tanh : True,
         with_velocity_input : False,
         encoder: {
             in_size: 16,
@@ -42,12 +43,9 @@
         acc_decoder: {
             in_size: 16,
             hidden_size: 32,
-            num_acc_sections: 5,
+            num_acc_sections: 30,
             max_acc: 90.0,
-            constrain_derivatives : {
-                first : True,
-                second : True
-            }
+            kbeziervel : 2
         }
     }
 }
