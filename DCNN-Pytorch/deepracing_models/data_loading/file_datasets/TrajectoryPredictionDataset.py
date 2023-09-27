@@ -166,7 +166,7 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
         
         print("Doing the lstsq fit, HERE WE GOOOOOO!", flush=True)
         _, all_curves_flat = deepracing_models.math_utils.bezierLsqfit(
-            all_lines_flat, kbezier, t=all_s_flat #, P0=all_p0_flat, V0=all_V0_flat
+            all_lines_flat, kbezier, t=all_s_flat, P0=all_p0_flat#, V0=all_V0_flat
             )
         all_curves_numpy : np.ndarray = all_curves_flat.reshape(-1, 4, kbezier+1, all_lines.shape[-1]).cpu().numpy()
         npdict = {
@@ -175,8 +175,8 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
             "center" : all_curves_numpy[:,2],
             "race" : all_curves_numpy[:,3]
         }
-        with open(cachefile, "wb") as f:
-            np.savez_compressed(f, **npdict)
+        # with open(cachefile, "wb") as f:
+        #     np.savez_compressed(f, **npdict)
         self.reference_curves = all_curves_numpy.copy()
         print("Done", flush=True)
 
