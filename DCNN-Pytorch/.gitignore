@@ -3,5 +3,5 @@
 .~lock*
 ~lock*
 *.jpg
-playground.py
+playground.*
 playground/
