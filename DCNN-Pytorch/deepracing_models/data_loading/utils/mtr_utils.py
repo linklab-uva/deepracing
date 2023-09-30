@@ -10,6 +10,95 @@
 
 import numpy as np
 import torch
+def generate_batch_polylines_from_map(polylines, point_sampled_interval=1, vector_break_dist_thresh=1.0, num_points_each_polyline=20):
+        """
+        Args:
+            polylines (num_points, 7): [x, y, z, dir_x, dir_y, dir_z, global_type]
+
+        Returns:
+            ret_polylines: (num_polylines, num_points_each_polyline, 7)
+            ret_polylines_mask: (num_polylines, num_points_each_polyline)
+        """
+        point_dim = polylines.shape[-1]
+
+        sampled_points = polylines[::point_sampled_interval]
+        sampled_points_shift = np.roll(sampled_points, shift=1, axis=0)
+        buffer_points = np.concatenate((sampled_points[:, 0:2], sampled_points_shift[:, 0:2]), axis=-1) # [ed_x, ed_y, st_x, st_y]
+        buffer_points[0, 2:4] = buffer_points[0, 0:2]
+
+        break_idxs = (np.linalg.norm(buffer_points[:, 0:2] - buffer_points[:, 2:4], axis=-1) > vector_break_dist_thresh).nonzero()[0]
+        polyline_list = np.array_split(sampled_points, break_idxs, axis=0)
+        ret_polylines = []
+        ret_polylines_mask = []
+
+        def append_single_polyline(new_polyline):
+            cur_polyline = np.zeros((num_points_each_polyline, point_dim), dtype=np.float32)
+            cur_valid_mask = np.zeros((num_points_each_polyline), dtype=np.int32)
+            cur_polyline[:len(new_polyline)] = new_polyline
+            cur_valid_mask[:len(new_polyline)] = 1
+            ret_polylines.append(cur_polyline)
+            ret_polylines_mask.append(cur_valid_mask)
+
+        for k in range(len(polyline_list)):
+            if polyline_list[k].__len__() <= 0:
+                continue
+            for idx in range(0, len(polyline_list[k]), num_points_each_polyline):
+                append_single_polyline(polyline_list[k][idx: idx + num_points_each_polyline])
+
+        ret_polylines = np.stack(ret_polylines, axis=0)
+        ret_polylines_mask = np.stack(ret_polylines_mask, axis=0)
+
+        ret_polylines = torch.from_numpy(ret_polylines)
+        ret_polylines_mask = torch.from_numpy(ret_polylines_mask)
+
+        # # CHECK the results
+        # polyline_center = ret_polylines[:, :, 0:2].sum(dim=1) / ret_polyline_valid_mask.sum(dim=1).float()[:, None]  # (num_polylines, 2)
+        # center_dist = (polyline_center - ret_polylines[:, 0, 0:2]).norm(dim=-1)
+        # assert center_dist.max() < 10
+        return ret_polylines, ret_polylines_mask
+
+def create_map_data_for_center_objects(all_polylines : np.ndarray, dataset_cfg : dict):
+        """
+        Args:
+            all_polylines (num_center_objects, num_points, 7): [x, y, z, dir_x, dir_y, dir_z, global_type] Assumed to already be in local coordinates
+            
+        Returns:
+            map_polylines (num_center_objects, num_topk_polylines, num_points_each_polyline, 9): [x, y, z, dir_x, dir_y, dir_z, global_type, pre_x, pre_y]
+            map_polylines_mask (num_center_objects, num_topk_polylines, num_points_each_polyline)
+        """
+        num_center_objects = all_polylines.shape[0]
+
+        polylines_torch = torch.from_numpy(all_polylines)
+
+        map_polylines_list = []
+        map_polylines_mask_list = []
+        for j in range(num_center_objects):
+            batch_polylines, batch_polylines_mask = generate_batch_polylines_from_map(
+                polylines=polylines_torch[j].numpy(), point_sampled_interval=dataset_cfg.get('POINT_SAMPLED_INTERVAL', 1),
+                vector_break_dist_thresh=dataset_cfg.get('VECTOR_BREAK_DIST_THRESH', 1.0),
+                num_points_each_polyline=dataset_cfg.get('NUM_POINTS_EACH_POLYLINE', 20),
+            )  # (num_polylines, num_points_each_polyline, 7), (num_polylines, num_points_each_polyline)
+            map_polylines_list.append(batch_polylines)
+            map_polylines_mask_list.append(batch_polylines_mask)
+
+        # collect a number of closest polylines for each center objects
+
+        map_polylines = torch.stack(map_polylines_list, dim=0)
+        map_polylines_mask = torch.stack(map_polylines_mask_list, dim=0)
+
+        xy_pos_pre = map_polylines[:, :, :, 0:2]
+        xy_pos_pre = torch.roll(xy_pos_pre, shifts=1, dims=-2)
+        xy_pos_pre[:, :, 0, :] = xy_pos_pre[:, :, 1, :]
+        map_polylines = torch.cat((map_polylines, xy_pos_pre), dim=-1)
+
+        temp_sum = (map_polylines[:, :, :, 0:3] * map_polylines_mask[:, :, :, None].float()).sum(dim=-2)  # (num_center_objects, num_polylines, 3)
+        map_polylines_center = temp_sum / torch.clamp_min(map_polylines_mask.sum(dim=-1).float()[:, :, None], min=1.0)  # (num_center_objects, num_polylines, 3)
+
+        map_polylines = map_polylines.numpy()
+        map_polylines_mask = map_polylines_mask.numpy()
+        map_polylines_center = map_polylines_center.numpy()
+
+        return map_polylines, map_polylines_mask, map_polylines_center
 
 def generate_centered_trajs_for_agents(center_objects, obj_trajs_past, obj_types, center_indices, sdc_index, timestamps, obj_trajs_future):
     """[summary]
