@@ -90,6 +90,7 @@ def create_map_data_for_center_objects(all_polylines : np.ndarray, dataset_cfg :
         xy_pos_pre = torch.roll(xy_pos_pre, shifts=1, dims=-2)
         xy_pos_pre[:, :, 0, :] = xy_pos_pre[:, :, 1, :]
         map_polylines = torch.cat((map_polylines, xy_pos_pre), dim=-1)
+        map_polylines[map_polylines_mask==0]=0.0
 
         temp_sum = (map_polylines[:, :, :, 0:3] * map_polylines_mask[:, :, :, None].float()).sum(dim=-2)  # (num_center_objects, num_polylines, 3)
         map_polylines_center = temp_sum / torch.clamp_min(map_polylines_mask.sum(dim=-1).float()[:, :, None], min=1.0)  # (num_center_objects, num_polylines, 3)
