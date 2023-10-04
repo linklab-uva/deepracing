@@ -15,9 +15,11 @@ from multiprocessing.shared_memory import SharedMemory
 
 KEYS_WE_CARE_ABOUT : set = {
     "hist",
+    "hist_quats",
     "hist_vel",
     "hist_spline_der",
     "fut",
+    "fut_quats",
     "fut_tangents",
     "fut_vel",
     "fut_spline_der",
@@ -25,7 +27,9 @@ KEYS_WE_CARE_ABOUT : set = {
     "future_arclength",
     "future_arclength_2d",
     "left_bd",
+    "left_bd_tangents",
     "right_bd",
+    "right_bd_tangents",
 
     "future_left_bd",
     "future_left_bd_tangents",
@@ -141,32 +145,32 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
         all_s_flat : torch.Tensor = (all_r_flat - all_r_flat[:,0,None])/(all_deltar_flat[:,None])
 
         left_bd = torch.as_tensor(self.data_dict["future_left_bd"], device=device)
-        left_bd_p0 = left_bd[:,0]
-        left_bd_t0 = torch.as_tensor(self.data_dict["future_left_bd_tangents"][:,0], device=device)
+        # left_bd_p0 = left_bd[:,0]
+        # left_bd_t0 = torch.as_tensor(self.data_dict["future_left_bd_tangents"][:,0], device=device)
 
         right_bd = torch.as_tensor(self.data_dict["future_right_bd"], device=device)
-        right_bd_p0 = right_bd[:,0]
-        right_bd_t0 = torch.as_tensor(self.data_dict["future_right_bd_tangents"][:,0], device=device)
+        # right_bd_p0 = right_bd[:,0]
+        # right_bd_t0 = torch.as_tensor(self.data_dict["future_right_bd_tangents"][:,0], device=device)
 
         centerline = torch.as_tensor(self.data_dict["future_centerline"], device=device)
-        centerline_p0 = centerline[:,0]
-        centerline_t0 = torch.as_tensor(self.data_dict["future_centerline_tangents"][:,0], device=device)
+        # centerline_p0 = centerline[:,0]
+        # centerline_t0 = torch.as_tensor(self.data_dict["future_centerline_tangents"][:,0], device=device)
 
         raceline = torch.as_tensor(self.data_dict["future_raceline"], device=device)
-        raceline_p0 = raceline[:,0]
-        raceline_t0 = torch.as_tensor(self.data_dict["future_raceline_tangents"][:,0], device=device)
+        # raceline_p0 = raceline[:,0]
+        # raceline_t0 = torch.as_tensor(self.data_dict["future_raceline_tangents"][:,0], device=device)
 
         all_lines : torch.Tensor = torch.stack([left_bd, right_bd, centerline, raceline], dim=1).to(device)
-        all_p0 : torch.Tensor = torch.stack([left_bd_p0, right_bd_p0, centerline_p0, raceline_p0], dim=1).to(device)
-        all_t0 : torch.Tensor = torch.stack([left_bd_t0, right_bd_t0, centerline_t0, raceline_t0], dim=1).to(device)
+        # all_p0 : torch.Tensor = torch.stack([left_bd_p0, right_bd_p0, centerline_p0, raceline_p0], dim=1).to(device)
+        # all_t0 : torch.Tensor = torch.stack([left_bd_t0, right_bd_t0, centerline_t0, raceline_t0], dim=1).to(device)
 
         all_lines_flat : torch.Tensor = all_lines.view(-1, all_lines.shape[-2], all_lines.shape[-1])
-        all_p0_flat : torch.Tensor = all_p0.view(-1, all_p0.shape[-1])
-        all_V0_flat : torch.Tensor = (all_t0.view(-1, all_t0.shape[-1]))*all_deltar_flat[:,None]
+        # all_p0_flat : torch.Tensor = all_p0.view(-1, all_p0.shape[-1])
+        # all_V0_flat : torch.Tensor = (all_t0.view(-1, all_t0.shape[-1]))*all_deltar_flat[:,None]
         
         print("Doing the lstsq fit, HERE WE GOOOOOO!", flush=True)
         _, all_curves_flat = deepracing_models.math_utils.bezierLsqfit(
-            all_lines_flat, kbezier, t=all_s_flat, P0=all_p0_flat#, V0=all_V0_flat
+            all_lines_flat, kbezier, t=all_s_flat#, P0=all_p0_flat, V0=all_V0_flat
             )
         all_curves_numpy : np.ndarray = all_curves_flat.reshape(-1, 4, kbezier+1, all_lines.shape[-1]).cpu().numpy()
         npdict = {
