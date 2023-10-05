@@ -101,7 +101,7 @@ class SimplePathHelper(torch.nn.Module):
         positions, idxbuckets = self.__curve__(s)
         if deriv:
             derivs, _ = self.__curve_deriv__(s, idxbuckets=idxbuckets)
-            return positions, derivs
+            return positions, derivs, idxbuckets
         return positions, None
     def closest_point(self, Pquery : torch.Tensor):
         order_this = self.__curve__.bezier_order.item()
@@ -206,7 +206,7 @@ class SimplePathHelper(torch.nn.Module):
         xbezier_flat = control_points_transformed[:,:,:,0].reshape(-1, control_points.shape[-2])
         polynom_roots = bezierPolyRoots(xbezier_flat).view(batchdim, control_points_exp.shape[1], control_points.shape[-2] - 1)
 
-        matchmask = (torch.abs(polynom_roots.imag)<1E-5)*(polynom_roots.real>0.0)*(polynom_roots.real<1.0)
+        matchmask = (torch.abs(polynom_roots.imag)<1E-4)*(polynom_roots.real>=0.0)*(polynom_roots.real<=1.0)
 
         idx=torch.arange(0, control_points_exp.shape[1], step=1, dtype=torch.int64, device=control_points.device)
         
@@ -232,7 +232,7 @@ class SimplePathHelper(torch.nn.Module):
             imin = torch.argmin(norm_means)
 
             correctroots = candidates_polyroots[imin]
-            correctsval = correctroots[(torch.abs(correctroots.imag)<1E-5)*(correctroots.real>0.0)*(correctroots.real<1.0)].real.item()
+            correctsval = correctroots[(torch.abs(correctroots.imag)<1E-4)*(correctroots.real>=0.0)*(correctroots.real<=1.0)].real.item()
             correctdr = candidates_dr[imin]
 
             correctrstart = candidates_rstart[imin]

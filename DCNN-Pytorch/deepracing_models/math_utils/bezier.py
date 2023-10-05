@@ -118,7 +118,7 @@ def compositeBezierFit(points : torch.Tensor, t : torch.Tensor, numsegments : in
     lhs[Q.shape[0]:,:E.shape[1]] = E
     lhs[:E.shape[1], Q.shape[0]:] = E.transpose(-2, -1)
     rhs = torch.cat([torch.matmul(HugeM.transpose(-2, -1), points), d], dim=0)
-    # lhs_inv = pinv(lhs)
+    # lhs_inv = pinv(lhs, minimum_singular_value=0.001)
     # lhs_inv[torch.abs(lhs_inv)<1E-12]=0.0
     # coefs_and_lagrange = torch.matmul(lhs_inv, rhs)
     coefs_and_lagrange = torch.linalg.solve(lhs, rhs)
@@ -139,14 +139,13 @@ def compositeBezierEval(xstart : torch.Tensor, dx : torch.Tensor, control_points
     x_eval_onebatchdim : torch.Tensor = x_eval.view(batchsize, numpoints)
     control_points_onebatchdim : torch.Tensor = control_points.view(batchsize, numsplinesegments, kbezier+1, d)
     dx_onebatchdim : torch.Tensor = dx.view(batchsize, numsplinesegments)
-    xend_onebatchdim = xstart_onebatchdim + dx_onebatchdim
 
 
     if idxbuckets is None:
         if batchsize == 1:
-            idxbuckets_ : torch.Tensor = torch.bucketize(x_eval_onebatchdim[0], xend_onebatchdim[0], right=False).view(1, numpoints)
+            idxbuckets_ : torch.Tensor = torch.bucketize(x_eval_onebatchdim[0], xstart_onebatchdim[0], right=True).view(1, numpoints) - 1
         else:
-            idxbuckets_ : torch.Tensor = torch.stack([torch.bucketize(x_eval_onebatchdim[i], xend_onebatchdim[i], right=False) for i in range(batchsize)], dim=0)
+            idxbuckets_ : torch.Tensor = torch.stack([torch.bucketize(x_eval_onebatchdim[i], xstart_onebatchdim[i], right=True) for i in range(batchsize)], dim=0) - 1
     else:
         idxbuckets_ : torch.Tensor = idxbuckets.view(batchsize, numpoints)
         
