@@ -24,9 +24,7 @@ import traceback
 import sys
 from datetime import datetime
 from threading import Semaphore, ThreadError
-# k=3
-# d = 2
-# num = 1
+
 
 def errorcb(exception):
     for elem in traceback.format_exception(exception):
