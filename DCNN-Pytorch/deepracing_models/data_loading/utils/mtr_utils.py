@@ -229,33 +229,36 @@ def create_agent_data_for_center_objects(
         track_index_to_predict_new, sdc_track_index_new, obj_types, obj_ids)
 
 from scipy.spatial.transform import Rotation
-def deepracing_to_mtr(drsample : dict[str,np.ndarray], scene_id : str, polyline_config : dict):
+def deepracing_to_mtr(drsample : dict[str,np.ndarray], scene_id : str, polyline_config : dict, dtype=np.float32):
 
-    current_position : np.ndarray = drsample["current_position"].astype(np.float32)
+    current_position : np.ndarray = drsample["current_position"].astype(dtype)
     yawonlymask = np.asarray([0.0, 0.0, 1.0, 1.0], dtype=current_position.dtype)
 
     current_quaternion : np.ndarray = drsample["current_orientation"]
     current_rotation : Rotation = Rotation.from_quat(current_quaternion)
     current_rotation_yawonly : Rotation = Rotation.from_quat(yawonlymask*current_quaternion)
     current_rotmat : np.ndarray = current_rotation.as_matrix()
-    current_rotmat_inv : np.ndarray = current_rotmat.T
-    current_position_inv : np.ndarray = -(current_rotmat_inv @ current_position)
+    # current_rotmat_inv : np.ndarray = current_rotmat.T
+    # current_position_inv : np.ndarray = -(current_rotmat_inv @ current_position)
 
 
 
     history_points : np.ndarray = drsample["hist"]
     history_vels : np.ndarray = drsample["hist_vel"]
     history_quaternions_full : np.ndarray = drsample["hist_quats"]
-    history_rotations : Rotation = Rotation.from_quat(yawonlymask[None]*history_quaternions_full)
+    history_quaternions_yawonly : np.ndarray = yawonlymask[None]*history_quaternions_full
+    history_quaternions_yawonly = history_quaternions_yawonly/np.linalg.norm(history_quaternions_yawonly, ord=2.0, axis=1, keepdims=True)
+    history_rotations : Rotation = Rotation.from_quat(history_quaternions_yawonly)
     history_headings : np.ndarray = history_rotations.as_rotvec()[:,-1]
     timestamps : np.ndarray = drsample["thistory"]
+    timestamps-=timestamps[-1]
 
     future_points : np.ndarray = drsample["fut"][1:]
     future_vels : np.ndarray = drsample["fut_vel"][1:]
     future_quaternions_full : np.ndarray = drsample["fut_quats"][1:]
     future_rotations : Rotation = Rotation.from_quat(yawonlymask[None]*future_quaternions_full)
     future_headings : np.ndarray = future_rotations.as_rotvec()[:,-1]
-    future_timestamps : np.ndarray = drsample["tfuture"][1:]
+    # future_timestamps : np.ndarray = drsample["tfuture"][1:]
 
     lb_points : np.ndarray = drsample["left_bd"]
     rb_points : np.ndarray = drsample["right_bd"]
@@ -263,7 +266,7 @@ def deepracing_to_mtr(drsample : dict[str,np.ndarray], scene_id : str, polyline_
     lb_tangents : np.ndarray = drsample["left_bd_tangents"]
     rb_tangents : np.ndarray = drsample["right_bd_tangents"]
 
-    num_center_objects = num_objects = 1
+    num_objects = 1
     num_timestamps = history_points.shape[0]
     num_future_timestamps = future_points.shape[0]
     numstates = 10
