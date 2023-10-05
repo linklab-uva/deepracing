@@ -300,23 +300,15 @@ def train(allconfig : dict[str,dict] = None,
             displacements : torch.Tensor = pointsout - position_future[:,:,coordinate_idx]
             ade : torch.Tensor = torch.mean(torch.norm(displacements, p=2.0, dim=-1))
 
-            # predicted_bcurve_exp = predicted_bcurve.unsqueeze(1).expand( [ predicted_bcurve.shape[0], pointsout.shape[1] ] + list(predicted_bcurve.shape[1:]) )
-            # transformrotmats = torch.cat([tangent_future.unsqueeze(-2), normal_future.unsqueeze(-2)], dim=-2)
-            # transformpoints = torch.matmul(transformrotmats, -position_future[:,:,coordinate_idx].unsqueeze(-1)).squeeze(-1)
-            # predicted_bcurve_transformed = torch.matmul(transformrotmats, predicted_bcurve_exp.transpose(-2,-1)).transpose(-2,-1) + transformpoints[:,:,None]
-            # xpolynoms = predicted_bcurve_transformed[:,:,:,0]   
-            # xpolynoms_flat = xpolynoms.view(-1, xpolynoms.shape[-1])
-            # polyroots = deepracing_models.math_utils.bezierPolyRoots(xpolynoms_flat)
-
             pointsout_lateral_only = torch.matmul(Mbezier_gt, predicted_bcurve)
             lateral_error : torch.Tensor = lossfunc(pointsout_lateral_only, position_future[:,:,coordinate_idx])
 
             true_lateral_error : torch.Tensor = torch.abs(torch.sum(displacements * normal_future, dim=-1))
             true_long_error : torch.Tensor = torch.abs(torch.sum(displacements * tangent_future, dim=-1))
 
-            if experiment is not None:
-                experiment.log_metric("lateral_error", lateral_error.item())
-                experiment.log_metric("loss_arclength", loss_arclength.item())
+            if (experiment is not None) and (i%4)==0:
+                experiment.log_metric("lateral_error", torch.mean(true_lateral_error).item())
+                experiment.log_metric("longitudinal_error", torch.mean(true_long_error).item())
                 experiment.log_metric("mean_displacement_error", ade.item())
                 experiment.log_metric("loss_velocity", loss_velocity.item())
             if trainerconfig["ade_loss"] and (not torch.isnan(ade)) and ade<1000.0:     
@@ -328,25 +320,12 @@ def train(allconfig : dict[str,dict] = None,
             loss.backward()
             optimizer.step()
             if experiment is None:
-                total_position_loss += lateral_error.item()
-                total_velocity_loss += loss_velocity.item()
-                total_arclength_error += loss_arclength.item()
-                total_ade += ade.item()
-                totalloss += loss.item()
-                averageloss = totalloss/(i+1)
-                averagepositionloss = total_position_loss/(i+1)
-                averagevelocityloss = total_velocity_loss/(i+1)
-                averagearclengtherror = total_arclength_error/(i+1)
-                averageade = total_ade/(i+1)
                 tq.set_postfix({
-                                # "lateral_error" : lateral_error.item(), 
+                                "lateral_error" : lateral_error.item(), 
                                 "loss_velocity" : loss_velocity.item(), 
-                                "loss_arclength" : loss_arclength.item(), 
                                 "mean_displacement_error" : ade.item(), 
                                 "true_lateral_error" : torch.mean(true_lateral_error).item(), 
                                 "true_long_error" : torch.mean(true_long_error).item()
-                                # "average ade" : averageade, 
-                                # "epoch": epoch
                                 }
                                 )
 
