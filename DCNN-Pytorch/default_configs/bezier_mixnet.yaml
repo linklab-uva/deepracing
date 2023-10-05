@@ -5,7 +5,7 @@
     },
     data:
     {
-        dir: /p/DeepRacing/unpacked_datasets/aligned_to_ego/v1/deepracing_standard
+        dir: /p/DeepRacing/unpacked_datasets/aligned_to_ego/v2/deepracing_standard
     },
     trainer:
     {
@@ -13,36 +13,48 @@
         learning_rate: 5E-4,
         momentum: 0.0,
         nesterov: False,
-        gpu_index: 1,
+        gpu_index: 3,
         betas: [0.99, 0.9999], 
         eps: 1E-8,
         weight_decay: 0.0,
-        epochs: 500,
-        batch_size: 128,
+        epochs: 200,
+        batch_size: 256,
         kbezier: 7,
         ade_loss : True
     },
     net:
     {
-        input_dimension : 2,
-        final_layer_tanh : True,
+        input_dimension: 2,
+        input_embedding:
+        {
+            velocity : True,
+            quaternion : False
+        },
+        boundary_embedding:
+        {
+            tangent : True,
+            curvature : False
+        },
+        final_layer_tanh : False,
         with_velocity_input : False,
         encoder: {
-            in_size: 16,
-            hidden_size: 32
+            in_size: 128,
+            hidden_size: 256
         },
         mixer_linear_stack: {
             hidden_sizes: [
                 256,
                 256,
+                128,
+                56,
                 32
             ],
             out_size: 4
         },
 
         acc_decoder: {
-            in_size: 16,
-            hidden_size: 32,
+            in_size: 128,
+            hidden_size: 256,
             num_acc_sections: 30,
             max_acc: 90.0,
             kbeziervel : 2

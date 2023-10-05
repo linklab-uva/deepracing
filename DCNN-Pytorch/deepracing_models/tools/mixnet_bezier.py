@@ -46,7 +46,7 @@ def load_datasets_from_files(search_dir : str, kbezier : int, bcurve_cache = Fal
     dsets : list[FD.TrajectoryPredictionDataset] = []
     dsetconfigs = []
     numsamples_prediction = None
-    for metadatafile in dsetfiles:
+    for metadatafile in dsetfiles[:2]:
         with open(metadatafile, "r") as f:
             dsetconfig = yaml.load(f, Loader=yaml.SafeLoader)
         if numsamples_prediction is None:
@@ -80,6 +80,9 @@ def train(allconfig : dict[str,dict] = None,
     kbezier : int = trainerconfig["kbezier"]
     netconfig["kbezier"] = kbezier
     netconfig["gpu_index"] = trainerconfig["gpu_index"]
+
+    input_embedding = netconfig["input_embedding"]
+    boundary_embedding = netconfig["boundary_embedding"]
         
     project_name="mixnet-bezier"
     tags = allconfig["comet"]["tags"]
@@ -208,9 +211,14 @@ def train(allconfig : dict[str,dict] = None,
             datadict : dict[str,torch.Tensor] = dict_
 
             position_history = datadict["hist"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
-
+            vel_history = datadict["hist_vel"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
             position_future = datadict["fut"].cuda(gpu_index).type(dtype)
             vel_future = datadict["fut_vel"].cuda(gpu_index).type(dtype)
+
+
+            state_input = position_history
+            if input_embedding["velocity"]:
+                state_input = torch.cat([state_input, vel_history], dim=-1)
 
             if coordinate_idx[-1]==2:
                 future_arclength = datadict["future_arclength"].cuda(gpu_index).type(dtype)
@@ -219,6 +227,16 @@ def train(allconfig : dict[str,dict] = None,
 
             left_bound_input = datadict["left_bd"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
             right_bound_input = datadict["right_bd"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
+            if boundary_embedding["tangent"]:
+
+                left_bound_tangents = datadict["left_bd_tangents"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
+                left_bound_tangents = left_bound_tangents/torch.norm(left_bound_tangents, p=2.0, dim=-1, keepdim=True)
+
+                right_bound_tangents = datadict["right_bd_tangents"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
+                right_bound_tangents = right_bound_tangents/torch.norm(right_bound_tangents, p=2.0, dim=-1, keepdim=True)
+
+                left_bound_input = torch.cat([left_bound_input, left_bound_tangents], dim=-1)
+                right_bound_input = torch.cat([right_bound_input, right_bound_tangents], dim=-1)
 
             bcurves_r = datadict["reference_curves"].cuda(gpu_index).type(dtype)
 
@@ -227,7 +245,7 @@ def train(allconfig : dict[str,dict] = None,
 
             currentbatchsize = int(position_history.shape[0])
 
-            (mix_out_, acc_out_) = network(position_history, left_bound_input, right_bound_input)
+            (mix_out_, acc_out_) = network(state_input, left_bound_input, right_bound_input)
             one = torch.ones_like(speed_future[0,0])
             mix_out = torch.clamp(mix_out_, -3.0*one, 3.0*one)
             acc_out = acc_out_ + speed_future[:,0].unsqueeze(-1)

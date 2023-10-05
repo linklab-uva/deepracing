@@ -12,10 +12,14 @@ class BezierMixNet(nn.Module):
     def __init__(self, params : dict):
         """Initializes a BezierMixNet object."""
         super(BezierMixNet, self).__init__()
-
         self._params = params
-        input_dimension = params["input_dimension"]
 
+        input_embedding = params["input_embedding"]
+        input_dimension = 2
+        if input_embedding["velocity"]:
+            input_dimension+=2
+        if input_embedding["quaternion"]:
+            input_dimension+=2
 
         self._inp_emb = torch.nn.Linear(input_dimension, params["encoder"]["in_size"])
         # History encoder LSTM:
@@ -26,6 +30,18 @@ class BezierMixNet(nn.Module):
             batch_first=True,
         )
 
+
+        boundary_embedding = params.get("boundary_embedding", None)
+        if boundary_embedding is None:
+            boundary_dimension = 2
+            self._boundary_emb = self._inp_emb
+        else:
+            boundary_dimension = 2
+            if boundary_embedding["tangent"]:
+                boundary_dimension+=2
+            if boundary_embedding["curvature"]:
+                boundary_dimension+=1
+            self._boundary_emb = torch.nn.Linear(boundary_dimension, params["encoder"]["in_size"])
         # Boundary encoders:
         self._enc_left_bound = torch.nn.LSTM(
             params["encoder"]["in_size"],
@@ -102,14 +118,13 @@ class BezierMixNet(nn.Module):
         returns:
             mix_out: [tensor with shape=(batch_size, out_size)]: The path mixing ratios in the order:
                 left_ratio, right_ratio, center_ratio, race_ratio
-            vel_out: [tensor with shape=(batch_size, 1)]: The initial velocity of the velocity profile
             acc_out: [tensor with shape=(batch_size, num_acc_sections)]: The accelerations in the sections
         """
 
         # encoders:
         _, (hist_h, _) = self._enc_hist(self._inp_emb(hist.to(self.device)))
-        _, (left_h, _) = self._enc_left_bound(self._inp_emb(left_bound.to(self.device)))
-        _, (right_h, _) = self._enc_right_bound(self._inp_emb(right_bound.to(self.device)))
+        _, (left_h, _) = self._enc_left_bound(self._boundary_emb(left_bound.to(self.device)))
+        _, (right_h, _) = self._enc_right_bound(self._boundary_emb(right_bound.to(self.device)))
 
         # concatenate and squeeze encodings: 
         enc = torch.squeeze(torch.cat((hist_h, left_h, right_h), 2), dim=0)
