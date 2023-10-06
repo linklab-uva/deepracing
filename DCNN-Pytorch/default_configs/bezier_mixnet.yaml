@@ -1,7 +1,7 @@
 {
     comet:
     {
-        tags: ["filtered_v2_data", "trained_on_lambda", "reworked_ade_computation"]
+        tags: ["filtered_v2_data", "trained_on_lambda", "old_loss"]
     },
     data:
     {
@@ -27,15 +27,27 @@
         input_dimension: 2,
         input_embedding:
         {
-            velocity : False,
-            quaternion : False
+            velocity : True,
+            quaternion : True,
+            hidden_layers : [
+                128,
+                256,
+                512,
+                512
+            ]
         },
-        separate_boundary_embedder: False,
+        separate_boundary_embedder: True,
         boundary_embedding:
         {
-            tangent : False,
-            curvature : False
+            tangent : True,
+            hidden_layers : [
+                128,
+                256,
+                512,
+                512
+            ]
         },
+
         encoder: {
             in_size: 256,    
             hidden_size: 512
@@ -57,6 +69,12 @@
             max_acc: 90.0,
             kbeziervel : 2,
             embedder_layers: [
+                256,
+                256,
+                256,
+                256
+            ],
+            output_layers : [
                 256,
                 256,
                 256,
