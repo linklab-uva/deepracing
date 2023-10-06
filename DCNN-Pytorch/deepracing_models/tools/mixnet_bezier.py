@@ -39,7 +39,7 @@ def load_datasets_from_shared_memory(
         dsets.append(FD.TrajectoryPredictionDataset.from_shared_memory(shm_dict, metadata_dict, SubsetFlag.TRAIN, dtype=dtype))
     return dsets
 
-def load_datasets_from_files(search_dir : str, kbezier : int, bcurve_cache = False):
+def load_datasets_from_files(search_dir : str, kbezier : int, bcurve_cache = False, dtype=np.float32):
     dsetfiles = glob.glob(os.path.join(search_dir, "**", "metadata.yaml"), recursive=True)
     dsets : list[FD.TrajectoryPredictionDataset] = []
     dsetconfigs = []
@@ -54,7 +54,7 @@ def load_datasets_from_files(search_dir : str, kbezier : int, bcurve_cache = Fal
                             "Dataset at %s has prediction length %d, but previous dataset " + \
                             "has prediction length %d" % (metadatafile, dsetconfig["numsamples_prediction"], numsamples_prediction))
         dsetconfigs.append(dsetconfig)
-        dsets.append(FD.TrajectoryPredictionDataset.from_file(metadatafile, SubsetFlag.TRAIN, dtype=np.float64))
+        dsets.append(FD.TrajectoryPredictionDataset.from_file(metadatafile, SubsetFlag.TRAIN, dtype=dtype))
         dsets[-1].fit_bezier_curves(kbezier, cache=bcurve_cache)
     return dsets
 
@@ -114,13 +114,13 @@ def train(allconfig : dict[str,dict] = None,
     
     if shared_memory_keys is None:
         search_dir : str = dataconfig["dir"]
-        datasets = load_datasets_from_files(search_dir, kbezier)
+        datasets = load_datasets_from_files(search_dir, kbezier, dtype=np.float32)
     else:
         if dtype is None:
             raise ValueError("If shared memory is specified, dtype must also be specified")
         datasets = load_datasets_from_shared_memory(shared_memory_keys, dtype)
-    network : BezierMixNet = BezierMixNet(netconfig).double()
-    lossfunc : torch.nn.MSELoss = torch.nn.MSELoss().double()
+    network : BezierMixNet = BezierMixNet(netconfig).float()
+    lossfunc : torch.nn.MSELoss = torch.nn.MSELoss().float()
     gpu_index : int = trainerconfig["gpu_index"]
     use_cuda = gpu_index>=0
     if use_cuda:
@@ -180,11 +180,6 @@ def train(allconfig : dict[str,dict] = None,
         experiment.log_parameters(hyper_params_to_comet)
     for epoch in range(1, trainerconfig["epochs"]+1):
         print("Starting epoch %d" % (epoch,))
-        totalloss = 0.0
-        total_position_loss = 0.0
-        total_velocity_loss = 0.0
-        total_arclength_error = 0.0
-        total_ade = 0.0
         dataloader_enumerate = enumerate(dataloader)
         if experiment is None:
             tq = tqdm.tqdm(dataloader_enumerate, desc="Yay")
