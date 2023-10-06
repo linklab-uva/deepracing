@@ -215,10 +215,10 @@ def train(allconfig : dict[str,dict] = None,
             if input_embedding["quaternion"]:
                 quat_history = datadict["hist_quats"].cuda(gpu_index).type(dtype)
                 if coordinate_idx[-1]==2:
+                    quat_select = quat_history
+                else:
                     quat_select = quat_history[:,:,[2,3]]
                     quat_select = quat_select/torch.norm(quat_select, p=2.0, dim=-1, keepdim=True)
-                else:
-                    quat_select = quat_history
                 state_input = torch.cat([state_input, quat_select], dim=-1)
 
             if coordinate_idx[-1]==2:
