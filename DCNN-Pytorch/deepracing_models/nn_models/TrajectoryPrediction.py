@@ -29,19 +29,16 @@ class BezierMixNet(nn.Module):
             1,
             batch_first=True,
         )
-
-
-        boundary_embedding = params.get("boundary_embedding", None)
-        if boundary_embedding is None:
-            boundary_dimension = 2
-            self._boundary_emb = self._inp_emb
-        else:
+        if params.get("separate_boundary_embedder", False):
+            boundary_embedding = params["boundary_embedding"]
             boundary_dimension = 2
             if boundary_embedding["tangent"]:
                 boundary_dimension+=2
             if boundary_embedding["curvature"]:
                 boundary_dimension+=1
             self._boundary_emb = torch.nn.Linear(boundary_dimension, params["encoder"]["in_size"])
+        else:
+            self._boundary_emb = self._inp_emb
         # Boundary encoders:
         self._enc_left_bound = torch.nn.LSTM(
             params["encoder"]["in_size"],
@@ -65,10 +62,19 @@ class BezierMixNet(nn.Module):
             name="mix",
         )
 
+        embedder_layers = params["acc_decoder"].get("embedder_layers", None)
         # dynamic embedder between the encoder and the decoder:
-        self._dyn_embedder = nn.Linear(
-            params["encoder"]["hidden_size"] * 3, params["acc_decoder"]["in_size"]
-        )
+        if embedder_layers is None:
+            self._dyn_embedder = nn.Linear(
+                params["encoder"]["hidden_size"] * 3, params["acc_decoder"]["in_size"]
+            )
+        else:
+            self._dyn_embedder = self._get_linear_stack(
+            in_size=params["encoder"]["hidden_size"] * 3,
+            hidden_sizes=embedder_layers,
+            out_size=params["acc_decoder"]["in_size"],
+            name="decoder_embedder",
+            )
 
         # acceleration decoder:
         self._acc_decoder = nn.LSTM(
@@ -78,6 +84,7 @@ class BezierMixNet(nn.Module):
             batch_first=True,
         )
 
+        
         # output linear layer of the acceleration decoder:
         self._acc_out_layer = nn.Linear(params["acc_decoder"]["hidden_size"], 1)
         self._acc_final_layer_tanh = params["acc_decoder"].get("final_layer_tanh", True)
@@ -122,18 +129,15 @@ class BezierMixNet(nn.Module):
         """
 
         # encoders:
-        _, (hist_h, _) = self._enc_hist(self._inp_emb(hist.to(self.device)))
-        _, (left_h, _) = self._enc_left_bound(self._boundary_emb(left_bound.to(self.device)))
-        _, (right_h, _) = self._enc_right_bound(self._boundary_emb(right_bound.to(self.device)))
+        all_hist_h, (hist_h, _) = self._enc_hist(self._inp_emb(hist.to(self.device)))
+        all_left_h, (left_h, _) = self._enc_left_bound(self._boundary_emb(left_bound.to(self.device)))
+        all_right_h, (right_h, _) = self._enc_right_bound(self._boundary_emb(right_bound.to(self.device)))
 
         # concatenate and squeeze encodings: 
         enc = torch.squeeze(torch.cat((hist_h, left_h, right_h), 2), dim=0)
 
         # path mixture through softmax:
         mix_out_softmax = torch.softmax(self._mix_out_layers(enc), dim=1)
-        # mix_out_softmax = F.sigmoid(self._mix_out_layers(enc))
-        # mix_out_softmax = self._mix_out_layers(enc)
-        # mix_out = mix_out_softmax
         mix_out = self._final_linear_layer(mix_out_softmax)
 
         # acceleration decoding:
