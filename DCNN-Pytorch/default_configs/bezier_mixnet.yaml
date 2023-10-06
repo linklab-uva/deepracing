@@ -19,45 +19,50 @@
         weight_decay: 0.0,
         epochs: 200,
         batch_size: 256,
-        kbezier: 7,
-        ade_loss : True
+        kbezier: 9,
+        ade_loss : False
     },
     net:
     {
         input_dimension: 2,
         input_embedding:
         {
-            velocity : True,
+            velocity : False,
             quaternion : False
         },
+        separate_boundary_embedder: False,
         boundary_embedding:
         {
-            tangent : True,
+            tangent : False,
             curvature : False
         },
-        final_layer_tanh : False,
-        with_velocity_input : False,
         encoder: {
-            in_size: 128,
-            hidden_size: 256
+            in_size: 256,    
+            hidden_size: 512
         },
         mixer_linear_stack: {
             hidden_sizes: [
                 256,
                 256,
-                128,
-                56,
-                32
+                256,
+                256,
+                256
             ],
             out_size: 4
         },
-
         acc_decoder: {
-            in_size: 128,
-            hidden_size: 256,
+            hidden_size: 512,
+            in_size: 256,    
             num_acc_sections: 30,
             max_acc: 90.0,
-            kbeziervel : 2
+            kbeziervel : 2,
+            embedder_layers: [
+                256,
+                256,
+                256,
+                256
+            ],
+            final_layer_tanh : False,
         }
     }
 }
