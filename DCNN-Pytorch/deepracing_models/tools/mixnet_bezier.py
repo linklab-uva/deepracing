@@ -219,6 +219,8 @@ def train(allconfig : dict[str,dict] = None,
                 else:
                     quat_select = quat_history[:,:,[2,3]]
                     quat_select = quat_select/torch.norm(quat_select, p=2.0, dim=-1, keepdim=True)
+                realparts = quat_select[:,-1]
+                quat_select[realparts<0.0]*=-1.0
                 state_input = torch.cat([state_input, quat_select], dim=-1)
 
             if coordinate_idx[-1]==2:
