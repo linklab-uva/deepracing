@@ -2,7 +2,7 @@ import argparse
 import tempfile
 import comet_ml
 import deepracing_models.math_utils.bezier, deepracing_models.math_utils
-from deepracing_models.nn_models.TrajectoryPrediction import BezierMixNet
+from deepracing_models.nn_models.trajectory_prediction import BezierMixNet
 from deepracing_models.data_loading import file_datasets as FD, SubsetFlag 
 import torch, torch.optim, torch.nn.functional as F
 from torch.optim.lr_scheduler import ExponentialLR
