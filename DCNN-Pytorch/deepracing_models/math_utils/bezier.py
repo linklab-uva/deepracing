@@ -50,7 +50,8 @@ def compositeBezierAntiderivative(control_points : torch.Tensor, delta_t : torch
     
     return ((delta_t_onebatchdim[:,:,None,None]*antiderivative_onebatchdim).view(shapeout))/kbezier_out
 
-def compositeBezierFit(points : torch.Tensor, t : torch.Tensor, numsegments : int, kbezier : int = 3, dYdT_0 : torch.Tensor | None = None):
+def compositeBezierFit(points : torch.Tensor, t : torch.Tensor, numsegments : int, 
+                       kbezier : int = 3, dYdT_0 : torch.Tensor | None = None, dYdT_f : torch.Tensor | None = None):
     dtype = points.dtype
     device = points.device
     if not t[0]==0.0:
@@ -63,12 +64,13 @@ def compositeBezierFit(points : torch.Tensor, t : torch.Tensor, numsegments : in
     # speedsamp = torch.norm(vels, p=2, dim=1)
     # if not (tsamp.shape[0]%numsegments)==0:
     #     raise ValueError("Number of fit points, %d, must be divisible by number of segments. %d is not divisible by %d" % (tsamp.shape[0],tsamp.shape[0],numsegments))
-    points_per_segment = math.floor(tsamp.shape[0]/numsegments)
+    points_per_segment = int(math.floor(tsamp.shape[0]/numsegments))
     # torch.set_printoptions(linewidth=500, precision=3)
     constrain_initial_derivative = dYdT_0 is not None
+    constrain_final_derivative = dYdT_f is not None
     continuinty_constraits_per_segment = min(kbezier, 3)
     continuity_constraints = int(continuinty_constraits_per_segment*(numsegments-1))
-    total_constraints = continuity_constraints + 1 + int(constrain_initial_derivative)
+    total_constraints = continuity_constraints + 1 + int(constrain_initial_derivative) + int(constrain_final_derivative)
     numcoefs = kbezier+1
     tswitchingpoints = torch.linspace(0.0, tsamp[-1].item(), steps=numsegments+1, dtype=dtype, device=device)
     tstart = (tswitchingpoints[:-1]).clone()
@@ -80,11 +82,6 @@ def compositeBezierFit(points : torch.Tensor, t : torch.Tensor, numsegments : in
     segment_sizes = points_per_segment*torch.ones(numsegments, dtype=torch.int64)
     leftover = tsamp.shape[0] - segment_sizes.sum().item()
     segment_sizes[-1]+=leftover
-    idxsub = 0
-    # while leftover<0:
-    #     segment_sizes[idxsub]-=1
-    #     idxsub = (idxsub+1)%segment_sizes.shape[0]
-    #     leftover = tsamp.shape[0] - segment_sizes.sum().item()
 
     tsamp_list : tuple[torch.Tensor] = torch.split(tsamp, tuple(segment_sizes.numpy().tolist()))
     seglengths : list[int] = [subt.shape[0] for subt in tsamp_list]
@@ -97,6 +94,7 @@ def compositeBezierFit(points : torch.Tensor, t : torch.Tensor, numsegments : in
     idx_select = torch.sum(HugeM_all, dim=1)>0
     HugeM = HugeM_all[idx_select]
     Q = torch.matmul(HugeM.transpose(-2, -1), HugeM)
+    Q[torch.abs(Q)<1E-5]=0.0
     E = torch.zeros(total_constraints, Q.shape[1], dtype=Q.dtype, device=Q.device)
     d = torch.zeros(total_constraints, dim, dtype=Q.dtype, device=Q.device)
     if continuinty_constraits_per_segment>=1:
@@ -126,6 +124,11 @@ def compositeBezierFit(points : torch.Tensor, t : torch.Tensor, numsegments : in
         E[continuity_constraints+1,0] = -kbezier
         E[continuity_constraints+1,1] = kbezier
         d[continuity_constraints+1] = dYdT_0*dt[0]
+    if constrain_final_derivative:
+        E[continuity_constraints + int(constrain_initial_derivative) + 1,-2] = -kbezier
+        E[continuity_constraints + int(constrain_initial_derivative) + 1,-1] = kbezier
+        d[continuity_constraints + int(constrain_initial_derivative) + 1] = dYdT_f*dt[-1]
+
 
     lhs = torch.zeros([Q.shape[0] + E.shape[0], Q.shape[0] + E.shape[0]], dtype=Q.dtype, device=Q.device)
     lhs[:Q.shape[0],:Q.shape[0]] = Q
