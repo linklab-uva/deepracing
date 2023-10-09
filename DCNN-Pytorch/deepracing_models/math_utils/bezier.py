@@ -61,27 +61,41 @@ def compositeBezierFit(points : torch.Tensor, t : torch.Tensor, numsegments : in
 
     # vels = torch.as_tensor(raceline_pathhelper_cpu.spline_time_derivative(_tsamp), dtype=tsamp.dtype, device=tsamp.device)
     # speedsamp = torch.norm(vels, p=2, dim=1)
-    if not (tsamp.shape[0]%numsegments)==0:
-        raise ValueError("Number of fit points, %d, must be divisible by number of segments. %d is not divisible by %d" % (tsamp.shape[0],tsamp.shape[0],numsegments))
-    points_per_segment = math.ceil(tsamp.shape[0]/numsegments)
-    tsamp_dense = tsamp.view(numsegments, -1)
+    # if not (tsamp.shape[0]%numsegments)==0:
+    #     raise ValueError("Number of fit points, %d, must be divisible by number of segments. %d is not divisible by %d" % (tsamp.shape[0],tsamp.shape[0],numsegments))
+    points_per_segment = math.floor(tsamp.shape[0]/numsegments)
     # torch.set_printoptions(linewidth=500, precision=3)
     constrain_initial_derivative = dYdT_0 is not None
     continuinty_constraits_per_segment = min(kbezier, 3)
     continuity_constraints = int(continuinty_constraits_per_segment*(numsegments-1))
     total_constraints = continuity_constraints + 1 + int(constrain_initial_derivative)
     numcoefs = kbezier+1
-    HugeM_dense : torch.Tensor = torch.zeros([numsegments, points_per_segment, numsegments, numcoefs], device=device, dtype=dtype)
     tswitchingpoints = torch.linspace(0.0, tsamp[-1].item(), steps=numsegments+1, dtype=dtype, device=device)
     tstart = (tswitchingpoints[:-1]).clone()
     tend = (tswitchingpoints[1:]).clone()
     dt = tend - tstart
     dim = points.shape[-1]
+    # tsamp_dense = tsamp.view(numsegments, -1)
+    # tsamp_dense_list = tsamp_dense.cpu().numpy().tolist()
+    segment_sizes = points_per_segment*torch.ones(numsegments, dtype=torch.int64)
+    leftover = tsamp.shape[0] - segment_sizes.sum().item()
+    segment_sizes[-1]+=leftover
+    idxsub = 0
+    # while leftover<0:
+    #     segment_sizes[idxsub]-=1
+    #     idxsub = (idxsub+1)%segment_sizes.shape[0]
+    #     leftover = tsamp.shape[0] - segment_sizes.sum().item()
+
+    tsamp_list : tuple[torch.Tensor] = torch.split(tsamp, tuple(segment_sizes.numpy().tolist()))
+    seglengths : list[int] = [subt.shape[0] for subt in tsamp_list]
+    HugeM_dense : torch.Tensor = torch.zeros([numsegments, segment_sizes.max().item(), numsegments, numcoefs], device=device, dtype=dtype)
     for i in range(numsegments):
-        subt = tsamp_dense[i] - tswitchingpoints[i]
+        subt = tsamp_list[i] - tswitchingpoints[i]
         subs = subt/dt[i]
-        HugeM_dense[i, :, i] = bezierM(subs.unsqueeze(0), kbezier).squeeze(0)
-    HugeM : torch.Tensor = HugeM_dense.view(tsamp.shape[0], numcoefs*numsegments)
+        HugeM_dense[i, :subt.shape[0], i] = bezierM(subs.unsqueeze(0), kbezier).squeeze(0)
+    HugeM_all : torch.Tensor = HugeM_dense.view(-1, numcoefs*numsegments)
+    idx_select = torch.sum(HugeM_all, dim=1)>0
+    HugeM = HugeM_all[idx_select]
     Q = torch.matmul(HugeM.transpose(-2, -1), HugeM)
     E = torch.zeros(total_constraints, Q.shape[1], dtype=Q.dtype, device=Q.device)
     d = torch.zeros(total_constraints, dim, dtype=Q.dtype, device=Q.device)
