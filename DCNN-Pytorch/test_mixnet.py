@@ -1,4 +1,5 @@
 import argparse
+import shutil
 import comet_ml
 import deepracing_models.math_utils.bezier, deepracing_models.math_utils
 from mix_net.src.mix_net import MixNet
@@ -53,7 +54,8 @@ def test(**kwargs):
     
     trainer_config_str = str(api_experiment.get_asset(trainer_config_asset["assetId"]), encoding="ascii")
     trainerconfig = json.loads(trainer_config_str)
-    trainerconfig["data"]["path"]="/p/DeepRacing/unpacked_datasets/v1/online_multiplayer/deepracing_standard"
+    trainerconfig["data"]["path"] = \
+        "/p/DeepRacing/unpacked_datasets/v1/online_multiplayer/deepracing_standard"
 
     net_config_str = str(api_experiment.get_asset(net_config_asset["assetId"]), encoding="ascii")
     netconfig = json.loads(net_config_str)
@@ -150,6 +152,7 @@ def test(**kwargs):
                     ], axis=0
                     ), 
             dtype=firstparam.dtype, device=device)
+    numsamples_history = dsetconfigs[0]["numsamples_history"]
     numsamples_prediction = dsetconfigs[0]["numsamples_prediction"]
     prediction_totaltime = dsetconfigs[0]["predictiontime"]
 
@@ -182,7 +185,12 @@ def test(**kwargs):
     ade_list = []
     lateral_error_list = []
     longitudinal_error_list = []
-    for (i, dict_) in tq:
+    
+    history_array : np.ndarray = np.zeros([num_samples, numsamples_history, 3], dtype=np.float64)
+    prediction_array : np.ndarray = np.zeros([num_samples, numsamples_prediction, 3], dtype=np.float64)
+    future_left_bd_array : np.ndarray = np.zeros([num_samples, numsamples_prediction, 3], dtype=np.float64)
+    future_right_bd_array : np.ndarray = np.zeros([num_samples, numsamples_prediction, 3], dtype=np.float64)
+    for (idx, dict_) in tq:
         datadict : dict[str,torch.Tensor] = dict_
 
         position_history = datadict["hist"]#[:,:,[0,1]]
@@ -219,10 +227,17 @@ def test(**kwargs):
         position_future_global = torch.matmul(rotmats, position_future.transpose(-2,-1)).transpose(-2,-1)+current_positions[:,None]
         position_future_global = position_future_global[:,:,[0,1]]
 
+
+        future_left_bd_array[idx,:] = datadict["future_left_bd"].cpu().numpy()[:]
+        future_right_bd_array[idx,:] = datadict["future_right_bd"].cpu().numpy()[:]
+
         left_bound_label = left_bound_label.cuda(gpu_index).type(dtype)
         right_bound_label = right_bound_label.cuda(gpu_index).type(dtype)
         center_line_label = center_line_label.cuda(gpu_index).type(dtype)
         optimal_line_label = optimal_line_label.cuda(gpu_index).type(dtype)
+
+        to_local_rotmats = rotmats.transpose(-2, -1)
+        to_local_translations = torch.matmul(to_local_rotmats, -position_future[:,0].unsqueeze(-1)).squeeze(-1)
 
         currentbatchsize = int(position_history.shape[0])
         with torch.no_grad():
@@ -241,7 +256,7 @@ def test(**kwargs):
 
             arclength_out = torch.zeros_like(speed_out)
             arclength_out[:,1:] = torch.cumsum( speed_out[:,:-1]*time_spacing, 1 )
-            position_predicted_global = torch.zeros_like(position_future[:,:,[0,1]])
+            position_predicted_global = torch.zeros_like(position_future)#[:,:,[0,1]])
 
             for (i, trackname) in enumerate(tracknames):
                 track = track_dict[trackname]
@@ -260,11 +275,17 @@ def test(**kwargs):
                 dmat = torch.cdist(mixed_path_arclengths.unsqueeze(-1), arclength_out[i].unsqueeze(-1))
                 Iclosest = torch.argmin(dmat, dim=0)
 
-                position_predicted_global[i] = mixed_path_rolled[Iclosest]
+                position_predicted_global[i,:,[0,1]] = mixed_path_rolled[Iclosest]
 
                 # print(dmat.shape)
                 # print(Iclosest)
+            position_predicted_local = torch.matmul(to_local_rotmats, position_predicted_global.unsqueeze(-1)).squeeze(-1)
+            position_predicted_local += to_local_translations#[:,:,None]
 
+            history_array[idx,:] = position_history[0].cpu().numpy()[:]
+            prediction_array[idx,:] = position_predicted_local[0].cpu().numpy()[:]
+
+            position_predicted_global = position_predicted_global[:,:,[0,1]]
                 # exit(0)
             # batch_dim = position_future_global.shape[0]
             # ssamp_batch = ssamp.unsqueeze(0).expand(batch_dim, ssamp.shape[0]).cuda(gpu_index).type(dtype)
@@ -313,6 +334,22 @@ def test(**kwargs):
     lateral_error_array = torch.as_tensor(lateral_error_list, dtype=torch.float64)
     longitudinal_error_array = torch.as_tensor(longitudinal_error_list, dtype=torch.float64)
     ade_array = torch.as_tensor(ade_list, dtype=torch.float64)
+    results_dir = argdict["resultsdir"]
+    if os.path.isdir(results_dir):
+        shutil.rmtree(results_dir)
+    os.makedirs(results_dir)
+    with open(os.path.join(results_dir, "data.npz"), "wb") as f:
+        np.savez(f, **{
+            "lateral_error" : lateral_error_array.cpu().numpy(),
+            "longitudinal_error" : longitudinal_error_array.cpu().numpy(),
+            "ade" : ade_array.cpu().numpy(),
+            "history" : history_array,
+            "predictions" : prediction_array,
+            "future_left_bd" : future_left_bd_array,
+            "future_right_bd" : future_right_bd_array
+        }
+        )
+
     print("ADE: %f" % (torch.mean(ade_array).item(),))
     print("mean lateral error: %f" % (torch.mean(torch.abs(lateral_error_array)).item(),))
     print("mean longitudinal error: %f" % (torch.mean(torch.abs(longitudinal_error_array)).item(),))
@@ -323,6 +360,7 @@ if __name__=="__main__":
     parser = argparse.ArgumentParser(description="Test Bezier version of MixNet")
     parser.add_argument("--experiment", type=str, required=True, help="Which comet experiment to load")
     parser.add_argument("--tempdir", type=str, default="/bigtemp/ttw2xk/mixnet_bezier_dump", help="Temporary directory to save model files after downloading from comet.")
+    parser.add_argument("--resultsdir", type=str, default="/p/DeepRacing/mixnet_results", help="Temporary directory to save model files after downloading from comet.")
     parser.add_argument("--workers", type=int, default=0, help="How many threads for data loading")
     args = parser.parse_args()
     argdict : dict = vars(args)
