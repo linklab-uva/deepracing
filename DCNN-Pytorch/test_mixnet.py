@@ -53,7 +53,7 @@ def test(**kwargs):
     
     trainer_config_str = str(api_experiment.get_asset(trainer_config_asset["assetId"]), encoding="ascii")
     trainerconfig = json.loads(trainer_config_str)
-    trainerconfig["data"]["path"]="/p/DeepRacing/unpacked_datasets/v1/online_multiplayer/deepracing_standard/Monza_7_6_2023_16_23_11_trajectory_data"
+    trainerconfig["data"]["path"]="/p/DeepRacing/unpacked_datasets/v1/online_multiplayer/deepracing_standard"
 
     net_config_str = str(api_experiment.get_asset(net_config_asset["assetId"]), encoding="ascii")
     netconfig = json.loads(net_config_str)
