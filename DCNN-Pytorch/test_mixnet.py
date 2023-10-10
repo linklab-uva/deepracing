@@ -2,7 +2,8 @@ import argparse
 import comet_ml
 import deepracing_models.math_utils.bezier, deepracing_models.math_utils
 from mix_net.src.mix_net import MixNet
-from deepracing_models.data_loading import file_datasets as FD, SubsetFlag 
+from deepracing_models.data_loading import file_datasets as FD, SubsetFlag
+from deepracing_models.data_loading.utils.file_utils import load_datasets_from_files 
 import torch.utils.data as torchdata
 import yaml, json
 import os
@@ -19,7 +20,6 @@ import sys
 from datetime import datetime
 import torch
 import deepracing
-import ament_index_python
 from scipy.spatial.transform import Rotation
 
 def assetkey(asset : dict):
@@ -53,6 +53,7 @@ def test(**kwargs):
     
     trainer_config_str = str(api_experiment.get_asset(trainer_config_asset["assetId"]), encoding="ascii")
     trainerconfig = json.loads(trainer_config_str)
+    trainerconfig["data"]["path"]="/p/DeepRacing/unpacked_datasets/v1/online_multiplayer/deepracing_standard/Monza_7_6_2023_16_23_11_trajectory_data"
 
     net_config_str = str(api_experiment.get_asset(net_config_asset["assetId"]), encoding="ascii")
     netconfig = json.loads(net_config_str)
@@ -74,23 +75,49 @@ def test(**kwargs):
     firstparam = next(net.parameters())
     dtype = firstparam.dtype
     datadir = trainerconfig["data"]["path"]
-    dsetfiles = glob.glob(os.path.join(datadir, "**", "metadata.yaml"), recursive=True)
     numsamples_prediction = None
     num_accel_sections : int = netconfig["acc_decoder"]["num_acc_sections"]
     dsetconfigs : list[dict] = []
-    dsets : list[FD.TrajectoryPredictionDataset] = []
+
+    # position_history = datadict["hist"]#[:,:,[0,1]]
+    # position_future = datadict["fut"]#[:,:,[0,1]]
+    # tangents_future = datadict["fut_tangents"]#[:,:,[0,1]]
+
+    # current_positions_full = datadict["current_position"]
+    # current_orientations_full = datadict["current_orientation"]
+
+    # rotations = Rotation.from_quat(current_orientations_full.detach().cpu().numpy())
+
+    # left_bound_input = datadict["left_bd"][:,:,[0,1]]
+    # right_bound_input = datadict["right_bd"][:,:,[0,1]]
+
+    # tracknames = datadict["trackname"]
+
+    # left_bound_label = datadict["future_left_bd"][:,:,[0,1]]
+    # right_bound_label = datadict["future_right_bd"][:,:,[0,1]]
+    # center_line_label = datadict["future_centerline"][:,:,[0,1]]
+    # optimal_line_label = datadict["future_raceline"][:,:,[0,1]]
+    keys = {"hist", "fut", "fut_tangents", "current_position", "current_orientation", 
+            "left_bd", "right_bd", "future_left_bd", "future_right_bd", "future_centerline", "future_raceline"}
+    dsets : list[FD.TrajectoryPredictionDataset] = load_datasets_from_files(datadir, keys=keys)
     track_dict : dict = dict()
-    searchdirs = [os.path.join(ament_index_python.get_package_share_directory("deepracing_launch"), "maps")]
-    for metadatafile in dsetfiles:
-        with open(metadatafile, "r") as f:
-            dsetconfig = yaml.load(f, Loader=yaml.SafeLoader)
-        if numsamples_prediction is None:
-            numsamples_prediction = dsetconfig["numsamples_prediction"]
-        elif numsamples_prediction!=dsetconfig["numsamples_prediction"]:
-            raise ValueError("All datasets must have the same number of prediction points. " + \
-                            "Dataset at %s has prediction length %d, but previous dataset " + \
-                            "has prediction length %d" % (metadatafile, dsetconfig["numsamples_prediction"], numsamples_prediction))
-        current_track = dsetconfig["trackname"]
+    searchdirs = []
+    try:
+        searchdirs+=os.environ["F1_MAP_DIRS"].split(os.pathsep)
+    except KeyError:
+        pass
+    try:
+        import ament_index_python
+        deepracing_launch_dir = ament_index_python.get_package_share_directory("deepracing_launch")
+        searchdirs.append(os.path.join(deepracing_launch_dir, "maps"))
+    except ImportError:
+        pass
+    except ament_index_python.PackageNotFoundError:
+        pass
+
+    for dset in dsets:
+        current_track = dset.metadata["trackname"]
+        dsetconfigs.append(dset.metadata.copy())
         if not (current_track in track_dict.keys()):
             with_z = False
             trackmap = deepracing.searchForTrackmap(current_track, searchdirs)
@@ -123,10 +150,6 @@ def test(**kwargs):
                     ], axis=0
                     ), 
             dtype=firstparam.dtype, device=device)
-
-        dsetconfigs.append(dsetconfig)
-        direct_load = True
-        dsets.append(FD.TrajectoryPredictionDataset(metadatafile, SubsetFlag.VAL, direct_load, dtype=torch.float64))
     numsamples_prediction = dsetconfigs[0]["numsamples_prediction"]
     prediction_totaltime = dsetconfigs[0]["predictiontime"]
 
@@ -170,11 +193,6 @@ def test(**kwargs):
         current_orientations_full = datadict["current_orientation"]
 
         rotations = Rotation.from_quat(current_orientations_full.detach().cpu().numpy())
-
-
-
-
-
 
         left_bound_input = datadict["left_bd"][:,:,[0,1]]
         right_bound_input = datadict["right_bd"][:,:,[0,1]]
