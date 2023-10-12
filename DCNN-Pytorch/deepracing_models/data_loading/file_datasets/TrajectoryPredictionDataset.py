@@ -6,53 +6,56 @@ import numpy as np, numpy.lib.npyio as npio
 import deepracing_models
 import deepracing_models.math_utils
 import deepracing_models.data_loading
+import deepracing_models.data_loading.utils.mtr_utils as mtr_utils
 from tqdm import tqdm
 import torch.jit
 import os
 import yaml
 import io
 from multiprocessing.shared_memory import SharedMemory
+import scipy.interpolate
 
-KEYS_WE_CARE_ABOUT : set = {
-    "hist",
-    "hist_quats",
-    "hist_vel",
-    "hist_spline_der",
-    "fut",
-    "fut_quats",
-    "fut_tangents",
-    "fut_vel",
-    "fut_spline_der",
-    "fut_speed",
-    "future_arclength",
-    "future_arclength_2d",
-    "left_bd",
-    "left_bd_tangents",
-    "right_bd",
-    "right_bd_tangents",
-
-    "future_left_bd",
-    "future_left_bd_tangents",
-    
-    "future_right_bd",
-    "future_right_bd_tangents",
-    
-    "future_centerline",
-    "future_centerline_tangents",
-
-    "future_raceline",
-    "future_raceline_tangents",
-    
-    "future_left_bd_arclength",
-    "future_right_bd_arclength",
-    "future_centerline_arclength",
-    "future_raceline_arclength",
-    "thistory",
-    "tfuture",
-    "current_position",
-    "current_orientation" 
-}
 class TrajectoryPredictionDataset(torch.utils.data.Dataset):
+    KEYS_WE_CARE_ABOUT : set = {
+        "hist",
+        "hist_quats",
+        "hist_vel",
+        "hist_spline_der",
+        "fut",
+        "fut_quats",
+        "fut_tangents",
+        "fut_vel",
+        "fut_spline_der",
+        "fut_speed",
+        "future_arclength",
+        "future_arclength_2d",
+        
+        "left_bd",
+        "left_bd_tangents",
+        "right_bd",
+        "right_bd_tangents",
+
+        "future_left_bd",
+        "future_left_bd_tangents",
+        
+        "future_right_bd",
+        "future_right_bd_tangents",
+        
+        "future_centerline",
+        "future_centerline_tangents",
+
+        "future_raceline",
+        "future_raceline_tangents",
+        
+        "future_left_bd_arclength",
+        "future_right_bd_arclength",
+        "future_centerline_arclength",
+        "future_raceline_arclength",
+        "thistory",
+        "tfuture",
+        "current_position",
+        "current_orientation" 
+    }
     def __init__(self):
         self.len : int = 0
         self.metadata : dict = dict()
@@ -61,10 +64,12 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
         self.directory : str = None
         self.reference_curves : np.ndarray | None = None
         self.shared_mem_buffers = []
+        self.mtr_polyline_config : dict | None = None
     @staticmethod
     def from_shared_memory(shared_memory_blocks : dict[str,tuple[str, list]], 
                            metadata : dict,
-                           subset_flag : deepracing_models.data_loading.SubsetFlag,
+                           subset_flag : deepracing_models.data_loading.SubsetFlag, 
+                           keys=KEYS_WE_CARE_ABOUT,
                            dtype : np.dtype = np.float64) -> 'TrajectoryPredictionDataset':
         rtn : TrajectoryPredictionDataset = TrajectoryPredictionDataset()
         rtn.subset_flag = subset_flag
@@ -79,7 +84,7 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
             rtn.len = rtn.metadata["num_samples"]
         else:
             raise ValueError("Invalid subset_flag: %d" % (subset_flag,))
-        for k in KEYS_WE_CARE_ABOUT:
+        for k in keys:
             name, shape = shared_memory_blocks[k]
             if not (shape[0]==rtn.len):
                 raise ValueError("metadata indicates length %d, but shared memory block has first dimension %d" % (rtn.len, shape[0]))
@@ -94,7 +99,8 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
             rtn.reference_curves = np.frombuffer(buffer=shared_mem.buf, dtype=dtype).reshape(shape)
         return rtn
     @staticmethod
-    def from_file(metadatafile : str, subset_flag : deepracing_models.data_loading.SubsetFlag, dtype=np.float64) -> 'TrajectoryPredictionDataset':
+    def from_file(metadatafile : str, subset_flag : deepracing_models.data_loading.SubsetFlag, keys=KEYS_WE_CARE_ABOUT, dtype=np.float64) -> 'TrajectoryPredictionDataset':
+        print("Loading data for %s" % (metadatafile,))
         rtn : TrajectoryPredictionDataset = TrajectoryPredictionDataset()
         rtn.subset_flag = subset_flag
         with open(metadatafile, "r") as f:
@@ -116,12 +122,34 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
             raise ValueError("Invalid subset_flag: %d" % (subset_flag,))
         with open(npfile, "rb") as f:
             npdict : npio.NpzFile = np.load(f)
-            for k in KEYS_WE_CARE_ABOUT:
-                arr : np.ndarray = npdict[k]
+            # print(list(npdict.keys()))
+            for k in keys:
+                try:
+                    arr : np.ndarray = npdict[k]
+                except KeyError as e:
+                    if k in {"left_bd_tangents", "right_bd_tangents"}:
+                        continue
+                    else:
+                        raise e
                 if not arr.shape[0] == rtn.len:
                     raise ValueError("Data key %s has length %d not consistent with metadata length %d" % (k, arr.shape[0], rtn.len))
                 rtn.data_dict[k] = arr.copy().astype(dtype)
+        if ("left_bd_tangents" in keys) and not ("left_bd_tangents" in rtn.data_dict.keys()):
+            rtn.compute_tangents("left_bd", "left_bd_tangents")
+        if ("right_bd_tangents" in keys) and not ("right_bd_tangents" in rtn.data_dict.keys()):
+            rtn.compute_tangents("right_bd", "right_bd_tangents")
         return rtn
+    def compute_tangents(self, key : str, key_out : str):
+        print("Computing tangents for key: %s" % (key,))
+        points : np.ndarray = self.data_dict[key]
+        self.data_dict[key_out] = np.zeros_like(points)
+        for idx in range(points.shape[0]):
+            current_points = points[idx]
+            euclidean_deltas = np.zeros_like(current_points[:,0])
+            euclidean_deltas[1:]=np.cumsum(np.linalg.norm(current_points[1:] - current_points[:-1], ord=2.0, axis=1))
+            spl : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(euclidean_deltas, current_points, bc_type="natural")
+            current_tangents = spl(euclidean_deltas, nu=1)
+            self.data_dict[key_out][idx] = (current_tangents/np.linalg.norm(current_tangents, ord=2.0, axis=1, keepdims=True))[:]
     def fit_bezier_curves(self, kbezier : int, device=torch.device("cpu"), cache=False):    
         cachefile = os.path.join(self.directory, "bcurve_order_%d.npz" % (kbezier,))
         if cache and os.path.isfile(cachefile):
@@ -174,12 +202,12 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
             )
         all_curves_numpy : np.ndarray = \
             all_curves_flat.reshape(-1, 4, kbezier+1, all_lines.shape[-1]).cpu().numpy().astype(self.data_dict["future_left_bd_arclength"].dtype)
-        npdict = {
-            "left" : all_curves_numpy[:,0],
-            "right" : all_curves_numpy[:,1],
-            "center" : all_curves_numpy[:,2],
-            "race" : all_curves_numpy[:,3]
-        }
+        # npdict = {
+        #     "left" : all_curves_numpy[:,0],
+        #     "right" : all_curves_numpy[:,1],
+        #     "center" : all_curves_numpy[:,2],
+        #     "race" : all_curves_numpy[:,3]
+        # }
         # with open(cachefile, "wb") as f:
         #     np.savez_compressed(f, **npdict)
         self.reference_curves = all_curves_numpy.copy()
@@ -188,9 +216,13 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
     def __len__(self):
         return self.len
     def __getitem__(self, index):
-        datadict = {k : self.data_dict[k][index] for k in KEYS_WE_CARE_ABOUT}
+        datadict = {k : self.data_dict[k][index] for k in self.data_dict.keys()}
         datadict["trackname"] = self.metadata["trackname"]
         if self.reference_curves is not None:
             datadict["reference_curves"] = self.reference_curves[index]
-        return datadict
+        if self.mtr_polyline_config is not None:
+            scene_id = "%s_%d" % (self.directory, index)
+            return mtr_utils.deepracing_to_mtr(datadict, scene_id, self.mtr_polyline_config)
+        else:
+            return datadict
         

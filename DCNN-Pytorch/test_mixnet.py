@@ -55,7 +55,7 @@ def test(**kwargs):
     trainer_config_str = str(api_experiment.get_asset(trainer_config_asset["assetId"]), encoding="ascii")
     trainerconfig = json.loads(trainer_config_str)
     trainerconfig["data"]["path"] = \
-        "/p/DeepRacing/unpacked_datasets/v1/online_multiplayer/deepracing_standard"
+        "/p/DeepRacing/unpacked_datasets/aligned_to_ego/v2/deepracing_standard"
 
     net_config_str = str(api_experiment.get_asset(net_config_asset["assetId"]), encoding="ascii")
     netconfig = json.loads(net_config_str)
@@ -188,6 +188,7 @@ def test(**kwargs):
     
     history_array : np.ndarray = np.zeros([num_samples, numsamples_history, 3], dtype=np.float64)
     prediction_array : np.ndarray = np.zeros([num_samples, numsamples_prediction, 3], dtype=np.float64)
+    ground_truth_array : np.ndarray = np.zeros_like(prediction_array)
     future_left_bd_array : np.ndarray = np.zeros([num_samples, numsamples_prediction, 3], dtype=np.float64)
     future_right_bd_array : np.ndarray = np.zeros([num_samples, numsamples_prediction, 3], dtype=np.float64)
     for (idx, dict_) in tq:
@@ -282,6 +283,7 @@ def test(**kwargs):
             position_predicted_local = torch.matmul(to_local_rotmats, position_predicted_global.unsqueeze(-1)).squeeze(-1)
             position_predicted_local += to_local_translations#[:,:,None]
 
+            ground_truth_array[idx,:] = position_history[0].cpu().numpy()[:]
             history_array[idx,:] = position_history[0].cpu().numpy()[:]
             prediction_array[idx,:] = position_predicted_local[0].cpu().numpy()[:]
 
@@ -334,7 +336,7 @@ def test(**kwargs):
     lateral_error_array = torch.as_tensor(lateral_error_list, dtype=torch.float64)
     longitudinal_error_array = torch.as_tensor(longitudinal_error_list, dtype=torch.float64)
     ade_array = torch.as_tensor(ade_list, dtype=torch.float64)
-    results_dir = argdict["resultsdir"]
+    results_dir = os.path.join(argdict["resultsdir"], experiment)
     if os.path.isdir(results_dir):
         shutil.rmtree(results_dir)
     os.makedirs(results_dir)

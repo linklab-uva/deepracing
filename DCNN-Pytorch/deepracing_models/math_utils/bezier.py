@@ -51,11 +51,11 @@ def compositeBezierAntiderivative(control_points : torch.Tensor, delta_t : torch
     return ((delta_t_onebatchdim[:,:,None,None]*antiderivative_onebatchdim).view(shapeout))/kbezier_out
 
 def compositeBezierFit(points : torch.Tensor, t : torch.Tensor, numsegments : int, 
-                       kbezier : int = 3, dYdT_0 : torch.Tensor | None = None, dYdT_f : torch.Tensor | None = None):
+                       kbezier : int = 3, dYdT_0 : torch.Tensor | None = None, dYdT_f : torch.Tensor | None = None) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     dtype = points.dtype
     device = points.device
-    if not t[0]==0.0:
-        raise ValueError("t must be start at 0.0")
+    # if not t[0]==0.0:
+    #     raise ValueError("t must be start at 0.0")
     if not torch.all((t[1:] - t[:-1])>0.0):
         raise ValueError("t must be monotonically increasing")
     tsamp = torch.as_tensor(t, dtype=dtype, device=device)

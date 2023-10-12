@@ -4,6 +4,7 @@ import comet_ml
 import deepracing_models.math_utils.bezier, deepracing_models.math_utils
 from deepracing_models.nn_models.trajectory_prediction import BezierMixNet
 from deepracing_models.data_loading import file_datasets as FD, SubsetFlag 
+from deepracing_models.data_loading.utils.file_utils import load_datasets_from_files, load_datasets_from_shared_memory
 import torch, torch.optim, torch.nn.functional as F
 from torch.optim.lr_scheduler import ExponentialLR
 import torch.utils.data as torchdata
@@ -29,34 +30,6 @@ from threading import Semaphore, ThreadError
 def errorcb(exception):
     for elem in traceback.format_exception(exception):
         print(elem, flush=True, file=sys.stderr)
-
-def load_datasets_from_shared_memory(
-        shared_memory_locations : list[ tuple[ dict[str, tuple[str, list]], dict ]  ],
-        dtype : np.dtype
-    ):
-    dsets : list[FD.TrajectoryPredictionDataset] = []
-    for shm_dict, metadata_dict in shared_memory_locations:
-        dsets.append(FD.TrajectoryPredictionDataset.from_shared_memory(shm_dict, metadata_dict, SubsetFlag.TRAIN, dtype=dtype))
-    return dsets
-
-def load_datasets_from_files(search_dir : str, kbezier : int, bcurve_cache = False, dtype=np.float32):
-    dsetfiles = glob.glob(os.path.join(search_dir, "**", "metadata.yaml"), recursive=True)
-    dsets : list[FD.TrajectoryPredictionDataset] = []
-    dsetconfigs = []
-    numsamples_prediction = None
-    for metadatafile in dsetfiles:
-        with open(metadatafile, "r") as f:
-            dsetconfig = yaml.load(f, Loader=yaml.SafeLoader)
-        if numsamples_prediction is None:
-            numsamples_prediction = dsetconfig["numsamples_prediction"]
-        elif numsamples_prediction!=dsetconfig["numsamples_prediction"]:
-            raise ValueError("All datasets must have the same number of prediction points. " + \
-                            "Dataset at %s has prediction length %d, but previous dataset " + \
-                            "has prediction length %d" % (metadatafile, dsetconfig["numsamples_prediction"], numsamples_prediction))
-        dsetconfigs.append(dsetconfig)
-        dsets.append(FD.TrajectoryPredictionDataset.from_file(metadatafile, SubsetFlag.TRAIN, dtype=dtype))
-        dsets[-1].fit_bezier_curves(kbezier, cache=bcurve_cache)
-    return dsets
 
 def train(allconfig : dict[str,dict] = None,
             tempdir : str = None,
@@ -114,7 +87,7 @@ def train(allconfig : dict[str,dict] = None,
     
     if shared_memory_keys is None:
         search_dir : str = dataconfig["dir"]
-        datasets = load_datasets_from_files(search_dir, kbezier, dtype=np.float32)
+        datasets = load_datasets_from_files(search_dir, kbezier = kbezier, dtype=np.float64)
     else:
         if dtype is None:
             raise ValueError("If shared memory is specified, dtype must also be specified")
@@ -219,7 +192,7 @@ def train(allconfig : dict[str,dict] = None,
                 else:
                     quat_select = quat_history[:,:,[2,3]]
                     quat_select = quat_select/torch.norm(quat_select, p=2.0, dim=-1, keepdim=True)
-                realparts = quat_select[:,-1]
+                realparts = quat_select[:,:,-1]
                 quat_select[realparts<0.0]*=-1.0
                 state_input = torch.cat([state_input, quat_select], dim=-1)
 
@@ -298,7 +271,6 @@ def train(allconfig : dict[str,dict] = None,
             mcp_deltar : torch.Tensor = deepracing_models.math_utils.bezierArcLength(mixed_control_points, num_segments = 10)
 
             known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2,coordinate_idx])
-            # known_control_points[:,1] = (delta_r_gt[:,None]/kbezier)*tangent_future[:,0,coordinate_idx]
             known_control_points[:,1] = (mcp_deltar[:,None]/kbezier)*tangent_future[:,0,coordinate_idx]
             predicted_bcurve = torch.cat([known_control_points, mixed_control_points[:,2:]], dim=1) 
 
@@ -310,6 +282,9 @@ def train(allconfig : dict[str,dict] = None,
             Mbezier_gt = deepracing_models.math_utils.bezierM(arclengths_gt_s, kbezier)
 
             # arclengths_pred_s = (arclengths_pred/delta_r_gt[:,None]).clamp(min=0.0, max=1.0)
+            arclengths_deltar = arclengths_pred[:,-1]
+            idx_clip = arclengths_deltar>pred_deltar
+            arclengths_pred[idx_clip]*=(pred_deltar[idx_clip]/arclengths_deltar[idx_clip])[:,None]
             arclengths_pred_s = (arclengths_pred/pred_deltar[:,None]).clamp(min=0.0, max=1.0)
             Marclengths_pred : torch.Tensor = deepracing_models.math_utils.bezierM(arclengths_pred_s, kbezier)
 

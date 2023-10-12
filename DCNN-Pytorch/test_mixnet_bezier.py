@@ -1,8 +1,10 @@
 import argparse
+import shutil
 import comet_ml
 import deepracing_models.math_utils.bezier, deepracing_models.math_utils
-from deepracing_models.nn_models.TrajectoryPrediction import BezierMixNet
+from deepracing_models.nn_models.trajectory_prediction.lstm_based import BezierMixNet
 from deepracing_models.data_loading import file_datasets as FD, SubsetFlag 
+from deepracing_models.data_loading.utils.file_utils import load_datasets_from_files 
 import torch.utils.data as torchdata
 import yaml
 import os
@@ -18,6 +20,7 @@ import traceback
 import sys
 from datetime import datetime
 import torch
+from pathlib import Path
 
 def assetkey(asset : dict):
     return asset["step"]
@@ -61,43 +64,31 @@ def test(**kwargs):
             f.write(net_asset)
     netconfig = config["net"]
     netconfig["gpu_index"]=gpu_index
-    device = torch.device("cuda:%d" % (config["net"]["gpu_index"],))
     net : BezierMixNet = BezierMixNet(config["net"]).double().eval()
+    firstparam = next(net.parameters())
+    dtype = firstparam.dtype
+    device = firstparam.device
     with open(net_file, "rb") as f:
         state_dict = torch.load(f, map_location=device)
     net.load_state_dict(state_dict)
-    firstparam = next(net.parameters())
-    dtype = firstparam.dtype
     data_config = config["data"]
-    datadir = data_config["dir"]
-    dsetfiles = glob.glob(os.path.join(datadir, "**", "metadata.yaml"), recursive=True)
+    datadir = Path(data_config["dir"])
+    # datadir = datadir / "Monza_7_6_2023_16_23_11_trajectory_data" / "car_2"
     numsamples_prediction = None
     trainerconfig = config["trainer"]
     kbezier = trainerconfig["kbezier"]
     num_accel_sections : int = netconfig["acc_decoder"]["num_acc_sections"]
     dsetconfigs : list[dict] = []
-    dsets : list[FD.TrajectoryPredictionDataset] = []
-    for metadatafile in dsetfiles[:]:
-        with open(metadatafile, "r") as f:
-            dsetconfig = yaml.load(f, Loader=yaml.SafeLoader)
-        if numsamples_prediction is None:
-            numsamples_prediction = dsetconfig["numsamples_prediction"]
-        elif numsamples_prediction!=dsetconfig["numsamples_prediction"]:
-            raise ValueError("All datasets must have the same number of prediction points. " + \
-                            "Dataset at %s has prediction length %d, but previous dataset " + \
-                            "has prediction length %d" % (metadatafile, dsetconfig["numsamples_prediction"], numsamples_prediction))
-        dsetconfigs.append(dsetconfig)
-        direct_load = True
-        dsets.append(FD.TrajectoryPredictionDataset(metadatafile, SubsetFlag.VAL, direct_load, dtype=torch.float64))
-        bcurve_cache = False
-        dsets[-1].fit_bezier_curves(kbezier, built_in_lstq=True, cache=bcurve_cache)
+    dsets : list[FD.TrajectoryPredictionDataset] = load_datasets_from_files(datadir, kbezier=kbezier)
+    dsetconfigs = [dset.metadata for dset in dsets]
+    numsamples_history = dsetconfigs[0]["numsamples_history"]
     numsamples_prediction = dsetconfigs[0]["numsamples_prediction"]
     prediction_totaltime = dsetconfigs[0]["predictiontime"]
 
     tsamp = torch.linspace(0.0, prediction_totaltime, dtype=dtype, device=device, steps=numsamples_prediction)
     tswitchingpoints = torch.linspace(0.0, prediction_totaltime, dtype=dtype, device=device, steps=num_accel_sections+1)
     dt = tswitchingpoints[1:] - tswitchingpoints[:-1]
-    kbeziervel = 3
+    kbeziervel = netconfig["acc_decoder"]["kbeziervel"]
 
 
     concat_set = torchdata.ConcatDataset(dsets)
@@ -108,10 +99,19 @@ def test(**kwargs):
     ade_list = []
     lateral_error_list = []
     longitudinal_error_list = []
+    history_array : np.ndarray = np.zeros([num_samples, numsamples_history, 3])
+    prediction_array : np.ndarray = np.zeros([num_samples, numsamples_prediction, 3])
+    ground_truth_array : np.ndarray = np.zeros_like(prediction_array)
+    coordinate_idx_history = [0,1]
+    input_embedding = netconfig["input_embedding"]
+    boundary_embedding = netconfig["boundary_embedding"]
+    idx = 0
     for (i, dict_) in tq:
         datadict : dict[str,torch.Tensor] = dict_
 
         position_history = datadict["hist"]
+        vel_history = datadict["hist_vel"]
+
         position_future = datadict["fut"]
         tangent_future = datadict["fut_tangents"]
         speed_future = datadict["fut_speed"]
@@ -122,11 +122,10 @@ def test(**kwargs):
 
         bcurves_r = datadict["reference_curves"]
 
+        vel_history = vel_history.cuda(gpu_index).type(dtype)
         position_history = position_history.cuda(gpu_index).type(dtype)
         position_future = position_future.cuda(gpu_index).type(dtype)
         speed_future = speed_future.cuda(gpu_index).type(dtype)
-        left_bound_input = left_bound_input.cuda(gpu_index).type(dtype)
-        right_bound_input = right_bound_input.cuda(gpu_index).type(dtype)
         future_arclength = future_arclength.cuda(gpu_index).type(dtype)
         bcurves_r = bcurves_r.cuda(gpu_index).type(dtype)
         tangent_future = tangent_future.cuda(gpu_index).type(dtype)
@@ -134,8 +133,35 @@ def test(**kwargs):
         currentbatchsize = int(position_history.shape[0])
         with torch.no_grad():
 
+            state_input = position_history[:,:,[0,1]]
+            if input_embedding["velocity"]:
+                state_input = torch.cat([state_input, vel_history[:,:,[0,1]]], dim=-1)
+            if input_embedding["quaternion"]:
+                quat_history = datadict["hist_quats"].cuda(gpu_index).type(dtype)
+                if state_input.shape[-1]==3:
+                    quat_select = quat_history
+                else:
+                    quat_select = quat_history[:,:,[2,3]]
+                    quat_select = quat_select/torch.norm(quat_select, p=2.0, dim=-1, keepdim=True)
+                realparts = quat_select[:,:,-1]
+                quat_select[realparts<0.0]*=-1.0
+                state_input = torch.cat([state_input, quat_select], dim=-1)
+
+            left_bound_input = datadict["left_bd"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
+            right_bound_input = datadict["right_bd"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
+            if boundary_embedding["tangent"]:
+
+                left_bound_tangents = datadict["left_bd_tangents"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
+                left_bound_tangents = left_bound_tangents/torch.norm(left_bound_tangents, p=2.0, dim=-1, keepdim=True)
+
+                right_bound_tangents = datadict["right_bd_tangents"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
+                right_bound_tangents = right_bound_tangents/torch.norm(right_bound_tangents, p=2.0, dim=-1, keepdim=True)
+
+                left_bound_input = torch.cat([left_bound_input, left_bound_tangents], dim=-1)
+                right_bound_input = torch.cat([right_bound_input, right_bound_tangents], dim=-1)
+
             # print(tangent_future[:,0])
-            (mix_out_, acc_out_) = net(position_history[:,:,[0,1]], left_bound_input[:,:,[0,1]], right_bound_input[:,:,[0,1]])
+            (mix_out_, acc_out_) = net(state_input, left_bound_input, right_bound_input)
             one = torch.ones_like(speed_future[0,0])
             mix_out = torch.clamp(mix_out_, -0.5*one, 1.5*one)
             # + speed_future[:,0].unsqueeze(-1)
@@ -145,14 +171,27 @@ def test(**kwargs):
 
             coefs_inferred = torch.zeros(currentbatchsize, num_accel_sections, kbeziervel+1, dtype=acc_out.dtype, device=acc_out.device)
             coefs_inferred[:,0,0] = speed_future[:,0]
-            coefs_inferred[:,0,[1,2]] = acc_out[:,[0,1]]
-            coefs_inferred[:,1:,1] = acc_out[:,2:-1]
-            coefs_inferred[:,-1,-1] = acc_out[:,-1]
-            for j in range(coefs_inferred.shape[1]-1):
-                coefs_inferred[:, j,-1] = coefs_inferred[:, j+1,0] = \
-                    0.5*(coefs_inferred[:, j,-2] + coefs_inferred[:, j+1,1])
-                if kbeziervel>2:
-                    coefs_inferred[:, j+1,-2] = 2.0*coefs_inferred[:, j+1,1] - 2.0*coefs_inferred[:, j, -2] + coefs_inferred[:, j, -3]
+            if kbeziervel == 3:
+                setter_idx = [True, True, True, False]
+                coefs_inferred[:,0,[1,2]] = acc_out[:,[0,1]]
+                coefs_inferred[:,1:,setter_idx] = acc_out[:,2:-1].view(coefs_inferred[:,1:,setter_idx].shape)
+                coefs_inferred[:,:-1,-1] = coefs_inferred[:,1:,0]   
+                coefs_inferred[:,-1,-1] = acc_out[:,-1] 
+            elif kbeziervel == 2:
+                setter_idx = [True, True, False]
+                coefs_inferred[:,0,1] = acc_out[:,0]
+                coefs_inferred[:,1:,setter_idx] = acc_out[:,1:-1].view(coefs_inferred[:,1:,setter_idx].shape)
+                coefs_inferred[:,:-1,-1] = coefs_inferred[:,1:,0]   
+                coefs_inferred[:,-1,-1] = acc_out[:,-1] 
+            elif kbeziervel == 1:
+                setter_idx = [True, False]
+                coefs_inferred[:,1:,setter_idx] = acc_out[:,0:-1].view(coefs_inferred[:,1:,setter_idx].shape)
+                coefs_inferred[:,:-1,-1] = coefs_inferred[:,1:,0]   
+                coefs_inferred[:,-1,-1] = acc_out[:,-1] 
+            else:
+                raise ValueError("Only order 1, 2, or 3 velocity segments are supported")
+            
+
             tstart_batch = tswitchingpoints[:-1].unsqueeze(0).expand(currentbatchsize, num_accel_sections)
             dt_batch = dt.unsqueeze(0).expand(currentbatchsize, num_accel_sections)
             teval_batch = tsamp.unsqueeze(0).expand(currentbatchsize, numsamples_prediction)
@@ -161,21 +200,34 @@ def test(**kwargs):
 
 
             coefs_antiderivative = deepracing_models.math_utils.compositeBezierAntiderivative(coefs_inferred.unsqueeze(-1), dt_batch)
-            arclengths_pred, _ = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
-            arclengths_pred_s = arclengths_pred/arclengths_pred[:,-1,None]
-            Marclengths_pred : torch.Tensor = deepracing_models.math_utils.bezierM(arclengths_pred_s, kbezier)
+
             mixed_control_points = torch.sum(bcurves_r[:,:,:,[0,1]]*mix_out[:,:,None,None], dim=1)
+            mcp_deltar : torch.Tensor = deepracing_models.math_utils.bezierArcLength(mixed_control_points, num_segments = 10)
+
 
             # delta_r : torch.Tensor = arclengths_pred[:,-1] - arclengths_pred[:,0]
             # delta_r : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
-            delta_r : torch.Tensor = deepracing_models.math_utils.bezierArcLength(mixed_control_points, quadrature_order=9)
+            # delta_r : torch.Tensor = deepracing_models.math_utils.bezierArcLength(mixed_control_points, quadrature_order=9)
 
 
             known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2,[0,1]])
             known_control_points[:,0] = position_future[:,0,[0,1]]
-            known_control_points[:,1] = known_control_points[:,0] + (delta_r[:,None]/kbezier)*tangent_future[:,0,[0,1]]
+            known_control_points[:,1] = (mcp_deltar[:,None]/kbezier)*tangent_future[:,0,[0,1]]
+            # known_control_points[:,1] = known_control_points[:,0] + (delta_r[:,None]/kbezier)*tangent_future[:,0,[0,1]]
 
             predicted_bcurve = torch.cat([known_control_points, mixed_control_points[:,2:]], dim=1) 
+            pred_deltar : torch.Tensor = deepracing_models.math_utils.bezierArcLength(predicted_bcurve, num_segments = 10)
+
+            arclengths_pred, _ = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
+
+            arclengths_deltar = arclengths_pred[:,-1]
+            idx_clip = arclengths_deltar>pred_deltar
+            arclengths_pred[idx_clip]*=(pred_deltar[idx_clip]/arclengths_deltar[idx_clip])[:,None]
+
+            arclengths_pred_s = arclengths_pred/arclengths_pred[:,-1,None]
+            Marclengths_pred : torch.Tensor = deepracing_models.math_utils.bezierM(arclengths_pred_s, kbezier)
+
+
 
             pointsout : torch.Tensor = torch.matmul(Marclengths_pred, predicted_bcurve)
             displacements : torch.Tensor = pointsout[:,:,[0,1]] - position_future[:,:,[0,1]]
@@ -194,7 +246,15 @@ def test(**kwargs):
 
             lateral_error_list+=torch.mean(lateral_errors, dim=1).cpu().numpy().tolist()
             longitudinal_error_list+=torch.mean(longitudinal_errors, dim=1).cpu().numpy().tolist()
+            current_batch_size = position_future.shape[0]
 
+            history_array[idx:idx+current_batch_size, :] = position_history.cpu().numpy()[:]
+            ground_truth_array[idx:idx+current_batch_size, :] = position_future.cpu().numpy()[:]
+
+            dim_prediction = pointsout.shape[-1]
+            prediction_array[idx:idx+current_batch_size, :, :dim_prediction] = pointsout.cpu().numpy()[:]
+            
+            idx+=current_batch_size
 
             ade : torch.Tensor = torch.mean(displacement_norms, dim=-1)
             ade_list+=ade.cpu().numpy().tolist()
@@ -206,13 +266,31 @@ def test(**kwargs):
     print("mean lateral error: %f" % (torch.mean(lateral_error_array).item(),))
     print("mean longitudinal error: %f" % (torch.mean(longitudinal_error_array).item(),))
 
+    results_dir = argdict["resultsdir"]
+    if os.path.isdir(results_dir):
+        shutil.rmtree(results_dir)
+    os.makedirs(results_dir)
+
+    with open(os.path.join(results_dir, "data.npz"), "wb") as f:
+        np.savez(f, {
+            "history" : history_array,
+            "ground_truth" : prediction_array,
+            "predictions" : ground_truth_array,
+            "lateral_error" : lateral_error_array.cpu().numpy(),
+            "longitudinal_error" : longitudinal_error_array.cpu().numpy(),
+            "ade" : ade_array.cpu().numpy()
+        })
+
+
+
 
 
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description="Test Bezier version of MixNet")
     parser.add_argument("--experiment", type=str, required=True, help="Which comet experiment to load")
-    parser.add_argument("--tempdir", type=str, default="/bigtemp/ttw2xk/mixnet_bezier_dump", help="Temporary directory to save model files after downloading from comet.")
+    parser.add_argument("--tempdir", type=str, default="/bigtemp/ttw2xk/mixnet_bezier_dump", help="Where temp space?!?!!?.")
+    parser.add_argument("--resultsdir", type=str, default="/p/DeepRacing/mixnet_bezier_results", help="Where put results?!?!??!")
     parser.add_argument("--workers", type=int, default=0, help="How many threads for data loading")
     parser.add_argument("--gpu", type=int, default=0, help="which gpu")
     args = parser.parse_args()

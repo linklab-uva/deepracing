@@ -13,13 +13,13 @@
         learning_rate: 5E-4,
         momentum: 0.0,
         nesterov: False,
-        gpu_index: 3,
+        gpu_index: 0,
         betas: [0.99, 0.9999], 
         eps: 1E-8,
         weight_decay: 0.0,
         epochs: 200,
         batch_size: 256,
-        kbezier: 9,
+        kbezier: 7,
         ade_loss : False
     },
     net:
@@ -29,6 +29,7 @@
         {
             velocity : True,
             quaternion : True,
+            heading_angle : False,
             hidden_layers : [
                 128,
                 256,
@@ -43,8 +44,8 @@
             hidden_layers : [
                 128,
                 256,
-                512,
-                512
+                256,
+                256
             ]
         },
 
@@ -65,9 +66,9 @@
         acc_decoder: {
             hidden_size: 512,
             in_size: 256,    
-            num_acc_sections: 30,
+            num_acc_sections: 60,
             max_acc: 90.0,
-            kbeziervel : 2,
+            kbeziervel : 1,
             embedder_layers: [
                 256,
                 256,
@@ -75,10 +76,10 @@
                 256
             ],
             output_layers : [
-                256,
-                256,
-                256,
-                256
+                512,
+                512,
+                512,
+                512
             ],
             final_layer_tanh : False,
         }

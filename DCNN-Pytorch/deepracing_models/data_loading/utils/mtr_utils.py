@@ -229,9 +229,15 @@ def create_agent_data_for_center_objects(
         track_index_to_predict_new, sdc_track_index_new, obj_types, obj_ids)
 
 from scipy.spatial.transform import Rotation
-def deepracing_to_mtr(drsample : dict[str,np.ndarray], scene_id : str, polyline_config : dict, dtype=np.float32):
+def deepracing_to_mtr(drsample : dict[str, np.ndarray | torch.Tensor], scene_id : str, polyline_config : dict):
 
-    current_position : np.ndarray = drsample["current_position"].astype(dtype)
+    current_position : np.ndarray | torch.Tensor = drsample["current_position"]
+    # if type(current_position) is torch.Tensor:
+    #     #This is a batch of tensors, probably out of a DataLoader
+    #     batchdim = current_position.shape[0]
+    #     rtndict : dict[str, torch.Tensor]
+    
+    
     yawonlymask = np.asarray([0.0, 0.0, 1.0, 1.0], dtype=current_position.dtype)
 
     current_quaternion : np.ndarray = drsample["current_orientation"]
