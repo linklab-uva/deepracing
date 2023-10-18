@@ -42,13 +42,14 @@ def compositeBezierAntiderivative(control_points : torch.Tensor, delta_t : torch
     control_points_onebatchdim = control_points.view(-1, numsplinesegments, kbezier_out, d)
     delta_t_onebatchdim = delta_t.view(-1, numsplinesegments)
     batchdim = control_points_onebatchdim.shape[0]
+
     antiderivative_onebatchdim = torch.zeros(batchdim, numsplinesegments, kbezier_out+1, d, dtype=control_points.dtype, device=control_points.device)
-    antiderivative_onebatchdim[:,0,1:] += torch.cumsum(control_points_onebatchdim[:,0], dim=1)
-    for seg in range(1, numsplinesegments):
-        antiderivative_onebatchdim[:, seg] = (antiderivative_onebatchdim[:, seg-1, -1])[:,:,None]
-        antiderivative_onebatchdim[:, seg, 1:] += torch.cumsum(control_points_onebatchdim[:,seg], dim=1)   
+    antiderivative_onebatchdim[:,0,1:] += delta_t_onebatchdim[:,0,None,None]*torch.cumsum(control_points_onebatchdim[:,0], dim=1)
+    for seg in range(1,numsplinesegments):
+        antiderivative_onebatchdim[:, seg] += (antiderivative_onebatchdim[:, seg-1, -1])[:,None]
+        antiderivative_onebatchdim[:, seg, 1:] += delta_t_onebatchdim[:,seg,None,None]*torch.cumsum(control_points_onebatchdim[:,seg], dim=1)   
     
-    return ((delta_t_onebatchdim[:,:,None,None]*antiderivative_onebatchdim).view(shapeout))/kbezier_out
+    return (antiderivative_onebatchdim).view(shapeout)/kbezier_out
 
 def compositeBezierFit(points : torch.Tensor, t : torch.Tensor, numsegments : int, 
                        kbezier : int = 3, dYdT_0 : torch.Tensor | None = None, dYdT_f : torch.Tensor | None = None) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
