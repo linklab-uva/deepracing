@@ -6,7 +6,12 @@ import deepracing_models.data_loading.file_datasets as FD
 from deepracing_models.data_loading import SubsetFlag
 
 
-def load_datasets_from_files(search_dir : str, keys = FD.TrajectoryPredictionDataset.KEYS_WE_CARE_ABOUT, kbezier : int | None = None, bcurve_cache = False, dtype=np.float64):
+def load_datasets_from_files(search_dir : str, 
+                             keys = FD.TrajectoryPredictionDataset.KEYS_WE_CARE_ABOUT, 
+                             kbezier : int | None = None, 
+                             bcurve_cache = False, 
+                             flag = SubsetFlag.TRAIN,
+                             dtype=np.float64):
     def sortkey(filepath : str):
         subfolder = os.path.dirname(filepath)
         bagfolder = os.path.dirname(subfolder)
@@ -29,7 +34,7 @@ def load_datasets_from_files(search_dir : str, keys = FD.TrajectoryPredictionDat
                             "Dataset at %s has prediction length %d, but previous dataset " + \
                             "has prediction length %d" % (metadatafile, dsetconfig["numsamples_prediction"], numsamples_prediction))
         dsetconfigs.append(dsetconfig)
-        dsets.append(FD.TrajectoryPredictionDataset.from_file(metadatafile, SubsetFlag.TRAIN, dtype=dtype, keys=keys))
+        dsets.append(FD.TrajectoryPredictionDataset.from_file(metadatafile, flag, dtype=dtype, keys=keys))
         if kbezier is not None:
             dsets[-1].fit_bezier_curves(kbezier, cache=bcurve_cache)
     return dsets
