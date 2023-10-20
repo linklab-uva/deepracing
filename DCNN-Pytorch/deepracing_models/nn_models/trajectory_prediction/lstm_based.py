@@ -20,6 +20,8 @@ class BezierMixNet(nn.Module):
             input_dimension+=2
         if input_embedding["quaternion"]:
             input_dimension+=2
+        if input_embedding["heading_angle"]:
+            input_dimension+=1
         input_hidden_layers = input_embedding.get("hidden_layers", None)
         if input_hidden_layers is None:
             self._inp_emb = torch.nn.Linear(input_dimension, params["encoder"]["in_size"])

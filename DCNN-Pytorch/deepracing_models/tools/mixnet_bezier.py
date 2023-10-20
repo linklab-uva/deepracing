@@ -82,6 +82,12 @@ def train(allconfig : dict[str,dict] = None,
         with open(config_copy, "w") as f:
             yaml.dump(allconfig, f, Dumper=yaml.SafeDumper)
         experiment.log_asset(config_copy, "config.yaml", copy_to_tmp=False)
+        import deepracing_models, deepracing
+        if deepracing_models.__file__ is not None:
+            experiment.log_code(folder=os.path.dirname(deepracing_models.__file__), overwrite=True)
+        if deepracing.__file__ is not None:
+            experiment.log_code(folder=os.path.dirname(deepracing.__file__), overwrite=True)
+
     else:
         os.mkdir(os.path.join(tempdir_full, "plots"))
     
@@ -185,16 +191,29 @@ def train(allconfig : dict[str,dict] = None,
             state_input = position_history
             if input_embedding["velocity"]:
                 state_input = torch.cat([state_input, vel_history], dim=-1)
-            if input_embedding["quaternion"]:
+            if input_embedding["quaternion"] or input_embedding["heading_angle"]:
+
                 quat_history = datadict["hist_quats"].cuda(gpu_index).type(dtype)
-                if coordinate_idx[-1]==2:
-                    quat_select = quat_history
-                else:
-                    quat_select = quat_history[:,:,[2,3]]
-                    quat_select = quat_select/torch.norm(quat_select, p=2.0, dim=-1, keepdim=True)
-                realparts = quat_select[:,:,-1]
-                quat_select[realparts<0.0]*=-1.0
-                state_input = torch.cat([state_input, quat_select], dim=-1)
+                realparts = quat_history[:,:,-1]
+                quat_history[realparts<0.0]*=-1.0
+                
+                quat_history_yaw_only = quat_history.clone()
+                quat_history_yaw_only[:,:,[0,1]] = 0.0
+                quat_history_yaw_only = quat_history_yaw_only/torch.norm(quat_history_yaw_only, p=2.0, dim=-1, keepdim=True)
+
+                if input_embedding["quaternion"]:
+                    if coordinate_idx[-1]==2:
+                        quat_select = quat_history
+                    else:
+                        quat_select = quat_history_yaw_only[:,:,[2,3]]
+                    state_input = torch.cat([state_input, quat_select], dim=-1)
+
+                if input_embedding["heading_angle"]:
+                    qz = quat_history_yaw_only[:,:,2]
+                    qw = quat_history_yaw_only[:,:,3]
+                    headings = 2.0*torch.atan2(qz,qw).unsqueeze(-1)
+                    state_input = torch.cat([state_input, headings], dim=-1)
+
 
             if coordinate_idx[-1]==2:
                 future_arclength = datadict["future_arclength"].cuda(gpu_index).type(dtype)
