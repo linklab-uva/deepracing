@@ -10,8 +10,91 @@
 
 import numpy as np
 import torch
+import scipy.interpolate
+from scipy.spatial.transform import Rotation, RotationSpline
 
+def merge_batch_by_padding_2nd_dim(tensor_list, return_pad_mask=False):
+    assert len(tensor_list[0].shape) in [3, 4]
+    only_3d_tensor = False
+    if len(tensor_list[0].shape) == 3:
+        tensor_list = [x.unsqueeze(dim=-1) for x in tensor_list]
+        only_3d_tensor = True
+    maxt_feat0 = max([x.shape[1] for x in tensor_list])
 
+    _, _, num_feat1, num_feat2 = tensor_list[0].shape
+
+    ret_tensor_list = []
+    ret_mask_list = []
+    for k in range(len(tensor_list)):
+        cur_tensor = tensor_list[k]
+        assert cur_tensor.shape[2] == num_feat1 and cur_tensor.shape[3] == num_feat2
+
+        new_tensor = cur_tensor.new_zeros(cur_tensor.shape[0], maxt_feat0, num_feat1, num_feat2)
+        new_tensor[:, :cur_tensor.shape[1], :, :] = cur_tensor
+        ret_tensor_list.append(new_tensor)
+
+        new_mask_tensor = cur_tensor.new_zeros(cur_tensor.shape[0], maxt_feat0)
+        new_mask_tensor[:, :cur_tensor.shape[1]] = 1
+        ret_mask_list.append(new_mask_tensor.bool())
+
+    ret_tensor = torch.cat(ret_tensor_list, dim=0)  # (num_stacked_samples, num_feat0_maxt, num_feat1, num_feat2)
+    ret_mask = torch.cat(ret_mask_list, dim=0)
+
+    if only_3d_tensor:
+        ret_tensor = ret_tensor.squeeze(dim=-1)
+
+    if return_pad_mask:
+        return ret_tensor, ret_mask
+    return ret_tensor
+
+def collate_batch(batch_list):
+    """
+    Args:
+    batch_list:
+        scenario_id: (num_center_objects)
+        track_index_to_predict (num_center_objects):
+
+        obj_trajs (num_center_objects, num_objects, num_timestamps, num_attrs):
+        obj_trajs_mask (num_center_objects, num_objects, num_timestamps):
+        map_polylines (num_center_objects, num_polylines, num_points_each_polyline, 9): [x, y, z, dir_x, dir_y, dir_z, global_type, pre_x, pre_y]
+        map_polylines_mask (num_center_objects, num_polylines, num_points_each_polyline)
+
+        obj_trajs_pos: (num_center_objects, num_objects, num_timestamps, 3)
+        obj_trajs_last_pos: (num_center_objects, num_objects, 3)
+        obj_types: (num_objects)
+        obj_ids: (num_objects)
+
+        center_objects_world: (num_center_objects, 10)  [cx, cy, cz, dx, dy, dz, heading, vel_x, vel_y, valid]
+        center_objects_type: (num_center_objects)
+        center_objects_id: (num_center_objects)
+
+        obj_trajs_future_state (num_center_objects, num_objects, num_future_timestamps, 4): [x, y, vx, vy]
+        obj_trajs_future_mask (num_center_objects, num_objects, num_future_timestamps):
+        center_gt_trajs (num_center_objects, num_future_timestamps, 4): [x, y, vx, vy]
+        center_gt_trajs_mask (num_center_objects, num_future_timestamps):
+        center_gt_final_valid_idx (num_center_objects): the final valid timestamp in num_future_timestamps
+    """
+    batch_size = len(batch_list)
+    key_to_list = {}
+    for key in batch_list[0].keys():
+        key_to_list[key] = [batch_list[bs_idx][key] for bs_idx in range(batch_size)]
+
+    input_dict = {}
+    for key, val_list in key_to_list.items():
+
+        if key in ['obj_trajs', 'obj_trajs_mask', 'map_polylines', 'map_polylines_mask', 'map_polylines_center',
+            'obj_trajs_pos', 'obj_trajs_last_pos', 'obj_trajs_future_state', 'obj_trajs_future_mask']:
+            val_list = [torch.from_numpy(x) for x in val_list]
+            input_dict[key] = merge_batch_by_padding_2nd_dim(val_list)
+        elif key in ['scenario_id', 'obj_types', 'obj_ids', 'center_objects_type', 'center_objects_id']:
+            input_dict[key] = np.concatenate(val_list, axis=0)
+        else:
+            val_list = [torch.from_numpy(x) for x in val_list]
+            input_dict[key] = torch.cat(val_list, dim=0)
+
+    batch_sample_count = [len(x['track_index_to_predict']) for x in batch_list]
+    batch_dict = {'batch_size': batch_size, 'input_dict': input_dict, 'batch_sample_count': batch_sample_count}
+    return batch_dict
 
 
 def generate_batch_polylines_from_map(polylines, point_sampled_interval=1, vector_break_dist_thresh=1.0, num_points_each_polyline=20):
@@ -126,7 +209,7 @@ def generate_centered_trajs_for_agents(obj_trajs_past, obj_types, sdc_index, tim
     # transform to cpu torch tensor
     # center_objects = torch.from_numpy(center_objects).float()
     obj_trajs_past = torch.from_numpy(obj_trajs_past).float()
-    timestamps = torch.from_numpy(timestamps)
+    timestamps = torch.from_numpy(timestamps).to(dtype=obj_trajs_past.dtype)
 
     #There will only be one agent, and will already by in local coordinates
     obj_trajs = obj_trajs_past.unsqueeze(1)
@@ -228,15 +311,9 @@ def create_agent_data_for_center_objects(
         obj_trajs_future_state, obj_trajs_future_mask, center_gt_trajs, center_gt_trajs_mask, center_gt_final_valid_idx,
         track_index_to_predict_new, sdc_track_index_new, obj_types, obj_ids)
 
-from scipy.spatial.transform import Rotation
 def deepracing_to_mtr(drsample : dict[str, np.ndarray | torch.Tensor], scene_id : str, polyline_config : dict):
 
-    current_position : np.ndarray | torch.Tensor = drsample["current_position"]
-    # if type(current_position) is torch.Tensor:
-    #     #This is a batch of tensors, probably out of a DataLoader
-    #     batchdim = current_position.shape[0]
-    #     rtndict : dict[str, torch.Tensor]
-    
+    current_position : np.ndarray | torch.Tensor = drsample["current_position"]   
     
     yawonlymask = np.asarray([0.0, 0.0, 1.0, 1.0], dtype=current_position.dtype)
 
@@ -244,37 +321,55 @@ def deepracing_to_mtr(drsample : dict[str, np.ndarray | torch.Tensor], scene_id 
     current_rotation : Rotation = Rotation.from_quat(current_quaternion)
     current_rotation_yawonly : Rotation = Rotation.from_quat(yawonlymask*current_quaternion)
     current_rotmat : np.ndarray = current_rotation.as_matrix()
-    # current_rotmat_inv : np.ndarray = current_rotmat.T
-    # current_position_inv : np.ndarray = -(current_rotmat_inv @ current_position)
 
-
-
+    thistory : np.ndarray = drsample["thistory"]
     history_points : np.ndarray = drsample["hist"]
     history_vels : np.ndarray = drsample["hist_vel"]
     history_quaternions_full : np.ndarray = drsample["hist_quats"]
-    history_quaternions_yawonly : np.ndarray = yawonlymask[None]*history_quaternions_full
-    history_quaternions_yawonly = history_quaternions_yawonly/np.linalg.norm(history_quaternions_yawonly, ord=2.0, axis=1, keepdims=True)
-    history_rotations : Rotation = Rotation.from_quat(history_quaternions_yawonly)
-    history_headings : np.ndarray = history_rotations.as_rotvec()[:,-1]
-    timestamps : np.ndarray = drsample["thistory"]
-    timestamps-=timestamps[-1]
+    history_quaternions : np.ndarray = history_quaternions_full.copy()
+    history_quaternions[:,[0,1]] = 0.0
 
+    tfuture : np.ndarray = drsample["tfuture"][1:]
     future_points : np.ndarray = drsample["fut"][1:]
     future_vels : np.ndarray = drsample["fut_vel"][1:]
     future_quaternions_full : np.ndarray = drsample["fut_quats"][1:]
-    future_rotations : Rotation = Rotation.from_quat(yawonlymask[None]*future_quaternions_full)
-    future_headings : np.ndarray = future_rotations.as_rotvec()[:,-1]
-    # future_timestamps : np.ndarray = drsample["tfuture"][1:]
+    future_quaternions : np.ndarray = future_quaternions_full.copy()
+    future_quaternions[:,[0,1]] = 0.0
 
+    all_timestamps : np.ndarray = np.concatenate([thistory, tfuture], axis=0)
+    all_points = np.concatenate([history_points, future_points], axis=0)
+    all_quats = np.concatenate([history_quaternions, future_quaternions], axis=0)
+    all_rots : Rotation = Rotation.from_quat(all_quats)
+    all_vels = np.concatenate([history_vels, future_vels], axis=0)
+    Vo = all_vels[0]
+    Vf = all_vels[-1]
+
+    bc_type=([(1, Vo)], [(1, Vf)])
+    current_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(all_timestamps, all_points, k=3, bc_type=bc_type)
+    current_vel_spline : scipy.interpolate.BSpline = scipy.interpolate.Akima1DInterpolator(all_timestamps, all_vels)
+    current_rot_spline : RotationSpline = RotationSpline(all_timestamps, all_rots)
+
+    tnow : float = float(thistory[-1])
+    tsamp_past : np.ndarray = np.linspace(-1.0, 0.0, num=11)
+    tsamp_future : np.ndarray = np.linspace(0.0, 3.0, num=81)[1:]
+    tsamp_waymo : np.ndarray = np.concatenate([tsamp_past, tsamp_future], axis=0) + tnow
+
+    points_waymo = current_spline(tsamp_waymo)
+    vels_waymo = current_vel_spline(tsamp_waymo)
+    rots_waymo : Rotation = current_rot_spline(tsamp_waymo)
+    headings_waymo = rots_waymo.as_rotvec()[:,2]
+
+    # timestamps-=timestamps[-1]
     lb_points : np.ndarray = drsample["left_bd"]
     rb_points : np.ndarray = drsample["right_bd"]
 
     lb_tangents : np.ndarray = drsample["left_bd_tangents"]
     rb_tangents : np.ndarray = drsample["right_bd_tangents"]
 
+
     num_objects = 1
-    num_timestamps = history_points.shape[0]
-    num_future_timestamps = future_points.shape[0]
+    num_timestamps = tsamp_past.shape[0]
+    num_future_timestamps = tsamp_future.shape[0]
     numstates = 10
 
     dx = 5.63
@@ -291,16 +386,16 @@ def deepracing_to_mtr(drsample : dict[str, np.ndarray | torch.Tensor], scene_id 
 
     obj_types : np.ndarray = np.asarray(["TYPE_VEHICLE"])
     obj_trajs_past : np.ndarray = np.ones((num_objects, num_timestamps, numstates), dtype=current_position.dtype)
-    obj_trajs_past[0, :, 0:3] = history_points
+    obj_trajs_past[0, :, 0:3] = points_waymo[:num_timestamps]
     obj_trajs_past[0, :, 3:6] = np.tile(dvec, num_timestamps).reshape([num_timestamps,3])
-    obj_trajs_past[0, :, 6] = history_headings
-    obj_trajs_past[0, :, 7:9] = history_vels[:,0:2]
+    obj_trajs_past[0, :, 6] = headings_waymo[:num_timestamps]
+    obj_trajs_past[0, :, 7:9] = vels_waymo[:num_timestamps,0:2]
 
     obj_trajs_future : np.ndarray = np.ones((num_objects, num_future_timestamps, numstates), dtype=current_position.dtype)
-    obj_trajs_future[0, :, 0:3] = future_points
+    obj_trajs_future[0, :, 0:3] = points_waymo[num_timestamps:]
     obj_trajs_future[0, :, 3:6] = np.tile(dvec, num_future_timestamps).reshape([num_future_timestamps,3])
-    obj_trajs_future[0, :, 6] = future_headings
-    obj_trajs_future[0, :, 7:9] = future_vels[:,0:2]
+    obj_trajs_future[0, :, 6] = headings_waymo[num_timestamps:]
+    obj_trajs_future[0, :, 7:9] = vels_waymo[num_timestamps:,0:2]
 
 
     sdc_index = sdc_track_index = 0
@@ -308,10 +403,11 @@ def deepracing_to_mtr(drsample : dict[str, np.ndarray | torch.Tensor], scene_id 
     obj_ids : np.ndarray = np.asarray([1,], dtype=track_index_to_predict.dtype)
     obj_trajs_full : np.ndarray = np.concatenate([obj_trajs_past, obj_trajs_future], axis=1)
 
+    tsamp_waymo-=tsamp_waymo[0]
     (obj_trajs_data, obj_trajs_mask, obj_trajs_pos, obj_trajs_last_pos, obj_trajs_future_state, obj_trajs_future_mask, center_gt_trajs,
                 center_gt_trajs_mask, center_gt_final_valid_idx,
                 track_index_to_predict_new, sdc_track_index_new, obj_types, obj_ids) = \
-                    create_agent_data_for_center_objects(obj_trajs_past, obj_trajs_future, track_index_to_predict, sdc_track_index, timestamps, obj_types, obj_ids)
+                    create_agent_data_for_center_objects(obj_trajs_past, obj_trajs_future, track_index_to_predict, sdc_track_index, tsamp_waymo[:num_timestamps], obj_types, obj_ids)
     ret_dict = {
         'scenario_id': np.array([scene_id] * len(track_index_to_predict)),
         'obj_trajs': obj_trajs_data,
