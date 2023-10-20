@@ -33,15 +33,19 @@ def closedPathAsBezierSpline(Y : torch.Tensor) -> Tuple[torch.Tensor, torch.Tens
 
 
 
-def compositeBezierAntiderivative(control_points : torch.Tensor, delta_t : torch.Tensor) -> torch.Tensor:
+def compositeBezierAntiderivative(control_points : torch.Tensor, delta_t : torch.Tensor | float) -> torch.Tensor:
     numsplinesegments : int = control_points.shape[-3]
     kbezier_out : int = control_points.shape[-2]
     d : int = control_points.shape[-1]
-    shapeout : list = list(control_points.shape)
+    shapeout : list[int] = list(control_points.shape)
     shapeout[-2]+=1
+
     control_points_onebatchdim = control_points.view(-1, numsplinesegments, kbezier_out, d)
-    delta_t_onebatchdim = delta_t.view(-1, numsplinesegments)
     batchdim = control_points_onebatchdim.shape[0]
+    if type(delta_t) is float:
+        delta_t_onebatchdim = delta_t*torch.ones([batchdim, numsplinesegments], dtype=control_points.dtype, device=control_points.device)
+    else:
+        delta_t_onebatchdim = delta_t.view(-1, numsplinesegments)
 
     antiderivative_onebatchdim = torch.zeros(batchdim, numsplinesegments, kbezier_out+1, d, dtype=control_points.dtype, device=control_points.device)
     antiderivative_onebatchdim[:,0,1:] += delta_t_onebatchdim[:,0,None,None]*torch.cumsum(control_points_onebatchdim[:,0], dim=1)
@@ -291,6 +295,67 @@ def compositeBezierSpline_with_boundary_conditions_(x : torch.Tensor, Y : torch.
         bezier_control_points[i,3] = Y[i+1]
     return bezier_control_points
 
+def first_order_constraints(Pfit : torch.Tensor, deltat : torch.Tensor, bc_type : torch.Tensor | str = "periodic", k=3):
+    num_segments = Pfit.shape[-2] - 1
+    kappa = 1.0/deltat
+    if not deltat.shape[-1]==num_segments:
+        raise ValueError("deltat must have shape (*, num_segments) Where num_segments is Pfit.shape[-2] - 1")
+    periodic = bc_type=="periodic"
+    d = Pfit.shape[-1]
+    if periodic:
+        num_constraints = num_segments
+        rhs : torch.Tensor = Pfit[1:].clone()
+        isegs = (np.arange(1, num_segments + 1, step=1, dtype=np.int64) % num_segments).tolist()
+    else:
+        num_constraints = num_segments + 1
+        rhs : torch.Tensor = torch.zeros([num_constraints, d], dtype=Pfit.dtype, device=Pfit.device)
+        rhs[:-2] = Pfit[1:-1].clone()
+        isegs = (np.arange(0, num_segments - 1, step=1, dtype=np.int64) + 1).tolist()
+
+    lhs : torch.Tensor = torch.zeros([num_constraints, num_segments, 2], dtype=Pfit.dtype, device=Pfit.device)
+    for (constraint_idx, point_idx) in enumerate(isegs):
+        kappasum = kappa[point_idx-1] + kappa[point_idx]
+        lhs[constraint_idx, point_idx-1, 1] = kappa[point_idx-1]/kappasum
+        lhs[constraint_idx, point_idx, 0] = kappa[point_idx]/kappasum
+
+    if not periodic:
+        V0 = bc_type[0]
+        lhs[-2, 0, 0] = kappa[0]
+        rhs[-2] = V0/k +  Pfit[0]*kappa[0]
+
+        Vf = bc_type[1]
+        lhs[-1, -1, 1] = -kappa[-1]
+        rhs[-1] = Vf/k - Pfit[-1]*kappa[-1]
+
+    return lhs.view(num_constraints, -1), rhs
+
+def second_order_constraints(Pfit : torch.Tensor, deltat : torch.Tensor, periodic = True, k=3):
+    num_segments = Pfit.shape[-2] - 1
+    kappa = 1.0/torch.square(deltat)
+    if not deltat.shape[-1]==num_segments:
+        raise ValueError("deltat must have shape (*, num_segments) Where num_segments is Pfit.shape[-2] - 1")
+    d = Pfit.shape[-1]
+    if periodic:
+        num_constraints = num_segments
+        isegs = np.arange(0, num_constraints, step=1, dtype=np.int64).tolist()
+        rhs : torch.Tensor = torch.zeros([num_constraints, d], dtype=Pfit.dtype, device=Pfit.device)
+        lhs : torch.Tensor = torch.zeros([num_constraints, num_segments, 2], dtype=Pfit.dtype, device=Pfit.device)
+    else:
+        num_constraints = num_segments - 1
+        isegs = np.arange(1, num_segments, step=1, dtype=np.int64).tolist()
+        rhs : torch.Tensor = torch.zeros([num_constraints, d], dtype=Pfit.dtype, device=Pfit.device)
+        lhs : torch.Tensor = torch.zeros([num_constraints, num_segments, 2], dtype=Pfit.dtype, device=Pfit.device)
+    for (constraint_idx, point_idx) in enumerate(isegs):
+        dkappa = kappa[point_idx] - kappa[point_idx-1]
+        rhs[constraint_idx] = dkappa*Pfit[constraint_idx]
+
+        lhs[constraint_idx, point_idx-1, 0] = kappa[point_idx-1]
+        lhs[constraint_idx, point_idx-1, 1] = -2.0*kappa[point_idx-1]
+
+        lhs[constraint_idx, point_idx, 0] = 2.0*kappa[point_idx]
+        lhs[constraint_idx, point_idx, 1] = -kappa[point_idx]
+        
+    return lhs.view(num_constraints, -1), rhs
 
 def compositeBezierSpline_periodic_(x : torch.Tensor, Y : torch.Tensor):
     k=3

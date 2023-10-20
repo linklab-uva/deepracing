@@ -47,8 +47,17 @@ class CompositeBezierCurve(torch.nn.Module):
         self.bezier_order : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor(self.control_points.shape[-2]-1, dtype=torch.int64), requires_grad=False)
 
 
-
-
+    @staticmethod
+    def from_file(filepath : str, dtype=torch.float64, device=torch.device("cpu")):
+        with open(filepath, "rb") as f:
+            statedict = torch.load(f, map_location=device)
+        control_points_shape = statedict["control_points"].shape
+        fake_x = torch.linspace(0.0, float(control_points_shape[0]+1), steps=control_points_shape[0]+1)
+        fake_control_points = torch.zeros(control_points_shape)
+        rtn : CompositeBezierCurve = CompositeBezierCurve(fake_x, fake_control_points).to(device=device, dtype=dtype)
+        rtn.load_state_dict(statedict)
+        return rtn
+    
     def forward(self, x_eval : torch.Tensor, idxbuckets : typing.Union[None,torch.Tensor] = None):
         x_true = (x_eval%self.xend_vec[-1]).view(1,-1)
         # if imin is None:
