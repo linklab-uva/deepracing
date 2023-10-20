@@ -295,24 +295,25 @@ def compositeBezierSpline_with_boundary_conditions_(x : torch.Tensor, Y : torch.
         bezier_control_points[i,3] = Y[i+1]
     return bezier_control_points
 
-def first_order_constraints(Pfit : torch.Tensor, deltat : torch.Tensor, bc_type : torch.Tensor | str = "periodic", k=3):
-    num_segments = Pfit.shape[-2] - 1
+def first_order_constraints(x : torch.Tensor, Y : torch.Tensor, bc_type : torch.Tensor | str = "periodic", k=3):
+    if not x.shape[-1]==Y.shape[-2]:
+        raise ValueError("x must have same number of elements as Y has rows")
+    deltat = x[1:] - x[:-1]
     kappa = 1.0/deltat
-    if not deltat.shape[-1]==num_segments:
-        raise ValueError("deltat must have shape (*, num_segments) Where num_segments is Pfit.shape[-2] - 1")
     periodic = bc_type=="periodic"
-    d = Pfit.shape[-1]
+    d = Y.shape[-1]
+    num_segments = Y.shape[-2] - 1
     if periodic:
         num_constraints = num_segments
-        rhs : torch.Tensor = Pfit[1:].clone()
+        rhs : torch.Tensor = Y[1:].clone()
         isegs = (np.arange(1, num_segments + 1, step=1, dtype=np.int64) % num_segments).tolist()
     else:
         num_constraints = num_segments + 1
-        rhs : torch.Tensor = torch.zeros([num_constraints, d], dtype=Pfit.dtype, device=Pfit.device)
-        rhs[:-2] = Pfit[1:-1].clone()
-        isegs = (np.arange(0, num_segments - 1, step=1, dtype=np.int64) + 1).tolist()
+        rhs : torch.Tensor = torch.zeros([num_constraints, d], dtype=Y.dtype, device=Y.device)
+        rhs[:-2] = Y[1:-1].clone()
+        isegs = np.arange(1, num_segments, step=1, dtype=np.int64).tolist()
 
-    lhs : torch.Tensor = torch.zeros([num_constraints, num_segments, 2], dtype=Pfit.dtype, device=Pfit.device)
+    lhs : torch.Tensor = torch.zeros([num_constraints, num_segments, 2], dtype=Y.dtype, device=Y.device)
     for (constraint_idx, point_idx) in enumerate(isegs):
         kappasum = kappa[point_idx-1] + kappa[point_idx]
         lhs[constraint_idx, point_idx-1, 1] = kappa[point_idx-1]/kappasum
@@ -321,33 +322,34 @@ def first_order_constraints(Pfit : torch.Tensor, deltat : torch.Tensor, bc_type 
     if not periodic:
         V0 = bc_type[0]
         lhs[-2, 0, 0] = kappa[0]
-        rhs[-2] = V0/k +  Pfit[0]*kappa[0]
+        rhs[-2] = V0/k +  Y[0]*kappa[0]
 
         Vf = bc_type[1]
         lhs[-1, -1, 1] = -kappa[-1]
-        rhs[-1] = Vf/k - Pfit[-1]*kappa[-1]
+        rhs[-1] = Vf/k - Y[-1]*kappa[-1]
 
     return lhs.view(num_constraints, -1), rhs
 
-def second_order_constraints(Pfit : torch.Tensor, deltat : torch.Tensor, periodic = True, k=3):
-    num_segments = Pfit.shape[-2] - 1
+def second_order_constraints(x : torch.Tensor, Y : torch.Tensor, periodic = True, k=3):
+    if not x.shape[-1]==Y.shape[-2]:
+        raise ValueError("x must have same number of elements as Y has rows")
+    deltat = x[1:] - x[:-1]
     kappa = 1.0/torch.square(deltat)
-    if not deltat.shape[-1]==num_segments:
-        raise ValueError("deltat must have shape (*, num_segments) Where num_segments is Pfit.shape[-2] - 1")
-    d = Pfit.shape[-1]
+    d = Y.shape[-1]
+    num_segments = Y.shape[-2] - 1
     if periodic:
         num_constraints = num_segments
         isegs = np.arange(0, num_constraints, step=1, dtype=np.int64).tolist()
-        rhs : torch.Tensor = torch.zeros([num_constraints, d], dtype=Pfit.dtype, device=Pfit.device)
-        lhs : torch.Tensor = torch.zeros([num_constraints, num_segments, 2], dtype=Pfit.dtype, device=Pfit.device)
+        rhs : torch.Tensor = torch.zeros([num_constraints, d], dtype=Y.dtype, device=Y.device)
+        lhs : torch.Tensor = torch.zeros([num_constraints, num_segments, 2], dtype=Y.dtype, device=Y.device)
     else:
         num_constraints = num_segments - 1
         isegs = np.arange(1, num_segments, step=1, dtype=np.int64).tolist()
-        rhs : torch.Tensor = torch.zeros([num_constraints, d], dtype=Pfit.dtype, device=Pfit.device)
-        lhs : torch.Tensor = torch.zeros([num_constraints, num_segments, 2], dtype=Pfit.dtype, device=Pfit.device)
+        rhs : torch.Tensor = torch.zeros([num_constraints, d], dtype=Y.dtype, device=Y.device)
+        lhs : torch.Tensor = torch.zeros([num_constraints, num_segments, 2], dtype=Y.dtype, device=Y.device)
     for (constraint_idx, point_idx) in enumerate(isegs):
         dkappa = kappa[point_idx] - kappa[point_idx-1]
-        rhs[constraint_idx] = dkappa*Pfit[constraint_idx]
+        rhs[constraint_idx] = dkappa*Y[constraint_idx]
 
         lhs[constraint_idx, point_idx-1, 0] = kappa[point_idx-1]
         lhs[constraint_idx, point_idx-1, 1] = -2.0*kappa[point_idx-1]
