@@ -266,34 +266,46 @@ def bezierArcLength(control_points : torch.Tensor, quadrature_order = 7, num_seg
     
 
 def compositeBezierSpline_with_boundary_conditions_(x : torch.Tensor, Y : torch.Tensor, boundary_conditions : torch.Tensor):
-    k=3        
-    d = Y.shape[1]
-    if boundary_conditions.shape[0]!=2:
-        raise ValueError("Must have four boundary conditions. boundary_conditions tensor is only %dx%d" % (boundary_conditions.shape[0], boundary_conditions.shape[1]))
-    if boundary_conditions.shape[1]!=d:
-        raise ValueError("Invalid shape of boundary conditions: %s for" +
-                         "knots of dimension %d.  boundary_conditions must of size 4x%d, an initial"+
-                          " velocity and acceleration followed by a final velocity and acceleration, each being %dD." % (str(boundary_conditions.shape), d, d, d))
-    V0 : torch.Tensor = boundary_conditions[0]
-    A0 : torch.Tensor = boundary_conditions[1]
-    Vf : torch.Tensor = boundary_conditions[2]
-    Af : torch.Tensor = boundary_conditions[3]
+    
+    k=3
+    if torch.linalg.norm(Y[-1] - Y[0], ord=2)>1E-5:
+        raise ValueError("Y[-1] and Y[0] must be the same value for a periodic spline")
+    if x.shape[0]!=Y.shape[0]:
+        raise ValueError("x and Y must be equal in size in dimension 0. x.shape[0]=%d, but Y.shape[0]=%d" % (x.shape[0], Y.shape[0])) 
+    lhs1, rhs1 = first_order_constraints(x, Y, k=k, bc_type = boundary_conditions)
+    lhs2, rhs2 = second_order_constraints(x, Y, k=k, periodic = False)
+    lhs = torch.cat([lhs1, lhs2], dim=0)
+    rhs = torch.cat([rhs1, rhs2], dim=0)
+    solution = torch.linalg.solve(lhs, rhs)
+    intermediate_points = solution.view(Y.shape[-2] - 1, 2, -1)
+    return torch.cat([Y[:-1].unsqueeze(1), intermediate_points, Y[1:].unsqueeze(1)], dim=1)        
+    # d = Y.shape[1]
+    # if boundary_conditions.shape[0]!=2:
+    #     raise ValueError("Must have four boundary conditions. boundary_conditions tensor is only %dx%d" % (boundary_conditions.shape[0], boundary_conditions.shape[1]))
+    # if boundary_conditions.shape[1]!=d:
+    #     raise ValueError("Invalid shape of boundary conditions: %s for" +
+    #                      "knots of dimension %d.  boundary_conditions must of size 4x%d, an initial"+
+    #                       " velocity and acceleration followed by a final velocity and acceleration, each being %dD." % (str(boundary_conditions.shape), d, d, d))
+    # V0 : torch.Tensor = boundary_conditions[0]
+    # A0 : torch.Tensor = boundary_conditions[1]
+    # Vf : torch.Tensor = boundary_conditions[2]
+    # Af : torch.Tensor = boundary_conditions[3]
 
-    numcurves = Y.shape[0]-1 
-    dxvec = x[1:]-x[:-1]
-    dx2vec = dxvec*dxvec
-    bezier_control_points : torch.Tensor = torch.zeros((numcurves, k+1, d), dtype=Y.dtype, device=Y.device)
-    bezier_control_points[0,0] = Y[0]
-    bezier_control_points[0,1] = (dxvec[0]/k)*V0 + Y[0]
-    bezier_control_points[0,2] = (dx2vec[0]/(k*(k-1)))*A0 + 2*bezier_control_points[0,1] - Y[0]
-    bezier_control_points[0,3] = Y[1]
+    # numcurves = Y.shape[0]-1 
+    # dxvec = x[1:]-x[:-1]
+    # dx2vec = dxvec*dxvec
+    # bezier_control_points : torch.Tensor = torch.zeros((numcurves, k+1, d), dtype=Y.dtype, device=Y.device)
+    # bezier_control_points[0,0] = Y[0]
+    # bezier_control_points[0,1] = (dxvec[0]/k)*V0 + Y[0]
+    # bezier_control_points[0,2] = (dx2vec[0]/(k*(k-1)))*A0 + 2*bezier_control_points[0,1] - Y[0]
+    # bezier_control_points[0,3] = Y[1]
 
-    for i in range(1, numcurves):
-        bezier_control_points[i,0] = Y[i]
-        bezier_control_points[i,1] = Y[i] + (dxvec[i]/dxvec[i-1])*(Y[i]-bezier_control_points[i-1,2])
-        bezier_control_points[i,2] = (dx2vec[i]/dx2vec[i-1])*(Y[i] - 2.0*bezier_control_points[i-1,2] + bezier_control_points[i-1,1]) + 2.0*bezier_control_points[i,1] - Y[i] 
-        bezier_control_points[i,3] = Y[i+1]
-    return bezier_control_points
+    # for i in range(1, numcurves):
+    #     bezier_control_points[i,0] = Y[i]
+    #     bezier_control_points[i,1] = Y[i] + (dxvec[i]/dxvec[i-1])*(Y[i]-bezier_control_points[i-1,2])
+    #     bezier_control_points[i,2] = (dx2vec[i]/dx2vec[i-1])*(Y[i] - 2.0*bezier_control_points[i-1,2] + bezier_control_points[i-1,1]) + 2.0*bezier_control_points[i,1] - Y[i] 
+    #     bezier_control_points[i,3] = Y[i+1]
+    # return bezier_control_points
 
 def first_order_constraints(x : torch.Tensor, Y : torch.Tensor, bc_type : torch.Tensor | str = "periodic", k=3):
     if not x.shape[-1]==Y.shape[-2]:
@@ -365,57 +377,64 @@ def compositeBezierSpline_periodic_(x : torch.Tensor, Y : torch.Tensor):
         raise ValueError("Y[-1] and Y[0] must be the same value for a periodic spline")
     if x.shape[0]!=Y.shape[0]:
         raise ValueError("x and Y must be equal in size in dimension 0. x.shape[0]=%d, but Y.shape[0]=%d" % (x.shape[0], Y.shape[0])) 
-    points = Y[:-1]
-    numpoints = points.shape[0]
-    d = points.shape[1]
-    numparams = (k-1)*numpoints*d
-    dxvec = x[1:]-x[:-1]
-    dx2vec = dxvec*dxvec
+    lhs1, rhs1 = first_order_constraints(x, Y, k=k, bc_type = "periodic")
+    lhs2, rhs2 = second_order_constraints(x, Y, k=k, periodic = True)
+    lhs = torch.cat([lhs1, lhs2], dim=0)
+    rhs = torch.cat([rhs1, rhs2], dim=0)
+    solution = torch.linalg.solve(lhs, rhs)
+    intermediate_points = solution.view(Y.shape[-2] - 1, 2, -1)
+    return torch.cat([Y[:-1].unsqueeze(1), intermediate_points, Y[1:].unsqueeze(1)], dim=1)
+    # points = Y[:-1]
+    # numpoints = points.shape[0]
+    # d = points.shape[1]
+    # numparams = (k-1)*numpoints*d
+    # dxvec = x[1:]-x[:-1]
+    # dx2vec = dxvec*dxvec
 
-    first_order_design_matrix : torch.Tensor = torch.zeros((int(numparams/2), numparams), dtype=x.dtype, device=x.device)
-    first_order_bvec : torch.Tensor = torch.zeros_like(first_order_design_matrix[:,0])
+    # first_order_design_matrix : torch.Tensor = torch.zeros((int(numparams/2), numparams), dtype=x.dtype, device=x.device)
+    # first_order_bvec : torch.Tensor = torch.zeros_like(first_order_design_matrix[:,0])
 
-    second_order_design_matrix : torch.Tensor = torch.zeros_like(first_order_design_matrix)
-    second_order_bvec : torch.Tensor = torch.zeros_like(first_order_design_matrix[:,0])
-    for i in range(0, first_order_design_matrix.shape[0], d):
-        C0index = int(i/d)
-        C1index = int(C0index+1)
-        dx0 = dxvec[C0index%numpoints]
-        dx1 = dxvec[C1index%numpoints]
+    # second_order_design_matrix : torch.Tensor = torch.zeros_like(first_order_design_matrix)
+    # second_order_bvec : torch.Tensor = torch.zeros_like(first_order_design_matrix[:,0])
+    # for i in range(0, first_order_design_matrix.shape[0], d):
+    #     C0index = int(i/d)
+    #     C1index = int(C0index+1)
+    #     dx0 = dxvec[C0index%numpoints]
+    #     dx1 = dxvec[C1index%numpoints]
 
-        jstart_first_order = d*(2*C0index+1)
-        dr0inv = (1/dx0)*torch.eye(d, dtype=x.dtype, device=x.device)
-        first_order_design_matrix[i:i+d, jstart_first_order:jstart_first_order+d] = dr0inv
-        dr1inv = (1/dx1)*torch.eye(d, dtype=x.dtype, device=x.device)
-        jstart2_first_order = (jstart_first_order+d)%numparams
-        first_order_design_matrix[i:i+d, jstart2_first_order:jstart2_first_order+d] = dr1inv
+    #     jstart_first_order = d*(2*C0index+1)
+    #     dr0inv = (1/dx0)*torch.eye(d, dtype=x.dtype, device=x.device)
+    #     first_order_design_matrix[i:i+d, jstart_first_order:jstart_first_order+d] = dr0inv
+    #     dr1inv = (1/dx1)*torch.eye(d, dtype=x.dtype, device=x.device)
+    #     jstart2_first_order = (jstart_first_order+d)%numparams
+    #     first_order_design_matrix[i:i+d, jstart2_first_order:jstart2_first_order+d] = dr1inv
 
-        first_order_bvec[i:i+d] = torch.matmul(dr0inv + dr1inv, points[C1index%numpoints])
+    #     first_order_bvec[i:i+d] = torch.matmul(dr0inv + dr1inv, points[C1index%numpoints])
         
-        jstart_second_order = d*2*C0index
-        jstart2_second_order = (jstart_second_order+d)%numparams
-        jstart3_second_order = (jstart2_second_order+d)%numparams
-        jstart4_second_order = (jstart3_second_order+d)%numparams
+    #     jstart_second_order = d*2*C0index
+    #     jstart2_second_order = (jstart_second_order+d)%numparams
+    #     jstart3_second_order = (jstart2_second_order+d)%numparams
+    #     jstart4_second_order = (jstart3_second_order+d)%numparams
 
-        dx0square = dx2vec[C0index%numpoints]
-        dx0squareinv =  (1/dx0square)*torch.eye(d, dtype=x.dtype, device=x.device)
-        second_order_design_matrix[i:i+d, jstart_second_order:jstart_second_order+d] = dx0squareinv
-        second_order_design_matrix[i:i+d, jstart2_second_order:jstart2_second_order+d] = -2*dx0squareinv
+    #     dx0square = dx2vec[C0index%numpoints]
+    #     dx0squareinv =  (1/dx0square)*torch.eye(d, dtype=x.dtype, device=x.device)
+    #     second_order_design_matrix[i:i+d, jstart_second_order:jstart_second_order+d] = dx0squareinv
+    #     second_order_design_matrix[i:i+d, jstart2_second_order:jstart2_second_order+d] = -2*dx0squareinv
 
-        dx1square = dx2vec[C1index%numpoints]
-        dx1squareinv =  (1/dx1square)*torch.eye(d, dtype=x.dtype, device=x.device)
-        second_order_design_matrix[i:i+d, jstart3_second_order:jstart3_second_order+d] = 2*dx1squareinv
-        second_order_design_matrix[i:i+d, jstart4_second_order:jstart4_second_order+d] = -dx1squareinv
+    #     dx1square = dx2vec[C1index%numpoints]
+    #     dx1squareinv =  (1/dx1square)*torch.eye(d, dtype=x.dtype, device=x.device)
+    #     second_order_design_matrix[i:i+d, jstart3_second_order:jstart3_second_order+d] = 2*dx1squareinv
+    #     second_order_design_matrix[i:i+d, jstart4_second_order:jstart4_second_order+d] = -dx1squareinv
 
-        second_order_bvec[i:i+d] = torch.matmul(dx1squareinv - dx0squareinv, points[C1index%numpoints])
-    A = torch.cat([first_order_design_matrix, second_order_design_matrix], dim=0)
-    b = torch.cat([first_order_bvec, second_order_bvec], dim=0)
+    #     second_order_bvec[i:i+d] = torch.matmul(dx1squareinv - dx0squareinv, points[C1index%numpoints])
+    # A = torch.cat([first_order_design_matrix, second_order_design_matrix], dim=0)
+    # b = torch.cat([first_order_bvec, second_order_bvec], dim=0)
 
-    res : torch.Tensor = torch.linalg.solve(A, b.unsqueeze(1))[:,0]
+    # res : torch.Tensor = torch.linalg.solve(A, b.unsqueeze(1))[:,0]
 
-    all_curves = torch.cat([points.unsqueeze(1), res.reshape(numpoints , k-1, d), points[torch.linspace(1, numpoints, numpoints, dtype=torch.int64)%numpoints].unsqueeze(1)], dim=1)
+    # all_curves = torch.cat([points.unsqueeze(1), res.reshape(numpoints , k-1, d), points[torch.linspace(1, numpoints, numpoints, dtype=torch.int64)%numpoints].unsqueeze(1)], dim=1)
 
-    return all_curves
+    # return all_curves
 
 def bezierM(s : torch.Tensor, n : int) -> torch.Tensor:
     return torch.stack([Mtk(k,n,s) for k in range(n+1)],dim=2)

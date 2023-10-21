@@ -160,14 +160,14 @@ def polyroots(c):
     be improved by a few iterations of Newton's method.
     """
     # c is a trimmed copy
-    num_coefficients : int = int(c.shape[1])
-    if num_coefficients < 2:
-        raise ValueError("Polynomial of degree 0 not supported.")
-    if num_coefficients == 2:
-        return linear_formula(c)
-    elif num_coefficients == 3:
-        return quadratic_formula(c)
-    elif num_coefficients == 4:
-        return cubic_formula(c)
+    # num_coefficients : int = int(c.shape[1])
+    # if num_coefficients < 2:
+    #     raise ValueError("Polynomial of degree 0 not supported.")
+    # if num_coefficients == 2:
+    #     return linear_formula(c)
+    # elif num_coefficients == 3:
+    #     return quadratic_formula(c)
+    # elif num_coefficients == 4:
+    #     return cubic_formula(c)
     companion : torch.Tensor = polycompanion(c)
     return torch.linalg.eigvals(companion)

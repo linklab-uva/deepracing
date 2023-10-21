@@ -199,12 +199,7 @@ class SimplePathHelper(torch.nn.Module):
         pquery = Pquery.to(control_points.device).to(control_points.dtype)
         ptransform = -torch.matmul(rotmat, pquery.unsqueeze(-1)).squeeze(-1)
 
-        # control_points_exp_all = control_points.unsqueeze(0).expand([batchdim] + list(control_points.shape))
-        # print(control_points_exp_all.shape)
-        # print(control_points_select.shape)
         control_points_exp = control_points_select
-        # control_points_exp = control_points_exp_all
-
 
         control_points_exp_flat = control_points_exp.view(batchdim, -1, control_points.shape[-1])
         control_points_transformed_flat = torch.matmul(rotmat, control_points_exp_flat.transpose(-2,-1)).transpose(-2,-1) + ptransform[:,None]
@@ -212,27 +207,35 @@ class SimplePathHelper(torch.nn.Module):
         control_points_transformed = control_points_transformed_flat.view(control_points_exp.shape)
 
 
-        xbezier_flat = control_points_transformed[:,:,:,0].reshape(-1, control_points.shape[-2])
-        polynom_roots = bezierPolyRoots(xbezier_flat).view(batchdim, control_points_exp.shape[1], control_points.shape[-2] - 1)
+        # xbezier_flat = control_points_transformed[:,:,:,0].reshape(-1, control_points.shape[-2])
+        # polynom_roots = bezierPolyRoots(xbezier_flat).view(batchdim, control_points_exp.shape[1], control_points.shape[-2] - 1)
+        # polynom_roots = torch.stack([ for i in range(batchdim)], dim=0).view(batchdim, -1, 3)
 
-        matchmask = (torch.abs(polynom_roots.imag)<1E-4)*(polynom_roots.real>=0.0)*(polynom_roots.real<=1.0)
+
+        ZERO = -1E-6
+        ONE = 1.0 + 1E-6
+        
 
         idx=torch.arange(0, control_points_exp.shape[1], step=1, dtype=torch.int64, device=control_points.device)
         
-        selection_all = (torch.sum(matchmask, dim=-1)>=1)
-
         rintersect = torch.empty_like(pquery[:,0])
 
 
         for i in range(batchdim):
-            selection = selection_all[i]
-            candidates_idx = idx[selection]
-            candidates = control_points_transformed[i,candidates_idx]
-            candidates_polyroots = polynom_roots[i,candidates_idx]
+            current_pquery = pquery[i]#.cpu().numpy()
+            current_rquery = rotmat[i]#.cpu().numpy()
 
-            # candidates_rstart = arclengths_start[candidates_idx]
-            # candidates_dr = delta_arclengths[candidates_idx]
-            
+            current_points_transformed = control_points_transformed[i]#.cpu().numpy()
+            xpolys = current_points_transformed[:,:,0]
+            polynom_roots = bezierPolyRoots(xpolys)
+            current_roots_real = polynom_roots.real #.cpu().numpy()
+            current_roots_imag = polynom_roots.imag #.cpu().numpy()
+            matchmask = (torch.abs(current_roots_imag)<1E-4)*(current_roots_real>=ZERO)*(current_roots_real<=ONE)
+            selection = torch.sum(matchmask, dim=-1)>=1
+            candidates_idx = idx[selection]
+            candidates = current_points_transformed[candidates_idx]
+            candidates_polyroots = polynom_roots[candidates_idx]
+
             candidates_rstart = arclengths_start_select[i,candidates_idx]
             candidates_dr = delta_arclengths_select[i,candidates_idx]
             
@@ -241,7 +244,7 @@ class SimplePathHelper(torch.nn.Module):
             imin = torch.argmin(norm_means)
 
             correctroots = candidates_polyroots[imin]
-            correctsval = correctroots[(torch.abs(correctroots.imag)<1E-4)*(correctroots.real>=0.0)*(correctroots.real<=1.0)].real.item()
+            correctsval = correctroots[(torch.abs(correctroots.imag)<1E-4)*(correctroots.real>=ZERO)*(correctroots.real<=ONE)].real.item()
             correctdr = candidates_dr[imin]
 
             correctrstart = candidates_rstart[imin]
