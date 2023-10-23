@@ -106,11 +106,19 @@ class BezierMixNet(nn.Module):
             )
 
 
-        self._acc_final_layer_tanh = params["acc_decoder"].get("final_layer_tanh", True)
+        self._acc_final_layer_tanh = params["acc_decoder"]["final_layer_tanh"]
 
         use_bias = True
         self._final_linear_layer = nn.Linear(4,4, bias=use_bias)
-        self._final_linear_layer.weight = torch.nn.Parameter(torch.eye(4) + 0.0001*torch.randn(4,4))
+        if params["mixer_linear_stack"]["final_affine_transform"]: #.get("final_affine_transform", True):
+            self._final_linear_layer.weight = torch.nn.Parameter(torch.eye(4) + 0.0001*torch.randn(4,4))
+            self._final_linear_layer.bias = torch.nn.Parameter(0.0001*torch.randn(4))
+        else:
+            #Effectively make this layer do nothing.
+            self._final_linear_layer.weight = torch.nn.Parameter(torch.eye(4))
+            self._final_linear_layer.bias = torch.nn.Parameter(torch.ones(4))
+            self._final_linear_layer.requires_grad_(False)
+
         
         # self.constrain_derivs : bool = self._params["acc_decoder"]["constrain_derivatives"]
         
