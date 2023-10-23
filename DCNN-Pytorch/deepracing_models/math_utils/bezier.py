@@ -55,98 +55,118 @@ def compositeBezierAntiderivative(control_points : torch.Tensor, delta_t : torch
     
     return (antiderivative_onebatchdim).view(shapeout)/kbezier_out
 
-def compositeBezierFit(points : torch.Tensor, t : torch.Tensor, numsegments : int, 
+def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : int, 
                        kbezier : int = 3, dYdT_0 : torch.Tensor | None = None, dYdT_f : torch.Tensor | None = None) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     dtype = points.dtype
     device = points.device
-    # if not t[0]==0.0:
-    #     raise ValueError("t must be start at 0.0")
-    if not torch.all((t[1:] - t[:-1])>0.0):
-        raise ValueError("t must be monotonically increasing")
-    tsamp = torch.as_tensor(t, dtype=dtype, device=device)
+    batchdims = list(points.shape[:-2])
+    num_points = points.shape[-2]
+    numcoefs = kbezier+1
+    dim = points.shape[-1]
 
-    # vels = torch.as_tensor(raceline_pathhelper_cpu.spline_time_derivative(_tsamp), dtype=tsamp.dtype, device=tsamp.device)
-    # speedsamp = torch.norm(vels, p=2, dim=1)
-    # if not (tsamp.shape[0]%numsegments)==0:
-    #     raise ValueError("Number of fit points, %d, must be divisible by number of segments. %d is not divisible by %d" % (tsamp.shape[0],tsamp.shape[0],numsegments))
-    points_per_segment = int(math.floor(tsamp.shape[0]/numsegments))
-    # torch.set_printoptions(linewidth=500, precision=3)
+    x = x.view(-1, num_points)
+    points = points.view(-1, num_points, dim)  
+    if dYdT_0 is not None:
+        dYdT_0 = dYdT_0.view(-1, dim)
+    if dYdT_f is not None:
+        dYdT_f = dYdT_f.view(-1, dim)
+    batchdimflat = points.shape[0]          
+        
+
+    if not torch.all((x[:, 1:] - x[:, :-1])>0.0):
+        raise ValueError("x must be monotonically increasing")
+    tsamp = x.clone()
+
+
     constrain_initial_derivative = dYdT_0 is not None
     constrain_final_derivative = dYdT_f is not None
     continuinty_constraits_per_segment = min(kbezier, 3)
     continuity_constraints = int(continuinty_constraits_per_segment*(numsegments-1))
-    total_constraints = continuity_constraints + 1 + int(constrain_initial_derivative) + int(constrain_final_derivative)
-    numcoefs = kbezier+1
-    tswitchingpoints = torch.linspace(0.0, tsamp[-1].item(), steps=numsegments+1, dtype=dtype, device=device)
-    tstart = (tswitchingpoints[:-1]).clone()
-    tend = (tswitchingpoints[1:]).clone()
+    total_constraints = continuity_constraints + 2 + int(constrain_initial_derivative) + int(constrain_final_derivative)
+    
+    tswitchingpoints = tsamp[:,-1].unsqueeze(1).expand(batchdimflat, numsegments+1).clone()
+    tswitchingpoints[:,0] =  tsamp[:,0]
+    tswitchingpoints = torch.stack([
+        torch.linspace(tsamp[i,0].item(), tsamp[i,-1].item(), steps=numsegments+1, dtype=dtype, device=device)
+        for i in range(batchdimflat)
+        ], 
+    dim=0)
+    
+    tstart = (tswitchingpoints[:, :-1])
+    tend = (tswitchingpoints[:, 1:])
     dt = tend - tstart
-    dim = points.shape[-1]
-    # tsamp_dense = tsamp.view(numsegments, -1)
-    # tsamp_dense_list = tsamp_dense.cpu().numpy().tolist()
-    segment_sizes = points_per_segment*torch.ones(numsegments, dtype=torch.int64)
-    leftover = tsamp.shape[0] - segment_sizes.sum().item()
-    segment_sizes[-1]+=leftover
-
-    tsamp_list : tuple[torch.Tensor] = torch.split(tsamp, tuple(segment_sizes.numpy().tolist()))
-    seglengths : list[int] = [subt.shape[0] for subt in tsamp_list]
-    HugeM_dense : torch.Tensor = torch.zeros([numsegments, segment_sizes.max().item(), numsegments, numcoefs], device=device, dtype=dtype)
-    for i in range(numsegments):
-        subt = tsamp_list[i] - tswitchingpoints[i]
-        subs = subt/dt[i]
-        HugeM_dense[i, :subt.shape[0], i] = bezierM(subs.unsqueeze(0), kbezier).squeeze(0)
-    HugeM_all : torch.Tensor = HugeM_dense.view(-1, numcoefs*numsegments)
-    idx_select = torch.sum(HugeM_all, dim=1)>0
-    HugeM = HugeM_all[idx_select]
+        
+    
+    HugeM : torch.Tensor = torch.zeros([
+        batchdimflat,  num_points, numcoefs*numsegments
+        ], device=device, dtype=dtype)
+    for b in range(batchdimflat):
+        curr_switchpoints = tswitchingpoints[b]
+        curr_tsamp = tsamp[b]
+        curr_tstart = tstart[b]
+        curr_dt = dt[b]
+        idxbucket = torch.bucketize(curr_tsamp, curr_switchpoints, right=True) - 1
+        segment_sizes = []
+        for i in range(numsegments):
+            idxselect = idxbucket==i
+            subt = curr_tsamp[idxselect]
+            subs = ((subt - curr_tstart[i])/curr_dt[i])
+            column_start = i*numcoefs
+            column_end =  column_start + numcoefs
+            HugeM[b, idxselect, column_start:column_end] = \
+                bezierM(subs.unsqueeze(0), kbezier)[0]
+            segment_sizes.append(torch.sum(idxselect).item())
     Q = torch.matmul(HugeM.transpose(-2, -1), HugeM)
-    Q[torch.abs(Q)<1E-5]=0.0
-    E = torch.zeros(total_constraints, Q.shape[1], dtype=Q.dtype, device=Q.device)
-    d = torch.zeros(total_constraints, dim, dtype=Q.dtype, device=Q.device)
+    E = torch.zeros(batchdimflat, total_constraints, Q.shape[-1], dtype=Q.dtype, device=Q.device)
+    d = torch.zeros(batchdimflat, total_constraints, dim, dtype=Q.dtype, device=Q.device)
     if continuinty_constraits_per_segment>=1:
         for i in range(int(continuity_constraints/continuinty_constraits_per_segment)):
-            E[i, (i+1)*(kbezier+1)-1] = -1.0
-            E[i, (i+1)*(kbezier+1)] = 1.0
+            E[:, i, (i+1)*(kbezier+1)-1] = -1.0
+            E[:, i, (i+1)*(kbezier+1)] = 1.0
     if continuinty_constraits_per_segment>=2:
         for i in range(int(continuity_constraints/continuinty_constraits_per_segment)):
             row = i + int(continuity_constraints/continuinty_constraits_per_segment)
-            E[row, (i+1)*(kbezier+1)-2] = -1.0
-            E[row, (i+1)*(kbezier+1)-1] = 1.0
-            E[row, (i+1)*(kbezier+1)] = 1.0
-            E[row, (i+1)*(kbezier+1)+1] = -1.0
+            E[:, row, (i+1)*(kbezier+1)-2] = -1.0
+            E[:, row, (i+1)*(kbezier+1)-1] = 1.0
+            E[:, row, (i+1)*(kbezier+1)] = 1.0
+            E[:, row, (i+1)*(kbezier+1)+1] = -1.0
     if continuinty_constraits_per_segment>=3:
         for i in range(int(continuity_constraints/continuinty_constraits_per_segment)):
             row = i + 2*int(continuity_constraints/continuinty_constraits_per_segment)
-            E[row, (i+1)*(kbezier+1)-3] = 1.0
-            E[row, (i+1)*(kbezier+1)-2] = -2.0
-            E[row, (i+1)*(kbezier+1)-1] = 1.0
+            E[:, row, (i+1)*(kbezier+1)-3] = 1.0
+            E[:, row, (i+1)*(kbezier+1)-2] = -2.0
+            E[:, row, (i+1)*(kbezier+1)-1] = 1.0
 
-            E[row, (i+1)*(kbezier+1)] = -1.0
-            E[row, (i+1)*(kbezier+1)+1] = 2.0
-            E[row, (i+1)*(kbezier+1)+2] = -1.0
-    E[continuity_constraints,0] = 1.0
-    d[continuity_constraints] = points[0]
+            E[:, row, (i+1)*(kbezier+1)] = -1.0
+            E[:, row, (i+1)*(kbezier+1)+1] = 2.0
+            E[:, row, (i+1)*(kbezier+1)+2] = -1.0
+    E[:, continuity_constraints,0] = 1.0
+    d[:, continuity_constraints] = points[:, 0]
+    E[:, continuity_constraints+1,-1] = 1.0
+    d[:, continuity_constraints+1] = points[:, -1]
     if constrain_initial_derivative:
-        E[continuity_constraints+1,0] = -kbezier
-        E[continuity_constraints+1,1] = kbezier
-        d[continuity_constraints+1] = dYdT_0*dt[0]
+        E[:, continuity_constraints+2,0] = -kbezier
+        E[:, continuity_constraints+2,1] = kbezier
+        d[:, continuity_constraints+2] = dYdT_0*dt[:, 0, None]
     if constrain_final_derivative:
-        E[continuity_constraints + int(constrain_initial_derivative) + 1,-2] = -kbezier
-        E[continuity_constraints + int(constrain_initial_derivative) + 1,-1] = kbezier
-        d[continuity_constraints + int(constrain_initial_derivative) + 1] = dYdT_f*dt[-1]
+        E[:, continuity_constraints + 2 + int(constrain_initial_derivative),-2] = -kbezier
+        E[:, continuity_constraints + 2 + int(constrain_initial_derivative),-1] = kbezier
+        d[:, continuity_constraints + 2 + int(constrain_initial_derivative)] = dYdT_f*dt[:, -1, None]
 
 
-    lhs = torch.zeros([Q.shape[0] + E.shape[0], Q.shape[0] + E.shape[0]], dtype=Q.dtype, device=Q.device)
-    lhs[:Q.shape[0],:Q.shape[0]] = Q
-    lhs[Q.shape[0]:,:E.shape[1]] = E
-    lhs[:E.shape[1], Q.shape[0]:] = E.transpose(-2, -1)
-    rhs = torch.cat([torch.matmul(HugeM.transpose(-2, -1), points), d], dim=0)
-    # lhs_inv = pinv(lhs, minimum_singular_value=0.001)
-    # lhs_inv[torch.abs(lhs_inv)<1E-12]=0.0
-    # coefs_and_lagrange = torch.matmul(lhs_inv, rhs)
+    lhs = torch.zeros([batchdimflat, Q.shape[1] + E.shape[1], Q.shape[1] + E.shape[1]], dtype=Q.dtype, device=Q.device)
+    lhs[:, :Q.shape[1],:Q.shape[1]] = Q
+    lhs[:, Q.shape[1]:,:E.shape[2]] = E
+    lhs[:, :E.shape[2], Q.shape[1]:] = E.transpose(-2, -1)
+    rhs = torch.cat([torch.matmul(HugeM.transpose(-2, -1), points), d], dim=1)
+
     coefs_and_lagrange = torch.linalg.solve(lhs, rhs)
-    lagrange = coefs_and_lagrange[d.shape[0]:]
-    coefs = coefs_and_lagrange[:-d.shape[0]]
-    return coefs.view(numsegments, numcoefs, dim), lagrange, tswitchingpoints
+    coefs = coefs_and_lagrange[:, :-d.shape[1]]
+    control_points =  coefs.view(batchdims + [numsegments, numcoefs, dim])
+    tswitchingpoints_batch = tswitchingpoints.view(batchdims + [numsegments + 1,])
+    # lagrange = coefs_and_lagrange[:, d.shape[1]:]
+    # lagrange_batch = lagrange.reshape(batchdims + [-1,])
+    return control_points, None, tswitchingpoints_batch
 
     
 def compositeBezierEval(xstart : torch.Tensor, dx : torch.Tensor, control_points : torch.Tensor, x_eval : torch.Tensor, idxbuckets : typing.Union[torch.Tensor,None] = None) -> typing.Tuple[torch.Tensor, torch.Tensor]:
@@ -221,8 +241,12 @@ def bezierPolyRoots(bezier_coefficients : torch.Tensor, scaled_basis = False):
     return polyroots(standard_form)
 
 
-def Mtk(k : int, n : int, t : torch.Tensor):
-    return torch.pow(t,k)*torch.pow(1-t,(n-k))*comb(n, k, exact=True)
+def Mtk(k : int, n : int, t : torch.Tensor, scaled_basis=False):
+    rtn = torch.pow(t,k)*torch.pow(1-t,(n-k))
+    if scaled_basis:
+        return rtn
+    else:
+        return rtn*comb(n, k, exact=True)
 
 from scipy.special import roots_legendre
 def bezierArcLength(control_points : torch.Tensor, quadrature_order = 7, num_segments = 4, sum=True):
@@ -340,7 +364,7 @@ def first_order_constraints(x : torch.Tensor, Y : torch.Tensor, bc_type : torch.
         kappasum = kappa[:, point_idx-1] + kappa[:, point_idx]
         lhs[:, constraint_idx, point_idx-1, 1] = kappa[:, point_idx-1]/kappasum
         lhs[:, constraint_idx, point_idx, 0] = kappa[:, point_idx]/kappasum
-        
+
     # kappasum = kappa[:, isegs-1] + kappa[:, isegs]
     # lhs[:, :isegs.shape[0], isegs-1, 1] = kappa[:, isegs-1]/kappasum
     # lhs[:, :isegs.shape[0], isegs, 0] = kappa[:, isegs]/kappasum
@@ -454,8 +478,8 @@ def compositeBezierSpline_periodic_(x : torch.Tensor, Y : torch.Tensor):
 
     # return all_curves
 
-def bezierM(s : torch.Tensor, n : int) -> torch.Tensor:
-    return torch.stack([Mtk(k,n,s) for k in range(n+1)],dim=2)
+def bezierM(s : torch.Tensor, n : int, scaled_basis : bool = False) -> torch.Tensor:
+    return torch.stack([Mtk(k,n,s, scaled_basis=scaled_basis) for k in range(n+1)],dim=2)
 
 def evalBezier(M : torch.Tensor, control_points : torch.Tensor):
     return torch.matmul(M, control_points)
