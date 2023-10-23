@@ -96,7 +96,7 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
     tend = (tswitchingpoints[:, 1:])
     dt = tend - tstart
         
-    
+    # print("Building linear system")
     HugeM : torch.Tensor = torch.zeros([
         batchdimflat,  num_points, numcoefs*numsegments
         ], device=device, dtype=dtype)
@@ -116,6 +116,7 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
             HugeM[b, idxselect, column_start:column_end] = \
                 bezierM(subs.unsqueeze(0), kbezier)[0]
             segment_sizes.append(torch.sum(idxselect).item())
+    # print("Solving linear system")
     Q = torch.matmul(HugeM.transpose(-2, -1), HugeM)
     E = torch.zeros(batchdimflat, total_constraints, Q.shape[-1], dtype=Q.dtype, device=Q.device)
     d = torch.zeros(batchdimflat, total_constraints, dim, dtype=Q.dtype, device=Q.device)
@@ -166,7 +167,7 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
     tswitchingpoints_batch = tswitchingpoints.view(batchdims + [numsegments + 1,])
     # lagrange = coefs_and_lagrange[:, d.shape[1]:]
     # lagrange_batch = lagrange.reshape(batchdims + [-1,])
-    return control_points, None, tswitchingpoints_batch
+    return control_points, tswitchingpoints_batch
 
     
 def compositeBezierEval(xstart : torch.Tensor, dx : torch.Tensor, control_points : torch.Tensor, x_eval : torch.Tensor, idxbuckets : typing.Union[torch.Tensor,None] = None) -> typing.Tuple[torch.Tensor, torch.Tensor]:

@@ -59,7 +59,8 @@ class CompositeBezierCurve(torch.nn.Module):
         return rtn
     
     def forward(self, x_eval : torch.Tensor, idxbuckets : typing.Union[None,torch.Tensor] = None):
-        x_true = (x_eval%self.xend_vec[-1]).view(1,-1)
+        x_true = (x_eval).view(1,-1)
+        # x_true = (x_eval%self.xend_vec[-1]).view(1,-1)
         # if imin is None:
         #     imin_ = (torch.bucketize(x_true.detach(), self.xend_vec.detach(), right=False) ) #% self.xend_vec[-1]
         # else:
