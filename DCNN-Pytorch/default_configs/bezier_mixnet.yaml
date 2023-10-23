@@ -5,7 +5,7 @@
     },
     data:
     {
-        dir: /p/DeepRacing/unpacked_datasets/aligned_to_ego/v2/deepracing_standard
+        dir: /p/DeepRacing/unpacked_datasets/aligned_to_ego/v3/deepracing_standard
     },
     trainer:
     {
@@ -18,13 +18,14 @@
         eps: 1E-8,
         weight_decay: 0.0,
         epochs: 200,
-        batch_size: 256,
-        kbezier: 7,
+        batch_size: 512,
         ade_loss : False
     },
     net:
     {
         input_dimension: 2,
+        kbezier: 5,
+        num_curve_sections: 10,
         input_embedding:
         {
             velocity : True,
@@ -61,7 +62,8 @@
                 256,
                 256
             ],
-            out_size: 4
+            out_size: 4,
+            final_affine_transform : False
         },
         acc_decoder: {
             hidden_size: 512,
@@ -81,7 +83,7 @@
                 512,
                 512
             ],
-            final_layer_tanh : False,
+            final_layer_tanh : False
         }
     }
 }
