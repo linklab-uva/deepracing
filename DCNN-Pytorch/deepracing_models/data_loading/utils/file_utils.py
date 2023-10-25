@@ -4,14 +4,18 @@ import glob
 import os
 import deepracing_models.data_loading.file_datasets as FD
 from deepracing_models.data_loading import SubsetFlag
+import torch
 
 
 def load_datasets_from_files(search_dir : str, 
                              keys = FD.TrajectoryPredictionDataset.KEYS_WE_CARE_ABOUT, 
-                             kbezier : int | None = None, 
+                             kbezier : int | None = None,
+                             segments : int = 1,
+                             constrain_tangents : bool = True, 
                              bcurve_cache = False, 
                              flag = SubsetFlag.TRAIN,
-                             dtype=np.float64):
+                             dtype=np.float64,
+                             device=torch.device("cpu")):
     def sortkey(filepath : str):
         subfolder = os.path.dirname(filepath)
         bagfolder = os.path.dirname(subfolder)
@@ -36,7 +40,7 @@ def load_datasets_from_files(search_dir : str,
         dsetconfigs.append(dsetconfig)
         dsets.append(FD.TrajectoryPredictionDataset.from_file(metadatafile, flag, dtype=dtype, keys=keys))
         if kbezier is not None:
-            dsets[-1].fit_bezier_curves(kbezier, cache=bcurve_cache)
+            dsets[-1].fit_bezier_curves(kbezier, device=device, cache=bcurve_cache, segments=segments, constrain_tangents=constrain_tangents)
     return dsets
 
 def load_datasets_from_shared_memory(

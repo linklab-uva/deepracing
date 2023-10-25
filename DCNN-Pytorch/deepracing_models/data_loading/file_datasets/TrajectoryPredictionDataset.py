@@ -152,13 +152,15 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
             current_tangents = spl(euclidean_deltas, nu=1)
             self.data_dict[key_out][idx] = (current_tangents/np.linalg.norm(current_tangents, ord=2.0, axis=1, keepdims=True))[:]
     def fit_bezier_curves(self, kbezier : int, device=torch.device("cpu"), cache=False, segments = 1, constrain_tangents = True):    
-        cachefile = os.path.join(self.directory, "bcurve_order_%d.npz" % (kbezier,))
+        cachefile = os.path.join(self.directory, "bcurve_order_%d_segments_%d.npz" % (kbezier, segments))
         if cache and os.path.isfile(cachefile):
             desc = "Loading bezier curves from cache file %s" % (cachefile,)
             print(desc, flush=True)
             with open(cachefile, "rb") as f:
                 npdict : npio.NpzFile = np.load(f)
-                self.reference_curves = np.stack([npdict[k].copy() for k in ["left", "right", "center", "race"]], axis=1)
+                self.reference_curves = npdict["all_curves"].copy()
+                if "all_rswitch" in npdict.keys():
+                    self.reference_curves_rswitch = npdict["all_rswitch"].copy()
             return
         desc = "Fitting bezier curves for %s" % (self.directory,)
         print(desc, flush=True)
@@ -198,22 +200,24 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
                 right_bd_t0 = torch.as_tensor(self.data_dict["future_right_bd_tangents"][:,0], device=device)
                 centerline_t0 = torch.as_tensor(self.data_dict["future_centerline_tangents"][:,0], device=device)
                 raceline_t0 = torch.as_tensor(self.data_dict["future_raceline_tangents"][:,0], device=device)
-                all_t0 = torch.stack([left_bd_t0, right_bd_t0, centerline_t0, raceline_t0], dim=1).to(device)
-                dYdT_0 = all_t0#.view(-1, all_t0.shape[-1])
+                dYdT_0 = torch.stack([left_bd_t0, right_bd_t0, centerline_t0, raceline_t0], dim=1).to(device)
 
                 left_bd_tf = torch.as_tensor(self.data_dict["future_left_bd_tangents"][:,-1], device=device)
                 right_bd_tf = torch.as_tensor(self.data_dict["future_right_bd_tangents"][:,-1], device=device)
                 centerline_tf = torch.as_tensor(self.data_dict["future_centerline_tangents"][:,-1], device=device)
                 raceline_tf = torch.as_tensor(self.data_dict["future_raceline_tangents"][:,-1], device=device)
-                all_tf = torch.stack([left_bd_tf, right_bd_tf, centerline_tf, raceline_tf], dim=1).to(device)
-                dYdT_f = all_tf#.view(-1, all_tf.shape[-1])
+                dYdT_f = torch.stack([left_bd_tf, right_bd_tf, centerline_tf, raceline_tf], dim=1).to(device)
 
             all_curves, all_rswitch = deepracing_models.math_utils.compositeBezierFit(
-                all_r, all_lines, segments, kbezier=3, dYdT_0=dYdT_0, dYdT_f=dYdT_f
+                all_r, all_lines, segments, kbezier=kbezier, dYdT_0=dYdT_0, dYdT_f=dYdT_f
             )
             self.reference_curves_rswitch = all_rswitch.cpu().numpy().astype(self.data_dict["future_left_bd_arclength"].dtype).copy()
-            self.reference_curves : np.ndarray = all_curves.cpu().numpy().astype(self.data_dict["future_left_bd_arclength"].dtype)
-
+            self.reference_curves : np.ndarray = all_curves.cpu().numpy().astype(self.data_dict["future_left_bd_arclength"].dtype).copy()
+        datadump : dict = {"all_curves" : self.reference_curves}
+        if segments>1:
+            datadump["all_rswitch"] = self.reference_curves_rswitch
+        with open(cachefile, "wb") as f:
+            np.savez(f, **datadump)
         print("Done", flush=True)
 
     def __len__(self):

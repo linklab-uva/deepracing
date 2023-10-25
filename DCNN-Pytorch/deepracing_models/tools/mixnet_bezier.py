@@ -1,6 +1,7 @@
 import argparse
 import tempfile
 import comet_ml
+import deepracing_models
 import deepracing_models.math_utils.bezier, deepracing_models.math_utils
 from deepracing_models.nn_models.trajectory_prediction import BezierMixNet
 from deepracing_models.data_loading import file_datasets as FD, SubsetFlag 
@@ -37,7 +38,8 @@ def train(allconfig : dict[str,dict] = None,
             workers : int = 0,
             shared_memory_keys : list[ tuple[ dict[str, tuple[str, list]], dict ]  ] | None = None,
             dtype : np.dtype | None = None,
-            api_key : str | None = None):
+            api_key : str | None = None, 
+            outfolder = None):
     
     if allconfig is None:
         raise ValueError("keyword arg \"allconfig\" is mandatory")
@@ -48,8 +50,8 @@ def train(allconfig : dict[str,dict] = None,
     dataconfig = allconfig["data"]
     netconfig = allconfig["net"]
     trainerconfig = allconfig["trainer"]
-    kbezier : int = trainerconfig["kbezier"]
-    netconfig["kbezier"] = kbezier
+    kbezier = netconfig["kbezier"]
+    num_curve_sections = netconfig["num_curve_sections"]
     netconfig["gpu_index"] = trainerconfig["gpu_index"]
 
     input_embedding = netconfig["input_embedding"]
@@ -57,7 +59,7 @@ def train(allconfig : dict[str,dict] = None,
         
     project_name="mixnet-bezier"
     tags = allconfig["comet"]["tags"]
-    if (api_key is not None):
+    if (api_key is not None) and len(api_key)>0:
         experiment = comet_ml.Experiment(workspace="electric-turtle", 
                                          project_name=project_name, 
                                          api_key=api_key, 
@@ -70,7 +72,10 @@ def train(allconfig : dict[str,dict] = None,
     if experiment is not None:
         tempdir_full = os.path.join(tempdir, experiment.name)
     else:
-        tempdir_full = os.path.join(tempdir, "mixnet_bezier_" + datetime.now().strftime("%Y_%m_%d_%H:%M:%S"))
+        if outfolder is not None:
+            tempdir_full = os.path.join(tempdir, outfolder)
+        else:
+            tempdir_full = os.path.join(tempdir, "mixnet_bezier_" + datetime.now().strftime("%Y_%m_%d_%H:%M:%S"))
 
     if os.path.isdir(tempdir_full):
         shutil.rmtree(tempdir_full)
@@ -82,29 +87,31 @@ def train(allconfig : dict[str,dict] = None,
         with open(config_copy, "w") as f:
             yaml.dump(allconfig, f, Dumper=yaml.SafeDumper)
         experiment.log_asset(config_copy, "config.yaml", copy_to_tmp=False)
-        import deepracing_models, deepracing
+        import deepracing
         if deepracing_models.__file__ is not None:
             experiment.log_code(folder=os.path.dirname(deepracing_models.__file__), overwrite=True)
         if deepracing.__file__ is not None:
             experiment.log_code(folder=os.path.dirname(deepracing.__file__), overwrite=True)
-
-    else:
-        os.mkdir(os.path.join(tempdir_full, "plots"))
+    os.mkdir(os.path.join(tempdir_full, "plots"))
     
-    if shared_memory_keys is None:
-        search_dir : str = dataconfig["dir"]
-        datasets = load_datasets_from_files(search_dir, kbezier = kbezier, dtype=np.float64)
-    else:
-        if dtype is None:
-            raise ValueError("If shared memory is specified, dtype must also be specified")
-        datasets = load_datasets_from_shared_memory(shared_memory_keys, dtype)
-    network : BezierMixNet = BezierMixNet(netconfig).float()
-    lossfunc : torch.nn.MSELoss = torch.nn.MSELoss().float()
+    network : BezierMixNet = BezierMixNet(netconfig).double()
+    lossfunc : torch.nn.MSELoss = torch.nn.MSELoss().double()
+    if trainerconfig.get("float32", False):
+        network = network.float()
+        lossfunc = lossfunc.float()
     gpu_index : int = trainerconfig["gpu_index"]
     use_cuda = gpu_index>=0
     if use_cuda:
         network = network.cuda(gpu_index)
         lossfunc = lossfunc.cuda(gpu_index)
+    firstparam = next(network.parameters())
+    dtype = firstparam.dtype
+    device = firstparam.device
+
+    search_dirs = dataconfig["dirs"]
+    datasets = []
+    for search_dir in search_dirs:
+        datasets += load_datasets_from_files(search_dir, bcurve_cache=True, kbezier = kbezier, segments=num_curve_sections, dtype=np.float64)
 
     concat_dataset : torchdata.ConcatDataset = torchdata.ConcatDataset(datasets)
     dataloader : torchdata.DataLoader = torchdata.DataLoader(concat_dataset, batch_size=trainerconfig["batch_size"], pin_memory=use_cuda, shuffle=True, num_workers=workers)
@@ -115,9 +122,6 @@ def train(allconfig : dict[str,dict] = None,
     if experiment is not None:
         print("Using comet. Experiment name: %s" % (experiment.get_name(),) )
 
-    firstparam = next(network.parameters())
-    dtype = firstparam.dtype
-    device = firstparam.device
     lr = float(trainerconfig["learning_rate"])
     optimizername = trainerconfig["optimizer"]
     if optimizername=="SGD":
@@ -131,6 +135,7 @@ def train(allconfig : dict[str,dict] = None,
     else:
         raise ValueError("Unknown optimizer %s" % (optimizername,))
 
+    num_accel_sections : int = netconfig["acc_decoder"]["num_acc_sections"]
     num_accel_sections : int = netconfig["acc_decoder"]["num_acc_sections"]
     prediction_totaltime = datasets[0].metadata["predictiontime"]
     network.train()
@@ -157,14 +162,19 @@ def train(allconfig : dict[str,dict] = None,
         for dsetkey in ["numsamples_boundary", "numsamples_history", "numsamples_prediction", "predictiontime", "predictiontime", "historytime"]:
             hyper_params_to_comet[dsetkey] = datasets[0].metadata[dsetkey]
         experiment.log_parameters(hyper_params_to_comet)
+    use_tqdm = True
     for epoch in range(1, trainerconfig["epochs"]+1):
         print("Starting epoch %d" % (epoch,))
+
         dataloader_enumerate = enumerate(dataloader)
-        if experiment is None:
+        if (experiment is None) or use_tqdm:
             tq = tqdm.tqdm(dataloader_enumerate, desc="Yay")
         else:
             tq = dataloader_enumerate
+
+        if (experiment is not None): 
             experiment.set_epoch(epoch)
+
         if epoch%10==0:
             
             netout = os.path.join(tempdir_full, "network.pt")
@@ -233,10 +243,10 @@ def train(allconfig : dict[str,dict] = None,
                 left_bound_input = torch.cat([left_bound_input, left_bound_tangents], dim=-1)
                 right_bound_input = torch.cat([right_bound_input, right_bound_tangents], dim=-1)
 
-            bcurves_r = datadict["reference_curves"].cuda(gpu_index).type(dtype)
 
             speed_future = torch.norm(vel_future[:,:,coordinate_idx], p=2.0, dim=-1)
-            tangent_future = vel_future[:,:,coordinate_idx]/speed_future[:,:,None]
+            spline_ders = datadict["fut_spline_der"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
+            tangent_future = spline_ders/torch.norm(spline_ders, p=2.0, dim=-1, keepdim=True)
 
             currentbatchsize = int(position_history.shape[0])
 
@@ -278,44 +288,59 @@ def train(allconfig : dict[str,dict] = None,
 
             coefs_antiderivative = deepracing_models.math_utils.compositeBezierAntiderivative(coefs_inferred.unsqueeze(-1), dt_batch)
             arclengths_pred, _ = deepracing_models.math_utils.compositeBezierEval(tstart_batch, dt_batch, coefs_antiderivative, teval_batch, idxbuckets=idxbuckets)
-            delta_r_pred = arclengths_pred[:,-1]
-            s_pred : torch.Tensor = arclengths_pred/delta_r_pred[:,None]
+            arclengths_deltar = arclengths_pred[:,-1]
 
             delta_r_gt : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
             future_arclength_rel : torch.Tensor = future_arclength - future_arclength[:,0,None]
-            loss_arclength : torch.Tensor = lossfunc(arclengths_pred, future_arclength_rel)
-            s_gt : torch.Tensor = future_arclength_rel/delta_r_gt[:,None]
-
-            mixed_control_points = torch.sum(bcurves_r[:,:,:,coordinate_idx]*mix_out[:,:,None,None], dim=1)
-            mcp_deltar : torch.Tensor = deepracing_models.math_utils.bezierArcLength(mixed_control_points, num_segments = 10)
-
-            known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2,coordinate_idx])
-            known_control_points[:,1] = (mcp_deltar[:,None]/kbezier)*tangent_future[:,0,coordinate_idx]
-            predicted_bcurve = torch.cat([known_control_points, mixed_control_points[:,2:]], dim=1) 
-
-            # known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:1,coordinate_idx])
-            # predicted_bcurve = torch.cat([known_control_points, mixed_control_points[:,1:]], dim=1) 
-            pred_deltar : torch.Tensor = deepracing_models.math_utils.bezierArcLength(predicted_bcurve, num_segments = 10)
-
             arclengths_gt_s = future_arclength_rel/delta_r_gt[:,None]
-            Mbezier_gt = deepracing_models.math_utils.bezierM(arclengths_gt_s, kbezier)
 
-            # arclengths_pred_s = (arclengths_pred/delta_r_gt[:,None]).clamp(min=0.0, max=1.0)
-            arclengths_deltar = arclengths_pred[:,-1]
-            idx_clip = arclengths_deltar>pred_deltar
-            arclengths_pred[idx_clip]*=(pred_deltar[idx_clip]/arclengths_deltar[idx_clip])[:,None]
-            arclengths_pred_s = (arclengths_pred/pred_deltar[:,None]).clamp(min=0.0, max=1.0)
-            Marclengths_pred : torch.Tensor = deepracing_models.math_utils.bezierM(arclengths_pred_s, kbezier)
+            
+            bcurves_r = datadict["reference_curves"].cuda(gpu_index).type(dtype)
+            if num_curve_sections>1:
+                mixed_control_points = torch.sum(bcurves_r[:,:,:,:,coordinate_idx]*mix_out[:,:,None,None,None], dim=1)
+                predicted_bcurve = torch.zeros_like(mixed_control_points) 
+
+                mcp0_deltar : torch.Tensor = deepracing_models.math_utils.bezierArcLength(mixed_control_points[:,0], num_segments = 30)
+                predicted_bcurve[:, 0, 1] = (mcp0_deltar[:,None]/kbezier)*tangent_future[:,0,coordinate_idx]
+                predicted_bcurve[:, 0, 2:] = mixed_control_points[:,0,2:]
+                predicted_bcurve[:, 1:] = mixed_control_points[:,1:]
+                pred_deltar : torch.Tensor = deepracing_models.math_utils.bezierArcLength(predicted_bcurve.view(-1, kbezier+1, len(coordinate_idx)), num_segments = 30).view(currentbatchsize, num_curve_sections)
+                pred_rstart : torch.Tensor = torch.zeros_like(pred_deltar)
+                pred_rstart[:, 1:] = torch.cumsum(pred_deltar[:,:-1], 1)
+                pred_total_length = pred_rstart[:,-1] + pred_deltar[:,-1]
+
+                runiform = pred_total_length[:,None]*arclengths_gt_s
+                pointsout_lateral_only, _ = deepracing_models.math_utils.compositeBezierEval(pred_rstart, pred_deltar, predicted_bcurve, runiform)
+                
+                idx_clip = arclengths_deltar>pred_total_length
+                arclengths_pred[idx_clip]*=(pred_total_length[idx_clip]/arclengths_deltar[idx_clip])[:,None]
+                arclengths_pred = arclengths_pred.clip(min=torch.zeros_like(arclengths_pred), max=pred_total_length[:,None]*torch.ones_like(arclengths_pred))
+                pointsout, _ = deepracing_models.math_utils.compositeBezierEval(pred_rstart, pred_deltar, predicted_bcurve, arclengths_pred)
+            
+            else:
+                mixed_control_points = torch.sum(bcurves_r[:,:,:,coordinate_idx]*mix_out[:,:,None,None], dim=1)
+                mcp_deltar : torch.Tensor = deepracing_models.math_utils.bezierArcLength(mixed_control_points, num_segments = 10)
+                known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2,coordinate_idx])
+                known_control_points[:,1] = (mcp_deltar[:,None]/kbezier)*tangent_future[:,0,coordinate_idx]
+                predicted_bcurve = torch.cat([known_control_points, mixed_control_points[:,2:]], dim=1) 
+                pred_deltar : torch.Tensor = deepracing_models.math_utils.bezierArcLength(predicted_bcurve, num_segments = 10)
+                Mbezier_gt = deepracing_models.math_utils.bezierM(arclengths_gt_s, kbezier)
+                pointsout_lateral_only = torch.matmul(Mbezier_gt, predicted_bcurve)
+                
+                idx_clip = arclengths_deltar>pred_deltar
+                
+                arclengths_pred[idx_clip]*=(pred_deltar[idx_clip]/arclengths_deltar[idx_clip])[:,None]
+                arclengths_pred_s = (arclengths_pred/pred_deltar[:,None]).clamp(min=0.0, max=1.0)
+                
+                Marclengths_pred : torch.Tensor = deepracing_models.math_utils.bezierM(arclengths_pred_s, kbezier)
+                pointsout : torch.Tensor = torch.matmul(Marclengths_pred, predicted_bcurve)
 
 
             normal_future = tangent_future[:,:,[1,0]].clone()
             normal_future[:,:,0]*=-1.0
-
-            pointsout : torch.Tensor = torch.matmul(Marclengths_pred, predicted_bcurve)
             displacements : torch.Tensor = pointsout - position_future[:,:,coordinate_idx]
             ade : torch.Tensor = torch.mean(torch.norm(displacements, p=2.0, dim=-1))
 
-            pointsout_lateral_only = torch.matmul(Mbezier_gt, predicted_bcurve)
             lateral_error : torch.Tensor = lossfunc(pointsout_lateral_only, position_future[:,:,coordinate_idx])
 
             true_lateral_error : torch.Tensor = torch.abs(torch.sum(displacements * normal_future, dim=-1))
@@ -329,7 +354,7 @@ def train(allconfig : dict[str,dict] = None,
             if trainerconfig["ade_loss"] and (not torch.isnan(ade)) and ade<1000.0:     
                 loss = ade + 5.0*loss_velocity
             else:
-                loss = lateral_error + 5.0*loss_velocity
+                loss = torch.mean(true_lateral_error)  + 5.0*loss_velocity
 
             optimizer.zero_grad()
             loss.backward()
@@ -378,15 +403,14 @@ def train(allconfig : dict[str,dict] = None,
             plt.ylabel("$\\nu(t)$", usetex=True)
             plt.tight_layout(pad=0.75)
             plt.gca().yaxis.label.set(rotation='horizontal', ha='right')
+            with open(os.path.join(tempdir_full, "plots", "prints_epoch_%d.txt" % (epoch,)), "w") as f:
+                print(mix_out[0], file=f)
+                print(acc_out[0], file=f, flush=True)
+            fig.savefig(os.path.join(tempdir_full, "plots", "positions_epoch_%d.pdf" % (epoch,)))
+            fig_velocity.savefig(os.path.join(tempdir_full, "plots", "speeds_epoch_%d.pdf" % (epoch,)))
             if experiment is not None:
                 experiment.log_figure(figure_name="positions_epoch_%d" % (epoch,), figure=fig)
                 experiment.log_figure(figure_name="speeds_epoch_%d" % (epoch,), figure=fig_velocity)
-            else:
-                with open(os.path.join(tempdir_full, "plots", "prints_epoch_%d.txt" % (epoch,)), "w") as f:
-                    print(mix_out[0], file=f)
-                    print(acc_out[0], file=f, flush=True)
-                fig.savefig(os.path.join(tempdir_full, "plots", "positions_epoch_%d.pdf" % (epoch,)))
-                fig_velocity.savefig(os.path.join(tempdir_full, "plots", "speeds_epoch_%d.pdf" % (epoch,)))
             plt.close(fig=fig)
             plt.close(fig=fig_velocity)
 
@@ -394,9 +418,10 @@ def prepare_and_train(argdict : dict):
     tempdir = argdict["tempdir"]
     workers = argdict["workers"]
     config_file = argdict["config_file"]
+    outfolder = argdict["outfolder"]
     with open(config_file, "r") as f:
         allconfig : dict = yaml.load(f, Loader=yaml.SafeLoader)
-    train(allconfig=allconfig, workers=workers, tempdir=tempdir, api_key=os.getenv("COMET_API_KEY"))
+    train(allconfig=allconfig, workers=workers, tempdir=tempdir, api_key=os.getenv("COMET_API_KEY"), outfolder = outfolder)
 
     
             
@@ -405,6 +430,7 @@ if __name__=="__main__":
     parser.add_argument("config_file", type=str,  help="Configuration file to load")
     parser.add_argument("--tempdir", type=str, required=True, help="Temporary directory to save model files before uploading to comet. Default is to use tempfile module to generate one")
     parser.add_argument("--workers", type=int, default=0, help="How many threads for data loading")
+    parser.add_argument("--outfolder", type=str, default=None, help="Folder name for non-comet. Has no effect in comet mode")
     args = parser.parse_args()
     argdict : dict = vars(args)
     prepare_and_train(argdict)
