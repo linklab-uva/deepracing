@@ -186,13 +186,13 @@ def compositeBezierEval(xstart : torch.Tensor, dx : torch.Tensor, control_points
 
     if idxbuckets is None:
         if batchsize == 1:
-            idxbuckets_ : torch.Tensor = torch.bucketize(x_eval_onebatchdim[0], xstart_onebatchdim[0], right=True).view(1, numpoints) - 1
+            idxbuckets_ : torch.Tensor = (torch.bucketize(x_eval_onebatchdim[0], xstart_onebatchdim[0], right=True).view(1, numpoints) - 1).clip(min=0)
         else:
-            idxbuckets_ : torch.Tensor = torch.stack([torch.bucketize(x_eval_onebatchdim[i], xstart_onebatchdim[i], right=True) for i in range(batchsize)], dim=0) - 1
+            idxbuckets_ : torch.Tensor = (torch.stack([torch.bucketize(x_eval_onebatchdim[i], xstart_onebatchdim[i], right=True) for i in range(batchsize)], dim=0) - 1).clip(min=0)
     else:
-        idxbuckets_ : torch.Tensor = idxbuckets.view(batchsize, numpoints)
+        idxbuckets_ : torch.Tensor = idxbuckets.view(batchsize, numpoints).clip(min=0)
         
-    idxbuckets_exp = idxbuckets_.unsqueeze(-1).unsqueeze(-1).expand(batchsize, numpoints, kbezier+1, d)
+    idxbuckets_exp = idxbuckets_.unsqueeze(-1).unsqueeze(-1).expand(batchsize, numpoints, kbezier+1, d)#%xstart_onebatchdim.shape[1]
     corresponding_curves = torch.gather(control_points_onebatchdim, 1, idxbuckets_exp)
     corresponding_xstart = torch.gather(xstart_onebatchdim, 1, idxbuckets_)
     corresponding_dx = torch.gather(dx_onebatchdim, 1, idxbuckets_)
