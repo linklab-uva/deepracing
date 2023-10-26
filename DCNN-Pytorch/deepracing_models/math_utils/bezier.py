@@ -72,11 +72,9 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
         dYdT_f = dYdT_f.view(-1, dim)
     batchdimflat = points.shape[0]          
         
-
     if not torch.all((x[:, 1:] - x[:, :-1])>0.0):
         raise ValueError("x must be monotonically increasing")
     tsamp = x.clone()
-
 
     constrain_initial_derivative = dYdT_0 is not None
     constrain_final_derivative = dYdT_f is not None
@@ -84,8 +82,6 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
     continuity_constraints = int(continuinty_constraits_per_segment*(numsegments-1))
     total_constraints = continuity_constraints + 2 + int(constrain_initial_derivative) + int(constrain_final_derivative)
     
-    tswitchingpoints = tsamp[:,-1].unsqueeze(1).expand(batchdimflat, numsegments+1).clone()
-    tswitchingpoints[:,0] =  tsamp[:,0]
     tswitchingpoints = torch.stack([
         torch.linspace(tsamp[i,0].item(), tsamp[i,-1].item(), steps=numsegments+1, dtype=dtype, device=device)
         for i in range(batchdimflat)
@@ -287,14 +283,9 @@ def bezierArcLength(control_points : torch.Tensor, quadrature_order = 7, num_seg
     return segment_sums
 
 
-
-    
-
 def compositeBezierSpline_with_boundary_conditions_(x : torch.Tensor, Y : torch.Tensor, boundary_conditions : torch.Tensor):
     
     k=3
-    if torch.linalg.norm(Y[-1] - Y[0], ord=2)>1E-5:
-        raise ValueError("Y[-1] and Y[0] must be the same value for a periodic spline")
     if x.shape[0]!=Y.shape[0]:
         raise ValueError("x and Y must be equal in size in dimension 0. x.shape[0]=%d, but Y.shape[0]=%d" % (x.shape[0], Y.shape[0])) 
     lhs1, rhs1 = first_order_constraints(x, Y, k=k, bc_type = boundary_conditions)
@@ -304,33 +295,6 @@ def compositeBezierSpline_with_boundary_conditions_(x : torch.Tensor, Y : torch.
     solution = torch.linalg.solve(lhs, rhs)
     intermediate_points = solution.view(Y.shape[-2] - 1, 2, -1)
     return torch.cat([Y[:-1].unsqueeze(1), intermediate_points, Y[1:].unsqueeze(1)], dim=1)        
-    # d = Y.shape[1]
-    # if boundary_conditions.shape[0]!=2:
-    #     raise ValueError("Must have four boundary conditions. boundary_conditions tensor is only %dx%d" % (boundary_conditions.shape[0], boundary_conditions.shape[1]))
-    # if boundary_conditions.shape[1]!=d:
-    #     raise ValueError("Invalid shape of boundary conditions: %s for" +
-    #                      "knots of dimension %d.  boundary_conditions must of size 4x%d, an initial"+
-    #                       " velocity and acceleration followed by a final velocity and acceleration, each being %dD." % (str(boundary_conditions.shape), d, d, d))
-    # V0 : torch.Tensor = boundary_conditions[0]
-    # A0 : torch.Tensor = boundary_conditions[1]
-    # Vf : torch.Tensor = boundary_conditions[2]
-    # Af : torch.Tensor = boundary_conditions[3]
-
-    # numcurves = Y.shape[0]-1 
-    # dxvec = x[1:]-x[:-1]
-    # dx2vec = dxvec*dxvec
-    # bezier_control_points : torch.Tensor = torch.zeros((numcurves, k+1, d), dtype=Y.dtype, device=Y.device)
-    # bezier_control_points[0,0] = Y[0]
-    # bezier_control_points[0,1] = (dxvec[0]/k)*V0 + Y[0]
-    # bezier_control_points[0,2] = (dx2vec[0]/(k*(k-1)))*A0 + 2*bezier_control_points[0,1] - Y[0]
-    # bezier_control_points[0,3] = Y[1]
-
-    # for i in range(1, numcurves):
-    #     bezier_control_points[i,0] = Y[i]
-    #     bezier_control_points[i,1] = Y[i] + (dxvec[i]/dxvec[i-1])*(Y[i]-bezier_control_points[i-1,2])
-    #     bezier_control_points[i,2] = (dx2vec[i]/dx2vec[i-1])*(Y[i] - 2.0*bezier_control_points[i-1,2] + bezier_control_points[i-1,1]) + 2.0*bezier_control_points[i,1] - Y[i] 
-    #     bezier_control_points[i,3] = Y[i+1]
-    # return bezier_control_points
 
 def first_order_constraints(x : torch.Tensor, Y : torch.Tensor, bc_type : torch.Tensor | str = "periodic", k=3):
     #Eventually, i'll get around to implementing non-cubic splines, but for now this works.
@@ -427,127 +391,9 @@ def compositeBezierSpline_periodic_(x : torch.Tensor, Y : torch.Tensor):
     solution = torch.linalg.solve(lhs, rhs)
     intermediate_points = solution.view(Y.shape[-2] - 1, 2, -1)
     return torch.cat([Y[:-1].unsqueeze(1), intermediate_points, Y[1:].unsqueeze(1)], dim=1)
-    # points = Y[:-1]
-    # numpoints = points.shape[0]
-    # d = points.shape[1]
-    # numparams = (k-1)*numpoints*d
-    # dxvec = x[1:]-x[:-1]
-    # dx2vec = dxvec*dxvec
-
-    # first_order_design_matrix : torch.Tensor = torch.zeros((int(numparams/2), numparams), dtype=x.dtype, device=x.device)
-    # first_order_bvec : torch.Tensor = torch.zeros_like(first_order_design_matrix[:,0])
-
-    # second_order_design_matrix : torch.Tensor = torch.zeros_like(first_order_design_matrix)
-    # second_order_bvec : torch.Tensor = torch.zeros_like(first_order_design_matrix[:,0])
-    # for i in range(0, first_order_design_matrix.shape[0], d):
-    #     C0index = int(i/d)
-    #     C1index = int(C0index+1)
-    #     dx0 = dxvec[C0index%numpoints]
-    #     dx1 = dxvec[C1index%numpoints]
-
-    #     jstart_first_order = d*(2*C0index+1)
-    #     dr0inv = (1/dx0)*torch.eye(d, dtype=x.dtype, device=x.device)
-    #     first_order_design_matrix[i:i+d, jstart_first_order:jstart_first_order+d] = dr0inv
-    #     dr1inv = (1/dx1)*torch.eye(d, dtype=x.dtype, device=x.device)
-    #     jstart2_first_order = (jstart_first_order+d)%numparams
-    #     first_order_design_matrix[i:i+d, jstart2_first_order:jstart2_first_order+d] = dr1inv
-
-    #     first_order_bvec[i:i+d] = torch.matmul(dr0inv + dr1inv, points[C1index%numpoints])
-        
-    #     jstart_second_order = d*2*C0index
-    #     jstart2_second_order = (jstart_second_order+d)%numparams
-    #     jstart3_second_order = (jstart2_second_order+d)%numparams
-    #     jstart4_second_order = (jstart3_second_order+d)%numparams
-
-    #     dx0square = dx2vec[C0index%numpoints]
-    #     dx0squareinv =  (1/dx0square)*torch.eye(d, dtype=x.dtype, device=x.device)
-    #     second_order_design_matrix[i:i+d, jstart_second_order:jstart_second_order+d] = dx0squareinv
-    #     second_order_design_matrix[i:i+d, jstart2_second_order:jstart2_second_order+d] = -2*dx0squareinv
-
-    #     dx1square = dx2vec[C1index%numpoints]
-    #     dx1squareinv =  (1/dx1square)*torch.eye(d, dtype=x.dtype, device=x.device)
-    #     second_order_design_matrix[i:i+d, jstart3_second_order:jstart3_second_order+d] = 2*dx1squareinv
-    #     second_order_design_matrix[i:i+d, jstart4_second_order:jstart4_second_order+d] = -dx1squareinv
-
-    #     second_order_bvec[i:i+d] = torch.matmul(dx1squareinv - dx0squareinv, points[C1index%numpoints])
-    # A = torch.cat([first_order_design_matrix, second_order_design_matrix], dim=0)
-    # b = torch.cat([first_order_bvec, second_order_bvec], dim=0)
-
-    # res : torch.Tensor = torch.linalg.solve(A, b.unsqueeze(1))[:,0]
-
-    # all_curves = torch.cat([points.unsqueeze(1), res.reshape(numpoints , k-1, d), points[torch.linspace(1, numpoints, numpoints, dtype=torch.int64)%numpoints].unsqueeze(1)], dim=1)
-
-    # return all_curves
 
 def bezierM(s : torch.Tensor, n : int, scaled_basis : bool = False) -> torch.Tensor:
     return torch.stack([Mtk(k,n,s, scaled_basis=scaled_basis) for k in range(n+1)],dim=2)
-
-def evalBezier(M : torch.Tensor, control_points : torch.Tensor):
-    return torch.matmul(M, control_points)
-
-def evalBezierSinglePoint(s : torch.Tensor, control_points : torch.Tensor):
-    num_control_points : int = control_points.shape[-2]
-    order_int : int = num_control_points - 1
-    return torch.matmul(bezierM(s.unsqueeze(-1), order_int), control_points).squeeze(1)
- 
-def bezierAntiDerivative(control_points : torch.Tensor, p0 : torch.Tensor) -> torch.Tensor:
-    shapeout : list = list(control_points.shape)
-    shapeout[-2]+=1
-    numpoints_in = control_points.shape[-2]
-    d = control_points.shape[-1]
-    control_points_flat = control_points.view(-1, numpoints_in, d)
-    p0flat = p0.view(-1, d)
-    batchflat = p0flat.shape[0]
-    cumsum_control_points = torch.cumsum(control_points_flat, 1) + p0flat.view(batchflat, 1, d).expand(batchflat, numpoints_in, d)
-    antideriv_control_points = torch.cat([p0flat.view(batchflat,1,d), cumsum_control_points], dim=1)
-    return antideriv_control_points.view(shapeout)
-
-    
-    
-def bezierDerivative(control_points : torch.Tensor, t = None, M = None, order = 1, covariance : Union[None, torch.Tensor] = None )\
-     -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
-    if (bool(t is not None) ^ bool(M is not None)):
-        b = control_points.shape[0]
-        n = control_points.shape[1]-1
-        if t is not None:
-            Mderiv = bezierM(t,n-order)
-        else:
-            Mderiv = M
-        pdiff =  control_points[:,1:] - control_points[:,:-1]
-        if covariance is not None:
-            covardiff = covariance[:,1:] + covariance[:,:-1]
-        for i in range(1,order):
-            pdiff =  pdiff[:,1:] - pdiff[:,:-1]
-            if covariance is not None:
-                covardiff = covardiff[:,1:] + covardiff[:,:-1]
-        factor = torch.prod(torch.linspace(n,n-order+1,order))
-        deriv_values = factor*torch.matmul(Mderiv, pdiff)
-        if covariance is None:
-            return Mderiv, deriv_values
-        else:
-            covar_deriv = torch.square(factor)*torch.sum(Mderiv[:,:,:,None,None]*covardiff, dim=2)
-            return Mderiv, deriv_values, covar_deriv    
-        
-        # if order%2==0:
-        #     pascalrow : torch.Tensor = torch.as_tensor([np.power(-1.0, i)*nChoosek(order,i) for i in range(order+1)], dtype=control_points.dtype, device=control_points.device)
-        # else:
-        #     pascalrow : torch.Tensor = torch.as_tensor([np.power(-1.0, i+1)*nChoosek(order,i) for i in range(order+1)], dtype=control_points.dtype, device=control_points.device)
-        # pascalmatrix : torch.Tensor = torch.zeros([b, control_points.shape[1] - order, control_points.shape[1] ], dtype=pascalrow.dtype, device=pascalrow.device)
-        # for i in range(0, pascalmatrix.shape[1]):
-        #     pascalmatrix[:,i,i:i+pascalrow.shape[0]] = pascalrow
-        # pdiff : torch.Tensor = torch.matmul(pascalmatrix, control_points)
-        # factor = torch.prod(torch.linspace(n,n-order+1,order))
-        # deriv_values = factor*torch.matmul(Mderiv, pdiff)
-        # d = control_points.shape[2]
-        # numpoints = Mderiv.shape[1]
-        # pascalmatrix_square : torch.Tensor = torch.square(pascalmatrix)
-        # covariance_flat : torch.Tensor = covariance.view(b,n+1,-1)
-        # pdiff_covar_flat : torch.Tensor = torch.matmul(pascalmatrix_square, covariance_flat)
-        # msquare = torch.square(Mderiv)
-        # covarout = torch.square(factor)*torch.matmul(msquare, pdiff_covar_flat).view(b,numpoints,d,d)
-        # return Mderiv, deriv_values, covarout
-    else:
-        raise ValueError("One of t or M must be set, but not both")
 
 def bezierLsqfit(points, n, t = None, M = None, built_in_lstq = False, P0 : torch.Tensor | None = None, V0 : torch.Tensor | None = None) -> Tuple[torch.Tensor, torch.Tensor]:
     if ((t is None) and (M is None)) or ((t is not None) and (M is not None)):
@@ -611,25 +457,3 @@ def elevateBezierOrder(points : torch.Tensor, out : Union[None, torch.Tensor] = 
     out_flat[:,1:-1] = points_flat[:,1:]*coefs[:,:,None] + points_flat[:,:-1]*((1.0-coefs)[:,:,None])
     return out_flat.view(sizeout)
     
-
-
-
-
-class BezierCurveModule(torch.nn.Module):
-    def __init__(self, control_points, mask = None):
-        super(BezierCurveModule, self).__init__()
-        if mask is None:
-            self.mask = [True for asdf in range(control_points.shape[0])]
-        else:
-            self.mask = mask
-        self.control_points : torch.nn.ParameterList = torch.nn.ParameterList([ torch.nn.Parameter(control_points[i], requires_grad=self.mask[i]) for i in range(len(self.mask)) ])
-    @staticmethod
-    def lsqFit(s, pts, n, mask=None):
-        assert(s.shape[0]==pts.shape[0])
-        M, cntrlpoints = bezierLsqfit(pts, n, t=s)
-        return M, BezierCurveModule(cntrlpoints[0], mask=mask)
-    def allControlPoints(self):
-        return torch.stack([p for p in self.control_points], dim=0).unsqueeze(0)
-    def forward(self, M):
-        points = self.allControlPoints()
-        return torch.matmul(M, points)

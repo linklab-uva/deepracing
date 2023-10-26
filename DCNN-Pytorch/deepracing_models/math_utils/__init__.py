@@ -2,13 +2,12 @@ from typing import List, Tuple, Union
 import typing
 from .bezier import bezierLsqfit
 from .bezier import bezierM
-from .bezier import bezierDerivative, bezierArcLength
+from .bezier import bezierArcLength
 from .bezier import bezierPolyRoots
-from .bezier import evalBezier, evalBezierSinglePoint
 from .bezier import bezierArcLength, compositeBezierSpline, compositeBezierAntiderivative, compositeBezierFit
 from .bezier import closedPathAsBezierSpline, polynomialFormConversion, elevateBezierOrder, compositeBezierEval
 from .fitting import pinv, fitAffine
-from .bezier import BezierCurveModule, comb
+from .bezier import comb
 
 from .statistics import cov
 from .integrate import cumtrapz, simpson
