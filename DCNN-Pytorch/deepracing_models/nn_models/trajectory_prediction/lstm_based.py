@@ -3,6 +3,60 @@ import torch.nn.functional as F
 import torch
 import collections
 
+def make_mlp(input_dim : int, intermediate_dims : list[int], output_dim : int, with_batchnorm=True):
+    layerz = [nn.Linear(input_dim, intermediate_dims[0])]
+    if with_batchnorm:
+        layerz.append(nn.BatchNorm1d(intermediate_dims[0]))
+    layerz.append(nn.ReLU())
+    for i in range(1, len(intermediate_dims)):
+        size_in = intermediate_dims[i-1]
+        size_out = intermediate_dims[i]
+        layerz.append(nn.Linear(size_in, size_out))
+        if with_batchnorm:
+            layerz.append(nn.BatchNorm1d(size_out))
+        layerz.append(nn.ReLU())
+    layerz.append(nn.Linear(intermediate_dims[-1], output_dim))
+    if with_batchnorm:
+        layerz.append(nn.BatchNorm1d(output_dim))
+    return nn.Sequential(*layerz)
+
+
+
+class BAMF(nn.Module):
+    def __init__(self):
+        """Initializes a BezierMixNet object."""
+        super(BAMF, self).__init__()
+        ambient_dim = 2
+        kbezier = 3
+        num_segments = 7
+        num_points_out = kbezier*num_segments - 1
+        lstm_out_size = 512
+        self.input_embedder = make_mlp(4, [128, 256, 512, 512, 512, 512],
+                                      512, with_batchnorm=True)
+        self.input_encoder = nn.LSTM(lstm_out_size, 512, 1, batch_first=True)
+        
+
+        self.lb_embedder = make_mlp(4, [128, 256, 512, 512, 512, 512],
+                                    512, with_batchnorm=True)
+        self.lb_encoder = nn.LSTM(lstm_out_size, 512, 1, batch_first=True)
+        
+
+        self.rb_embedder = make_mlp(4, [128, 256, 512, 512, 512, 512],
+                                    512, with_batchnorm=True)
+        self.rb_encoder = nn.LSTM(lstm_out_size, 512, 1, batch_first=True)
+
+        self.decoder = make_mlp(3*lstm_out_size, [
+            128, 256, 512, 512, 512, 512, 256, 128, 64],
+            ambient_dim*num_points_out, with_batchnorm=True)
+
+
+        
+
+    def forward(self, history, left_bound, right_bound):
+        return history
+        
+
+
 ### 
 # BezierMixNet is a modified version of MixNet, published by Phillip Karle & Technical University of Munich on August 22, 2022 under GNU General Public License V3.
 # Modified on various dates starting April 14, 2023
