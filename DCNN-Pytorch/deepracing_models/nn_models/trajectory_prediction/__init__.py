@@ -1,1 +1,1 @@
-from .lstm_based import BezierMixNet
+from .lstm_based import BezierMixNet, BAMF
