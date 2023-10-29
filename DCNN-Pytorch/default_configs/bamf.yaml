@@ -2,8 +2,18 @@
   data:
   {
     dirs: [
-      /p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard/
+        /p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard,
+      # # /p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard/Jeddah_7_13_2023_15_27_32_trajectory_data/car_15,
+      # # /p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard/Jeddah_7_13_2023_15_27_32_trajectory_data/car_16,
+      # # /p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard/Jeddah_7_13_2023_15_27_32_trajectory_data/car_17,
+      # /p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard/Jeddah_7_13_2023_15_27_32_trajectory_data/car_18
     ]
+  },
+  network:
+  {
+    kbezier : 3,
+    num_segments : 15,
+    with_batchnorm : False
   },
   trainer:
   {
@@ -16,7 +26,6 @@
       weight_decay: 0.0,
       epochs: 200,
       batch_size: 512,
-      ade_loss : False,
       float32: True,
   }
 }
