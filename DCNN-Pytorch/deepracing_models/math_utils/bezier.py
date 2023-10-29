@@ -6,6 +6,7 @@ from deepracing_models.math_utils.fitting import pinv
 from ..math_utils.polynomial import polyroots
 import torch.jit
 import typing
+import functools
 
 
 def compositeBezierSpline(x : torch.Tensor, Y : torch.Tensor, boundary_conditions : Union[str,torch.Tensor] = "periodic"):
@@ -91,11 +92,19 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
     tstart = (tswitchingpoints[:, :-1])
     tend = (tswitchingpoints[:, 1:])
     dt = tend - tstart
-        
-    # print("Building linear system")
+
+    print("Building linear system")
     HugeM : torch.Tensor = torch.zeros([
         batchdimflat,  num_points, numcoefs*numsegments
         ], device=device, dtype=dtype)
+    #come back to the autograd stuff later
+    # def fakeEval(idx, points):
+    #     return compositeBezierEval(tstart[idx], dt[idx], points, x[idx])[0].squeeze(-1)
+    # placeholder_control_points=torch.ones_like(dt[0,:,None,None].expand(numsegments, kbezier+1, 1))
+    # for b in range(batchdimflat):
+    #     partial = functools.partial(fakeEval, b)
+    #     autograd_result = torch.autograd.functional.jacobian(partial, placeholder_control_points)
+    #     HugeM[b] = autograd_result.view(-1, numsegments*(kbezier+1))
     for b in range(batchdimflat):
         curr_switchpoints = tswitchingpoints[b]
         curr_tsamp = tsamp[b]
@@ -112,7 +121,7 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
             HugeM[b, idxselect, column_start:column_end] = \
                 bezierM(subs.unsqueeze(0), kbezier)[0]
             segment_sizes.append(torch.sum(idxselect).item())
-    # print("Solving linear system")
+    print("Solving linear system")
     Q = torch.matmul(HugeM.transpose(-2, -1), HugeM)
     E = torch.zeros(batchdimflat, total_constraints, Q.shape[-1], dtype=Q.dtype, device=Q.device)
     d = torch.zeros(batchdimflat, total_constraints, dim, dtype=Q.dtype, device=Q.device)
@@ -166,7 +175,10 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
     return control_points, tswitchingpoints_batch
 
     
-def compositeBezierEval(xstart : torch.Tensor, dx : torch.Tensor, control_points : torch.Tensor, x_eval : torch.Tensor, idxbuckets : typing.Union[torch.Tensor,None] = None) -> typing.Tuple[torch.Tensor, torch.Tensor]:
+def compositeBezierEval(xstart : torch.Tensor, dx : torch.Tensor, 
+                        control_points : torch.Tensor, x_eval : torch.Tensor, 
+                        idxbuckets : typing.Union[torch.Tensor,None] = None
+                        ) -> typing.Tuple[torch.Tensor, torch.Tensor]:
 
     numpoints : int = x_eval.shape[-1]
     numsplinesegments : int = control_points.shape[-3]
@@ -194,8 +206,8 @@ def compositeBezierEval(xstart : torch.Tensor, dx : torch.Tensor, control_points
     corresponding_dx = torch.gather(dx_onebatchdim, 1, idxbuckets_)
     s_eval = (x_eval_onebatchdim - corresponding_xstart)/corresponding_dx
     s_eval_unsqueeze = s_eval.unsqueeze(-1)
-    Mbezier = bezierM(s_eval_unsqueeze.view(-1, 1), kbezier).view(batchsize, numpoints, 1, kbezier+1)
-    pointseval = torch.matmul(Mbezier, corresponding_curves).squeeze(-2)
+    Mbezier = bezierM(s_eval_unsqueeze.view(-1, 1), kbezier).view(batchsize, numpoints, kbezier+1)
+    pointseval = torch.matmul(Mbezier.unsqueeze(-2), corresponding_curves).squeeze(-2)
     idxbuckets_shape_out = x_eval.shape 
     if d>1:
         points_shape_out = list(idxbuckets_shape_out) + [d]
