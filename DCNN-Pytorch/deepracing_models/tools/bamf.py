@@ -93,8 +93,7 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
             vel_history = datadict["hist_vel"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
 
             quat_history = datadict["hist_quats"][:,:,quaternion_idx_history].to(device=device, dtype=dtype)
-            quat_history[quat_history[:,:,-1]<0.0]*=-1.0
-            quat_history = quat_history/torch.norm(quat_history, p=2.0, dim=-1, keepdim=True)
+            quat_history = quat_history*torch.sign(quat_history[:,:,-1])[...,None]
 
             position_future = datadict["fut"].to(device=device, dtype=dtype)
             vel_future = datadict["fut_vel"].to(device=device, dtype=dtype)
