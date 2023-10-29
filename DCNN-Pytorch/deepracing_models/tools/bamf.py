@@ -49,13 +49,14 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
 
     if tempdir is None:
         raise ValueError("keyword arg \"tempdir\" is mandatory")
-    
     num_segments = 10
-    kbezier = 4
-    network : BAMF = BAMF(
+    kbezier = 3
+    network : BAMF = BAMF( history_dimension = 6,
             num_segments = num_segments, 
             kbezier = kbezier
-        ).float().train().cuda(gpu)
+        ).float().train()
+    if gpu>0:
+        network = network.cuda(gpu)
     firstparam = next(network.parameters())
     device = firstparam.device
     dtype = firstparam.dtype
@@ -84,11 +85,17 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
     tsamp_ : torch.Tensor = torch.linspace(0.0, tfuture, steps=Nfuture, device=device, dtype=dtype)
     tq : tqdm.tqdm | enumerate = tqdm.tqdm(dataloader_enumerate, desc="Yay")
     coordinate_idx_history = [0,1]
+    quaternion_idx_history = [2,3]
     for epoch in range(200):
         for (i, dict_) in tq:
             datadict : dict[str,torch.Tensor] = dict_
             position_history = datadict["hist"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
             vel_history = datadict["hist_vel"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
+
+            quat_history = datadict["hist_quats"][:,:,quaternion_idx_history].to(device=device, dtype=dtype)
+            quat_history[quat_history[:,:,-1]<0.0]*=-1.0
+            quat_history = quat_history/torch.norm(quat_history, p=2.0, dim=-1, keepdim=True)
+
             position_future = datadict["fut"].to(device=device, dtype=dtype)
             vel_future = datadict["fut_vel"].to(device=device, dtype=dtype)
             left_bound_input = datadict["left_bd"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
@@ -98,7 +105,7 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
             left_bound_tangents = left_bound_tangents/torch.norm(left_bound_tangents, p=2.0, dim=-1, keepdim=True)
             right_bound_tangents = right_bound_tangents/torch.norm(right_bound_tangents, p=2.0, dim=-1, keepdim=True)
 
-            history_inputs = torch.cat([position_history, vel_history], dim=-1)
+            history_inputs = torch.cat([position_history, vel_history, quat_history], dim=-1)
             left_boundary_inputs = torch.cat([left_bound_input, left_bound_tangents], dim=-1)
             right_boundary_inputs = torch.cat([right_bound_input, right_bound_tangents], dim=-1)
             
