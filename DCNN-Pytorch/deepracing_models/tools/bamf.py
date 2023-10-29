@@ -1,85 +1,135 @@
 import argparse
-# import comet_ml
-# import deepracing_models
-# from deepracing_models.data_loading import file_datasets as FD, SubsetFlag 
-# from deepracing_models.data_loading.utils.file_utils import load_datasets_from_files, load_datasets_from_shared_memory
-import deepracing_models.math_utils
+import comet_ml
+from deepracing_models.data_loading import file_datasets as FD, SubsetFlag 
+from deepracing_models.data_loading.utils.file_utils import load_datasets_from_files
 from deepracing_models.nn_models.trajectory_prediction import BAMF
-import torch, torch.nn
+import torch, torch.nn, torch.utils.data as torchdata
 import yaml
 import os
 import numpy as np
 import traceback
 import sys
-import time
-
+import deepracing_models.math_utils
+import tqdm
+comet_experiment : comet_ml.Experiment | None = None
+# t = torch.linspace(0.0, 3.0, steps=num_segments+1).to(device=device, dtype=dtype).unsqueeze(0).expand(batchdim, num_segments+1)
+# tstart = t[:,:-1]
+# dt = t[:,1:] - tstart
+# nhistory = 61
+# nsamp = 61
+# tsamp = torch.linspace(0.0, 3.0, steps=nsamp).to(device=device, dtype=dtype).unsqueeze(0).expand(batchdim, nsamp).clone()
+# random_history = torch.randn(batchdim, nhistory, 4).to(device=device, dtype=dtype)
+# p0 = random_history[:,-1,:2]
+# v0 = random_history[:,-1,2:]
+# random_lb = torch.randn(batchdim, nsamp, 4).to(device=device, dtype=dtype)
+# random_rb = torch.randn(batchdim, nsamp, 4).to(device=device, dtype=dtype)
+# random_gt = torch.randn(batchdim, nsamp, 2).to(device=device, dtype=dtype)
+# print("here we go")
+# tick = time.time()
+# velcurveout, poscurveout = network(random_history, random_lb, random_rb, dt, v0)#, p0=p0)
+# pout, idxbuckets = deepracing_models.math_utils.compositeBezierEval(tstart, dt, poscurveout, tsamp)
+# fakedeltas = pout - random_gt
+# fakeloss = torch.mean(torch.norm(fakedeltas, dim=-1))
+# fakeloss.backward()
+# tock = time.time()
+# print(velcurveout[0])
+# print(poscurveout[0])
+# print("done. took %f seconds" % (tock-tick,))
+# print(tsamp.shape)
+# print(poscurveout.shape)
 
 def errorcb(exception):
+    global comet_experiment
     for elem in traceback.format_exception(exception):
         print(elem, flush=True, file=sys.stderr)
 
 def train(config : dict = None, tempdir : str = None, num_epochs : int = 200, 
-          workers : int = 0, api_key=None, dtype : np.dtype | None = None):
+          workers : int = 0, api_key=None, dtype : np.dtype | None = None, gpu : int = -1):
+    global comet_experiment
 
     if tempdir is None:
         raise ValueError("keyword arg \"tempdir\" is mandatory")
     
-    gpu = 3
-    num_segments = 8
+    num_segments = 10
     kbezier = 4
     network : BAMF = BAMF(
             num_segments = num_segments, 
             kbezier = kbezier
-        ).double().train().cuda(gpu)
+        ).float().train().cuda(gpu)
     firstparam = next(network.parameters())
     device = firstparam.device
     dtype = firstparam.dtype
+    trainerconfig = config["trainer"]
+    lr = float(trainerconfig["learning_rate"])
+    betas = tuple(trainerconfig["betas"])
+    weight_decay = trainerconfig["weight_decay"]
+    optimizer = torch.optim.Adam(network.parameters(), lr = lr, betas=betas, weight_decay = weight_decay)
     lossfunc : torch.nn.MSELoss = torch.nn.MSELoss().to(device=device, dtype=dtype)
     batchdim=256
-    t = torch.linspace(0.0, 3.0, steps=num_segments+1).to(device=device, dtype=dtype).unsqueeze(0).expand(batchdim, num_segments+1)
-    tstart = t[:,:-1]
-    dt = t[:,1:] - tstart
-    nhistory = 61
-    nsamp = 61
-    tsamp = torch.linspace(0.0, 3.0, steps=nsamp).to(device=device, dtype=dtype).unsqueeze(0).expand(batchdim, nsamp).clone()
-    random_history = torch.randn(batchdim, nhistory, 4).to(device=device, dtype=dtype)
-    p0 = random_history[:,-1,:2]
-    v0 = random_history[:,-1,2:]
-    random_lb = torch.randn(batchdim, nsamp, 4).to(device=device, dtype=dtype)
-    random_rb = torch.randn(batchdim, nsamp, 4).to(device=device, dtype=dtype)
-    random_gt = torch.randn(batchdim, nsamp, 2).to(device=device, dtype=dtype)
-    print("here we go")
-    tick = time.time()
-    velcurveout, poscurveout = network(random_history, random_lb, random_rb, dt, v0)#, p0=p0)
-    pout, idxbuckets = deepracing_models.math_utils.compositeBezierEval(tstart, dt, poscurveout, tsamp)
-    fakedeltas = pout - random_gt
-    fakeloss = torch.mean(torch.norm(fakedeltas, dim=-1))
-    fakeloss.backward()
-    tock = time.time()
-    print(velcurveout[0])
-    print(poscurveout[0])
-    print("done. took %f seconds" % (tock-tick,))
-    print(tsamp.shape)
-    print(poscurveout.shape)
-
-
     dataconfig = config["data"]
+    search_dirs = dataconfig["dirs"]
+    datasets : list[FD.TrajectoryPredictionDataset] = []
+    for search_dir in search_dirs:
+        datasets += load_datasets_from_files(search_dir, dtype=np.asarray(torch.ones(1, dtype=dtype).numpy()).dtype)
+    concat_dataset : torchdata.ConcatDataset = torchdata.ConcatDataset(datasets)
+    dataloader : torchdata.DataLoader = torchdata.DataLoader(concat_dataset, batch_size=64, pin_memory=True, shuffle=True, num_workers=workers)
+    dataloader_enumerate = enumerate(dataloader)
+    Nhistory = datasets[0].metadata["numsamples_history"]
+    Nfuture = datasets[0].metadata["numsamples_prediction"]
+    thistory = datasets[0].metadata["historytime"]
+    tfuture = datasets[0].metadata["predictiontime"]
+    tsegs : torch.Tensor = torch.linspace(0.0, tfuture, steps=num_segments+1, device=device, dtype=dtype)
+    tstart_ = tsegs[:-1]
+    dt_ = tsegs[1:] - tstart_
+    tsamp_ : torch.Tensor = torch.linspace(0.0, tfuture, steps=Nfuture, device=device, dtype=dtype)
+    tq : tqdm.tqdm | enumerate = tqdm.tqdm(dataloader_enumerate, desc="Yay")
+    coordinate_idx_history = [0,1]
+    for epoch in range(200):
+        for (i, dict_) in tq:
+            datadict : dict[str,torch.Tensor] = dict_
+            position_history = datadict["hist"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
+            vel_history = datadict["hist_vel"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
+            position_future = datadict["fut"].to(device=device, dtype=dtype)
+            vel_future = datadict["fut_vel"].to(device=device, dtype=dtype)
+            left_bound_input = datadict["left_bd"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
+            right_bound_input = datadict["right_bd"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
+            left_bound_tangents = datadict["left_bd_tangents"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
+            right_bound_tangents = datadict["right_bd_tangents"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
+            left_bound_tangents = left_bound_tangents/torch.norm(left_bound_tangents, p=2.0, dim=-1, keepdim=True)
+            right_bound_tangents = right_bound_tangents/torch.norm(right_bound_tangents, p=2.0, dim=-1, keepdim=True)
 
-    # search_dirs = dataconfig["dirs"]
-    # datasets = []
-    # for search_dir in search_dirs:
-    #     datasets += load_datasets_from_files(search_dir, dtype=dtype)
-    # concat_dataset : torchdata.ConcatDataset = torchdata.ConcatDataset(datasets)
-    # dataloader : torchdata.DataLoader = torchdata.DataLoader(concat_dataset, batch_size=64, pin_memory=True, shuffle=True, num_workers=workers)
+            history_inputs = torch.cat([position_history, vel_history], dim=-1)
+            left_boundary_inputs = torch.cat([left_bound_input, left_bound_tangents], dim=-1)
+            right_boundary_inputs = torch.cat([right_bound_input, right_bound_tangents], dim=-1)
+            
+            p0 = position_future[:,0,coordinate_idx_history]
+            v0 = vel_future[:,0,coordinate_idx_history]
+            currentbatchdim = p0.shape[0]
+            dt = dt_[None].expand(currentbatchdim, num_segments)
+            velcurveout, poscurveout = network(history_inputs, left_boundary_inputs, right_boundary_inputs, dt, v0, p0=p0)
+            tstart = tstart_[None].expand(currentbatchdim, num_segments)
+            tsamp = tsamp_[None].expand(currentbatchdim, Nfuture)
+            pout, _ = deepracing_models.math_utils.compositeBezierEval(tstart, dt, poscurveout, tsamp)
+            deltas = pout - position_future[:,:,coordinate_idx_history]
+            loss = torch.mean(torch.norm(deltas, p=2.0, dim=-1))
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            tq.set_postfix({"loss" : loss.item()})
+
+    
+
 
 
 def prepare_and_train(argdict : dict):
+    global comet_experiment
     tempdir = argdict["tempdir"]
     workers = argdict["workers"]
     config_file = argdict["config_file"]
+    gpu = argdict["gpu"]
     with open(config_file, "r") as f:
         config : dict = yaml.load(f, Loader=yaml.SafeLoader)
-    train(config=config, workers=workers, tempdir=tempdir, api_key=os.getenv("COMET_API_KEY"))
+    train(config=config, workers=workers, tempdir=tempdir, api_key=os.getenv("COMET_API_KEY"), gpu=gpu)
 
     
             
@@ -88,6 +138,7 @@ if __name__=="__main__":
     parser.add_argument("config_file", type=str,  help="Configuration file to load")
     parser.add_argument("--tempdir", type=str, required=True, help="Temporary directory to save model files before uploading to comet. Default is to use tempfile module to generate one")
     parser.add_argument("--workers", type=int, default=0, help="How many threads for data loading")
+    parser.add_argument("--gpu", type=int, default=-1, help="Which gpu???")
     args = parser.parse_args()
     argdict : dict = vars(args)
     prepare_and_train(argdict)
