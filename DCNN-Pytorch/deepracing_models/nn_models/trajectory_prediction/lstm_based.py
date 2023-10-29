@@ -52,14 +52,15 @@ class AugmentedLSTM(nn.Module):
         
 
 class BAMF(nn.Module):
-    def __init__(self, history_dimension = 4, boundary_dimension = 4, num_segments = 7, kbezier = 3, ambient_dim=2):
+    def __init__(self, history_dimension = 4, boundary_dimension = 4, 
+                 num_segments = 7, kbezier = 3, ambient_dim=2, with_batchnorm = True):
         """Initializes a BezierMixNet object."""
         super(BAMF, self).__init__()
         
         num_points_out = (kbezier-1)*num_segments 
         lstm_in_size = 512
         lstm_hidden_size = 512
-        with_batchnorm = True
+        
         batch_first = False
         #128, 256, 512, 512, 512, 512
         self.history_embedder = make_mlp(history_dimension, [128, 256, 512, 512, 512, 512, 512],
