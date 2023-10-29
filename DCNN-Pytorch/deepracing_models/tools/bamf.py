@@ -26,22 +26,23 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
     
     gpu = 3
     num_segments = 8
-    kbezier = 3
+    kbezier = 4
     network : BAMF = BAMF(
             num_segments = num_segments, 
             kbezier = kbezier
-        ).float().train().cuda(gpu)
+        ).double().train().cuda(gpu)
     firstparam = next(network.parameters())
     device = firstparam.device
     dtype = firstparam.dtype
     lossfunc : torch.nn.MSELoss = torch.nn.MSELoss().to(device=device, dtype=dtype)
     batchdim=256
     t = torch.linspace(0.0, 3.0, steps=num_segments+1).to(device=device, dtype=dtype).unsqueeze(0).expand(batchdim, num_segments+1)
-    nsamp = 61
-    tsamp = torch.linspace(0.0, 3.0, steps=nsamp).to(device=device, dtype=dtype).unsqueeze(0).expand(batchdim, nsamp).clone()
     tstart = t[:,:-1]
     dt = t[:,1:] - tstart
-    random_history = torch.randn(batchdim, 31, 4).to(device=device, dtype=dtype)
+    nhistory = 61
+    nsamp = 61
+    tsamp = torch.linspace(0.0, 3.0, steps=nsamp).to(device=device, dtype=dtype).unsqueeze(0).expand(batchdim, nsamp).clone()
+    random_history = torch.randn(batchdim, nhistory, 4).to(device=device, dtype=dtype)
     p0 = random_history[:,-1,:2]
     v0 = random_history[:,-1,2:]
     random_lb = torch.randn(batchdim, nsamp, 4).to(device=device, dtype=dtype)
@@ -49,15 +50,18 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
     random_gt = torch.randn(batchdim, nsamp, 2).to(device=device, dtype=dtype)
     print("here we go")
     tick = time.time()
-    velcurveout, poscurveout = network(random_history, random_lb, random_rb, dt, p0, v0)
+    velcurveout, poscurveout = network(random_history, random_lb, random_rb, dt, v0)#, p0=p0)
     pout, idxbuckets = deepracing_models.math_utils.compositeBezierEval(tstart, dt, poscurveout, tsamp)
     fakedeltas = pout - random_gt
     fakeloss = torch.mean(torch.norm(fakedeltas, dim=-1))
     fakeloss.backward()
     tock = time.time()
+    print(velcurveout[0])
+    print(poscurveout[0])
     print("done. took %f seconds" % (tock-tick,))
     print(tsamp.shape)
     print(poscurveout.shape)
+
 
     dataconfig = config["data"]
 

@@ -88,7 +88,8 @@ class BAMF(nn.Module):
         
 
     def forward(self, *args, **kwargs):
-        history, left_bound, right_bound, dt, p0, v0 = args[:6]
+        history, left_bound, right_bound, dt, v0 = args[:5]
+        p0 = kwargs.get("p0", torch.zeros_like(v0))
         batchdim = history.shape[0]
 
         history_embedding = self.history_embedder(history)
