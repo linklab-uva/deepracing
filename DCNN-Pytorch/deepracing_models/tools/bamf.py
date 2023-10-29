@@ -1,16 +1,17 @@
 import argparse
 # import comet_ml
 # import deepracing_models
-import deepracing_models.math_utils.bezier, deepracing_models.math_utils
-from deepracing_models.nn_models.trajectory_prediction import BAMF
 # from deepracing_models.data_loading import file_datasets as FD, SubsetFlag 
 # from deepracing_models.data_loading.utils.file_utils import load_datasets_from_files, load_datasets_from_shared_memory
+import deepracing_models.math_utils
+from deepracing_models.nn_models.trajectory_prediction import BAMF
 import torch, torch.nn
 import yaml
 import os
 import numpy as np
 import traceback
 import sys
+import time
 
 
 def errorcb(exception):
@@ -23,9 +24,40 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
     if tempdir is None:
         raise ValueError("keyword arg \"tempdir\" is mandatory")
     
-
-    network : BAMF = BAMF().double()
-    lossfunc : torch.nn.MSELoss = torch.nn.MSELoss().double()
+    gpu = 3
+    num_segments = 8
+    kbezier = 3
+    network : BAMF = BAMF(
+            num_segments = num_segments, 
+            kbezier = kbezier
+        ).float().train().cuda(gpu)
+    firstparam = next(network.parameters())
+    device = firstparam.device
+    dtype = firstparam.dtype
+    lossfunc : torch.nn.MSELoss = torch.nn.MSELoss().to(device=device, dtype=dtype)
+    batchdim=256
+    t = torch.linspace(0.0, 3.0, steps=num_segments+1).to(device=device, dtype=dtype).unsqueeze(0).expand(batchdim, num_segments+1)
+    nsamp = 61
+    tsamp = torch.linspace(0.0, 3.0, steps=nsamp).to(device=device, dtype=dtype).unsqueeze(0).expand(batchdim, nsamp).clone()
+    tstart = t[:,:-1]
+    dt = t[:,1:] - tstart
+    random_history = torch.randn(batchdim, 31, 4).to(device=device, dtype=dtype)
+    p0 = random_history[:,-1,:2]
+    v0 = random_history[:,-1,2:]
+    random_lb = torch.randn(batchdim, nsamp, 4).to(device=device, dtype=dtype)
+    random_rb = torch.randn(batchdim, nsamp, 4).to(device=device, dtype=dtype)
+    random_gt = torch.randn(batchdim, nsamp, 2).to(device=device, dtype=dtype)
+    print("here we go")
+    tick = time.time()
+    velcurveout, poscurveout = network(random_history, random_lb, random_rb, dt, p0, v0)
+    pout, idxbuckets = deepracing_models.math_utils.compositeBezierEval(tstart, dt, poscurveout, tsamp)
+    fakedeltas = pout - random_gt
+    fakeloss = torch.mean(torch.norm(fakedeltas, dim=-1))
+    fakeloss.backward()
+    tock = time.time()
+    print("done. took %f seconds" % (tock-tick,))
+    print(tsamp.shape)
+    print(poscurveout.shape)
 
     dataconfig = config["data"]
 

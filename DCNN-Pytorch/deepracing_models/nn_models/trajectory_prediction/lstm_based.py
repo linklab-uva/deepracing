@@ -35,10 +35,14 @@ class AugmentedLSTM(nn.Module):
     def __init__(self, *args, **kwargs):
         super(AugmentedLSTM, self).__init__()
         hidden_size = args[1]
-        self.h0 = nn.Parameter(0.001*torch.randn(1,1,hidden_size))
-        self.c0 = nn.Parameter(0.001*torch.randn(1,1,hidden_size))
+        if kwargs.get("learnable_initial_state", True):
+            self.h0 = nn.Parameter(0.001*torch.randn(1,1,hidden_size))
+            self.c0 = nn.Parameter(0.001*torch.randn(1,1,hidden_size))
+        else:
+            self.h0 = nn.Parameter(torch.zeros(1,1,hidden_size), requires_grad=False)
+            self.c0 = nn.Parameter(torch.zeros(1,1,hidden_size), requires_grad=False)
         self.lstm = nn.LSTM(*args, **kwargs)
-        if kwargs["batch_first"]:
+        if kwargs.get("batch_first", False):
             self.batch_index = 0
         else:
             self.batch_index = 1
@@ -111,7 +115,7 @@ class BAMF(nn.Module):
         velcurveout[:,1:,0] = velcurveout[:,:-1,-1]
         poscurve_rel = deepracing_models.math_utils.compositeBezierAntiderivative(velcurveout, dt)
 
-        return poscurve_rel + p0[:,None,None]
+        return velcurveout, poscurve_rel + p0[:,None,None]
         
 
 
