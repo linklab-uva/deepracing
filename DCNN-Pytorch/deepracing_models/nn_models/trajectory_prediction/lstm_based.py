@@ -2,58 +2,116 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 import collections
+import deepracing_models.math_utils
+
+class TransposeLayer(nn.Module):
+    def __init__(self):
+        super(TransposeLayer, self).__init__()
+    def forward(self, x):
+        return x.mT
+
+def proper_batchnorm_layer(dims : int):
+    return nn.Sequential(*[
+        TransposeLayer(),
+        nn.BatchNorm1d(dims),
+        TransposeLayer()
+    ])
+
 
 def make_mlp(input_dim : int, intermediate_dims : list[int], output_dim : int, with_batchnorm=True):
-    layerz = [nn.Linear(input_dim, intermediate_dims[0])]
+    layerz = [nn.Linear(input_dim, intermediate_dims[0]),]
     if with_batchnorm:
-        layerz.append(nn.BatchNorm1d(intermediate_dims[0]))
+        layerz.append(proper_batchnorm_layer(intermediate_dims[0]))
     layerz.append(nn.ReLU())
-    for i in range(1, len(intermediate_dims)):
-        size_in = intermediate_dims[i-1]
-        size_out = intermediate_dims[i]
-        layerz.append(nn.Linear(size_in, size_out))
+    for i in range(0, len(intermediate_dims)-1):
+        layerz.append(nn.Linear(intermediate_dims[i], intermediate_dims[i+1]))
         if with_batchnorm:
-            layerz.append(nn.BatchNorm1d(size_out))
-        layerz.append(nn.ReLU())
+            layerz.append(proper_batchnorm_layer(intermediate_dims[i+1]))
+        layerz.append(nn.ReLU())   
     layerz.append(nn.Linear(intermediate_dims[-1], output_dim))
-    if with_batchnorm:
-        layerz.append(nn.BatchNorm1d(output_dim))
     return nn.Sequential(*layerz)
 
-
+class AugmentedLSTM(nn.Module):
+    def __init__(self, *args, **kwargs):
+        super(AugmentedLSTM, self).__init__()
+        hidden_size = args[1]
+        self.h0 = nn.Parameter(0.001*torch.randn(1,1,hidden_size))
+        self.c0 = nn.Parameter(0.001*torch.randn(1,1,hidden_size))
+        self.lstm = nn.LSTM(*args, **kwargs)
+        if kwargs["batch_first"]:
+            self.batch_index = 0
+        else:
+            self.batch_index = 1
+    def forward(self, x):
+        batchsize = x.shape[self.batch_index]
+        return self.lstm(x, ( self.h0.tile(1, batchsize, 1), self.c0.tile(1, batchsize, 1) )  )
+        
 
 class BAMF(nn.Module):
-    def __init__(self):
+    def __init__(self, history_dimension = 4, boundary_dimension = 4, num_segments = 7, kbezier = 3, ambient_dim=2):
         """Initializes a BezierMixNet object."""
         super(BAMF, self).__init__()
-        ambient_dim = 2
-        kbezier = 3
-        num_segments = 7
-        num_points_out = kbezier*num_segments - 1
-        lstm_out_size = 512
-        self.input_embedder = make_mlp(4, [128, 256, 512, 512, 512, 512],
-                                      512, with_batchnorm=True)
-        self.input_encoder = nn.LSTM(lstm_out_size, 512, 1, batch_first=True)
+        
+        num_points_out = (kbezier-1)*num_segments 
+        lstm_in_size = 512
+        lstm_hidden_size = 512
+        with_batchnorm = True
+        batch_first = False
+        #128, 256, 512, 512, 512, 512
+        self.history_embedder = make_mlp(history_dimension, [128, 256, 512, 512, 512, 512, 512],
+                                      lstm_in_size, with_batchnorm=with_batchnorm)
+        self.history_encoder = AugmentedLSTM(lstm_in_size, lstm_hidden_size, 1, batch_first = batch_first)
         
 
-        self.lb_embedder = make_mlp(4, [128, 256, 512, 512, 512, 512],
-                                    512, with_batchnorm=True)
-        self.lb_encoder = nn.LSTM(lstm_out_size, 512, 1, batch_first=True)
+        self.lb_embedder = make_mlp(boundary_dimension, [128, 256, 512, 512, 512, 512, 512],
+                                    lstm_in_size, with_batchnorm=with_batchnorm)
+        self.lb_encoder = AugmentedLSTM(lstm_in_size, lstm_hidden_size, 1, batch_first = batch_first)
         
 
-        self.rb_embedder = make_mlp(4, [128, 256, 512, 512, 512, 512],
-                                    512, with_batchnorm=True)
-        self.rb_encoder = nn.LSTM(lstm_out_size, 512, 1, batch_first=True)
+        self.rb_embedder = make_mlp(boundary_dimension, [128, 256, 512, 512, 512, 512, 512],
+                                    lstm_in_size, with_batchnorm=with_batchnorm)
+        self.rb_encoder = AugmentedLSTM(lstm_in_size, lstm_hidden_size, 1, batch_first = batch_first)
 
-        self.decoder = make_mlp(3*lstm_out_size, [
-            128, 256, 512, 512, 512, 512, 256, 128, 64],
-            ambient_dim*num_points_out, with_batchnorm=True)
+        self.decoder = make_mlp(3*lstm_hidden_size, [
+            2*lstm_hidden_size, lstm_hidden_size, 512, 512, 512, 512, 512],
+            ambient_dim*num_points_out, with_batchnorm=with_batchnorm)
 
 
+        self.lstm_hidden_size = lstm_hidden_size
+        self.ambient_dim = ambient_dim
+        self.num_segments = num_segments
+        self.kbezier = kbezier
         
 
-    def forward(self, history, left_bound, right_bound):
-        return history
+    def forward(self, *args, **kwargs):
+        history, left_bound, right_bound, dt, p0, v0 = args[:6]
+        batchdim = history.shape[0]
+
+        history_embedding = self.history_embedder(history)
+        history_enc, (history_h, history_cell) = self.history_encoder(history_embedding.transpose(0,1))
+
+        lb_embedding = self.lb_embedder(left_bound)
+        lb_enc, (lb_h, lb_cell) = self.lb_encoder(lb_embedding.transpose(0,1))
+
+        rb_embedding = self.rb_embedder(right_bound)
+        rb_enc, (rb_h, rb_cell) = self.rb_encoder(rb_embedding.transpose(0,1))
+
+        decoder_input = torch.cat([history_enc[-1], lb_enc[-1], rb_enc[-1]], dim=-1).view(batchdim, 1, -1)
+        decoder_output = self.decoder(decoder_input).squeeze(1)
+
+        predicted_points = decoder_output.view(batchdim, -1, self.ambient_dim)
+        # velcurveout = torch.zeros([batchdim, self.num_segments, self.kbezier, self.ambient_dim], 
+        # dtype=predicted_points.dtype, device=predicted_points.device)
+        velcurveout = v0[:,None,None].expand(batchdim, self.num_segments, self.kbezier, self.ambient_dim).clone()
+        velcurveout[:,0,1:] += predicted_points[:, 0:(self.kbezier-1)]
+        velcurveout[:,1:,1:] += \
+            predicted_points[:, (self.kbezier-1):].\
+                view(batchdim, self.num_segments-1, self.kbezier-1, self.ambient_dim)
+        
+        velcurveout[:,1:,0] = velcurveout[:,:-1,-1]
+        poscurve_rel = deepracing_models.math_utils.compositeBezierAntiderivative(velcurveout, dt)
+
+        return poscurve_rel + p0[:,None,None]
         
 
 
