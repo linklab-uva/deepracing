@@ -60,7 +60,7 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
             kbezier = kbezier,
             with_batchnorm = with_batchnorm
         ).train()
-    if gpu>0:
+    if gpu>=0:
         network = network.cuda(gpu)
     trainerconfig = config["trainer"]
     if trainerconfig["float32"]:
@@ -74,15 +74,14 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
     betas = tuple(trainerconfig["betas"])
     weight_decay = trainerconfig["weight_decay"]
     optimizer = torch.optim.Adam(network.parameters(), lr = lr, betas=betas, weight_decay = weight_decay)
-    lossfunc : torch.nn.MSELoss = torch.nn.MSELoss().to(device=device, dtype=dtype)
-    batchdim=256
     dataconfig = config["data"]
     search_dirs = dataconfig["dirs"]
     datasets : list[FD.TrajectoryPredictionDataset] = []
     for search_dir in search_dirs:
         datasets += load_datasets_from_files(search_dir, dtype=np.float64)
     concat_dataset : torchdata.ConcatDataset = torchdata.ConcatDataset(datasets)
-    dataloader : torchdata.DataLoader = torchdata.DataLoader(concat_dataset, batch_size=64, pin_memory=True, shuffle=True, num_workers=workers)
+    batch_size = trainerconfig["batch_size"]
+    dataloader : torchdata.DataLoader = torchdata.DataLoader(concat_dataset, batch_size=batch_size, pin_memory=True, shuffle=True, num_workers=workers)
     Nfuture = datasets[0].metadata["numsamples_prediction"]
     tfuture = datasets[0].metadata["predictiontime"]
     tsegs : torch.Tensor = torch.linspace(0.0, tfuture, steps=num_segments+1, device=device, dtype=dtype)
@@ -106,6 +105,7 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
             vel_history = datadict["hist_vel"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
 
             quat_history = datadict["hist_quats"][:,:,quaternion_idx_history].to(device=device, dtype=dtype)
+            quat_history = quat_history/torch.norm(quat_history, p=2.0, dim=-1, keepdim=True)
             quat_history = quat_history*(torch.sign(quat_history[:,:,-1])[...,None])
 
             position_future = datadict["fut"].to(device=device, dtype=dtype)
