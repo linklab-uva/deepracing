@@ -34,7 +34,7 @@ def closedPathAsBezierSpline(Y : torch.Tensor) -> Tuple[torch.Tensor, torch.Tens
 
 
 
-def compositeBezierAntiderivative(control_points : torch.Tensor, delta_t : torch.Tensor | float) -> torch.Tensor:
+def compositeBezierAntiderivative(control_points : torch.Tensor, delta_t : torch.Tensor) -> torch.Tensor:
     numsplinesegments : int = control_points.shape[-3]
     kbezier_out : int = control_points.shape[-2]
     d : int = control_points.shape[-1]
@@ -43,10 +43,10 @@ def compositeBezierAntiderivative(control_points : torch.Tensor, delta_t : torch
 
     control_points_onebatchdim = control_points.view(-1, numsplinesegments, kbezier_out, d)
     batchdim = control_points_onebatchdim.shape[0]
-    if type(delta_t) is float:
-        delta_t_onebatchdim = delta_t*torch.ones([batchdim, numsplinesegments], dtype=control_points.dtype, device=control_points.device)
-    else:
-        delta_t_onebatchdim = delta_t.view(-1, numsplinesegments)
+    # if type(delta_t) is float:
+    #     delta_t_onebatchdim = delta_t*torch.ones([batchdim, numsplinesegments], dtype=control_points.dtype, device=control_points.device)
+    # else:
+    delta_t_onebatchdim = delta_t.view(batchdim, numsplinesegments)
 
     antiderivative_onebatchdim = torch.zeros(batchdim, numsplinesegments, kbezier_out+1, d, dtype=control_points.dtype, device=control_points.device)
     antiderivative_onebatchdim[:,0,1:] += delta_t_onebatchdim[:,0,None,None]*torch.cumsum(control_points_onebatchdim[:,0], dim=1)
