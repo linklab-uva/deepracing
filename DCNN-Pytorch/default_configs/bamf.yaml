@@ -7,10 +7,10 @@
   },
   network:
   {
-    kbezier : 4,
+    kbezier : 3,
     num_segments : 10,
     with_batchnorm : True,
-    heading_encoding: quaternion
+    heading_encoding: angle
   },
   trainer:
   {

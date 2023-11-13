@@ -57,14 +57,17 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
     num_segments = netconfig["num_segments"]
     kbezier = netconfig["kbezier"]
     with_batchnorm = netconfig["with_batchnorm"]
-    if netconfig.get("heading_encoding", "quaternion")=="angle":
+    heading_encoding = netconfig.get("heading_encoding", "quaternion")
+    if heading_encoding=="angle":
         print("Using heading angle as orientation input")
         history_dimension = 5
         heading_input_quaternion = False
-    else:
+    elif heading_encoding=="quaternion":
         print("Using quaternion as orientation input")
         history_dimension = 6
         heading_input_quaternion = True
+    else:
+        raise ValueError("Unknown heading encoding: %s" % (heading_encoding,))
     network : BAMF = BAMF( history_dimension = history_dimension,
             num_segments = num_segments, 
             kbezier = kbezier,
@@ -131,9 +134,9 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
             quat_history = datadict["hist_quats"][:,:,quaternion_idx_history].to(device=device, dtype=dtype)
             quat_history = quat_history/torch.norm(quat_history, p=2.0, dim=-1, keepdim=True)
             quat_history = quat_history*(torch.sign(quat_history[:,:,-1])[...,None])
-            if heading_input_quaternion:
+            if heading_encoding=="quaternion":
                 quat_input = quat_history
-            else:
+            elif heading_encoding=="angle":
                 qz = quat_history[:,:,-2]
                 qw = quat_history[:,:,-1]
                 quat_input = 2.0*torch.atan2(qz,qw).unsqueeze(-1)
