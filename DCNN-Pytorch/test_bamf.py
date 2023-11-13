@@ -37,21 +37,17 @@ def test(**kwargs):
     asset_list = api_experiment.get_asset_list()
     config_asset = None
     net_assets = []
-    optimizer_assets = []
     for asset in asset_list:
         if asset["fileName"]=="config.yaml":
             config_asset = asset
-        elif "optimizer_epoch_" in asset["fileName"]:
-            optimizer_assets.append(asset)
         elif "model_" in asset["fileName"]:
             net_assets.append(asset)
     net_assets = sorted(net_assets, key=assetkey)
-    optimizer_assets = sorted(optimizer_assets, key=assetkey)
+    print("Downloading config", flush=True)
     config_str = str(api_experiment.get_asset(config_asset["assetId"], return_type="binary"), encoding="ascii")
     config = yaml.safe_load(config_str)
-    print(config)
-
     netconfig = config["network"]
+
     kbezier = netconfig["kbezier"]
     num_segments = netconfig["num_segments"]
     with_batchnorm = netconfig["with_batchnorm"]
@@ -59,14 +55,16 @@ def test(**kwargs):
             num_segments = num_segments, 
             kbezier = kbezier,
             with_batchnorm = with_batchnorm)
-    net_binary = api_experiment.get_asset(net_assets[-1]["assetId"], return_type="binary")
+    print("Downloading model", flush=True)
+    net_binary = api_experiment.get_asset(net_assets[-5]["assetId"], return_type="binary")
     net_bytesio = io.BytesIO(net_binary)
     net.load_state_dict(torch.load(net_bytesio, map_location="cpu"))
-    net = net.eval().cuda(3)#.double()
+    net = net.eval().cuda(gpu_index)
     firstparam = next(net.parameters())
     dtype = firstparam.dtype
     device = firstparam.device
     data_config = config["data"]
+    print("Loading data", flush=True)
     dsets : list[FD.TrajectoryPredictionDataset] = []
     for datadir in data_config["dirs"]: 
         dsets.extend(load_datasets_from_files(datadir, flag=SubsetFlag.VAL))
@@ -198,5 +196,5 @@ if __name__=="__main__":
     parser.add_argument("--gpu", type=int, default=0, help="which gpu")
     args = parser.parse_args()
     argdict : dict = vars(args)
-    argdict["batch_size"] = 512
+    argdict["batch_size"] = 256
     test(**argdict)
