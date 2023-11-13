@@ -2,19 +2,20 @@
   data:
   {
     dirs: [
-      /p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard
+      "/p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard",
     ]
   },
   network:
   {
-    kbezier : 3,
+    kbezier : 4,
     num_segments : 10,
-    with_batchnorm : True
+    with_batchnorm : True,
+    heading_encoding: quaternion
   },
   trainer:
   {
     optimizer : Adam,
-    learning_rate: 5E-4,
+    learning_rate: 1E-4,
     momentum: 0.0,
     nesterov: False,
     betas: [0.99, 0.9999], 
@@ -23,5 +24,6 @@
     epochs: 200,
     batch_size: 256,
     float32: True,
+
   }
 }

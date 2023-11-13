@@ -50,23 +50,35 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
         raise ValueError("keyword arg \"tempdir\" is mandatory")
     if comet_experiment is not None:
         tempdir = os.path.join(tempdir, comet_experiment.get_name())
-        os.makedirs(tempdir)
+    else:
+        tempdir = os.path.join(tempdir, "debug")
+    os.makedirs(tempdir, exist_ok=True)
     netconfig = config["network"]
     num_segments = netconfig["num_segments"]
     kbezier = netconfig["kbezier"]
     with_batchnorm = netconfig["with_batchnorm"]
-    network : BAMF = BAMF( history_dimension = 6,
+    if netconfig.get("heading_encoding", "quaternion")=="angle":
+        print("Using heading angle as orientation input")
+        history_dimension = 5
+        heading_input_quaternion = False
+    else:
+        print("Using quaternion as orientation input")
+        history_dimension = 6
+        heading_input_quaternion = True
+    network : BAMF = BAMF( history_dimension = history_dimension,
             num_segments = num_segments, 
             kbezier = kbezier,
             with_batchnorm = with_batchnorm
         ).train()
-    if gpu>=0:
-        network = network.cuda(gpu)
+    
     trainerconfig = config["trainer"]
     if trainerconfig["float32"]:
         network = network.float()
     else:
         network = network.double()
+    if gpu>=0:
+        network = network.cuda(gpu)
+
     firstparam = next(network.parameters())
     device = firstparam.device
     dtype = firstparam.dtype
@@ -76,9 +88,21 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
     optimizer = torch.optim.Adam(network.parameters(), lr = lr, betas=betas, weight_decay = weight_decay)
     dataconfig = config["data"]
     search_dirs = dataconfig["dirs"]
+    keys : set = {
+        "hist",
+        "hist_quats",
+        "hist_vel",
+        "fut",
+        "fut_tangents",
+        "fut_vel",
+        "left_bd",
+        "left_bd_tangents",
+        "right_bd",
+        "right_bd_tangents",
+    }
     datasets : list[FD.TrajectoryPredictionDataset] = []
     for search_dir in search_dirs:
-        datasets += load_datasets_from_files(search_dir, dtype=np.float64)
+        datasets += load_datasets_from_files(search_dir, keys=keys, dtype=np.float64)
     concat_dataset : torchdata.ConcatDataset = torchdata.ConcatDataset(datasets)
     batch_size = trainerconfig["batch_size"]
     dataloader : torchdata.DataLoader = torchdata.DataLoader(concat_dataset, batch_size=batch_size, pin_memory=True, shuffle=True, num_workers=workers)
@@ -104,9 +128,17 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
             position_history = datadict["hist"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
             vel_history = datadict["hist_vel"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
 
+
             quat_history = datadict["hist_quats"][:,:,quaternion_idx_history].to(device=device, dtype=dtype)
             quat_history = quat_history/torch.norm(quat_history, p=2.0, dim=-1, keepdim=True)
             quat_history = quat_history*(torch.sign(quat_history[:,:,-1])[...,None])
+            if heading_input_quaternion:
+                quat_input = quat_history
+            else:
+                qz = quat_history[:,:,-2]
+                qw = quat_history[:,:,-1]
+                quat_input = 2.0*torch.atan2(qz,qw).unsqueeze(-1)
+
 
             position_future = datadict["fut"].to(device=device, dtype=dtype)
             vel_future = datadict["fut_vel"].to(device=device, dtype=dtype)
@@ -117,7 +149,7 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
             left_bound_tangents = left_bound_tangents/torch.norm(left_bound_tangents, p=2.0, dim=-1, keepdim=True)
             right_bound_tangents = right_bound_tangents/torch.norm(right_bound_tangents, p=2.0, dim=-1, keepdim=True)
 
-            history_inputs = torch.cat([position_history, vel_history, quat_history], dim=-1)
+            history_inputs = torch.cat([position_history, vel_history, quat_input], dim=-1)
             left_boundary_inputs = torch.cat([left_bound_input, left_bound_tangents], dim=-1)
             right_boundary_inputs = torch.cat([right_bound_input, right_bound_tangents], dim=-1)
             
@@ -160,7 +192,7 @@ def prepare_and_train(argdict : dict):
     with open(config_file, "r") as f:
         config : dict = yaml.load(f, Loader=yaml.SafeLoader)
     api_key=os.getenv("COMET_API_KEY")
-    if api_key is not None:
+    if (api_key is not None) and len(api_key)>0:
         comet_experiment = comet_ml.Experiment(api_key=api_key, 
                                                project_name="bamf", 
                                                workspace="electric-turtle",
@@ -176,7 +208,7 @@ def prepare_and_train(argdict : dict):
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description="Train Bezier version of MixNet")
     parser.add_argument("config_file", type=str,  help="Configuration file to load")
-    parser.add_argument("--tempdir", type=str, required=True, help="Temporary directory to save model files before uploading to comet. Default is to use tempfile module to generate one")
+    parser.add_argument("--tempdir", type=str, default=os.path.join(os.getenv("BIGTEMP", "/bigtemp/ttw2xk"), "bamf"), help="Temporary directory to save model files before uploading to comet. Default is to use tempfile module to generate one")
     parser.add_argument("--workers", type=int, default=0, help="How many threads for data loading")
     parser.add_argument("--gpu", type=int, default=-1, help="Which gpu???")
     args = parser.parse_args()
