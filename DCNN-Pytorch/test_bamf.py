@@ -59,7 +59,7 @@ def test(**kwargs):
     net_binary = api_experiment.get_asset(net_assets[-5]["assetId"], return_type="binary")
     net_bytesio = io.BytesIO(net_binary)
     net.load_state_dict(torch.load(net_bytesio, map_location="cpu"))
-    net = net.eval().cuda(gpu_index)
+    net = net.eval().cuda(gpu_index)#.double()
     firstparam = next(net.parameters())
     dtype = firstparam.dtype
     device = firstparam.device
@@ -159,24 +159,34 @@ def test(**kwargs):
             idxstart=idxend
 
 
-    ade_array = torch.as_tensor(ade_list, dtype=torch.float64)
-    print("ADE: %f" % (torch.mean(ade_array).item(),))
-    lateral_error_array = torch.as_tensor(lateral_error_list, dtype=torch.float64)
-    print("mean lateral error: %f" % (torch.mean(lateral_error_array).item(),))
-    longitudinal_error_array = torch.as_tensor(longitudinal_error_list, dtype=torch.float64)
-    print("mean longitudinal error: %f" % (torch.mean(longitudinal_error_array).item(),))
+    results_dict : dict = dict()
+    results_dict.update(config)
+    results_dict["results"] = dict()
+    ade_array = torch.as_tensor(ade_list, dtype=dtype)
+    results_dict["results"]["ade"] = torch.mean(ade_array).item()
+    lateral_error_array = torch.as_tensor(lateral_error_list, dtype=dtype)
+    results_dict["results"]["lateral_error"] = torch.mean(lateral_error_array).item()
+    longitudinal_error_array = torch.as_tensor(longitudinal_error_list, dtype=dtype)
+    results_dict["results"]["longitudinal_error"] = torch.mean(longitudinal_error_array).item()
+
+    print("ADE: %f" % (results_dict["results"]["ade"],))
+    print("mean lateral error: %f" % (results_dict["results"]["lateral_error"],))
+    print("mean longitudinal error: %f" % (results_dict["results"]["longitudinal_error"],))
 
     results_dir = os.path.join(argdict["resultsdir"], experiment)
     if os.path.isdir(results_dir):
         shutil.rmtree(results_dir)
     os.makedirs(results_dir)
 
+    with open(os.path.join(results_dir, "summary.yaml"), "w") as f:
+        yaml.dump(results_dict, f, Dumper=yaml.SafeDumper)
+
     with open(os.path.join(results_dir, "data.npz"), "wb") as f:
         np.savez(f, {
             "history" : history_array,
             "curves" : curves_array,
-            "ground_truth" : prediction_array,
-            "predictions" : ground_truth_array,
+            "ground_truth" : ground_truth_array,
+            "predictions" : prediction_array,
             "lateral_error" : lateral_error_array.cpu().numpy(),
             "longitudinal_error" : longitudinal_error_array.cpu().numpy(),
             "ade" : ade_array.cpu().numpy()

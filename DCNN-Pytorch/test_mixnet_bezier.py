@@ -274,8 +274,8 @@ def test(**kwargs):
     with open(os.path.join(results_dir, "data.npz"), "wb") as f:
         np.savez(f, {
             "history" : history_array,
-            "ground_truth" : prediction_array,
-            "predictions" : ground_truth_array,
+            "ground_truth" : ground_truth_array,
+            "predictions" : prediction_array,
             "lateral_error" : lateral_error_array.cpu().numpy(),
             "longitudinal_error" : longitudinal_error_array.cpu().numpy(),
             "ade" : ade_array.cpu().numpy()
