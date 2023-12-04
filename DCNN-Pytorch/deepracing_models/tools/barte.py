@@ -241,7 +241,7 @@ def prepare_and_train(argdict : dict):
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description="Train Bezier version of MixNet")
     parser.add_argument("config_file", type=str,  help="Configuration file to load")
-    parser.add_argument("--tempdir", type=str, default=os.path.join(os.getenv("BIGTEMP", "/bigtemp/ttw2xk"), "bamf"), help="Temporary directory to save model files before uploading to comet. Default is to use tempfile module to generate one")
+    parser.add_argument("--tempdir", type=str, default=os.path.join(os.getenv("BIGTEMP", "/bigtemp/ttw2xk"), "barte"), help="Temporary directory to save model files before uploading to comet. Default is to use tempfile module to generate one")
     parser.add_argument("--workers", type=int, default=0, help="How many threads for data loading")
     parser.add_argument("--gpu", type=int, default=-1, help="Which gpu???")
     args = parser.parse_args()
