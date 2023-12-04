@@ -51,11 +51,11 @@ class AugmentedLSTM(nn.Module):
         return self.lstm(x, ( self.h0.tile(1, batchsize, 1), self.c0.tile(1, batchsize, 1) )  )
         
 
-class BAMF(nn.Module):
+class BARTE(nn.Module):
     def __init__(self, history_dimension = 4, boundary_dimension = 4, 
                  num_segments = 7, kbezier = 3, ambient_dim=2, with_batchnorm = True):
-        """Initializes a BezierMixNet object."""
-        super(BAMF, self).__init__()
+        """Initializes a BARTE object."""
+        super(BARTE, self).__init__()
         
         num_points_out = (kbezier-1)*num_segments 
         lstm_in_size = 512
@@ -228,7 +228,7 @@ class BezierMixNet(nn.Module):
 
         use_bias = True
         self._final_linear_layer = nn.Linear(4,4, bias=use_bias)
-        if params["mixer_linear_stack"]["final_affine_transform"]: #.get("final_affine_transform", True):
+        if params["mixer_linear_stack"].get("final_affine_transform", True): # ["final_affine_transform"]
             self._final_linear_layer.weight = torch.nn.Parameter(torch.eye(4) + 0.0001*torch.randn(4,4))
             self._final_linear_layer.bias = torch.nn.Parameter(0.0001*torch.randn(4))
         else:

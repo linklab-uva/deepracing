@@ -2,7 +2,7 @@ import argparse
 import comet_ml
 from deepracing_models.data_loading import file_datasets as FD, SubsetFlag 
 from deepracing_models.data_loading.utils.file_utils import load_datasets_from_files
-from deepracing_models.nn_models.trajectory_prediction import BAMF
+from deepracing_models.nn_models.trajectory_prediction import BARTE
 import torch, torch.nn, torch.utils.data as torchdata
 import yaml
 import os
@@ -68,7 +68,7 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
         heading_input_quaternion = True
     else:
         raise ValueError("Unknown heading encoding: %s" % (heading_encoding,))
-    network : BAMF = BAMF( history_dimension = history_dimension,
+    network : BARTE = BARTE( history_dimension = history_dimension,
             num_segments = num_segments, 
             kbezier = kbezier,
             with_batchnorm = with_batchnorm
