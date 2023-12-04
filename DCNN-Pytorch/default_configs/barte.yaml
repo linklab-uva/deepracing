@@ -24,5 +24,7 @@
     epochs: 200,
     batch_size: 512,
     float32: True,
+    loss_function : "lat_long",
+    loss_weights : [1.0, 1.0]
   }
 }

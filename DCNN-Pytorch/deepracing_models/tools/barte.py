@@ -74,13 +74,20 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
             with_batchnorm = with_batchnorm
         ).train()
     
-    trainerconfig = config["trainer"]
+    trainerconfig : dict = config["trainer"]
     if trainerconfig["float32"]:
         network = network.float()
     else:
         network = network.double()
     if gpu>=0:
         network = network.cuda(gpu)
+    loss_function = trainerconfig.get("loss_function", "ade")
+    loss_weights = trainerconfig.get("loss_weights")
+    if not loss_function in {"ade", "lat_long"}:
+        raise ValueError("Loss function must one of: lat_long, ade")
+    if loss_function=="lat_long" and (loss_weights is None):
+        raise ValueError("loss_weights must be specified when using lat_long loss")
+
 
     firstparam = next(network.parameters())
     device = firstparam.device
@@ -97,6 +104,7 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
         "hist_vel",
         "fut",
         "fut_vel",
+        "fut_tangents",
         "left_bd",
         "left_bd_tangents",
         "right_bd",
@@ -116,6 +124,7 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
     tsamp_ : torch.Tensor = torch.linspace(0.0, tfuture, steps=Nfuture, device=device, dtype=dtype)
     coordinate_idx_history = [0,1]
     quaternion_idx_history = [2,3]
+    up = torch.as_tensor([0.0, 0.0, 1.0], dtype=dtype, device=device).unsqueeze(0).unsqueeze(0)
     for epoch in range(1, num_epochs+1):
         dataloader_enumerate = enumerate(dataloader)
         if comet_experiment is None:
@@ -129,11 +138,17 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
             datadict : dict[str,torch.Tensor] = dict_
             position_history = datadict["hist"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
             vel_history = datadict["hist_vel"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
+            fut_tangents_full = datadict["fut_tangents"].to(device=device, dtype=dtype)
+            fut_normals = torch.cross(up.expand_as(fut_tangents_full), fut_tangents_full, dim=-1)[:,:,coordinate_idx_history]
+            fut_normals = torch.norm(fut_normals, p=2.0, dim=-1, keepdim=True)
+            fut_tangents = fut_tangents_full[:,:,coordinate_idx_history]
+            fut_tangents = torch.norm(fut_tangents, p=2.0, dim=-1, keepdim=True)
+            
 
 
             quat_history = datadict["hist_quats"][:,:,quaternion_idx_history].to(device=device, dtype=dtype)
-            quat_history = quat_history/torch.norm(quat_history, p=2.0, dim=-1, keepdim=True)
             quat_history = quat_history*(torch.sign(quat_history[:,:,-1])[...,None])
+            quat_history = quat_history/torch.norm(quat_history, p=2.0, dim=-1, keepdim=True)
             if heading_encoding=="quaternion":
                 quat_input = quat_history
             elif heading_encoding=="angle":
@@ -164,14 +179,30 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
             tsamp = tsamp_[None].expand(currentbatchdim, Nfuture)
             pout, _ = deepracing_models.math_utils.compositeBezierEval(tstart, dt, poscurveout, tsamp)
             deltas = pout - position_future[:,:,coordinate_idx_history]
-            loss = torch.mean(torch.norm(deltas, p=2.0, dim=-1))
+
+            longitudinal_error = torch.mean(torch.abs(torch.sum(deltas*fut_tangents, dim=-1)))
+            lateral_error = torch.mean(torch.abs(torch.sum(deltas*fut_normals, dim=-1)))
+            ade = torch.mean(torch.norm(deltas, p=2.0, dim=-1))
+
+            if loss_function=="ade":
+                loss = ade
+            elif loss_function=="lat_long":
+                loss = loss_weights[0]*lateral_error + loss_weights[1]*longitudinal_error
+            else:
+                raise ValueError("Invalid loss function: %s" % (loss_function,))
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             if comet_experiment is None:
-                tq.set_postfix({"loss" : loss.item()})
-            elif (i%20)==0:
-                comet_experiment.log_metric("ade", loss.item())
+                tq.set_postfix({
+                    "ade" : ade.item(),
+                    "lateral_error" : lateral_error.item(),
+                    "longitudinal_error" : longitudinal_error.item(),
+                    })
+            elif (i%10)==0:
+                comet_experiment.log_metric("ade", ade.item())
+                comet_experiment.log_metric("lateral_error", lateral_error.item())
+                comet_experiment.log_metric("longitudinal_error", longitudinal_error.item())
         model_file = os.path.join(tempdir, "model_%d.pt" % (epoch,))
         optimizer_file = os.path.join(tempdir, "optimizer_%d.pt" % (epoch,))
         with open(model_file, "wb") as f:
