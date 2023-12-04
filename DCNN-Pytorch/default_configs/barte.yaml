@@ -8,9 +8,9 @@
   network:
   {
     kbezier : 3,
-    num_segments : 15,
+    num_segments : 5,
     with_batchnorm : True,
-    heading_encoding: quaternion
+    heading_encoding: angle
   },
   trainer:
   {
@@ -24,7 +24,7 @@
     epochs: 200,
     batch_size: 512,
     float32: True,
-    loss_function : "lat_long",
+    loss_function : lat_long,
     loss_weights : [1.0, 1.0]
   }
 }
