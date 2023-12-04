@@ -22,8 +22,7 @@ from datetime import datetime
 import torch
 from pathlib import Path
 
-def assetkey(asset : dict):
-    return asset["step"]
+
 def test(**kwargs):
     experiment : str = kwargs["experiment"]
     tempdir : str = kwargs["tempdir"]
@@ -45,16 +44,16 @@ def test(**kwargs):
             optimizer_assets.append(asset)
         elif "network_epoch_" in asset["fileName"]:
             net_assets.append(asset)
-    net_assets = sorted(net_assets, key=assetkey)
-    optimizer_assets = sorted(optimizer_assets, key=assetkey)
+    net_assets = sorted(net_assets, key=lambda a : a["step"])
+    optimizer_assets = sorted(optimizer_assets, key=lambda a : a["step"])
     
 
     config_str = str(api_experiment.get_asset(config_asset["assetId"]), encoding="ascii")
     # print(config_str)
     config = yaml.safe_load(config_str)
     print(config)
-    if not os.path.isdir(experiment_dir):
-        raise ValueError("PANIK!!!!!1!!!!ONEONE!!!!!")
+    # if not os.path.isdir(experiment_dir):
+    #     raise ValueError("PANIK!!!!!1!!!!ONEONE!!!!!")
     if not os.path.isdir(experiment_dir):
         os.makedirs(experiment_dir)
     net_file = os.path.join(experiment_dir, "net.pt")
@@ -63,23 +62,25 @@ def test(**kwargs):
         with open(net_file, "wb") as f:
             f.write(net_asset)
     netconfig = config["net"]
+    # netconfig[""]
     netconfig["gpu_index"]=gpu_index
     net : BezierMixNet = BezierMixNet(config["net"]).double().eval()
     firstparam = next(net.parameters())
     dtype = firstparam.dtype
     device = firstparam.device
-    with open(net_file, "rb") as f:
-        state_dict = torch.load(f, map_location=device)
+    # with open(net_file, "rb") as f:
+    state_dict = torch.load(net_file, map_location=device)
     net.load_state_dict(state_dict)
-    data_config = config["data"]
-    datadir = Path(data_config["dir"])
+    # data_config = config["data"]
+    # datadir = Path(data_config["dir"])
+    datadir="/p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard"
     # datadir = datadir / "Monza_7_6_2023_16_23_11_trajectory_data" / "car_2"
     numsamples_prediction = None
     trainerconfig = config["trainer"]
     kbezier = trainerconfig["kbezier"]
     num_accel_sections : int = netconfig["acc_decoder"]["num_acc_sections"]
     dsetconfigs : list[dict] = []
-    dsets : list[FD.TrajectoryPredictionDataset] = load_datasets_from_files(datadir, kbezier=kbezier)
+    dsets : list[FD.TrajectoryPredictionDataset] = load_datasets_from_files(datadir, kbezier=kbezier, flag=SubsetFlag.TEST)
     dsetconfigs = [dset.metadata for dset in dsets]
     numsamples_history = dsetconfigs[0]["numsamples_history"]
     numsamples_prediction = dsetconfigs[0]["numsamples_prediction"]
@@ -136,8 +137,8 @@ def test(**kwargs):
             state_input = position_history[:,:,[0,1]]
             if input_embedding["velocity"]:
                 state_input = torch.cat([state_input, vel_history[:,:,[0,1]]], dim=-1)
+            quat_history = datadict["hist_quats"].cuda(gpu_index).type(dtype)
             if input_embedding["quaternion"]:
-                quat_history = datadict["hist_quats"].cuda(gpu_index).type(dtype)
                 if state_input.shape[-1]==3:
                     quat_select = quat_history
                 else:
@@ -146,6 +147,14 @@ def test(**kwargs):
                 realparts = quat_select[:,:,-1]
                 quat_select[realparts<0.0]*=-1.0
                 state_input = torch.cat([state_input, quat_select], dim=-1)
+
+            if input_embedding["heading_angle"]:
+                quat_history_yaw_only = quat_history*torch.as_tensor([[[0.0, 0.0, 1.0, 1.0],],], device=device, dtype=dtype)#[None,None]
+                quat_history_yaw_only/=torch.norm(quat_history_yaw_only, p=2.0, dim=-1, keepdim=True)
+                qz = quat_history_yaw_only[:,:,2]
+                qw = quat_history_yaw_only[:,:,3]
+                headings = 2.0*torch.atan2(qz,qw).unsqueeze(-1)
+                state_input = torch.cat([state_input, headings], dim=-1)
 
             left_bound_input = datadict["left_bd"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
             right_bound_input = datadict["right_bd"][:,:,coordinate_idx_history].cuda(gpu_index).type(dtype)
@@ -204,11 +213,9 @@ def test(**kwargs):
             mixed_control_points = torch.sum(bcurves_r[:,:,:,[0,1]]*mix_out[:,:,None,None], dim=1)
             mcp_deltar : torch.Tensor = deepracing_models.math_utils.bezierArcLength(mixed_control_points, num_segments = 10)
 
-
             # delta_r : torch.Tensor = arclengths_pred[:,-1] - arclengths_pred[:,0]
             # delta_r : torch.Tensor = future_arclength[:,-1] - future_arclength[:,0]
             # delta_r : torch.Tensor = deepracing_models.math_utils.bezierArcLength(mixed_control_points, quadrature_order=9)
-
 
             known_control_points : torch.Tensor = torch.zeros_like(bcurves_r[:,0,:2,[0,1]])
             known_control_points[:,0] = position_future[:,0,[0,1]]
@@ -262,17 +269,23 @@ def test(**kwargs):
     lateral_error_array = torch.as_tensor(lateral_error_list, dtype=torch.float64)
     longitudinal_error_array = torch.as_tensor(longitudinal_error_list, dtype=torch.float64)
     ade_array = torch.as_tensor(ade_list, dtype=torch.float64)
-    print("ADE: %f" % (torch.mean(ade_array).item(),))
-    print("mean lateral error: %f" % (torch.mean(lateral_error_array).item(),))
-    print("mean longitudinal error: %f" % (torch.mean(longitudinal_error_array).item(),))
 
-    results_dir = argdict["resultsdir"]
+
+
+    summary_dict = {
+        "ade": torch.mean(ade_array).item(),
+        "longitudinal_error": torch.mean(longitudinal_error_array).item(),
+        "lateral_error": torch.mean(lateral_error_array).item()
+    }
+    results_dir = os.path.join(argdict["resultsdir"], experiment)
     if os.path.isdir(results_dir):
         shutil.rmtree(results_dir)
     os.makedirs(results_dir)
 
+    with open(os.path.join(results_dir, "summary.yaml"), "w") as f:
+        yaml.safe_dump(summary_dict, f)
     with open(os.path.join(results_dir, "data.npz"), "wb") as f:
-        np.savez(f, {
+        np.savez(f, **{
             "history" : history_array,
             "ground_truth" : ground_truth_array,
             "predictions" : prediction_array,

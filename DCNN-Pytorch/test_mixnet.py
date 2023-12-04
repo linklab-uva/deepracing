@@ -23,8 +23,6 @@ import torch
 import deepracing
 from scipy.spatial.transform import Rotation
 
-def assetkey(asset : dict):
-    return asset["step"]
 def test(**kwargs):
     experiment : str = kwargs["experiment"]
     tempdir : str = kwargs["tempdir"]
@@ -49,13 +47,13 @@ def test(**kwargs):
             optimizer_assets.append(asset)
         elif "model_epoch_" in asset["fileName"]:
             net_assets.append(asset)
-    net_assets = sorted(net_assets, key=assetkey)
-    optimizer_assets = sorted(optimizer_assets, key=assetkey)
+    net_assets = sorted(net_assets, key=lambda a : a["step"])
+    optimizer_assets = sorted(optimizer_assets, key=lambda a : a["step"])
     
     trainer_config_str = str(api_experiment.get_asset(trainer_config_asset["assetId"]), encoding="ascii")
     trainerconfig = json.loads(trainer_config_str)
     trainerconfig["data"]["path"] = \
-        "/p/DeepRacing/unpacked_datasets/aligned_to_ego/v2/deepracing_standard"
+        "/p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard"
 
     net_config_str = str(api_experiment.get_asset(net_config_asset["assetId"]), encoding="ascii")
     netconfig = json.loads(net_config_str)
@@ -101,7 +99,7 @@ def test(**kwargs):
     # optimal_line_label = datadict["future_raceline"][:,:,[0,1]]
     keys = {"hist", "fut", "fut_tangents", "current_position", "current_orientation", 
             "left_bd", "right_bd", "future_left_bd", "future_right_bd", "future_centerline", "future_raceline"}
-    dsets : list[FD.TrajectoryPredictionDataset] = load_datasets_from_files(datadir, keys=keys)
+    dsets : list[FD.TrajectoryPredictionDataset] = load_datasets_from_files(datadir, keys=keys, flag=SubsetFlag.TEST)
     track_dict : dict = dict()
     searchdirs = []
     try:
@@ -224,7 +222,8 @@ def test(**kwargs):
         tangents_future_global = tangents_future_global/torch.norm(tangents_future_global, p=2.0, dim=-1, keepdim=True)
 
 
-        p0global = (torch.matmul(rotmats, position_future[:,0].unsqueeze(-1)).squeeze(-1) + current_positions)[:,[0,1]]
+        p0global_full = (torch.matmul(rotmats, position_future[:,0].unsqueeze(-1)).squeeze(-1) + current_positions)
+        p0global = p0global_full[:,[0,1]]
         position_future_global = torch.matmul(rotmats, position_future.transpose(-2,-1)).transpose(-2,-1)+current_positions[:,None]
         position_future_global = position_future_global[:,:,[0,1]]
 
@@ -238,7 +237,7 @@ def test(**kwargs):
         optimal_line_label = optimal_line_label.cuda(gpu_index).type(dtype)
 
         to_local_rotmats = rotmats.transpose(-2, -1)
-        to_local_translations = torch.matmul(to_local_rotmats, -position_future[:,0].unsqueeze(-1)).squeeze(-1)
+        to_local_translations = torch.matmul(to_local_rotmats, -p0global_full.unsqueeze(-1)).squeeze(-1)
 
         currentbatchsize = int(position_history.shape[0])
         with torch.no_grad():
@@ -346,15 +345,20 @@ def test(**kwargs):
             "longitudinal_error" : longitudinal_error_array.cpu().numpy(),
             "ade" : ade_array.cpu().numpy(),
             "history" : history_array,
+            "ground_truth" : ground_truth_array,
             "predictions" : prediction_array,
             "future_left_bd" : future_left_bd_array,
             "future_right_bd" : future_right_bd_array
         }
         )
-
-    print("ADE: %f" % (torch.mean(ade_array).item(),))
-    print("mean lateral error: %f" % (torch.mean(torch.abs(lateral_error_array)).item(),))
-    print("mean longitudinal error: %f" % (torch.mean(torch.abs(longitudinal_error_array)).item(),))
+    summary_dict = {
+        "ade" : torch.mean(ade_array).item(),
+        "lateral_error" : torch.mean(torch.abs(lateral_error_array)).item(),
+        "longitudinal_error" : torch.mean(torch.abs(longitudinal_error_array)).item(),
+    }
+    with open(os.path.join(results_dir, "summary.yaml"), "w") as f:
+        yaml.safe_dump(summary_dict, f)
+    print(summary_dict)
 
 
 
