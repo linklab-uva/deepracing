@@ -5,6 +5,7 @@ import deepracing_models
 import deepracing_models.math_utils.bezier, deepracing_models.math_utils
 from deepracing_models.nn_models.trajectory_prediction import BezierMixNet
 from deepracing_models.data_loading import file_datasets as FD, SubsetFlag 
+from deepracing_models.data_loading.file_datasets import TrajectoryPredictionDataset
 from deepracing_models.data_loading.utils.file_utils import load_datasets_from_files, load_datasets_from_shared_memory
 import torch, torch.optim, torch.nn.functional as F
 from torch.optim.lr_scheduler import ExponentialLR
@@ -109,10 +110,10 @@ def train(allconfig : dict[str,dict] = None,
     device = firstparam.device
 
     search_dirs = dataconfig["dirs"]
-    datasets = []
+    datasets : list[TrajectoryPredictionDataset] = []
     for search_dir in search_dirs:
-        datasets += load_datasets_from_files(search_dir, bcurve_cache=True, kbezier = kbezier, segments=num_curve_sections, dtype=np.float64)
-
+        datasets += load_datasets_from_files(search_dir, bcurve_cache=False, kbezier = kbezier, segments=num_curve_sections, dtype=np.float64)
+    rforward = datasets[0].metadata["rforward"]
     concat_dataset : torchdata.ConcatDataset = torchdata.ConcatDataset(datasets)
     dataloader : torchdata.DataLoader = torchdata.DataLoader(concat_dataset, batch_size=trainerconfig["batch_size"], pin_memory=use_cuda, shuffle=True, num_workers=workers)
 
@@ -156,6 +157,7 @@ def train(allconfig : dict[str,dict] = None,
             "kbezier_vel" : kbeziervel,
             "num_accel_sections" : num_accel_sections,
             "prediction_time" : prediction_totaltime,
+            "rforward" : rforward,
             "time_switching_points" : tswitchingpoints.cpu().numpy().tolist()
         }
         hyper_params_to_comet["tracks"] = list(set([dset.metadata["trackname"] for dset in datasets]))
@@ -329,7 +331,7 @@ def train(allconfig : dict[str,dict] = None,
                 
                 idx_clip = arclengths_deltar>pred_deltar
                 
-                arclengths_pred[idx_clip]*=(pred_deltar[idx_clip]/arclengths_deltar[idx_clip])[:,None]
+                # arclengths_pred[idx_clip]*=(pred_deltar[idx_clip]/arclengths_deltar[idx_clip])[:,None]
                 arclengths_pred_s = (arclengths_pred/pred_deltar[:,None]).clamp(min=0.0, max=1.0)
                 
                 Marclengths_pred : torch.Tensor = deepracing_models.math_utils.bezierM(arclengths_pred_s, kbezier)

@@ -2,7 +2,7 @@ import argparse
 import shutil
 import comet_ml
 import deepracing_models.math_utils.bezier, deepracing_models.math_utils
-from deepracing_models.nn_models.trajectory_prediction.lstm_based import BAMF
+from deepracing_models.nn_models.trajectory_prediction.lstm_based import BARTE
 from deepracing_models.data_loading import file_datasets as FD, SubsetFlag 
 from deepracing_models.data_loading.utils.file_utils import load_datasets_from_files 
 import torch.utils.data as torchdata
@@ -40,11 +40,16 @@ def test(**kwargs):
             config_asset = asset
         elif "model_" in asset["fileName"]:
             net_assets.append(asset)
+    net_assets.sort(key = lambda x : x["step"])
     # net_assets = sorted(net_assets, key=lambda a : a["step"])
     print("Downloading config", flush=True)
     config_str = str(api_experiment.get_asset(config_asset["assetId"], return_type="binary"), encoding="ascii")
     config = yaml.safe_load(config_str)
     netconfig = config["network"]
+    print(netconfig)
+    hyperparams = {entry["name"] : entry for entry in api_experiment.get_parameters_summary()}
+    print(hyperparams)
+    # print({k : hyperparams[k]["valueCurrent"] for k in ["rforward", "dirs"]})
 
     kbezier = netconfig["kbezier"]
     num_segments = netconfig["num_segments"]
@@ -58,17 +63,17 @@ def test(**kwargs):
         history_dimension = 6
     else:
         raise ValueError("Unknown heading encoding: %s" % (heading_encoding,))
-    net : BAMF = BAMF( history_dimension = history_dimension,
+    net : BARTE = BARTE( history_dimension = history_dimension,
             num_segments = num_segments, 
             kbezier = kbezier,
             with_batchnorm = with_batchnorm)
-    print("Downloading model", flush=True)
-    net_asset = ([a for a in net_assets if a["fileName"] == "model_148.pt"])[0]
-    print("Using model file: %s" % (net_asset["fileName"],))
+    # net_asset = ([a for a in net_assets if a["fileName"] == "model_148.pt"])[0]
+    net_asset = net_assets[-1]
+    print("Downloading model file: %s" % (net_asset["fileName"],))
     net_binary = api_experiment.get_asset(net_asset["assetId"], return_type="binary")
     net_bytesio = io.BytesIO(net_binary)
     net.load_state_dict(torch.load(net_bytesio, map_location="cpu"))
-    net = net.eval().cuda(gpu_index)#.double()
+    net = net.eval().to(device = torch.device("cuda:%d" % (gpu_index,)))
     firstparam = next(net.parameters())
     dtype = firstparam.dtype
     device = firstparam.device
@@ -98,6 +103,7 @@ def test(**kwargs):
     dataloader_enumerate = enumerate(dataloader)
     tq = tqdm.tqdm(dataloader_enumerate, desc="Yay", total=int(np.ceil(num_samples/batch_size)))
     ade_list = []
+    fde_list = []
     lateral_error_list = []
     longitudinal_error_list = []
     coordinate_idx_history = [0,1]
@@ -177,6 +183,7 @@ def test(**kwargs):
             pout, _ = deepracing_models.math_utils.compositeBezierEval(tstart, dt, poscurveout, tsamp)
             prediction_array[idxstart:idxend,:] = pout.cpu().numpy()
             deltas = pout - position_future
+            fde = torch.norm(deltas[:,-1], p=2.0, dim=1)
 
             lateral_errors = torch.abs(torch.sum(deltas*normals_future, dim=-1))
             longitudinal_errors = torch.abs(torch.sum(deltas*tangents_future, dim=-1))
@@ -186,32 +193,52 @@ def test(**kwargs):
             
             delta_norms = torch.norm(deltas, p=2.0, dim=-1)
             mean_delta_norms = torch.mean(delta_norms, dim=-1)
+
             ade_list.extend(mean_delta_norms.cpu().numpy().tolist())
+            fde_list.extend(fde.cpu().numpy().tolist())
             tq.set_postfix({"current_error" : torch.mean(mean_delta_norms).item()})
             idxstart=idxend
 
 
     results_dict : dict = dict()
     results_dict.update(config)
-    results_dict["results"] = dict()
+    results_dict = dict()
     ade_array = torch.as_tensor(ade_list, dtype=dtype)
-    results_dict["results"]["ade"] = torch.mean(ade_array).item()
+    results_dict["ade"] = {
+        "mean" : torch.mean(ade_array).item(), 
+        "stdev" : torch.std(ade_array).item(), 
+        "max" : torch.max(ade_array).item()
+    }
+    fde_array = torch.as_tensor(fde_list, dtype=dtype)
+    results_dict["fde"] = {
+        "mean" : torch.mean(fde_array).item(), 
+        "stdev" : torch.std(fde_array).item(), 
+        "max" : torch.max(fde_array).item()
+    }
     lateral_error_array = torch.as_tensor(lateral_error_list, dtype=dtype)
-    results_dict["results"]["lateral_error"] = torch.mean(lateral_error_array).item()
+    results_dict["lateral_error"] = {
+        "mean" : torch.mean(lateral_error_array).item(), 
+        "stdev" : torch.std(lateral_error_array).item(), 
+        "max" : torch.max(lateral_error_array).item()
+    }
     longitudinal_error_array = torch.as_tensor(longitudinal_error_list, dtype=dtype)
-    results_dict["results"]["longitudinal_error"] = torch.mean(longitudinal_error_array).item()
+    results_dict["longitudinal_error"] = {
+        "mean" : torch.mean(longitudinal_error_array).item(), 
+        "stdev" : torch.std(longitudinal_error_array).item(), 
+        "max" : torch.max(longitudinal_error_array).item()
+    }
 
-    print("ADE: %f" % (results_dict["results"]["ade"],))
-    print("mean lateral error: %f" % (results_dict["results"]["lateral_error"],))
-    print("mean longitudinal error: %f" % (results_dict["results"]["longitudinal_error"],))
+    print(results_dict)
 
-    results_dir = os.path.join(argdict["resultsdir"], experiment)
+    results_dir = os.path.join(argdict["resultsdir"], api_experiment.get_name())
     if os.path.isdir(results_dir):
         shutil.rmtree(results_dir)
     os.makedirs(results_dir)
 
     with open(os.path.join(results_dir, "summary.yaml"), "w") as f:
         yaml.dump(results_dict, f, Dumper=yaml.SafeDumper)
+    with open(os.path.join(results_dir, "config.yaml"), "w") as f:
+        yaml.dump(config, f, Dumper=yaml.SafeDumper)
 
     with open(os.path.join(results_dir, "data.npz"), "wb") as f:
         np.savez(f, **{
@@ -234,7 +261,7 @@ def test(**kwargs):
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description="Test Bezier version of MixNet")
     parser.add_argument("--experiment", type=str, required=True, help="Which comet experiment to load")
-    parser.add_argument("--resultsdir", type=str, default="/p/DeepRacing/bamf_results", help="Where put results?!?!??!")
+    parser.add_argument("--resultsdir", type=str, default="/p/DeepRacing/barte_results", help="Where put results?!?!??!")
     parser.add_argument("--workers", type=int, default=0, help="How many threads for data loading")
     parser.add_argument("--gpu", type=int, default=0, help="which gpu")
     args = parser.parse_args()

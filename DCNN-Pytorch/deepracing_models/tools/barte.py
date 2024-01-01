@@ -113,6 +113,24 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
     datasets : list[FD.TrajectoryPredictionDataset] = []
     for search_dir in search_dirs:
         datasets += load_datasets_from_files(search_dir, keys=keys, dtype=np.float64)
+    if comet_experiment is not None:
+        comet_experiment.log_parameters(dataconfig)
+        comet_experiment.log_parameters(netconfig)
+        comet_experiment.log_parameters(trainerconfig)
+        comet_experiment.log_parameters(
+            {
+                "rforward": datasets[0].metadata["rforward"],
+                "predictiontime": datasets[0].metadata["predictiontime"],
+                "historytime": datasets[0].metadata["historytime"]
+            }
+        )
+        slurm_job_id = os.getenv("SLURM_JOB_ID")
+        if slurm_job_id is not None:
+            comet_experiment.log_parameter("slurm_job_id", slurm_job_id)
+        cometconfig : dict = config["comet"]
+        comettags = cometconfig.get("tags")
+        if comettags is not None:
+            comet_experiment.add_tags(comettags)
     concat_dataset : torchdata.ConcatDataset = torchdata.ConcatDataset(datasets)
     batch_size = trainerconfig["batch_size"]
     dataloader : torchdata.DataLoader = torchdata.DataLoader(concat_dataset, batch_size=batch_size, pin_memory=True, shuffle=True, num_workers=workers)
@@ -123,6 +141,7 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
     dt_ = tsegs[1:] - tstart_
     tsamp_ : torch.Tensor = torch.linspace(0.0, tfuture, steps=Nfuture, device=device, dtype=dtype)
     coordinate_idx_history = [0,1]
+    _2d = len(coordinate_idx_history)==2
     quaternion_idx_history = [2,3]
     up = torch.as_tensor([0.0, 0.0, 1.0], dtype=dtype, device=device).unsqueeze(0).unsqueeze(0)
     for epoch in range(1, num_epochs+1):
@@ -138,14 +157,6 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
             datadict : dict[str,torch.Tensor] = dict_
             position_history = datadict["hist"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
             vel_history = datadict["hist_vel"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
-            fut_tangents_full = datadict["fut_tangents"].to(device=device, dtype=dtype)
-            fut_normals = torch.cross(up.expand_as(fut_tangents_full), fut_tangents_full, dim=-1)[:,:,coordinate_idx_history]
-            fut_normals = torch.norm(fut_normals, p=2.0, dim=-1, keepdim=True)
-            fut_tangents = fut_tangents_full[:,:,coordinate_idx_history]
-            fut_tangents = torch.norm(fut_tangents, p=2.0, dim=-1, keepdim=True)
-            
-
-
             quat_history = datadict["hist_quats"][:,:,quaternion_idx_history].to(device=device, dtype=dtype)
             quat_history = quat_history*(torch.sign(quat_history[:,:,-1])[...,None])
             quat_history = quat_history/torch.norm(quat_history, p=2.0, dim=-1, keepdim=True)
@@ -157,8 +168,24 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
                 quat_input = 2.0*torch.atan2(qz,qw).unsqueeze(-1)
 
 
-            position_future = datadict["fut"].to(device=device, dtype=dtype)
-            vel_future = datadict["fut_vel"].to(device=device, dtype=dtype)
+            position_future = datadict["fut"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
+            vel_future = datadict["fut_vel"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
+            fut_tangents_full = datadict["fut_tangents"].to(device=device, dtype=dtype)
+            fut_normals_full = torch.cross(up.expand_as(fut_tangents_full), fut_tangents_full, dim=-1)
+            fut_normals = fut_normals_full[:,:,coordinate_idx_history]
+            fut_normals /= torch.norm(fut_normals, p=2.0, dim=-1, keepdim=True)
+            fut_tangents = fut_tangents_full[:,:,coordinate_idx_history]
+            fut_tangents /= torch.norm(fut_tangents, p=2.0, dim=-1, keepdim=True)
+            if _2d:
+                rotmats = torch.stack([fut_tangents, fut_normals], dim=-1)
+            else:
+                zvecs = torch.cross(fut_tangents, fut_normals, dim=-1)
+                zvecs /= torch.norm(zvecs, p=2.0, dim=-1, keepdim=True)
+                rotmats = torch.stack([fut_tangents, fut_normals, zvecs], dim=-1)
+            Rtransform = rotmats.mT
+            Ptransform = torch.matmul(Rtransform, -position_future.unsqueeze(-1)).squeeze(-1)
+
+
             left_bound_input = datadict["left_bd"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
             right_bound_input = datadict["right_bd"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
             left_bound_tangents = datadict["left_bd_tangents"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
@@ -170,19 +197,22 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
             left_boundary_inputs = torch.cat([left_bound_input, left_bound_tangents], dim=-1)
             right_boundary_inputs = torch.cat([right_bound_input, right_bound_tangents], dim=-1)
             
-            p0 = position_future[:,0,coordinate_idx_history]
-            v0 = vel_future[:,0,coordinate_idx_history]
+            p0 = position_future[:,0]
+            v0 = vel_future[:,0]
             currentbatchdim = p0.shape[0]
             dt = dt_[None].expand(currentbatchdim, num_segments)
             velcurveout, poscurveout = network(history_inputs, left_boundary_inputs, right_boundary_inputs, dt, v0, p0=p0)
             tstart = tstart_[None].expand(currentbatchdim, num_segments)
             tsamp = tsamp_[None].expand(currentbatchdim, Nfuture)
             pout, _ = deepracing_models.math_utils.compositeBezierEval(tstart, dt, poscurveout, tsamp)
-            deltas = pout - position_future[:,:,coordinate_idx_history]
+            deltas = torch.matmul(Rtransform, pout.unsqueeze(-1)).squeeze(-1) + Ptransform
 
-            longitudinal_error = torch.mean(torch.abs(torch.sum(deltas*fut_tangents, dim=-1)))
-            lateral_error = torch.mean(torch.abs(torch.sum(deltas*fut_normals, dim=-1)))
-            ade = torch.mean(torch.norm(deltas, p=2.0, dim=-1))
+            # longitudinal_error = torch.mean(torch.abs(deltas[:,:,0]))
+            # lateral_error = torch.mean(torch.abs(deltas[:,:,1]))
+            # ade = torch.mean(torch.norm(deltas, p=2.0, dim=-1))
+            longitudinal_error = torch.mean(torch.abs(deltas[:,:,0]))
+            lateral_error = torch.mean(torch.abs(deltas[:,:,1]))
+            ade = torch.mean(torch.norm(pout - position_future, p=2.0, dim=-1))
 
             if loss_function=="ade":
                 loss = ade
@@ -193,16 +223,18 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            if comet_experiment is None:
-                tq.set_postfix({
-                    "ade" : ade.item(),
-                    "lateral_error" : lateral_error.item(),
-                    "longitudinal_error" : longitudinal_error.item(),
-                    })
-            elif (i%10)==0:
-                comet_experiment.log_metric("ade", ade.item())
-                comet_experiment.log_metric("lateral_error", lateral_error.item())
-                comet_experiment.log_metric("longitudinal_error", longitudinal_error.item())
+            if (i%10)==0:
+                metric_dict = {
+                        "ade" : ade.item(),
+                        "lateral_error" : lateral_error.item(),
+                        "longitudinal_error" : longitudinal_error.item(),
+                        "loss" : loss.item(),
+                }
+                if comet_experiment is None:
+                    metric_dict["ade_direct"] = torch.mean(torch.norm(pout - position_future, p=2.0, dim=-1)).item()
+                    tq.set_postfix(metric_dict)
+                else:
+                    comet_experiment.log_metrics(metric_dict)
         model_file = os.path.join(tempdir, "model_%d.pt" % (epoch,))
         optimizer_file = os.path.join(tempdir, "optimizer_%d.pt" % (epoch,))
         with open(model_file, "wb") as f:

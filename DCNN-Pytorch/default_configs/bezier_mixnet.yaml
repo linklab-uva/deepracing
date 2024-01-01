@@ -6,8 +6,8 @@
     data:
     {
         dirs: [
-               /p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard,
-            ]
+            /p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard,
+        ]
     },
     trainer:
     {
