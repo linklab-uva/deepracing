@@ -47,8 +47,8 @@ def test(**kwargs):
     config = yaml.safe_load(config_str)
     netconfig = config["network"]
     print(netconfig)
-    hyperparams = {entry["name"] : entry for entry in api_experiment.get_parameters_summary()}
-    print(hyperparams)
+    # hyperparams = {entry["name"] : entry for entry in api_experiment.get_parameters_summary()}
+    # print(hyperparams)
     # print({k : hyperparams[k]["valueCurrent"] for k in ["rforward", "dirs"]})
 
     kbezier = netconfig["kbezier"]
@@ -67,12 +67,23 @@ def test(**kwargs):
             num_segments = num_segments, 
             kbezier = kbezier,
             with_batchnorm = with_batchnorm)
+    trainerconfig : dict = config["trainer"]
+    if trainerconfig["float32"]:
+        net = net.float()
+    else:
+        net = net.double()
     # net_asset = ([a for a in net_assets if a["fileName"] == "model_148.pt"])[0]
     net_asset = net_assets[-1]
     print("Downloading model file: %s" % (net_asset["fileName"],))
     net_binary = api_experiment.get_asset(net_asset["assetId"], return_type="binary")
-    net_bytesio = io.BytesIO(net_binary)
-    net.load_state_dict(torch.load(net_bytesio, map_location="cpu"))
+    results_dir = os.path.join(argdict["resultsdir"], api_experiment.get_name())
+    if os.path.isdir(results_dir):
+        shutil.rmtree(results_dir)
+    os.makedirs(results_dir)
+    modelfile=os.path.join(results_dir, "model.pt")
+    with open(modelfile, "wb") as f:
+        f.write(net_binary)
+    net.load_state_dict(torch.load(modelfile, map_location="cpu"))
     net = net.eval().to(device = torch.device("cuda:%d" % (gpu_index,)))
     firstparam = next(net.parameters())
     dtype = firstparam.dtype
@@ -94,8 +105,7 @@ def test(**kwargs):
     }
     dsets : list[FD.TrajectoryPredictionDataset] = []
     for datadir in data_config["dirs"]: 
-        dsets.extend(load_datasets_from_files(datadir, flag=SubsetFlag.TEST, keys=keys)) #SubsetFlag.VAL
-    dsetconfigs = [dset.metadata for dset in dsets]
+        dsets.extend(load_datasets_from_files(datadir, flag=SubsetFlag.TRAIN, keys=keys)) #SubsetFlag.VAL
 
     concat_set = torchdata.ConcatDataset(dsets)
     num_samples = len(concat_set)
@@ -128,12 +138,10 @@ def test(**kwargs):
             position_history = datadict["hist"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
             currentbatchdim = position_history.shape[0]
             idxend = idxstart+currentbatchdim
-            history_array[idxstart:idxend,:] = position_history.cpu().numpy()[:]
             vel_history = datadict["hist_vel"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
-            hist_vel_array[idxstart:idxend,:] = vel_history.cpu().numpy()[:]
             quat_history = datadict["hist_quats"][:,:,quaternion_idx_history].to(device=device, dtype=dtype)
-            quat_history = quat_history/torch.norm(quat_history, p=2.0, dim=-1, keepdim=True)
             quat_history = quat_history*(torch.sign(quat_history[:,:,-1])[...,None])
+            quat_history = quat_history/torch.norm(quat_history, p=2.0, dim=-1, keepdim=True)
             if heading_encoding=="quaternion":
                 heading_history = quat_history
             elif heading_encoding=="angle":
@@ -142,7 +150,7 @@ def test(**kwargs):
                 heading_history = 2.0*torch.atan2(qz,qw).unsqueeze(-1)
 
             position_future = datadict["fut"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
-            ground_truth_array[idxstart:idxend,:] = position_future.cpu().numpy()
+            vel_future = datadict["fut_vel"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
             tangents_future = datadict["fut_tangents"].to(device=device, dtype=dtype)#[:,:,coordinate_idx_history]
             quat_future = datadict["fut_quats"].to(device=device, dtype=dtype)
             rotmats_future = quaternionToMatrix(quat_future.view(-1,4)).view(currentbatchdim, -1, 3,3)
@@ -156,9 +164,6 @@ def test(**kwargs):
 
             # normal_future
             tangents_future = tangents_future/torch.norm(tangents_future, p=2.0, dim=-1, keepdim=True)
-            vel_future = datadict["fut_vel"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
-            future_vel_array[idxstart:idxend,:] = vel_future.cpu().numpy()[:]
-            
 
             left_bound_positions = datadict["left_bd"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
             right_bound_positions = datadict["right_bd"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
@@ -171,32 +176,48 @@ def test(**kwargs):
             left_boundary_inputs = torch.cat([left_bound_positions, left_bound_tangents], dim=-1)
             right_boundary_inputs = torch.cat([right_bound_positions, right_bound_tangents], dim=-1)
 
-            
             p0 = position_future[:,0]
             v0 = vel_future[:,0]        
-        
             dt = dt_[None].expand(currentbatchdim, num_segments)
-            velcurveout, poscurveout = net(history_inputs, left_boundary_inputs, right_boundary_inputs, dt, v0, p0=p0)
-            curves_array[idxstart:idxend,:] = poscurveout.cpu().numpy()[:]
             tstart = tstart_[None].expand(currentbatchdim, num_segments)
             tsamp = tsamp_[None].expand(currentbatchdim, Nfuture)
+            velcurveout, poscurveout = net(history_inputs, left_boundary_inputs, right_boundary_inputs, dt, v0, p0=p0)
             pout, _ = deepracing_models.math_utils.compositeBezierEval(tstart, dt, poscurveout, tsamp)
-            prediction_array[idxstart:idxend,:] = pout.cpu().numpy()
             deltas = pout - position_future
             fde = torch.norm(deltas[:,-1], p=2.0, dim=1)
+            de = torch.norm(deltas, p=2.0, dim=2)
+            minde, minde_idx = torch.min(de, dim=1)
+            ade = torch.mean(de, dim=1)
+            maxde, maxde_idx = torch.max(de, dim=1)
 
-            lateral_errors = torch.abs(torch.sum(deltas*normals_future, dim=-1))
-            longitudinal_errors = torch.abs(torch.sum(deltas*tangents_future, dim=-1))
+            # lateral_errors = torch.abs(torch.sum(deltas*normals_future, dim=-1))
+            # longitudinal_errors = torch.abs(torch.sum(deltas*tangents_future, dim=-1))
 
-            lateral_error_list.extend(torch.mean(lateral_errors, dim=-1))
-            longitudinal_error_list.extend(torch.mean(longitudinal_errors, dim=-1))
-            
-            delta_norms = torch.norm(deltas, p=2.0, dim=-1)
-            mean_delta_norms = torch.mean(delta_norms, dim=-1)
+            # lateral_error_list.extend(torch.mean(lateral_errors, dim=-1))
+            # longitudinal_error_list.extend(torch.mean(longitudinal_errors, dim=-1))
 
-            ade_list.extend(mean_delta_norms.cpu().numpy().tolist())
+            fig = plt.figure()
+            idxplot = 0
+            plt.plot(position_future[idxplot,:,0].cpu(), position_future[idxplot,:,1].cpu(), label="Ground Truth")
+            plt.plot(pout[idxplot,:,0].cpu(), pout[idxplot,:,1].cpu(), label="Prediction")
+            plt.legend()
+            plt.show()
+            # delta_norms = torch.norm(deltas, p=2.0, dim=-1)
+            # mean_delta_norms = torch.mean(delta_norms, dim=-1)
+
+            tq.set_postfix({
+                "ade" : torch.mean(ade).item(),
+                "minde" : torch.mean(minde).item(),
+                "maxde" : torch.mean(maxde).item()
+                })
+            ade_list.extend(ade.cpu().numpy().tolist())
             fde_list.extend(fde.cpu().numpy().tolist())
-            tq.set_postfix({"current_error" : torch.mean(mean_delta_norms).item()})
+            curves_array[idxstart:idxend,:] = poscurveout.cpu().numpy()[:]
+            prediction_array[idxstart:idxend,:] = pout.cpu().numpy()[:]
+            ground_truth_array[idxstart:idxend,:] = position_future.cpu().numpy()[:]
+            future_vel_array[idxstart:idxend,:] = vel_future.cpu().numpy()[:]
+            history_array[idxstart:idxend,:] = position_history.cpu().numpy()[:]
+            hist_vel_array[idxstart:idxend,:] = vel_history.cpu().numpy()[:]
             idxstart=idxend
 
 
@@ -230,10 +251,6 @@ def test(**kwargs):
 
     print(results_dict)
 
-    results_dir = os.path.join(argdict["resultsdir"], api_experiment.get_name())
-    if os.path.isdir(results_dir):
-        shutil.rmtree(results_dir)
-    os.makedirs(results_dir)
 
     with open(os.path.join(results_dir, "summary.yaml"), "w") as f:
         yaml.dump(results_dict, f, Dumper=yaml.SafeDumper)
