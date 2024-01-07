@@ -114,6 +114,10 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
     for search_dir in search_dirs:
         datasets += load_datasets_from_files(search_dir, keys=keys, dtype=np.float64)
     if comet_experiment is not None:
+        comet_config = config["comet"]
+        comet_tags = comet_config.get("tags")
+        if comet_tags is not None:
+            comet_experiment.add_tags(comet_tags)
         comet_experiment.log_parameters(dataconfig)
         comet_experiment.log_parameters(netconfig)
         comet_experiment.log_parameters(trainerconfig)
@@ -127,10 +131,14 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
         slurm_job_id = os.getenv("SLURM_JOB_ID")
         if slurm_job_id is not None:
             comet_experiment.log_parameter("slurm_job_id", slurm_job_id)
-        cometconfig : dict = config["comet"]
-        comettags = cometconfig.get("tags")
-        if comettags is not None:
-            comet_experiment.add_tags(comettags)
+        try:
+            import deepracing
+            if deepracing.__file__ is not None:
+                comet_experiment.log_code(folder=os.path.dirname(deepracing.__file__), overwrite=True)
+        except ImportError:
+            pass
+        if deepracing_models.__file__ is not None:
+            comet_experiment.log_code(folder=os.path.dirname(deepracing_models.__file__), overwrite=True)
     concat_dataset : torchdata.ConcatDataset = torchdata.ConcatDataset(datasets)
     batch_size = trainerconfig["batch_size"]
     dataloader : torchdata.DataLoader = torchdata.DataLoader(concat_dataset, batch_size=batch_size, pin_memory=True, shuffle=True, num_workers=workers)
@@ -201,18 +209,15 @@ def train(config : dict = None, tempdir : str = None, num_epochs : int = 200,
             v0 = vel_future[:,0]
             currentbatchdim = p0.shape[0]
             dt = dt_[None].expand(currentbatchdim, num_segments)
-            velcurveout, poscurveout = network(history_inputs, left_boundary_inputs, right_boundary_inputs, dt, v0, p0=p0)
             tstart = tstart_[None].expand(currentbatchdim, num_segments)
             tsamp = tsamp_[None].expand(currentbatchdim, Nfuture)
+            velcurveout, poscurveout = network(history_inputs, left_boundary_inputs, right_boundary_inputs, dt, v0, p0=p0)
             pout, _ = deepracing_models.math_utils.compositeBezierEval(tstart, dt, poscurveout, tsamp)
             deltas = torch.matmul(Rtransform, pout.unsqueeze(-1)).squeeze(-1) + Ptransform
 
-            # longitudinal_error = torch.mean(torch.abs(deltas[:,:,0]))
-            # lateral_error = torch.mean(torch.abs(deltas[:,:,1]))
-            # ade = torch.mean(torch.norm(deltas, p=2.0, dim=-1))
-            longitudinal_error = torch.mean(torch.abs(deltas[:,:,0]))
-            lateral_error = torch.mean(torch.abs(deltas[:,:,1]))
-            ade = torch.mean(torch.norm(pout - position_future, p=2.0, dim=-1))
+            longitudinal_error = torch.mean(torch.square(deltas[:,:,0]))
+            lateral_error = torch.mean(torch.square(deltas[:,:,1]))
+            ade = torch.mean(torch.square(deltas))
 
             if loss_function=="ade":
                 loss = ade
