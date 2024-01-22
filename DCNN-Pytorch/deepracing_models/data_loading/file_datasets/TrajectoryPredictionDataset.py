@@ -6,7 +6,6 @@ import numpy as np, numpy.lib.npyio as npio
 import deepracing_models
 import deepracing_models.math_utils
 import deepracing_models.data_loading
-import deepracing_models.data_loading.utils.mtr_utils as mtr_utils
 from tqdm import tqdm
 import torch.jit
 import os
@@ -16,6 +15,48 @@ from multiprocessing.shared_memory import SharedMemory
 import scipy.interpolate
 
 class TrajectoryPredictionDataset(torch.utils.data.Dataset):
+    ALL_KEYS : set = { 
+        "thistory",
+        "tfuture",
+        "current_position",
+        "current_orientation",
+        "hist",
+        "hist_quats",
+        "hist_tangents",
+        "hist_spline_der",
+        "hist_vel",
+        "hist_accel",
+        "hist_speed",
+        "hist_angvel",
+        "fut",
+        "fut_quats",
+        "fut_tangents",
+        "fut_spline_der",
+        "fut_vel",
+        "fut_accel",
+        "fut_speed",
+        "fut_angvel",
+        "left_bd",
+        "left_bd_tangents",
+        "right_bd",
+        "right_bd_tangents",
+        "future_arclength",
+        "future_arclength_2d",
+        "future_arclengths_fromspline",
+        "future_arclengths_fromspline_2d",
+        "future_left_bd",
+        "future_left_bd_tangents",
+        "future_right_bd",
+        "future_right_bd_tangents",
+        "future_centerline",
+        "future_centerline_tangents",
+        "future_raceline",
+        "future_raceline_tangents",
+        "future_left_bd_arclength",
+        "future_right_bd_arclength",
+        "future_centerline_arclength",
+        "future_raceline_arclength"
+    }
     KEYS_WE_CARE_ABOUT : set = {
         "hist",
         "hist_quats",
@@ -230,6 +271,7 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
         if self.reference_curves_rswitch is not None:
             datadict["reference_curves_rswitch"] = self.reference_curves_rswitch[index]
         if self.mtr_polyline_config is not None:
+            import deepracing_models.data_loading.utils.mtr_utils as mtr_utils
             scene_id = "%s_%d" % (self.directory, index)
             return mtr_utils.deepracing_to_mtr(datadict, scene_id, self.mtr_polyline_config)
         else:
