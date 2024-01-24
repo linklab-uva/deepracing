@@ -22,6 +22,7 @@ from datetime import datetime
 import torch
 from pathlib import Path
 from deepracing_models.math_utils.rotations import quaternionToMatrix
+import matplotlib.axes, matplotlib.figure
 
 
 def test(**kwargs):
@@ -79,21 +80,21 @@ def test(**kwargs):
     results_dir = os.path.join(argdict["resultsdir"], api_experiment.get_name())
     if os.path.isdir(results_dir):
         shutil.rmtree(results_dir)
-    os.makedirs(results_dir)
-    modelfile=os.path.join(results_dir, "model.pt")
-    with open(modelfile, "wb") as f:
-        f.write(net_binary)
-    net.load_state_dict(torch.load(modelfile, map_location="cpu"))
-    net = net.eval().to(device = torch.device("cuda:%d" % (gpu_index,)))
+    os.makedirs(os.path.join(results_dir, "plots"))
+    net_bytesio : io.BytesIO = io.BytesIO(net_binary)
+    net.load_state_dict(torch.load(net_bytesio))
+    net = net.to(device = torch.device("cuda:%d" % (gpu_index,))).eval()
     firstparam = next(net.parameters())
     dtype = firstparam.dtype
     device = firstparam.device
     data_config = config["data"]
     print("Loading data", flush=True)
     keys : set = {
+        "thistory",
         "hist",
         "hist_quats",
         "hist_vel",
+        "tfuture",
         "fut",
         "fut_quats",
         "fut_vel",
@@ -103,9 +104,14 @@ def test(**kwargs):
         "right_bd",
         "right_bd_tangents",
     }
+    # data_config["dirs"]=["/p/DeepRacing/unpacked_datasets/local_fitting/v2_scratch/deepracing_standard"]
+    # data_config["dirs"]=[os.path.join(data_config["dirs"][0], "Monza_7_6_2023_16_23_11_trajectory_data")]
+    # data_config["dirs"]=["/p/DeepRacing/unpacked_datasets/local_fitting/v2/deepracing_standard"]
+    # data_config["dirs"]=["/p/DeepRacing/unpacked_datasets/local_fitting/boundary_length_ablation/500m/deepracing_standard"]
+    
     dsets : list[FD.TrajectoryPredictionDataset] = []
     for datadir in data_config["dirs"]: 
-        dsets.extend(load_datasets_from_files(datadir, flag=SubsetFlag.TRAIN, keys=keys)) #SubsetFlag.VAL
+        dsets += load_datasets_from_files(datadir, keys=keys, flag=SubsetFlag.VAL, dtype=np.float64) #
 
     concat_set = torchdata.ConcatDataset(dsets)
     num_samples = len(concat_set)
@@ -124,35 +130,36 @@ def test(**kwargs):
     tsegs : torch.Tensor = torch.linspace(0.0, tfuture, steps=num_segments+1, device=device, dtype=dtype)
     tstart_ = tsegs[:-1]
     dt_ = tsegs[1:] - tstart_
+    tsamp_ : torch.Tensor = torch.linspace(0.0, tfuture, steps=Nfuture, device=device, dtype=dtype)
     curves_array : np.ndarray = np.zeros([num_samples, num_segments, kbezier+1, len(coordinate_idx_history)])
     history_array : np.ndarray = np.zeros([num_samples, Nhistory, len(coordinate_idx_history)])
     hist_vel_array : np.ndarray = np.zeros([num_samples, Nhistory, len(coordinate_idx_history)])
     future_vel_array : np.ndarray = np.zeros([num_samples, Nhistory, len(coordinate_idx_history)])
     prediction_array : np.ndarray = np.zeros([num_samples, Nfuture, len(coordinate_idx_history)])
     ground_truth_array : np.ndarray = np.zeros_like(prediction_array)
-    tsamp_ : torch.Tensor = torch.linspace(0.0, tfuture, steps=Nfuture, device=device, dtype=dtype)
     idxstart=0
     with torch.no_grad():
         for (i, dict_) in tq:
             datadict : dict[str,torch.Tensor] = dict_
             position_history = datadict["hist"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
-            currentbatchdim = position_history.shape[0]
-            idxend = idxstart+currentbatchdim
             vel_history = datadict["hist_vel"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
             quat_history = datadict["hist_quats"][:,:,quaternion_idx_history].to(device=device, dtype=dtype)
             quat_history = quat_history*(torch.sign(quat_history[:,:,-1])[...,None])
             quat_history = quat_history/torch.norm(quat_history, p=2.0, dim=-1, keepdim=True)
             if heading_encoding=="quaternion":
-                heading_history = quat_history
+                quat_input = quat_history
             elif heading_encoding=="angle":
                 qz = quat_history[:,:,-2]
                 qw = quat_history[:,:,-1]
-                heading_history = 2.0*torch.atan2(qz,qw).unsqueeze(-1)
+                quat_input = 2.0*torch.atan2(qz,qw).unsqueeze(-1)
 
             position_future = datadict["fut"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
             vel_future = datadict["fut_vel"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
             tangents_future = datadict["fut_tangents"].to(device=device, dtype=dtype)#[:,:,coordinate_idx_history]
             quat_future = datadict["fut_quats"].to(device=device, dtype=dtype)
+            quat_future = quat_future*(torch.sign(quat_future[:,:,-1])[...,None])
+            quat_future = quat_future/torch.norm(quat_future, p=2.0, dim=-1, keepdim=True)
+            currentbatchdim = position_history.shape[0]
             rotmats_future = quaternionToMatrix(quat_future.view(-1,4)).view(currentbatchdim, -1, 3,3)
             upvecs_future = rotmats_future[...,-1]
 
@@ -162,7 +169,6 @@ def test(**kwargs):
             tangents_future = tangents_future[:,:,coordinate_idx_history]
             tangents_future /= torch.norm(tangents_future, p=2.0, dim=-1, keepdim=True)
 
-            # normal_future
             tangents_future = tangents_future/torch.norm(tangents_future, p=2.0, dim=-1, keepdim=True)
 
             left_bound_positions = datadict["left_bd"][:,:,coordinate_idx_history].to(device=device, dtype=dtype)
@@ -172,36 +178,76 @@ def test(**kwargs):
             left_bound_tangents = left_bound_tangents/torch.norm(left_bound_tangents, p=2.0, dim=-1, keepdim=True)
             right_bound_tangents = right_bound_tangents/torch.norm(right_bound_tangents, p=2.0, dim=-1, keepdim=True)
 
-            history_inputs = torch.cat([position_history, vel_history, heading_history], dim=-1)
+            history_inputs = torch.cat([position_history, vel_history, quat_input], dim=-1)
             left_boundary_inputs = torch.cat([left_bound_positions, left_bound_tangents], dim=-1)
             right_boundary_inputs = torch.cat([right_bound_positions, right_bound_tangents], dim=-1)
 
             p0 = position_future[:,0]
             v0 = vel_future[:,0]        
+            currentbatchdim = position_history.shape[0]
             dt = dt_[None].expand(currentbatchdim, num_segments)
             tstart = tstart_[None].expand(currentbatchdim, num_segments)
             tsamp = tsamp_[None].expand(currentbatchdim, Nfuture)
+
+
             velcurveout, poscurveout = net(history_inputs, left_boundary_inputs, right_boundary_inputs, dt, v0, p0=p0)
             pout, _ = deepracing_models.math_utils.compositeBezierEval(tstart, dt, poscurveout, tsamp)
             deltas = pout - position_future
-            fde = torch.norm(deltas[:,-1], p=2.0, dim=1)
             de = torch.norm(deltas, p=2.0, dim=2)
+            # de = torch.sum(torch.square(deltas), dim=2)
+            fde = de[:,-1].clone()
             minde, minde_idx = torch.min(de, dim=1)
             ade = torch.mean(de, dim=1)
             maxde, maxde_idx = torch.max(de, dim=1)
 
-            # lateral_errors = torch.abs(torch.sum(deltas*normals_future, dim=-1))
-            # longitudinal_errors = torch.abs(torch.sum(deltas*tangents_future, dim=-1))
+            lateral_errors = torch.abs(torch.sum(deltas*normals_future, dim=-1))
+            longitudinal_errors = torch.abs(torch.sum(deltas*tangents_future, dim=-1))
 
-            # lateral_error_list.extend(torch.mean(lateral_errors, dim=-1))
-            # longitudinal_error_list.extend(torch.mean(longitudinal_errors, dim=-1))
+            lateral_error_list.extend(torch.mean(lateral_errors, dim=-1))
+            longitudinal_error_list.extend(torch.mean(longitudinal_errors, dim=-1))
 
-            fig = plt.figure()
+            fig, axes = plt.subplots(1,3)
+            ax_geometric : matplotlib.axes.Axes = axes[0]
             idxplot = 0
-            plt.plot(position_future[idxplot,:,0].cpu(), position_future[idxplot,:,1].cpu(), label="Ground Truth")
-            plt.plot(pout[idxplot,:,0].cpu(), pout[idxplot,:,1].cpu(), label="Prediction")
-            plt.legend()
-            plt.show()
+            speed_history = torch.norm(vel_history, p=2.0, keepdim=True, dim=-1)
+            unit_vels_history = vel_history/speed_history
+            speed_history = speed_history.squeeze(-1)
+            ax_geometric.plot(position_history[idxplot,:,0].cpu(), position_history[idxplot,:,1].cpu(), label="History")
+            ax_geometric.plot(left_bound_positions[idxplot,:,0].cpu(), left_bound_positions[idxplot,:,1].cpu(), label="Left Boundary Input")
+            ax_geometric.plot(right_bound_positions[idxplot,:,0].cpu(), right_bound_positions[idxplot,:,1].cpu(), label="Right Boundary Input")
+            ax_geometric.plot(position_future[idxplot,:,0].cpu(), position_future[idxplot,:,1].cpu(), label="Ground Truth")
+            ax_geometric.plot(pout[idxplot,:,0].cpu(), pout[idxplot,:,1].cpu(), label="Prediction")
+
+            ax_geometric.quiver(position_history[idxplot,:,0].cpu(), position_history[idxplot,:,1].cpu(), 
+                                unit_vels_history[idxplot,:,0].cpu(), unit_vels_history[idxplot,:,1].cpu(), angles="xy")
+            
+            ax_geometric.quiver(right_bound_positions[idxplot,:,0].cpu(), right_bound_positions[idxplot,:,1].cpu(), 
+                                right_bound_tangents[idxplot,:,0].cpu(), right_bound_tangents[idxplot,:,1].cpu(), angles="xy")
+            
+            ax_geometric.quiver(left_bound_positions[idxplot,:,0].cpu(), left_bound_positions[idxplot,:,1].cpu(), 
+                                left_bound_tangents[idxplot,:,0].cpu(), left_bound_tangents[idxplot,:,1].cpu(), angles="xy")
+
+            ax_geometric.legend()
+
+            thistory = datadict["thistory"][idxplot].to(device=torch.device("cpu"), dtype=dtype)
+            tfuture = datadict["tfuture"][idxplot].to(device=torch.device("cpu"), dtype=dtype)
+            speed_future = torch.norm(vel_future, p=2.0, dim=-1)
+            ax_speed : matplotlib.axes.Axes = axes[1]
+            ax_speed.plot(thistory, speed_history[idxplot].cpu(), label="History")
+            ax_speed.plot(tfuture, speed_future[idxplot].cpu(), label="Ground Truth")
+            ax_speed.set_title("Speed vs Time")
+            ax_speed.legend()
+
+            future_heading =  2.0*torch.atan2(quat_future[idxplot, :, -2], quat_future[idxplot, :, -1])
+            ax_heading : matplotlib.axes.Axes = axes[2]
+            ax_heading.plot(thistory, quat_input[idxplot,:,0].cpu(), label="History")
+            ax_heading.plot(tfuture, future_heading.cpu(), label="Ground Truth")
+            ax_heading.set_title("Heading vs Time")
+            ax_heading.legend()
+
+            fig.savefig(os.path.join(results_dir, "plots", "fig_%d.pdf" % (i,)))
+            plt.close(fig=fig)
+            # plt.show()
             # delta_norms = torch.norm(deltas, p=2.0, dim=-1)
             # mean_delta_norms = torch.mean(delta_norms, dim=-1)
 
@@ -212,6 +258,7 @@ def test(**kwargs):
                 })
             ade_list.extend(ade.cpu().numpy().tolist())
             fde_list.extend(fde.cpu().numpy().tolist())
+            idxend = idxstart+currentbatchdim
             curves_array[idxstart:idxend,:] = poscurveout.cpu().numpy()[:]
             prediction_array[idxstart:idxend,:] = pout.cpu().numpy()[:]
             ground_truth_array[idxstart:idxend,:] = position_future.cpu().numpy()[:]

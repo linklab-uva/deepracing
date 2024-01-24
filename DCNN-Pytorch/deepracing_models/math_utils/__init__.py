@@ -104,12 +104,14 @@ class SimplePathHelper(torch.nn.Module):
     def offset_points(self, left_offset : float, right_offset: float) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.__points_samp__ + self.__normals_samp__*left_offset, self.__points_samp__ - self.__normals_samp__*right_offset
     def tangent(self, s : torch.Tensor):
-        derivs, _ = self.__curve_deriv__(s)
+        s_true = s%self.__curve_deriv__.xend_vec[-1]
+        derivs, _ = self.__curve_deriv__(s_true)
         return derivs
     def forward(self, s : torch.Tensor, deriv=False):
-        positions, idxbuckets = self.__curve__(s)
+        s_true = s%self.__curve__.xend_vec[-1]
+        positions, idxbuckets = self.__curve__(s_true)
         if deriv:
-            derivs, _ = self.__curve_deriv__(s, idxbuckets=idxbuckets)
+            derivs, _ = self.__curve_deriv__(s_true, idxbuckets=idxbuckets)
             return positions, derivs, idxbuckets
         return positions, None
     def closest_point(self, Pquery : torch.Tensor):
