@@ -147,14 +147,15 @@ def structurednumpyToPCD(points : np.ndarray, filepath : str, fmt="%.4f", viewpo
         name : str = numpytype.names[i]
         headerlines[_FIELDS_TAG_LINE]+=name
         fieldtype, _ = numpytype.fields[name]
-        subtype, subshape = fieldtype.subdtype
-        subtypestring = subtype.str.replace("<","")
-        headerlines[_SIZE_TAG_LINE]+=subtypestring[1]
-        headerlines[_TYPE_TAG_LINE]+=subtypestring[0].upper()
-        if type(subshape)==tuple:
-            headerlines[_COUNT_TAG_LINE]+=str(subshape[0])
+        # print(fieldtype)
+        # subtype, subshape = fieldtype.subdtype
+        # subtypestring = subtype.str.replace("<","")
+        headerlines[_TYPE_TAG_LINE]+=fieldtype.char.upper()
+        headerlines[_SIZE_TAG_LINE]+=str(fieldtype.itemsize)
+        if fieldtype.fields is None:
+            headerlines[_COUNT_TAG_LINE]+="1"
         else:
-            headerlines[_COUNT_TAG_LINE]+=str(subshape)
+            headerlines[_COUNT_TAG_LINE]+=str(len(fieldtype.fields))
         if i==len(numpytype.names)-1:
             headerlines[_FIELDS_TAG_LINE]+="\n"
             headerlines[_SIZE_TAG_LINE]+="\n"
