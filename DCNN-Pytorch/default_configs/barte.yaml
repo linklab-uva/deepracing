@@ -2,19 +2,16 @@
   data:
   {
     dirs: [
-      # "/p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard",
-      # # "/p/DeepRacing/unpacked_datasets/local_fitting/history_time_ablation/6second",
-      "/p/DeepRacing/unpacked_datasets/local_fitting/boundary_length_ablation/200m",
+      "/p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard",
     ]
   },
   comet:
   {
-    # tags: ["latlong_loss", "boundary_length_ablation", "600m"]
-    tags: ["ade_loss", "order5", "normloss", "200m_boundary_inputs"]
+    tags: ["ade_loss", "order5", "normloss"]
   },
   network:
   {
-    kbezier : 5,
+    kbezier : 3,
     num_segments : 10,
     with_batchnorm : True,
     heading_encoding: angle
