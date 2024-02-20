@@ -9,7 +9,12 @@ from texttable import Texttable
 import latextable
 import torch
 import yaml
-
+title_dict : dict = {
+    "ade" : "MinADE",
+    "fde" : "FDE",
+    "lateral_errror" : "Lateral Error",
+    "longitudinal_error" : "Longitudinal Error"
+}
 class PredictionResults(collections.abc.Mapping[str,np.ndarray]):
     def __init__(self, resultsdict : dict[str,np.ndarray], data_dir : str, modelname : str) -> None:
         self.resultsdict = resultsdict
@@ -70,29 +75,64 @@ class PredictionResults(collections.abc.Mapping[str,np.ndarray]):
     def compute_fde(self):
         self.resultsdict["fde"] = np.linalg.norm(self.resultsdict["predictions"][:,-1,[0,1]] - self.resultsdict["ground_truth"][:,-1,[0,1]], ord=2.0, axis=1)
 
-def plot_error_histograms(results : PredictionResults, plotbase : str, bins=200, notch=True):
-    savedir = os.path.join(plotbase, results.modelname)
+def plot_error_histograms(results_list : list[PredictionResults], plotbase : str, metric="ade", bins=200, notch=True, pad_inches=0.02, combined_subdir="combined"):
+    title = title_dict[metric]
+    key = metric
+    fig_combined_histogram, axes_list_histogram = plt.subplots(1, len(results_list)) 
+    fig_combined_histogram.suptitle(title)
+    fig_combined_boxplot, axes_list_boxplot = plt.subplots(1, len(results_list)) 
+    fig_combined_boxplot.suptitle(title)
+    max_error = float(np.max([float(np.max(results[key])) for results in results_list]))
+    for (i, results) in enumerate(results_list):
+        axes_histogram : matplotlib.axes.Axes = axes_list_histogram[i]
+        errors = results[key]
+        modelname = results.modelname
+        axes_histogram.hist(errors, bins=bins)
+        axes_histogram.set_title(modelname)
+        # axes_histogram.set_ylim(bottom=0, top=1.01*max_error)
+
+
+        axes_boxplot : matplotlib.axes.Axes = axes_list_boxplot[i]
+        axes_boxplot.set_title(modelname)
+        axes_boxplot.boxplot(errors, notch=notch)
+        axes_boxplot.set_ylim(bottom=0, top=1.01*max_error)
+    savedir = os.path.join(plotbase, combined_subdir)
     if os.path.isdir(savedir):
         shutil.rmtree(savedir)
     os.makedirs(savedir)
-    for (key, title) in {("fde", "FDE"), ("ade", "MinADE"), ("lateral_error","Lateral Error"), ("longitudinal_error","Longitudinal Error")}:
+    fig_combined_histogram.tight_layout()
+    fig_combined_histogram.savefig(os.path.join(savedir, "histogram.png"), backend="agg", pad_inches=pad_inches)
+    fig_combined_histogram.savefig(os.path.join(savedir, "histogram.pdf"), backend="pdf", pad_inches=pad_inches)
+    fig_combined_histogram.savefig(os.path.join(savedir, "histogram.pgf"), backend="pgf", pad_inches=pad_inches)
+    plt.close(fig=fig_combined_histogram)
+    fig_combined_boxplot.tight_layout()
+    fig_combined_boxplot.savefig(os.path.join(savedir, "boxplot.png"), backend="agg", pad_inches=pad_inches)
+    fig_combined_boxplot.savefig(os.path.join(savedir, "boxplot.pdf"), backend="pdf", pad_inches=pad_inches)
+    fig_combined_boxplot.savefig(os.path.join(savedir, "boxplot.pgf"), backend="pgf", pad_inches=pad_inches)
+    plt.close(fig=fig_combined_boxplot)
+
+    for results in results_list:
+        savedir = os.path.join(plotbase, results.modelname)
+        if os.path.isdir(savedir):
+            shutil.rmtree(savedir)
+        os.makedirs(savedir)
         errors = results[key]
         modelname = results.modelname
         
         fig : matplotlib.figure.Figure = plt.figure()
         plt.hist(errors, bins=bins)
         plt.title(title + ": " + modelname)
-        fig.savefig(os.path.join(savedir, "%s_%s_histogram.png" % (modelname, key)), backend="agg")
-        fig.savefig(os.path.join(savedir, "%s_%s_histogram.pdf" % (modelname, key)), backend="pdf")
-        fig.savefig(os.path.join(savedir, "%s_%s_histogram.pgf" % (modelname, key)), backend="pgf")
+        fig.savefig(os.path.join(savedir, "histogram.png"), backend="agg")
+        fig.savefig(os.path.join(savedir, "histogram.pdf"), backend="pdf")
+        fig.savefig(os.path.join(savedir, "histogram.pgf"), backend="pgf")
         plt.close(fig=fig)
 
         figbox : matplotlib.figure.Figure = plt.figure()
         plt.title(title + ": " + modelname)
         plt.boxplot(errors, notch=notch)
-        figbox.savefig(os.path.join(savedir, "%s_%s_boxplot.png" % (modelname, key)), backend="agg")
-        figbox.savefig(os.path.join(savedir, "%s_%s_boxplot.pdf" % (modelname, key)), backend="pdf")
-        figbox.savefig(os.path.join(savedir, "%s_%s_boxplot.pgf" % (modelname, key)), backend="pgf")
+        figbox.savefig(os.path.join(savedir, "boxplot.png"), backend="agg")
+        figbox.savefig(os.path.join(savedir, "boxplot.pdf"), backend="pdf")
+        figbox.savefig(os.path.join(savedir, "boxplot.pgf"), backend="pgf")
         plt.close(fig=figbox)
         
 def plot_outliers(results_list : list[PredictionResults], plotdir : str, fulldset : torchdata.Dataset, 
@@ -189,6 +229,7 @@ def cross_error_analysis(results_list : list[PredictionResults],
     argdict = {
         "metric" : "ade",
         "N" : 25,
+        "histograms" : True,
         "with_history" : True,
         "ref_alpha" : 1.0,
         "nonref_alpha" : 0.25,
@@ -213,11 +254,9 @@ def cross_error_analysis(results_list : list[PredictionResults],
         idxgood, _ = reference_results.trim_percentiles(**{k : argdict[k] for k in ["p0", "pf", "whis", "metric"]})
         results_trimmed_list : list[PredictionResults] = [r.subsample(idxgood) for r in results_list]
         dset_trimmed : torchdata.Subset = torchdata.Subset(fulldset, np.where(idxgood)[0])
-    with open(os.path.join(subdir, "%s_summary.yaml" % (results_trimmed_list[0].modelname)), "w") as f:
-        yaml.safe_dump(results_trimmed_list[0].error_summary(), f, indent=2)
-    histogramdir = os.path.join(subdir, "histograms")
-    for results_trimmed in results_trimmed_list:
-        plot_error_histograms(results_trimmed, histogramdir, bins=argdict["bins"], notch=argdict["notch"])
+    if argdict["histograms"]:
+        histogramdir = os.path.join(subdir, "histograms")
+        plot_error_histograms(results_trimmed_list, histogramdir, metric=argdict["metric"], bins=argdict["bins"], notch=argdict["notch"])
     plotdir = os.path.join(subdir, "plots")
     plot_outliers(results_trimmed_list, plotdir, dset_trimmed, 
                   N=argdict["N"], worst=True, 
@@ -227,6 +266,8 @@ def cross_error_analysis(results_list : list[PredictionResults],
                   N=argdict["N"], worst=False, 
                   with_history=argdict["with_history"], ref_alpha=argdict["ref_alpha"],
                   nonref_alpha=argdict["nonref_alpha"])
+    with open(os.path.join(subdir, "%s_summary.yaml" % (results_trimmed_list[0].modelname)), "w") as f:
+        yaml.safe_dump(results_trimmed_list[0].error_summary(), f, indent=2)
     result_set = set(results_trimmed_list)
     result_dict = {res.modelname : res for res in results_trimmed_list}
     other_models : list[str] = list(set(argdict["other_models"]))
