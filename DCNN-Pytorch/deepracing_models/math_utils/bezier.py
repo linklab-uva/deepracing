@@ -57,7 +57,7 @@ def compositeBezierAntiderivative(control_points : torch.Tensor, delta_t : torch
     return (antiderivative_onebatchdim).view(shapeout)/kbezier_out
 
 def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : int, 
-                       kbezier : int = 3, dYdT_0 : torch.Tensor | None = None, dYdT_f : torch.Tensor | None = None) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+                       constraint_level = 3, kbezier : int = 3, dYdT_0 : torch.Tensor | None = None, dYdT_f : torch.Tensor | None = None) -> tuple[torch.Tensor, torch.Tensor]:
     dtype = points.dtype
     device = points.device
     batchdims = list(points.shape[:-2])
@@ -79,7 +79,7 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
 
     constrain_initial_derivative = dYdT_0 is not None
     constrain_final_derivative = dYdT_f is not None
-    continuinty_constraits_per_segment = min(kbezier, 3)
+    continuinty_constraits_per_segment = min(kbezier, constraint_level)
     continuity_constraints = int(continuinty_constraits_per_segment*(numsegments-1))
     total_constraints = continuity_constraints + 2 + int(constrain_initial_derivative) + int(constrain_final_derivative)
     
@@ -125,18 +125,18 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
     Q = torch.matmul(HugeM.transpose(-2, -1), HugeM)
     E = torch.zeros(batchdimflat, total_constraints, Q.shape[-1], dtype=Q.dtype, device=Q.device)
     d = torch.zeros(batchdimflat, total_constraints, dim, dtype=Q.dtype, device=Q.device)
-    if continuinty_constraits_per_segment>=1:
+    if constraint_level>=1:
         for i in range(int(continuity_constraints/continuinty_constraits_per_segment)):
             E[:, i, (i+1)*(kbezier+1)-1] = -1.0
             E[:, i, (i+1)*(kbezier+1)] = 1.0
-    if continuinty_constraits_per_segment>=2:
+    if constraint_level>=2:
         for i in range(int(continuity_constraints/continuinty_constraits_per_segment)):
             row = i + int(continuity_constraints/continuinty_constraits_per_segment)
             E[:, row, (i+1)*(kbezier+1)-2] = -1.0
             E[:, row, (i+1)*(kbezier+1)-1] = 1.0
             E[:, row, (i+1)*(kbezier+1)] = 1.0
             E[:, row, (i+1)*(kbezier+1)+1] = -1.0
-    if continuinty_constraits_per_segment>=3:
+    if constraint_level>=3:
         for i in range(int(continuity_constraints/continuinty_constraits_per_segment)):
             row = i + 2*int(continuity_constraints/continuinty_constraits_per_segment)
             E[:, row, (i+1)*(kbezier+1)-3] = 1.0
@@ -408,7 +408,10 @@ def compositeBezierSpline_periodic_(x : torch.Tensor, Y : torch.Tensor):
 def bezierM(s : torch.Tensor, n : int, scaled_basis : bool = False) -> torch.Tensor:
     return torch.stack([Mtk(k,n,s, scaled_basis=scaled_basis) for k in range(n+1)],dim=2)
 
-def bezierLsqfit(points, n, t = None, M = None, built_in_lstq = False, P0 : torch.Tensor | None = None, V0 : torch.Tensor | None = None) -> Tuple[torch.Tensor, torch.Tensor]:
+def bezierLsqfit(points, n, 
+                 t = None, M = None, built_in_lstq = False, 
+                 P0 : torch.Tensor | None = None, Pf : torch.Tensor | None = None,
+                 V0 : torch.Tensor | None = None, Vf : torch.Tensor | None = None) -> Tuple[torch.Tensor, torch.Tensor]:
     if ((t is None) and (M is None)) or ((t is not None) and (M is not None)):
         raise ValueError("One of t or M must be set, but not both")
     if M is None:
@@ -418,35 +421,43 @@ def bezierLsqfit(points, n, t = None, M = None, built_in_lstq = False, P0 : torc
         M_ = bezierM(s,n)
     else:
         M_ = M
+        dt = torch.ones_like(M[:,0,0])
 
-    if (P0 is None) and (V0 is None):
+    if (P0 is None) and (Pf is None) and (V0 is None) and (Vf is None):
         res = torch.linalg.lstsq(M_, points)
         return M_, res.solution
-    elif (V0 is not None) and (P0 is None):
-        raise ValueError("P0 must be provided to constrain V0")
     
     batch = points.shape[0]
     ambient_dimension = points.shape[2]      
     M_transpose = M_.transpose(-2, -1)
 
-    num_constraints = int(P0 is not None) + int(V0 is not None)
+    num_constraints = int(P0 is not None) + int(Pf is not None) + int(V0 is not None) + int(Vf is not None)
 
-    num_coefs = n + 1
+    num_coefs = idxconstraint = n + 1
     matdim = num_coefs + num_constraints
 
     lhs = torch.zeros([batch, matdim, matdim], dtype=M_.dtype, device=M_.device)
     torch.matmul(M_transpose, M_, out=lhs[:, 0 : num_coefs, 0 : num_coefs])
-    lhs[:, num_coefs, 0] = lhs[:, 0, num_coefs] = 1.0
-    if (V0 is not None):
-        lhs[:, -1, 0] = lhs[:, 0, -1] = -1.0
-        lhs[:, -1, 1] = lhs[:, 1, -1] = 1.0
-
     rhs = torch.zeros([batch, matdim, ambient_dimension], dtype=M_.dtype, device=M_.device)
     torch.matmul(M_transpose, points, out=rhs[:,0:num_coefs])
-    rhs[:, num_coefs]=P0
-    if (V0 is not None):
-        rhs[:,-1]=V0/n
 
+    if (P0 is not None):
+        lhs[:, idxconstraint, 0] = lhs[:, 0, idxconstraint] = 1.0
+        rhs[:, idxconstraint] = P0
+        idxconstraint+=1
+    if (Pf is not None):
+        lhs[:, idxconstraint, -n+1] = lhs[:, -n+1, idxconstraint] = 1.0
+        rhs[:, idxconstraint] = Pf
+        idxconstraint+=1
+    if (V0 is not None):
+        lhs[:, idxconstraint, 0] = lhs[:, 0, idxconstraint] = -n
+        lhs[:, idxconstraint, 1] = lhs[:, 1, idxconstraint] = n
+        rhs[:, idxconstraint]=V0*dt[:,None]
+        idxconstraint+=1
+    if (Vf is not None):
+        lhs[:, idxconstraint, -n] = lhs[:, -n, idxconstraint] = -n
+        lhs[:, idxconstraint, -n+1] = lhs[:, -n+1, idxconstraint] = n
+        rhs[:, idxconstraint]=Vf*dt[:,None]
     res = torch.linalg.lstsq(lhs, rhs)
     return M_, res.solution[:,0:num_coefs]
     
