@@ -1,5 +1,6 @@
 import argparse
 import shutil
+import time
 import comet_ml
 import deepracing_models.math_utils.bezier, deepracing_models.math_utils
 from deepracing_models.nn_models.trajectory_prediction.lstm_based import BARTE
@@ -48,9 +49,7 @@ def test(**kwargs):
     config = yaml.safe_load(config_str)
     netconfig = config["network"]
     print(netconfig)
-    # hyperparams = {entry["name"] : entry for entry in api_experiment.get_parameters_summary()}
-    # print(hyperparams)
-    # print({k : hyperparams[k]["valueCurrent"] for k in ["rforward", "dirs"]})
+    
 
     kbezier = netconfig["kbezier"]
     num_segments = netconfig["num_segments"]
@@ -74,7 +73,7 @@ def test(**kwargs):
     else:
         net = net.double()
     # net_asset = ([a for a in net_assets if a["fileName"] == "model_148.pt"])[0]
-    net_asset = net_assets[-1]
+    net_asset = net_assets[-2]
     print("Downloading model file: %s" % (net_asset["fileName"],))
     net_binary = api_experiment.get_asset(net_asset["assetId"], return_type="binary")
     results_dir = os.path.join(argdict["resultsdir"], api_experiment.get_name())
@@ -104,14 +103,10 @@ def test(**kwargs):
         "right_bd",
         "right_bd_tangents",
     }
-    # data_config["dirs"]=["/p/DeepRacing/unpacked_datasets/local_fitting/v2_scratch/deepracing_standard"]
-    # data_config["dirs"]=[os.path.join(data_config["dirs"][0], "Monza_7_6_2023_16_23_11_trajectory_data")]
-    # data_config["dirs"]=["/p/DeepRacing/unpacked_datasets/local_fitting/v2/deepracing_standard"]
-    # data_config["dirs"]=["/p/DeepRacing/unpacked_datasets/local_fitting/boundary_length_ablation/500m/deepracing_standard"]
     
     dsets : list[FD.TrajectoryPredictionDataset] = []
     for datadir in data_config["dirs"]: 
-        dsets += load_datasets_from_files(datadir, keys=keys, flag=SubsetFlag.VAL, dtype=np.float64) #
+        dsets += load_datasets_from_files(datadir, keys=keys, flag=SubsetFlag.TEST, dtype=np.float64) #
 
     concat_set = torchdata.ConcatDataset(dsets)
     num_samples = len(concat_set)
@@ -137,6 +132,7 @@ def test(**kwargs):
     future_vel_array : np.ndarray = np.zeros([num_samples, Nhistory, len(coordinate_idx_history)])
     prediction_array : np.ndarray = np.zeros([num_samples, Nfuture, len(coordinate_idx_history)])
     ground_truth_array : np.ndarray = np.zeros_like(prediction_array)
+    computation_time_list : list[float] = []
     idxstart=0
     with torch.no_grad():
         for (i, dict_) in tq:
@@ -189,9 +185,11 @@ def test(**kwargs):
             tstart = tstart_[None].expand(currentbatchdim, num_segments)
             tsamp = tsamp_[None].expand(currentbatchdim, Nfuture)
 
-
+            tick = time.time()
             velcurveout, poscurveout = net(history_inputs, left_boundary_inputs, right_boundary_inputs, dt, v0, p0=p0)
             pout, _ = deepracing_models.math_utils.compositeBezierEval(tstart, dt, poscurveout, tsamp)
+            tock = time.time()
+            computation_time_list.append(tock - tick)
             deltas = pout - position_future
             de = torch.norm(deltas, p=2.0, dim=2)
             # de = torch.sum(torch.square(deltas), dim=2)
@@ -205,51 +203,6 @@ def test(**kwargs):
 
             lateral_error_list.extend(torch.mean(lateral_errors, dim=-1))
             longitudinal_error_list.extend(torch.mean(longitudinal_errors, dim=-1))
-
-            fig, axes = plt.subplots(1,3)
-            ax_geometric : matplotlib.axes.Axes = axes[0]
-            idxplot = 0
-            speed_history = torch.norm(vel_history, p=2.0, keepdim=True, dim=-1)
-            unit_vels_history = vel_history/speed_history
-            speed_history = speed_history.squeeze(-1)
-            ax_geometric.plot(position_history[idxplot,:,0].cpu(), position_history[idxplot,:,1].cpu(), label="History")
-            ax_geometric.plot(left_bound_positions[idxplot,:,0].cpu(), left_bound_positions[idxplot,:,1].cpu(), label="Left Boundary Input")
-            ax_geometric.plot(right_bound_positions[idxplot,:,0].cpu(), right_bound_positions[idxplot,:,1].cpu(), label="Right Boundary Input")
-            ax_geometric.plot(position_future[idxplot,:,0].cpu(), position_future[idxplot,:,1].cpu(), label="Ground Truth")
-            ax_geometric.plot(pout[idxplot,:,0].cpu(), pout[idxplot,:,1].cpu(), label="Prediction")
-
-            ax_geometric.quiver(position_history[idxplot,:,0].cpu(), position_history[idxplot,:,1].cpu(), 
-                                unit_vels_history[idxplot,:,0].cpu(), unit_vels_history[idxplot,:,1].cpu(), angles="xy")
-            
-            ax_geometric.quiver(right_bound_positions[idxplot,:,0].cpu(), right_bound_positions[idxplot,:,1].cpu(), 
-                                right_bound_tangents[idxplot,:,0].cpu(), right_bound_tangents[idxplot,:,1].cpu(), angles="xy")
-            
-            ax_geometric.quiver(left_bound_positions[idxplot,:,0].cpu(), left_bound_positions[idxplot,:,1].cpu(), 
-                                left_bound_tangents[idxplot,:,0].cpu(), left_bound_tangents[idxplot,:,1].cpu(), angles="xy")
-
-            ax_geometric.legend()
-
-            thistory = datadict["thistory"][idxplot].to(device=torch.device("cpu"), dtype=dtype)
-            tfuture = datadict["tfuture"][idxplot].to(device=torch.device("cpu"), dtype=dtype)
-            speed_future = torch.norm(vel_future, p=2.0, dim=-1)
-            ax_speed : matplotlib.axes.Axes = axes[1]
-            ax_speed.plot(thistory, speed_history[idxplot].cpu(), label="History")
-            ax_speed.plot(tfuture, speed_future[idxplot].cpu(), label="Ground Truth")
-            ax_speed.set_title("Speed vs Time")
-            ax_speed.legend()
-
-            future_heading =  2.0*torch.atan2(quat_future[idxplot, :, -2], quat_future[idxplot, :, -1])
-            ax_heading : matplotlib.axes.Axes = axes[2]
-            ax_heading.plot(thistory, quat_input[idxplot,:,0].cpu(), label="History")
-            ax_heading.plot(tfuture, future_heading.cpu(), label="Ground Truth")
-            ax_heading.set_title("Heading vs Time")
-            ax_heading.legend()
-
-            fig.savefig(os.path.join(results_dir, "plots", "fig_%d.pdf" % (i,)))
-            plt.close(fig=fig)
-            # plt.show()
-            # delta_norms = torch.norm(deltas, p=2.0, dim=-1)
-            # mean_delta_norms = torch.mean(delta_norms, dim=-1)
 
             tq.set_postfix({
                 "ade" : torch.mean(ade).item(),

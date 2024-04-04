@@ -142,7 +142,7 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
         return rtn
     @staticmethod
     def from_file(metadatafile : str, subset_flag : deepracing_models.data_loading.SubsetFlag, keys=KEYS_WE_CARE_ABOUT, dtype=np.float64) -> 'TrajectoryPredictionDataset':
-        print("Loading data for %s" % (metadatafile,))
+        print("Loading %s data for %s" % (str(subset_flag).replace("SubsetFlag.","").lower(), metadatafile))
         rtn : TrajectoryPredictionDataset = TrajectoryPredictionDataset()
         rtn.subset_flag = subset_flag
         with open(metadatafile, "r") as f:

@@ -1,5 +1,11 @@
-import argparse
+import os
 import tempfile
+bigtemp = os.getenv("BIGTEMP")
+if bigtemp is not None:
+    tempfiledir = os.path.join(bigtemp, "scratch")
+    os.makedirs(tempfiledir, exist_ok=True)
+    tempfile.tempdir=tempfiledir
+import argparse
 import comet_ml
 import deepracing_models
 import deepracing_models.math_utils.bezier, deepracing_models.math_utils
@@ -11,7 +17,6 @@ import torch, torch.optim, torch.nn.functional as F
 from torch.optim.lr_scheduler import ExponentialLR
 import torch.utils.data as torchdata
 import yaml
-import os
 import io
 import numpy as np
 import pickle as pkl

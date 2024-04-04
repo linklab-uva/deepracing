@@ -38,20 +38,33 @@ class PredictionResults(collections.abc.Mapping[str,np.ndarray]):
         return self.resultsdict["predictions"].shape[0]
     def keys(self):
         return self.resultsdict.keys()
-    def error_summary(self) -> dict[str, dict[str, float]]:
-        return {
-            k : {
-                "mean" : float(np.mean(self.resultsdict[k])),
-                "min" : float(np.min(self.resultsdict[k])),
-                "max" : float(np.max(self.resultsdict[k])),
-                "stdev" : float(np.std(self.resultsdict[k]))
+    def error_summary(self, p0=2, pf=98) -> dict[str, dict[str, float | int]]:
+        rtn : dict = {}
+        for k in ["ade", "fde", "longitudinal_error", "lateral_error"]:
+            err = self.resultsdict[k]
+            minval = float(np.percentile(err, p0))
+            maxval = float(np.percentile(err, pf))
+            num_outliers = int(np.sum(err>maxval))
+            rtn[k] = {
+                "mean" : float(np.mean(err)),
+                "min" : float(np.min(err)),
+                "max" : float(np.max(err)),
+                "stdev" : float(np.std(err)),
+                "num_outliers" : num_outliers,
+                "percentile_%d" % (p0,) : minval,
+                "percentile_%d" % (pf,) : maxval
             }
-            for k in ["ade", "fde", "longitudinal_error", "lateral_error"]
-        }
-    def subsample(self, idx : np.ndarray):
-        resultsdict = {
-            k : v[idx].copy() for (k,v) in self.resultsdict.items()
-        }
+        return rtn
+    def subsample(self, idx : np.ndarray, copy=False):
+        if copy:
+            resultsdict = {
+                k : v[idx].copy() for (k,v) in self.resultsdict.items()
+            }
+        else:
+            resultsdict = {
+                k : v[idx] for (k,v) in self.resultsdict.items()
+            }
+            
         return PredictionResults(resultsdict, self.data_dir, self.modelname)
     def trim_iqr(self, whis : float = 1.5, metric : str = "ade"):
         err = self.resultsdict[metric]
@@ -85,38 +98,39 @@ def plot_error_histograms(results_list : list[PredictionResults], plotbase : str
     title = title_dict[metric]
     key = metric
     # fig_combined_histogram, axes_list_histogram = plt.subplots(1, len(results_list)) 
-    fig_combined_histogram, axes_histogram = plt.subplots() 
-    fig_combined_histogram.suptitle(title)
+    fig_combined_histogram, _axes_histogram_ = plt.subplots() 
+    axes_histogram : matplotlib.axes.Axes = _axes_histogram_
+    # fig_combined_histogram.suptitle(title)
     fig_combined_boxplot, axes_list_boxplot = plt.subplots(1, len(results_list)) 
-    fig_combined_boxplot.suptitle(title)
+    # fig_combined_boxplot.suptitle(title)
     max_error = float(np.max([float(np.max(results[key])) for results in results_list]))
     for (i, results) in enumerate(results_list):
         # axes_histogram : matplotlib.axes.Axes = axes_list_histogram[i]
         errors = results[key]
         modelname = results.modelname
         axes_histogram.hist(errors, bins=bins, label=modelname)
-        axes_histogram.legend()
         # axes_histogram.set_ylim(bottom=0, top=1.01*max_error)
         # axes_histogram.set_title(modelname)
 
 
         axes_boxplot : matplotlib.axes.Axes = axes_list_boxplot[i]
-        axes_boxplot.set_title(modelname)
+        axes_boxplot.set_title(modelname, x=0.8, fontsize=11, y=0.5)
         axes_boxplot.boxplot(errors, notch=notch, whis=whis)
         axes_boxplot.set_ylim(bottom=0, top=1.01*max_error)
+    fig_combined_histogram.legend()
     savedir = os.path.join(plotbase, combined_subdir)
     if os.path.isdir(savedir):
         shutil.rmtree(savedir)
     os.makedirs(savedir)
-    fig_combined_histogram.tight_layout()
-    fig_combined_histogram.savefig(os.path.join(savedir, "histogram.png"), backend="agg", pad_inches=pad_inches)
+    fig_combined_histogram.tight_layout(pad=0.1)
+    # fig_combined_histogram.savefig(os.path.join(savedir, "histogram.png"), backend="agg", pad_inches=pad_inches)
     fig_combined_histogram.savefig(os.path.join(savedir, "histogram.pdf"), backend="pdf", pad_inches=pad_inches)
-    # fig_combined_histogram.savefig(os.path.join(savedir, "histogram.pgf"), backend="pgf", pad_inches=pad_inches)
+    fig_combined_histogram.savefig(os.path.join(savedir, "histogram.svg"), backend="svg", pad_inches=pad_inches)
     plt.close(fig=fig_combined_histogram)
-    fig_combined_boxplot.tight_layout()
-    fig_combined_boxplot.savefig(os.path.join(savedir, "boxplot.png"), backend="agg", pad_inches=pad_inches)
+    fig_combined_boxplot.tight_layout(pad=0.1)
+    # fig_combined_boxplot.savefig(os.path.join(savedir, "boxplot.png"), backend="agg", pad_inches=pad_inches)
     fig_combined_boxplot.savefig(os.path.join(savedir, "boxplot.pdf"), backend="pdf", pad_inches=pad_inches)
-    # fig_combined_boxplot.savefig(os.path.join(savedir, "boxplot.pgf"), backend="pgf", pad_inches=pad_inches)
+    fig_combined_boxplot.savefig(os.path.join(savedir, "boxplot.svg"), backend="svg", pad_inches=pad_inches)
     plt.close(fig=fig_combined_boxplot)
 
     for results in results_list:
@@ -132,7 +146,7 @@ def plot_error_histograms(results_list : list[PredictionResults], plotbase : str
         plt.title(title + ": " + modelname)
         fig.savefig(os.path.join(savedir, "histogram.png"), backend="agg")
         fig.savefig(os.path.join(savedir, "histogram.pdf"), backend="pdf")
-        # fig.savefig(os.path.join(savedir, "histogram.pgf"), backend="pgf")
+        fig.savefig(os.path.join(savedir, "histogram.svg"), backend="svg")
         plt.close(fig=fig)
 
         figbox : matplotlib.figure.Figure = plt.figure()
@@ -140,7 +154,7 @@ def plot_error_histograms(results_list : list[PredictionResults], plotbase : str
         plt.boxplot(errors, notch=notch, whis=whis)
         figbox.savefig(os.path.join(savedir, "boxplot.png"), backend="agg")
         figbox.savefig(os.path.join(savedir, "boxplot.pdf"), backend="pdf")
-        # figbox.savefig(os.path.join(savedir, "boxplot.pgf"), backend="pgf")
+        figbox.savefig(os.path.join(savedir, "boxplot.svg"), backend="svg")
         plt.close(fig=figbox)
         
 def plot_outliers(results_list : list[PredictionResults], plotdir : str, fulldset : torchdata.Dataset, 
@@ -238,42 +252,49 @@ def cross_error_analysis(results_list : list[PredictionResults],
                         **kwargs):
     argdict = {
         "metric" : "ade",
-        "N" : 25,
+        "N" : 10,
         "histograms" : True,
         "with_history" : True,
         "ref_alpha" : 1.0,
         "nonref_alpha" : 0.25,
         "pf": None,
         "whis": None,
+        "idx_filter" : None,
+        "subdir" : None,
         "bins" : 100,
         "notch" : True,
         "other_models" : []
     }
     argdict.update(kwargs)
-
-    if (argdict["pf"] is not None) and (argdict["whis"] is not None):
-        raise ValueError("Cannot specify both pf and whis")
-    elif (argdict["pf"] is None) and (argdict["whis"] is None):
-        idxgood = None
-        subdir = os.path.join(basedir, "baseline")
-        results_trimmed_list : list[PredictionResults] = results_list
-        dset_trimmed : torchdata.Dataset = fulldset
-        reference_results = results_list[0]
+    whis : float | None = argdict["whis"]
+    pf : float | None = argdict["pf"]
+    idx_filter : np.ndarray | None = argdict["idx_filter"]
+    metric=argdict["metric"]
+    if len([x for x in [whis, pf, idx_filter] if x is not None ])>1:
+        raise ValueError("Must specify no more than 1 of 'whis', 'pf', or 'idx_filter'")
+    if pf is not None:
+        subdir = os.path.join(basedir, "trim_%s_%s_%d_percentile" % (results_list[0].modelname, argdict["metric"], pf))
+        idxgood, _ = results_list[0].trim_percentiles(**{k : argdict[k] for k in ["pf", "metric"]})
+        whis = (0, pf)
+    elif whis is not None:
+        subdir = os.path.join(basedir, "trim_%s_%s_%3.3f_iqr" % (results_list[0].modelname, argdict["metric"], whis))
+        idxgood, _ = results_list[0].trim_iqr(**{k : argdict[k] for k in ["whis", "metric"]})
+    elif idx_filter is not None:
+        subdir_arg : str | None = argdict["subdir"]
+        if subdir_arg is None:
+            raise ValueError("'subdir' must also be specified if 'idx_filter' is specified")
+        subdir = os.path.normpath(os.path.join(basedir, subdir_arg))
+        idxgood = idx_filter
         whis = (0, 98)
     else:
-        reference_results = results_list[0]
-        subdir = os.path.join(basedir, "trim_%s_%s" % (reference_results.modelname, argdict["metric"]))
-        if (argdict["pf"] is not None):
-            idxgood, _ = reference_results.trim_percentiles(**{k : argdict[k] for k in ["pf", "metric"]})
-            whis = (0, argdict["pf"])
-        else:
-            idxgood, _ = reference_results.trim_iqr(**{k : argdict[k] for k in ["whis", "metric"]})
-            whis = argdict["whis"]
-        results_trimmed_list : list[PredictionResults] = [r.subsample(idxgood) for r in results_list]
-        dset_trimmed : torchdata.Subset = torchdata.Subset(fulldset, np.where(idxgood)[0])
+        subdir = os.path.join(basedir, "baseline")
+        idxgood = np.ones(results_list[0][metric].shape[0], dtype=bool)
+        whis = (0, 98)
+    results_trimmed_list : list[PredictionResults] = [r.subsample(idxgood) for r in results_list]
+    dset_trimmed : torchdata.Subset = torchdata.Subset(fulldset, np.where(idxgood)[0])
     if argdict["histograms"]:
         histogramdir = os.path.join(subdir, "histograms")
-        plot_error_histograms(results_trimmed_list, histogramdir, whis = whis, metric=argdict["metric"], bins=argdict["bins"], notch=argdict["notch"])
+        plot_error_histograms(results_trimmed_list, histogramdir, whis = whis, metric=metric, bins=argdict["bins"], notch=argdict["notch"])
     plotdir = os.path.join(subdir, "plots")
     plot_outliers(results_trimmed_list, plotdir, dset_trimmed, 
                   N=argdict["N"], worst=True, 
@@ -283,8 +304,9 @@ def cross_error_analysis(results_list : list[PredictionResults],
                   N=argdict["N"], worst=False, 
                   with_history=argdict["with_history"], ref_alpha=argdict["ref_alpha"],
                   nonref_alpha=argdict["nonref_alpha"])
-    with open(os.path.join(subdir, "%s_summary.yaml" % (results_trimmed_list[0].modelname)), "w") as f:
-        yaml.safe_dump(results_trimmed_list[0].error_summary(), f, indent=2)
+    for results_trimmed in results_trimmed_list:
+        with open(os.path.join(subdir, "%s_summary.yaml" % (results_trimmed.modelname)), "w") as f:
+            yaml.safe_dump(results_trimmed.error_summary(), f, indent=2)
     result_set = set(results_trimmed_list)
     result_dict = {res.modelname : res for res in results_trimmed_list}
     other_models : list[str] = list(set(argdict["other_models"]))
@@ -299,8 +321,6 @@ def cross_error_analysis(results_list : list[PredictionResults],
                     N=argdict["N"], worst=True, 
                     with_history=argdict["with_history"], ref_alpha=argdict["ref_alpha"],
                     nonref_alpha=argdict["nonref_alpha"])
-        with open(os.path.join(subdir, "%s_summary.yaml" % (result_to_plot.modelname)), "w") as f:
-            yaml.safe_dump(result_to_plot.error_summary(), f, indent=2)
 
         
 
