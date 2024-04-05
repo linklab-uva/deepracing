@@ -266,6 +266,8 @@ def cross_error_analysis(results_list : list[PredictionResults],
         "other_models" : []
     }
     argdict.update(kwargs)
+    if argdict["N"]<=0:
+        return
     whis : float | None = argdict["whis"]
     pf : float | None = argdict["pf"]
     idx_filter : np.ndarray | None = argdict["idx_filter"]
@@ -329,3 +331,18 @@ def cross_error_analysis(results_list : list[PredictionResults],
 
         
 
+def deframe_axes(ax : matplotlib.axes.Axes, keep_ticks=False, keys=["top", "right", "bottom", "left"]):
+    for k in keys:
+        ax.spines[k].set_visible(False)
+    if not keep_ticks:
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+def export_legend(legend, expand=[-5,-5,5,5]):
+    fig  = legend.figure
+    fig.canvas.draw()
+    bbox  = legend.get_window_extent()
+    bbox = bbox.from_extents(*(bbox.extents + np.array(expand)))
+    bbox = bbox.transformed(fig.dpi_scale_trans.inverted())
+    # fig.savefig(filename, dpi="figure", bbox_inches=bbox)
+    return bbox
