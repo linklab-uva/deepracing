@@ -1,5 +1,6 @@
 import argparse
 import shutil
+import time
 import comet_ml
 import deepracing_models.math_utils.bezier, deepracing_models.math_utils
 from deepracing_models.nn_models.trajectory_prediction.lstm_based import BezierMixNet
@@ -25,14 +26,13 @@ from pathlib import Path
 
 def test(**kwargs):
     experiment : str = kwargs["experiment"]
-    tempdir : str = kwargs["tempdir"]
     workers : int = kwargs["workers"]
     batch_size : int = kwargs.get("batch_size", 1)
     gpu_index : int = kwargs.get("gpu", 0)
     
-    experiment_dir = os.path.join(tempdir, experiment)
     api : comet_ml.API = comet_ml.API(api_key=os.getenv("COMET_API_KEY"))
     api_experiment : comet_ml.APIExperiment = api.get(workspace="electric-turtle", project_name="mixnet-bezier", experiment=experiment)
+    results_dir = os.path.join(argdict["resultsdir"], api_experiment.get_name())
     asset_list = api_experiment.get_asset_list()
     config_asset = None
     net_assets = []
@@ -54,33 +54,33 @@ def test(**kwargs):
     print(config)
     # if not os.path.isdir(experiment_dir):
     #     raise ValueError("PANIK!!!!!1!!!!ONEONE!!!!!")
-    if not os.path.isdir(experiment_dir):
-        os.makedirs(experiment_dir)
-    net_file = os.path.join(experiment_dir, "net.pt")
-    if not os.path.isfile(net_file):
-        net_asset = api_experiment.get_asset(net_assets[-1]["assetId"], return_type="binary")
-        with open(net_file, "wb") as f:
-            f.write(net_asset)
+    if not os.path.isdir(results_dir):
+        os.makedirs(results_dir)
+    net_file = os.path.join(results_dir, "model.pt")
+    net_asset = api_experiment.get_asset(net_assets[-1]["assetId"], return_type="binary")
+    with open(net_file, "wb") as f:
+        f.write(net_asset)
     netconfig = config["net"]
     # netconfig[""]
     netconfig["gpu_index"]=gpu_index
-    net : BezierMixNet = BezierMixNet(config["net"]).double().eval()
+    net : BezierMixNet = BezierMixNet(config["net"]).float().eval()
     firstparam = next(net.parameters())
     dtype = firstparam.dtype
     device = firstparam.device
     # with open(net_file, "rb") as f:
     state_dict = torch.load(net_file, map_location=device)
     net.load_state_dict(state_dict)
-    # data_config = config["data"]
     # datadir = Path(data_config["dir"])
-    datadir="/p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard"
+    # datadir="/p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard"
     # datadir = datadir / "Monza_7_6_2023_16_23_11_trajectory_data" / "car_2"
     numsamples_prediction = None
-    trainerconfig = config["trainer"]
-    kbezier = trainerconfig["kbezier"]
+    kbezier = netconfig["kbezier"]
     num_accel_sections : int = netconfig["acc_decoder"]["num_acc_sections"]
     dsetconfigs : list[dict] = []
-    dsets : list[FD.TrajectoryPredictionDataset] = load_datasets_from_files(datadir, kbezier=kbezier, flag=SubsetFlag.TEST)
+    data_config = config["data"]
+    dsets : list[FD.TrajectoryPredictionDataset] = []
+    for datadir in data_config["dirs"]:
+        dsets.extend(load_datasets_from_files(datadir, kbezier=kbezier, flag=SubsetFlag.TEST))
     dsetconfigs = [dset.metadata for dset in dsets]
     numsamples_history = dsetconfigs[0]["numsamples_history"]
     numsamples_prediction = dsetconfigs[0]["numsamples_prediction"]
@@ -98,8 +98,10 @@ def test(**kwargs):
     dataloader_enumerate = enumerate(dataloader)
     tq = tqdm.tqdm(dataloader_enumerate, desc="Yay", total=int(np.ceil(num_samples/batch_size)))
     ade_list = []
+    fde_list = []
     lateral_error_list = []
     longitudinal_error_list = []
+    computation_time_list = []
     history_array : np.ndarray = np.zeros([num_samples, numsamples_history, 3])
     prediction_array : np.ndarray = np.zeros([num_samples, numsamples_prediction, 3])
     ground_truth_array : np.ndarray = np.zeros_like(prediction_array)
@@ -133,7 +135,7 @@ def test(**kwargs):
 
         currentbatchsize = int(position_history.shape[0])
         with torch.no_grad():
-
+            tick = time.time()
             state_input = position_history[:,:,[0,1]]
             if input_embedding["velocity"]:
                 state_input = torch.cat([state_input, vel_history[:,:,[0,1]]], dim=-1)
@@ -237,6 +239,9 @@ def test(**kwargs):
 
 
             pointsout : torch.Tensor = torch.matmul(Marclengths_pred, predicted_bcurve)
+            tock = time.time()
+            computation_time_list.append(float(tock - tick))
+            tq.set_postfix({"computation_time" : computation_time_list[-1]})
             displacements : torch.Tensor = pointsout[:,:,[0,1]] - position_future[:,:,[0,1]]
             displacement_norms = torch.norm(displacements, p=2.0, dim=-1)
 
@@ -265,19 +270,47 @@ def test(**kwargs):
 
             ade : torch.Tensor = torch.mean(displacement_norms, dim=-1)
             ade_list+=ade.cpu().numpy().tolist()
+            fde : torch.Tensor = torch.norm(displacements[:,-1], dim=1)
+            fde_list+=fde.cpu().numpy().tolist()
         
     lateral_error_array = torch.as_tensor(lateral_error_list, dtype=torch.float64)
     longitudinal_error_array = torch.as_tensor(longitudinal_error_list, dtype=torch.float64)
     ade_array = torch.as_tensor(ade_list, dtype=torch.float64)
+    fde_array = torch.as_tensor(fde_list, dtype=ade_array.dtype)
+    computation_time_array = torch.as_tensor(computation_time_list, dtype=torch.float64)
 
 
 
-    summary_dict = {
-        "ade": torch.mean(ade_array).item(),
-        "longitudinal_error": torch.mean(longitudinal_error_array).item(),
-        "lateral_error": torch.mean(lateral_error_array).item()
+    resultsdict = {
+        "lateral_error" : lateral_error_array,
+        "longitudinal_error" : longitudinal_error_array,
+        "ade" : ade_array,
+        "fde" : fde_array,
+        "history" : history_array,
+        "ground_truth" : ground_truth_array,
+        "predictions" : prediction_array,
+        # "future_left_bd" : future_left_bd_array,
+        # "future_right_bd" : future_right_bd_array,
+        "computation_time" : computation_time_array
     }
-    results_dir = os.path.join(argdict["resultsdir"], experiment)
+    # summary_dict = {
+    #     "ade": torch.mean(ade_array).item(),
+    #     "longitudinal_error": torch.mean(longitudinal_error_array).item(),
+    #     "lateral_error": torch.mean(lateral_error_array).item(),
+    #     "computation_time": torch.mean(computation_time_array).item()
+    # }
+    error_keys = {"ade", "fde", "lateral_error", "longitudinal_error", "computation_time"}
+    summary_dict = {
+        k : {
+            "mean" : torch.mean(v).item(),
+            "min" : torch.min(v).item(),
+            "max" : torch.max(v).item(),
+            "stdev" : torch.std(v).item()
+        } 
+        for (k,v) in resultsdict.items() if k in error_keys
+    }
+    print(summary_dict)
+    # exit(0)
     if os.path.isdir(results_dir):
         shutil.rmtree(results_dir)
     os.makedirs(results_dir)
@@ -306,7 +339,7 @@ if __name__=="__main__":
     parser.add_argument("--resultsdir", type=str, default="/p/DeepRacing/mixnet_bezier_results", help="Where put results?!?!??!")
     parser.add_argument("--workers", type=int, default=0, help="How many threads for data loading")
     parser.add_argument("--gpu", type=int, default=0, help="which gpu")
+    parser.add_argument("--batch-size", type=int, default=128, help="Batch size")
     args = parser.parse_args()
     argdict : dict = vars(args)
-    argdict["batch_size"] = 128
     test(**argdict)

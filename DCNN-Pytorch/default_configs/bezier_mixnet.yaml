@@ -1,12 +1,12 @@
 {
     comet:
     {
-        tags: ["filtered_v2_data", "trained_on_lambda", "old_loss"]
+        tags: ["real_data_v3", "old_loss"]
     },
     data:
     {
         dirs: [
-            /p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard,
+            /p/DeepRacing/unpacked_datasets/iac_data_with_monza/deepracing_standard,
         ]
     },
     trainer:
@@ -15,7 +15,7 @@
         learning_rate: 5E-4,
         momentum: 0.0,
         nesterov: False,
-        gpu_index: 3,
+        gpu_index: 0,
         betas: [0.99, 0.9999], 
         eps: 1E-8,
         weight_decay: 0.0,
@@ -28,12 +28,12 @@
     {
         input_dimension: 2,
         kbezier: 5,
-        num_curve_sections: 10,
+        num_curve_sections: 5,
         input_embedding:
         {
             velocity : True,
-            quaternion : True,
-            heading_angle : False,
+            quaternion : False,
+            heading_angle : True,
             hidden_layers : [
                 128,
                 256,

@@ -17,12 +17,20 @@ def load_datasets_from_files(search_dir : str,
                              dtype=np.float64,
                              device=torch.device("cpu")):
     def sortkey(filepath : str):
-        subfolder = os.path.dirname(filepath)
-        bagfolder = os.path.dirname(subfolder)
-        subfolder_base = os.path.basename(subfolder)
-        car_index = subfolder_base.split("_")[1]
-        bagfolder_base = os.path.basename(bagfolder)
-        return bagfolder_base, int(car_index)
+        with open(filepath, "r") as f:
+            metadata : dict = yaml.load(f, Loader=yaml.SafeLoader)
+        real_data = metadata.get("real_data", False)
+        if real_data:
+            bag_metadata : dict = metadata["source_bag_metadata"]
+            source_topic : str = metadata["source_topic"]
+            return int(bag_metadata["starting_time"]["nanoseconds_since_epoch"]), source_topic[1:].replace("/","_")
+        else:
+            subfolder = os.path.dirname(filepath)
+            bagfolder = os.path.dirname(subfolder)
+            subfolder_base = os.path.basename(subfolder)
+            car_index = subfolder_base.split("_")[1]
+            bagfolder_base = os.path.basename(bagfolder)
+            return bagfolder_base, int(car_index)
     dsetfiles = glob.glob(os.path.join(search_dir, "**", "metadata.yaml"), recursive=True)
     dsetfiles.sort(key=sortkey)
     dsets : list[FD.TrajectoryPredictionDataset] = []

@@ -7,19 +7,19 @@
   },
   comet:
   {
-    tags: ["ade_loss", "order5", "normloss"]
+    tags: ["new_training_infrastructure", "loss_weight_ablation", "standard_data"]
   },
   network:
   {
     kbezier : 3,
-    num_segments : 10,
+    num_segments : 7,
     with_batchnorm : True,
     heading_encoding: angle
   },
   trainer:
   {
     optimizer : Adam,
-    learning_rate: 1E-4,
+    learning_rate: 1.5E-4,
     momentum: 0.0,
     nesterov: False,
     betas: [0.99, 0.9999], 
@@ -28,8 +28,7 @@
     epochs: 200,
     batch_size: 512,
     float32: True,
-    loss_function : ade,
-    # loss_function : lat_long,
-    loss_weights : [0.5, 1.5]
+    loss_function : lat_long,
+    loss_weights : [0.3333333, 0.666666]
   }
 }

@@ -10,27 +10,42 @@ import traceback
 import sys
 import deepracing_models.math_utils
 import tqdm
-from contextlib import nullcontext
+from contextlib import nullcontext, ExitStack
+import shutil
 
 class BarteTrainer:
-    def __init__(self, config_file : str, gpu=0) -> None:
-        self.config_file = config_file
-        with open(config_file, "r") as f:
-            self.config : dict = yaml.safe_load(f)
+    def __init__(self, config : dict, scratch_dir : str, gpu=0, no_comet = False) -> None:
+        self.config : dict = config
         api_key=os.getenv("COMET_API_KEY")
-        if (api_key is not None) and len(api_key)>0:
-            self.comet_experiment = comet_ml.Experiment(api_key=api_key, 
-                                                project_name="bamf", 
-                                                workspace="electric-turtle",
-                                                auto_metric_logging=False
-                                                )
-            self.comet_experiment.log_asset(config_file, file_name="config.yaml", overwrite=True)
+        if (api_key is None):
+            raise ValueError("COMET_API_KEY environment variable must be set")
+        self.comet_experiment = comet_ml.Experiment(api_key=api_key, 
+                                            project_name="bamf", 
+                                            workspace="electric-turtle",
+                                            auto_metric_logging=False,
+                                            disabled = no_comet
+                                            )
+        if no_comet:
+            self.scratch_dir = os.path.join(scratch_dir, "debug")
         else:
-            self.comet_experiment = None
+            self.scratch_dir = os.path.join(scratch_dir, self.comet_experiment.get_name())
+        if os.path.isdir(self.scratch_dir):
+            shutil.rmtree(self.scratch_dir)
+        os.makedirs(self.scratch_dir)
+        cfg_file_out = os.path.join(self.scratch_dir, "config.yaml")
+        with open(cfg_file_out, "w") as f:
+            yaml.safe_dump(self.config, f, indent=3)
+        self.comet_experiment.log_asset(cfg_file_out, file_name="config.yaml", overwrite=True)
         self.comet_config : dict = self.config["comet"]
         self.trainerconfig : dict = self.config["trainer"]   
         self.netconfig : dict = self.config["network"]
         self.dataconfig : dict = self.config["data"]
+        self.comet_experiment.log_parameters(self.dataconfig)
+        self.comet_experiment.log_parameters(self.netconfig)
+        self.comet_experiment.log_parameters(self.trainerconfig)
+        tags = self.comet_config.get("tags")
+        if tags is not None:
+            self.comet_experiment.add_tags(tags)
         self.training_sets : list[FD.TrajectoryPredictionDataset] | None = None
         self.validation_sets : list[FD.TrajectoryPredictionDataset] | None = None
         num_segments = self.netconfig["num_segments"]
@@ -57,27 +72,42 @@ class BarteTrainer:
             self.network = self.network.double()
         if gpu>=0:
             self.network = self.network.cuda(gpu)
-        self.loss_function = self.trainerconfig.get("loss_function", "ade")
+        self.loss_function = self.trainerconfig.get("loss_function", "squared_norm")
         self.loss_weights = self.trainerconfig.get("loss_weights")
-        if not self.loss_function in {"ade", "lat_long"}:
-            raise ValueError("Loss function must one of: lat_long, ade")
+        if not self.loss_function in {"squared_norm", "lat_long"}:
+            raise ValueError("Loss function must one of: lat_long, squared_norm")
         if self.loss_function=="lat_long" and (self.loss_weights is None):
             raise ValueError("loss_weights must be specified when using lat_long loss")
         self.optimizer : torch.optim.Adam | None = None
-        self.epoch_number : int | None = None
-    def prepare_for_training(self):
+    def build_optimizer(self):
         lr = float(self.trainerconfig["learning_rate"])
         betas = tuple(self.trainerconfig["betas"])
         weight_decay = self.trainerconfig["weight_decay"]
-        self.network = self.network.train()
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr = lr, betas = betas, weight_decay = weight_decay)
-        self.epoch_number = 1
     def init_training_data(self, keys : set):
+        print("Loading training data")
         search_dirs = self.dataconfig["dirs"]
         self.training_sets = []
         for search_dir in search_dirs:
             self.training_sets += load_datasets_from_files(search_dir, keys=keys, dtype=np.float64)
+        rforward = self.training_sets[0].metadata["rforward"]
+        predictiontime = self.training_sets[0].metadata["predictiontime"]
+        historytime = self.training_sets[0].metadata["historytime"]
+        self.comet_experiment.log_parameters({
+            "rforward": rforward,
+            "predictiontime": predictiontime,
+            "historytime": historytime
+        })
+        if historytime!=3.0:
+            self.comet_experiment.add_tag("history_time_ablation")
+            self.comet_experiment.add_tag("%1.1fsecond_history" % (historytime,))
+        if rforward!=400.0:
+            self.comet_experiment.add_tag("boundary_length_ablation")
+            self.comet_experiment.add_tag("%3.1fmeter_boundary_inputs" % (rforward,))
+        if historytime==3.0 and rforward==400.0:
+            self.comet_experiment.add_tag("standard_data")
     def init_validation_data(self, keys : set):
+        print("Loading validation data")
         search_dirs = self.dataconfig["dirs"]
         self.validation_sets = []
         for search_dir in search_dirs:
@@ -140,40 +170,58 @@ class BarteTrainer:
         pout, _ = deepracing_models.math_utils.compositeBezierEval(tstart, dt, poscurveout, tsamp)
         deltas = torch.matmul(Rtransform, pout.unsqueeze(-1)).squeeze(-1) + Ptransform
         return pout, deltas
-    
-    def run_epoch(self, epoch_number, train=True, workers=0):
+    def checkpoint(self, epoch_number):
+        network_file = os.path.join(self.scratch_dir, "model_%d.pt" % (epoch_number))
+        with open(network_file, "wb") as f:
+            torch.save(self.network.state_dict(), f)
+        optimizer_file = os.path.join(self.scratch_dir, "optimizer_%d.pt" % (epoch_number))
+        with open(optimizer_file, "wb") as f:
+            torch.save(self.optimizer.state_dict(), f)
+        self.comet_experiment.log_asset(network_file, file_name=os.path.basename(network_file), copy_to_tmp=False)  
+        self.comet_experiment.log_asset(optimizer_file, file_name=os.path.basename(optimizer_file), copy_to_tmp=False)  
+            
+    def run_epoch(self, epoch_number, train=True, workers=0, with_tqdm=False):
         comet_experiment = self.comet_experiment
+        comet_experiment.set_epoch(epoch_number)   
         if train:
             datasets = self.training_sets
-            self.network = self.network.requires_grad_(requires_grad=True).train()
-            if comet_experiment is not None:
-                comet_experiment.train()
+            self.network = self.network.train()
         else:
             datasets = self.validation_sets
-            self.network = self.network.requires_grad_(requires_grad=False).eval()
+            self.network = self.network.eval()
         batch_size = self.trainerconfig["batch_size"]
         concat_dataset : torchdata.ConcatDataset = torchdata.ConcatDataset(datasets)
         dataloader : torchdata.DataLoader = torchdata.DataLoader(concat_dataset, batch_size=batch_size, pin_memory=True, shuffle=train, num_workers=workers)
         dataloader_enumerate = enumerate(dataloader)
-
-        if comet_experiment is None:
-            tq : tqdm.tqdm  = tqdm.tqdm(dataloader_enumerate, desc="Yay")
+        if with_tqdm:
+            if train:
+                prefix = "Training epoch %d" % (epoch_number,)
+            else:
+                prefix = "Testing epoch %d" % (epoch_number,)
+            tq : tqdm.tqdm  = tqdm.tqdm(dataloader_enumerate, desc=prefix, total=int(np.ceil(len(concat_dataset)/batch_size)))
         else:
             tq : enumerate  = dataloader_enumerate
-        print("Running epoch %d" % (self.epoch_number,), flush=True)
-        if comet_experiment is not None:
-            comet_experiment.set_epoch(epoch_number)   
         firstparam = next(self.network.parameters())
         dtype = firstparam.dtype
         device = firstparam.device
         Nfuture = datasets[0].metadata["numsamples_prediction"]
         tfuture = datasets[0].metadata["predictiontime"]
         num_segments = self.netconfig["num_segments"]
-        with torch.no_grad() if (not train) else nullcontext() as f:
+        with ExitStack() as ctx:
+            if train:
+                comet_ctx = ctx.enter_context(comet_experiment.train())
+            else:
+                comet_ctx = ctx.enter_context(comet_experiment.test())
+                no_grad = ctx.enter_context(torch.no_grad())
             tsegs : torch.Tensor = torch.linspace(0.0, tfuture, steps=num_segments+1, device=device, dtype=dtype)
             tstart_ = tsegs[:-1]
             dt_ = tsegs[1:] - tstart_
             tsamp_ : torch.Tensor = torch.linspace(0.0, tfuture, steps=Nfuture, device=device, dtype=dtype)
+            batch_means = {
+                "ade" : [],
+                "lateral_error" : [],
+                "longitudinal_error" : []
+            }
             for (i, dict_) in tq:
                 datadict : dict[str,torch.Tensor] = dict_
                 currentbatchdim = datadict["hist"].shape[0]
@@ -184,10 +232,11 @@ class BarteTrainer:
 
                 longitudinal_error = torch.mean(torch.square(deltas[:,:,0]))
                 lateral_error = torch.mean(torch.square(deltas[:,:,1]))
-                ade = torch.mean(torch.square(deltas))
+                ade = torch.mean(torch.norm(deltas, p=2.0, dim=-1))
+                squared_norm = torch.mean(torch.square(deltas))
                 if train:
-                    if self.loss_function=="ade":
-                        loss = ade
+                    if self.loss_function=="squared_norm":
+                        loss = squared_norm
                     elif self.loss_function=="lat_long":
                         loss = self.loss_weights[0]*lateral_error + self.loss_weights[1]*longitudinal_error
                     else:
@@ -195,12 +244,23 @@ class BarteTrainer:
                     self.optimizer.zero_grad()
                     loss.backward()
                     self.optimizer.step()
+                metric_dict = {
+                    "ade" : ade.item(),
+                    "squared_norm" : squared_norm.item(),
+                    "lateral_error" : lateral_error.item(),
+                    "longitudinal_error" : longitudinal_error.item()
+                }
+                if train:
+                    metric_dict["loss"] = loss.item()
+                    
+                for k in batch_means.keys():
+                    batch_means[k].append(metric_dict[k])
                 if (i%10)==0:
-                    metric_dict = {
-                            "ade" : ade.item(),
-                            "lateral_error" : lateral_error.item(),
-                            "longitudinal_error" : longitudinal_error.item(),
-                            "loss" : loss.item(),
-                    }
                     comet_experiment.log_metrics(metric_dict)
+                if with_tqdm:
+                    tq.set_postfix(metric_dict)
+            if not train:
+                comet_experiment.log_metrics({
+                    "overall_" + k : torch.mean(torch.as_tensor(batch_means[k])).item() for k in batch_means.keys()
+                })
             

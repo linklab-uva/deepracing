@@ -1,3 +1,4 @@
+import enum
 import torch.nn as nn 
 import torch.nn.functional as F
 import torch
@@ -51,13 +52,19 @@ class AugmentedLSTM(nn.Module):
         return self.lstm(x, ( self.h0.tile(1, batchsize, 1), self.c0.tile(1, batchsize, 1) )  )
         
 
+class BartePredictionType(enum.Enum):
+    OFFSET_VELOCITY = 1
+    ABSOLUTE_VELOCITY = 2
+    ABSOLUTE_POSITION = 3
 class BARTE(nn.Module):
     def __init__(self, history_dimension = 4, boundary_dimension = 4, 
-                 num_segments = 7, kbezier = 3, ambient_dim=2, with_batchnorm = True):
+                 num_segments = 7, kbezier = 3, ambient_dim=2, with_batchnorm = True,
+                 model_type : BartePredictionType = BartePredictionType.OFFSET_VELOCITY):
         """Initializes a BARTE object."""
         super(BARTE, self).__init__()
-        
-        num_points_out = (kbezier-1)*num_segments 
+        self.model_type : BartePredictionType = model_type
+        num_points_out = (kbezier-1)*num_segments
+            
         lstm_in_size = 512
         lstm_hidden_size = 512
         

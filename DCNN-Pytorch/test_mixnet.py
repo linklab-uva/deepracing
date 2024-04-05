@@ -1,5 +1,6 @@
 import argparse
 import shutil
+import time
 import comet_ml
 import deepracing_models.math_utils.bezier, deepracing_models.math_utils
 from mix_net.src.mix_net import MixNet
@@ -25,14 +26,14 @@ from scipy.spatial.transform import Rotation
 
 def test(**kwargs):
     experiment : str = kwargs["experiment"]
-    tempdir : str = kwargs["tempdir"]
     workers : int = kwargs["workers"]
     batch_size : int = kwargs.get("batch_size", 1)
     gpu_index : int = kwargs.get("gpu_index", 0)
     
-    experiment_dir = os.path.join(tempdir, experiment)
     api : comet_ml.API = comet_ml.API(api_key=os.getenv("COMET_API_KEY"))
     api_experiment : comet_ml.APIExperiment = api.get(workspace="electric-turtle", project_name="mixnet-deepracing", experiment=experiment)
+    results_dir = os.path.join(argdict["resultsdir"], api_experiment.get_name())
+    # experiment_dir = os.path.join(tempdir, api_experiment.get_name())
     asset_list = api_experiment.get_asset_list()
     trainer_config_asset = None
     net_config_asset = None
@@ -52,20 +53,19 @@ def test(**kwargs):
     
     trainer_config_str = str(api_experiment.get_asset(trainer_config_asset["assetId"]), encoding="ascii")
     trainerconfig = json.loads(trainer_config_str)
-    trainerconfig["data"]["path"] = \
-        "/p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard"
+    # trainerconfig["data"]["path"] = \
+    #     "/p/DeepRacing/unpacked_datasets/local_fitting/v1/deepracing_standard"
 
     net_config_str = str(api_experiment.get_asset(net_config_asset["assetId"]), encoding="ascii")
     netconfig = json.loads(net_config_str)
     print(netconfig)
     print(netconfig.keys())
-    if not os.path.isdir(experiment_dir):
-        os.makedirs(experiment_dir)
-    net_file = os.path.join(experiment_dir, "net.pt")
-    if not os.path.isfile(net_file):
-        net_asset = api_experiment.get_asset(net_assets[-1]["assetId"], return_type="binary")
-        with open(net_file, "wb") as f:
-            f.write(net_asset)
+    if not os.path.isdir(results_dir):
+        os.makedirs(results_dir)
+    net_file = os.path.join(results_dir, "model.pt")
+    net_asset = api_experiment.get_asset(net_assets[-1]["assetId"], return_type="binary")
+    with open(net_file, "wb") as f:
+        f.write(net_asset)
     netconfig["use_cuda"]=gpu_index
     device = torch.device("cuda:%d" % (gpu_index,))
     net : MixNet = MixNet(netconfig).double().eval()
@@ -116,15 +116,26 @@ def test(**kwargs):
         pass
 
     for dset in dsets:
-        current_track = dset.metadata["trackname"]
+        if dset.metadata["trackname"]=="Las Vegas Motor Speedway":
+            current_track = dset.metadata["trackname"] = "LVMS"
+            postfix=""
+        else:
+            current_track = dset.metadata["trackname"]
+            postfix="_optimized_safe"
         dsetconfigs.append(dset.metadata.copy())
         if not (current_track in track_dict.keys()):
             with_z = False
             trackmap = deepracing.searchForTrackmap(current_track, searchdirs)
-            lb_helper = trackmap.getPathHelper("outer_boundary_optimized_safe", with_z = with_z)
-            rb_helper = trackmap.getPathHelper("inner_boundary_optimized_safe", with_z = with_z)
-            cl_helper = trackmap.getPathHelper("centerline_optimized_safe", with_z = with_z)
-            ol_helper = trackmap.getPathHelper("raceline_optimized_safe", with_z = with_z)
+            if trackmap.clockwise:
+                print("Track %s is clockwise" % (current_track,))
+                lb_helper = trackmap.getPathHelper("outer_boundary%s" %(postfix,), with_z = with_z)
+                rb_helper = trackmap.getPathHelper("inner_boundary%s" %(postfix,), with_z = with_z)
+            else:
+                print("Track %s is counter-clockwise" % (current_track,))
+                lb_helper = trackmap.getPathHelper("inner_boundary%s" %(postfix,), with_z = with_z)
+                rb_helper = trackmap.getPathHelper("outer_boundary%s" %(postfix,), with_z = with_z)
+            cl_helper = trackmap.getPathHelper("centerline%s" %(postfix,), with_z = with_z)
+            ol_helper = trackmap.getPathHelper("raceline%s" %(postfix,), with_z = with_z)
 
             drdesired = 0.02
             Nsamp = int(np.mean([ lb_helper.distances[-1]/drdesired,
@@ -181,6 +192,7 @@ def test(**kwargs):
     dataloader_enumerate = enumerate(dataloader)
     tq = tqdm.tqdm(dataloader_enumerate, desc="Yay", total=int(np.ceil(num_samples/batch_size)))
     ade_list = []
+    fde_list = []
     lateral_error_list = []
     longitudinal_error_list = []
     
@@ -189,59 +201,65 @@ def test(**kwargs):
     ground_truth_array : np.ndarray = np.zeros_like(prediction_array)
     future_left_bd_array : np.ndarray = np.zeros([num_samples, numsamples_prediction, 3], dtype=np.float64)
     future_right_bd_array : np.ndarray = np.zeros([num_samples, numsamples_prediction, 3], dtype=np.float64)
-    for (idx, dict_) in tq:
-        datadict : dict[str,torch.Tensor] = dict_
+    comptimes = []
+    idx_start = 0
+    with torch.no_grad():
+        for (idx, dict_) in tq:
+            datadict : dict[str,torch.Tensor] = dict_
 
-        position_history = datadict["hist"]#[:,:,[0,1]]
-        position_future = datadict["fut"]#[:,:,[0,1]]
-        tangents_future = datadict["fut_tangents"]#[:,:,[0,1]]
+            position_history = datadict["hist"]#[:,:,[0,1]]
+            current_batch_size : int = position_history.shape[0]
+            idx_end = idx_start + current_batch_size
+            position_future = datadict["fut"]#[:,:,[0,1]]
+            tangents_future = datadict["fut_tangents"]#[:,:,[0,1]]
 
-        current_positions_full = datadict["current_position"]
-        current_orientations_full = datadict["current_orientation"]
+            current_positions_full = datadict["current_position"]
+            current_orientations_full = datadict["current_orientation"]
 
-        rotations = Rotation.from_quat(current_orientations_full.detach().cpu().numpy())
+            rotations = Rotation.from_quat(current_orientations_full.detach().cpu().numpy())
 
-        left_bound_input = datadict["left_bd"][:,:,[0,1]]
-        right_bound_input = datadict["right_bd"][:,:,[0,1]]
+            left_bound_input = datadict["left_bd"][:,:,[0,1]]
+            right_bound_input = datadict["right_bd"][:,:,[0,1]]
 
-        tracknames = datadict["trackname"]
+            tracknames = datadict["trackname"]
 
-        left_bound_label = datadict["future_left_bd"][:,:,[0,1]]
-        right_bound_label = datadict["future_right_bd"][:,:,[0,1]]
-        center_line_label = datadict["future_centerline"][:,:,[0,1]]
-        optimal_line_label = datadict["future_raceline"][:,:,[0,1]]
+            left_bound_label = datadict["future_left_bd"][:,:,[0,1]]
+            right_bound_label = datadict["future_right_bd"][:,:,[0,1]]
+            center_line_label = datadict["future_centerline"][:,:,[0,1]]
+            optimal_line_label = datadict["future_raceline"][:,:,[0,1]]
 
-        position_history = position_history.cuda(gpu_index).type(dtype)
-        position_future = position_future.cuda(gpu_index).type(dtype)
-        left_bound_input = left_bound_input.cuda(gpu_index).type(dtype)
-        right_bound_input = right_bound_input.cuda(gpu_index).type(dtype)
-        current_positions = current_positions_full.cuda(gpu_index).type(dtype)
-        rotmats = torch.as_tensor(rotations.as_matrix()).cuda(gpu_index).type(dtype)
-        tangents_future = tangents_future.cuda(gpu_index).type(dtype)
-        tangents_future_global = torch.matmul(rotmats, tangents_future.unsqueeze(-1)).squeeze(-1)[:,:,[0,1]]
-        tangents_future_global = tangents_future_global/torch.norm(tangents_future_global, p=2.0, dim=-1, keepdim=True)
-
-
-        p0global_full = (torch.matmul(rotmats, position_future[:,0].unsqueeze(-1)).squeeze(-1) + current_positions)
-        p0global = p0global_full[:,[0,1]]
-        position_future_global = torch.matmul(rotmats, position_future.transpose(-2,-1)).transpose(-2,-1)+current_positions[:,None]
-        position_future_global = position_future_global[:,:,[0,1]]
+            position_history = position_history.cuda(gpu_index).type(dtype)
+            position_future = position_future.cuda(gpu_index).type(dtype)
+            left_bound_input = left_bound_input.cuda(gpu_index).type(dtype)
+            right_bound_input = right_bound_input.cuda(gpu_index).type(dtype)
+            current_positions = current_positions_full.cuda(gpu_index).type(dtype)
+            rotmats = torch.as_tensor(rotations.as_matrix()).cuda(gpu_index).type(dtype)
+            # print(rotmats.shape)
+            tangents_future = tangents_future.cuda(gpu_index).type(dtype)
+            # print(tangents_future.shape)
+            tangents_future_global = torch.matmul(rotmats, tangents_future.mT).mT[:,:,[0,1]]
+            tangents_future_global = tangents_future_global/torch.norm(tangents_future_global, p=2.0, dim=-1, keepdim=True)
 
 
-        future_left_bd_array[idx,:] = datadict["future_left_bd"].cpu().numpy()[:]
-        future_right_bd_array[idx,:] = datadict["future_right_bd"].cpu().numpy()[:]
+            # print(position_future[:,0].shape)
+            p0global_full = torch.matmul(rotmats, position_future[:,0].unsqueeze(-1)).squeeze(-1) + current_positions
+            p0global = p0global_full[:,[0,1]]
+            position_future_global = torch.matmul(rotmats, position_future.transpose(-2,-1)).transpose(-2,-1)+current_positions[:,None]
+            position_future_global = position_future_global[:,:,[0,1]]
 
-        left_bound_label = left_bound_label.cuda(gpu_index).type(dtype)
-        right_bound_label = right_bound_label.cuda(gpu_index).type(dtype)
-        center_line_label = center_line_label.cuda(gpu_index).type(dtype)
-        optimal_line_label = optimal_line_label.cuda(gpu_index).type(dtype)
 
-        to_local_rotmats = rotmats.transpose(-2, -1)
-        to_local_translations = torch.matmul(to_local_rotmats, -p0global_full.unsqueeze(-1)).squeeze(-1)
+            future_left_bd_array[idx_start:idx_end,:] = datadict["future_left_bd"].cpu().numpy()[:]
+            future_right_bd_array[idx_start:idx_end,:] = datadict["future_right_bd"].cpu().numpy()[:]
 
-        currentbatchsize = int(position_history.shape[0])
-        with torch.no_grad():
+            left_bound_label = left_bound_label.cuda(gpu_index).type(dtype)
+            right_bound_label = right_bound_label.cuda(gpu_index).type(dtype)
+            center_line_label = center_line_label.cuda(gpu_index).type(dtype)
+            optimal_line_label = optimal_line_label.cuda(gpu_index).type(dtype)
+            currentbatchsize = int(position_history.shape[0])
 
+            tick = time.time()
+            to_local_rotmats = rotmats.transpose(-2, -1)
+            to_local_translations = torch.matmul(to_local_rotmats, -p0global_full.unsqueeze(-1)).squeeze(-1)
             # print(tangent_future[:,0])
             (mix_out_, init_speed_, acc_out_) = net(position_history[:,:,[0,1]], left_bound_input[:,:,[0,1]], right_bound_input[:,:,[0,1]])
 
@@ -279,12 +297,16 @@ def test(**kwargs):
 
                 # print(dmat.shape)
                 # print(Iclosest)
-            position_predicted_local = torch.matmul(to_local_rotmats, position_predicted_global.unsqueeze(-1)).squeeze(-1)
-            position_predicted_local += to_local_translations#[:,:,None]
-
-            ground_truth_array[idx,:] = position_history[0].cpu().numpy()[:]
-            history_array[idx,:] = position_history[0].cpu().numpy()[:]
-            prediction_array[idx,:] = position_predicted_local[0].cpu().numpy()[:]
+            # print(to_local_rotmats.shape)
+            # print(position_predicted_global.shape)
+            position_predicted_local = torch.matmul(to_local_rotmats, position_predicted_global.mT).mT + to_local_translations[:,None]
+            # print(to_local_translations.shape)
+            # position_predicted_local += to_local_translations
+            tock = time.time()
+            comptimes.append(float(tock-tick))
+            ground_truth_array[idx_start:idx_end,:] = position_history.cpu().numpy()[:]
+            history_array[idx_start:idx_end,:] = position_history.cpu().numpy()[:]
+            prediction_array[idx_start:idx_end,:] = position_predicted_local.cpu().numpy()[:]
 
             position_predicted_global = position_predicted_global[:,:,[0,1]]
                 # exit(0)
@@ -319,42 +341,45 @@ def test(**kwargs):
             ade = torch.mean(de, dim=-1)
 
             ade_list+=ade.cpu().numpy().tolist()
+            fde_list+=torch.norm(displacements[:,-1], p=2.0, dim=1).cpu().numpy().tolist()
+            tq.set_postfix({"computation time" : float(comptimes[-1]), "computation rate" : float(1.0/comptimes[-1])})
+            idx_start = idx_end
 
 
 
 
-
-
-            # print("Lateral error: %f" % (torch.mean(lateral_error).item(),))
-
-            
-
-            # acc_out = torch.clamp(acc_out_ + speed_future[:,0].unsqueeze(-1), 5.0*one, 110.0*one)
 
         
     lateral_error_array = torch.as_tensor(lateral_error_list, dtype=torch.float64)
     longitudinal_error_array = torch.as_tensor(longitudinal_error_list, dtype=torch.float64)
     ade_array = torch.as_tensor(ade_list, dtype=torch.float64)
-    results_dir = os.path.join(argdict["resultsdir"], experiment)
+    fde_array = torch.as_tensor(fde_list, dtype=ade_array.dtype)
     if os.path.isdir(results_dir):
         shutil.rmtree(results_dir)
     os.makedirs(results_dir)
+    resultsdict = {
+        "lateral_error" : lateral_error_array.cpu().numpy(),
+        "longitudinal_error" : longitudinal_error_array.cpu().numpy(),
+        "ade" : ade_array.cpu().numpy(),
+        "fde" : fde_array.cpu().numpy(),
+        "history" : history_array,
+        "ground_truth" : ground_truth_array,
+        "predictions" : prediction_array,
+        "future_left_bd" : future_left_bd_array,
+        "future_right_bd" : future_right_bd_array,
+        "computation_time" : np.asarray(comptimes, dtype=np.float64)
+    }
     with open(os.path.join(results_dir, "data.npz"), "wb") as f:
-        np.savez(f, **{
-            "lateral_error" : lateral_error_array.cpu().numpy(),
-            "longitudinal_error" : longitudinal_error_array.cpu().numpy(),
-            "ade" : ade_array.cpu().numpy(),
-            "history" : history_array,
-            "ground_truth" : ground_truth_array,
-            "predictions" : prediction_array,
-            "future_left_bd" : future_left_bd_array,
-            "future_right_bd" : future_right_bd_array
-        }
-        )
+        np.savez(f, **resultsdict)
+    error_keys = {"ade", "fde", "lateral_error", "longitudinal_error", "computation_time"}
     summary_dict = {
-        "ade" : torch.mean(ade_array).item(),
-        "lateral_error" : torch.mean(torch.abs(lateral_error_array)).item(),
-        "longitudinal_error" : torch.mean(torch.abs(longitudinal_error_array)).item(),
+        k : {
+            "mean" : float(np.mean(v)),
+            "min" : float(np.min(v)),
+            "max" : float(np.max(v)),
+            "stdev" : float(np.std(v))
+        } 
+        for (k,v) in resultsdict.items() if k in error_keys
     }
     with open(os.path.join(results_dir, "summary.yaml"), "w") as f:
         yaml.safe_dump(summary_dict, f)
@@ -365,10 +390,9 @@ def test(**kwargs):
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description="Test Bezier version of MixNet")
     parser.add_argument("--experiment", type=str, required=True, help="Which comet experiment to load")
-    parser.add_argument("--tempdir", type=str, default="/bigtemp/ttw2xk/mixnet_bezier_dump", help="Temporary directory to save model files after downloading from comet.")
-    parser.add_argument("--resultsdir", type=str, default="/p/DeepRacing/mixnet_results", help="Temporary directory to save model files after downloading from comet.")
+    parser.add_argument("--resultsdir", type=str, default="/p/DeepRacing/mixnet_results", help="Where to put results.")
     parser.add_argument("--workers", type=int, default=0, help="How many threads for data loading")
     args = parser.parse_args()
     argdict : dict = vars(args)
-    argdict["batch_size"] = 1
+    argdict["batch_size"] = 256
     test(**argdict)
