@@ -283,5 +283,5 @@ if __name__=="__main__":
     parser.add_argument("--gpu", type=int, default=0, help="which gpu")
     args = parser.parse_args()
     argdict : dict = vars(args)
-    argdict["batch_size"] = 512
+    argdict["batch_size"] = 16
     test(**argdict)
