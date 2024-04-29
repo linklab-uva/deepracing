@@ -1,4 +1,7 @@
 import collections, collections.abc
+from ftplib import all_errors
+from math import e
+from typing import Iterable
 import numpy as np
 import os
 import shutil
@@ -9,12 +12,24 @@ from texttable import Texttable
 import latextable
 import torch
 import yaml
+import seaborn as sns
 title_dict : dict = {
     "ade" : "MinADE",
     "fde" : "FDE",
     "lateral_error" : "Lateral Error",
     "longitudinal_error" : "Longitudinal Error"
 }
+class color:
+   PURPLE = '\033[95m'
+   CYAN = '\033[96m'
+   DARKCYAN = '\033[36m'
+   BLUE = '\033[94m'
+   GREEN = '\033[92m'
+   YELLOW = '\033[93m'
+   RED = '\033[91m'
+   BOLD = '\033[1m'
+   UNDERLINE = '\033[4m'
+   END = '\033[0m'
 class PredictionResults(collections.abc.Mapping[str,np.ndarray]):
     def __init__(self, resultsdict : dict[str,np.ndarray], data_dir : str, modelname : str) -> None:
         self.resultsdict = resultsdict
@@ -46,6 +61,7 @@ class PredictionResults(collections.abc.Mapping[str,np.ndarray]):
             maxval = float(np.percentile(err, pf))
             num_outliers = int(np.sum(err>maxval))
             rtn[k] = {
+                "median" : float(np.median(err)),
                 "mean" : float(np.mean(err)),
                 "min" : float(np.min(err)),
                 "max" : float(np.max(err)),
@@ -75,12 +91,13 @@ class PredictionResults(collections.abc.Mapping[str,np.ndarray]):
         return err<=maxval, maxval
     def trim_percentiles(self, pf : float = 95.0, metric : str = "ade"):
         err = self.resultsdict[metric]
-        maxval = np.percentile(err, pf)
+        maxval = float(np.percentile(err, pf))
         return err<=maxval, maxval
     
 
     @staticmethod
     def from_data_file(data_file : str, modelname : str, sort_idx : np.ndarray | None = None, allow_pickle=False) -> 'PredictionResults':
+        print("Loading results for model %s from %s" % (modelname, data_file))
         data_dir = os.path.dirname(data_file)
         with open(data_file, "rb") as f:
             results_file = np.load(f, allow_pickle=allow_pickle)
@@ -88,51 +105,297 @@ class PredictionResults(collections.abc.Mapping[str,np.ndarray]):
                 results_dict = {k: v.copy() for (k,v) in results_file.items()}
             else:
                 results_dict = {k: v[sort_idx].copy() for (k,v) in results_file.items()}
+        print("Done")
         return PredictionResults(results_dict, data_dir, modelname)
     def compute_fde(self):
         self.resultsdict["fde"] = np.linalg.norm(self.resultsdict["predictions"][:,-1,[0,1]] - self.resultsdict["ground_truth"][:,-1,[0,1]], ord=2.0, axis=1)
+import scipy.interpolate
+import scipy.stats
+class CustomScaleHelper():
+    def __init__(self, tickvals : np.ndarray):
+        self.lin = np.linspace(0.0, 1.0, num=tickvals.shape[0])
+        self.tickvals = np.sort(tickvals)
+        self.spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(self.tickvals, self.lin, k=1)
+        self.inv_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(self.lin, self.tickvals, k=1)
+    def forward(self, val : float | np.ndarray):
+        return self.spline(val)
+    def inverse(self, val : float | np.ndarray):
+        return self.inv_spline(val)
+import matplotlib.scale
+import matplotlib.container
+import matplotlib.patches
+import matplotlib.collections
+from matplotlib.gridspec import GridSpec
+# "png"
+def plot_individually(results_list : list[PredictionResults], **kwargs):
+    vert = kwargs["vert"]
+    box_plot_maxes = kwargs["box_plot_maxes"]
+    showfliers = kwargs["showfliers"]
+    key = kwargs["key"]
+    whis = kwargs["whis"]
+    vertlines = kwargs["vertlines"]
+    bins = kwargs["bins"]
+    box_plot_scale = kwargs["box_plot_scale"]
+    notch = kwargs["notch"]
+    scale_ticks = kwargs["scale_ticks"]
+    if vert:
+        nrows = 1
+        ncols = len(results_list)
+    else:
+        nrows = len(results_list)
+        ncols = 1
+    # fig_combined_violinplot, _axes_list_violinplot_ = plt.subplots(nrows=nrows, ncols=ncols) 
+    fig_combined_violinplot = plt.figure(layout="constrained")
+    axes_list_violinplot : list[matplotlib.axes.Axes] = []
+    grid_size = 100
+    split_ratio = 1.0 # 0.65
+    split_integer = int(round(split_ratio*grid_size))
+    gs = GridSpec(nrows, grid_size, figure=fig_combined_violinplot)
+    for row in range(nrows-1):
+        axes_list_violinplot.append(fig_combined_violinplot.add_subplot(gs[row, 0:split_integer]))
+    axes_list_violinplot.append(fig_combined_violinplot.add_subplot(gs[-1, :]))
 
-def plot_error_histograms(results_list : list[PredictionResults], plotbase : str, 
-                          metric="ade", bins=200, notch=True, pad_inches=0.02, 
-                          whis=2.0, combined_subdir="combined"):
-    title = title_dict[metric]
-    key = metric
-    # fig_combined_histogram, axes_list_histogram = plt.subplots(1, len(results_list)) 
+    fig_combined_boxplot, _axes_list_boxplot_ = plt.subplots(nrows=nrows, ncols=ncols) 
+    axes_list_boxplot : list[matplotlib.axes.Axes] = _axes_list_boxplot_
     fig_combined_histogram, _axes_histogram_ = plt.subplots() 
     axes_histogram : matplotlib.axes.Axes = _axes_histogram_
-    # fig_combined_histogram.suptitle(title)
-    fig_combined_boxplot, axes_list_boxplot = plt.subplots(1, len(results_list)) 
-    # fig_combined_boxplot.suptitle(title)
-    max_error = float(np.max([float(np.max(results[key])) for results in results_list]))
-    for (i, results) in enumerate(results_list):
-        # axes_histogram : matplotlib.axes.Axes = axes_list_histogram[i]
-        errors = results[key]
+
+    if box_plot_maxes is None:
+        box_plot_maxes = {res.modelname : 1.05*float(np.max(res[key])) if showfliers else 1.05*float(np.percentile(res[key], whis[1])) for res in results_list}
+    elif type(box_plot_maxes) is float:
+        c = float(box_plot_maxes)
+        box_plot_maxes = {res.modelname : (c*(split_integer/grid_size) if res!=results_list[-1] else c) for res in results_list}
+    count_maxes = []
+    vline_vals = []
+    vline_colors = []
+    binmedians_list = []
+    # tick_max = float(np.max([v for (_, v) in box_plot_maxes.items()]))
+    for i in range(len(results_list)):
+        results = results_list[i]
+        tick_max = box_plot_maxes[results.modelname]
+        # violin_ticks = np.linspace(0.0, tick_max, num=6)
+        violin_ticks = np.arange(0.0, tick_max, step=0.5)
+        errors = np.sort(results[key])
         modelname = results.modelname
-        axes_histogram.hist(errors, bins=bins, label=modelname)
-        # axes_histogram.set_ylim(bottom=0, top=1.01*max_error)
-        # axes_histogram.set_title(modelname)
+        # shape, loc, scale = scipy.stats.gamma.fit(errors)
+        # density_x = np.linspace(errors[0], errors[-1], num=int(round(errors.shape[0]/2)))
+        # density_y = scipy.stats.gamma.pdf(density_x, shape, loc=loc, scale=scale)
+        # axes_histogram.plot(density_x, density_y, color="black")
+        counts, binedges, artist =  axes_histogram.hist(errors, bins=(bins[i] if (type(bins) is list) else bins), label=modelname, density=True, histtype="step")
+        binmedians = (binedges[:-1] + binedges[1:])/2.0
+        binmedians_list.append(binmedians)
+        if vertlines:
+            count_maxes.append(float(np.max(counts)))
+            vline_vals.append( float(np.percentile(errors, whis[1])) )
+            if type(artist)==matplotlib.container.BarContainer:
+                vline_colors.append(artist.patches[0].get_facecolor())
+            elif type(artist)==matplotlib.patches.Polygon:
+                vline_colors.append(artist.get_edgecolor())
+            else:
+                first_patch = artist[0]
+                if type(first_patch)==matplotlib.container.BarContainer:
+                    vline_colors.append(first_patch.patches[0].get_facecolor())
+                else:
+                    vline_colors.append(first_patch.get_edgecolor())
 
+        axes_boxplot = axes_list_boxplot[i]
+        axes_violin = axes_list_violinplot[i]
+        log_scale=(box_plot_scale=="log")
+        scale_kwargs = dict()
+        if log_scale:
+            print("Using log scale")
+            scale_kwargs["base"]=2
+        bp_dict = axes_boxplot.boxplot(errors, notch=notch, whis=whis, vert=vert, showfliers=showfliers, showmeans=True, meanline=True)
+        # violin_dict = axes_violin.violinplot(errors, vert=vert,  points=300, showextrema=False, showmeans=False, showmedians=False)
+        sns.violinplot(data=errors, inner=None, bw_adjust=0.25, split=True, gridsize=300, ax=axes_violin, orient="v" if vert else "h", log_scale=log_scale)
+        q0, qf = np.percentile(errors, whis)
+        mean = np.mean(errors)
+        if vert:
+            axes_boxplot.set_ylim(bottom=None if log_scale else 0, top=box_plot_maxes[modelname])
+            axes_violin.set_ylim(bottom=None if log_scale else 0, top=box_plot_maxes[modelname])
 
-        axes_boxplot : matplotlib.axes.Axes = axes_list_boxplot[i]
-        axes_boxplot.set_title(modelname, x=0.8, fontsize=11, y=0.5)
-        axes_boxplot.boxplot(errors, notch=notch, whis=whis)
-        axes_boxplot.set_ylim(bottom=0, top=1.01*max_error)
-    fig_combined_histogram.legend()
+            axes_boxplot.set_yscale(box_plot_scale, **scale_kwargs)
+            # axes_violin.set_yscale(box_plot_scale, **scale_kwargs)
+
+            axes_boxplot.set_title(modelname, fontsize=11)
+            axes_violin.set_title(modelname, fontsize=11)
+            hline0 = axes_violin.axhline(q0, xmin=0.0, xmax=1.0, label="Inter-quantile Range", color="black", linestyle="--", alpha=0.8)
+            hline1 = axes_violin.axhline(qf, xmin=0.0, xmax=1.0, color=hline0.get_color(), linestyle=hline0.get_linestyle(), alpha=hline0.get_alpha())
+            meanline = axes_violin.axhline(mean, xmin=0.0, xmax=1.0, label="Mean", color=hline0.get_color(), alpha=hline0.get_alpha())
+
+            axes_boxplot.set_yticks(violin_ticks)
+            axes_violin.set_yticks(violin_ticks)
+        else:
+            axes_violin.yaxis.tick_right()
+            axes_violin.yaxis.set_label_position("right")
+            axes_boxplot.set_xlim(left=None if log_scale else 0, right=box_plot_maxes[modelname])
+            axes_violin.set_xlim(left=None if log_scale else 0, right=box_plot_maxes[modelname])
+            
+
+            axes_boxplot.set_xscale(box_plot_scale, **scale_kwargs)
+            # axes_violin.set_xscale(box_plot_scale, **scale_kwargs)
+
+            axes_boxplot.set_title(modelname, fontsize=11, x=0.5, y=0.7)
+            axes_violin.set_title(modelname, fontsize=11, x=0.5, y=0.7)
+
+            vline0 = axes_violin.axvline(q0, ymin=0.0, ymax=1.0, label="Inter-quantile Range", color="black", linestyle="--", alpha=0.8)
+            vline1 = axes_violin.axvline(qf, ymin=0.0, ymax=1.0, color=vline0.get_color(), linestyle=vline0.get_linestyle(), alpha=vline0.get_alpha())
+            meanline = axes_violin.axvline(mean, ymin=0.0, ymax=1.0, label="Mean", color=vline0.get_color(), alpha=vline0.get_alpha())
+
+            axes_boxplot.set_xticks(violin_ticks)
+            axes_violin.set_xticks(violin_ticks)
+
+    axes_list_violinplot[0].legend( loc="upper right",
+                                    bbox_to_anchor = (.975, .75),
+                                    fontsize=10.0,
+                                    frameon=False, 
+                                    fancybox=False, 
+                                    numpoints=3)
+    
+
+    return (fig_combined_histogram, axes_histogram,),\
+            (fig_combined_boxplot, axes_list_boxplot),\
+            (fig_combined_violinplot, axes_list_violinplot)
+import pandas as pd
+def plot_together(results_list : list[PredictionResults], **kwargs):
+    vert = kwargs["vert"]
+    box_plot_maxes = kwargs["box_plot_maxes"]
+    showfliers = kwargs["showfliers"]
+    key : str = kwargs["key"]
+    whis = kwargs["whis"]
+    vertlines = kwargs["vertlines"]
+    bins = kwargs["bins"]
+    box_plot_scale = kwargs["box_plot_scale"]
+    notch = kwargs["notch"]
+    scale_ticks = kwargs["scale_ticks"]
+    names = np.empty(len(results_list), dtype=object)
+    error_arrays = np.empty([len(results_list), results_list[0][key].shape[0]], dtype=results_list[0][key].dtype)
+    for (i,res) in enumerate(results_list):
+        names[i] = res.modelname
+        error_arrays[i, :] = (res[key])[:]
+    if not vert:
+        names = np.flip(names, axis=0)
+        error_arrays = np.flip(error_arrays, axis=0)
+    if type(box_plot_maxes) is float:
+        box_plot_max = float(box_plot_maxes)
+    elif box_plot_maxes is None:
+        box_plot_max = np.max([(1.05*float(np.max(res[key])) if showfliers else 1.05*float(np.percentile(res[key], whis[1]))) for res in results_list])
+    fig_combined_violinplot, _axes_violin_ = plt.subplots() 
+    axes_violin : matplotlib.axes.Axes = _axes_violin_
+
+    fig_combined_boxplot, _axes_boxplot_ = plt.subplots() 
+    axes_boxplot : matplotlib.axes.Axes = _axes_boxplot_
+
+    fig_combined_histogram, _axes_histogram_ = plt.subplots() 
+    axes_histogram : matplotlib.axes.Axes = _axes_histogram_
+
+    violin_ticks : np.ndarray = np.linspace(0.0, box_plot_max, num=8)
+    error_dict = {names[i] : error_arrays[i] for i in range(names.shape[0])}
+    dataframe : pd.DataFrame = pd.DataFrame.from_dict(error_dict)
+    # sns.violinplot(data=dataframe, inner=None, bw_adjust=0.25, split=False, gridsize=300, cut=0, ax=axes_violin, orient="v" if vert else "h", log_scale=False)
+    violin_width = .75
+    axes_violin.violinplot([error_arrays[i] for i in range(names.shape[0])], widths=violin_width,
+                           bw_method=0.025, vert=vert,  points=300, showextrema=False, showmeans=False, showmedians=False)
+
+    fake_ticks = np.arange(1, len(names) + 1)
+    fake_limits = np.asarray([.25, len(names) + 0.75])
+    limit_range = fake_limits[1] - fake_limits[0]
+    if vert:
+        axes_boxplot.set_xlim(left=0, right=box_plot_max)
+        axes_violin.set_xlim(fake_limits[0], fake_limits[1])
+        axes_violin.set_xticks(fake_ticks, labels=names)
+    else:
+        axes_boxplot.set_ylim(bottom=0, top=box_plot_max)
+        axes_violin.set_ylim(fake_limits[0], fake_limits[1])
+        axes_violin.set_yticks(fake_ticks, labels=names)
+        axes_boxplot.set_xlim(0.0, box_plot_max)
+        axes_violin.set_xlim(0.0, box_plot_max)
+    fake_meanplot = axes_violin.plot([],[], color="black", label="Mean")
+    fake_quantileplot = axes_violin.plot([],[], color="black", linestyle="--", label="Inter-quantile Range")
+    vline_vals = []
+    count_maxes = []
+    for i in range(names.shape[0]):
+        modelname : str = names[i]
+        errors = error_arrays[i]
+        mean = np.mean(errors)
+        q0, qf = np.percentile(errors, whis)
+        vline_vals.append(float(qf))
+        h0 = float(i+1)
+        bottom = h0 - (violin_width/2)*(limit_range/names.shape[0])
+        top = h0 + (violin_width/2)*(limit_range/names.shape[0])
+        if vert:
+            axes_violin.hlines(mean, bottom, top, colors=fake_meanplot[0].get_color(), linestyles=fake_meanplot[0].get_linestyle())
+            axes_violin.hlines([q0, qf], bottom, top, colors=fake_quantileplot[0].get_color(), linestyles=fake_quantileplot[0].get_linestyle())
+        else:
+            axes_violin.vlines(mean, bottom, top, colors=fake_meanplot[0].get_color(), linestyles=fake_meanplot[0].get_linestyle())
+            axes_violin.vlines([q0, qf], bottom, top, colors=fake_quantileplot[0].get_color(), linestyles=fake_quantileplot[0].get_linestyle())
+    axes_violin.legend()
+    return (fig_combined_histogram, axes_histogram, vline_vals, count_maxes),\
+            (fig_combined_boxplot, axes_boxplot),\
+                (fig_combined_violinplot, axes_violin)
+    
+def plot_error_histograms(results_list : list[PredictionResults], plotbase : str, 
+                          metric="ade", bins=200, notch=True, pad_inches=0.02, box_plot_maxes : None | dict[str,float] = None, vert=False,
+                          whis=2.0, combined_subdir="combined", showfliers=True, vertlines : bool = False, scale_ticks : None | np.ndarray = None,
+                          formats : Iterable[str] = ["svg",], box_plot_scale = "linear", individual_plots :  bool = False ):
+    title = title_dict[metric]
+    key = metric
+    (fig_combined_histogram, axes_histogram), (fig_combined_boxplot, axes_boxplot), (fig_combined_violinplot, axes_violinplot) =\
+      plot_individually(results_list, vert=vert, box_plot_maxes=box_plot_maxes, showfliers = showfliers, key = key, 
+                        whis = whis, vertlines = vertlines, bins = bins, box_plot_scale = box_plot_scale, notch = notch, scale_ticks = scale_ticks)
+    # (fig_combined_histogram, axes_histogram, vline_vals, count_maxes), (fig_combined_boxplot, axes_boxplot), (fig_combined_violinplot, axes_violinplot) =\
+    #   plot_together(results_list, vert=vert, box_plot_maxes=box_plot_maxes, showfliers = showfliers, key = key, 
+    #                     whis = whis, vertlines = vertlines, bins = bins, box_plot_scale = box_plot_scale, notch = notch, scale_ticks = scale_ticks)
     savedir = os.path.join(plotbase, combined_subdir)
     if os.path.isdir(savedir):
         shutil.rmtree(savedir)
     os.makedirs(savedir)
     fig_combined_histogram.tight_layout(pad=0.1)
-    # fig_combined_histogram.savefig(os.path.join(savedir, "histogram.png"), backend="agg", pad_inches=pad_inches)
-    fig_combined_histogram.savefig(os.path.join(savedir, "histogram.pdf"), backend="pdf", pad_inches=pad_inches)
-    fig_combined_histogram.savefig(os.path.join(savedir, "histogram.svg"), backend="svg", pad_inches=pad_inches)
-    plt.close(fig=fig_combined_histogram)
     fig_combined_boxplot.tight_layout(pad=0.1)
-    # fig_combined_boxplot.savefig(os.path.join(savedir, "boxplot.png"), backend="agg", pad_inches=pad_inches)
-    fig_combined_boxplot.savefig(os.path.join(savedir, "boxplot.pdf"), backend="pdf", pad_inches=pad_inches)
-    fig_combined_boxplot.savefig(os.path.join(savedir, "boxplot.svg"), backend="svg", pad_inches=pad_inches)
-    plt.close(fig=fig_combined_boxplot)
+    fig_combined_violinplot.tight_layout(pad=0.1)
+    if vert:
+        boxplot_postfix="vertical"
+    else:
+        boxplot_postfix="horizontal"
+    for file_format in formats:
+        _kwargs_ : dict[str] = dict()
+        if file_format == "png":
+            _kwargs_["backend"] = "agg"
+        with plt.rc_context({ "pgf.texsystem": "pdflatex", 'font.family': 'serif', 'text.usetex': file_format == "pgf", 'pgf.rcfonts': False,
+                            "savefig.format": file_format, "savefig.bbox" : "tight", "savefig.orientation" : "landscape",
+                            "savefig.transparent" : True, "savefig.pad_inches" : pad_inches,
+                            "svg.fonttype": 'none', 
+                            }) as ctx:
+            fig_combined_histogram.savefig(os.path.join(savedir, "histogram"), **_kwargs_)
+            fig_combined_boxplot.savefig(os.path.join(savedir, "boxplot_%s" % (boxplot_postfix, )), **_kwargs_)
+            fig_combined_violinplot.savefig(os.path.join(savedir, "violinplot_%s" % (boxplot_postfix,)), **_kwargs_)
+    custom_scale_helper : CustomScaleHelper = CustomScaleHelper(scale_ticks)
+    # custom_scale : matplotlib.scale.FuncScale = matplotlib.scale.FuncScale(axes_histogram, (custom_scale_helper.forward, custom_scale_helper.inverse))
+    # axes_violinplot.set_xscale(matplotlib.scale.FuncScale(axes_violinplot, (custom_scale_helper.forward, custom_scale_helper.inverse)))
+    # fig_combined_histogram.legend(frameon=False, fancybox=False)
+    # axes_histogram.set_xscale(custom_scale) 
+    # if vertlines:
+    #     print("Plotting vertical lines") #"grey" *float(np.max(count_maxes)) .inverted()
+    #     for i in range(len(vline_vals)):
+    #         axes_histogram.axvline(vline_vals[i], ymin=0.0, ymax=0.75, color=vline_colors[i], linestyle="--")
+    #     overall_max = float(np.max([np.max(res[key]) for res in results_list]))
+    #     all_ticks = sorted([0.0,] + vline_vals + [overall_max,])
 
+    # else:
+    #     axes_histogram.set_xticks(custom_scale_helper.tickvals)
+    #     all_ticks = np.linspace(scale_ticks[0], 1.15*scale_ticks[-1], num=5)
+    #     print("Not plotting vertical lines")
+    # axes_histogram.set_xticks(all_ticks)
+    # axes_histogram.set_xticklabels(["%.2f" % (all_ticks[i],) for i in range(len(all_ticks))], fontsize=11.0)
+    
+    if not individual_plots:
+        return (
+            (fig_combined_histogram, axes_histogram),
+            (fig_combined_boxplot, axes_boxplot),
+            (fig_combined_violinplot, axes_violinplot)
+        )
+    individual_histogram_figures = []
+    individual_boxplot_figures = []
     for results in results_list:
         savedir = os.path.join(plotbase, results.modelname)
         if os.path.isdir(savedir):
@@ -144,18 +407,25 @@ def plot_error_histograms(results_list : list[PredictionResults], plotbase : str
         fig : matplotlib.figure.Figure = plt.figure()
         plt.hist(errors, bins=bins)
         plt.title(title + ": " + modelname)
-        fig.savefig(os.path.join(savedir, "histogram.png"), backend="agg")
-        fig.savefig(os.path.join(savedir, "histogram.pdf"), backend="pdf")
-        fig.savefig(os.path.join(savedir, "histogram.svg"), backend="svg")
-        plt.close(fig=fig)
+        fig.savefig(os.path.join(savedir, "histogram.png"), backend="agg", transparent=True)
+        fig.savefig(os.path.join(savedir, "histogram.pdf"), backend="pdf", transparent=True)
+        fig.savefig(os.path.join(savedir, "histogram.svg"), backend="svg", transparent=True)
+        individual_histogram_figures.append(fig)
 
         figbox : matplotlib.figure.Figure = plt.figure()
         plt.title(title + ": " + modelname)
-        plt.boxplot(errors, notch=notch, whis=whis)
-        figbox.savefig(os.path.join(savedir, "boxplot.png"), backend="agg")
-        figbox.savefig(os.path.join(savedir, "boxplot.pdf"), backend="pdf")
-        figbox.savefig(os.path.join(savedir, "boxplot.svg"), backend="svg")
-        plt.close(fig=figbox)
+        plt.boxplot(errors, notch=notch, whis=whis, showfliers=showfliers)
+        figbox.savefig(os.path.join(savedir, "boxplot.png"), backend="agg", transparent=True)
+        figbox.savefig(os.path.join(savedir, "boxplot.pdf"), backend="pdf", transparent=True)
+        figbox.savefig(os.path.join(savedir, "boxplot.svg"), backend="svg", transparent=True)
+        individual_boxplot_figures.append(figbox)
+    return (
+        (fig_combined_histogram, axes_histogram),
+        (fig_combined_boxplot, axes_boxplot),
+        (fig_combined_violinplot, axes_violinplot),
+        individual_histogram_figures,
+        individual_boxplot_figures
+    )
         
 def plot_outliers(results_list : list[PredictionResults], plotdir : str, fulldset : torchdata.Dataset, 
                   metric="ade", N=1, worst=True, with_history=True, ref_alpha=1.0, nonref_alpha=0.25):
@@ -251,8 +521,9 @@ def cross_error_analysis(results_list : list[PredictionResults],
                          basedir : str, 
                         **kwargs):
     argdict = {
+        "color_map" : {res.modelname : None for res in results_list},
         "metric" : "ade",
-        "N" : 10,
+        "N" : -1,
         "histograms" : True,
         "with_history" : True,
         "ref_alpha" : 1.0,
@@ -261,13 +532,20 @@ def cross_error_analysis(results_list : list[PredictionResults],
         "whis": None,
         "idx_filter" : None,
         "subdir" : None,
-        "bins" : 100,
+        "bins" : "auto",
+        # "bins" : 125,
         "notch" : True,
-        "other_models" : []
+        "showfliers" : False,
+        "other_models" : [],
+        "vertlines" : False,
+        "box_plot_maxes" : None, 
+        "scale_ticks" : None,
+        "box_plot_scale" : "linear",
+        "individual_plots" : False,
+        "formats" : ["svg",]
     }
     argdict.update(kwargs)
-    if argdict["N"]<=0:
-        return
+    color_map : dict[str] = argdict["color_map"]
     whis : float | None = argdict["whis"]
     pf : float | None = argdict["pf"]
     idx_filter : np.ndarray | None = argdict["idx_filter"]
@@ -292,11 +570,49 @@ def cross_error_analysis(results_list : list[PredictionResults],
         subdir = os.path.join(basedir, "baseline")
         idxgood = np.ones(results_list[0][metric].shape[0], dtype=bool)
         whis = (0, 98)
-    results_trimmed_list : list[PredictionResults] = [r.subsample(idxgood) for r in results_list]
+        print("Not filtering")
+    try:
+        results_trimmed_list : list[PredictionResults] = [results_list[i].subsample(idxgood) for i in range(len(results_list))]
+    except:
+        results_trimmed_list : list[PredictionResults] = results_list
+
     dset_trimmed : torchdata.Subset = torchdata.Subset(fulldset, np.where(idxgood)[0])
+    # reference_max = float(np.percentile(results_trimmed_list[0][metric], 99))
     if argdict["histograms"]:
+        overall_min = 0.975*float(np.min([np.min(res[metric]) for res in results_trimmed_list]))
+        overall_max = 1.025*float(np.max([np.max(res[metric]) for res in results_trimmed_list]))
+        if type(argdict["scale_ticks"]) is str:
+            if argdict["scale_ticks"]=="linear":
+                scale_ticks : np.ndarray = np.linspace(overall_min, overall_max, num=8)
+            else:
+                raise ValueError("\'linear\' is the only supported string value for scale_ticks")
+        elif type(argdict["scale_ticks"]) is np.ndarray:
+            scale_ticks : np.ndarray = argdict["scale_ticks"]
+        else:
+            reference_max = 1.025*float(results_trimmed_list[0][metric].max())
+            scale_ticks : list[float] = np.linspace(overall_min, reference_max, num=4).tolist()
+            scale_ticks.extend(np.linspace(reference_max, overall_max, num=2)[1:].tolist())
+            scale_ticks = np.asarray(sorted(list(set(scale_ticks))))
         histogramdir = os.path.join(subdir, "histograms")
-        plot_error_histograms(results_trimmed_list, histogramdir, whis = whis, metric=metric, bins=argdict["bins"], notch=argdict["notch"])
+        histogramrtn = plot_error_histograms(results_trimmed_list, histogramdir, 
+                              whis = whis, metric=metric, showfliers=argdict["showfliers"], box_plot_scale=argdict["box_plot_scale"],
+                              box_plot_maxes = argdict["box_plot_maxes"], vertlines=argdict["vertlines"], individual_plots=argdict["individual_plots"],
+                              scale_ticks = scale_ticks, bins=argdict["bins"], notch=argdict["notch"], formats=argdict["formats"])
+    else:
+        histogramrtn = None
+    original_summary_dir = os.path.join(subdir, "untrimmed_summaries")
+    os.makedirs(original_summary_dir, exist_ok=True)
+    trimmed_summary_dir = os.path.join(subdir, "trimmed_summaries")
+    os.makedirs(trimmed_summary_dir, exist_ok=True)
+    for i in range(len(results_trimmed_list)):
+        results = results_list[i]
+        with open(os.path.join(original_summary_dir, "%s.yaml" % (results.modelname)), "w") as f:
+            yaml.safe_dump(results.error_summary(pf=whis[1]), f, indent=2)
+        results_trimmed = results_trimmed_list[i]
+        with open(os.path.join(trimmed_summary_dir, "%s.yaml" % (results_trimmed.modelname)), "w") as f:
+            yaml.safe_dump(results_trimmed.error_summary(pf=whis[1]), f, indent=2)
+    if argdict["N"]<=0:
+        return histogramrtn
     plotdir = os.path.join(subdir, "plots")
     plot_outliers(results_trimmed_list, plotdir, dset_trimmed, 
                   N=argdict["N"], worst=True, 
@@ -306,9 +622,6 @@ def cross_error_analysis(results_list : list[PredictionResults],
                   N=argdict["N"], worst=False, 
                   with_history=argdict["with_history"], ref_alpha=argdict["ref_alpha"],
                   nonref_alpha=argdict["nonref_alpha"])
-    for results_trimmed in results_trimmed_list:
-        with open(os.path.join(subdir, "%s_summary.yaml" % (results_trimmed.modelname)), "w") as f:
-            yaml.safe_dump(results_trimmed.error_summary(), f, indent=2)
     result_set = set(results_trimmed_list)
     result_dict = {res.modelname : res for res in results_trimmed_list}
     other_models : list[str] = list(set(argdict["other_models"]))
@@ -324,6 +637,28 @@ def cross_error_analysis(results_list : list[PredictionResults],
                     with_history=argdict["with_history"], ref_alpha=argdict["ref_alpha"],
                     nonref_alpha=argdict["nonref_alpha"])
 
+def plot_outlier_counts(results_list : list[PredictionResults], metric : str, maxval : float, 
+                        bar_kw : dict[str] = dict(),  bar_label_kw : dict[str] = dict(), label_axes=False):
+    t : tuple[ matplotlib.figure.Figure,  matplotlib.axes.Axes] = plt.subplots()
+    fig = t[0]
+    ax = t[1]
+
+    outlier_indices = np.stack(
+        [results_list[i][metric]>maxval for i in range(len(results_list))]
+    , axis=0)
+    inlier_indices = ~outlier_indices
+    outlier_counts = np.sum(outlier_indices, axis=1)
+    xlabels = [results_list[i].modelname for i in range(len(results_list))]
+    bar_plot = ax.bar(xlabels, outlier_counts, **bar_kw)
+    ax.bar_label(bar_plot, **bar_label_kw)
+    if label_axes:
+        ax.set_xlabel("Model Name")
+        ax.set_ylabel("Outlier Count")
+    fig.tight_layout(pad=0.05)
+    return fig, ax
+
+
+    
         
 
 
@@ -346,3 +681,68 @@ def export_legend(legend, expand=[-5,-5,5,5]):
     bbox = bbox.transformed(fig.dpi_scale_trans.inverted())
     # fig.savefig(filename, dpi="figure", bbox_inches=bbox)
     return bbox
+
+import matplotlib.axes
+from matplotlib.axes import Axes
+from matplotlib.markers import MarkerStyle
+import deepracing_models.math_utils as mu
+def scatter_composite_xy(curve : torch.Tensor, ax : Axes, **kwargs):
+    _colors : torch.Tensor | None = kwargs.get("colors", None)
+    if (_colors is None):
+        colors = list(plt.rcParams["axes.prop_cycle"].by_key()["color"])
+    else:
+        colors = _colors
+    if curve.shape[2]!=2:
+        raise ValueError("Can only plot 2-dimensional curves")
+    tswitch : torch.Tensor | None = kwargs.get("tswitch", None)
+    tplot : torch.Tensor | None = kwargs.get("tplot", None)
+    if (tswitch is not None) and (tplot is not None):
+        tstart = tswitch[:-1]
+        tend = tswitch[1:]
+        dt = tend - tstart
+        points_plot, _ = mu.compositeBezierEval(tstart, dt, curve, tplot)
+    else:
+        points_plot = None
+    numsegments = curve.shape[0]
+    marker = kwargs.get("marker", "o")
+    scatter_kwargs = {k : v for (k,v) in kwargs.items() if k not in ["tswitch", "tannotate", "tplot", "color", "colors", "marker"]}
+    ax.scatter(curve[0,:,0], curve[0,:,1], color=colors[0], marker=marker, **scatter_kwargs)
+    if not (points_plot == None):
+        idx_segment = tplot<tend[0]
+        ax.plot(points_plot[idx_segment,0], points_plot[idx_segment,1], color=colors[0], label=r"$\mathbf{B}_0$") 
+    for i in range(1, numsegments):
+        previous_color = colors[(i-1)%len(colors)]
+        current_color = colors[i%len(colors)]
+        ax.scatter(curve[i,1:,0], curve[i,1:,1], color=current_color, marker=marker, **scatter_kwargs)
+        ax.scatter(curve[i,0,0].item(), curve[i,0,1].item(), marker=MarkerStyle(marker, fillstyle='left'), color=previous_color, **scatter_kwargs) 
+        ax.scatter(curve[i,0,0].item(), curve[i,0,1].item(), marker=MarkerStyle(marker, fillstyle='right'), color=current_color, **scatter_kwargs) 
+        if not (points_plot == None):
+            idx_segment = (tplot>tend[i-1])*(tplot<=tend[i])
+            ax.plot(points_plot[idx_segment,0], points_plot[idx_segment,1], color=colors[i], label=r"$\mathbf{B}_" + str(i) + r"$") 
+    return colors
+
+def scatter_composite_axes(curve : torch.Tensor, tswitch : torch.Tensor, axes : list[Axes], marker="o", colors : list | None = None, **kwargs):
+    if (colors is None):
+        _colors = list(plt.rcParams["axes.prop_cycle"].by_key()["color"])
+    else:
+        _colors = colors
+    if len(axes)!=curve.shape[2]:
+        raise ValueError("Must pass list of axes of equal length to number of dimensions in curve")
+    kbezier = curve.shape[1] - 1
+    numsegments = curve.shape[0]
+    for d in range(curve.shape[2]):
+        coefs = curve[:,:,d]
+        ax = axes[d]
+        t_scatter = torch.linspace(tswitch[0], tswitch[1], steps=kbezier+1, dtype=torch.float64).cpu()#[1:s]
+        ax.scatter(t_scatter, coefs[0], color=_colors[0], marker=marker, **kwargs)
+        for i in range(1, numsegments):
+            t_scatter = torch.linspace(tswitch[i], tswitch[i+1], steps=kbezier+1)[1:].cpu()
+            points_scatter = coefs[i,1:].cpu()
+            previous_color = _colors[(i-1)%len(_colors)]
+            current_color = _colors[i%len(_colors)]
+            ax.scatter(t_scatter, points_scatter, color=current_color, marker=marker, **kwargs)
+            ax.scatter(tswitch[i].item(), coefs[i,0].item(), marker=MarkerStyle(marker, fillstyle='left'), color=previous_color, **kwargs) 
+            ax.scatter(tswitch[i].item(), coefs[i,0].item(), marker=MarkerStyle(marker, fillstyle='right'), color=current_color, **kwargs) 
+    return _colors
+
+         
