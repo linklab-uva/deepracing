@@ -5,6 +5,7 @@ from typing import Iterable
 import numpy as np
 import os
 import shutil
+import matplotlib.transforms
 import matplotlib.pyplot as plt
 import matplotlib.figure, matplotlib.axes
 import torch.utils.data as torchdata
@@ -655,16 +656,7 @@ def plot_outlier_counts(results_list : list[PredictionResults], metric : str, ma
         ax.set_xlabel("Model Name")
         ax.set_ylabel("Outlier Count")
     fig.tight_layout(pad=0.05)
-    return fig, ax
-
-
-    
-        
-
-
-
-
-        
+    return fig, ax 
 
 def deframe_axes(ax : matplotlib.axes.Axes, keep_ticks=False, keys=["top", "right", "bottom", "left"]):
     for k in keys:
@@ -673,20 +665,44 @@ def deframe_axes(ax : matplotlib.axes.Axes, keep_ticks=False, keys=["top", "righ
         ax.set_xticks([])
         ax.set_yticks([])
 
-def export_legend(legend, expand=[-5,-5,5,5]):
-    fig  = legend.figure
-    fig.canvas.draw()
-    bbox  = legend.get_window_extent()
-    bbox = bbox.from_extents(*(bbox.extents + np.array(expand)))
-    bbox = bbox.transformed(fig.dpi_scale_trans.inverted())
-    # fig.savefig(filename, dpi="figure", bbox_inches=bbox)
-    return bbox
+def export_legend(axin : matplotlib.axes.Axes, sort_keys : bool = False, **kwargs):
+    fig_legend, _ax_legend_ = plt.subplots()
+    ax_legend : matplotlib.axes.Axes = _ax_legend_
+    ax_legend.set_axis_off()
+    handles, keys = axin.get_legend_handles_labels()
+    if sort_keys:
+        keys_arr = np.asarray(keys, dtype=object)
+        idx = np.argsort(keys_arr)
+    else:
+        idx = np.linspace(0, len(keys) - 1, num = len(keys), dtype=np.int64)
+    handles_sorted, keys_sorted = [handles[i] for i in idx], [keys[i] for i in idx]
+    handler_map : dict = dict()
+    for (i,h) in enumerate(handles_sorted):
+        try:
+            print(h, h.get_cmap())
+            handler_map[h] = HandlerColorLineCollection(numpoints=4)
+        except:
+            pass
+    legend = ax_legend.legend(
+        handles_sorted, keys_sorted,
+        loc="lower left", 
+        bbox_to_anchor=(0, 0),
+        frameon=False,
+        fancybox=False,
+        handler_map = handler_map,
+        **{k : v for (k,v) in kwargs.items() if k not in ["loc", "bbox_to_anchor", "frameon", "fancybox"]}
+    )
+    legend.set_frame_on(False)
+    fig_legend.tight_layout(pad = 0.0) #
+    bbox = legend.get_window_extent().transformed(fig_legend.dpi_scale_trans.inverted())
+    return fig_legend, ax_legend, bbox
 
 import matplotlib.axes
 from matplotlib.axes import Axes
 from matplotlib.markers import MarkerStyle
+import matplotlib.transforms
 import deepracing_models.math_utils as mu
-def scatter_composite_xy(curve : torch.Tensor, ax : Axes, **kwargs):
+def scatter_composite_xy(curve : torch.Tensor, ax : Axes, quiver_kwargs : dict = dict(), **kwargs):
     _colors : torch.Tensor | None = kwargs.get("colors", None)
     if (_colors is None):
         colors = list(plt.rcParams["axes.prop_cycle"].by_key()["color"])
@@ -705,21 +721,56 @@ def scatter_composite_xy(curve : torch.Tensor, ax : Axes, **kwargs):
         points_plot = None
     numsegments = curve.shape[0]
     marker = kwargs.get("marker", "o")
-    scatter_kwargs = {k : v for (k,v) in kwargs.items() if k not in ["tswitch", "tannotate", "tplot", "color", "colors", "marker"]}
-    ax.scatter(curve[0,:,0], curve[0,:,1], color=colors[0], marker=marker, **scatter_kwargs)
+    scatter_kwargs = {k : v for (k,v) in kwargs.items() if k not in ["tswitch", "tannotate", "tarrows", "tplot", "color", "colors", "marker"]}
+    plot_kwargs = {k : v for (k,v) in kwargs.items() if k not in ["tswitch", "tannotate", "tarrows", "tplot", "color", "colors", "marker", "label", "s"]}
+    ax.scatter(curve[0,:-1,0], curve[0,:-1,1], color=colors[0], marker=marker, **scatter_kwargs)
     if not (points_plot == None):
         idx_segment = tplot<tend[0]
-        ax.plot(points_plot[idx_segment,0], points_plot[idx_segment,1], color=colors[0], label=r"$\mathbf{B}_0$") 
+        toplot = torch.cat([curve[0,0].unsqueeze(0), points_plot[idx_segment], curve[0,-1].unsqueeze(0)], dim=0)
+        ax.plot(toplot[:,0], toplot[:,1], color=colors[0], label=r"$\mathbf{B}_0$", **plot_kwargs) 
     for i in range(1, numsegments):
         previous_color = colors[(i-1)%len(colors)]
         current_color = colors[i%len(colors)]
-        ax.scatter(curve[i,1:,0], curve[i,1:,1], color=current_color, marker=marker, **scatter_kwargs)
         ax.scatter(curve[i,0,0].item(), curve[i,0,1].item(), marker=MarkerStyle(marker, fillstyle='left'), color=previous_color, **scatter_kwargs) 
         ax.scatter(curve[i,0,0].item(), curve[i,0,1].item(), marker=MarkerStyle(marker, fillstyle='right'), color=current_color, **scatter_kwargs) 
+        ax.scatter(curve[i,1:,0], curve[i,1:,1], color=current_color, marker=marker, **scatter_kwargs)
         if not (points_plot == None):
-            idx_segment = (tplot>tend[i-1])*(tplot<=tend[i])
-            ax.plot(points_plot[idx_segment,0], points_plot[idx_segment,1], color=colors[i], label=r"$\mathbf{B}_" + str(i) + r"$") 
-    return colors
+            idx_segment = (tplot>=tend[i-1])*(tplot<tend[i])
+            toplot = torch.cat([curve[i,0].unsqueeze(0), points_plot[idx_segment], curve[i,-1].unsqueeze(0)], dim=0)
+            ax.plot(toplot[:,0], toplot[:,1], color=colors[i], label=r"$\mathbf{B}_" + str(i) + r"$", **plot_kwargs) 
+        
+    tarrows : torch.Tensor | None = kwargs.get("tarrows", None)
+    if tarrows is not None:
+        arrow_locs = mu.compositeBezierEval(tstart, dt, curve, tarrows)[0].cpu()
+        curve_deriv = (curve.shape[1]-1)*(curve[:,1:] - curve[:,:-1])/dt[...,None,None]
+        arrow_vals = mu.compositeBezierEval(tstart, dt, curve_deriv, tarrows)[0].cpu()
+        arrow_vals/=torch.norm(arrow_vals, p=2, dim=1, keepdim=True)
+        data_to_axes = ax.transLimits
+        axes_to_data = data_to_axes.inverted()
+        arrowprops = dict(arrowstyle="simple", color="black")
+        origin_ax = data_to_axes.transform([0.0, 0.0])
+        unitvec_ax = origin_ax + np.asarray([0.0675, 0.0])
+        for i in range(arrow_locs.shape[0]):
+            px = arrow_locs[i,0].item()
+            py = arrow_locs[i,1].item()
+            affinemat = np.eye(3)
+            affinemat[0,2] = px
+            affinemat[1,2] = py
+            xaxis = arrow_vals[i].cpu().numpy()
+            yaxis = xaxis[[1,0]].copy()
+            yaxis[0]*=-1.0
+            affinemat[0:2,0] = xaxis
+            affinemat[0:2,1] = yaxis
+            affine_transform =  matplotlib.transforms.Affine2D(affinemat.copy())
+            new_tf = axes_to_data +  affine_transform + ax.transData
+            ax.annotate("", unitvec_ax, xycoords=new_tf, xytext=arrow_locs[i], textcoords="data", arrowprops=arrowprops)
+        # ax.quiver(arrow_locs[:,0], arrow_locs[:,1], arrow_vals[:,0], arrow_vals[:,1], angles='xy', **quiver_kwargs)
+    xmin, xmax = ax.get_xlim()
+    dx = xmax - xmin
+    ymin, ymax = ax.get_ylim()
+    dy = ymax - ymin
+
+    return colors, points_plot
 
 def scatter_composite_axes(curve : torch.Tensor, tswitch : torch.Tensor, axes : list[Axes], marker="o", colors : list | None = None, **kwargs):
     if (colors is None):
@@ -744,5 +795,73 @@ def scatter_composite_axes(curve : torch.Tensor, tswitch : torch.Tensor, axes : 
             ax.scatter(tswitch[i].item(), coefs[i,0].item(), marker=MarkerStyle(marker, fillstyle='left'), color=previous_color, **kwargs) 
             ax.scatter(tswitch[i].item(), coefs[i,0].item(), marker=MarkerStyle(marker, fillstyle='right'), color=current_color, **kwargs) 
     return _colors
+from scipy.spatial.transform import Rotation
+from matplotlib.collections import LineCollection, Collection
+from matplotlib.legend_handler import HandlerLineCollection
+from matplotlib.colors import BoundaryNorm, ListedColormap, Colormap
+import matplotlib.cm
+class HandlerColorLineCollection(HandlerLineCollection):
+    def create_artists(self, legend, artist ,xdescent, ydescent,
+                        width, height, fontsize,trans):
+        x = np.linspace(0,width,self.get_numpoints(legend)+1)
+        y = np.zeros(self.get_numpoints(legend)+1)+height/2.-ydescent
+        points = np.array([x, y]).T.reshape(-1, 1, 2)
+        segments = np.concatenate([points[:-1], points[1:]], axis=1)
+        lc = LineCollection(segments, cmap=artist.cmap,
+                     transform=trans, linestyle=artist.get_linestyle())
+        lc.set_array(x)
+        lc.set_linewidth(artist.get_linewidth())
+        return [lc]
+def add_colored_line(points : np.ndarray, cvals : np.ndarray, ax : matplotlib.axes.Axes, cmap : str | Colormap, 
+    linestyle="solid", alpha=1.0) -> tuple[LineCollection, Collection]:
+    points_exp = points.reshape(-1, 1, points.shape[-1])
+    segments = np.concatenate([points_exp[:-1], points_exp[1:]], axis=1)
+    norm = plt.Normalize(cvals.min(), cvals.max())
+    lc = LineCollection(segments, cmap=cmap, norm=norm,linestyle=linestyle, alpha=alpha)
+    lc.set_array(cvals)
+    line = ax.add_collection(lc)
+    return lc, line
+def plot_example(ax : matplotlib.axes.Axes, sample : dict[str,np.ndarray], 
+                 predictions : np.ndarray | None = None, 
+                 cmap: str | Colormap | None = None,
+                 colorbar_label: str | None = None,
+                 rotation : Rotation = Rotation.identity()):
+    mask = np.ones_like(sample["future_left_bd"])
+    mask[:,-1] = 0.0
+    future_left_bd = rotation.apply(sample["future_left_bd"]*mask)[:,[0,1]]
+    future_right_bd = rotation.apply(sample["future_right_bd"]*mask)[:,[0,1]]
+    ground_truth = rotation.apply(sample["fut"]*mask)[:,[0,1]]
+    ground_truth_vel = rotation.apply(sample["fut_vel"]*mask)[:,[0,1]]
+    ground_truth_speeds = np.linalg.norm(ground_truth_vel, ord=2.0, axis=1)
+    all_points = [future_left_bd, future_right_bd, ground_truth]
+    lbartists, = ax.plot(future_left_bd[:,0], future_left_bd[:,1], alpha=1.0, linestyle="solid", color="black", label="Track Boundaries")
+    rbartists, = ax.plot(future_right_bd[:,0], future_right_bd[:,1], alpha=lbartists.get_alpha(), linestyle=lbartists.get_linestyle(), color=lbartists.get_color())
+    if cmap is not None:
+        gt_lc, gt_line = add_colored_line(ground_truth, ground_truth_speeds, ax, "RdYlGn")
+        gt_line.set_label("Ground Truth")
+        norm = plt.Normalize(ground_truth_vel.min(), ground_truth_vel.max(), clip=True)
+        scalar_mappable = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
+        ax.get_figure().colorbar(scalar_mappable, ax=ax, location='left', pad=0.01, label=colorbar_label)
+        rtn = gt_lc, gt_line
+    else:
+        gtartists, = ax.plot(ground_truth[:,0], ground_truth[:,1], color="grey", label="Ground Truth")
+        rtn = None, None
+        # gtartists = ax.scatter(ground_truth[:,0], ground_truth[:,1], color="grey", label="Ground Truth", s=2.0**3.0, alpha=0.6)
 
-         
+    if predictions is not None:
+        predictions_2d = predictions[:,[0,1]].copy()
+        predictions_3d = np.concatenate([predictions_2d, np.zeros_like(predictions_2d[:,[0,]])], axis=1)
+        predictions = rotation.apply(predictions_3d)[:,[0,1]]
+        predictionartist, = ax.plot(predictions[:,0], predictions[:,1], label="Predictions", alpha=1.0)
+        all_points.append(predictions)
+
+    all_points = np.concatenate(all_points, axis=0)
+    min_x, max_x = np.min(all_points[:,0]) - 0.0, np.max(all_points[:,0]) + 0.0
+    min_y, max_y = np.min(all_points[:,1]) - 0.0, np.max(all_points[:,1]) + 0.0
+    ax.set_xlim(min_x, max_x)
+    ax.set_ylim(min_y, max_y)
+    # aspect_ratio, adjustable, anchor = (max_x - min_x)/(max_y - min_y), "box", "NW"
+    # aspect_ratio, adjustable, anchor = "equal", "box", "NW"
+    aspect_ratio, adjustable, anchor = "auto", None, None
+
+    ax.set_aspect(aspect_ratio, adjustable = adjustable, anchor = anchor)

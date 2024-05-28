@@ -34,9 +34,9 @@ def load_datasets_from_files(search_dir : str,
     
     dsetfiles = []
     for t in os.walk(search_dir):
-        dirpath : str = t[0] 
-        dirnames : list[str] = t[1]
-        filenames : list[str] = t[2]
+        dirpath = t[0] 
+        dirnames = t[1]
+        filenames = t[2]
         if "DEEPRACING_IGNORE" in filenames:
             dirnames.clear()
             continue
