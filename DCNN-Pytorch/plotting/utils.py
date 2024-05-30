@@ -839,9 +839,11 @@ def plot_example(ax : matplotlib.axes.Axes, sample : dict[str,np.ndarray],
     if cmap is not None:
         gt_lc, gt_line = add_colored_line(ground_truth, ground_truth_speeds, ax, "RdYlGn")
         gt_line.set_label("Ground Truth")
-        norm = plt.Normalize(ground_truth_vel.min(), ground_truth_vel.max(), clip=True)
+        norm = plt.Normalize(ground_truth_speeds.min(), ground_truth_speeds.max(), clip=True)
         scalar_mappable = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
-        ax.get_figure().colorbar(scalar_mappable, ax=ax, location='left', pad=0.01, label=colorbar_label)
+        cb = ax.get_figure().colorbar(scalar_mappable, ax=ax, location='left', pad=0.01, label=colorbar_label, shrink=0.8)
+        ticks = np.linspace(ground_truth_speeds.min(), ground_truth_speeds.max(), num=2)
+        cb.set_ticks(ticks, labels=["%3.2f" %(float(tick),) for tick in ticks])
         rtn = gt_lc, gt_line
     else:
         gtartists, = ax.plot(ground_truth[:,0], ground_truth[:,1], color="grey", label="Ground Truth")
