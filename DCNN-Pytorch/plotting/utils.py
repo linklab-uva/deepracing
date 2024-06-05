@@ -664,25 +664,37 @@ def deframe_axes(ax : matplotlib.axes.Axes, keep_ticks=False, keys=["top", "righ
     if not keep_ticks:
         ax.set_xticks([])
         ax.set_yticks([])
-
-def export_legend(axin : matplotlib.axes.Axes, sort_keys : bool = False, **kwargs):
+import numpy.typing
+def export_legend(axin : matplotlib.axes.Axes, sort_keys : bool | numpy.typing.ArrayLike = False, **kwargs):
     fig_legend, _ax_legend_ = plt.subplots()
     ax_legend : matplotlib.axes.Axes = _ax_legend_
     ax_legend.set_axis_off()
     handles, keys = axin.get_legend_handles_labels()
-    if sort_keys:
-        keys_arr = np.asarray(keys, dtype=object)
-        idx = np.argsort(keys_arr)
+    if (type(sort_keys) is bool):
+        if sort_keys:
+            keys_arr = np.asarray(keys, dtype=object)
+            idx = np.argsort(keys_arr)
+        else:
+            idx = np.linspace(0, len(keys) - 1, num = len(keys), dtype=np.int64)
+    elif (type(sort_keys) in [list, np.ndarray, tuple]):
+        idx = sort_keys
     else:
-        idx = np.linspace(0, len(keys) - 1, num = len(keys), dtype=np.int64)
+        raise ValueError("Invalid type for sort_keys: " + str(type(sort_keys)))
     handles_sorted, keys_sorted = [handles[i] for i in idx], [keys[i] for i in idx]
     handler_map : dict = dict()
     for (i,h) in enumerate(handles_sorted):
         try:
-            print(h, h.get_cmap())
-            handler_map[h] = HandlerColorLineCollection(numpoints=4)
+            h.get_cmap()
+            if type(h)==matplotlib.collections.LineCollection:
+                print(h)
+                handler_map[h] = HandlerColorLineCollection(numpoints=4)
         except:
             pass
+    legendkw = {k : v for (k,v) in kwargs.items() if k not in ["singlerow", "loc", "bbox_to_anchor", "frameon", "fancybox"]}
+    if kwargs.get("singlerow", False):
+        if "ncols" in legendkw.keys():
+            raise ValueError("Can't pass both 'singlerow = True' and 'ncols'")
+        legendkw["ncols"] = len(handles_sorted)
     legend = ax_legend.legend(
         handles_sorted, keys_sorted,
         loc="lower left", 
@@ -690,7 +702,7 @@ def export_legend(axin : matplotlib.axes.Axes, sort_keys : bool = False, **kwarg
         frameon=False,
         fancybox=False,
         handler_map = handler_map,
-        **{k : v for (k,v) in kwargs.items() if k not in ["loc", "bbox_to_anchor", "frameon", "fancybox"]}
+        **legendkw
     )
     legend.set_frame_on(False)
     fig_legend.tight_layout(pad = 0.0) #
@@ -825,7 +837,8 @@ def plot_example(ax : matplotlib.axes.Axes, sample : dict[str,np.ndarray],
                  predictions : np.ndarray | None = None, 
                  cmap: str | Colormap | None = None,
                  colorbar_label: str | None = None,
-                 rotation : Rotation = Rotation.identity()):
+                 rotation : Rotation = Rotation.identity(),
+                 **kwargs):
     mask = np.ones_like(sample["future_left_bd"])
     mask[:,-1] = 0.0
     future_left_bd = rotation.apply(sample["future_left_bd"]*mask)[:,[0,1]]
@@ -834,7 +847,7 @@ def plot_example(ax : matplotlib.axes.Axes, sample : dict[str,np.ndarray],
     ground_truth_vel = rotation.apply(sample["fut_vel"]*mask)[:,[0,1]]
     ground_truth_speeds = np.linalg.norm(ground_truth_vel, ord=2.0, axis=1)
     all_points = [future_left_bd, future_right_bd, ground_truth]
-    lbartists, = ax.plot(future_left_bd[:,0], future_left_bd[:,1], alpha=1.0, linestyle="solid", color="black", label="Track Boundaries")
+    lbartists, = ax.plot(future_left_bd[:,0], future_left_bd[:,1], alpha=kwargs.get("alpha", 1.0), linestyle="solid", color="black", label="Track Boundaries")
     rbartists, = ax.plot(future_right_bd[:,0], future_right_bd[:,1], alpha=lbartists.get_alpha(), linestyle=lbartists.get_linestyle(), color=lbartists.get_color())
     if cmap is not None:
         gt_lc, gt_line = add_colored_line(ground_truth, ground_truth_speeds, ax, "RdYlGn")
@@ -846,7 +859,7 @@ def plot_example(ax : matplotlib.axes.Axes, sample : dict[str,np.ndarray],
         cb.set_ticks(ticks, labels=["%3.2f" %(float(tick),) for tick in ticks])
         rtn = gt_lc, gt_line
     else:
-        gtartists, = ax.plot(ground_truth[:,0], ground_truth[:,1], color="grey", label="Ground Truth")
+        gtartists, = ax.plot(ground_truth[:,0], ground_truth[:,1], color="grey", label="Ground Truth", alpha=lbartists.get_alpha())
         rtn = None, None
         # gtartists = ax.scatter(ground_truth[:,0], ground_truth[:,1], color="grey", label="Ground Truth", s=2.0**3.0, alpha=0.6)
 
@@ -854,7 +867,7 @@ def plot_example(ax : matplotlib.axes.Axes, sample : dict[str,np.ndarray],
         predictions_2d = predictions[:,[0,1]].copy()
         predictions_3d = np.concatenate([predictions_2d, np.zeros_like(predictions_2d[:,[0,]])], axis=1)
         predictions = rotation.apply(predictions_3d)[:,[0,1]]
-        predictionartist, = ax.plot(predictions[:,0], predictions[:,1], label="Predictions", alpha=1.0)
+        predictionartist, = ax.plot(predictions[:,0], predictions[:,1], label="Predictions", alpha=lbartists.get_alpha())
         all_points.append(predictions)
 
     all_points = np.concatenate(all_points, axis=0)
@@ -867,3 +880,4 @@ def plot_example(ax : matplotlib.axes.Axes, sample : dict[str,np.ndarray],
     aspect_ratio, adjustable, anchor = "auto", None, None
 
     ax.set_aspect(aspect_ratio, adjustable = adjustable, anchor = anchor)
+    return rtn
