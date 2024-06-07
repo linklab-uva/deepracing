@@ -715,6 +715,7 @@ from matplotlib.markers import MarkerStyle
 import matplotlib.transforms
 import deepracing_models.math_utils as mu
 def scatter_composite_xy(curve : torch.Tensor, ax : Axes, quiver_kwargs : dict = dict(), **kwargs):
+    artists = []
     _colors : torch.Tensor | None = kwargs.get("colors", None)
     if (_colors is None):
         colors = list(plt.rcParams["axes.prop_cycle"].by_key()["color"])
@@ -733,23 +734,23 @@ def scatter_composite_xy(curve : torch.Tensor, ax : Axes, quiver_kwargs : dict =
         points_plot = None
     numsegments = curve.shape[0]
     marker = kwargs.get("marker", "o")
-    scatter_kwargs = {k : v for (k,v) in kwargs.items() if k not in ["tswitch", "tannotate", "tarrows", "tplot", "color", "colors", "marker"]}
-    plot_kwargs = {k : v for (k,v) in kwargs.items() if k not in ["tswitch", "tannotate", "tarrows", "tplot", "color", "colors", "marker", "label", "s"]}
-    ax.scatter(curve[0,:-1,0], curve[0,:-1,1], color=colors[0], marker=marker, **scatter_kwargs)
+    scatter_kwargs = {k : v for (k,v) in kwargs.items() if k not in ["tswitch", "tannotate", "visible", "tarrows", "tplot", "color", "colors", "marker"]}
+    plot_kwargs = {k : v for (k,v) in kwargs.items() if k not in ["tswitch", "tannotate", "visible", "tarrows", "tplot", "color", "colors", "marker", "label", "s"]}
+    artists.append(ax.scatter(curve[0,:-1,0], curve[0,:-1,1], color=colors[0], marker=marker, **scatter_kwargs))
     if not (points_plot == None):
         idx_segment = tplot<tend[0]
         toplot = torch.cat([curve[0,0].unsqueeze(0), points_plot[idx_segment], curve[0,-1].unsqueeze(0)], dim=0)
-        ax.plot(toplot[:,0], toplot[:,1], color=colors[0], label=r"$\mathbf{B}_0$", **plot_kwargs) 
+        artists+=ax.plot(toplot[:,0], toplot[:,1], color=colors[0], label=r"$\mathbf{B}_0$", **plot_kwargs) 
     for i in range(1, numsegments):
         previous_color = colors[(i-1)%len(colors)]
         current_color = colors[i%len(colors)]
-        ax.scatter(curve[i,0,0].item(), curve[i,0,1].item(), marker=MarkerStyle(marker, fillstyle='left'), color=previous_color, **scatter_kwargs) 
-        ax.scatter(curve[i,0,0].item(), curve[i,0,1].item(), marker=MarkerStyle(marker, fillstyle='right'), color=current_color, **scatter_kwargs) 
-        ax.scatter(curve[i,1:,0], curve[i,1:,1], color=current_color, marker=marker, **scatter_kwargs)
+        artists.append(ax.scatter(curve[i,0,0].item(), curve[i,0,1].item(), marker=MarkerStyle(marker, fillstyle='left'), color=previous_color, **scatter_kwargs))
+        artists.append(ax.scatter(curve[i,0,0].item(), curve[i,0,1].item(), marker=MarkerStyle(marker, fillstyle='right'), color=current_color, **scatter_kwargs)) 
+        artists.append(ax.scatter(curve[i,1:,0], curve[i,1:,1], color=current_color, marker=marker, **scatter_kwargs))
         if not (points_plot == None):
             idx_segment = (tplot>=tend[i-1])*(tplot<tend[i])
             toplot = torch.cat([curve[i,0].unsqueeze(0), points_plot[idx_segment], curve[i,-1].unsqueeze(0)], dim=0)
-            ax.plot(toplot[:,0], toplot[:,1], color=colors[i], label=r"$\mathbf{B}_" + str(i) + r"$", **plot_kwargs) 
+            artists+=ax.plot(toplot[:,0], toplot[:,1], color=colors[i], label=r"$\mathbf{B}_" + str(i) + r"$", **plot_kwargs) 
         
     tarrows : torch.Tensor | None = kwargs.get("tarrows", None)
     if tarrows is not None:
@@ -775,14 +776,14 @@ def scatter_composite_xy(curve : torch.Tensor, ax : Axes, quiver_kwargs : dict =
             affinemat[0:2,1] = yaxis
             affine_transform =  matplotlib.transforms.Affine2D(affinemat.copy())
             new_tf = axes_to_data +  affine_transform + ax.transData
-            ax.annotate("", unitvec_ax, xycoords=new_tf, xytext=arrow_locs[i], textcoords="data", arrowprops=arrowprops)
+            artists.append(ax.annotate("", unitvec_ax, xycoords=new_tf, xytext=arrow_locs[i], textcoords="data", arrowprops=arrowprops))
         # ax.quiver(arrow_locs[:,0], arrow_locs[:,1], arrow_vals[:,0], arrow_vals[:,1], angles='xy', **quiver_kwargs)
     xmin, xmax = ax.get_xlim()
     dx = xmax - xmin
     ymin, ymax = ax.get_ylim()
     dy = ymax - ymin
 
-    return colors, points_plot
+    return colors, points_plot, artists
 
 def scatter_composite_axes(curve : torch.Tensor, tswitch : torch.Tensor, axes : list[Axes], marker="o", colors : list | None = None, **kwargs):
     if (colors is None):
