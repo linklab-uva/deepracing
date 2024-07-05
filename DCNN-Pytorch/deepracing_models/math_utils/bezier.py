@@ -350,7 +350,8 @@ def first_order_constraints(x : torch.Tensor, Y : torch.Tensor, bc_type : torch.
     if not periodic:
         V0 = bc_type[:, 0]
         lhs[:, -2, 0, 0] = kappa[:, 0]
-        rhs[:, -2] = V0/k +  Y[:, 0]*kappa[:, 0]
+        dY = Y[:, 0]*kappa[:, 0]
+        rhs[:, -2] = V0/k +  dY
 
         Vf = bc_type[:, 1]
         lhs[:, -1, -1, 1] = -kappa[:, -1]
