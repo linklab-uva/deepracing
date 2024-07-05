@@ -2,10 +2,22 @@ import collections, collections.abc
 from ftplib import all_errors
 from math import e
 from typing import Iterable
+import matplotlib.lines
+import matplotlib.legend
+from matplotlib.lines import lineStyles
+from matplotlib.pylab import twinx
 import numpy as np
 import os
 import shutil
+import matplotlib.backend_bases
+import matplotlib.artist
+import matplotlib.collections
 import matplotlib.transforms
+import matplotlib.axes
+import matplotlib.scale
+import matplotlib.patches
+import matplotlib.path
+import matplotlib.text
 import matplotlib.pyplot as plt
 import matplotlib.figure, matplotlib.axes
 import torch.utils.data as torchdata
@@ -31,6 +43,216 @@ class color:
    BOLD = '\033[1m'
    UNDERLINE = '\033[4m'
    END = '\033[0m'
+class UnitVector(matplotlib.patches.FancyArrowPatch):
+    def __init__(self, origin_data : np.ndarray, angle_data : float,
+                 offset_figure = [0.5, 0.0],  *args, **kwargs):
+        self.angle_data : float = float(angle_data)
+        self.affinemat_data : np.ndarray = np.eye(3)
+        self.affinemat_data[0:2,0] = np.asarray([np.cos(angle_data), np.sin(angle_data)])
+        self.affinemat_data[0:2,1] = np.asarray([-np.sin(angle_data), np.cos(angle_data)])
+        self.affinemat_data[0:2,2] = origin_data
+        self.offset_figure = np.asarray(offset_figure)
+        super(UnitVector, self).__init__([0.0, 0.0], [0.0, 0.0], *args, **kwargs)
+    @matplotlib.artist.allow_rasterization
+    def draw(self, renderer : matplotlib.backend_bases.RendererBase):
+        figdpi : matplotlib.transforms.Transform = self.axes.get_figure().dpi_scale_trans
+        figdpi_to_data : matplotlib.transforms.Transform = figdpi + self.axes.transData.inverted()
+        data_to_figdpi : matplotlib.transforms.Transform = figdpi_to_data.inverted()
+        angle_figdpi = float(data_to_figdpi.transform_angles([self.angle_data,], (self.affinemat_data[0:2,2])[None], radians=True)[0])
+        affinemat_figdpi : np.ndarray = np.eye(3)
+        affinemat_figdpi[0:2,0] = np.asarray([np.cos(angle_figdpi), np.sin(angle_figdpi)])
+        affinemat_figdpi[0:2,1] = affinemat_figdpi[[1,0],0].copy()
+        affinemat_figdpi[0,1] *= -1.0 
+        affinemat_figdpi[0:2,2] = data_to_figdpi.transform(self.affinemat_data[0:2,2])
+        affine_figdpi = matplotlib.transforms.Affine2D(affinemat_figdpi)
+        self.set_transform(affine_figdpi + figdpi) 
+        self.set_positions(np.zeros_like(self.offset_figure), self.offset_figure)
+        super(matplotlib.patches.FancyArrowPatch,self).draw(renderer)
+
+class PolynomialAnimation:
+    def __init__(self, axes :  matplotlib.axes.Axes, dt : torch.Tensor, coefs : torch.Tensor):
+        self.axes = axes
+        self.fig = self.axes.get_figure()
+        self.dT = dt.cpu().clone()
+        self.coefs = coefs.cpu().clone()
+        self.tstart = torch.cumsum(self.dT, 0)
+        self.tstart-=self.dT[0]
+        self.segment_boundary_artists : list[matplotlib.lines.Line2D] = []
+        self.coef_scatters : list[matplotlib.collections.PatchCollection] = []
+        self.sweeping_horizontal_line : matplotlib.collections.LineCollection | None = None
+        self.sweeping_vertical_line : matplotlib.collections.LineCollection | None = None
+        self.fulltrace_artist : matplotlib.lines.Line2D | None = None 
+    def draw_sweeping_line(self, t : float):
+        if self.sweeping_vertical_line is not None:
+            self.sweeping_vertical_line.remove()
+        if self.sweeping_horizontal_line is not None:
+            self.sweeping_horizontal_line.remove()
+        y_t_, _ = mu.compositeBezierEval(self.tstart, self.dT, self.coefs, torch.as_tensor([t,]).type_as(self.coefs))
+        y_t = y_t_.item()
+        xmin, xmax = self.axes.get_xlim()
+        ymin, _ = self.axes.get_ylim()
+        self.sweeping_vertical_line = self.axes.vlines(t, ymin=ymin, ymax=y_t, linestyle="--", color="black")
+        right_facing = (self.axes.yaxis.get_ticks_position()=="right")
+        if right_facing:
+            self.sweeping_horizontal_line = self.axes.hlines(y_t, xmin=t, xmax=xmax, linestyle="--", color="black")
+        else:
+            self.sweeping_horizontal_line = self.axes.hlines(y_t, xmin=xmin, xmax=t, linestyle="--", color="black")
+    def draw_full_traces(self, numpoints=60, color="green", numticks = 10, deltalim=[-5.0, 5.0]):
+        tsamp : torch.Tensor = torch.linspace(self.tstart[0], self.tstart[-1] + self.dT[-1], steps=numpoints, dtype=self.tstart.dtype)
+        nu_eval, _ = mu.compositeBezierEval(self.tstart, self.dT, self.coefs, tsamp)
+        nu_eval = nu_eval.squeeze(-1)
+        nu_min = nu_eval.min().item() + deltalim[0]
+        nu_max = nu_eval.max().item() + deltalim[1]
+        self.axes.set_ylim(nu_min, nu_max)
+        self.axes.yaxis.set_ticks(torch.linspace(nu_min, nu_max, steps=numticks).numpy().tolist())
+        xmin = tsamp[0].item()-0.25
+        xmax = tsamp[-1].item()+0.25
+        self.axes.set_xlim(xmin, xmax)
+        if self.fulltrace_artist is not None:
+            self.fulltrace_artist.remove()
+        self.fulltrace_artist = self.axes.plot(tsamp, nu_eval, color=color)[0]
+        tswitch = torch.cat([self.tstart, (self.tstart[-1] + self.dT[-1])[None]], dim=0)
+        for i in range(tswitch.shape[0]):
+            segboundary = tswitch[i].item()
+            self.segment_boundary_artists.append(self.axes.axvline(segboundary, linestyle="--", color="grey", alpha=0.7))
+            if i>=self.dT.shape[0]:
+                continue
+            tsubsamp = torch.linspace(tswitch[i], tswitch[i+1], steps=self.coefs.shape[1])
+            self.coef_scatters.append(self.axes.scatter(tsubsamp, self.coefs[i].squeeze(-1), c=color, marker="+"))
+            
+class B_rAnimation:
+    def __init__(self, axes : matplotlib.axes.Axes, refcurves : dict[str,torch.Tensor], gtcurve : torch.Tensor, gt : torch.Tensor, mixing_ratios : torch.Tensor):
+        self.axes = axes
+        self.fig = self.axes.get_figure()
+        self.gt = gt.cpu().clone()
+        self.gtcurve = gtcurve.cpu().clone()
+        self.gtcurve_dR = mu.bezierArcLength(self.gtcurve[None])[0].item()
+        print(self.gtcurve_dR)
+        self.refcurves = {k : v.cpu().clone().type_as(self.gt) for (k,v) in refcurves.items()}
+        if not set(refcurves.keys()) == B_rAnimation.expected_keys():
+            raise ValueError("refcurves should have keys: %s" % (str(B_rAnimation.expected_keys()),))
+        self.mixing_ratios = mixing_ratios.cpu().clone()
+        self.legend : matplotlib.legend.Legend | None = None
+        self.time_text_artist : matplotlib.text.Text | None = None
+        self.mixedcurve_plot : matplotlib.lines.Line2D | None = None
+        self.fixedcontrolpoints_scatter : matplotlib.collections.PathCollection | None = None
+        self.mixedcontrolpoints_scatter : matplotlib.collections.PathCollection | None = None
+        self.gt_scatter : matplotlib.collections.PathCollection | None = None
+        self.ref_curve_scatters : dict[str, matplotlib.collections.PathCollection] = dict()
+        self.ref_curve_plots : dict[str, matplotlib.lines.Line2D] = dict()
+        self.dynamic_artists : list[matplotlib.artist.Artist] = []
+    @staticmethod
+    def expected_keys():
+        return {"Inner Boundary", "Outer Boundary", "Centerline", "Raceline"}  
+    def time_text(self, t : float, loc : Iterable[float] = [0.1, 0.5]):
+        s = "t=%1.3f" % t
+        if self.time_text_artist is None:
+            self.time_text_artist = self.axes.text(*(list(loc) + [s,]), fontsize=18, 
+                                                   horizontalalignment="center", verticalalignment="center", transform=self.axes.transAxes)
+        else:
+            self.time_text_artist.set_text(s)
+            self.time_text_artist.set_position(loc)
+    def clip_gt_curve(self, smax : float, numpoints = 60):
+        s = torch.linspace(0.0, smax, steps=numpoints, dtype=self.gtcurve.dtype)
+        M = mu.bezierM(s[None], self.gtcurve.shape[0]-1)[0]
+        points = M @ self.gtcurve
+        if self.mixedcurve_plot is None:
+            return
+        self.mixedcurve_plot.set_data(points.T)
+        
+    def purge(self):
+        self.clear_static()
+        self.clear_dynamic()
+        self.axes.clear()
+        plt.close(fig=self.fig)
+    def clear_static(self):
+        if self.legend is not None:
+            self.legend.remove()
+            self.legend = None
+        for artist in [self.fixedcontrolpoints_scatter, self.mixedcontrolpoints_scatter, self.gt_scatter, self.mixedcurve_plot]:
+            if artist is not None:
+                artist.remove()
+                artist = None
+        for artist in list(self.ref_curve_scatters.values()) + list(self.ref_curve_plots.values()):
+            if artist is not None:
+                artist.remove()
+                artist = None
+        self.ref_curve_scatters.clear()
+        self.ref_curve_plots.clear()
+    def clear_dynamic(self):
+        for a in self.dynamic_artists:
+            try:
+                a.remove()
+            except e:
+                pass
+        self.dynamic_artists.clear()
+    def draw_refcurves(self, numpoints : int = 60, with_legend=False):
+        s_samp = torch.linspace(0.0, 1.0, steps=numpoints, dtype=self.gt.dtype)
+        M_samp = mu.bezierM(s_samp.unsqueeze(0), n = self.gtcurve.shape[0] - 1)[0]
+        all_curves = torch.stack([curve for curve in self.refcurves.values()], dim=0)
+        P_samp = M_samp @ all_curves
+        all_points = torch.cat([all_curves.reshape(-1,2), P_samp.reshape(-1,2)], dim=0)
+        xmin, xmax = all_points[:,0].min().item() - 5.0, all_points[:,0].max().item() + 5.0
+        ymin, ymax = all_points[:,1].min().item() - 1.0, all_points[:,1].max().item() + 1.0
+        self.axes.set_xlim(xmin, xmax)
+        self.axes.set_ylim(ymin, ymax)
+        for (i, (name, curve)) in enumerate(self.refcurves.items()):
+            self.ref_curve_scatters[name] = self.axes.scatter(*curve.T, edgecolors="C%d" % (i,), facecolors='none', marker="o", s=2**4.0)
+            curve_points = M_samp @ curve
+            self.ref_curve_plots[name]= self.axes.plot(*curve_points.T, color=self.ref_curve_scatters[name].get_edgecolor(), label=name)[0]
+        gtsamp = M_samp @ self.gtcurve
+        self.gt_scatter = self.axes.scatter(*(self.gt.T), c="grey", label="Ground Truth")
+        with plt.rc_context({"text.usetex" : True}) as ctx:
+            self.mixedcurve_plot = self.axes.plot(*(gtsamp.T), color="black", label="Mixed Curve ($\\mathbf{B}_r$)")[0]
+        self.mixedcontrolpoints_scatter = self.axes.scatter(*(self.gtcurve[2:].T), c=self.mixedcurve_plot.get_color(), s=2**5)
+        self.fixedcontrolpoints_scatter = self.axes.scatter(*(self.gtcurve[:2].T), marker="+", c=self.mixedcurve_plot.get_color(), s=2**6)
+        if with_legend:
+            with plt.rc_context({"text.usetex" : True}) as ctx:
+                self.legend = self.axes.legend(fontsize=18, handles = list(self.ref_curve_plots.values()) + list(self.ref_curve_scatters.values()) + [self.mixedcurve_plot, self.gt_scatter], frameon=False)
+
+    def emphasize_curve(self, nonemph_alpha = 0.25):
+        self.fixedcontrolpoints_scatter.set_alpha(1.0)
+        self.mixedcontrolpoints_scatter.set_alpha(1.0) 
+        self.mixedcurve_plot.set_alpha(1.0) 
+        self.gt_scatter.set_alpha(nonemph_alpha)
+        for name in self.refcurves.keys():
+            self.ref_curve_plots[name].set_alpha(nonemph_alpha)
+            # self.ref_curve_scatters[name].set_alpha(nonemph_alpha) 
+            self.ref_curve_scatters[name].set_alpha(1.0) 
+
+    def emphasize_gt(self, nonemph_alpha = 0.25):
+        self.gt_scatter.set_alpha(1.0)
+        for name in self.refcurves.keys():
+            self.ref_curve_plots[name].set_alpha(nonemph_alpha)
+            self.ref_curve_scatters[name].set_alpha(nonemph_alpha) 
+        self.fixedcontrolpoints_scatter.set_alpha(nonemph_alpha)
+        self.mixedcontrolpoints_scatter.set_alpha(nonemph_alpha) 
+        self.mixedcurve_plot.set_alpha(nonemph_alpha) 
+
+    def save_reference_emphasis(self, basedir : str, nonemph_alpha = 0.25):
+        filepath = os.path.join(basedir, "all_emphasized.svg")
+        kwargs = {"transparent" : True, "bbox_inches" : "tight"}
+        self.fig.savefig(filepath, **kwargs)
+        self.mixedcurve_plot.set_alpha(nonemph_alpha)
+        self.fixedcontrolpoints_scatter.set_alpha(nonemph_alpha)
+        self.mixedcontrolpoints_scatter.set_alpha(nonemph_alpha)
+        self.gt_scatter.set_alpha(nonemph_alpha)
+        for name in self.refcurves.keys():
+            self.ref_curve_plots[name].set_alpha(1.0)
+            self.ref_curve_scatters[name].set_alpha(1.0)           
+            for other_name in set(self.refcurves.keys()).difference(set([name,])):
+                self.ref_curve_plots[other_name].set_alpha(nonemph_alpha)
+                self.ref_curve_scatters[other_name].set_alpha(nonemph_alpha)
+            filepath = os.path.join(basedir, "%s_emphasized.svg" % (name.replace(" ", "_").lower(),))
+            self.fig.savefig(filepath, **kwargs)
+        for name in self.refcurves.keys():
+            self.ref_curve_plots[name].set_alpha(1.0)
+            self.ref_curve_scatters[name].set_alpha(1.0) 
+        self.mixedcurve_plot.set_alpha(1.0)
+        self.fixedcontrolpoints_scatter.set_alpha(1.0)
+        self.mixedcontrolpoints_scatter.set_alpha(1.0)
+        self.gt_scatter.set_alpha(1.0)
+            
 class PredictionResults(collections.abc.Mapping[str,np.ndarray]):
     def __init__(self, resultsdict : dict[str,np.ndarray], data_dir : str, modelname : str) -> None:
         self.resultsdict = resultsdict
@@ -47,7 +269,18 @@ class PredictionResults(collections.abc.Mapping[str,np.ndarray]):
     def __len__(self):
         return len(self.resultsdict)
     def __getitem__(self, key):
-        return self.resultsdict[key]
+        if type(key) is str:
+            return self.resultsdict[key]
+        try:
+            index : int = int(key)
+        except:
+            raise ValueError("Invalid %s is not convertible to int" % (str(key),))
+        rtn = dict()
+        for k in set(self.resultsdict.keys()).difference({'computation_time',}):
+            arr : np.ndarray = self.resultsdict[k]
+            rtn[k] = arr[index].copy()
+        return rtn
+        
     def __setitem__(self, key, value):
         self.resultsdict[key] = value
     def numsamples(self):
@@ -110,6 +343,12 @@ class PredictionResults(collections.abc.Mapping[str,np.ndarray]):
         return PredictionResults(results_dict, data_dir, modelname)
     def compute_fde(self):
         self.resultsdict["fde"] = np.linalg.norm(self.resultsdict["predictions"][:,-1,[0,1]] - self.resultsdict["ground_truth"][:,-1,[0,1]], ord=2.0, axis=1)
+    def compute_full_latlong(self, tangents : np.ndarray, normals : np.ndarray):
+        deltas = self.resultsdict["predictions"][:,:,0:tangents.shape[-1]] - self.resultsdict["ground_truth"][:,:,0:tangents.shape[-1]]
+        self.resultsdict["lateral_error_full"] = np.abs(np.sum(deltas*normals, axis=-1, keepdims=False))
+        self.resultsdict["longitudinal_error_full"] = np.abs(np.sum(deltas*tangents, axis=-1, keepdims=False))
+        self.resultsdict["ade_full"] = np.linalg.norm(deltas, ord=2.0, axis=-1, keepdims=False)
+
 import scipy.interpolate
 import scipy.stats
 class CustomScaleHelper():
@@ -354,6 +593,7 @@ def plot_error_histograms(results_list : list[PredictionResults], plotbase : str
     fig_combined_histogram.tight_layout(pad=0.1)
     fig_combined_boxplot.tight_layout(pad=0.1)
     fig_combined_violinplot.tight_layout(pad=0.1)
+    #, 'text.usetex': file_format == "pgf"
     if vert:
         boxplot_postfix="vertical"
     else:
@@ -362,7 +602,7 @@ def plot_error_histograms(results_list : list[PredictionResults], plotbase : str
         _kwargs_ : dict[str] = dict()
         if file_format == "png":
             _kwargs_["backend"] = "agg"
-        with plt.rc_context({ "pgf.texsystem": "pdflatex", 'font.family': 'serif', 'text.usetex': file_format == "pgf", 'pgf.rcfonts': False,
+        with plt.rc_context({ "pgf.texsystem": "pdflatex", 'font.family': 'serif', 'pgf.rcfonts': False,
                             "savefig.format": file_format, "savefig.bbox" : "tight", "savefig.orientation" : "landscape",
                             "savefig.transparent" : True, "savefig.pad_inches" : pad_inches,
                             "svg.fonttype": 'none', 
@@ -371,24 +611,8 @@ def plot_error_histograms(results_list : list[PredictionResults], plotbase : str
             fig_combined_boxplot.savefig(os.path.join(savedir, "boxplot_%s" % (boxplot_postfix, )), **_kwargs_)
             fig_combined_violinplot.savefig(os.path.join(savedir, "violinplot_%s" % (boxplot_postfix,)), **_kwargs_)
     custom_scale_helper : CustomScaleHelper = CustomScaleHelper(scale_ticks)
-    # custom_scale : matplotlib.scale.FuncScale = matplotlib.scale.FuncScale(axes_histogram, (custom_scale_helper.forward, custom_scale_helper.inverse))
-    # axes_violinplot.set_xscale(matplotlib.scale.FuncScale(axes_violinplot, (custom_scale_helper.forward, custom_scale_helper.inverse)))
-    # fig_combined_histogram.legend(frameon=False, fancybox=False)
-    # axes_histogram.set_xscale(custom_scale) 
-    # if vertlines:
-    #     print("Plotting vertical lines") #"grey" *float(np.max(count_maxes)) .inverted()
-    #     for i in range(len(vline_vals)):
-    #         axes_histogram.axvline(vline_vals[i], ymin=0.0, ymax=0.75, color=vline_colors[i], linestyle="--")
-    #     overall_max = float(np.max([np.max(res[key]) for res in results_list]))
-    #     all_ticks = sorted([0.0,] + vline_vals + [overall_max,])
 
-    # else:
-    #     axes_histogram.set_xticks(custom_scale_helper.tickvals)
-    #     all_ticks = np.linspace(scale_ticks[0], 1.15*scale_ticks[-1], num=5)
-    #     print("Not plotting vertical lines")
-    # axes_histogram.set_xticks(all_ticks)
-    # axes_histogram.set_xticklabels(["%.2f" % (all_ticks[i],) for i in range(len(all_ticks))], fontsize=11.0)
-    
+
     if not individual_plots:
         return (
             (fig_combined_histogram, axes_histogram),
@@ -451,7 +675,6 @@ def plot_outliers(results_list : list[PredictionResults], plotdir : str, fulldse
         history = dset_dict["hist"][40:]
         ground_truth = dset_dict["fut"]
         history_vel = dset_dict["hist_vel"]
-        # print(history_vel.T)
         left_bound = ref_results["left_bd"][idx_sort[plot_idx]]
         right_bd = ref_results["right_bd"][idx_sort[plot_idx]]
         history_speed = np.linalg.norm(history_vel, ord=2.0, axis=1)
@@ -524,7 +747,7 @@ def cross_error_analysis(results_list : list[PredictionResults],
     argdict = {
         "color_map" : {res.modelname : None for res in results_list},
         "metric" : "ade",
-        "N" : -1,
+        "N" : 10,
         "histograms" : True,
         "with_history" : True,
         "ref_alpha" : 1.0,
@@ -681,7 +904,7 @@ def export_legend(axin : matplotlib.axes.Axes, sort_keys : bool | numpy.typing.A
     else:
         raise ValueError("Invalid type for sort_keys: " + str(type(sort_keys)))
     handles_sorted, keys_sorted = [handles[i] for i in idx], [keys[i] for i in idx]
-    handler_map : dict = dict()
+    handler_map : dict = kwargs.get("handler_map", dict())
     for (i,h) in enumerate(handles_sorted):
         try:
             h.get_cmap()
@@ -690,7 +913,7 @@ def export_legend(axin : matplotlib.axes.Axes, sort_keys : bool | numpy.typing.A
                 handler_map[h] = HandlerColorLineCollection(numpoints=4)
         except:
             pass
-    legendkw = {k : v for (k,v) in kwargs.items() if k not in ["singlerow", "loc", "bbox_to_anchor", "frameon", "fancybox"]}
+    legendkw = {k : v for (k,v) in kwargs.items() if k not in ["singlerow", "loc", "handler_map", "bbox_to_anchor", "frameon", "fancybox"]}
     if kwargs.get("singlerow", False):
         if "ncols" in legendkw.keys():
             raise ValueError("Can't pass both 'singlerow = True' and 'ncols'")
@@ -714,6 +937,7 @@ from matplotlib.axes import Axes
 from matplotlib.markers import MarkerStyle
 import matplotlib.transforms
 import deepracing_models.math_utils as mu
+from matplotlib.transforms import AffineDeltaTransform, ScaledTranslation, IdentityTransform
 def scatter_composite_xy(curve : torch.Tensor, ax : Axes, quiver_kwargs : dict = dict(), **kwargs):
     artists = []
     _colors : torch.Tensor | None = kwargs.get("colors", None)
@@ -734,13 +958,14 @@ def scatter_composite_xy(curve : torch.Tensor, ax : Axes, quiver_kwargs : dict =
         points_plot = None
     numsegments = curve.shape[0]
     marker = kwargs.get("marker", "o")
-    scatter_kwargs = {k : v for (k,v) in kwargs.items() if k not in ["tswitch", "tannotate", "visible", "tarrows", "tplot", "color", "colors", "marker"]}
-    plot_kwargs = {k : v for (k,v) in kwargs.items() if k not in ["tswitch", "tannotate", "visible", "tarrows", "tplot", "color", "colors", "marker", "label", "s"]}
+    scatter_kwargs = {k : v for (k,v) in kwargs.items() if k not in ["tswitch", "tannotate", "visible", "tarrows", "tplot", "color", "colors", "marker", "with_labels"]}
+    plot_kwargs = {k : v for (k,v) in kwargs.items() if k not in ["tswitch", "tannotate", "visible", "tarrows", "tplot", "color", "colors", "marker", "s", "with_labels"]}
     artists.append(ax.scatter(curve[0,:-1,0], curve[0,:-1,1], color=colors[0], marker=marker, **scatter_kwargs))
+    with_labels = kwargs.get("with_labels", True) # if with_labels else None
     if not (points_plot == None):
         idx_segment = tplot<tend[0]
         toplot = torch.cat([curve[0,0].unsqueeze(0), points_plot[idx_segment], curve[0,-1].unsqueeze(0)], dim=0)
-        artists+=ax.plot(toplot[:,0], toplot[:,1], color=colors[0], label=r"$\mathbf{B}_0$", **plot_kwargs) 
+        artists+=ax.plot(toplot[:,0], toplot[:,1], color=colors[0], label=(r"$\mathbf{B}_0$") if with_labels else None, **plot_kwargs) 
     for i in range(1, numsegments):
         previous_color = colors[(i-1)%len(colors)]
         current_color = colors[i%len(colors)]
@@ -750,7 +975,7 @@ def scatter_composite_xy(curve : torch.Tensor, ax : Axes, quiver_kwargs : dict =
         if not (points_plot == None):
             idx_segment = (tplot>=tend[i-1])*(tplot<tend[i])
             toplot = torch.cat([curve[i,0].unsqueeze(0), points_plot[idx_segment], curve[i,-1].unsqueeze(0)], dim=0)
-            artists+=ax.plot(toplot[:,0], toplot[:,1], color=colors[i], label=r"$\mathbf{B}_" + str(i) + r"$", **plot_kwargs) 
+            artists.extend(ax.plot(toplot[:,0], toplot[:,1], color=colors[i], label=(r"$\mathbf{B}_" + str(i) + r"$") if with_labels else None, **plot_kwargs))
         
     tarrows : torch.Tensor | None = kwargs.get("tarrows", None)
     if tarrows is not None:
@@ -761,22 +986,28 @@ def scatter_composite_xy(curve : torch.Tensor, ax : Axes, quiver_kwargs : dict =
         data_to_axes = ax.transLimits
         axes_to_data = data_to_axes.inverted()
         arrowprops = dict(arrowstyle="simple", color="black")
-        origin_ax = data_to_axes.transform([0.0, 0.0])
-        unitvec_ax = origin_ax + np.asarray([0.0675, 0.0])
+        # origin_ax = data_to_axes.transform([0.0, 0.0])
+        unitvecx = np.asarray([1.0, 0.0])
+        unitvecy = unitvecx[[1,0]].copy()
+        zerovec = np.zeros_like(unitvecx)
         for i in range(arrow_locs.shape[0]):
             px = arrow_locs[i,0].item()
             py = arrow_locs[i,1].item()
             affinemat = np.eye(3)
-            affinemat[0,2] = px
-            affinemat[1,2] = py
             xaxis = arrow_vals[i].cpu().numpy()
             yaxis = xaxis[[1,0]].copy()
             yaxis[0]*=-1.0
             affinemat[0:2,0] = xaxis
             affinemat[0:2,1] = yaxis
-            affine_transform =  matplotlib.transforms.Affine2D(affinemat.copy())
-            new_tf = axes_to_data +  affine_transform + ax.transData
-            artists.append(ax.annotate("", unitvec_ax, xycoords=new_tf, xytext=arrow_locs[i], textcoords="data", arrowprops=arrowprops))
+            affinemat[0,2] = px
+            affinemat[1,2] = py
+            affine_transform =  matplotlib.transforms.Affine2D(affinemat.copy()) # + AffineDeltaTransform(axes_to_data) + + 
+
+            #ScaledTranslation(0, 0, axes_to_data) + axes_to_data +  AffineDeltaTransform(axes_to_data) 
+            affinemat_axes = np.eye(3)
+            affinemat_axes[0,2]=0.1
+            new_tf = affine_transform + data_to_axes + ax.transAxes
+            artists.append(ax.annotate("", 1.0*unitvecx, xycoords=new_tf, xytext=arrow_locs[i], textcoords="data", arrowprops=arrowprops))
         # ax.quiver(arrow_locs[:,0], arrow_locs[:,1], arrow_vals[:,0], arrow_vals[:,1], angles='xy', **quiver_kwargs)
     xmin, xmax = ax.get_xlim()
     dx = xmax - xmin
@@ -785,7 +1016,9 @@ def scatter_composite_xy(curve : torch.Tensor, ax : Axes, quiver_kwargs : dict =
 
     return colors, points_plot, artists
 
-def scatter_composite_axes(curve : torch.Tensor, tswitch : torch.Tensor, axes : list[Axes], marker="o", colors : list | None = None, **kwargs):
+def scatter_composite_axes(curve : torch.Tensor, tswitch : torch.Tensor, axes : list[Axes], 
+                           ref_vel : torch.Tensor | None = None, 
+                           marker="o", colors : list | None = None, **kwargs):
     if (colors is None):
         _colors = list(plt.rcParams["axes.prop_cycle"].by_key()["color"])
     else:
@@ -794,20 +1027,33 @@ def scatter_composite_axes(curve : torch.Tensor, tswitch : torch.Tensor, axes : 
         raise ValueError("Must pass list of axes of equal length to number of dimensions in curve")
     kbezier = curve.shape[1] - 1
     numsegments = curve.shape[0]
+    artists_rtn = []
     for d in range(curve.shape[2]):
         coefs = curve[:,:,d]
         ax = axes[d]
-        t_scatter = torch.linspace(tswitch[0], tswitch[1], steps=kbezier+1, dtype=torch.float64).cpu()#[1:s]
-        ax.scatter(t_scatter, coefs[0], color=_colors[0], marker=marker, **kwargs)
+        t_scatter = torch.linspace(tswitch[0], tswitch[1], steps=kbezier+1, dtype=torch.float64).cpu()
+        artists=[]
+        artists.append(ax.scatter(t_scatter, coefs[0], color=_colors[0], marker=marker, **kwargs))
+        if ref_vel is not None:
+            ref_vel_exp = ref_vel[d].item()
+            deltas = torch.abs(coefs[0,1:] - ref_vel_exp)
+            midpoints = (coefs[0,1:] + ref_vel_exp)/2.0
+            with plt.rc_context({"text.usetex" : True}) as ctx:
+                artists.append(ax.errorbar(t_scatter[1:], midpoints, yerr=deltas/2, fmt='', linewidth=1, capsize=6, linestyle='', color=_colors[0], label=r"$\Delta{\boldsymbol{\nu}}_" + str(0) + "$"))
         for i in range(1, numsegments):
-            t_scatter = torch.linspace(tswitch[i], tswitch[i+1], steps=kbezier+1)[1:].cpu()
-            points_scatter = coefs[i,1:].cpu()
             previous_color = _colors[(i-1)%len(_colors)]
             current_color = _colors[i%len(_colors)]
-            ax.scatter(t_scatter, points_scatter, color=current_color, marker=marker, **kwargs)
-            ax.scatter(tswitch[i].item(), coefs[i,0].item(), marker=MarkerStyle(marker, fillstyle='left'), color=previous_color, **kwargs) 
-            ax.scatter(tswitch[i].item(), coefs[i,0].item(), marker=MarkerStyle(marker, fillstyle='right'), color=current_color, **kwargs) 
-    return _colors
+            t_scatter = torch.linspace(tswitch[i], tswitch[i+1], steps=kbezier+1)[1:].cpu()
+            artists.append(ax.scatter(tswitch[i].item(), coefs[i,0].item(), marker=MarkerStyle(marker, fillstyle='left'), color=previous_color, **kwargs)) 
+            artists.append(ax.scatter(tswitch[i].item(), coefs[i,0].item(), marker=MarkerStyle(marker, fillstyle='right'), color=current_color, **kwargs)) 
+            artists.append(ax.scatter(t_scatter, coefs[i,1:].cpu(), color=current_color, marker=marker, **kwargs))
+            if ref_vel is not None:
+                deltas = torch.abs(coefs[i,1:] - ref_vel_exp)
+                midpoints = (coefs[i,1:] + ref_vel_exp)/2.0
+                with plt.rc_context({"text.usetex" : True}) as ctx:
+                    artists.append(ax.errorbar(t_scatter, midpoints, yerr=deltas/2, fmt='', linewidth=1, capsize=6, linestyle='', color=current_color, label=r"$\Delta{\boldsymbol{\nu}}_" + str(i) + "$"))
+        artists_rtn.append(artists)
+    return _colors, artists_rtn
 from scipy.spatial.transform import Rotation
 from matplotlib.collections import LineCollection, Collection
 from matplotlib.legend_handler import HandlerLineCollection
@@ -857,7 +1103,7 @@ def plot_example(ax : matplotlib.axes.Axes, sample : dict[str,np.ndarray],
         scalar_mappable = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
         cb = ax.get_figure().colorbar(scalar_mappable, ax=ax, location='left', pad=0.01, label=colorbar_label, shrink=0.8)
         ticks = np.linspace(ground_truth_speeds.min(), ground_truth_speeds.max(), num=2)
-        cb.set_ticks(ticks, labels=["%3.2f" %(float(tick),) for tick in ticks])
+        cb.set_ticks(ticks, labels=["%3.2f" %(float(tick),) for tick in ticks], fontsize=12)
         rtn = gt_lc, gt_line
     else:
         gtartists, = ax.plot(ground_truth[:,0], ground_truth[:,1], color="grey", label="Ground Truth", alpha=lbartists.get_alpha())
