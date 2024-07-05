@@ -21,17 +21,44 @@ def load_datasets_from_files(search_dir : str,
             metadata : dict = yaml.load(f, Loader=yaml.SafeLoader)
         real_data = metadata.get("real_data", False)
         if real_data:
-            bag_metadata : dict = metadata["source_bag_metadata"]
+            source_bag : str = metadata["source_bag"]
             source_topic : str = metadata["source_topic"]
-            return int(bag_metadata["starting_time"]["nanoseconds_since_epoch"]), source_topic[1:].replace("/","_")
+            return os.path.basename(source_bag).replace("/","_"), source_topic[1:].replace("/","_")
         else:
             subfolder = os.path.dirname(filepath)
-            bagfolder = os.path.dirname(subfolder)
             subfolder_base = os.path.basename(subfolder)
-            car_index = subfolder_base.split("_")[1]
+            bagfolder = os.path.dirname(subfolder)
             bagfolder_base = os.path.basename(bagfolder)
+            car_index = subfolder_base.split("_")[1]
             return bagfolder_base, int(car_index)
-    dsetfiles = glob.glob(os.path.join(search_dir, "**", "metadata.yaml"), recursive=True)
+    
+    dsetfiles = []
+    for t in os.walk(search_dir):
+        dirpath = t[0] 
+        dirnames = t[1]
+        filenames = t[2]
+        if "DEEPRACING_IGNORE" in filenames:
+            dirnames.clear()
+            continue
+        if "metadata.yaml" in filenames:
+            fullpath = os.path.join(dirpath, "metadata.yaml")
+            # dsetfiles.append(fullpath)
+            # dirnames.clear()
+            with open(fullpath, "r") as f:
+                configdict = yaml.safe_load(f)
+            if configdict.get("DEEPRACING_DATASET", False):
+                dsetfiles.append(fullpath)
+                dirnames.clear()
+                continue
+        try:
+            dirnames.remove("plots")
+        except ValueError as e:
+            pass
+        try:
+            dirnames.remove("fit_data")
+        except ValueError as e:
+            pass
+    # dsetfiles = glob.glob(os.path.join(search_dir, "**", "metadata.yaml"), recursive=True)
     dsetfiles.sort(key=sortkey)
     dsets : list[FD.TrajectoryPredictionDataset] = []
     dsetconfigs = []

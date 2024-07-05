@@ -73,7 +73,7 @@ def test(**kwargs):
     else:
         net = net.double()
     # net_asset = ([a for a in net_assets if a["fileName"] == "model_148.pt"])[0]
-    net_asset = net_assets[-2]
+    net_asset = net_assets[-1]
     print("Downloading model file: %s" % (net_asset["fileName"],))
     net_binary = api_experiment.get_asset(net_asset["assetId"], return_type="binary")
     results_dir = os.path.join(argdict["resultsdir"], api_experiment.get_name())

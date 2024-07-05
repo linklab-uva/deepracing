@@ -93,7 +93,7 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
     tend = (tswitchingpoints[:, 1:])
     dt = tend - tstart
 
-    print("Building linear system")
+    # print("Building linear system")
     HugeM : torch.Tensor = torch.zeros([
         batchdimflat,  num_points, numcoefs*numsegments
         ], device=device, dtype=dtype)
@@ -121,7 +121,7 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
             HugeM[b, idxselect, column_start:column_end] = \
                 bezierM(subs.unsqueeze(0), kbezier)[0]
             segment_sizes.append(torch.sum(idxselect).item())
-    print("Solving linear system")
+    # print("Solving linear system")
     Q = torch.matmul(HugeM.transpose(-2, -1), HugeM)
     E = torch.zeros(batchdimflat, total_constraints, Q.shape[-1], dtype=Q.dtype, device=Q.device)
     d = torch.zeros(batchdimflat, total_constraints, dim, dtype=Q.dtype, device=Q.device)
@@ -350,7 +350,8 @@ def first_order_constraints(x : torch.Tensor, Y : torch.Tensor, bc_type : torch.
     if not periodic:
         V0 = bc_type[:, 0]
         lhs[:, -2, 0, 0] = kappa[:, 0]
-        rhs[:, -2] = V0/k +  Y[:, 0]*kappa[:, 0]
+        dY = Y[:, 0]*kappa[:, 0]
+        rhs[:, -2] = V0/k +  dY
 
         Vf = bc_type[:, 1]
         lhs[:, -1, -1, 1] = -kappa[:, -1]
