@@ -40,14 +40,6 @@ def load_datasets_from_files(search_dir : str,
         if "DEEPRACING_IGNORE" in filenames:
             dirnames.clear()
             continue
-        try:
-            dirnames.remove("plots")
-        except ValueError as e:
-            pass
-        try:
-            dirnames.remove("fit_data")
-        except ValueError as e:
-            pass
         if "metadata.yaml" in filenames:
             fullpath = os.path.join(dirpath, "metadata.yaml")
             # dsetfiles.append(fullpath)
@@ -57,6 +49,15 @@ def load_datasets_from_files(search_dir : str,
             if configdict.get("DEEPRACING_DATASET", False):
                 dsetfiles.append(fullpath)
                 dirnames.clear()
+                continue
+        try:
+            dirnames.remove("plots")
+        except ValueError as e:
+            pass
+        try:
+            dirnames.remove("fit_data")
+        except ValueError as e:
+            pass
     # dsetfiles = glob.glob(os.path.join(search_dir, "**", "metadata.yaml"), recursive=True)
     dsetfiles.sort(key=sortkey)
     dsets : list[FD.TrajectoryPredictionDataset] = []
