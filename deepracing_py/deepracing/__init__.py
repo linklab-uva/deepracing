@@ -7,7 +7,7 @@ import yaml
 from .path_utils.pcd_utils import loadPCD
 from .path_utils import SmoothPathHelper
 try:
-    from .py_waymo_conversions import scenario_to_tfexample
+    from .py_waymo_conversions import scenario_to_tfexample # type: ignore
 except ImportError:
     pass
 class TrackMap():

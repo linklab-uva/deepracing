@@ -78,17 +78,17 @@ class CompositeBezierCurve(torch.nn.Module):
         return CompositeBezierCurve(self.x.detach().clone(), control_point_deltas)
 
 class SimplePathHelper(torch.nn.Module):
-    def __init__(self, points : torch.Tensor, dr_samp : float) -> None:
+    def __init__(self, arclengths : torch.Tensor, curve_control_points : torch.Tensor, dr_samp : float) -> None:
         super(SimplePathHelper, self).__init__()
-        arclengths_, curve_control_points_ = closedPathAsBezierSpline(points)
-        self.__arclengths_in__ : torch.nn.Parameter = torch.nn.Parameter(arclengths_.clone(), requires_grad=False)
-        self.__points_in__ : torch.nn.Parameter = torch.nn.Parameter(points.clone(), requires_grad=False)
+        # arclengths_, curve_control_points_ = closedPathAsBezierSpline(points)
+        self.__arclengths_in__ : torch.nn.Parameter = torch.nn.Parameter(arclengths.clone(), requires_grad=False)
+        # self.__points_in__ : torch.nn.Parameter = torch.nn.Parameter(points.clone(), requires_grad=False)
 
-        self.__curve__ : CompositeBezierCurve = CompositeBezierCurve(arclengths_, curve_control_points_).requires_grad_(False)
+        self.__curve__ : CompositeBezierCurve = CompositeBezierCurve(arclengths, curve_control_points).requires_grad_(False)
         self.__curve_deriv__ : CompositeBezierCurve = self.__curve__.derivative().requires_grad_(False)
         self.__curve_2nd_deriv__ : CompositeBezierCurve = self.__curve_deriv__.derivative().requires_grad_(False)
 
-        self.__r_samp__ : torch.nn.Parameter = torch.nn.Parameter(torch.arange(0.0, arclengths_[-1], step=dr_samp, dtype=points.dtype, device=points.device), requires_grad=False)
+        self.__r_samp__ : torch.nn.Parameter = torch.nn.Parameter(torch.arange(0.0, arclengths[-1], step=dr_samp, dtype=arclengths.dtype, device=arclengths.device), requires_grad=False)
         
         tup = self.__curve__(self.__r_samp__)
         points_samp : torch.Tensor = tup[0].detach().clone()
@@ -101,6 +101,24 @@ class SimplePathHelper(torch.nn.Module):
         normals_samp = tangents_samp[:,[1,0]].clone()
         normals_samp[:,0]*=-1.0
         self.__normals_samp__ : torch.nn.Parameter = torch.nn.Parameter(normals_samp, requires_grad=False)
+    @staticmethod
+    def from_closed_path(points : torch.Tensor, dr_samp : float) -> 'SimplePathHelper':
+        arclengths_, curve_control_points_ = closedPathAsBezierSpline(points)
+        return SimplePathHelper(arclengths_, curve_control_points_, dr_samp)
+
+
+    def control_points(self):
+        return self.__curve__.control_points.detach().clone()
+    def r_in(self):
+        return self.__arclengths_in__.detach().clone()
+    def r_samp(self):
+        return self.__r_samp__.detach().clone()
+    def normals_samp(self):
+        return self.__normals_samp__.detach().clone()
+    def tangents_samp(self):
+        return self.__tangents_samp__.detach().clone()
+    def points_samp(self):
+        return self.__points_samp__.detach().clone()
     def offset_points(self, left_offset : float, right_offset: float) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.__points_samp__ + self.__normals_samp__*left_offset, self.__points_samp__ - self.__normals_samp__*right_offset
     def tangent(self, s : torch.Tensor):

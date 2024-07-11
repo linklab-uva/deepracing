@@ -11,7 +11,26 @@ from scipy.spatial import KDTree
 from scipy.optimize import minimize_scalar
 import scipy.optimize
 
-def generateSpline(points : np.ndarray, k=3, simpson_subintervals = 12):
+
+def generateOpenSpline(points : np.ndarray, tau0: np.ndarray, tauf : np.ndarray, k=3, simpson_subintervals = 12):
+    euclidean_distances : np.ndarray = np.zeros_like(points[:,0])
+    euclidean_distances[1:] = np.cumsum(np.linalg.norm(points[1:] - points[:-1], ord=2.0, axis=1), 0)
+    fake_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(euclidean_distances, points, k=k)#, bc_type="natural")
+    true_distances : np.ndarray = np.zeros_like(euclidean_distances)
+    for i in range(1, true_distances.shape[0]):
+        x0 = euclidean_distances[i-1]
+        x1 = euclidean_distances[i]
+        xvec : np.ndarray = np.linspace(x0, x1, simpson_subintervals + 1)
+        spline_norms : np.ndarray = np.linalg.norm(fake_spline(xvec, nu=1), ord=2.0, axis=1)
+        true_distances[i] = true_distances[i-1] + scipy.integrate.simpson(spline_norms, xvec)
+    true_spline = scipy.interpolate.make_interp_spline(true_distances, points, 
+                                                       k=k, bc_type=( [(1, tau0)], [(1, tauf)] ))
+    return true_distances, points, true_spline
+def generateClosedSpline(points : np.ndarray, k=3, simpson_subintervals = 12):
+    tau0 : np.ndarray = points[1] - points[0]
+    tau0/=np.linalg.norm(tau0, ord=2.0)
+    tauf : np.ndarray = points[-1] - points[-2]
+    tauf/=np.linalg.norm(tauf, ord=2.0)
     if not (simpson_subintervals%2)==0:
         raise ValueError("Must use even number of subintervals for Simpson's method")
     # points_aug : np.ndarray = points[:-1].copy()
@@ -23,7 +42,7 @@ def generateSpline(points : np.ndarray, k=3, simpson_subintervals = 12):
     euclidean_distances[1:] = np.cumsum(np.linalg.norm(points_aug[1:] - points_aug[:-1], ord=2, axis=1))
     splinex = euclidean_distances
 
-    fake_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(splinex, points_aug, k=k, bc_type="periodic")
+    fake_spline : scipy.interpolate.BSpline = scipy.interpolate.make_interp_spline(splinex, points_aug, k=3, bc_type="periodic")
     fake_spline_der : scipy.interpolate.BSpline = fake_spline.derivative()
 
     true_distances : np.ndarray = np.zeros_like(splinex)
@@ -33,7 +52,11 @@ def generateSpline(points : np.ndarray, k=3, simpson_subintervals = 12):
         xvec : np.ndarray = np.linspace(x0, x1, simpson_subintervals + 1)
         spline_norms : np.ndarray = np.linalg.norm(fake_spline_der(xvec), ord=2.0, axis=1)
         true_distances[i] = true_distances[i-1] + scipy.integrate.simpson(spline_norms, xvec)
-    return true_distances, points_aug, scipy.interpolate.make_interp_spline(true_distances, points_aug, k=k, bc_type="periodic")
+    zerovec = np.zeros_like(tau0) + 1E-9
+    # bc_type = [[(1, tau0)], [(1, tauf)]]
+    bc_type="periodic"
+    print(k)
+    return true_distances, points_aug, scipy.interpolate.make_interp_spline(true_distances, points_aug, k=k, bc_type=bc_type)
 def generateTimestamps(distances : np.ndarray, speeds : np.ndarray):
     times : np.ndarray = np.zeros_like(distances)
     for i in range(1, times.shape[0]):
@@ -50,10 +73,12 @@ def generateTimestamps(distances : np.ndarray, speeds : np.ndarray):
     return times
 
 class SmoothPathHelper:
-    def __init__(self, points : np.ndarray, speeds : typing.Union[np.ndarray, None] = None, k=3, simpson_subintervals = 12):
-        true_distances, points_aug, spline = generateSpline(points, k=k, simpson_subintervals=simpson_subintervals)
+    def __init__(self, points : np.ndarray, speeds : typing.Union[np.ndarray, None] = None, times : typing.Union[np.ndarray, None] = None, k=3, simpson_subintervals = 12):
+
+        true_distances, points_aug, spline = generateClosedSpline(points, k=k, simpson_subintervals=simpson_subintervals)
         self.distances : np.ndarray = true_distances
         self.points : np.ndarray = points_aug
+ 
         self.spline : scipy.interpolate.BSpline = spline
         self.spline_derivative : scipy.interpolate.BSpline = self.spline.derivative()
         self.spline_2nd_derivative : scipy.interpolate.BSpline = self.spline.derivative(nu=2)
@@ -61,9 +86,14 @@ class SmoothPathHelper:
         self.polygon : shapely.geometry.Polygon = shapely.geometry.Polygon(self.ring)
         self.kdtree : KDTree = KDTree(self.points)
         self.k : int = k
-
+        if (speeds is not None) and (times is not None):
+            raise ValueError("Can't pass both speeds and times")
         if speeds is not None:
-            self.parameterize_time(speeds)
+            self._parameterize_time_from_speed(speeds)
+        elif times is not None:
+            self._parameterize_time(times)
+            self.speeds = np.linalg.norm(self.spline_time_derivative(self.times), ord=2.0, axis=1)
+            self.speed_of_r : scipy.interpolate.BSpline =  scipy.interpolate.make_interp_spline(self.distances, self.speeds, k=self.k, bc_type="periodic")
         else:
             self.speeds = None
             self.times = None
@@ -93,18 +123,30 @@ class SmoothPathHelper:
             structured_array["time"] = self.times[:,None]
         return structured_array
     
-    def parameterize_time(self, speeds : np.ndarray):
+
+    def _init_time_splines(self):
+        self.spline_time : scipy.interpolate.BSpline =  scipy.interpolate.make_interp_spline(self.times, self.points, k=self.k, bc_type="periodic")
+        self.spline_time_derivative : scipy.interpolate.BSpline = self.spline_time.derivative()
+        self.spline_time_2nd_derivative : scipy.interpolate.BSpline = self.spline_time.derivative(nu=2)
+        self.r_of_t : scipy.interpolate.Akima1DInterpolator = scipy.interpolate.Akima1DInterpolator(self.times, self.distances)
+        self.t_of_r : scipy.interpolate.Akima1DInterpolator = scipy.interpolate.Akima1DInterpolator(self.distances, self.times)
+
+    def _parameterize_time(self, times : np.ndarray):
+        self.times = np.zeros_like(self.distances)
+        v0 = (self.points[1] - self.points[0])/(times[1] - times[0])
+        dt_final = np.linalg.norm(self.points[-1] - self.points[-2], ord=2.0)/np.linalg.norm(v0)
+        self.times[:-1] = times
+        self.times[-1] = self.times[-2] + dt_final
+        self._init_time_splines()
+        
+    def _parameterize_time_from_speed(self, speeds : np.ndarray):
         self.speeds : np.ndarray = np.zeros_like(self.distances)
         self.speeds[:-1] = speeds.copy()
         self.speeds[-1] = self.speeds[0]
         self.times = generateTimestamps(self.distances, self.speeds)
-        self.spline_time : scipy.interpolate.BSpline =  scipy.interpolate.make_interp_spline(self.times, self.points, k=self.k, bc_type="periodic")
-        self.spline_time_derivative : scipy.interpolate.BSpline = self.spline_time.derivative()
-        self.spline_time_2nd_derivative : scipy.interpolate.BSpline = self.spline_time.derivative(nu=2)
         # self.speed_of_r : scipy.interpolate.Akima1DInterpolator = scipy.interpolate.Akima1DInterpolator(self.distances, self.speeds)
         self.speed_of_r : scipy.interpolate.BSpline =  scipy.interpolate.make_interp_spline(self.distances, self.speeds, k=self.k, bc_type="periodic")
-        self.r_of_t : scipy.interpolate.Akima1DInterpolator = scipy.interpolate.Akima1DInterpolator(self.times, self.distances)
-        self.t_of_r : scipy.interpolate.Akima1DInterpolator = scipy.interpolate.Akima1DInterpolator(self.distances, self.times)
+        self._init_time_splines()
 
     def __closest_point_functor__(self, r : typing.Union[float,np.ndarray], query_point : np.ndarray):
         if query_point.ndim==1:

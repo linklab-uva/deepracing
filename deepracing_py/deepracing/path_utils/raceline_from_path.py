@@ -7,7 +7,12 @@ import matplotlib.pyplot as plt
 import scipy.interpolate
 import deepracing.path_utils.optimization 
 import typing
-from path_server.smooth_path_helper import SmoothPathHelper
+from deepracing.path_utils.smooth_path_helper import SmoothPathHelper
+import sympy
+import matplotlib.pyplot as plt
+import matplotlib.axes
+import matplotlib.figure
+from tqdm import tqdm
 
 class Writer:
     def __init__(self, argdict : dict, rsamp : np.ndarray, points : np.ndarray, ldsamp : typing.Union[np.ndarray, None] = None):
@@ -51,9 +56,10 @@ def optimizeLine(argdict : dict):
 
     inputfile = argdict["filepath"]
     numpytype, structured_array, _, _ = deepracing.path_utils.loadPCD(inputfile, align=True)
+    print(numpytype.names)
     chop = 2
     racelinein : np.ndarray = np.squeeze(np.stack([structured_array["x"], structured_array["y"], structured_array["z"]], axis=1))[:-chop]
-    racelinein_helper : SmoothPathHelper = SmoothPathHelper(racelinein, k=argdict["k"], simpson_subintervals=30)
+    racelinein_helper : SmoothPathHelper = SmoothPathHelper(racelinein, times=structured_array["time"][:-chop,0], k=argdict["k"], simpson_subintervals=30, k=5)
     dsin : float = argdict["ds"]
     num_evenly_spaced_points : int = int(round(racelinein_helper.distances[-1]/dsin))
     rsamp : np.ndarray = np.linspace(0.0, racelinein_helper.distances[-1], num = num_evenly_spaced_points)[:-1]
@@ -76,13 +82,38 @@ def optimizeLine(argdict : dict):
     maxspeed : float = argdict["maxv"]
     dsvec : np.ndarray = actual_ds*np.ones_like(rsamp)
     points_withy : np.ndarray = racelinein_helper.spline(rsamp)
+    # kappas_crude : np.ndarray = np.empty_like(dsvec)
+    # for i in tqdm(range(points_withy.shape[0]), desc="Computing curvatures"):
+    #     pt_back = points_withy[(i-1)%points_withy.shape[0], [0,2]].tolist()
+    #     pt_current = points_withy[i, [0,2]].tolist()
+    #     pt_future = points_withy[(i+1)%points_withy.shape[0], [0,2]].tolist()
+    #     circle : sympy.Circle = sympy.Circle( sympy.Point(*pt_back), sympy.Point2D(*pt_current), sympy.Point2D(*pt_future) )
+    #     kappas_crude[i] = 1.0/float(circle.radius)
     curvaturve_vecs : np.ndarray = racelinein_helper.spline_2nd_derivative(rsamp)[:,[0,2]]
     kappas : np.ndarray = np.linalg.norm(curvaturve_vecs, ord=2, axis=1)
-    clamp : bool = argdict["clamp_sf"]
-    idxclamp = (rsamp<50.0) + (rsamp>(racelinein_helper.distances[-1]-10.0))
-    if clamp:
+    clamp : float | None = argdict["clamp_sf"]
+    if clamp is not None:
+        idxclamp = (rsamp<clamp) + (rsamp>(racelinein_helper.distances[-1]-clamp))
         kappas[idxclamp] = 0.0
     idxcheck = (rsamp<350.0) + (rsamp>(racelinein_helper.distances[-1]-350.0))
+
+    idx_highcurvature = (kappas>0.005)
+    # idx_firstturn = np.argmax(idx_highcurvature)
+    mins = np.min(points_withy, axis=0)
+    maxes = np.max(points_withy, axis=0)
+
+    fig, axes_tuple = plt.subplots(nrows=1, ncols=3)
+    axes_pos : matplotlib.axes.Axes = axes_tuple[0]
+    axes_pos.set_xlim(mins[0], maxes[0])
+    axes_pos.set_ylim(maxes[2], mins[2])
+    axes_pos.plot(points_withy[0,0], points_withy[0,2], "*")
+    axes_pos.plot(points_withy[idx_highcurvature,0], points_withy[idx_highcurvature,2], "*")
+    axes_pos.plot(points_withy[:,0], points_withy[:,2])
+    axes_kappa : matplotlib.axes.Axes = axes_tuple[1]
+    axes_kappa.plot(rsamp, kappas)
+    # axes_kappa.plot(rsamp, kappas_crude)
+    plt.show()
+
     print("Curvatures around start-finish: %s" % (str(kappas[idxcheck]),), flush=True)
     writer : Writer = Writer(argdict, rsamp, points_withy, ldsamp = ldsamp)
     print("Building the sqp object", flush=True)
@@ -104,6 +135,8 @@ def optimizeLine(argdict : dict):
     accelfactor=argdict["accelfactor"]
     brakefactor=argdict["brakefactor"]
     hard_constraints=argdict["hard_constraints"]
+    if argdict["dry_run"]:
+        return
     print("Running the optimization", flush=True)
     x0, optimres = sqp.optimize(maxiter=maxiter, method=method, disp=True, keep_feasible=hard_constraints, \
                  x0=x0, accelfactor=accelfactor, brakefactor=brakefactor, cafactor=cafactor, initial_guess_ratio=argdict["initialguessratio"])
@@ -125,7 +158,8 @@ if __name__=="__main__":
     parser.add_argument("--cafactor", default=1.0, type=float,    help="Scale the max centripetal acceleration limits by this factor")
     parser.add_argument("--pca", action="store_true",  help="Project the raceline onto a PCA of the boundaries")
     parser.add_argument("--hard-constraints", action="store_true",  help="Enforce hard constraints in the optimization")
-    parser.add_argument("--clamp-sf", action="store_true",  help="Clamp the curvature values to 0 around the start-finish straight")
+    parser.add_argument("--clamp-sf", default=None, type=float,  help="Clamp the curvature values to 0 around the start-finish straight")
     parser.add_argument("--debug", action="store_true",  help="Print current state of the optimization on each iteration for debugging")
+    parser.add_argument("--dry-run", action="store_true",  help="Set up the optimization, but don't actually run it.")
     args = parser.parse_args()
     optimizeLine(vars(args))
