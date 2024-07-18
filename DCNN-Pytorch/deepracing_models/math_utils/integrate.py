@@ -3,7 +3,7 @@ import numpy as np
 import typing
 from deepracing_models.math_utils.statistics import gaussian_pdf
 class GaussianIntegral2D(torch.nn.Module):
-    def __init__(self, gauss_order : int, intervalx = (-1, 1), intervaly = (-1, 1), batchdims : list[int] = [])-> None:
+    def __init__(self, gauss_order : int, intervalx = (-1, 1), intervaly = (-1, 1), batchdims : list[int] = [], requires_grad=False)-> None:
         super(GaussianIntegral2D, self).__init__()
         xhalfwidth = 0.5*(intervalx[1] - intervalx[0])
         xmean = 0.5*(intervalx[1] + intervalx[0])
@@ -12,34 +12,33 @@ class GaussianIntegral2D(torch.nn.Module):
         eta, weights = (torch.as_tensor(v) for v in np.polynomial.legendre.leggauss(gauss_order))
         gauss_pts_01 = torch.stack(torch.meshgrid(xhalfwidth*eta + xmean,yhalfwidth*eta + ymean,indexing='ij'), dim=0).reshape(2,-1)
         gauss_weights = (xhalfwidth*yhalfwidth)*(weights*weights[:,None]).ravel()
-        self.eta_01 : torch.nn.Parameter = torch.nn.Parameter(gauss_pts_01, requires_grad=False)
-        self.weights : torch.nn.Parameter = torch.nn.Parameter(gauss_weights, requires_grad=False)
-    def forward(self, tv_means : torch.Tensor, tv_covars : torch.Tensor, rotations : torch.Tensor, translations : torch.Tensor):
-        mvn : torch.distributions.MultivariateNormal = torch.distributions.MultivariateNormal(tv_means, covariance_matrix=tv_covars, validate_args=False)
+        self.eta_01 : torch.nn.Parameter = torch.nn.Parameter(gauss_pts_01, requires_grad=requires_grad)
+        self.weights : torch.nn.Parameter = torch.nn.Parameter(gauss_weights, requires_grad=requires_grad)
+    def forward(self, mvn : torch.distributions.MultivariateNormal, rotations : torch.Tensor, translations : torch.Tensor):
         gauss_pts = (rotations@self.eta_01).transpose(-2,-1) + translations[...,None,:]
-        batchdims = translations.shape[:-1]
-        nbatchdims = len(batchdims)
+        nbatchdims = translations.ndim - 1
         ls = np.linspace(0, nbatchdims-1, nbatchdims, dtype=np.int64)
         permute_idx = np.concatenate([[-2,], ls, [-1,]]).astype(ls.dtype)
         gaussian_pdf_vals = torch.exp(mvn.log_prob(gauss_pts.permute(*permute_idx)))
         permute_inv_idx =  np.concatenate([[-1], ls]).astype(ls.dtype)
         weights_exp = self.weights.tile(*np.ones_like(permute_inv_idx)).permute(*permute_inv_idx)
-        return gauss_pts, mvn, torch.sum(gaussian_pdf_vals*weights_exp, dim=0).clip(0.0, 1.0)
+        return gauss_pts, torch.sum(gaussian_pdf_vals*weights_exp, dim=0).clip(0.0, 1.0)
     def __str__(self):
         return "Weights: %s.\n Eta: \n%s" % (str(self.weights.detach()), str(self.eta_01.transpose(-2,-1).detach()))
 
-class GaussianIntegral1D(torch.nn.Module):
-    def __init__(self, gauss_order : int, interval = (-1, 1), batchdims = [])-> None:
-        super(GaussianIntegral1D, self).__init__()
+class GaussLegendre1D(torch.nn.Module):
+    def __init__(self, gauss_order : int, interval = (-1, 1), requires_grad=False)-> None:
+        super(GaussLegendre1D, self).__init__()
+        intervalmean = 0.5*(interval[0] + interval[1])
+        intervalhalfwidth = 0.5*(interval[1] - interval[0])
         eta, weights = (torch.as_tensor(v) for v in np.polynomial.legendre.leggauss(gauss_order))
-        if len(batchdims)>0:
-            for asdf in range(batchdims):
-                weights = weights.unsqueeze(0)
-                eta = eta.unsqueeze(0)
-            weights = weights.expand(batchdims + [-1,])
-            eta = eta.expand(batchdims + [-1,])
-        self.eta : torch.nn.Parameter = torch.nn.Parameter(0.5*(interval[1] - interval[0])*eta + 0.5*(interval[0] + interval[1]))
-        self.weights : torch.nn.Parameter = torch.nn.Parameter(0.5*(interval[1] - interval[0])*weights)
+        self.eta : torch.nn.Parameter = torch.nn.Parameter(intervalhalfwidth*eta + intervalmean, requires_grad=requires_grad)
+        self.weights : torch.nn.Parameter = torch.nn.Parameter(intervalhalfwidth*weights, requires_grad=requires_grad)
+    def forward(self, x : torch.Tensor):
+        nbatchdims = x.ndim-1
+        weights = self.weights.tile(*torch.ones(nbatchdims + 1, dtype=torch.int64))
+        return torch.sum(weights*x, dim=-1)
+        
 def cumtrapz(y,x,initial=None):
     dx = x[:,1:]-x[:,:-1]
     avgy = 0.5*(y[:,1:]+y[:,:-1])
