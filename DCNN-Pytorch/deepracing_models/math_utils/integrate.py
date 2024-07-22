@@ -22,7 +22,7 @@ class GaussianIntegral2D(torch.nn.Module):
         gaussian_pdf_vals = torch.exp(mvn.log_prob(gauss_pts.permute(*permute_idx)))
         permute_inv_idx =  np.concatenate([[-1], ls]).astype(ls.dtype)
         weights_exp = self.weights.tile(*np.ones_like(permute_inv_idx)).permute(*permute_inv_idx)
-        return gauss_pts, torch.sum(gaussian_pdf_vals*weights_exp, dim=0).clip(0.0, 1.0)
+        return gauss_pts, gaussian_pdf_vals, torch.sum(gaussian_pdf_vals*weights_exp, dim=0).clip(0.0, 1.0)
     def __str__(self):
         return "Weights: %s.\n Eta: \n%s" % (str(self.weights.detach()), str(self.eta_01.transpose(-2,-1).detach()))
 
