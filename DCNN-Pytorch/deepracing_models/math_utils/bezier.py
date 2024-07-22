@@ -30,7 +30,7 @@ def closedPathAsBezierSpline(Y : torch.Tensor) -> Tuple[torch.Tensor, torch.Tens
     arclengths = torch.zeros_like(Yaug[:,0])
     distances = bezierArcLength(euclidean_spline)
     arclengths[1:] = torch.cumsum(distances, 0)
-    return arclengths, compositeBezierSpline(arclengths,Yaug,boundary_conditions="periodic")
+    return arclengths, compositeBezierSpline(arclengths, Yaug,boundary_conditions="periodic")
 
 
 
@@ -56,7 +56,7 @@ def compositeBezierAntiderivative(control_points : torch.Tensor, delta_t : torch
     
     return (antiderivative_onebatchdim).view(shapeout)/kbezier_out
 
-def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : int, 
+def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : int, Y_0 : torch.Tensor | None = None,  Y_f : torch.Tensor | None = None, 
                        constraint_level = 3, kbezier : int = 3, dYdT_0 : torch.Tensor | None = None, dYdT_f : torch.Tensor | None = None) -> tuple[torch.Tensor, torch.Tensor]:
     dtype = points.dtype
     device = points.device
@@ -77,6 +77,8 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
         raise ValueError("x must be monotonically increasing")
     tsamp = x.clone()
 
+    constrain_initial_point = Y_0 is not None
+    constrain_final_point = Y_f is not None
     constrain_initial_derivative = dYdT_0 is not None
     constrain_final_derivative = dYdT_f is not None
     continuinty_constraits_per_segment = min(kbezier, constraint_level)
@@ -147,9 +149,9 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
             E[:, row, (i+1)*(kbezier+1)+1] = 2.0
             E[:, row, (i+1)*(kbezier+1)+2] = -1.0
     E[:, continuity_constraints,0] = 1.0
-    d[:, continuity_constraints] = points[:, 0]
+    d[:, continuity_constraints] = Y_0.view(-1,dim) if constrain_initial_point else points[:, 0]
     E[:, continuity_constraints+1,-1] = 1.0
-    d[:, continuity_constraints+1] = points[:, -1]
+    d[:, continuity_constraints+1] = Y_f.view(-1,dim) if constrain_final_point else points[:, -1]
     if constrain_initial_derivative:
         E[:, continuity_constraints+2,0] = -kbezier
         E[:, continuity_constraints+2,1] = kbezier
