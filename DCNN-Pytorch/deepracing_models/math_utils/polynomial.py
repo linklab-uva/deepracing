@@ -54,14 +54,14 @@ def polycompanion(c : torch.Tensor):
     Parameters
     ----------
     c : torch.Tensor
-        N-K array of polynomial coefficients ordered from low to high
+        Nx(K+1) array of polynomial coefficients ordered from low to high
         degree. Batch dimension N, polynomial degree of K-1. 
         I.e., each c[i] is the coefficients of a polynomial: 
-        c_0 + c_1*t + c_2*t^2 + ... + c_(K-1)*t^(K-1) = 0.0
+        c_0 + c_1*t + c_2*t^2 + ... + c_K*t^K = 0.0
     Returns
     -------
     mat : torch.Tensor
-        Companion matrix of dimensions (N, deg, deg).
+        Companion matrix of dimensions (N, K, K).
     Notes
     -----
     .. Docstring is a modified version of the equivalent NumPy function.
@@ -72,7 +72,8 @@ def polycompanion(c : torch.Tensor):
     poly_degree : int = num_coefficients - 1
     if num_coefficients <= 2:
         raise ValueError('Series must have maximum degree of at least 3. K=1 makes no sense. Trivial case of K=2 should never call this function')
-    monic_coefficients = c/(c[:,-1])[:,None]
+    c[:,-1] = torch.where(torch.abs(c[:,-1])>1E-8, c[:,-1], 1E-8)
+    monic_coefficients = (c/(c[:,-1])[:,None])
     mat = torch.zeros( (batch_size, poly_degree, poly_degree), dtype=c.dtype, device=c.device)
     mat[:, :, -1] = -monic_coefficients[:,:-1]
     for i in range(0, mat.shape[1]-1):
@@ -170,4 +171,5 @@ def polyroots(c):
     # elif num_coefficients == 4:
     #     return cubic_formula(c)
     companion : torch.Tensor = polycompanion(c)
-    return torch.linalg.eigvals(companion)
+    eigvals = torch.linalg.eigvals(companion)
+    return eigvals
