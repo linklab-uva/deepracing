@@ -28,18 +28,18 @@ class CompositeBezierCurve(torch.nn.Module):
     def __init__(self, x : torch.Tensor, control_points : torch.Tensor) -> None:
         super(CompositeBezierCurve, self).__init__()
 
-        self.control_points : torch.nn.Parameter =  torch.nn.Parameter(control_points.clone(), requires_grad=False)
+        self.control_points : torch.nn.Parameter =  torch.nn.Parameter(control_points, requires_grad=False)
 
 
         dx = x[1:] - x[:-1]
         if not torch.all(dx>0):
             raise ValueError("x values must be in ascending order")
         
-        self.dx : torch.nn.Parameter =  torch.nn.Parameter(dx.clone(), requires_grad=False)
-        self.xstart_vec : torch.nn.Parameter =  torch.nn.Parameter(x[:-1].clone(), requires_grad=False)
-        self.xend_vec : torch.nn.Parameter =  torch.nn.Parameter(x[1:].clone(), requires_grad=False)
+        self.dx : torch.nn.Parameter =  torch.nn.Parameter(dx, requires_grad=False)
+        self.xstart_vec : torch.nn.Parameter =  torch.nn.Parameter(x[:-1], requires_grad=False)
+        self.xend_vec : torch.nn.Parameter =  torch.nn.Parameter(x[1:], requires_grad=False)
 
-        self.x : torch.nn.Parameter = torch.nn.Parameter(x.clone(), requires_grad=False)
+        self.x : torch.nn.Parameter = torch.nn.Parameter(x, requires_grad=False)
 
         self.d : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor(self.control_points.shape[-1], dtype=torch.int64), requires_grad=False)
 
@@ -76,7 +76,39 @@ class CompositeBezierCurve(torch.nn.Module):
         control_points_detached = self.control_points.detach()
         control_point_deltas : torch.Tensor = self.bezier_order.detach()*(control_points_detached[:,1:] - control_points_detached[:,:-1])/self.dx.detach()[:,None,None]
         return CompositeBezierCurve(self.x.detach().clone(), control_point_deltas)
+class ProbabilisticCBC(torch.nn.Module):
 
+    def __init__(self, x : torch.Tensor, control_points : torch.Tensor, covar_curves : torch.Tensor) -> None:
+
+        super(ProbabilisticCBC, self).__init__()
+        self.cbc : CompositeBezierCurve = CompositeBezierCurve(x, control_points)
+        numcurves = control_points.shape[0]
+        if not (covar_curves.shape[0]==numcurves):
+            raise ValueError("Got control points for %d curves but only %d covariances" % (numcurves, covar_curves.shape[0]))
+        kbezier = self.cbc.bezier_order.item()
+        if not (covar_curves.shape[1] == (kbezier+1)):
+            raise ValueError("PCBC of order %d should have %d covariances on each curve, but received %d" % (kbezier, kbezier+1, covar_curves.shape[1])) 
+        ambient_dim = control_points.shape[-1]
+        if (not (covar_curves.shape[2] == ambient_dim)) or (not (covar_curves.shape[3] == ambient_dim)):
+            raise ValueError(("Invalid dimensionality of covariance matrices. Final two dimensions must match ambient dimension of curve. Got ambient "+
+                              "dimension %d but covariance matrices have final two dimensions %d x %d") % (ambient_dim, covar_curves.shape[2], covar_curves.shape[3]))
+        if not torch.all(covar_curves[:-1,-1]==covar_curves[1:,0]):
+            raise ValueError("Final covariance of each curve should be exactly equal to the first covariance of the next curve")
+        self.covar_curves : torch.nn.Parameter = torch.nn.Parameter(covar_curves, requires_grad=False)
+
+    def forward(self, t : torch.Tensor, deriv=False):
+        positions, idxbuckets = self.cbc(t)
+        covar_curves = self.covar_curves[idxbuckets]
+        tstart = self.cbc.xstart_vec[idxbuckets]
+        tend = self.cbc.xend_vec[idxbuckets] 
+        s = (t - tstart)/(tend - tstart)
+        M = bezierM(s[:,None], self.cbc.bezier_order).squeeze(-2)
+        Msquare = torch.square(M)
+        covar_points = torch.sum(Msquare[...,None,None]*covar_curves, dim=-3)
+        return positions, covar_points, idxbuckets
+
+
+    
 class SimplePathHelper(torch.nn.Module):
     def __init__(self, arclengths : torch.Tensor, curve_control_points : torch.Tensor, dr_samp : float) -> None:
         super(SimplePathHelper, self).__init__()
@@ -131,7 +163,11 @@ class SimplePathHelper(torch.nn.Module):
         if deriv:
             derivs, _ = self.__curve_deriv__(s_true, idxbuckets=idxbuckets)
             return positions, derivs, idxbuckets
-        return positions, None
+        return positions, None, idxbuckets
+    def closest_point_naive(self, Pquery : torch.Tensor):
+        distance_matrix = torch.cdist(self.__points_samp__[None], Pquery[None])[0]
+        imin = torch.argmin(distance_matrix, dim=0)
+        return self.__r_samp__[imin], self.__points_samp__[imin]
     def closest_point(self, Pquery : torch.Tensor):
         order_this = self.__curve__.bezier_order.item()
         order_deriv = order_this - 1
@@ -176,12 +212,12 @@ class SimplePathHelper(torch.nn.Module):
             candidates_rstart = arclengths_start_select[i,candidates_idx]
             candidates_dr = delta_arclengths_select[i,candidates_idx]
             
-            norms = torch.norm(candidates[:,[0,-1]], p=2.0, dim=2)
+            norms = torch.norm(candidates[:,[0,-1]] - Pquery[None,None,i], p=2.0, dim=2)
             norm_means = torch.mean(norms, dim=1)
             imin = torch.argmin(norm_means)
 
             correctroots = candidates_polyroots[imin]
-            correctsval = correctroots[(torch.abs(correctroots.imag)<1E-5)*(correctroots.real>0.0)*(correctroots.real<1.0)].real.item()
+            correctsval = correctroots[(torch.abs(correctroots.imag)<1E-6)*(correctroots.real>=0.0)*(correctroots.real<=1.0)].real.item()
             correctdr = candidates_dr[imin]
 
             correctrstart = candidates_rstart[imin]
