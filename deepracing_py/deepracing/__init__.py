@@ -21,7 +21,7 @@ class TrackMap():
         self.raceline : np.ndarray = None
         self.directory : str = None
         self.name : str = None
-        self.linemap : dict = dict()
+        self.linemap : dict[str,dict[str, np.ndarray]] = dict()
         self.frame_id : str = None
         self.clockwise : bool = None
         if directory is not None:
@@ -81,6 +81,7 @@ class TrackMap():
         self.inner_boundary = self.linemap["inner_boundary"]["line"]
         self.outer_boundary = self.linemap["outer_boundary"]["line"]
         self.raceline = self.linemap["raceline"]["line"]
+        self.centerline = self.linemap["centerline"]["line"]
 
         
 
