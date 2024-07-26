@@ -10,6 +10,8 @@ try:
     from .py_waymo_conversions import scenario_to_tfexample # type: ignore
 except ImportError:
     pass
+def structured_to_dense(structured : np.ndarray, keys=["x", "y", "z"]):
+    return np.concatenate([structured[k] for k in keys], axis=1)
 class TrackMap():
     def __init__(self, directory : str, align=False, transform_to_map = True) -> None:
         self.starting_line_position : np.ndarray = None
@@ -136,6 +138,7 @@ def searchForFile(filename : str, searchdirs : List[str]):
                 if os.path.isfile(entry.path) and entry.name==filename:
                     return entry.path
     return None 
+
 def searchForTrackmap(trackname : str, searchdirs : List[str], align=False, transform_to_map = True):
     for searchdir in searchdirs:
         for root, directories, _ in os.walk(searchdir, topdown = True):
