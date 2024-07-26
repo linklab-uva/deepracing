@@ -1,7 +1,7 @@
 set(_required_cmake 3.22)
 cmake_minimum_required (VERSION ${_required_cmake} FATAL_ERROR)
 cmake_policy(VERSION ${_required_cmake})
-project(deepracing_cpp CXX)
+project(deepracing_cpp C CXX)
 
 find_package(ament_cmake QUIET)
 if(NOT CMAKE_CXX_STANDARD)
