@@ -212,7 +212,7 @@ class SimplePathHelper(torch.nn.Module):
             candidates_rstart = arclengths_start_select[i,candidates_idx]
             candidates_dr = delta_arclengths_select[i,candidates_idx]
             
-            norms = torch.norm(candidates[:,[0,-1]] - Pquery[None,None,i], p=2.0, dim=2)
+            norms = torch.norm(candidates[:,[0,-1]], p=2.0, dim=2)
             norm_means = torch.mean(norms, dim=1)
             imin = torch.argmin(norm_means)
 
@@ -266,10 +266,6 @@ class SimplePathHelper(torch.nn.Module):
         # xbezier_flat = control_points_transformed[:,:,:,0].reshape(-1, control_points.shape[-2])
         # polynom_roots = bezierPolyRoots(xbezier_flat).view(batchdim, control_points_exp.shape[1], control_points.shape[-2] - 1)
         # polynom_roots = torch.stack([ for i in range(batchdim)], dim=0).view(batchdim, -1, 3)
-
-
-        ZERO = -1E-6
-        ONE = 1.0 + 1E-6
         
 
         idx=torch.arange(0, control_points_exp.shape[1], step=1, dtype=torch.int64, device=control_points.device)
@@ -278,15 +274,12 @@ class SimplePathHelper(torch.nn.Module):
 
 
         for i in range(batchdim):
-            current_pquery = pquery[i]#.cpu().numpy()
-            current_rquery = rotmat[i]#.cpu().numpy()
-
             current_points_transformed = control_points_transformed[i]#.cpu().numpy()
             xpolys = current_points_transformed[:,:,0]
             polynom_roots = bezierPolyRoots(xpolys)
             current_roots_real = polynom_roots.real #.cpu().numpy()
             current_roots_imag = polynom_roots.imag #.cpu().numpy()
-            matchmask = (torch.abs(current_roots_imag)<1E-4)*(current_roots_real>=ZERO)*(current_roots_real<=ONE)
+            matchmask = (torch.abs(current_roots_imag)<1E-8)*(current_roots_real>=0.0)*(current_roots_real<=1.0)
             selection = torch.sum(matchmask, dim=-1)>=1
             candidates_idx = idx[selection]
             candidates = current_points_transformed[candidates_idx]
@@ -298,10 +291,13 @@ class SimplePathHelper(torch.nn.Module):
             norms = torch.norm(candidates[:,[0,-1]], p=2.0, dim=2)
             norm_means = torch.mean(norms, dim=1)
             imin = torch.argmin(norm_means)
-
+            # if norm_means[imin]>20.0:
+            #     current_pquery = Pquery[i]
+            #     pass
             correctroots = candidates_polyroots[imin]
-            correctsval = correctroots[(torch.abs(correctroots.imag)<1E-4)*(correctroots.real>=ZERO)*(correctroots.real<=ONE)].real.item()
+            correctsval = correctroots[(torch.abs(correctroots.imag)<1E-8)*(correctroots.real>=0.0)*(correctroots.real<=1.0)].real.item()
             correctdr = candidates_dr[imin]
+
 
             correctrstart = candidates_rstart[imin]
 
