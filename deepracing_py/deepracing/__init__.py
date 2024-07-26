@@ -67,16 +67,25 @@ class TrackMap():
                     _, line_track_, height, width = loadPCD(filepath, align=align)
                     line_track : np.ndarray = line_track_
                     if transform_to_map:
-                        line_track_x : np.ndarray = line_track['x'].copy()
-                        line_track_y : np.ndarray = line_track['y'].copy()
-                        line_track_z : np.ndarray = line_track['z'].copy()  
+                        line_track_x : np.ndarray = line_track['x'][:,0].copy()
+                        line_track_y : np.ndarray = line_track['y'][:,0].copy()
+                        line_track_z : np.ndarray = line_track['z'][:,0].copy()  
                         line_track_ones : np.ndarray = np.ones_like(line_track_z)
-                        line_track_all : np.ndarray = np.concatenate([line_track_x, line_track_y, line_track_z, line_track_ones], axis=1, dtype=line_track_x.dtype).T
-                        line_map_all : np.ndarray = np.matmul(transform.astype(line_track_all.dtype), line_track_all)
+                        line_track_all : np.ndarray = np.stack([line_track_x, line_track_y, line_track_z, line_track_ones], axis=0, dtype=line_track_x.dtype)
+                        line_map_all : np.ndarray = transform.astype(line_track_all.dtype) @ line_track_all
                         line_map : np.ndarray = line_track.copy()
                         line_map["x"] = line_map_all[0].reshape(line_map["x"].shape)
                         line_map["y"] = line_map_all[1].reshape(line_map["y"].shape)
                         line_map["z"] = line_map_all[2].reshape(line_map["z"].shape)
+                        keyset : set = set(line_map.dtype.fields.keys())
+                        quatkeys = ['i', 'j', 'k', 'w']
+                        if keyset.intersection(set(quatkeys))==set(quatkeys):
+                            quats = np.concatenate([line_track[k] for k in quatkeys], axis=1)
+                            rots_track = self.starting_line_rotation.inv() * Rotation.from_quat(quats)
+                            quats_track = rots_track.as_quat()
+                            quats_track[quats_track[:,-1]<0]*=-1.0
+                            for (i, k) in enumerate(quatkeys):
+                                line_map[k] = quats_track[:,[i,]]
                         self.linemap[base] = {"filepath" : filepath, "line" : line_map, "height" : height, "width": width}
                     else:
                         self.linemap[base] = {"filepath" : filepath, "line" : line_track, "height" : height, "width": width}
