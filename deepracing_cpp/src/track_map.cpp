@@ -7,6 +7,7 @@
 #include <sstream>
 #include <algorithm>
 #include <cctype>
+#include <deepracing/utils.hpp>
 
 
 namespace fs = std::filesystem;
@@ -57,7 +58,7 @@ namespace deepracing
             throw std::runtime_error("\"quaternion\" key in metadata.yaml must be a list of 4 floats");
         }
 
-        Eigen::Vector3d peigen = Eigen::Map<Eigen::Vector3d>(startinglineposition.data(), startinglineposition.size());
+        Eigen::Vector3d peigen = Eigen::Vector3d(startinglineposition.at(0), startinglineposition.at(1), startinglineposition.at(2));
         Eigen::Quaterniond qeigen = Eigen::Quaterniond(startinglinequaternion.at(3), startinglinequaternion.at(0), startinglinequaternion.at(1), startinglinequaternion.at(2));
         startingline_pose_.fromPositionOrientationScale(peigen, qeigen, Eigen::Vector3d::Ones());
         Eigen::Isometry3f pcl_transform = startingline_pose_.inverse().cast<float>();   
@@ -72,7 +73,7 @@ namespace deepracing
         }
         pcl::transformPointCloud<PointXYZLapdistance>(temp, temp_map, pcl_transform);
         temp_map.header.frame_id="map";
-        inner_boundary_.reset(new pcl::PointCloud<PointXYZLapdistance>(temp_map));
+        inner_boundary_.reset(new pcl::PointCloud<PointXYZLapdistance>(deepracing::Utils::closeBoundary(temp_map)));
 
         temp.clear();
         temp_map.clear();
@@ -85,7 +86,7 @@ namespace deepracing
         }
         pcl::transformPointCloud<PointXYZLapdistance>(temp, temp_map, pcl_transform);
         temp_map.header.frame_id="map";
-        outer_boundary_.reset(new pcl::PointCloud<PointXYZLapdistance>(temp_map));
+        outer_boundary_.reset(new pcl::PointCloud<PointXYZLapdistance>(deepracing::Utils::closeBoundary(temp_map)));
 
         pcl::PointCloud<PointXYZTime> temp_raceline, temp_raceline_map;
         fs::path raceline_file_path = track_directory_path / fs::path("raceline.pcd");
@@ -212,7 +213,6 @@ namespace deepracing
                         fs::is_regular_file(marker_checkpath))
                     {
                         YAML::Node track_config = YAML::LoadFile(metadata_checkpath.string()); 
-                        std::cout<<track_config["name"]<<", " << trackname << std::endl;
                         if(track_config["name"])
                         {
                             if(track_config["name"].as<std::string>()==trackname)

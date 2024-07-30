@@ -21,11 +21,23 @@ namespace deepracing
     
     struct PointXYZArclength : public _PointXYZArclength
     {
-        inline constexpr PointXYZArclength (const _PointXYZArclength &p) : PointXYZArclength{p.x, p.y, p.z, p.arclength} {}
+        inline constexpr PointXYZArclength (const _PointXYZArclength &p) : PointXYZArclength{p.x, p.y, p.z, p.arclength} {
+            data_c[1] = 1.0;
+            data_c[2] = 1.0;
+            data_c[3] = 1.0;
+        }
 
-        inline constexpr PointXYZArclength (float _arclength = 0.f) : PointXYZArclength(0.f, 0.f, 0.f, _arclength) {}
+        inline constexpr PointXYZArclength (float _arclength = 0.f) : PointXYZArclength(0.f, 0.f, 0.f, _arclength) {
+            data_c[1] = 1.0;
+            data_c[2] = 1.0;
+            data_c[3] = 1.0;
+        }
 
-        inline constexpr PointXYZArclength (float _x, float _y, float _z, float _arclength = 0.f) : _PointXYZArclength{{{_x, _y, _z, 1.0f}}, {{_arclength}}} {}
+        inline constexpr PointXYZArclength (float _x, float _y, float _z, float _arclength = 0.f) : _PointXYZArclength{{{_x, _y, _z, 1.0f}}, {{_arclength}}} {
+            data_c[1] = 1.0;
+            data_c[2] = 1.0;
+            data_c[3] = 1.0;
+        }
         
         friend std::ostream& operator << (std::ostream& os, const PointXYZArclength& p);
     };
@@ -52,7 +64,11 @@ namespace deepracing
 
         inline constexpr PointXYZLapdistance (float _lapdistance = 0.f) : PointXYZLapdistance(0.f, 0.f, 0.f, _lapdistance) {}
 
-        inline constexpr PointXYZLapdistance (float _x, float _y, float _z, float _lapdistance = 0.f) : _PointXYZLapdistance{{{_x, _y, _z, 1.0f}}, {{_lapdistance}}} {}
+        inline constexpr PointXYZLapdistance (float _x, float _y, float _z, float _lapdistance = 0.f) : _PointXYZLapdistance{{{_x, _y, _z, 1.0f}}, {{_lapdistance}}} {
+            data_c[1] = 1.0;
+            data_c[2] = 1.0;
+            data_c[3] = 1.0;
+        }
         
         friend std::ostream& operator << (std::ostream& os, const PointXYZLapdistance& p);
     };

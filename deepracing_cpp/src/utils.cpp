@@ -1,4 +1,34 @@
 #include <deepracing/utils.hpp>
+pcl::PointCloud<deepracing::PointXYZLapdistance> deepracing::Utils::closeBoundary(const pcl::PointCloud<deepracing::PointXYZLapdistance>& open_boundary){
+    Eigen::VectorXd dL(open_boundary.size()-1);
+    for(unsigned int i = 1; i < open_boundary.size(); i++)
+    {
+        dL[i-1] = open_boundary[i].lapdistance - open_boundary[i-1].lapdistance;
+    }
+    double meandL = dL.mean();
+    const PointXYZLapdistance& p0 = open_boundary.at(0);
+    const PointXYZLapdistance& pf = open_boundary.at(open_boundary.size()-1);
+    Eigen::Vector3f pf_eigen = Eigen::Vector3f(pf.getVector3fMap());
+    Eigen::Vector3f deltavec = Eigen::Vector3f(p0.getVector3fMap() - pf_eigen);
+    double final_distance = deltavec.norm();
+    Eigen::Vector3f direction = deltavec.normalized();
+    if (final_distance<2.0*meandL)
+    {
+        return open_boundary;
+    }
+    unsigned int num_extra_points = (unsigned int)std::round(final_distance/meandL);
+    Eigen::VectorXd extra_ld = Eigen::VectorXd::LinSpaced(num_extra_points, meandL, final_distance-meandL);
+    pcl::PointCloud<deepracing::PointXYZLapdistance> rtn(open_boundary);
+    rtn.resize(rtn.size() + num_extra_points);
+    for (unsigned int i = 0; i < num_extra_points; i++)
+    {
+        PointXYZLapdistance newpoint;
+        newpoint.getVector3fMap() = pf_eigen + direction*extra_ld[i];
+        newpoint.lapdistance = pf.lapdistance + extra_ld[i];
+        rtn.at(open_boundary.size() + i) = newpoint;
+    }
+    return rtn;
+}
 std::map<std::int8_t, std::string> deepracing::Utils::trackNames()
 {
     std::map<std::int8_t, std::string> rtn;

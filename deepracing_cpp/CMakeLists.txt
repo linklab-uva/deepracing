@@ -18,6 +18,16 @@ INTERFACE
 set(targets_to_install)
 list(APPEND targets_to_install headers)
 
+
+file(DOWNLOAD https://www.alglib.net/translator/re/alglib-4.00.0.cpp.gpl.zip alglib.zip)
+file(ARCHIVE_EXTRACT INPUT ${CMAKE_BINARY_DIR}/alglib.zip DESTINATION ${CMAKE_BINARY_DIR}/alglib)
+set(alglib_src_dir ${CMAKE_BINARY_DIR}/alglib/alglib-cpp/src)
+
+file(GLOB alglib_srcs_ LIST_DIRECTORIES false ${alglib_src_dir}/*.cpp)
+file(GLOB alglib_headers_ LIST_DIRECTORIES false ${alglib_src_dir}/*.h)
+file(COPY ${alglib_headers_} DESTINATION ${CMAKE_BINARY_DIR}/include/alglib)
+
+
 set(_pcl_components_ common io)
 find_package(PCL CONFIG REQUIRED COMPONENTS ${_pcl_components_})
 message(STATUS "Found PCL at ${PCL_DIR}")
@@ -36,9 +46,9 @@ set_target_properties(pcltypes PROPERTIES OUTPUT_NAME ${PROJECT_NAME}_pcltypes)
 find_package(Eigen3 CONFIG REQUIRED)
 find_package(yaml-cpp CONFIG REQUIRED)
 message(STATUS "Found yaml-cpp at ${yaml-cpp_DIR}")
-add_library(utils SHARED src/track_map.cpp src/utils.cpp)
+add_library(utils SHARED src/track_map.cpp src/utils.cpp ${alglib_srcs_})
 target_link_libraries(utils PUBLIC headers pcltypes yaml-cpp Eigen3::Eigen PRIVATE ${PCL_LIBRARIES})
-target_include_directories(utils PRIVATE ${PCL_INCLUDE_DIRS})
+target_include_directories(utils PRIVATE ${PCL_INCLUDE_DIRS} ${CMAKE_BINARY_DIR}/include)
 set_target_properties(utils PROPERTIES OUTPUT_NAME ${PROJECT_NAME}_utils)
 if(WIN32)
     target_compile_definitions(utils PRIVATE DEEPRACING_CPP_BUILDING_DLL)
