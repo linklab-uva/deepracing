@@ -26,8 +26,12 @@ class TrackMap():
         self.linemap : dict[str,dict[str, np.ndarray]] = dict()
         self.frame_id : str = None
         self.clockwise : bool = None
+        self.map_coords : bool = None
+        self.align : bool = None
         if directory is not None:
             self.loadFromDirectory(directory, align=align, transform_to_map = transform_to_map)
+            self.map_coords = transform_to_map
+
     def getPathHelper(self, key : str, dtype = np.float32, with_z = True) -> Union[SmoothPathHelper, None]:
         try:
             line_structured : np.ndarray = self.linemap[key]["line"]
@@ -45,6 +49,8 @@ class TrackMap():
     def loadFromDirectory(self, directory : str, align=False, transform_to_map = True):
         with open(os.path.join(directory, "metadata.yaml"), "r") as f:
             metadatadict : dict = yaml.load(f, Loader=yaml.SafeLoader)
+        self.align = align
+        self.map_coords = transform_to_map
         self.clockwise = metadatadict["clockwise"]
         self.starting_line_position = np.asarray(metadatadict["startingline_pose"]["position"], dtype=np.float64)
         self.starting_line_rotation = Rotation.from_quat(np.asarray(metadatadict["startingline_pose"]["quaternion"], dtype=np.float64))
@@ -74,18 +80,18 @@ class TrackMap():
                         line_track_all : np.ndarray = np.stack([line_track_x, line_track_y, line_track_z, line_track_ones], axis=0, dtype=line_track_x.dtype)
                         line_map_all : np.ndarray = transform.astype(line_track_all.dtype) @ line_track_all
                         line_map : np.ndarray = line_track.copy()
-                        line_map["x"] = line_map_all[0].reshape(line_map["x"].shape)
-                        line_map["y"] = line_map_all[1].reshape(line_map["y"].shape)
-                        line_map["z"] = line_map_all[2].reshape(line_map["z"].shape)
+                        line_map["x"] = line_map_all[[0,]].T
+                        line_map["y"] = line_map_all[[1,]].T
+                        line_map["z"] = line_map_all[[2,]].T
                         keyset : set = set(line_map.dtype.fields.keys())
                         quatkeys = ['i', 'j', 'k', 'w']
                         if keyset.intersection(set(quatkeys))==set(quatkeys):
-                            quats = np.concatenate([line_track[k] for k in quatkeys], axis=1)
-                            rots_track = self.starting_line_rotation.inv() * Rotation.from_quat(quats)
-                            quats_track = rots_track.as_quat()
-                            quats_track[quats_track[:,-1]<0]*=-1.0
+                            quats_track  = np.concatenate([line_track[k] for k in quatkeys], axis=1)
+                            rots_map = self.starting_line_rotation.inv() * Rotation.from_quat(quats_track)
+                            quats_map = rots_map.as_quat()
+                            quats_map[quats_track[:,-1]<0]*=-1.0
                             for (i, k) in enumerate(quatkeys):
-                                line_map[k] = quats_track[:,[i,]]
+                                line_map[k] = quats_map[:,[i,]]
                         self.linemap[base] = {"filepath" : filepath, "line" : line_map, "height" : height, "width": width}
                     else:
                         self.linemap[base] = {"filepath" : filepath, "line" : line_track, "height" : height, "width": width}
