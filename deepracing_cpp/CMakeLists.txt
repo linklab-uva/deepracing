@@ -71,6 +71,7 @@ install(TARGETS ${targets_to_install}
 )
 
 if(ament_cmake_FOUND)
+    message(STATUS "Building with ament")
     set(${PROJECT_NAME}_BUILT_WITH_AMENT TRUE)
     ament_export_targets(${PROJECT_NAME}_export)
     ament_package(CONFIG_EXTRAS cmake/find_deps.cmake.in)
