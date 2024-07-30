@@ -112,9 +112,7 @@ class ProbabilisticCBC(torch.nn.Module):
 class SimplePathHelper(torch.nn.Module):
     def __init__(self, arclengths : torch.Tensor, curve_control_points : torch.Tensor, dr_samp : float) -> None:
         super(SimplePathHelper, self).__init__()
-        # arclengths_, curve_control_points_ = closedPathAsBezierSpline(points)
         self.__arclengths_in__ : torch.nn.Parameter = torch.nn.Parameter(arclengths.clone(), requires_grad=False)
-        # self.__points_in__ : torch.nn.Parameter = torch.nn.Parameter(points.clone(), requires_grad=False)
 
         self.__curve__ : CompositeBezierCurve = CompositeBezierCurve(arclengths, curve_control_points).requires_grad_(False)
         self.__curve_deriv__ : CompositeBezierCurve = self.__curve__.derivative().requires_grad_(False)
@@ -157,9 +155,9 @@ class SimplePathHelper(torch.nn.Module):
         s_true = s%self.__curve_deriv__.xend_vec[-1]
         derivs, _ = self.__curve_deriv__(s_true)
         return derivs
-    def forward(self, s : torch.Tensor, deriv=False):
+    def forward(self, s : torch.Tensor, deriv=False, idxbuckets=None):
         s_true = s%self.__curve__.xend_vec[-1]
-        positions, idxbuckets = self.__curve__(s_true)
+        positions, idxbuckets = self.__curve__(s_true, idxbuckets=idxbuckets)
         if deriv:
             derivs, _ = self.__curve_deriv__(s_true, idxbuckets=idxbuckets)
             return positions, derivs, idxbuckets
@@ -179,7 +177,7 @@ class SimplePathHelper(torch.nn.Module):
         control_point_0 = control_points[:,0]
         distance_matrix = torch.cdist(Pquery, control_point_0)
         idx_min = torch.argmin(distance_matrix, dim=1, keepdim=True)
-        idx_delta = torch.arange(-15, 16, step=1, dtype=torch.int64, device=Pquery.device)
+        idx_delta = torch.arange(-5, 6, step=1, dtype=torch.int64, device=Pquery.device)
         idx_delta_exp = (idx_delta.unsqueeze(0).expand(Pquery.shape[0], idx_delta.shape[0]) + idx_min)%control_point_0.shape[0]
 
         control_points_select = control_points[idx_delta_exp]
