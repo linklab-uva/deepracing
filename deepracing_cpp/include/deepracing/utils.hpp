@@ -5,7 +5,12 @@
 
 namespace deepracing
 {
-    inline std::map<std::size_t, std::string> trackNames();
+    class Utils
+    {
+        public:
+            static std::map<std::int8_t, std::string> trackNames();
+    };
+    // inline std::map<std::int8_t, std::string> trackNames();
 }
 
 

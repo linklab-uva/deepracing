@@ -1,4 +1,5 @@
 #include <deepracing/track_map.hpp>
+#include <deepracing/pcl_transforms.hpp>
 #include <yaml-cpp/yaml.h>
 #include <filesystem>
 #include <pcl/io/pcd_io.h>
@@ -98,6 +99,15 @@ namespace deepracing
         temp_raceline_map.header.frame_id="map";
         raceline_.reset(new pcl::PointCloud<PointXYZTime>(temp_raceline_map));
 
+        fs::path widthmap_filepath = track_directory_path / fs::path("widthmap.pcd");
+        pcl::PointCloud<PointWidthMap> widthmaptemp, widthmaptemp_map;
+        if(pcl::io::loadPCDFile<PointWidthMap>(widthmap_filepath.string(), widthmaptemp)==0)
+        {
+            deepracing::transforms::transformPointCloudWithOrientation<PointWidthMap>(widthmaptemp, widthmaptemp_map, pcl_transform);
+            widthmaptemp_map.header.frame_id="map";
+            width_map_.reset(new pcl::PointCloud<PointWidthMap>(widthmaptemp_map));
+        }
+
         other_clouds_.clear();
         for (const fs::directory_entry& dir_entry : fs::recursive_directory_iterator(track_directory_path))
         {
@@ -106,6 +116,7 @@ namespace deepracing
             if (!dir_entry.is_regular_file() || 
                 key=="inner_boundary" || 
                 key=="outer_boundary" || 
+                key=="widthmap"|| 
                 key=="raceline" )
             {
                 continue;
@@ -127,7 +138,16 @@ namespace deepracing
 
     }
     
-    pcl::PCLPointCloud2 TrackMap::getCloud(const std::string& key)
+    const std::vector<std::string> TrackMap::keys() const
+    {
+        std::vector<std::string> rtn;
+        for (auto it = other_clouds_.begin(); it!=other_clouds_.end(); it++)
+        {
+            rtn.push_back(it->first);
+        }
+        return rtn;
+    }
+    const pcl::PCLPointCloud2 TrackMap::getCloud(const std::string& key) const
     {
         pcl::PCLPointCloud2 rtn;
         try
@@ -137,40 +157,43 @@ namespace deepracing
         }
         catch(const std::out_of_range& e)
         {
-            std::stringstream errorstream;
-            errorstream << "Key " << key << " doesn't exist in this trackmap" << std::endl;
-            throw std::runtime_error(errorstream.str());
+            std::cerr << "Key " << key << " doesn't exist in this trackmap" << std::endl;
+            throw e;
         }
         catch(const std::exception& e)
         {
-            std::stringstream errorstream;
-            errorstream << "Unknown error when loading trackfile " << key << std::endl;
-            errorstream << "Underlying exception:"<< std::endl << std::string(e.what()) << std::endl;
-            throw std::runtime_error(errorstream.str());
+            std::cerr << "Unknown error when loading trackfile " << key << std::endl;
+            std::cerr << "Underlying exception:"<< std::endl << std::string(e.what()) << std::endl;
+            throw e;
         }
     }
-    const pcl::PointCloud<PointXYZLapdistance>::ConstPtr TrackMap::innerBound()
+    const pcl::PointCloud<PointWidthMap>::ConstPtr TrackMap::widthMap() const
+    {
+        return width_map_;
+    }
+    const pcl::PointCloud<PointXYZLapdistance>::ConstPtr TrackMap::innerBound() const
     {
         return inner_boundary_;
     }
-    const pcl::PointCloud<PointXYZLapdistance>::ConstPtr TrackMap::outerBound()
+    const pcl::PointCloud<PointXYZLapdistance>::ConstPtr TrackMap::outerBound() const
     {
         return outer_boundary_;
     }
-    const pcl::PointCloud<PointXYZTime>::ConstPtr TrackMap::raceline()
+    const pcl::PointCloud<PointXYZTime>::ConstPtr TrackMap::raceline() const
     {
         return raceline_;
     }
-    const std::string TrackMap::name()
+    const std::string TrackMap::name() const
     {
         return name_;
     }
-    const Eigen::Isometry3d TrackMap::startinglinePose()
+    const Eigen::Isometry3d TrackMap::startinglinePose() const
     {
         return startingline_pose_;
     }
     TrackMap::Ptr TrackMap::findTrackmap(const std::string& trackname, const std::vector<std::string> & search_dirs)
     {
+        TrackMap::Ptr rtn;
         for(const std::string& search_dir : search_dirs)
         {
             fs::path search_path(search_dir);
@@ -189,26 +212,28 @@ namespace deepracing
                         fs::is_regular_file(marker_checkpath))
                     {
                         YAML::Node track_config = YAML::LoadFile(metadata_checkpath.string()); 
+                        std::cout<<track_config["name"]<<", " << trackname << std::endl;
                         if(track_config["name"])
                         {
                             if(track_config["name"].as<std::string>()==trackname)
                             {
-                                TrackMap::Ptr rtn(new TrackMap);
+                                rtn.reset(new TrackMap);
                                 rtn->loadFromDirectory(checkpath.string());
                                 return rtn;
                             }
                         }
                         else
                         {
-                            std::cerr << "Found a directory with both metadata.yaml and DEEPRACING_TRACKMAP, but metadata.yaml does not have a \"name\" key" << std::endl;
+                            std::cerr << "Found a directory " << checkpath.string() << " with both metadata.yaml and DEEPRACING_TRACKMAP, but metadata.yaml does not have a \"name\" key" << std::endl;
                         }
                     }
                 }
             }
         }
-        std::stringstream errorstream;
-        errorstream << "Could not find map for track " << trackname << std::endl;
-        throw std::runtime_error(errorstream.str());
+        return rtn;
+        // std::stringstream errorstream;
+        // errorstream << "Could not find map for track " << trackname << std::endl;
+        // throw std::runtime_error(errorstream.str());
     }
 }
 

@@ -40,5 +40,23 @@ namespace deepracing
     return (os);
   }
 
+  
+  std::ostream& 
+  operator << (std::ostream& os, const PointXYZTAL& p)
+  {
+    os << "(";
+    os << p.x << "," << p.y << "," << p.z << "," << p.time << "," << p.arclength << "," << p.lapdistance;
+    os << ")";
+    return (os);
+  }
+
+  std::ostream& 
+  operator << (std::ostream& os, const PointWidthMap& p)
+  {
+    os << "(";
+    os << p.x << "," << p.y << "," << p.z << "," << p.i << "," << p.j << "," << p.k << "," << p.w << "," << p.ib_distance << "," << p.ob_distance;
+    os << ")";
+    return (os);
+  }
 
 } 

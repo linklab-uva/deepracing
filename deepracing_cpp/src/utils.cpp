@@ -1,7 +1,7 @@
 #include <deepracing/utils.hpp>
-std::map<std::size_t, std::string> deepracing::trackNames()
+std::map<std::int8_t, std::string> deepracing::Utils::trackNames()
 {
-    std::map<std::size_t, std::string> rtn;
+    std::map<std::int8_t, std::string> rtn;
     rtn[0] = "Australia";
     rtn[1] = "Canada";
     rtn[2] = "China";
@@ -35,7 +35,7 @@ std::map<std::size_t, std::string> deepracing::trackNames()
     rtn[30] = "Miami";
     rtn[31] = "VegasF1";
     rtn[32] = "Losail";
-    rtn[33] = "VegasIndycar";
-    rtn[34] = "TexasIndycar";
+    rtn[33] = "Las Vegas Motor Speedway";
+    rtn[34] = "Texas Motor Speedway";
     return rtn;
 }
