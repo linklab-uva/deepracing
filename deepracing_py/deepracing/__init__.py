@@ -160,7 +160,12 @@ def searchForTrackmap(trackname : str, searchdirs : List[str], align=False, tran
             for directory in directories:
                 full_directory = os.path.join(root,directory)
                 print("searching %s in %s" % (directory,root))
-                if directory==trackname and os.path.isfile(os.path.join(full_directory,"DEEPRACING_TRACKMAP")) and os.path.isfile(os.path.join(full_directory,"metadata.yaml")):
+                metadata_file = os.path.join(full_directory,"metadata.yaml")
+                if not os.path.isfile(metadata_file):
+                    continue
+                with open(metadata_file, "r") as f:
+                    metadata : dict = yaml.load(f, Loader=yaml.SafeLoader)
+                if metadata.get("name", None)==trackname and os.path.isfile(os.path.join(full_directory,"DEEPRACING_TRACKMAP")):
                     print("Yay!")
                     return TrackMap(os.path.join(root,directory), align=align, transform_to_map = transform_to_map)
     return None
