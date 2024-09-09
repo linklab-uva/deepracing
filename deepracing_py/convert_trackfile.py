@@ -351,6 +351,8 @@ def go(argdict):
     #del track, trackin, xin, yin, zin, dotsquares, Xin, rin, diffs, diffnorms, accels, accelnorms, tangents, tangentnorms, unit_tangents, unit_normals #, rsamp, Xsamp
 
     print("yay")
+    if argdict["dry_run"]:
+        return
     writefunction = partial(writeRacelineToFile, argdict)
     sqp = OptimWrapper(maxspeed, dsvec, radii, callback = writefunction)
 
@@ -379,5 +381,6 @@ if __name__=="__main__":
     parser.add_argument("--brakefactor", default=1.0, type=float, help="Scale the max braking limits by this factor")
     parser.add_argument("--cafactor", default=1.0, type=float,    help="Scale the max centripetal acceleration limits by this factor")
     parser.add_argument("--pca", action="store_true",  help="Project the raceline onto a PCA of the boundaries")
+    parser.add_argument("--dry-run", action="store_true",  help="Do all the visualizations, then set up the optimizer, but don't actually run it")
     args = parser.parse_args()
     go(vars(args))
