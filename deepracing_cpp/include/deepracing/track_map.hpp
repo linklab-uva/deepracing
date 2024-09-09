@@ -16,7 +16,7 @@ namespace deepracing
         public:
             typedef std::shared_ptr<TrackMap> Ptr;
             typedef std::shared_ptr<const TrackMap> ConstPtr;
-            void DEEPRACING_CPP_PUBLIC loadFromDirectory(const std::string& track_directory);
+            void DEEPRACING_CPP_PUBLIC loadFromDirectory(const std::string& track_directory, bool transform_to_map=true);
             const std::vector<std::string> DEEPRACING_CPP_PUBLIC keys() const;
             const pcl::PCLPointCloud2 DEEPRACING_CPP_PUBLIC getCloud(const std::string& key) const;
             const Eigen::Isometry3d DEEPRACING_CPP_PUBLIC startinglinePose() const;
@@ -30,7 +30,7 @@ namespace deepracing
                 const pcl::PointCloud<PointXYZLapdistance>& innerbound, 
                 const pcl::PointCloud<PointXYZLapdistance>& outerbound, 
                 const pcl::PointCloud<PointXYZTime>& raceline);
-            static TrackMap::Ptr DEEPRACING_CPP_PUBLIC findTrackmap(const std::string& trackname, const std::vector<std::string> & search_dirs);
+            static TrackMap::Ptr DEEPRACING_CPP_PUBLIC findTrackmap(const std::string& trackname, const std::vector<std::string> & search_dirs, bool transform_to_map=true);
         private:
             pcl::PointCloud<PointXYZLapdistance>::ConstPtr inner_boundary_, outer_boundary_;
             pcl::PointCloud<PointXYZTime>::ConstPtr raceline_;

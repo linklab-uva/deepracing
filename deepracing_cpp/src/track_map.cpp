@@ -38,7 +38,7 @@ namespace deepracing
     {
         return TrackMap::Ptr(new TrackMap(name, innerbound, outerbound, raceline));
     }
-    void TrackMap::loadFromDirectory(const std::string& track_directory)
+    void TrackMap::loadFromDirectory(const std::string& track_directory, bool transform_to_map)
     {
         fs::path track_directory_path(track_directory); 
         fs::path metadata_path = track_directory_path/fs::path("metadata.yaml");
@@ -57,12 +57,11 @@ namespace deepracing
         {
             throw std::runtime_error("\"quaternion\" key in metadata.yaml must be a list of 4 floats");
         }
-
         Eigen::Vector3d peigen = Eigen::Vector3d(startinglineposition.at(0), startinglineposition.at(1), startinglineposition.at(2));
         Eigen::Quaterniond qeigen = Eigen::Quaterniond(startinglinequaternion.at(3), startinglinequaternion.at(0), startinglinequaternion.at(1), startinglinequaternion.at(2));
+        qeigen.normalize();
         startingline_pose_.fromPositionOrientationScale(peigen, qeigen, Eigen::Vector3d::Ones());
-        Eigen::Isometry3f pcl_transform = startingline_pose_.inverse().cast<float>();   
-
+        Eigen::Isometry3f pcl_transform = startingline_pose_.inverse().cast<float>();
         fs::path inner_boundary_file_path = track_directory_path / fs::path("inner_boundary.pcd");
         pcl::PointCloud<PointXYZLapdistance> temp, temp_map;
         if(!(pcl::io::loadPCDFile<PointXYZLapdistance>(inner_boundary_file_path.string(), temp)==0))
@@ -71,8 +70,14 @@ namespace deepracing
             errorstream<<"Could not load inner boundary file: " << inner_boundary_file_path.string() << std::endl;
             throw std::runtime_error(errorstream.str());
         }
-        pcl::transformPointCloud<PointXYZLapdistance>(temp, temp_map, pcl_transform);
-        temp_map.header.frame_id="map";
+        if (transform_to_map) {
+            pcl::transformPointCloud<PointXYZLapdistance>(temp, temp_map, pcl_transform);
+            temp_map.header.frame_id="map";
+        }
+        else{
+            temp_map = temp;
+            temp_map.header.frame_id="track";
+        }
         inner_boundary_.reset(new pcl::PointCloud<PointXYZLapdistance>(deepracing::Utils::closeBoundary(temp_map)));
 
         temp.clear();
@@ -84,8 +89,14 @@ namespace deepracing
             errorstream<<"Could not load outer boundary file: " << outer_boundary_file_path.string() << std::endl;
             throw std::runtime_error(errorstream.str());
         }
-        pcl::transformPointCloud<PointXYZLapdistance>(temp, temp_map, pcl_transform);
-        temp_map.header.frame_id="map";
+        if (transform_to_map) {
+            pcl::transformPointCloud<PointXYZLapdistance>(temp, temp_map, pcl_transform);
+            temp_map.header.frame_id="map";
+        }
+        else{
+            temp_map = temp;
+            temp_map.header.frame_id="track";
+        }
         outer_boundary_.reset(new pcl::PointCloud<PointXYZLapdistance>(deepracing::Utils::closeBoundary(temp_map)));
 
         pcl::PointCloud<PointXYZTime> temp_raceline, temp_raceline_map;
@@ -96,16 +107,28 @@ namespace deepracing
             errorstream<<"Could not load raceline file: " << raceline_file_path.string() << std::endl;
             throw std::runtime_error(errorstream.str());
         }
-        pcl::transformPointCloud<PointXYZTime>(temp_raceline, temp_raceline_map, pcl_transform);
-        temp_raceline_map.header.frame_id="map";
+        if (transform_to_map) {
+            pcl::transformPointCloud<PointXYZTime>(temp_raceline, temp_raceline_map, pcl_transform);
+            temp_raceline_map.header.frame_id="map";
+        }
+        else{
+            temp_raceline_map = temp_raceline;
+            temp_raceline_map.header.frame_id="track";
+        }
         raceline_.reset(new pcl::PointCloud<PointXYZTime>(temp_raceline_map));
 
         fs::path widthmap_filepath = track_directory_path / fs::path("widthmap.pcd");
         pcl::PointCloud<PointWidthMap> widthmaptemp, widthmaptemp_map;
         if(pcl::io::loadPCDFile<PointWidthMap>(widthmap_filepath.string(), widthmaptemp)==0)
         {
-            deepracing::transforms::transformPointCloudWithOrientation<PointWidthMap>(widthmaptemp, widthmaptemp_map, pcl_transform);
-            widthmaptemp_map.header.frame_id="map";
+            if (transform_to_map) {
+                deepracing::transforms::transformPointCloudWithOrientation<PointWidthMap>(widthmaptemp, widthmaptemp_map, pcl_transform);
+                widthmaptemp_map.header.frame_id="map";
+            }
+            else{
+                widthmaptemp_map = widthmaptemp;
+                widthmaptemp_map.header.frame_id="track";
+            }
             width_map_.reset(new pcl::PointCloud<PointWidthMap>(widthmaptemp_map));
         }
 
@@ -118,7 +141,7 @@ namespace deepracing
                 key=="inner_boundary" || 
                 key=="outer_boundary" || 
                 key=="widthmap"|| 
-                key=="raceline" )
+                key=="raceline")
             {
                 continue;
             }
@@ -192,7 +215,7 @@ namespace deepracing
     {
         return startingline_pose_;
     }
-    TrackMap::Ptr TrackMap::findTrackmap(const std::string& trackname, const std::vector<std::string> & search_dirs)
+    TrackMap::Ptr TrackMap::findTrackmap(const std::string& trackname, const std::vector<std::string> & search_dirs, bool transform_to_map)
     {
         TrackMap::Ptr rtn;
         for(const std::string& search_dir : search_dirs)
@@ -218,7 +241,7 @@ namespace deepracing
                             if(track_config["name"].as<std::string>()==trackname)
                             {
                                 rtn.reset(new TrackMap);
-                                rtn->loadFromDirectory(checkpath.string());
+                                rtn->loadFromDirectory(checkpath.string(), transform_to_map);
                                 return rtn;
                             }
                         }
