@@ -34,8 +34,8 @@
        if (copy_all_fields)
          cloud_out[i] = cloud_in[i];
        cloud_out[i].getVector3fMap () = transform*(cloud_in[i].getVector3fMap());
-       Eigen::Quaternionf qrot = Eigen::Quaternionf(transform.rotation()*(cloud_in[i].getQuaternionfMap()));
-       cloud_out[i].getQuaternionfMap() = qrot.normalized();
+       deepracing::Quaternion4fMapConst qmapin = cloud_in[i].getQuaternionfMap();
+       cloud_out[i].getQuaternionfMap() = Eigen::Quaternionf(transform.rotation()*qmapin).normalized();
      }
    }
    // Dataset might contain NaNs and Infs, so check for them first.

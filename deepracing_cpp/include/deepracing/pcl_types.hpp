@@ -160,8 +160,8 @@ namespace deepracing
     };
     std::ostream& operator << (std::ostream& os, const PointXYZTAL& p);
 
-    using Quaternion4fMap = Eigen::Map<Eigen::Quaternionf, Eigen::Aligned>;
-    using Quaternion4fMapConst = const Eigen::Map<const Eigen::Quaternionf, Eigen::Aligned>;
+    typedef Eigen::Map<Eigen::Quaternionf, Eigen::Aligned> Quaternion4fMap;
+    typedef const Eigen::Map<const Eigen::Quaternionf, Eigen::Aligned> Quaternion4fMapConst;
     //FIELDS x y z i j k w r ib_distance ob_distance
     struct EIGEN_ALIGN16 _PointWidthMap
     {
