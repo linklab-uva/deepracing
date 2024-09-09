@@ -59,7 +59,7 @@ def optimizeLine(argdict : dict):
     print(numpytype.names)
     chop = 2
     racelinein : np.ndarray = np.squeeze(np.stack([structured_array["x"], structured_array["y"], structured_array["z"]], axis=1))[:-chop]
-    racelinein_helper : SmoothPathHelper = SmoothPathHelper(racelinein, times=structured_array["time"][:-chop,0], k=argdict["k"], simpson_subintervals=30, k=5)
+    racelinein_helper : SmoothPathHelper = SmoothPathHelper(racelinein, times=structured_array["time"][:-chop,0], k=argdict["k"], simpson_subintervals=30)
     dsin : float = argdict["ds"]
     num_evenly_spaced_points : int = int(round(racelinein_helper.distances[-1]/dsin))
     rsamp : np.ndarray = np.linspace(0.0, racelinein_helper.distances[-1], num = num_evenly_spaced_points)[:-1]
