@@ -119,7 +119,7 @@ def decodePCDHeader(headerlines : list, align=False):
     numpytype = np.dtype(numpytuples, align=align)
     return numpytype, height, width
 
-def loadPCD(filepath : str, align=False) -> np.ndarray:
+def loadPCD(filepath : str, align=False) -> tuple[np.dtype, np.ndarray, int, int]:
 
     with open(filepath, "rb") as f:
         headerlines : list = [f.readline().decode("ascii").strip() for asdf in range(_NUM_PCD_HEADER_LINES)]
