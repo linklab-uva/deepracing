@@ -11,21 +11,21 @@ pcl::PointCloud<deepracing::PointXYZLapdistance> deepracing::Utils::closeBoundar
     Eigen::Vector3f pf_eigen = Eigen::Vector3f(pf.getVector3fMap());
     Eigen::Vector3f deltavec = Eigen::Vector3f(p0.getVector3fMap() - pf_eigen);
     double final_distance = deltavec.norm();
-    Eigen::Vector3f direction = deltavec.normalized();
     if (final_distance<2.0*meandL)
     {
         return open_boundary;
     }
-    unsigned int num_extra_points = (unsigned int)std::round(final_distance/meandL);
-    Eigen::VectorXd extra_ld = Eigen::VectorXd::LinSpaced(num_extra_points, meandL, final_distance-meandL);
+    Eigen::Vector3f direction = deltavec.normalized();
+    unsigned int linspace_size = (unsigned int)std::round(final_distance/meandL);
+    Eigen::VectorXd extra_ld = Eigen::VectorXd::LinSpaced(linspace_size, 0.0, final_distance);
+    unsigned int extra_points = linspace_size - 2;
     pcl::PointCloud<deepracing::PointXYZLapdistance> rtn(open_boundary);
-    rtn.resize(rtn.size() + num_extra_points);
-    for (unsigned int i = 0; i < num_extra_points; i++)
+    rtn.resize(rtn.size() + extra_points);
+    for (unsigned int i = 0; i < extra_points; i++)
     {
-        PointXYZLapdistance newpoint;
-        newpoint.getVector3fMap() = pf_eigen + direction*extra_ld[i];
-        newpoint.lapdistance = pf.lapdistance + extra_ld[i];
-        rtn.at(open_boundary.size() + i) = newpoint;
+        PointXYZLapdistance& newpoint = rtn.at(open_boundary.size() + i);
+        newpoint.getVector3fMap() = pf_eigen + direction*extra_ld[i+1];
+        newpoint.lapdistance = pf.lapdistance + extra_ld[i+1];
     }
     return rtn;
 }
