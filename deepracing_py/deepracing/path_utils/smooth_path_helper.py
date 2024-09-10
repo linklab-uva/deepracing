@@ -22,7 +22,7 @@ def generateOpenSpline(points : np.ndarray, tau0: np.ndarray, tauf : np.ndarray,
         x1 = euclidean_distances[i]
         xvec : np.ndarray = np.linspace(x0, x1, simpson_subintervals + 1)
         spline_norms : np.ndarray = np.linalg.norm(fake_spline(xvec, nu=1), ord=2.0, axis=1)
-        true_distances[i] = true_distances[i-1] + scipy.integrate.simpson(spline_norms, xvec)
+        true_distances[i] = true_distances[i-1] + scipy.integrate.simpson(spline_norms, x=xvec)
     true_spline = scipy.interpolate.make_interp_spline(true_distances, points, 
                                                        k=k, bc_type=( [(1, tau0)], [(1, tauf)] ))
     return true_distances, points, true_spline
@@ -51,7 +51,7 @@ def generateClosedSpline(points : np.ndarray, k=3, simpson_subintervals = 12):
         x1 = splinex[i]
         xvec : np.ndarray = np.linspace(x0, x1, simpson_subintervals + 1)
         spline_norms : np.ndarray = np.linalg.norm(fake_spline_der(xvec), ord=2.0, axis=1)
-        true_distances[i] = true_distances[i-1] + scipy.integrate.simpson(spline_norms, xvec)
+        true_distances[i] = true_distances[i-1] + scipy.integrate.simpson(spline_norms, x=xvec)
     zerovec = np.zeros_like(tau0) + 1E-9
     # bc_type = [[(1, tau0)], [(1, tauf)]]
     bc_type="periodic"
