@@ -52,8 +52,7 @@
            !std::isfinite (cloud_in[i].z))
          continue;
        cloud_out[i].getVector3fMap () = transform*(cloud_in[i].getVector3fMap());
-       Eigen::Quaternionf qrot = Eigen::Quaternionf(transform.rotation()*(cloud_in[i].getQuaternionfMap()));
-       cloud_out[i].getQuaternionfMap() = qrot.normalized();
+       cloud_out[i].getQuaternionfMap() = Eigen::Quaternionf(transform.rotation()*(cloud_in[i].getQuaternionfMap())).normalized();
      }
    }
  }
