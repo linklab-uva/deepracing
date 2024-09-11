@@ -39,8 +39,8 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
                 lataccel_speeds, lataccel_maxvals,
                 requires_grad=requires_grad)
         self.tangent_to_normal_rotmat : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor([
-            [ 0.0, -1.0],
-            [1.0, 0.0]
+            [0.0, -1.0],
+            [1.0,  0.0]
         ]), requires_grad=requires_grad)
     def forward(self, velocities : torch.Tensor, accels : torch.Tensor, 
                 newton_iterations = 20, newton_stepsize = 0.5, max_step=1.75*np.pi/180.0):
