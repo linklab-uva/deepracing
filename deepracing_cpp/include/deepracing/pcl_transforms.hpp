@@ -18,7 +18,7 @@
    // In order to transform the data, we need to remove NaNs
    cloud_out.is_dense = cloud_in.is_dense;
    cloud_out.header   = cloud_in.header;
-   cloud_out.width    = static_cast<int> (npts);
+   cloud_out.width    = static_cast<std::uint32_t> (npts);
    cloud_out.height   = 1;
    cloud_out.resize (npts);
    cloud_out.sensor_orientation_ = cloud_in.sensor_orientation_;
