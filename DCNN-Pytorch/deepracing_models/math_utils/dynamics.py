@@ -1,6 +1,9 @@
 import numpy as np
 import torch, torch.nn
 from deepracing_models.math_utils.interpolate import LinearInterpolator
+_2pi = 2.0*np.pi
+_pi_180 = np.pi/180.0
+_180_pi = 180.0/np.pi
 class DynamicsInterp(torch.nn.Module):
     def __init__(self, 
                  braking_speeds : torch.Tensor, braking_maxvals : torch.Tensor,
@@ -43,7 +46,7 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
             [1.0,  0.0]
         ]), requires_grad=requires_grad)
     def forward(self, velocities : torch.Tensor, accels : torch.Tensor, 
-                newton_iterations = 20, newton_stepsize = 0.5, max_step=1.75*np.pi/180.0):
+                newton_iterations = 20, newton_stepsize = 0.5, max_step=1.75*_pi_180):
         speeds : torch.Tensor = torch.norm(velocities, p=2.0, dim=-1, keepdim=True)
         tangents = velocities/speeds
         normals = (self.tangent_to_normal_rotmat @ tangents[...,None])[...,0]
@@ -56,31 +59,34 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
         both_accels = torch.cat([lat_accels, long_accels], dim=-1)
         both_accels_offset = both_accels - origin
         thetas = torch.atan2(both_accels_offset[...,1], both_accels_offset[...,0])
-        ellipse_points = torch.stack([lat_radii*torch.cos(thetas), long_radii*torch.sin(thetas)], dim=-1) + origin
-        gamma = -(long_radii/lat_radii)*torch.cos(thetas)/torch.sin(thetas)
+        ellipse_points : torch.Tensor = torch.stack([lat_radii*torch.cos(thetas), long_radii*torch.sin(thetas)], dim=-1) + origin
+        radii_ratio = (long_radii/lat_radii)
+        gamma = -radii_ratio/torch.tan(thetas)#*torch.cos(thetas)/torch.sin(thetas)
         alpha  = torch.arctan(gamma)
         tau = torch.stack([torch.cos(alpha), torch.sin(alpha)], dim=-1)
+        
 
         for _ in range(newton_iterations):
             deltas = both_accels - ellipse_points
             # squared_distances : torch.Tensor = torch.sum(torch.square(deltas), dim=-1)
             # squared_distance_derivs : torch.Tensor = torch.sum(deltas*torch.stack([lat_radii*torch.sin(thetas), -long_radii*torch.cos(thetas)], dim=-1), dim=-1)
             # thetas-=torch.clip(newton_stepsize*(squared_distances/squared_distance_derivs).nan_to_num(nan=0.0, posinf=max_step, neginf=-max_step), -max_step, max_step)
-            
+            radii_ratio = (long_radii/lat_radii)
             dotprods = torch.sum(deltas*tau, dim=-1)
-            dgamma_dtheta = (long_radii/lat_radii)/torch.square(torch.sin(thetas))
+            dgamma_dtheta = radii_ratio/torch.square(torch.sin(thetas))
             dalpha_dtheta = dgamma_dtheta/(torch.square(gamma) + 1)
             dtau_dtheta = torch.stack([-torch.sin(alpha)*dalpha_dtheta, torch.cos(alpha)*dalpha_dtheta], dim=-1)
             ddelta_dtheta = torch.stack([lat_radii*torch.sin(thetas), -long_radii*torch.cos(thetas)], dim=-1)
             dotprod_deriv = 0.5*(deltas[...,0]*dtau_dtheta[...,0] + ddelta_dtheta[...,0]*tau[...,0] +\
                             deltas[...,1]*dtau_dtheta[...,1] + ddelta_dtheta[...,1]*tau[...,1])
-
             thetas-=torch.clip(newton_stepsize*(dotprods/dotprod_deriv), -max_step, max_step)
-            gamma = -(long_radii/lat_radii)*torch.cos(thetas)/torch.sin(thetas)
+            gamma = -radii_ratio/torch.tan(thetas)
             alpha  = torch.arctan(gamma)
             tau = torch.stack([torch.cos(alpha), torch.sin(alpha)], dim=-1)
             ellipse_points = torch.stack([lat_radii*torch.cos(thetas), long_radii*torch.sin(thetas)], dim=-1) + origin
-            if torch.all(torch.abs(dotprods)<1E-7):
+            # print("dotprods:", dotprods.view(-1)[-1])
+            # print("thetas:", (180.0/np.pi)*thetas.view(-1)[-1])
+            if torch.all(torch.abs(dotprods)<1E-5):
                 break
         ellipse_normals = (self.tangent_to_normal_rotmat @ tau[...,None])[...,0]
         origin_deltas = ellipse_points - origin
