@@ -47,7 +47,7 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
         ]), requires_grad=requires_grad)
     def forward(self, velocities : torch.Tensor, accels : torch.Tensor, 
                 newton_iterations = 20, newton_stepsize = 0.5, max_step=1.75*_pi_180, 
-                newton_termination_eps = 1E-5, newton_termination_delta_eps = 1E-6):
+                newton_termination_eps : float | None = 1E-5, newton_termination_delta_eps : float | None = 1E-6):
         speeds : torch.Tensor = torch.norm(velocities, p=2.0, dim=-1, keepdim=True)
         tangents = velocities/speeds
         normals = (self.tangent_to_normal_rotmat @ tangents[...,None])[...,0]
@@ -86,9 +86,9 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
             alpha  = torch.arctan(gamma)
             tau = torch.stack([torch.cos(alpha), torch.sin(alpha)], dim=-1)
             ellipse_points = torch.stack([lat_radii*torch.cos(thetas), long_radii*torch.sin(thetas)], dim=-1) + origin
-            if torch.all(torch.abs(dotprods)<newton_termination_eps):
+            if (newton_termination_eps is not None) and torch.all(torch.abs(dotprods)<newton_termination_eps):
                 break
-            if torch.all(torch.abs(theta_deltas)<newton_termination_delta_eps):
+            if (newton_termination_delta_eps is not None) and torch.all(torch.abs(theta_deltas)<newton_termination_delta_eps):
                 break
         ellipse_normals = (self.tangent_to_normal_rotmat @ tau[...,None])[...,0]
         origin_deltas = ellipse_points - origin
