@@ -173,12 +173,12 @@ class SimplePathHelper(torch.nn.Module):
         Pquery_flat = Pquery.view(-1, Pquery.shape[-1])
         imin = torch.as_tensor(self.kd_tree.query(Pquery_flat.cpu().numpy())[1])#, device=Pquery.device)
         if newton_iterations<=0:
-            return self.__r_samp__[imin].view(Pquery.shape[:-1]).clone(), self.__points_samp__[imin].view(Pquery.shape).clone(), self.__tangents_samp__[imin].view(Pquery.shape).clone(), self.__normals_samp__[imin].view(Pquery.shape).clone(), 0
+            return self.__r_samp__[imin].view(Pquery.shape[:-1]).clone(), self.__points_samp__[imin].view(Pquery.shape).clone(), self.__tangents_samp__[imin].view(Pquery.shape).clone(), self.__normals_samp__[imin].view(Pquery.shape).clone()
 
         r = self.__r_samp__[imin].clone()
         points = self.__points_samp__[imin].clone()
         tangents = self.__tangents_samp__[imin].clone()
-        for i in range(newton_iterations):
+        for _ in range(newton_iterations):
             dtangent_dr , idxbuckets = self.__curve_2nd_deriv__(r)
             deltas = Pquery_flat - points
             delta_dotprods = torch.sum(deltas*tangents,dim=-1)
@@ -197,7 +197,7 @@ class SimplePathHelper(torch.nn.Module):
         # print(idx)
         normals : torch.Tensor = tangents[:,[1,0]].clone()
         normals[:,0]*=-1.0
-        return r.view(Pquery.shape[:-1]), points.view(Pquery.shape), tangents.view(Pquery.shape), normals.view(Pquery.shape), i+1
+        return r.view(Pquery.shape[:-1]), points.view(Pquery.shape), tangents.view(Pquery.shape), normals.view(Pquery.shape)#, i+1
     
     def closest_point(self, Pquery : torch.Tensor):
         order_this = self.__curve__.bezier_order.item()
