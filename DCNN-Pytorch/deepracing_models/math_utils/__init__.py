@@ -168,8 +168,8 @@ class SimplePathHelper(torch.nn.Module):
             return positions, derivs, idxbuckets
         return positions, None, idxbuckets
     def closest_point_approximate(self, Pquery : torch.Tensor,
-                newton_iterations = 0, newton_stepsize = 2.0, max_step=1.5, 
-                newton_termination_eps : float | None = 5E-4, newton_termination_delta_eps : float | None = 5E-3):
+                newton_iterations = 0, newton_stepsize = 1.0, max_step=1.0, 
+                newton_termination_eps : float | None = 5E-4, newton_termination_delta_eps : float | None = 1E-2):
         Pquery_flat = Pquery.view(-1, Pquery.shape[-1])
         imin = torch.as_tensor(self.kd_tree.query(Pquery_flat.cpu().numpy())[1])#, device=Pquery.device)
         if newton_iterations<=0:
@@ -184,8 +184,9 @@ class SimplePathHelper(torch.nn.Module):
             deltas = Pquery_flat - points
             delta_dotprods = torch.sum(deltas*tangents,dim=-1)
             ddelta_dr = -tangents
-            ddotprod_dr = deltas[:,0]*dtangent_dr[:,0] + tangents[:,0]*ddelta_dr[:,0] + deltas[:,1]*dtangent_dr[:,1] + tangents[:,1]*ddelta_dr[:,1]
-            newton_step = (delta_dotprods/(2.0*ddotprod_dr))
+            ddotprod_dr : torch.Tensor = deltas[:,0]*dtangent_dr[:,0] + tangents[:,0]*ddelta_dr[:,0] + deltas[:,1]*dtangent_dr[:,1] + tangents[:,1]*ddelta_dr[:,1]
+            ddotprod_dr[ddotprod_dr==0.0]=1E-9
+            newton_step = (delta_dotprods/ddotprod_dr)
             r-=(newton_stepsize*newton_step).clip(-max_step, max_step)
             normals : torch.Tensor = tangents[:,[1,0]].clone()
             normals[:,0]*=-1.0
