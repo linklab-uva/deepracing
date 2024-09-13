@@ -190,13 +190,13 @@ class SimplePathHelper(torch.nn.Module):
             points, _ = self.__curve__(r, idxbuckets=idxbuckets)
             tangents, _ = self.__curve_deriv__(r, idxbuckets=idxbuckets)
             tangents : torch.Tensor = tangents/torch.norm(tangents, p=2.0, dim=-1, keepdim=True)
-            normals : torch.Tensor = tangents[:,[1,0]].clone()
-            normals[:,0]*=-1.0
             if torch.all(torch.abs(delta_dotprods)<newton_termination_eps):
                 break
             if torch.all(torch.abs(newton_step)<newton_termination_delta_eps):
                 break
         # print(idx)
+        normals : torch.Tensor = tangents[:,[1,0]].clone()
+        normals[:,0]*=-1.0
         return r.view(Pquery.shape[:-1]), points.view(Pquery.shape), tangents.view(Pquery.shape), normals.view(Pquery.shape), i+1
     
     def closest_point(self, Pquery : torch.Tensor):
