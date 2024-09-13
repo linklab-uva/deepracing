@@ -23,6 +23,7 @@ import torch
 import torch.nn
 import torchaudio
 import scipy.spatial
+import numpy as np
 
 
 class CompositeBezierCurve(torch.nn.Module):
@@ -125,7 +126,7 @@ class SimplePathHelper(torch.nn.Module):
         points_samp = tup[0].detach().clone()
         self.__points_samp__ : torch.nn.Parameter = torch.nn.Parameter(points_samp, requires_grad=False)
 
-        self.kd_tree : scipy.spatial.KDTree = scipy.spatial.KDTree(self.__points_samp__.cpu().numpy(), leafsize=leafsize)
+        self.kd_tree : scipy.spatial.KDTree = scipy.spatial.KDTree(self.__points_samp__.cpu().numpy().astype(np.float32), leafsize=leafsize)
 
         tup : tuple[torch.Tensor, torch.Tensor] = self.__curve_deriv__(self.__r_samp__)
         tangents_samp = tup[0].detach().clone()
@@ -136,9 +137,9 @@ class SimplePathHelper(torch.nn.Module):
         normals_samp[:,0]*=-1.0
         self.__normals_samp__ : torch.nn.Parameter = torch.nn.Parameter(normals_samp, requires_grad=False)
     @staticmethod
-    def from_closed_path(points : torch.Tensor, dr_samp : float) -> 'SimplePathHelper':
+    def from_closed_path(points : torch.Tensor, dr_samp : float, leafsize=25) -> 'SimplePathHelper':
         arclengths_, curve_control_points_ = closedPathAsBezierSpline(points)
-        return SimplePathHelper(arclengths_, curve_control_points_, dr_samp)
+        return SimplePathHelper(arclengths_, curve_control_points_, dr_samp, leafsize=leafsize)
 
 
     def control_points(self):
@@ -166,11 +167,34 @@ class SimplePathHelper(torch.nn.Module):
             derivs, _ = self.__curve_deriv__(s_true, idxbuckets=idxbuckets)
             return positions, derivs, idxbuckets
         return positions, None, idxbuckets
-    def closest_point_naive(self, Pquery : torch.Tensor):
-        # distance_matrix = torch.cdist(self.__points_samp__[None], Pquery[None])[0]
-        # imin = torch.argmin(distance_matrix, dim=0)
-        imin = torch.as_tensor(self.kd_tree.query(Pquery.cpu().numpy())[1])#, device=Pquery.device)
-        return self.__r_samp__[imin], self.__points_samp__[imin], self.__tangents_samp__[imin]
+    def closest_point_approximate(self, Pquery : torch.Tensor,
+                newton_iterations = 0, newton_stepsize = 2.0, max_step=1.5, 
+                newton_termination_eps : float | None = 5E-4, newton_termination_delta_eps : float | None = 5E-3):
+        Pquery_flat = Pquery.view(-1, Pquery.shape[-1])
+        imin = torch.as_tensor(self.kd_tree.query(Pquery_flat.cpu().numpy())[1])#, device=Pquery.device)
+        if newton_iterations<=0:
+            return self.__r_samp__[imin].view(Pquery.shape[:-1]), self.__points_samp__[imin].view(Pquery.shape), self.__tangents_samp__[imin].view(Pquery.shape), self.__normals_samp__[imin].view(Pquery.shape)
+
+        r = self.__r_samp__[imin].clone()
+        for _ in range(newton_iterations):
+            points, idxbuckets = self.__curve__(r)
+            tangents, _ = self.__curve_deriv__(r, idxbuckets=idxbuckets)
+            tangents : torch.Tensor = tangents/torch.norm(tangents, p=2.0, dim=-1, keepdim=True)
+            dtangent_dr , _  = self.__curve_2nd_deriv__(r, idxbuckets=idxbuckets)
+            deltas = Pquery_flat - points
+            delta_dotprods = torch.sum(deltas*tangents,dim=-1)
+            ddelta_dr = -tangents
+            ddotprod_dr = deltas[:,0]*dtangent_dr[:,0] + tangents[:,0]*ddelta_dr[:,0] + deltas[:,1]*dtangent_dr[:,1] + tangents[:,1]*ddelta_dr[:,1]
+            newton_step = (delta_dotprods/(2.0*ddotprod_dr))
+            r-=(newton_stepsize*newton_step).clip(-max_step, max_step)
+            normals : torch.Tensor = tangents[:,[1,0]].clone()
+            normals[:,0]*=-1.0
+            if torch.all(torch.abs(delta_dotprods)<newton_termination_eps):
+                break
+            if torch.all(torch.abs(newton_step)<newton_termination_delta_eps):
+                break
+        return r.view(Pquery.shape[:-1]), points.view(Pquery.shape), tangents.view(Pquery.shape), normals.view(Pquery.shape)
+    
     def closest_point(self, Pquery : torch.Tensor):
         order_this = self.__curve__.bezier_order.item()
         order_deriv = order_this - 1
