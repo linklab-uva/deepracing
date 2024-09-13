@@ -173,7 +173,7 @@ class SimplePathHelper(torch.nn.Module):
         Pquery_flat = Pquery.view(-1, Pquery.shape[-1])
         imin = torch.as_tensor(self.kd_tree.query(Pquery_flat.cpu().numpy())[1])#, device=Pquery.device)
         if newton_iterations<=0:
-            return self.__r_samp__[imin].view(Pquery.shape[:-1]), self.__points_samp__[imin].view(Pquery.shape), self.__tangents_samp__[imin].view(Pquery.shape), self.__normals_samp__[imin].view(Pquery.shape)
+            return self.__r_samp__[imin].view(Pquery.shape[:-1]).clone(), self.__points_samp__[imin].view(Pquery.shape).clone(), self.__tangents_samp__[imin].view(Pquery.shape).clone(), self.__normals_samp__[imin].view(Pquery.shape).clone()
 
         r = self.__r_samp__[imin].clone()
         for _ in range(newton_iterations):
