@@ -176,11 +176,10 @@ class SimplePathHelper(torch.nn.Module):
             return self.__r_samp__[imin].view(Pquery.shape[:-1]).clone(), self.__points_samp__[imin].view(Pquery.shape).clone(), self.__tangents_samp__[imin].view(Pquery.shape).clone(), self.__normals_samp__[imin].view(Pquery.shape).clone()
 
         r = self.__r_samp__[imin].clone()
-        for _ in range(newton_iterations):
-            points, idxbuckets = self.__curve__(r)
-            tangents, _ = self.__curve_deriv__(r, idxbuckets=idxbuckets)
-            tangents : torch.Tensor = tangents/torch.norm(tangents, p=2.0, dim=-1, keepdim=True)
-            dtangent_dr , _  = self.__curve_2nd_deriv__(r, idxbuckets=idxbuckets)
+        points = self.__points_samp__[imin].clone()
+        tangents = self.__tangents_samp__[imin].clone()
+        for i in range(newton_iterations):
+            dtangent_dr , idxbuckets = self.__curve_2nd_deriv__(r)
             deltas = Pquery_flat - points
             delta_dotprods = torch.sum(deltas*tangents,dim=-1)
             ddelta_dr = -tangents
@@ -188,13 +187,17 @@ class SimplePathHelper(torch.nn.Module):
             ddotprod_dr[ddotprod_dr==0.0]=1E-9
             newton_step = (delta_dotprods/ddotprod_dr)
             r-=(newton_stepsize*newton_step).clip(-max_step, max_step)
+            points, _ = self.__curve__(r, idxbuckets=idxbuckets)
+            tangents, _ = self.__curve_deriv__(r, idxbuckets=idxbuckets)
+            tangents : torch.Tensor = tangents/torch.norm(tangents, p=2.0, dim=-1, keepdim=True)
             normals : torch.Tensor = tangents[:,[1,0]].clone()
             normals[:,0]*=-1.0
             if torch.all(torch.abs(delta_dotprods)<newton_termination_eps):
                 break
             if torch.all(torch.abs(newton_step)<newton_termination_delta_eps):
                 break
-        return r.view(Pquery.shape[:-1]), points.view(Pquery.shape), tangents.view(Pquery.shape), normals.view(Pquery.shape)
+        # print(idx)
+        return r.view(Pquery.shape[:-1]), points.view(Pquery.shape), tangents.view(Pquery.shape), normals.view(Pquery.shape), i+1
     
     def closest_point(self, Pquery : torch.Tensor):
         order_this = self.__curve__.bezier_order.item()
