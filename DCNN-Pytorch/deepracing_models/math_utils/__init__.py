@@ -22,6 +22,7 @@ import torch
 
 import torch.nn
 import torchaudio
+import scipy.spatial
 
 
 class CompositeBezierCurve(torch.nn.Module):
@@ -110,7 +111,7 @@ class ProbabilisticCBC(torch.nn.Module):
 
     
 class SimplePathHelper(torch.nn.Module):
-    def __init__(self, arclengths : torch.Tensor, curve_control_points : torch.Tensor, dr_samp : float) -> None:
+    def __init__(self, arclengths : torch.Tensor, curve_control_points : torch.Tensor, dr_samp : float, leafsize=25) -> None:
         super(SimplePathHelper, self).__init__()
         self.__arclengths_in__ : torch.nn.Parameter = torch.nn.Parameter(arclengths.clone(), requires_grad=False)
 
@@ -118,14 +119,17 @@ class SimplePathHelper(torch.nn.Module):
         self.__curve_deriv__ : CompositeBezierCurve = self.__curve__.derivative().requires_grad_(False)
         self.__curve_2nd_deriv__ : CompositeBezierCurve = self.__curve_deriv__.derivative().requires_grad_(False)
 
-        self.__r_samp__ : torch.nn.Parameter = torch.nn.Parameter(torch.arange(0.0, arclengths[-1], step=dr_samp, dtype=arclengths.dtype, device=arclengths.device), requires_grad=False)
+        self.__r_samp__ : torch.nn.Parameter = torch.nn.Parameter(torch.arange(arclengths[0], arclengths[-1], step=dr_samp, dtype=arclengths.dtype, device=arclengths.device), requires_grad=False)
         
-        tup = self.__curve__(self.__r_samp__)
-        points_samp : torch.Tensor = tup[0].detach().clone()
+        tup : tuple[torch.Tensor, torch.Tensor] = self.__curve__(self.__r_samp__)
+        points_samp = tup[0].detach().clone()
         self.__points_samp__ : torch.nn.Parameter = torch.nn.Parameter(points_samp, requires_grad=False)
 
-        tup = self.__curve_deriv__(self.__r_samp__)
-        tangents_samp : torch.Tensor = tup[0].detach().clone()
+        self.kd_tree : scipy.spatial.KDTree = scipy.spatial.KDTree(self.__points_samp__.cpu().numpy(), leafsize=leafsize)
+
+        tup : tuple[torch.Tensor, torch.Tensor] = self.__curve_deriv__(self.__r_samp__)
+        tangents_samp = tup[0].detach().clone()
+        tangents_samp = tangents_samp/torch.norm(tangents_samp, p=2.0, dim=-1, keepdim=True)
         self.__tangents_samp__ : torch.nn.Parameter = torch.nn.Parameter(tangents_samp, requires_grad=False)
 
         normals_samp = tangents_samp[:,[1,0]].clone()
@@ -163,9 +167,10 @@ class SimplePathHelper(torch.nn.Module):
             return positions, derivs, idxbuckets
         return positions, None, idxbuckets
     def closest_point_naive(self, Pquery : torch.Tensor):
-        distance_matrix = torch.cdist(self.__points_samp__[None], Pquery[None])[0]
-        imin = torch.argmin(distance_matrix, dim=0)
-        return self.__r_samp__[imin], self.__points_samp__[imin]
+        # distance_matrix = torch.cdist(self.__points_samp__[None], Pquery[None])[0]
+        # imin = torch.argmin(distance_matrix, dim=0)
+        imin = torch.as_tensor(self.kd_tree.query(Pquery.cpu().numpy())[1])#, device=Pquery.device)
+        return self.__r_samp__[imin], self.__points_samp__[imin], self.__tangents_samp__[imin]
     def closest_point(self, Pquery : torch.Tensor):
         order_this = self.__curve__.bezier_order.item()
         order_deriv = order_this - 1
@@ -302,10 +307,7 @@ class SimplePathHelper(torch.nn.Module):
             rintersect[i] = correctrstart + correctsval*correctdr
 
         return rintersect
-
-
-        
-
+    
     
 
 def closestPointToPathNaive(path : SimplePathHelper, p_query : torch.Tensor):
