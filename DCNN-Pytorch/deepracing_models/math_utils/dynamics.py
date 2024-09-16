@@ -46,8 +46,8 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
             [1.0,  0.0]
         ]), requires_grad=requires_grad)
     def forward(self, velocities : torch.Tensor, accels : torch.Tensor, 
-                newton_iterations = 20, newton_stepsize = 0.5, max_step=1.75*_pi_180, 
-                newton_termination_eps : float | None = 1E-5, newton_termination_delta_eps : float | None = 1E-6):
+                newton_iterations = 20, newton_stepsize = 1.0, max_step=1.75*_pi_180, 
+                newton_termination_eps : float | None = 1E-4, newton_termination_delta_eps : float | None = 5E-4):
         speeds : torch.Tensor = torch.norm(velocities, p=2.0, dim=-1, keepdim=True)
         tangents = velocities/speeds
         normals = (self.tangent_to_normal_rotmat @ tangents[...,None])[...,0]
