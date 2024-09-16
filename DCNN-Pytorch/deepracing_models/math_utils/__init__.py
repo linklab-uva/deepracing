@@ -24,7 +24,8 @@ import torch.nn
 import torchaudio
 import scipy.spatial
 import numpy as np
-
+import torch_kdtree.nn_distance
+from torch_kdtree import build_kd_tree
 
 class CompositeBezierCurve(torch.nn.Module):
     def __init__(self, x : torch.Tensor, control_points : torch.Tensor) -> None:
@@ -117,7 +118,6 @@ class SimplePathHelper(torch.nn.Module):
         self.__arclengths_in__ : torch.nn.Parameter = torch.nn.Parameter(arclengths.clone(), requires_grad=False)
 
         self.__curve__ : CompositeBezierCurve = CompositeBezierCurve(arclengths, curve_control_points).requires_grad_(False)
-        self.P0_kd_tree : scipy.spatial.KDTree = scipy.spatial.KDTree(self.__curve__.control_points[:,0].cpu().numpy().astype(np.float32), leafsize=leafsize)
         self.__curve_deriv__ : CompositeBezierCurve = self.__curve__.derivative().requires_grad_(False)
         self.__curve_2nd_deriv__ : CompositeBezierCurve = self.__curve_deriv__.derivative().requires_grad_(False)
 
@@ -127,7 +127,8 @@ class SimplePathHelper(torch.nn.Module):
         points_samp = tup[0].detach().clone()
         self.__points_samp__ : torch.nn.Parameter = torch.nn.Parameter(points_samp, requires_grad=False)
 
-        self.kd_tree : scipy.spatial.KDTree = scipy.spatial.KDTree(self.__points_samp__.cpu().numpy().astype(np.float32), leafsize=leafsize)
+        self.kd_tree = None
+        self.P0_kd_tree = None
 
         tup : tuple[torch.Tensor, torch.Tensor] = self.__curve_deriv__(self.__r_samp__)
         tangents_samp = tup[0].detach().clone()
@@ -137,6 +138,9 @@ class SimplePathHelper(torch.nn.Module):
         normals_samp = tangents_samp[:,[1,0]].clone()
         normals_samp[:,0]*=-1.0
         self.__normals_samp__ : torch.nn.Parameter = torch.nn.Parameter(normals_samp, requires_grad=False)
+    def rebuild_kdtree(self, device=None, squared_distances : bool = True, levels : int = None):
+        self.kd_tree = build_kd_tree(self.__points_samp__.detach().clone(), device=device, squared_distances = squared_distances, levels = levels)
+        self.P0_kd_tree = build_kd_tree(self.__curve__.control_points[:,0].detach().clone(), device=device, squared_distances = squared_distances, levels = levels)
     @staticmethod
     def from_closed_path(points : torch.Tensor, dr_samp : float, leafsize=25) -> 'SimplePathHelper':
         arclengths_, curve_control_points_ = closedPathAsBezierSpline(points)
@@ -170,38 +174,45 @@ class SimplePathHelper(torch.nn.Module):
         return positions, None, idxbuckets
     def closest_point_approximate(self, Pquery : torch.Tensor,
                 newton_iterations = 0, newton_stepsize = 1.0, max_step=1.0, 
-                newton_termination_eps : float | None = 5E-4, newton_termination_delta_eps : float | None = 1E-2):
+                newton_termination_eps : float | None = 1E-4, newton_termination_delta_eps : float | None = 1E-2):
         Pquery_flat = Pquery.view(-1, Pquery.shape[-1])
-        imin = torch.as_tensor(self.kd_tree.query(Pquery_flat.cpu().numpy())[1])#, device=Pquery.device)
+        if self.kd_tree is None:
+            raise ValueError("KD-Tree is not initialized")
+        else:
+            _, imin_ = self.kd_tree.query(Pquery_flat, nr_nns_searches=1)
+            imin = imin_.squeeze(-1)
         if newton_iterations<=0:
             deltas = Pquery_flat - self.__points_samp__[imin]
             return self.__r_samp__[imin].view(Pquery.shape[:-1]).clone(), self.__points_samp__[imin].view(Pquery.shape).clone(), self.__tangents_samp__[imin].view(Pquery.shape).clone(), self.__normals_samp__[imin].view(Pquery.shape).clone(), deltas.view(Pquery.shape)
-
+        
         r = self.__r_samp__[imin].clone()
-        points = self.__points_samp__[imin]#.clone()
-        tangents = self.__tangents_samp__[imin]#.clone()
-        # print()
-        # deltas = Pquery_flat - points
-        # delta_dotprods = torch.sum(deltas*tangents,dim=-1)
-        # print(torch.max(torch.abs(delta_dotprods)))
+        # rinit = r.clone()
+        points = self.__points_samp__[imin].clone()
+        tangents = self.__tangents_samp__[imin].clone()
         for _ in range(newton_iterations):
             dtangent_dr , idxbuckets = self.__curve_2nd_deriv__(r)
             deltas = Pquery_flat - points
             delta_dotprods = torch.sum(deltas*tangents,dim=-1)
-            ddelta_dr = -tangents
-            ddotprod_dr : torch.Tensor = deltas[:,0]*dtangent_dr[:,0] + tangents[:,0]*ddelta_dr[:,0] + deltas[:,1]*dtangent_dr[:,1] + tangents[:,1]*ddelta_dr[:,1]
+            # ddelta_dr = -tangents
+            # ddotprod_dr : torch.Tensor = deltas[:,0]*dtangent_dr[:,0] + deltas[:,1]*dtangent_dr[:,1] + tangents[:,1]*ddelta_dr[:,1] + tangents[:,0]*ddelta_dr[:,0]
+            ddotprod_dr : torch.Tensor = torch.sum(deltas*dtangent_dr - torch.square(tangents), dim=-1) #, dim=-1) - torch.sum(
             ddotprod_dr[ddotprod_dr==0.0]=1E-9
             newton_step = (delta_dotprods/ddotprod_dr)
             r-=(newton_stepsize*newton_step).clip(-max_step, max_step)
             points, _ = self.__curve__(r, idxbuckets=idxbuckets)
             tangents, _ = self.__curve_deriv__(r, idxbuckets=idxbuckets)
             tangents : torch.Tensor = tangents/torch.norm(tangents, p=2.0, dim=-1, keepdim=True)
-            if torch.all(torch.abs(delta_dotprods)<newton_termination_eps):
+            if (newton_termination_eps is not None) and torch.all(torch.abs(delta_dotprods)<newton_termination_eps):
                 break
-            if torch.all(torch.abs(newton_step)<newton_termination_delta_eps):
+            if (newton_termination_delta_eps is not None) and torch.all(torch.abs(newton_step)<newton_termination_delta_eps):
                 break
         normals : torch.Tensor = tangents[:,[1,0]].clone()
         normals[:,0]*=-1.0
+        # rshifts = torch.abs(rinit - r)
+        # print()
+        # print(torch.mean(rshifts))
+        # print(torch.min(rshifts))
+        # print(torch.max(rshifts))
         # Rmats = torch.stack([normals, tangents], dim=-1).transpose(-2,1)
         # delta_rotated = (Rmats@deltas[...,None])[...,0]
         # angles = torch.atan2(delta_rotated[...,1], delta_rotated[...,0])
