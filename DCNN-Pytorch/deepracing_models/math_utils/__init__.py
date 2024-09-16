@@ -117,6 +117,7 @@ class SimplePathHelper(torch.nn.Module):
         self.__arclengths_in__ : torch.nn.Parameter = torch.nn.Parameter(arclengths.clone(), requires_grad=False)
 
         self.__curve__ : CompositeBezierCurve = CompositeBezierCurve(arclengths, curve_control_points).requires_grad_(False)
+        self.P0_kd_tree : scipy.spatial.KDTree = scipy.spatial.KDTree(self.__curve__.control_points[:,0].cpu().numpy().astype(np.float32), leafsize=leafsize)
         self.__curve_deriv__ : CompositeBezierCurve = self.__curve__.derivative().requires_grad_(False)
         self.__curve_2nd_deriv__ : CompositeBezierCurve = self.__curve_deriv__.derivative().requires_grad_(False)
 
@@ -173,11 +174,16 @@ class SimplePathHelper(torch.nn.Module):
         Pquery_flat = Pquery.view(-1, Pquery.shape[-1])
         imin = torch.as_tensor(self.kd_tree.query(Pquery_flat.cpu().numpy())[1])#, device=Pquery.device)
         if newton_iterations<=0:
-            return self.__r_samp__[imin].view(Pquery.shape[:-1]).clone(), self.__points_samp__[imin].view(Pquery.shape).clone(), self.__tangents_samp__[imin].view(Pquery.shape).clone(), self.__normals_samp__[imin].view(Pquery.shape).clone()
+            deltas = Pquery_flat - self.__points_samp__[imin]
+            return self.__r_samp__[imin].view(Pquery.shape[:-1]).clone(), self.__points_samp__[imin].view(Pquery.shape).clone(), self.__tangents_samp__[imin].view(Pquery.shape).clone(), self.__normals_samp__[imin].view(Pquery.shape).clone(), deltas.view(Pquery.shape)
 
         r = self.__r_samp__[imin].clone()
-        points = self.__points_samp__[imin].clone()
-        tangents = self.__tangents_samp__[imin].clone()
+        points = self.__points_samp__[imin]#.clone()
+        tangents = self.__tangents_samp__[imin]#.clone()
+        # print()
+        # deltas = Pquery_flat - points
+        # delta_dotprods = torch.sum(deltas*tangents,dim=-1)
+        # print(torch.max(torch.abs(delta_dotprods)))
         for _ in range(newton_iterations):
             dtangent_dr , idxbuckets = self.__curve_2nd_deriv__(r)
             deltas = Pquery_flat - points
@@ -194,10 +200,21 @@ class SimplePathHelper(torch.nn.Module):
                 break
             if torch.all(torch.abs(newton_step)<newton_termination_delta_eps):
                 break
-        # print(idx)
         normals : torch.Tensor = tangents[:,[1,0]].clone()
         normals[:,0]*=-1.0
-        return r.view(Pquery.shape[:-1]), points.view(Pquery.shape), tangents.view(Pquery.shape), normals.view(Pquery.shape)#, i+1
+        # Rmats = torch.stack([normals, tangents], dim=-1).transpose(-2,1)
+        # delta_rotated = (Rmats@deltas[...,None])[...,0]
+        # angles = torch.atan2(delta_rotated[...,1], delta_rotated[...,0])
+        # print(torch.max(torch.min(torch.stack([torch.abs(angles),torch.abs(angles-np.pi), torch.abs(angles+np.pi)], dim=-1), dim=-1)[0]))
+        # print(torch.min(torch.abs(delta_dotprods)))
+        # print(torch.max(torch.abs(delta_dotprods)))
+        # print(idx)
+        # factors = (1.0/torch.norm(deltas, p=2, dim=-1, keepdim=True)).nan_to_num(nan=0.0, posinf=1.0, neginf=1.0)
+        # deltas_normalized = deltas*factors
+        # normalized_dotprods = torch.sum(deltas_normalized*tangents, dim=-1)
+        # angles = torch.arccos(normalized_dotprods)
+        # print(torch.max(torch.abs(angles-(np.pi/2.0))))
+        return r.view(Pquery.shape[:-1]), points.view(Pquery.shape), tangents.view(Pquery.shape), normals.view(Pquery.shape), deltas.view(Pquery.shape)
     
     def closest_point(self, Pquery : torch.Tensor):
         order_this = self.__curve__.bezier_order.item()
@@ -210,7 +227,8 @@ class SimplePathHelper(torch.nn.Module):
         control_point_0 = control_points[:,0]
         distance_matrix = torch.cdist(Pquery, control_point_0)
         idx_min = torch.argmin(distance_matrix, dim=1, keepdim=True)
-        idx_delta = torch.arange(-5, 6, step=1, dtype=torch.int64, device=Pquery.device)
+        # idx_min = torch.as_tensor(self.P0_kd_tree.query(Pquery.cpu().numpy())[1])[...,None]
+        idx_delta = torch.arange(-1, 2, step=1, dtype=torch.int64, device=Pquery.device)
         idx_delta_exp = (idx_delta.unsqueeze(0).expand(Pquery.shape[0], idx_delta.shape[0]) + idx_min)%control_point_0.shape[0]
 
         control_points_select = control_points[idx_delta_exp]
@@ -229,33 +247,68 @@ class SimplePathHelper(torch.nn.Module):
         binomial_coefs_prod = torch.as_tensor([comb(order_prod, i) for i in range(order_prod+1)], dtype=Pquery.dtype, device=Pquery.device)
         bezier_polys = torch.sum(convolution/binomial_coefs_prod[None,None,:,None], dim=-1)
         polynom_roots = bezierPolyRoots(bezier_polys.view(-1, order_prod+1)).view(Pquery.shape[0], idx_delta.shape[0], order_prod)
-        matchmask = (torch.abs(polynom_roots.imag)<1E-5)*(polynom_roots.real>0.0)*(polynom_roots.real<1.0)
-        idx=torch.arange(0, idx_delta.shape[0], step=1, dtype=torch.int64, device=control_points.device)
-        selection_all = (torch.sum(matchmask, dim=-1)>=1)
-        rclosest = torch.empty_like(Pquery[:,0])
+        polynom_roots_real : torch.Tensor = polynom_roots.real
+        polynom_roots_imag : torch.Tensor = polynom_roots.imag
 
-        for i in range(batchdim):
-            selection = selection_all[i]
-            candidates_idx = idx[selection]
-            candidates = control_points_select[i,candidates_idx]
-            candidates_polyroots = polynom_roots[i,candidates_idx]
+        matchmask = (torch.abs(polynom_roots_imag)<1E-6)*(polynom_roots_real>=0.0)*(polynom_roots_real<1.0)
+        has_match = torch.sum(matchmask, dim=-1)>0
+        num_matches = torch.sum(has_match, dim=-1)
+        idx_otherthanonematch = num_matches!=1
+        if torch.any(idx_otherthanonematch):
+            subcandidate_curves = control_points_select[idx_otherthanonematch]
+            subcandidate_roots = polynom_roots_real[idx_otherthanonematch]
+            subcandidate_M = bezier.bezierM(subcandidate_roots.view(-1,subcandidate_roots.shape[-1]), 3).view(list(subcandidate_roots.shape) + [4,])
+            all_points = subcandidate_M@subcandidate_curves
+            deltas = all_points - (Pquery[idx_otherthanonematch])[:,None,None]
+            delta_norms = torch.norm(deltas, p=2, dim=-1)
+            idxmin = torch.argmin(delta_norms, dim=-1, keepdim=True)
+            delta_norms_sub = torch.gather(delta_norms, -1, idxmin)[...,0]
+            idxmin2 = torch.argmin(delta_norms_sub, dim=-1)
+            ref = has_match[idx_otherthanonematch].clone()
+            ref.zero_()
+            ref2 = matchmask[idx_otherthanonematch].clone()
+            ref2.zero_()
+            # ref[idxmin2] = 1
+            for j in range(idxmin2.shape[0]):
+                ref[j,idxmin2[j]] = 1
+                ref2[j, idxmin2[j], idxmin[j, idxmin2[j], 0]] = 1
+            has_match[idx_otherthanonematch] = ref
+            matchmask[idx_otherthanonematch] = ref2
+            num_matches = torch.sum(has_match, dim=-1)
+            idx_otherthanonematch = num_matches!=1
+        matchmask_reduced = matchmask[has_match]
+        polynom_roots_real_reduced = polynom_roots_real[has_match]
+        correct_roots = polynom_roots_real_reduced[matchmask_reduced]
+        correct_rstart = arclengths_start_select[has_match]
+        correct_dr = delta_arclengths_select[has_match]
+
+        return correct_rstart + correct_roots*correct_dr
+        # idx=torch.arange(0, idx_delta.shape[0], step=1, dtype=torch.int64, device=control_points.device)
+        # selection_all = (torch.sum(matchmask, dim=-1)>=1)
+        # rclosest = torch.empty_like(Pquery[:,0])
+
+        # for i in range(batchdim):
+        #     selection = selection_all[i]
+        #     candidates_idx = idx[selection]
+        #     candidates = control_points_select[i,candidates_idx]
+        #     candidates_polyroots = polynom_roots[i,candidates_idx]
             
-            candidates_rstart = arclengths_start_select[i,candidates_idx]
-            candidates_dr = delta_arclengths_select[i,candidates_idx]
+        #     candidates_rstart = arclengths_start_select[i,candidates_idx]
+        #     candidates_dr = delta_arclengths_select[i,candidates_idx]
             
-            norms = torch.norm(candidates[:,[0,-1]], p=2.0, dim=2)
-            norm_means = torch.mean(norms, dim=1)
-            imin = torch.argmin(norm_means)
+        #     norms = torch.norm(candidates[:,[0,-1]], p=2.0, dim=2)
+        #     norm_means = torch.mean(norms, dim=1)
+        #     imin = torch.argmin(norm_means)
 
-            correctroots = candidates_polyroots[imin]
-            correctsval = correctroots[(torch.abs(correctroots.imag)<1E-6)*(correctroots.real>=0.0)*(correctroots.real<=1.0)].real.item()
-            correctdr = candidates_dr[imin]
+        #     correctroots = candidates_polyroots[imin]
+        #     correctsval = correctroots[(torch.abs(correctroots.imag)<1E-6)*(correctroots.real>=0.0)*(correctroots.real<=1.0)].real.item()
+        #     correctdr = candidates_dr[imin]
 
-            correctrstart = candidates_rstart[imin]
+        #     correctrstart = candidates_rstart[imin]
 
-            rclosest[i] = correctrstart + correctsval*correctdr
+        #     rclosest[i] = correctrstart + correctsval*correctdr
 
-        return rclosest
+        # return rclosest
 
 
 
