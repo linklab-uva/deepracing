@@ -1,5 +1,6 @@
 import numpy as np
-import torch, torch.nn
+import torch, torch.nn, torch.nn.functional as F
+from deepracing_models.math_utils.integrate import GaussLegendre1D
 from deepracing_models.math_utils.interpolate import LinearInterpolator
 _2pi = 2.0*np.pi
 _pi_180 = np.pi/180.0
@@ -20,6 +21,7 @@ class DynamicsInterp(torch.nn.Module):
         idx_sort = torch.argsort(lataccel_speeds)
         self.lataccel_interp : LinearInterpolator = LinearInterpolator(lataccel_speeds[idx_sort], lataccel_maxvals[idx_sort], requires_grad=requires_grad)
     
+
     def forward(self, speeds_eval : torch.Tensor):
         max_braking : torch.Tensor = self.braking_interp(speeds_eval)
         max_longaccel : torch.Tensor = self.longaccel_interp(speeds_eval)
@@ -34,6 +36,9 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
                  braking_speeds : torch.Tensor, braking_maxvals : torch.Tensor,
                  longaccel_speeds : torch.Tensor, longaccel_maxvals : torch.Tensor,
                  lataccel_speeds : torch.Tensor, lataccel_maxvals : torch.Tensor,
+                 gauss_order : int,
+                 dT : float,
+                 stdev : float = 1.75,
                  requires_grad=False) -> None:
         super(ExceedLimitsProbabilityEstimator, self).__init__()
         self.dynamics_interp : DynamicsInterp = DynamicsInterp(
@@ -45,6 +50,8 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
             [0.0, -1.0],
             [1.0,  0.0]
         ]), requires_grad=requires_grad)
+        self.gl1d = GaussLegendre1D(gauss_order, interval=[0, dT], requires_grad=False)
+        self.two_times_stdev : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor(2.0*stdev), requires_grad=False)
     def forward(self, velocities : torch.Tensor, accels : torch.Tensor, 
                 newton_iterations = 20, newton_stepsize = 1.0, max_step=1.75*_pi_180, 
                 newton_termination_eps : float | None = 1E-4, newton_termination_delta_eps : float | None = 5E-4):
@@ -91,7 +98,10 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
             if (newton_termination_delta_eps is not None) and torch.all(torch.abs(theta_deltas)<newton_termination_delta_eps):
                 break
         ellipse_normals = (self.tangent_to_normal_rotmat @ tau[...,None])[...,0]
-        origin_deltas = ellipse_points - origin
-        ellipse_normals*=torch.sign(torch.sum(ellipse_normals*origin_deltas, dim=-1))[...,None]
-        return ellipse_points, ellipse_normals, origin, lat_radii, long_radii
+        ellipse_normals*=torch.sign(torch.sum(ellipse_normals*(ellipse_points - origin), dim=-1))[...,None]
+        signed_distances = torch.sum(deltas*ellipse_normals, dim=-1)
+        specific_violation_probs = torch.special.erf(F.relu(signed_distances)/self.two_times_stdev)
+        overall_lambdas = self.gl1d(specific_violation_probs)
+        overall_violation_probs = torch.exp(-overall_lambdas)
+        return ellipse_points, ellipse_normals, origin, lat_radii, long_radii, signed_distances, specific_violation_probs, overall_violation_probs
 
