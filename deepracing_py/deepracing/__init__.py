@@ -21,6 +21,7 @@ class TrackMap():
         self.inner_boundary : np.ndarray = None
         self.outer_boundary : np.ndarray = None
         self.raceline : np.ndarray = None
+        self.width_map : np.ndarray = None
         self.directory : str = None
         self.name : str = None
         self.linemap : dict[str,dict[str, np.ndarray]] = dict()
@@ -99,6 +100,8 @@ class TrackMap():
         self.outer_boundary = self.linemap["outer_boundary"]["line"]
         self.raceline = self.linemap["raceline"]["line"]
         self.centerline = self.linemap["centerline"]["line"]
+        width_map = self.linemap.get("widthmap")
+        self.width_map = width_map["line"] if width_map is not None else None
 
         
 
