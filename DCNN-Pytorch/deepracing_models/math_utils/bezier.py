@@ -30,7 +30,7 @@ def closedPathAsBezierSpline(Y : torch.Tensor) -> Tuple[torch.Tensor, torch.Tens
     arclengths = torch.zeros_like(Yaug[:,0])
     distances = bezierArcLength(euclidean_spline)
     arclengths[1:] = torch.cumsum(distances, 0)
-    return arclengths, compositeBezierSpline(arclengths, Yaug,boundary_conditions="periodic")
+    return arclengths, compositeBezierSpline(arclengths, Yaug, boundary_conditions="periodic")
 
 
 

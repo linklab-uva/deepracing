@@ -16,6 +16,9 @@ class LinearInterpolator(torch.nn.Module):
         yi = self.y_points[idxbuckets]
         dy = self.dy[idxbuckets]
         ds = (x_samp_flat-xi)/dx
-        return (yi+ds*dy).view(x_samp.shape)
+        if self.y_points.ndim>1:
+            return (yi+ds[:,None]*dy).view(list(x_samp.shape) + [self.y_points.shape[-1],])
+        else:
+            return (yi+ds*dy).view(x_samp.shape)
 
 

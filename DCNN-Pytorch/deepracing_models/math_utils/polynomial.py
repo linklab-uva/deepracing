@@ -161,7 +161,7 @@ def polyroots(c):
     be improved by a few iterations of Newton's method.
     """
     # c is a trimmed copy
-    # num_coefficients : int = int(c.shape[1])
+    # num_coefficients : int = int(c.shape[-1])
     # if num_coefficients < 2:
     #     raise ValueError("Polynomial of degree 0 not supported.")
     # if num_coefficients == 2:

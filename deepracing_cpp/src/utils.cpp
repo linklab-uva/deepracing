@@ -5,18 +5,18 @@ pcl::PointCloud<deepracing::PointXYZLapdistance> deepracing::Utils::closeBoundar
     {
         dL[i-1] = open_boundary[i].lapdistance - open_boundary[i-1].lapdistance;
     }
-    double meandL = dL.mean();
+    double mean_dL = dL.mean();
     const PointXYZLapdistance& p0 = open_boundary.at(0);
     const PointXYZLapdistance& pf = open_boundary.at(open_boundary.size()-1);
     Eigen::Vector3f pf_eigen = Eigen::Vector3f(pf.getVector3fMap());
     Eigen::Vector3f deltavec = Eigen::Vector3f(p0.getVector3fMap() - pf_eigen);
     double final_distance = deltavec.norm();
-    if (final_distance<2.0*meandL)
+    if (final_distance<2.0*mean_dL)
     {
         return open_boundary;
     }
     Eigen::Vector3f direction = deltavec.normalized();
-    unsigned int linspace_size = (unsigned int)std::round(final_distance/meandL);
+    unsigned int linspace_size = (unsigned int)std::round(final_distance/mean_dL);
     Eigen::VectorXd extra_ld = Eigen::VectorXd::LinSpaced(linspace_size, 0.0, final_distance);
     unsigned int extra_points = linspace_size - 2;
     pcl::PointCloud<deepracing::PointXYZLapdistance> rtn(open_boundary);

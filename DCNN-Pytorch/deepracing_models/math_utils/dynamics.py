@@ -46,18 +46,19 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
                 longaccel_speeds, longaccel_maxvals,
                 lataccel_speeds, lataccel_maxvals,
                 requires_grad=requires_grad)
-        self.tangent_to_normal_rotmat : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor([
-            [0.0, -1.0],
-            [1.0,  0.0]
-        ]), requires_grad=requires_grad)
+        # self.tangent_to_normal_rotmat : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor([
+        #     [0.0, -1.0],
+        #     [1.0,  0.0]
+        # ]), requires_grad=requires_grad)
         self.gl1d = GaussLegendre1D(gauss_order, interval=[0, dT], requires_grad=False)
         self.two_times_stdev : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor(2.0*stdev), requires_grad=False)
     def forward(self, velocities : torch.Tensor, accels : torch.Tensor, 
                 newton_iterations = 20, newton_stepsize = 1.0, max_step=1.75*_pi_180, 
-                newton_termination_eps : float | None = 1E-4, newton_termination_delta_eps : float | None = 5E-4):
+                newton_termination_eps : float | None = 1E-4, newton_termination_delta_eps : float | None = .1*np.pi/180.0):
         speeds : torch.Tensor = torch.norm(velocities, p=2.0, dim=-1, keepdim=True)
         tangents = velocities/speeds
-        normals = (self.tangent_to_normal_rotmat @ tangents[...,None])[...,0]
+        normals = tangents[...,[1,0]].clone()
+        normals[...,0]*=-1.0
         origin, lat_radii, long_radii = self.dynamics_interp(speeds.squeeze(-1))
         # return None, origin, lat_radii, long_radii
         long_accels = torch.sum(accels*tangents, dim=-1, keepdim=True)
@@ -97,11 +98,13 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
                 break
             if (newton_termination_delta_eps is not None) and torch.all(torch.abs(theta_deltas)<newton_termination_delta_eps):
                 break
-        ellipse_normals = (self.tangent_to_normal_rotmat @ tau[...,None])[...,0]
+        # ellipse_normals = (self.tangent_to_normal_rotmat @ tau[...,None])[...,0]
+        ellipse_normals = tau[...,[1,0]].clone()
+        ellipse_normals[...,0]*=-1.0
         ellipse_normals*=torch.sign(torch.sum(ellipse_normals*(ellipse_points - origin), dim=-1))[...,None]
         signed_distances = torch.sum(deltas*ellipse_normals, dim=-1)
         specific_violation_probs = torch.special.erf(F.relu(signed_distances)/self.two_times_stdev)
         overall_lambdas = self.gl1d(specific_violation_probs)
-        overall_violation_probs = torch.exp(-overall_lambdas)
-        return ellipse_points, ellipse_normals, origin, lat_radii, long_radii, signed_distances, specific_violation_probs, overall_violation_probs
+        overall_within_limits_probs = torch.exp(-overall_lambdas)
+        return ellipse_points, ellipse_normals, origin, lat_radii, long_radii, signed_distances, specific_violation_probs, overall_within_limits_probs
 
