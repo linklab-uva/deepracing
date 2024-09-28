@@ -68,21 +68,10 @@ class CollisionProbabilityEstimator(torch.nn.Module):
     def forward(self, *args):
         candidate_curve_points : torch.Tensor = args[0]
         candidate_curve_tangents : torch.Tensor = args[1]
-        # candidate_curve_dt : torch.Tensor = args[2]
         if len(args)==3:
             mvn : torch.distributions.MultivariateNormal = args[2]
         else:
             mvn = torch.distributions.MultivariateNormal(args[2], covariance_matrix=args[3], validate_args=False)
-        # batchdims = list(candidate_curve_dt.shape[:-1])
-        # nbatchdims = candidate_curve_dt.ndim - 1
-        # time_integral_nodes = self.gl1d.eta.view([1 for _ in range(nbatchdims)] + [self.gl1d.eta.shape[0],]).expand(batchdims + [self.gl1d.eta.shape[0],]) + candidate_curve_tstart[:,[0,]]
-        # for _ in range(nbatchdims):
-        #     time_integral_nodes = time_integral_nodes[None]
-        # time_integral_nodes = time_integral_nodes.expand(batchdims + [self.gl1d.eta.shape[0],]) + candidate_curve_tstart[:,[0,]]
-        # candidate_curve_points, idxbuckets = compositeBezierEval(candidate_curve_tstart, candidate_curve_dt, candidate_bezier_curves, time_integral_nodes)
-        # candidate_curve_derivs : torch.Tensor = (candidate_bezier_curves.shape[-2]-1)*(candidate_bezier_curves[...,1:,:] - candidate_bezier_curves[...,:-1,:])/candidate_curve_dt[...,None,None]
-        # candidate_curve_vels, _ = compositeBezierEval(candidate_curve_tstart, candidate_curve_dt, candidate_curve_derivs, time_integral_nodes, idxbuckets=idxbuckets)
-        # candidate_curve_tangents = candidate_curve_vels/torch.norm(candidate_curve_vels, p=2.0, dim=-1, keepdim=True)
         candidate_curve_normals = candidate_curve_tangents @ self.tangent_to_normal_rotmat
         candidate_curve_rotmats = torch.stack([candidate_curve_tangents, candidate_curve_normals], dim=-1)
         gauss_pts, gaussian_pdf_vals, collision_probs = self.gaussian_pdf_integrator(mvn, candidate_curve_rotmats, candidate_curve_points)

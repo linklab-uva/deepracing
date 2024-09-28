@@ -12,15 +12,15 @@ class BoundsChecker(torch.nn.Module):
                 right_widths : torch.Tensor,
                 gauss_order : int,
                 dT : float,
+                stdev : float = 1.25,
                 squared_distances : bool = True, 
-                levels : int = None,
-                stdev : float = 1.25
+                levels : int = None
                 ) -> None:
         super(BoundsChecker, self).__init__()
         self.refline_helper : mu.SimplePathHelper = mu.SimplePathHelper.from_closed_path(refline_points, dr_samp)
         arclengths : torch.Tensor = self.refline_helper.__arclengths_in__.detach().clone()
         self.rebuild_kdtree(squared_distances=squared_distances, levels=levels)
-        self.two_times_stdev : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor(2.0*stdev), requires_grad=False)
+        self.stdev_factor : torch.nn.Parameter = torch.nn.Parameter(1.0/(torch.as_tensor(2.0).sqrt()*stdev), requires_grad=False)
         self.arclengths : torch.nn.Parameter = torch.nn.Parameter(arclengths, requires_grad=False)
         self.left_widths : torch.nn.Parameter = torch.nn.Parameter(left_widths, requires_grad=False)
         self.right_widths : torch.nn.Parameter = torch.nn.Parameter(right_widths, requires_grad=False)
@@ -40,8 +40,8 @@ class BoundsChecker(torch.nn.Module):
         left_width_vals : torch.Tensor = self.left_width_interp(closest_point_r)
         right_width_vals : torch.Tensor = self.right_width_interp(closest_point_r)
 
-        specific_left_bound_violation_probs = torch.special.erf(F.relu(signed_distances - left_width_vals)/self.two_times_stdev)
-        specific_right_bound_violation_probs = torch.special.erf(F.relu(right_width_vals - signed_distances)/self.two_times_stdev)
+        specific_left_bound_violation_probs = torch.special.erf(F.relu(signed_distances - left_width_vals)*self.stdev_factor)
+        specific_right_bound_violation_probs = torch.special.erf(F.relu(right_width_vals - signed_distances)*self.stdev_factor)
         left_bound_overall_lambdas : torch.Tensor = self.gl1d(specific_left_bound_violation_probs)
         right_bound_overall_lambdas : torch.Tensor = self.gl1d(specific_right_bound_violation_probs)
 

@@ -59,7 +59,7 @@ class BayesianFilter(torch.nn.Module):
             (
                 closest_point_r,
                 bounds_check_positions,
-                closest_point_values,
+                closest_point_values, 
                 closest_point_tangents,
                 closest_point_normals,
                 deltas,
@@ -73,6 +73,9 @@ class BayesianFilter(torch.nn.Module):
            ),
             (
                 mvn,
+                gauss_pts,
+                gaussian_pdf_vals,
+                collision_check_positions,
                 collision_probs,
                 overall_lambdas,
                 overall_collision_free_probs

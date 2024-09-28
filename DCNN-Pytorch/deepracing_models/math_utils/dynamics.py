@@ -51,7 +51,8 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
         #     [1.0,  0.0]
         # ]), requires_grad=requires_grad)
         self.gl1d = GaussLegendre1D(gauss_order, interval=[0, dT], requires_grad=False)
-        self.two_times_stdev : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor(2.0*stdev), requires_grad=False)
+        # self.two_times_stdev : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor(2.0*stdev), requires_grad=False)
+        self.stdev_factor : torch.nn.Parameter = torch.nn.Parameter(1.0/(torch.as_tensor(2.0).sqrt()*stdev), requires_grad=False)
     def forward(self, velocities : torch.Tensor, accels : torch.Tensor, 
                 newton_iterations = 20, newton_stepsize = 1.0, max_step=1.75*_pi_180, 
                 newton_termination_eps : float | None = 1E-4, newton_termination_delta_eps : float | None = .1*np.pi/180.0):
@@ -89,7 +90,7 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
             dotprod_deriv = 0.5*(deltas[...,0]*dtau_dtheta[...,0] + ddelta_dtheta[...,0]*tau[...,0] +\
                             deltas[...,1]*dtau_dtheta[...,1] + ddelta_dtheta[...,1]*tau[...,1])
             theta_deltas = torch.clip(newton_stepsize*(dotprods/dotprod_deriv), -max_step, max_step)
-            thetas-=theta_deltas
+            thetas -= theta_deltas
             gamma = -radii_ratio/torch.tan(thetas)
             alpha  = torch.arctan(gamma)
             tau = torch.stack([torch.cos(alpha), torch.sin(alpha)], dim=-1)
@@ -98,12 +99,11 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
                 break
             if (newton_termination_delta_eps is not None) and torch.all(torch.abs(theta_deltas)<newton_termination_delta_eps):
                 break
-        # ellipse_normals = (self.tangent_to_normal_rotmat @ tau[...,None])[...,0]
         ellipse_normals = tau[...,[1,0]].clone()
         ellipse_normals[...,0]*=-1.0
         ellipse_normals*=torch.sign(torch.sum(ellipse_normals*(ellipse_points - origin), dim=-1))[...,None]
         signed_distances = torch.sum(deltas*ellipse_normals, dim=-1)
-        specific_violation_probs = torch.special.erf(F.relu(signed_distances)/self.two_times_stdev)
+        specific_violation_probs = torch.special.erf(F.relu(signed_distances)*self.stdev_factor)
         overall_lambdas = self.gl1d(specific_violation_probs)
         overall_within_limits_probs = torch.exp(-overall_lambdas)
         return ellipse_points, ellipse_normals, origin, lat_radii, long_radii, signed_distances, specific_violation_probs, overall_within_limits_probs
