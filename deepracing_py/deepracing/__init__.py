@@ -78,7 +78,7 @@ class TrackMap():
                         line_track_y : np.ndarray = line_track['y'][:,0].copy()
                         line_track_z : np.ndarray = line_track['z'][:,0].copy()  
                         line_track_ones : np.ndarray = np.ones_like(line_track_z)
-                        line_track_all : np.ndarray = np.stack([line_track_x, line_track_y, line_track_z, line_track_ones], axis=0, dtype=line_track_x.dtype)
+                        line_track_all : np.ndarray = np.stack([line_track_x, line_track_y, line_track_z, line_track_ones], axis=0).astype(line_track_x.dtype)
                         line_map_all : np.ndarray = transform.astype(line_track_all.dtype) @ line_track_all
                         line_map : np.ndarray = line_track.copy()
                         line_map["x"] = line_map_all[[0,]].T
