@@ -137,7 +137,7 @@ def cubic_formula(coefs : torch.Tensor):
 
     return roots
 
-def polyroots(c):
+def polyroots(c : torch.Tensor) -> torch.Tensor:
     """
     Compute the roots of a batch of polynomials.
     Return the roots (a.k.a. "zeros") of the polynomial

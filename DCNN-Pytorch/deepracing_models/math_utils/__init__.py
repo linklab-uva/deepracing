@@ -4,7 +4,7 @@ from .bezier import bezierLsqfit
 from .bezier import bezierM
 from .bezier import bezierArcLength
 from .bezier import bezierPolyRoots
-from .bezier import bezierArcLength, compositeBezierSpline, compositeBezierAntiderivative, compositeBezierFit
+from .bezier import bezierArcLength, compositeBezierSpline, compositeBezierAntiderivative, compositeBezierFit, compositeBezierSpline_periodic_
 from .bezier import closedPathAsBezierSpline, polynomialFormConversion, elevateBezierOrder, compositeBezierEval
 from .fitting import pinv, fitAffine
 from .bezier import comb
@@ -110,8 +110,47 @@ class ProbabilisticCBC(torch.nn.Module):
         covar_points = torch.sum(Msquare[...,None,None]*covar_curves, dim=-3)
         return positions, covar_points, idxbuckets
 
+from deepracing_models.math_utils.kinematics import parameterize_time
+class RacelineHelper(torch.nn.Module):
+    def __init__(self, arclengths : torch.Tensor, times : torch.Tensor, curve_control_points : torch.Tensor, speed_of_r_coefs : torch.Tensor, r_of_t_coefs : torch.Tensor) -> None:
+        super(RacelineHelper, self).__init__()
+        self.__arclengths_in__ : torch.nn.Parameter = torch.nn.Parameter(arclengths.clone(), requires_grad=False)
+        self.__times_in__ : torch.nn.Parameter = torch.nn.Parameter(times.clone(), requires_grad=False)
+        self.__curve_r__ : CompositeBezierCurve = CompositeBezierCurve(arclengths, curve_control_points).requires_grad_(False)
+        self.__curve_r_deriv__ : CompositeBezierCurve = self.__curve_r__.derivative().requires_grad_(False)
+        self.__curve_r_2nd_deriv__ : CompositeBezierCurve = self.__curve_r_deriv__.derivative().requires_grad_(False)
 
-    
+        self.__speed_of_r__ : CompositeBezierCurve = CompositeBezierCurve(arclengths.clone(), speed_of_r_coefs.clone() if speed_of_r_coefs.ndim==3 else speed_of_r_coefs.unsqueeze(-1).clone()
+                                                                          ).requires_grad_(False)
+        
+        self.__r_of_t__ : CompositeBezierCurve = CompositeBezierCurve(times.clone(), r_of_t_coefs.clone() if r_of_t_coefs.ndim==3 else r_of_t_coefs.unsqueeze(-1).clone()
+                                                                          ).requires_grad_(False)
+    @staticmethod
+    def from_closed_path(points : torch.Tensor, speeds : torch.Tensor) -> 'RacelineHelper':
+        arclengths, curve_control_points = closedPathAsBezierSpline(points) 
+        speed_of_r_coefs = compositeBezierSpline_periodic_(arclengths, speeds.unsqueeze(-1)) 
+        times = parameterize_time(speeds, arclengths)
+        dT = torch.diff(times, n=1, dim=0)
+        speed_of_t_coefs = torch.stack([speeds[:-1], speeds[1:]], dim=1)
+        r_of_t_coefs = compositeBezierAntiderivative(speed_of_t_coefs[None,...,None], dT[None])[0]
+        return RacelineHelper(arclengths, times, curve_control_points, speed_of_r_coefs, r_of_t_coefs)
+    def forward(self, t : torch.Tensor | None = None, r : torch.Tensor | None = None, deriv=False, idxbuckets=None):
+        if (t is not None) and (r is not None):
+            raise ValueError("Can't pass both t and r")
+        if (t is None) and (r is None):
+            raise ValueError("Must pass either t or r")
+        if t is not None:
+            r_, idxbuckets = self.__r_of_t__(t%self.__times_in__[-1], idxbuckets=idxbuckets)
+            r : torch.Tensor = r_.squeeze(-1)%self.__arclengths_in__[-1]
+        else:
+            r = r%self.__arclengths_in__[-1]
+        points, idxbuckets = self.__curve_r__(r, idxbuckets=idxbuckets)
+        if deriv:
+            tangents, _ = self.__curve_r_deriv__(r, idxbuckets=idxbuckets)
+            tangents = tangents/torch.norm(tangents,p=2.0,dim=-1,keepdim=True)
+            speeds, _ = self.__speed_of_r__(r, idxbuckets=idxbuckets)
+            return r, points, tangents*speeds, idxbuckets
+        return r, points, None, idxbuckets
 class SimplePathHelper(torch.nn.Module):
     def __init__(self, arclengths : torch.Tensor, curve_control_points : torch.Tensor, dr_samp : float) -> None:
         super(SimplePathHelper, self).__init__()

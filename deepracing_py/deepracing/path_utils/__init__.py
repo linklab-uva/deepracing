@@ -6,7 +6,7 @@ from .pcd_utils import loadPCD, decodePCDHeader, numpyToPCD, structurednumpyToPC
 from .smooth_path_helper import SmoothPathHelper
 
 
-def paramaterize_time(speeds : np.ndarray, arclengths : np.ndarray):
+def parameterize_time(speeds : np.ndarray, arclengths : np.ndarray):
     times = np.zeros_like(speeds)
     for i in range(1, times.shape[0]):
         dr = arclengths[i] - arclengths[i-1]
