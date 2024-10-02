@@ -26,7 +26,7 @@ class GaussianIntegral2D(torch.nn.Module):
         gauss_pts=(rotations_exp@eta_01_exp).squeeze(-1) + translations_exp
         gaussian_pdf_vals = torch.exp(mvn.log_prob(gauss_pts))
         gaussian_integral_approximations = torch.sum(gaussian_pdf_vals*self.weights[:,None,None,None], dim=0).clip(0.0, 1.0)
-        return gauss_pts.transpose(0,1), gaussian_pdf_vals.transpose(0,1), gaussian_integral_approximations
+        return gauss_pts, gaussian_pdf_vals, gaussian_integral_approximations
     def __str__(self):
         return "Weights: %s.\n Eta: \n%s" % (str(self.weights.detach()), str(self.eta_01.transpose(-2,-1).detach()))
 
