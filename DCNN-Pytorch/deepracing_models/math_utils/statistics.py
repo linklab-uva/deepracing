@@ -74,7 +74,9 @@ class CollisionProbabilityEstimator(torch.nn.Module):
             mvn = torch.distributions.MultivariateNormal(args[2], covariance_matrix=args[3], validate_args=False)
         candidate_curve_normals = candidate_curve_tangents @ self.tangent_to_normal_rotmat
         candidate_curve_rotmats = torch.stack([candidate_curve_tangents, candidate_curve_normals], dim=-1)
-        gauss_pts, gaussian_pdf_vals, collision_probs = self.gaussian_pdf_integrator(mvn, candidate_curve_rotmats, candidate_curve_points)
+        gauss_pts, gaussian_pdf_vals, dense_collision_probs = self.gaussian_pdf_integrator(mvn, candidate_curve_rotmats, candidate_curve_points)
+        no_collision_probs = torch.prod(1.0 - dense_collision_probs, dim=-1)
+        collision_probs = 1.0 - no_collision_probs
         overall_lambdas = self.gl1d(collision_probs)
         overall_collision_free_probs = torch.exp(-overall_lambdas)
         return gauss_pts, gaussian_pdf_vals, mvn, collision_probs, overall_lambdas, overall_collision_free_probs

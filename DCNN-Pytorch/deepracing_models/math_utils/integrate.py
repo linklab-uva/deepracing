@@ -12,33 +12,21 @@ class GaussianIntegral2D(torch.nn.Module):
         eta, weights = (torch.as_tensor(v) for v in np.polynomial.legendre.leggauss(gauss_order))
         gauss_pts_01 = torch.stack(torch.meshgrid(xhalfwidth*eta + xmean,yhalfwidth*eta + ymean,indexing='ij'), dim=0).reshape(2,-1)
         gauss_weights = (xhalfwidth*yhalfwidth)*(weights*weights[:,None]).ravel()
-        self.eta_01 : torch.nn.Parameter = torch.nn.Parameter(gauss_pts_01.transpose(0,1)[:,None,None,...,None], requires_grad=requires_grad)
+        self.eta_01 : torch.nn.Parameter = torch.nn.Parameter(gauss_pts_01.transpose(0,1)[:,None,None,None,...,None], requires_grad=requires_grad)
         self.weights : torch.nn.Parameter = torch.nn.Parameter(gauss_weights, requires_grad=requires_grad)
     def forward(self, mvn : torch.distributions.MultivariateNormal, rotations : torch.Tensor, translations : torch.Tensor):
-        # print(mvn)
-        # print(translations.shape)
-        # print(rotations.shape)
         batch = translations.shape[0]
         timedim = translations.shape[1]
-        eta_01_exp = self.eta_01.expand(self.eta_01.shape[0], batch, timedim, self.eta_01.shape[-2], self.eta_01.shape[-1])
-        translations_exp = translations[None].expand([self.eta_01.shape[0],] + list(translations.shape))
-        rotations_exp = rotations[None].expand([self.eta_01.shape[0],] + list(rotations.shape))
-        # print(eta_01_exp.shape)
-        # print(translations_exp.shape)
-        # print(rotations_exp.shape)
-        # gauss_pts = ((rotations@self.eta_01).transpose(-2,-1) + translations[...,None,:]).transpose(1,2).transpose(0,1)
-        gauss_pts =(rotations_exp@eta_01_exp).squeeze(-1) + translations_exp
-        # print(gauss_pts.shape)
-        # raise ValueError("Stop")
-        # nbatchdims = translations.ndim - 1
-        # ls = np.linspace(0, nbatchdims-1, nbatchdims, dtype=np.int64)
-        # permute_idx = np.concatenate([[-2,], ls, [-1,]]).astype(ls.dtype)
-        # gaussian_pdf_vals = torch.exp(mvn.log_prob(gauss_pts.permute(*permute_idx)))
-        # permute_inv_idx =  np.concatenate([[-1], ls]).astype(ls.dtype)
-        # weights_exp = self.weights.tile(*np.ones_like(permute_inv_idx)).permute(*permute_inv_idx)
-        # return gauss_pts, gaussian_pdf_vals, torch.sum(gaussian_pdf_vals*weights_exp, dim=-1).clip(0.0, 1.0)
+        pointsdim = translations.shape[2]
+        gaussoveralldim = self.eta_01.shape[0]
+        targetpoints = mvn.loc.shape[1]
+        eta_01_exp = self.eta_01.expand(gaussoveralldim, batch, timedim, targetpoints, pointsdim, 1)
+        translations_exp = translations[None,:,:,None].expand(gaussoveralldim, batch, timedim, targetpoints, pointsdim)
+        rotations_exp = rotations[None,:,:,None].expand(gaussoveralldim, batch, timedim, targetpoints, pointsdim, pointsdim)
+        gauss_pts=(rotations_exp@eta_01_exp).squeeze(-1) + translations_exp
         gaussian_pdf_vals = torch.exp(mvn.log_prob(gauss_pts))
-        return gauss_pts.transpose(0,1), gaussian_pdf_vals, torch.sum(gaussian_pdf_vals*self.weights[:,None,None], dim=0).clip(0.0, 1.0)
+        gaussian_integral_approximations = torch.sum(gaussian_pdf_vals*self.weights[:,None,None,None], dim=0).clip(0.0, 1.0)
+        return gauss_pts.transpose(0,1), gaussian_pdf_vals.transpose(0,1), gaussian_integral_approximations
     def __str__(self):
         return "Weights: %s.\n Eta: \n%s" % (str(self.weights.detach()), str(self.eta_01.transpose(-2,-1).detach()))
 
