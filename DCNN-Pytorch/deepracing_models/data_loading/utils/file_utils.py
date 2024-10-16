@@ -13,6 +13,7 @@ def load_datasets_from_files(search_dir : str,
                              segments : int = 1,
                              constrain_tangents : bool = True, 
                              bcurve_cache = False, 
+                             fit_data : bool = False,
                              flag = SubsetFlag.TRAIN,
                              dtype=np.float64,
                              device=torch.device("cpu")):
@@ -73,7 +74,7 @@ def load_datasets_from_files(search_dir : str,
                             "Dataset at %s has prediction length %d, but previous dataset " + \
                             "has prediction length %d" % (metadatafile, dsetconfig["numsamples_prediction"], numsamples_prediction))
         dsetconfigs.append(dsetconfig)
-        dsets.append(FD.TrajectoryPredictionDataset.from_file(metadatafile, flag, dtype=dtype, keys=keys))
+        dsets.append(FD.TrajectoryPredictionDataset.from_file(metadatafile, flag, dtype=dtype, keys=keys, fit_data=fit_data))
         if kbezier is not None:
             dsets[-1].fit_bezier_curves(kbezier, device=device, cache=bcurve_cache, segments=segments, constrain_tangents=constrain_tangents)
     return dsets

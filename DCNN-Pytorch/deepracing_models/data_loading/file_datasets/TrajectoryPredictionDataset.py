@@ -13,6 +13,7 @@ import yaml
 import io
 from multiprocessing.shared_memory import SharedMemory
 import scipy.interpolate
+from copy import deepcopy
 
 class TrajectoryPredictionDataset(torch.utils.data.Dataset):
     ALL_KEYS : set = { 
@@ -100,6 +101,7 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
     def __init__(self):
         self.len : int = 0
         self.metadata : dict = dict()
+        self.fitdata_dict : dict[str,np.ndarray] = None
         self.data_dict : dict[str,np.ndarray] = dict()
         self.subset_flag : deepracing_models.data_loading.SubsetFlag | None = None
         self.directory : str = None
@@ -141,7 +143,7 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
             rtn.reference_curves = np.frombuffer(buffer=shared_mem.buf, dtype=dtype).reshape(shape)
         return rtn
     @staticmethod
-    def from_file(metadatafile : str, subset_flag : deepracing_models.data_loading.SubsetFlag, keys=KEYS_WE_CARE_ABOUT, dtype=np.float64) -> 'TrajectoryPredictionDataset':
+    def from_file(metadatafile : str, subset_flag : deepracing_models.data_loading.SubsetFlag, keys=KEYS_WE_CARE_ABOUT, dtype=np.float64, fit_data : bool = False) -> 'TrajectoryPredictionDataset':
         print("Loading %s data for %s" % (str(subset_flag).replace("SubsetFlag.","").lower(), metadatafile))
         rtn : TrajectoryPredictionDataset = TrajectoryPredictionDataset()
         rtn.subset_flag = subset_flag
@@ -150,18 +152,33 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
         rtn.directory = os.path.dirname(metadatafile)
         if subset_flag == deepracing_models.data_loading.SubsetFlag.TRAIN:
             npfile : str = os.path.join(rtn.directory, rtn.metadata["train_data"])
+            npfile_fitdata : str = os.path.join(rtn.directory, "fit_data", "train.pkl")
             rtn.len = rtn.metadata["num_train_samples"]
         elif subset_flag == deepracing_models.data_loading.SubsetFlag.VAL:
             npfile : str = os.path.join(rtn.directory, rtn.metadata["val_data"])
+            npfile_fitdata : str = os.path.join(rtn.directory, "fit_data", "val.pkl")
             rtn.len = rtn.metadata["num_val_samples"]
         elif subset_flag == deepracing_models.data_loading.SubsetFlag.TEST:
             npfile : str = os.path.join(rtn.directory, rtn.metadata["test_data"])
+            npfile_fitdata : str = os.path.join(rtn.directory, "fit_data", "test.pkl")
             rtn.len = rtn.metadata["num_test_samples"]
         elif subset_flag == deepracing_models.data_loading.SubsetFlag.ALL:
             npfile : str = os.path.join(rtn.directory, rtn.metadata["all_data"])
+            npfile_fitdata = None
             rtn.len = rtn.metadata["num_samples"]
         else:
             raise ValueError("Invalid subset_flag: %d" % (subset_flag,))
+        if fit_data and (npfile_fitdata is not None):
+            rtn.fitdata_dict = dict()
+            with open(npfile_fitdata, "rb") as f:
+                npdict : npio.NpzFile = np.load(f, allow_pickle=True)
+                for k in npdict.keys():
+                    arr = npdict[k]
+                    # print(k, type(arr))
+                    if type(arr)==list:
+                        rtn.fitdata_dict[k] = [arr[i].copy().astype(dtype) for i in range(len(arr))]
+                    else:
+                        rtn.fitdata_dict[k] = arr.copy()
         with open(npfile, "rb") as f:
             npdict : npio.NpzFile = np.load(f)
             # print(list(npdict.keys()))
@@ -266,6 +283,13 @@ class TrajectoryPredictionDataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
         datadict = {k : self.data_dict[k][index] for k in self.data_dict.keys()}
         datadict["trackname"] = self.metadata["trackname"]
+        if self.fitdata_dict is not None:
+            datadict["fitdata"] = {
+                "time" : np.asarray(self.fitdata_dict["time"][index]),
+                "pos" : np.asarray(self.fitdata_dict["pos"][index]),
+                "vel" : np.asarray(self.fitdata_dict["vel"][index]),
+                "quat" : np.asarray(self.fitdata_dict["quat"][index])
+            }
         if self.reference_curves is not None:
             datadict["reference_curves"] = self.reference_curves[index]
         if self.reference_curves_rswitch is not None:
