@@ -18,7 +18,7 @@ class BayesianFilter(torch.nn.Module):
     # @torch.jit.script
     def forward(self, 
                 candidate_curves : torch.Tensor, candidate_curves_tstart : torch.Tensor, candidate_curves_dT : torch.Tensor,
-                target_vehicle_prediction : tuple | torch.distributions.MultivariateNormal, 
+                target_means : torch.Tensor, target_stdev_inverse_matrices : torch.Tensor, target_logstdevs : torch.Tensor,
                 bounds_check_newton_params : dict | None, dynamics_check_newton_params : dict | None):
         Nparticles = candidate_curves.shape[0]
         candidate_curve_derivs = (candidate_curves.shape[-2]-1)*torch.diff(candidate_curves, dim=-2)/candidate_curves_dT[...,None,None]
@@ -33,9 +33,13 @@ class BayesianFilter(torch.nn.Module):
         collision_check_velocities, _ = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curve_derivs, collision_check_times, idxbuckets=collision_check_buckets)
         collision_check_speeds = torch.norm(collision_check_velocities, p=2.0, dim=-1, keepdim=True)
         collision_check_tangents = collision_check_velocities/collision_check_speeds
+        collision_check_normals = collision_check_tangents[...,[1,0]].clone()
+        collision_check_normals[...,0]*=-1.0
+        collision_check_rotmats = torch.stack([collision_check_tangents, collision_check_normals], dim=-1)
 
-        gauss_pts, gaussian_pdf_vals, mvn, collision_probs, overall_lambdas, overall_collision_free_probs = self.collision_probability_estimator(
-           collision_check_positions.to(device=collision_check_device),  collision_check_tangents.to(device=collision_check_device), *((t.to(device=collision_check_device) for t in target_vehicle_prediction) if (type(target_vehicle_prediction)==tuple) else (target_vehicle_prediction,))
+        gauss_pts, gaussian_pdf_vals, collision_probs, overall_lambdas, overall_collision_free_probs = self.collision_probability_estimator(
+            target_means, target_stdev_inverse_matrices, target_logstdevs,
+           collision_check_rotmats,  collision_check_positions 
         )
 
         #Bounds Check
@@ -72,7 +76,6 @@ class BayesianFilter(torch.nn.Module):
                 no_right_bound_violation_probs,
            ),
             (
-                mvn,
                 gauss_pts,
                 gaussian_pdf_vals,
                 collision_check_positions,

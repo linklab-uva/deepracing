@@ -3,7 +3,7 @@ import numpy as np
 import typing
 from deepracing_models.math_utils.statistics import gaussian_pdf
 class GaussianIntegral2D(torch.nn.Module):
-    def __init__(self, gauss_order : int, intervalx = (-1, 1), intervaly = (-1, 1), batchdims : list[int] = [], requires_grad=False)-> None:
+    def __init__(self, gauss_order : int, intervalx = (-1, 1), intervaly = (-1, 1), requires_grad=False)-> None:
         super(GaussianIntegral2D, self).__init__()
         xhalfwidth = 0.5*(intervalx[1] - intervalx[0])
         xmean = 0.5*(intervalx[1] + intervalx[0])
@@ -12,21 +12,19 @@ class GaussianIntegral2D(torch.nn.Module):
         eta, weights = (torch.as_tensor(v) for v in np.polynomial.legendre.leggauss(gauss_order))
         gauss_pts_01 = torch.stack(torch.meshgrid(xhalfwidth*eta + xmean,yhalfwidth*eta + ymean,indexing='ij'), dim=0).reshape(2,-1)
         gauss_weights = (xhalfwidth*yhalfwidth)*(weights*weights[:,None]).ravel()
-        self.eta_01 : torch.nn.Parameter = torch.nn.Parameter(gauss_pts_01.transpose(0,1)[:,None,None,None,...,None], requires_grad=requires_grad)
+        self.eta_01 : torch.nn.Parameter = torch.nn.Parameter(gauss_pts_01.transpose(0,1), requires_grad=requires_grad)
         self.weights : torch.nn.Parameter = torch.nn.Parameter(gauss_weights, requires_grad=requires_grad)
-    def forward(self, mvn : torch.distributions.MultivariateNormal, rotations : torch.Tensor, translations : torch.Tensor):
-        batch = translations.shape[0]
-        timedim = translations.shape[1]
-        pointsdim = translations.shape[2]
-        gaussoveralldim = self.eta_01.shape[0]
-        targetpoints = mvn.loc.shape[1]
-        eta_01_exp = self.eta_01.expand(gaussoveralldim, batch, timedim, targetpoints, pointsdim, 1)
-        translations_exp = translations[None,:,:,None].expand(gaussoveralldim, batch, timedim, targetpoints, pointsdim)
-        rotations_exp = rotations[None,:,:,None].expand(gaussoveralldim, batch, timedim, targetpoints, pointsdim, pointsdim)
-        gauss_pts=(rotations_exp@eta_01_exp).squeeze(-1) + translations_exp
-        gaussian_pdf_vals = torch.exp(mvn.log_prob(gauss_pts))
-        gaussian_integral_approximations = torch.sum(gaussian_pdf_vals*self.weights[:,None,None,None], dim=0).clip(0.0, 1.0)
-        return gauss_pts, gaussian_pdf_vals, gaussian_integral_approximations
+    def forward(self, target_means : torch.Tensor, target_stdev_inverse_matrices : torch.Tensor, target_logstdevs : torch.Tensor,
+                rotations : torch.Tensor, translations : torch.Tensor):
+        eta_01_exp = self.eta_01[None,:,None].unsqueeze(-1)
+        gauss_pts = (rotations[:,None]@eta_01_exp).squeeze(-1) + translations[:,None]
+        diff = gauss_pts.unsqueeze(-2) - target_means
+        points01 = torch.matmul(target_stdev_inverse_matrices,diff.unsqueeze(-1)).squeeze(-1)
+        points01square = points01.square()
+        log_pdf_vals2 = -0.5*(points01square.sum(dim=-1)) - target_logstdevs
+        pdfvals = log_pdf_vals2.exp()
+        cdfvals = (pdfvals*self.weights[None,:,None,None]).sum(dim=1)
+        return gauss_pts, pdfvals, cdfvals
     def __str__(self):
         return "Weights: %s.\n Eta: \n%s" % (str(self.weights.detach()), str(self.eta_01.transpose(-2,-1).detach()))
 
