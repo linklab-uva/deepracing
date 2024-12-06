@@ -15,6 +15,9 @@ class BayesianFilter(torch.nn.Module):
         self.collision_probability_estimator=collision_probability_estimator
         self.dynamic_violation_estimator=dynamic_violation_estimator
         self.bounds_checker=bounds_checker
+        self.minusonehalf = torch.nn.Parameter(torch.as_tensor(-0.5), requires_grad=False)
+        self.minusone = torch.nn.Parameter(torch.as_tensor(-1.0), requires_grad=False)
+        self.flip = torch.nn.Parameter(torch.as_tensor([-1.0, 1.0]), requires_grad=False)
     # @torch.jit.script
     def forward(self, 
                 candidate_curves : torch.Tensor, candidate_curves_tstart : torch.Tensor, candidate_curves_dT : torch.Tensor,
@@ -25,7 +28,7 @@ class BayesianFilter(torch.nn.Module):
         candidate_curve_2ndderivs = (candidate_curve_derivs.shape[-2]-1)*torch.diff(candidate_curve_derivs, dim=-2)/candidate_curves_dT[...,None,None]
         
         #Collision check
-        collision_check_device = self.collision_probability_estimator.gl1d.eta.device
+        # collision_check_device = self.collision_probability_estimator.gl1d.eta.device
         collision_check_gauss_order : int = int(self.collision_probability_estimator.gl1d.eta.shape[0])
         collision_check_times : torch.Tensor = self.collision_probability_estimator.gl1d.eta.view(1,collision_check_gauss_order).expand(Nparticles, collision_check_gauss_order).to(device=candidate_curves.device)
         collision_check_positions, collision_check_buckets = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curves, collision_check_times)
@@ -33,11 +36,12 @@ class BayesianFilter(torch.nn.Module):
         collision_check_velocities, _ = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curve_derivs, collision_check_times, idxbuckets=collision_check_buckets)
         collision_check_speeds = torch.norm(collision_check_velocities, p=2.0, dim=-1, keepdim=True)
         collision_check_tangents = collision_check_velocities/collision_check_speeds
-        collision_check_normals = collision_check_tangents[...,[1,0]].clone()
-        collision_check_normals[...,0]*=-1.0
+        # collision_check_tangents = collision_check_velocities*torch.pow(collision_check_speeds, self.minusone)
+        collision_check_normals = collision_check_tangents[...,[1,0]] * self.flip[None,None]
+        # collision_check_normals[...,0]*=-1.0
         collision_check_rotmats = torch.stack([collision_check_tangents, collision_check_normals], dim=-1)
 
-        gauss_pts, gaussian_pdf_vals, collision_probs, overall_lambdas, overall_collision_free_probs = self.collision_probability_estimator(
+        gauss_pts, gaussian_pdf_vals, _, collision_probs, overall_lambdas, overall_collision_free_probs = self.collision_probability_estimator(
             target_means, target_stdev_inverse_matrices, target_logstdevs,
            collision_check_rotmats,  collision_check_positions 
         )

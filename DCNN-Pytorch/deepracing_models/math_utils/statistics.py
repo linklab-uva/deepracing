@@ -73,4 +73,4 @@ class CollisionProbabilityEstimator(torch.nn.Module):
         collision_probs = 1.0 - no_collision_probs
         overall_lambdas = self.gl1d(collision_probs)
         overall_collision_free_probs = torch.exp(-overall_lambdas)
-        return gauss_pts, gaussian_pdf_vals, collision_probs, overall_lambdas, overall_collision_free_probs
+        return gauss_pts, gaussian_pdf_vals, dense_collision_probs, collision_probs, overall_lambdas, overall_collision_free_probs

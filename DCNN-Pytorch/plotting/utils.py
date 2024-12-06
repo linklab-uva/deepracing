@@ -32,7 +32,10 @@ title_dict : dict = {
     "lateral_error" : "Lateral Error",
     "longitudinal_error" : "Longitudinal Error"
 }
-class color:
+
+class COLORS:
+   UVA_ORANGE=np.asarray([229, 114, 0], dtype=np.float64)/255.0
+   UVA_BLUE=np.asarray([35, 45, 75], dtype=np.float64)/255.0
    PURPLE = '\033[95m'
    CYAN = '\033[96m'
    DARKCYAN = '\033[36m'
@@ -366,7 +369,43 @@ import matplotlib.container
 import matplotlib.patches
 import matplotlib.collections
 from matplotlib.gridspec import GridSpec
-# "png"
+import PIL.Image
+import torch.distributions
+def plot_gaussian(ax : matplotlib.axes.Axes, mean : torch.Tensor, stdevs : torch.Tensor, angle : float, num_ellipses : int = 50, **ellipse_kw):
+    ellipse_patches = []
+    _stdevs = stdevs.cpu()
+    normal_distribution = torch.distributions.Normal(torch.tensor(0.0), _stdevs[0])
+    pdf0 : torch.Tensor = normal_distribution.log_prob(torch.zeros_like(_stdevs[0])).exp()
+    _mean = mean.cpu()
+
+    cmap = matplotlib.colormaps['jet']
+    for scale in torch.linspace(0.01, 2.0, steps=num_ellipses):
+        scaled_stdevs = (scale*_stdevs)
+        major_radius = scaled_stdevs[0]
+        minor_radius = scaled_stdevs[1]
+        pdf : torch.Tensor = normal_distribution.log_prob(major_radius).exp()
+        current_patch : matplotlib.patches.Ellipse = ax.add_patch(
+            matplotlib.patches.Ellipse(_mean, major_radius.item(), minor_radius.item(), angle=angle*(180.0/np.pi), **ellipse_kw)
+        )
+        current_patch.set_fill(False)
+        current_patch.set_color(cmap((pdf/pdf0).item()**0.9))
+        current_patch.set_zorder(2)
+        
+
+    return ellipse_patches
+
+def plot_image(ax : matplotlib.axes.Axes, im : PIL.Image.Image, origin : torch.Tensor, tangent : torch.Tensor, width : float, length : float, image_scale : float = 1.0, **imshow_kw):
+    normal = tangent[[1,0]]*(torch.as_tensor([-1.0, 1.0]).type_as(tangent))
+    Tmatimage = torch.eye(3).type_as(origin)
+    Tmatimage[0:2,0] = tangent
+    Tmatimage[0:2,1] = normal
+    Tmatimage[0:2,2] = origin# - 0.5*image_scale*(car_length*tangent + car_width*normal)
+    offset = torch.zeros_like(Tmatimage)
+    offset[0:2,2] = 0.5*image_scale*(length*tangent + width*normal)
+    transformimage = matplotlib.transforms.Affine2D(matrix=(Tmatimage - offset).cpu().numpy())
+    return Tmatimage, transformimage, ax.imshow(im, extent=image_scale*np.asarray([0,length, 0, width]), transform=transformimage + ax.transData, **imshow_kw)
+
+
 def plot_individually(results_list : list[PredictionResults], **kwargs):
     vert = kwargs["vert"]
     box_plot_maxes = kwargs["box_plot_maxes"]

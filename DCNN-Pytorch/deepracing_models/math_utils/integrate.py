@@ -19,9 +19,9 @@ class GaussianIntegral2D(torch.nn.Module):
         eta_01_exp = self.eta_01[None,:,None].unsqueeze(-1)
         gauss_pts = (rotations[:,None]@eta_01_exp).squeeze(-1) + translations[:,None]
         diff = gauss_pts.unsqueeze(-2) - target_means
-        points01 = torch.matmul(target_stdev_inverse_matrices,diff.unsqueeze(-1)).squeeze(-1)
+        points01 = torch.matmul(target_stdev_inverse_matrices[None,:,None],diff.unsqueeze(-1)).squeeze(-1)
         points01square = points01.square()
-        log_pdf_vals2 = -0.5*(points01square.sum(dim=-1)) - target_logstdevs
+        log_pdf_vals2 = -0.5*(points01square.sum(dim=-1)) - target_logstdevs[None,:,None]
         pdfvals = log_pdf_vals2.exp()
         cdfvals = (pdfvals*self.weights[None,:,None,None]).sum(dim=1)
         return gauss_pts, pdfvals, cdfvals

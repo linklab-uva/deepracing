@@ -207,7 +207,7 @@ def compositeBezierEval(xstart : torch.Tensor, dx : torch.Tensor,
     corresponding_curves = torch.gather(control_points_onebatchdim, 1, idxbuckets_exp)
     corresponding_xstart = torch.gather(xstart_onebatchdim, 1, idxbuckets_)
     corresponding_dx = torch.gather(dx_onebatchdim, 1, idxbuckets_)
-    s_eval = (x_eval_onebatchdim - corresponding_xstart)/corresponding_dx
+    s_eval = (x_eval_onebatchdim - corresponding_xstart)*torch.pow(corresponding_dx, torch.as_tensor(-1.0).type_as(corresponding_dx))
     s_eval_unsqueeze = s_eval.unsqueeze(-1)
     Mbezier = bezierM(s_eval_unsqueeze.view(-1, 1), kbezier).view(batchsize, numpoints, kbezier+1)
     pointseval = torch.matmul(Mbezier.unsqueeze(-2), corresponding_curves).squeeze(-2)
