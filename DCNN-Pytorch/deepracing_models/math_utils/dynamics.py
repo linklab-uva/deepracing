@@ -57,6 +57,8 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
                 newton_iterations = 20, newton_stepsize = 1.0, max_step=1.75*_pi_180, 
                 newton_termination_eps : float | None = 1E-4, newton_termination_delta_eps : float | None = .1*np.pi/180.0):
         speeds : torch.Tensor = torch.norm(velocities, p=2.0, dim=-1, keepdim=True)
+        # velocity_signs = torch.sign(velocities)
+        # log_tangents = torch.log(velocities) - torch.log(speeds)
         tangents = velocities/speeds
         normals = tangents[...,[1,0]].clone()
         normals[...,0]*=-1.0
@@ -70,7 +72,8 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
         both_accels_offset = both_accels - origin
         thetas = torch.atan2(both_accels_offset[...,1], both_accels_offset[...,0])
         ellipse_points : torch.Tensor = torch.stack([lat_radii*torch.cos(thetas), long_radii*torch.sin(thetas)], dim=-1) + origin
-        radii_ratio = (long_radii/lat_radii)
+        # radii_ratio = (long_radii/lat_radii)
+        radii_ratio = (torch.log(long_radii) - torch.log(lat_radii)).exp()
         gamma = -radii_ratio/torch.tan(thetas)#*torch.cos(thetas)/torch.sin(thetas)
         alpha  = torch.arctan(gamma)
         tau = torch.stack([torch.cos(alpha), torch.sin(alpha)], dim=-1)
