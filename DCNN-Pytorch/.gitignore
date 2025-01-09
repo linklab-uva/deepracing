@@ -4,4 +4,4 @@
 ~lock*
 *.jpg
 playground.*
-playground/
+playground/*.pdf
