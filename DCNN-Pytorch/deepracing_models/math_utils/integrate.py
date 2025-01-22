@@ -2,6 +2,30 @@ import torch, torch.nn, torch.distributions
 import numpy as np
 import typing
 from deepracing_models.math_utils.statistics import gaussian_pdf
+class GaussianIntegralCirc(torch.nn.Module):
+    def __init__(self, gauss_order : int, radius : float = 1.0, requires_grad=False)-> None:
+        super(GaussianIntegralCirc, self).__init__()
+        Rhalfwidth = Rmean = 0.5*radius
+        thetahalfwidth = thetamean = float(np.pi)
+        eta, weights = (torch.as_tensor(v) for v in np.polynomial.legendre.leggauss(gauss_order))
+        self.weights = torch.nn.Parameter((weights*weights[:,None]).ravel(), requires_grad=requires_grad)
+        gauss_pts_rtheta = torch.stack(torch.meshgrid(Rhalfwidth*eta + Rmean,thetahalfwidth*eta + thetamean,indexing='ij'), dim=0).reshape(2,-1)
+        # print("gauss_pts_rtheta:", gauss_pts_rtheta)
+        self.gauss_pts_rtheta : torch.nn.Parameter = torch.nn.Parameter(gauss_pts_rtheta.transpose(0,1), requires_grad=requires_grad)
+        gauss_pts_xy = torch.stack([gauss_pts_rtheta[0]*torch.cos(gauss_pts_rtheta[1]), gauss_pts_rtheta[0]*torch.sin(gauss_pts_rtheta[1])], dim=1)
+        self.gauss_pts_xy : torch.nn.Parameter = torch.nn.Parameter(gauss_pts_xy, requires_grad=requires_grad)
+        self.outer_factor = torch.nn.Parameter(torch.as_tensor(Rhalfwidth*thetahalfwidth), requires_grad=requires_grad)
+
+    def forward(self, target_means : torch.Tensor, target_stdev_inverse_matrices : torch.Tensor, target_logstdevs : torch.Tensor):
+        diff = self.gauss_pts_xy - target_means[...,None,:]
+        points01 = (target_stdev_inverse_matrices@diff.transpose(-2,-1)).transpose(-2,-1)
+        points01square = points01.square()
+        log_pdf_vals2 = -0.5*(points01square.sum(dim=-1)) - target_logstdevs[:,None]
+        pdfvals = log_pdf_vals2.exp()
+        cdfvals = (self.outer_factor*((pdfvals*self.gauss_pts_rtheta[None,:,0])*self.weights[None]).sum(dim=1)).clip(0.0, 1.0)
+        return pdfvals, cdfvals
+
+                
 class GaussianIntegral2D(torch.nn.Module):
     def __init__(self, gauss_order : int, intervalx = (-1, 1), intervaly = (-1, 1), requires_grad=False)-> None:
         super(GaussianIntegral2D, self).__init__()
@@ -11,7 +35,8 @@ class GaussianIntegral2D(torch.nn.Module):
         ymean = 0.5*(intervaly[1] + intervaly[0])
         eta, weights = (torch.as_tensor(v) for v in np.polynomial.legendre.leggauss(gauss_order))
         gauss_pts_01 = torch.stack(torch.meshgrid(xhalfwidth*eta + xmean,yhalfwidth*eta + ymean,indexing='ij'), dim=0).reshape(2,-1)
-        gauss_weights = (xhalfwidth*yhalfwidth)*(weights*weights[:,None]).ravel()
+        gauss_weights = (weights*weights[:,None]).ravel()
+        self.outer_factor = torch.nn.Parameter(torch.as_tensor(xhalfwidth*yhalfwidth), requires_grad=False) #(xhalfwidth*yhalfwidth)*
         self.eta_01 : torch.nn.Parameter = torch.nn.Parameter(gauss_pts_01.transpose(0,1), requires_grad=requires_grad)
         self.weights : torch.nn.Parameter = torch.nn.Parameter(gauss_weights, requires_grad=requires_grad)
     def forward(self, target_means : torch.Tensor, target_stdev_inverse_matrices : torch.Tensor, target_logstdevs : torch.Tensor,
@@ -23,7 +48,7 @@ class GaussianIntegral2D(torch.nn.Module):
         points01square = points01.square()
         log_pdf_vals2 = -0.5*(points01square.sum(dim=-1)) - target_logstdevs[None,:,None]
         pdfvals = log_pdf_vals2.exp()
-        cdfvals = (pdfvals*self.weights[None,:,None,None]).sum(dim=1)
+        cdfvals = (self.outer_factor*(pdfvals*self.weights[None,:,None,None]).sum(dim=1)).clip(0.0, 1.0)
         return gauss_pts, pdfvals, cdfvals
     def __str__(self):
         return "Weights: %s.\n Eta: \n%s" % (str(self.weights.detach()), str(self.eta_01.transpose(-2,-1).detach()))
@@ -32,14 +57,15 @@ class GaussLegendre1D(torch.nn.Module):
     def __init__(self, gauss_order : int, interval = (-1, 1), requires_grad=False)-> None:
         super(GaussLegendre1D, self).__init__()
         intervalmean = 0.5*(interval[0] + interval[1])
-        intervalhalfwidth = 0.5*(interval[1] - interval[0])
+        intervalhalfwidth=0.5*(interval[1] - interval[0])
+        self.intervalhalfwidth = torch.nn.Parameter(torch.as_tensor(intervalhalfwidth), requires_grad=False)
         eta, weights = (torch.as_tensor(v) for v in np.polynomial.legendre.leggauss(gauss_order))
         self.eta : torch.nn.Parameter = torch.nn.Parameter(intervalhalfwidth*eta + intervalmean, requires_grad=requires_grad)
-        self.weights : torch.nn.Parameter = torch.nn.Parameter(intervalhalfwidth*weights, requires_grad=requires_grad)
+        self.weights : torch.nn.Parameter = torch.nn.Parameter(weights, requires_grad=requires_grad) #intervalhalfwidth*
     def forward(self, x : torch.Tensor):
         nbatchdims = x.ndim-1
         weights = self.weights.tile(*torch.ones(nbatchdims + 1, dtype=torch.int64))
-        return torch.sum(weights*x, dim=-1)
+        return self.intervalhalfwidth*torch.sum(weights*x, dim=-1)
         
 def cumtrapz(y,x,initial=None):
     dx = x[:,1:]-x[:,:-1]
