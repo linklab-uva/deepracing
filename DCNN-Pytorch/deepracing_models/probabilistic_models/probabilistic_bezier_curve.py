@@ -2,7 +2,6 @@ from typing import Tuple
 from sklearn import manifold
 import torch, torch.nn, torch.nn.parameter
 import deepracing_models.math_utils
-import geotorch, geotorch.parametrize
 import geoopt
 class ProbabilisticBezierCurve(torch.nn.Module):
     def __init__(self, mean : torch.Tensor, covariance : torch.Tensor):
@@ -16,7 +15,9 @@ class ProbabilisticBezierCurve(torch.nn.Module):
         if order is None:
             pointsout : torch.Tensor = torch.matmul(M, mean)
             msquare : torch.Tensor = torch.square(M)
-            pointscovarout : torch.Tensor = torch.sum(msquare[:,:,None,None]*covariance, dim=1)
+            # print(msquare[...,None,None].shape)
+            # print(covariance[None,:,None].shape)
+            pointscovarout : torch.Tensor = torch.sum(msquare[...,None,None]*covariance[None,None], dim=-3)
             return pointsout, pointscovarout
         else:
             _, deriv_mean, deriv_covariance = deepracing_models.math_utils.bezierDerivative(mean.unsqueeze(0), M=M.unsqueeze(0), covariance=covariance.unsqueeze(0), order=order)
