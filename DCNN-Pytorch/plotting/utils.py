@@ -403,7 +403,7 @@ def plot_image(ax : matplotlib.axes.Axes, im : PIL.Image.Image, origin : torch.T
     offset = torch.zeros_like(Tmatimage)
     offset[0:2,2] = 0.5*image_scale*(length*tangent + width*normal)
     transformimage = matplotlib.transforms.Affine2D(matrix=(Tmatimage - offset).cpu().numpy())
-    return Tmatimage, transformimage, ax.imshow(im, extent=image_scale*np.asarray([0,length, 0, width]), transform=transformimage + ax.transData, **imshow_kw)
+    return Tmatimage, transformimage, ax.imshow(im, extent=image_scale*np.asarray([0, length, 0, width]), transform=transformimage + ax.transData, **imshow_kw)
 
 
 def plot_individually(results_list : list[PredictionResults], **kwargs):
@@ -928,7 +928,7 @@ def deframe_axes(ax : matplotlib.axes.Axes, keep_ticks=False, keys=["top", "righ
         ax.set_yticks([])
 import numpy.typing
 def export_legend(axin : matplotlib.axes.Axes, sort_keys : bool | numpy.typing.ArrayLike = False, **kwargs):
-    fig_legend, _ax_legend_ = plt.subplots()
+    fig_legend, _ax_legend_ = plt.subplots(figsize=np.asarray([1.0, 1.0]))
     ax_legend : matplotlib.axes.Axes = _ax_legend_
     ax_legend.set_axis_off()
     handles, keys = axin.get_legend_handles_labels()
