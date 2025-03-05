@@ -67,7 +67,7 @@ class CollisionProbabilityEstimator(torch.nn.Module):
         self.dT = torch.nn.Parameter(torch.as_tensor(dT), requires_grad=False)
     # def forward(self, candidate_bezier_curves : torch.Tensor, candidate_curve_tstart : torch.Tensor, candidate_curve_dt : torch.Tensor, **kwargs):
     def forward(self, target_means : torch.Tensor, target_stdev_inverse_matrices : torch.Tensor, target_logstdevs : torch.Tensor,
-                candidate_curve_rotmats : torch.Tensor,  candidate_curve_points : torch.Tensor):
+                candidate_curve_rotmats : torch.Tensor,  candidate_curve_points : torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         gauss_pts, gaussian_pdf_vals, dense_collision_probs = self.gaussian_pdf_integrator(target_means, target_stdev_inverse_matrices, target_logstdevs,
                                                                                            candidate_curve_rotmats, candidate_curve_points)
         no_collision_probs = torch.prod(1.0 - dense_collision_probs, dim=-1)

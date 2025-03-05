@@ -32,18 +32,23 @@ def rectangle_intersections1(box1 : torch.Tensor, box2 : torch.Tensor):
     collision_idx = (torch.sum( ((p2_in_C1[...,0]>=-box1lengths_exp*0.5) * (p2_in_C1[...,0]<=box1lengths_exp*0.5))*((p2_in_C1[...,1]>=-box1widths_exp*0.5) * (p2_in_C1[...,1]<=box1widths_exp*0.5)), dim=-1)>0) +\
                     (torch.sum( ((p1_in_C2[...,0]>=-box2lengths_exp*0.5) * (p1_in_C2[...,0]<=box2lengths_exp*0.5))*((p1_in_C2[...,1]>=-box2widths_exp*0.5) * (p1_in_C2[...,1]<=box2widths_exp*0.5)), dim=-1)>0) 
     return collision_idx
-def rectangle_intersections2(box1 : torch.Tensor, box2 : torch.Tensor, check_singular : bool = True, combinations = torch.as_tensor([  [0, 1],
+def rectangle_intersections2(box1 : torch.Tensor, box2 : torch.Tensor, check_singular : bool = True, combinations = torch.as_tensor([  
+                                                                                                        [0, 0],
+                                                                                                        [0, 1],
                                                                                                         [0, 2],
                                                                                                         [0, 3],
                                                                                                         [1, 0],
+                                                                                                        [1, 1],
                                                                                                         [1, 2],
                                                                                                         [1, 3],
                                                                                                         [2, 0],
                                                                                                         [2, 1],
+                                                                                                        [2, 2],
                                                                                                         [2, 3],
                                                                                                         [3, 0],
                                                                                                         [3, 1],
-                                                                                                        [3, 2]]  )):
+                                                                                                        [3, 2],
+                                                                                                        [3, 3]]  )):
     
     lhs = torch.stack([
         box1[..., (combinations[:,0] + 1)%4, :] - box1[..., combinations[:,0], :],
@@ -61,20 +66,3 @@ def rectangle_intersections2(box1 : torch.Tensor, box2 : torch.Tensor, check_sin
     collision_idx = torch.sum(intersection_idx, dim=-1)>0
     # print(collision_idx.device)
     return RectangleIntersections(solution, intersection_idx, collision_idx, combinations)
-# def rectangle_intersections(box1 : torch.Tensor, box2 : torch.Tensor, check_singular : bool = True, combinations = torch.as_tensor([
-#                                                                                                         # [0, 0],
-#                                                                                                         # [0, 2],
-#                                                                                                         [2, 2],
-#                                                                                                         [2, 0],])):
-    
-#     result = rectangle_intersections2(box1, box2, check_singular=check_singular)
-#     # broadphase_idx = rectangle_intersections1(box1, box2)
-#     # maybe = ~broadphase_idx
-#     # # print(box1.device)
-#     # # print(box2.device)
-#     # # print(maybe.device)
-#     # result = rectangle_intersections2(box1[maybe], box2[maybe], check_singular=check_singular, combinations=combinations)
-#     # # print(broadphase_idx.device)
-#     # # print(result.collision_idx.device)
-#     # broadphase_idx[maybe.to(device=broadphase_idx.device)] = result.collision_idx
-#     return result.collision_idx, result
