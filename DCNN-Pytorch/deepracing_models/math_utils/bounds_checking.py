@@ -13,6 +13,7 @@ class BoundsChecker(torch.nn.Module):
                 gauss_order : int,
                 dT : float,
                 stdev : float = 1.25,
+                alpha : float = 0.1,
                 squared_distances : bool = True, 
                 levels : int = None
                 ) -> None:
@@ -27,6 +28,7 @@ class BoundsChecker(torch.nn.Module):
         self.left_width_interp : interpolate.LinearInterpolator = interpolate.LinearInterpolator(arclengths, left_widths, requires_grad=False)
         self.right_width_interp : interpolate.LinearInterpolator = interpolate.LinearInterpolator(arclengths, right_widths, requires_grad=False)
         self.gl1d : integrate.GaussLegendre1D = integrate.GaussLegendre1D(gauss_order, interval=[0, dT], requires_grad=False)
+        self.alpha = torch.nn.Parameter(torch.as_tensor(alpha), requires_grad=False)
     def rebuild_kdtree(self, squared_distances : bool = True, levels : int = None):
         self.refline_helper.rebuild_kdtree(squared_distances=squared_distances, levels=levels)
         
@@ -42,8 +44,11 @@ class BoundsChecker(torch.nn.Module):
 
         specific_left_bound_violation_probs = torch.special.erf(F.relu(signed_distances - left_width_vals)*self.stdev_factor)
         specific_right_bound_violation_probs = torch.special.erf(F.relu(right_width_vals - signed_distances)*self.stdev_factor)
-        left_bound_overall_lambdas : torch.Tensor = self.gl1d(specific_left_bound_violation_probs)
-        right_bound_overall_lambdas : torch.Tensor = self.gl1d(specific_right_bound_violation_probs)
+
+        left_bound_overall_lambdas : torch.Tensor = self.gl1d(
+            self.alpha*specific_left_bound_violation_probs + (1-self.alpha)*specific_left_bound_violation_probs/(1-specific_left_bound_violation_probs))
+        right_bound_overall_lambdas : torch.Tensor = self.gl1d(
+            self.alpha*specific_right_bound_violation_probs + (1-self.alpha)*specific_right_bound_violation_probs/(1-specific_right_bound_violation_probs))
 
         no_left_bound_violation_probs = torch.exp(-left_bound_overall_lambdas)
         no_right_bound_violation_probs = torch.exp(-right_bound_overall_lambdas)

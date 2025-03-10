@@ -56,7 +56,7 @@ from deepracing_models.math_utils.integrate import GaussLegendre1D, GaussianInte
 from deepracing_models.math_utils.bezier import compositeBezierEval
 import torch.distributions
 class CollisionProbabilityEstimator(torch.nn.Module):
-    def __init__(self, gauss_order_time : int, dT : float, gauss_order_space : int, lat_buffer : float, long_buffer : float, requires_grad=False) -> None:
+    def __init__(self, gauss_order_time : int, dT : float, gauss_order_space : int, lat_buffer : float, long_buffer : float, alpha : float = 0.1, requires_grad=False) -> None:
         super(CollisionProbabilityEstimator, self).__init__()
         self.gl1d : GaussLegendre1D = GaussLegendre1D(gauss_order_time, interval=(0, dT), requires_grad=requires_grad)
         self.gaussian_pdf_integrator : GaussianIntegral2D = GaussianIntegral2D(gauss_order_space, requires_grad=requires_grad, intervalx=[-long_buffer, long_buffer], intervaly=[-lat_buffer, lat_buffer])
@@ -65,6 +65,7 @@ class CollisionProbabilityEstimator(torch.nn.Module):
             [-1.0, 0.0]
         ]), requires_grad=requires_grad)
         self.dT = torch.nn.Parameter(torch.as_tensor(dT), requires_grad=False)
+        self.alpha = torch.nn.Parameter(torch.as_tensor(alpha), requires_grad=False)
     # def forward(self, candidate_bezier_curves : torch.Tensor, candidate_curve_tstart : torch.Tensor, candidate_curve_dt : torch.Tensor, **kwargs):
     def forward(self, target_means : torch.Tensor, target_stdev_inverse_matrices : torch.Tensor, target_logstdevs : torch.Tensor,
                 candidate_curve_rotmats : torch.Tensor,  candidate_curve_points : torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -72,7 +73,6 @@ class CollisionProbabilityEstimator(torch.nn.Module):
                                                                                            candidate_curve_rotmats, candidate_curve_points)
         no_collision_probs = torch.prod(1.0 - dense_collision_probs, dim=-1)
         collision_probs = 1.0 - no_collision_probs
-        overall_lambdas = self.gl1d(collision_probs)
-        print("self.dT:", self.dT, "\n")
+        overall_lambdas = self.gl1d(self.alpha*collision_probs + (1-self.alpha)*(collision_probs/no_collision_probs))
         overall_collision_free_probs = torch.exp(-overall_lambdas)#*self.dT
         return gauss_pts, gaussian_pdf_vals, dense_collision_probs, collision_probs, overall_lambdas, overall_collision_free_probs
