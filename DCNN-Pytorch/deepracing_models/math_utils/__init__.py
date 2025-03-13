@@ -218,7 +218,9 @@ class SimplePathHelper(torch.nn.Module):
                 newton_termination_eps : float | None = 1E-4, newton_termination_delta_eps : float | None = 1E-2):
         Pquery_flat = Pquery.view(-1, Pquery.shape[-1])
         if self.kd_tree is None:
-            raise ValueError("KD-Tree is not initialized")
+            query_deltas =  self.__points_samp__-Pquery_flat[:,None]
+            query_delta_norms = torch.norm(query_deltas, p=2.0, dim=-1)
+            imin = torch.argmin(query_delta_norms, dim=1)
         else:
             imin = self.kd_tree.query(Pquery_flat, nr_nns_searches=1)[1].squeeze(-1)
         if newton_iterations<=0:
