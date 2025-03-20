@@ -234,7 +234,7 @@ class SimplePathHelper(torch.nn.Module):
         for _ in range(newton_iterations):
             curve_2nd_deriv_rtn  = self.__curve_2nd_deriv__(r)
             dtangent_dr : torch.Tensor = curve_2nd_deriv_rtn[0]
-            idxbuckets : torch.Tensor = curve_2nd_deriv_rtn[1]
+            # idxbuckets : torch.Tensor = curve_2nd_deriv_rtn[1]
             deltas = Pquery_flat - points
             delta_dotprods = torch.sum(deltas*tangents,dim=-1)
             # ddelta_dr = -tangents
@@ -242,8 +242,10 @@ class SimplePathHelper(torch.nn.Module):
             ddotprod_dr : torch.Tensor = torch.sum(deltas*dtangent_dr - torch.square(tangents), dim=-1) #, dim=-1) - torch.sum(
             ddotprod_dr[ddotprod_dr==0.0]=1E-9
             newton_step = (delta_dotprods/ddotprod_dr)
-            r-=(newton_stepsize*newton_step).clip(-max_step, max_step)
-            points : torch.Tensor = self.__curve__(r, idxbuckets=idxbuckets)[0]
+            # r=(r-((newton_stepsize*newton_step).clip(-max_step, max_step)))%self.__curve__.xend_vec[-1]
+            torch.remainder(r-((newton_stepsize*newton_step).clip(-max_step, max_step)), self.__curve__.xend_vec[-1], out=r)
+            curvertn : tuple[torch.Tensor, torch.Tensor]  = self.__curve__(r)
+            (points, idxbuckets) = curvertn
             tangents : torch.Tensor = self.__curve_deriv__(r, idxbuckets=idxbuckets)[0]
             tangents /= torch.norm(tangents, p=2.0, dim=-1, keepdim=True)
             if (newton_termination_eps is not None) and torch.all(torch.abs(delta_dotprods)<newton_termination_eps):
