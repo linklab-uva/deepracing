@@ -214,7 +214,7 @@ class SimplePathHelper(torch.nn.Module):
             derivs = None
         return positions, derivs, idxbuckets
     def closest_point_approximate(self, Pquery : torch.Tensor,
-                newton_iterations = 0, newton_stepsize = 1.0, max_step=1.0, 
+                newton_iterations : int | None = None, newton_stepsize = 1.0, max_step=1.0, 
                 newton_termination_eps : float | None = 1E-4, newton_termination_delta_eps : float | None = 1E-2):
         Pquery_flat = Pquery.view(-1, Pquery.shape[-1])
         if self.kd_tree is None:
@@ -223,7 +223,7 @@ class SimplePathHelper(torch.nn.Module):
             imin = torch.argmin(query_delta_norms, dim=1)
         else:
             imin = self.kd_tree.query(Pquery_flat, nr_nns_searches=1)[1].squeeze(-1)
-        if newton_iterations<=0:
+        if newton_iterations is None:
             deltas = Pquery_flat - self.__points_samp__[imin]
             return self.__r_samp__[imin].view(Pquery.shape[:-1]).clone(), self.__points_samp__[imin].view(Pquery.shape).clone(), self.__tangents_samp__[imin].view(Pquery.shape).clone(), self.__normals_samp__[imin].view(Pquery.shape).clone(), deltas.view(Pquery.shape)
         
@@ -234,7 +234,7 @@ class SimplePathHelper(torch.nn.Module):
         for _ in range(newton_iterations):
             curve_2nd_deriv_rtn  = self.__curve_2nd_deriv__(r)
             dtangent_dr : torch.Tensor = curve_2nd_deriv_rtn[0]
-            # idxbuckets : torch.Tensor = curve_2nd_deriv_rtn[1]
+            idxbuckets : torch.Tensor = curve_2nd_deriv_rtn[1]
             deltas = Pquery_flat - points
             delta_dotprods = torch.sum(deltas*tangents,dim=-1)
             # ddelta_dr = -tangents
@@ -243,15 +243,15 @@ class SimplePathHelper(torch.nn.Module):
             ddotprod_dr[ddotprod_dr==0.0]=1E-9
             newton_step = (delta_dotprods/ddotprod_dr)
             # r=(r-((newton_stepsize*newton_step).clip(-max_step, max_step)))%self.__curve__.xend_vec[-1]
-            torch.remainder(r-((newton_stepsize*newton_step).clip(-max_step, max_step)), self.__curve__.xend_vec[-1], out=r)
-            curvertn : tuple[torch.Tensor, torch.Tensor]  = self.__curve__(r)
-            (points, idxbuckets) = curvertn
+            curvertn : tuple[torch.Tensor, torch.Tensor]  = self.__curve__(r, idxbuckets=idxbuckets)
+            (points, _) = curvertn
             tangents : torch.Tensor = self.__curve_deriv__(r, idxbuckets=idxbuckets)[0]
             tangents /= torch.norm(tangents, p=2.0, dim=-1, keepdim=True)
             if (newton_termination_eps is not None) and torch.all(torch.abs(delta_dotprods)<newton_termination_eps):
                 break
             if (newton_termination_delta_eps is not None) and torch.all(torch.abs(newton_step)<newton_termination_delta_eps):
                 break
+            torch.remainder(r-((newton_stepsize*newton_step).clip(-max_step, max_step)), self.__curve__.xend_vec[-1], out=r)
         normals = tangents[:,[1,0]].clone()
         normals[:,0]*=-1.0
         # rshifts = torch.abs(rinit - r)

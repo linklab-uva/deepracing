@@ -203,16 +203,18 @@ def compositeBezierEval(xstart : torch.Tensor, dx : torch.Tensor,
             idxbuckets_ : torch.Tensor = (torch.stack([torch.bucketize(x_eval_onebatchdim[i], xstart_onebatchdim[i], right=right) for i in range(batchsize)], dim=0) - int(right))#.clip(min=0)
     else:
         idxbuckets_ : torch.Tensor = idxbuckets.view(batchsize, numpoints)#.clip(min=0)
-    if torch.any(idxbuckets_<0):
+    idxbuckets_negative = torch.any(idxbuckets_<0)
+    idxbuckets_toobig = torch.any(idxbuckets_>=numsplinesegments)
+    if idxbuckets_negative or idxbuckets_toobig:
         strio = io.StringIO()
-        print("idxbuckets_ must be nonnegative", file=strio)
+        print("idxbuckets_ must be nonnegative" if idxbuckets_negative else "idxbuckets_ must be less than number of segments", file=strio)
         print("xstart:", xstart, file=strio)
         print("dx:", dx, file=strio)
         print("x_eval:", x_eval, file=strio)
         print("idxbuckets_:", idxbuckets_, file=strio)
         strio.flush()
         raise ValueError(strio.getvalue()) 
-    idxbuckets_exp = idxbuckets_.unsqueeze(-1).unsqueeze(-1).expand(batchsize, numpoints, kbezier+1, d)%xstart_onebatchdim.shape[1]
+    idxbuckets_exp = idxbuckets_.unsqueeze(-1).unsqueeze(-1).expand(batchsize, numpoints, kbezier+1, d) #%xstart_onebatchdim.shape[1]
     corresponding_curves = torch.gather(control_points_onebatchdim, 1, idxbuckets_exp)
     corresponding_xstart = torch.gather(xstart_onebatchdim, 1, idxbuckets_)
     corresponding_dx = torch.gather(dx_onebatchdim, 1, idxbuckets_)

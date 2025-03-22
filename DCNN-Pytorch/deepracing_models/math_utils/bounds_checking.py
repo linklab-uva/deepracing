@@ -32,7 +32,7 @@ class BoundsChecker(torch.nn.Module):
     def rebuild_kdtree(self, squared_distances : bool = True, levels : int = None):
         self.refline_helper.rebuild_kdtree(squared_distances=squared_distances, levels=levels)
         
-    def forward(self, positions : torch.Tensor, newton_iterations: int = 0, newton_stepsize: float = 1, 
+    def forward(self, positions : torch.Tensor, newton_iterations : int | None = None, newton_stepsize: float = 1, 
                 max_step: float = 1, newton_termination_eps: float | None = 0.0001, newton_termination_delta_eps: float | None = 0.01):
         
         closest_point_r, closest_point_values, closest_point_tangents, closest_point_normals, deltas = \
