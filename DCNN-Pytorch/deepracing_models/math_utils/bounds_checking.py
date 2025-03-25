@@ -38,9 +38,10 @@ class BoundsChecker(torch.nn.Module):
         closest_point_r, closest_point_values, closest_point_tangents, closest_point_normals, deltas = \
             self.refline_helper.closest_point_approximate(positions, newton_iterations=newton_iterations, newton_stepsize=newton_stepsize,
                                                           max_step=max_step, newton_termination_eps=newton_termination_eps, newton_termination_delta_eps=newton_termination_delta_eps)
+
         signed_distances : torch.Tensor = torch.sum(deltas*closest_point_normals, dim=-1)
-        left_width_vals : torch.Tensor = self.left_width_interp(closest_point_r)
-        right_width_vals : torch.Tensor = self.right_width_interp(closest_point_r)
+        left_width_vals : torch.Tensor = self.left_width_interp(closest_point_r % self.left_width_interp.x_points[-1])
+        right_width_vals : torch.Tensor = self.right_width_interp(closest_point_r % self.right_width_interp.x_points[-1])
 
         specific_left_bound_violation_probs = torch.special.erf(F.relu(signed_distances - left_width_vals)*self.stdev_factor)
         specific_right_bound_violation_probs = torch.special.erf(F.relu(right_width_vals - signed_distances)*self.stdev_factor)
