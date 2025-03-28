@@ -30,6 +30,7 @@ class DBFExperiment:
         with open(os.path.join(maindir, "kwargs.yaml"), "r") as f:
             kwargs_raw : dict[str, str | int | float | dict]  = yaml.safe_load(f)
         self.kwargs : dict[str, str | int | float] = flatten_dict(kwargs_raw)
+        self.kwargs["raceline_offset"] = self.kwargs.get("raceline_offset", 0.0)
         self.kwargs.pop("savedir", "asdf")
     def __str__(self):
         return "DBF Experiment: "+str(self.maindir) +"\n"+str(self.metadata)
