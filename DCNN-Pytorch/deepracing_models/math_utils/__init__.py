@@ -254,23 +254,6 @@ class SimplePathHelper(torch.nn.Module):
             torch.remainder(r-((newton_stepsize*newton_step).clip(-max_step, max_step)), self.__curve__.xend_vec[-1], out=r)
         normals = tangents[:,[1,0]].clone()
         normals[:,0]*=-1.0
-        # rshifts = torch.abs(rinit - r)
-        # print()
-        # print(torch.mean(rshifts))
-        # print(torch.min(rshifts))
-        # print(torch.max(rshifts))
-        # Rmats = torch.stack([normals, tangents], dim=-1).transpose(-2,1)
-        # delta_rotated = (Rmats@deltas[...,None])[...,0]
-        # angles = torch.atan2(delta_rotated[...,1], delta_rotated[...,0])
-        # print(torch.max(torch.min(torch.stack([torch.abs(angles),torch.abs(angles-np.pi), torch.abs(angles+np.pi)], dim=-1), dim=-1)[0]))
-        # print(torch.min(torch.abs(delta_dotprods)))
-        # print(torch.max(torch.abs(delta_dotprods)))
-        # print(idx)
-        # factors = (1.0/torch.norm(deltas, p=2, dim=-1, keepdim=True)).nan_to_num(nan=0.0, posinf=1.0, neginf=1.0)
-        # deltas_normalized = deltas*factors
-        # normalized_dotprods = torch.sum(deltas_normalized*tangents, dim=-1)
-        # angles = torch.arccos(normalized_dotprods)
-        # print(torch.max(torch.abs(angles-(np.pi/2.0))))
         return r.view(Pquery.shape[:-1]), points.view(Pquery.shape), tangents.view(Pquery.shape), normals.view(Pquery.shape), deltas.view(Pquery.shape)
     
     def closest_point(self, Pquery : torch.Tensor):
@@ -340,37 +323,7 @@ class SimplePathHelper(torch.nn.Module):
         correct_dr = delta_arclengths_select[has_match]
 
         return correct_rstart + correct_roots*correct_dr
-        # idx=torch.arange(0, idx_delta.shape[0], step=1, dtype=torch.int64, device=control_points.device)
-        # selection_all = (torch.sum(matchmask, dim=-1)>=1)
-        # rclosest = torch.empty_like(Pquery[:,0])
-
-        # for i in range(batchdim):
-        #     selection = selection_all[i]
-        #     candidates_idx = idx[selection]
-        #     candidates = control_points_select[i,candidates_idx]
-        #     candidates_polyroots = polynom_roots[i,candidates_idx]
-            
-        #     candidates_rstart = arclengths_start_select[i,candidates_idx]
-        #     candidates_dr = delta_arclengths_select[i,candidates_idx]
-            
-        #     norms = torch.norm(candidates[:,[0,-1]], p=2.0, dim=2)
-        #     norm_means = torch.mean(norms, dim=1)
-        #     imin = torch.argmin(norm_means)
-
-        #     correctroots = candidates_polyroots[imin]
-        #     correctsval = correctroots[(torch.abs(correctroots.imag)<1E-6)*(correctroots.real>=0.0)*(correctroots.real<=1.0)].real.item()
-        #     correctdr = candidates_dr[imin]
-
-        #     correctrstart = candidates_rstart[imin]
-
-        #     rclosest[i] = correctrstart + correctsval*correctdr
-
-        # return rclosest
-
-
-
-
-
+ 
 
     def y_axis_intersection(self, Pquery : torch.Tensor, Rquery : torch.Tensor):
         
