@@ -104,7 +104,12 @@ class DBFExperimentCollection:
             point["rootdir"] = exp.rootdir
             points.append(point)
         return pd.DataFrame(points)
-def cache_experiment_data(rootdir : str, mandatory_keys : set[str], cachefile : str | None = None) -> DBFExperimentCollection:
+def cache_experiment_data(rootdir : str, mandatory_keys : set[str] | None = None, cachefile : str | None = None) -> DBFExperimentCollection:
+    if mandatory_keys is None:
+        with open(os.path.join(rootdir, "default_args.yaml"), "r") as f:
+            default_args = flatten_dict(yaml.safe_load(f))
+        default_args.pop("savedir", None)
+        mandatory_keys = set(default_args.keys())
     experiment_dirs = []
     t = tqdm.tqdm(os.walk(rootdir), ncols=300)
     t.set_description("Searching for experiments in %s" % (rootdir,))
@@ -117,10 +122,12 @@ def cache_experiment_data(rootdir : str, mandatory_keys : set[str], cachefile : 
             experiment_dirs.append(dirpath)
         t.set_postfix({"Experiments Found": len(experiment_dirs)})
     experiments = []
-    for experiment_dir in tqdm.tqdm(experiment_dirs):
+    t = tqdm.tqdm(experiment_dirs)
+    for experiment_dir in t:
         exp_to_add = DBFExperiment(experiment_dir)
         if mandatory_keys.issubset(set(exp_to_add.kwargs.keys())):
             experiments.append(exp_to_add)  
+        t.set_postfix({"Valid Experiments Found": len(experiments)})
     newcollection = DBFExperimentCollection(experiments)
     newcollection.to_pickle(os.path.join(rootdir, "cache.pkl") if (cachefile is None) else cachefile)
     return newcollection
