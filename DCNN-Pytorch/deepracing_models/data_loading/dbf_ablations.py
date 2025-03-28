@@ -111,8 +111,9 @@ def cache_experiment_data(rootdir : str, mandatory_keys : set[str] | None = None
         default_args.pop("savedir", None)
         mandatory_keys = set(default_args.keys())
     experiment_dirs = []
-    t = tqdm.tqdm(os.walk(rootdir), ncols=300)
-    t.set_description("Searching for experiments in %s" % (rootdir,))
+    rootdir_abs=os.path.abspath(rootdir)
+    t = tqdm.tqdm(os.walk(rootdir_abs), ncols=300)
+    t.set_description("Searching for experiments in %s" % (rootdir_abs,))
     for asdf in t:
         dirpath : str = asdf[0]
         dirnames : list[str] = asdf[1]
