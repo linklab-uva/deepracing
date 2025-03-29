@@ -25,12 +25,13 @@ class DBFExperiment:
         
         with open(os.path.join(maindir, "metadata.yaml"), "r") as f:
             metadata_raw : dict[str, str | int | float | dict]  = yaml.safe_load(f)
-        self.metadata : dict[str, str | int | float] = flatten_dict(metadata_raw)
+        self.metadata : dict[str, str | int | float] =  {"true_raceline_offset" : 0.0} 
+        self.metadata.update(flatten_dict(metadata_raw))
         
         with open(os.path.join(maindir, "kwargs.yaml"), "r") as f:
             kwargs_raw : dict[str, str | int | float | dict]  = yaml.safe_load(f)
-        self.kwargs : dict[str, str | int | float] = flatten_dict(kwargs_raw)
-        self.kwargs["raceline_offset"] = self.kwargs.get("raceline_offset", 0.0)
+        self.kwargs : dict[str, str | int | float] = {"raceline_offset" : 0.0} 
+        self.kwargs.update(flatten_dict(kwargs_raw))
         self.kwargs.pop("savedir", "asdf")
     def __str__(self):
         return "DBF Experiment: "+str(self.maindir) +"\n"+str(self.metadata)
@@ -112,23 +113,25 @@ def cache_experiment_data(rootdir : str, mandatory_keys : set[str] | None = None
         mandatory_keys = set(default_args.keys())
     experiment_dirs = []
     rootdir_abs=os.path.abspath(rootdir)
-    t = tqdm.tqdm(os.walk(rootdir_abs), ncols=300)
+    t = tqdm.tqdm(os.walk(rootdir_abs), ncols=300, miniters=100)
     t.set_description("Searching for experiments in %s" % (rootdir_abs,))
-    for asdf in t:
+    for (i,asdf) in enumerate(t):
         dirpath : str = asdf[0]
         dirnames : list[str] = asdf[1]
         filenames : list[str] = asdf[2]
         if {"DBF_OVERTAKING_ABLATION", "metadata.yaml", "kwargs.yaml"}.issubset(set(filenames)):
             dirnames.clear()
             experiment_dirs.append(dirpath)
-        t.set_postfix({"Experiments Found": len(experiment_dirs)})
+        if (i>0) and ((i%t.miniters)==0):
+            t.set_postfix({"Experiments Found": len(experiment_dirs)})
     experiments = []
-    t = tqdm.tqdm(experiment_dirs)
-    for experiment_dir in t:
+    t = tqdm.tqdm(experiment_dirs, miniters=100)
+    for (i,experiment_dir) in enumerate(t):
         exp_to_add = DBFExperiment(experiment_dir)
         if mandatory_keys.issubset(set(exp_to_add.kwargs.keys())):
             experiments.append(exp_to_add)  
-        t.set_postfix({"Valid Experiments Found": len(experiments)})
+        if (i>0) and ((i%t.miniters)==0):
+            t.set_postfix({"Valid Experiments Found": len(experiments)})
     newcollection = DBFExperimentCollection(experiments)
-    newcollection.to_pickle(os.path.join(rootdir, "cache.pkl") if (cachefile is None) else cachefile)
+    newcollection.to_pickle(os.path.join(rootdir_abs, "cache.pkl") if (cachefile is None) else cachefile)
     return newcollection
