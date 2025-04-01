@@ -117,8 +117,9 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
         # ellipse_normals*=torch.sign(torch.sum(ellipse_normals*ellipse_points_centered, dim=-1))[...,None]
         signed_distances = torch.sum(centered_deltas*ellipse_normals, dim=-1)
         specific_violation_probs = torch.special.erf(F.relu(signed_distances)*self.stdev_factor)
-        specific_noviolation_probs = 1.0 - specific_violation_probs        
-        overall_lambdas = self.gl1d(self.alpha*specific_violation_probs + (1-self.alpha)*(specific_violation_probs/specific_noviolation_probs))
+        specific_noviolation_probs = 1.0 - specific_violation_probs       
+        odds_ratios = torch.exp(torch.log(specific_violation_probs) - torch.log(specific_noviolation_probs)) 
+        overall_lambdas = self.gl1d(self.alpha*specific_violation_probs + (1-self.alpha)*odds_ratios)
         overall_within_limits_probs = torch.exp(-overall_lambdas)
         ellipse_points = ellipse_points_centered + origin
         return ellipse_points, ellipse_normals, origin, lat_radii, long_radii, signed_distances, specific_violation_probs, overall_within_limits_probs

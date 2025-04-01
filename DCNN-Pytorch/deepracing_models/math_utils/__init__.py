@@ -182,6 +182,15 @@ class SimplePathHelper(torch.nn.Module):
         self.kd_tree = build_kd_tree(self.__points_samp__.detach().clone(), device=device, squared_distances = squared_distances, levels = levels)
         self.P0_kd_tree = build_kd_tree(self.__curve__.control_points[:,0].detach().clone(), device=device, squared_distances = squared_distances, levels = levels)
     @staticmethod
+    def from_statedict(statedict : dict[str,torch.nn.Parameter], dr_samp : float | None = None) -> 'SimplePathHelper':
+        arclengthsin = statedict["__arclengths_in__"].detach().clone()
+        control_points = statedict["__curve__.control_points"].detach().clone()
+        if dr_samp is None:
+            rsamp = statedict["__r_samp__"].detach().clone()
+            dr_samp = (rsamp[1] - rsamp[0]).item()
+        return SimplePathHelper(arclengthsin, control_points, dr_samp)
+
+    @staticmethod
     def from_closed_path(points : torch.Tensor, dr_samp : float) -> 'SimplePathHelper':
         arclengths, curve_control_points = closedPathAsBezierSpline(points) 
         return SimplePathHelper(arclengths, curve_control_points, dr_samp)
