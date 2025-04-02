@@ -25,12 +25,13 @@ class DBFExperiment:
         
         with open(os.path.join(maindir, "metadata.yaml"), "r") as f:
             metadata_raw : dict[str, str | int | float | dict]  = yaml.safe_load(f)
-        self.metadata : dict[str, str | int | float] =  {"true_raceline_offset" : 0.0} 
+        self.metadata : dict[str, str | int | float] =  {"true_raceline_offset" : 0.0,  "true_target_raceline_offset" : 0.0} 
         self.metadata.update(flatten_dict(metadata_raw))
         
         with open(os.path.join(maindir, "kwargs.yaml"), "r") as f:
             kwargs_raw : dict[str, str | int | float | dict]  = yaml.safe_load(f)
-        self.kwargs : dict[str, str | int | float] = {"raceline_offset" : 0.0} 
+        self.kwargs : dict[str, str | int | float] = {"raceline_offset" : 0.0,  "target_raceline_offset" : 0.0,
+                                                      "long_accel_factor" : 1.0, "lat_accel_factor" : 1.0, "brake_factor" : 1.0} 
         self.kwargs.update(flatten_dict(kwargs_raw))
         self.kwargs.pop("savedir", "asdf")
     def __str__(self):
