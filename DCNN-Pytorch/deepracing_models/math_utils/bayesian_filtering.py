@@ -30,7 +30,7 @@ class BayesianFilter(torch.nn.Module):
         #Collision check
         # collision_check_device = self.collision_probability_estimator.gl1d.eta.device
         collision_check_gauss_order : int = int(self.collision_probability_estimator.gl1d.eta.shape[0])
-        collision_check_times : torch.Tensor = self.collision_probability_estimator.gl1d.eta.view(1,collision_check_gauss_order).expand(Nparticles, collision_check_gauss_order).to(device=candidate_curves.device)
+        collision_check_times : torch.Tensor = self.collision_probability_estimator.gl1d.eta.view(1,collision_check_gauss_order).expand(Nparticles, collision_check_gauss_order) #.to(device=candidate_curves.device)
         collision_check_positions, collision_check_buckets = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curves, collision_check_times)
 
         collision_check_velocities, _ = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curve_derivs, collision_check_times, idxbuckets=collision_check_buckets)
