@@ -11,18 +11,18 @@ class LinearInterpolator(torch.nn.Module):
     def forward(self, x_samp : torch.Tensor):
         x_samp_flat = x_samp.view(-1)
         idxbuckets = (torch.bucketize(x_samp_flat, self.x_points, right=True) - 1)#.clamp(min=0, max=self.x_points.shape[0]-1)
-        idxbuckets_negative = torch.any(idxbuckets<0)
-        idxbuckets_toobig = torch.any(idxbuckets>=self.dx.shape[0])
-        if idxbuckets_negative or idxbuckets_toobig:
-            strio = io.StringIO()
-            print("idxbuckets must be nonnegative" if idxbuckets_negative else "idxbuckets must be less than self.dx.shape[0] (%d)" % (self.dx.shape[0],), file=strio)
-            print("self.x_points:", self.x_points, file=strio)
-            print("self.dx:", self.dx, file=strio)
-            print("x_samp:", x_samp, file=strio)
-            print("x_samp_flat:", x_samp_flat, file=strio)
-            print("idxbuckets:", idxbuckets, file=strio)
-            strio.flush()
-            raise ValueError(strio.getvalue()) 
+        # idxbuckets_negative = torch.any(idxbuckets<0)
+        # idxbuckets_toobig = torch.any(idxbuckets>=self.dx.shape[0])
+        # if idxbuckets_negative or idxbuckets_toobig:
+        #     strio = io.StringIO()
+        #     print("idxbuckets must be nonnegative" if idxbuckets_negative else "idxbuckets must be less than self.dx.shape[0] (%d)" % (self.dx.shape[0],), file=strio)
+        #     print("self.x_points:", self.x_points, file=strio)
+        #     print("self.dx:", self.dx, file=strio)
+        #     print("x_samp:", x_samp, file=strio)
+        #     print("x_samp_flat:", x_samp_flat, file=strio)
+        #     print("idxbuckets:", idxbuckets, file=strio)
+        #     strio.flush()
+        #     raise ValueError(strio.getvalue()) 
         xi = self.x_points[idxbuckets]
         dx = self.dx[idxbuckets]
         yi = self.y_points[idxbuckets]

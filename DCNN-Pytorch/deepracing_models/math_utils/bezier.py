@@ -8,6 +8,9 @@ import torch.jit
 import typing
 import functools
 import io
+# from scipy.special import comb
+import math
+
 
 
 def compositeBezierSpline(x : torch.Tensor, Y : torch.Tensor, boundary_conditions : Union[str,torch.Tensor] = "periodic"):
@@ -177,11 +180,28 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
     # lagrange_batch = lagrange.reshape(batchdims + [-1,])
     return control_points, tswitchingpoints_batch
 
-    
+@torch.jit.script
+def comb_torchscript(n : torch.Tensor, k : torch.Tensor) -> torch.Tensor:
+    return (((n + 1).lgamma() - (k + 1).lgamma() - ((n - k) + 1).lgamma()).exp()).round()#.item()
+
+@torch.jit.script
+def Mtk(k : int, n : int, t : torch.Tensor, scaled_basis : bool = False) -> torch.Tensor:
+    rtn = torch.pow(t,k)*torch.pow(1-t,(n-k))
+    if scaled_basis:
+        factor = torch.as_tensor(1.0, dtype=t.dtype, device=t.device)
+    else:
+        factor = comb_torchscript(torch.as_tensor(n, dtype=t.dtype, device=t.device), torch.as_tensor(k, dtype=t.dtype, device=t.device))
+    return rtn*factor
+
+@torch.jit.script
+def bezierM(s : torch.Tensor, n : int, scaled_basis : bool = False) -> torch.Tensor:
+    return torch.stack([Mtk(k,n,s, scaled_basis=scaled_basis) for k in range(n+1)],dim=2)
+
+@torch.jit.script
 def compositeBezierEval(xstart : torch.Tensor, dx : torch.Tensor, 
                         control_points : torch.Tensor, x_eval : torch.Tensor, 
-                        idxbuckets : typing.Union[torch.Tensor,None] = None
-                        ) -> typing.Tuple[torch.Tensor, torch.Tensor]:
+                        idxbuckets : torch.Tensor | None = None
+                        ) -> tuple[torch.Tensor, torch.Tensor]:
 
     numpoints : int = x_eval.shape[-1]
     numsplinesegments : int = control_points.shape[-3]
@@ -203,22 +223,24 @@ def compositeBezierEval(xstart : torch.Tensor, dx : torch.Tensor,
             idxbuckets_ : torch.Tensor = (torch.stack([torch.bucketize(x_eval_onebatchdim[i], xstart_onebatchdim[i], right=right) for i in range(batchsize)], dim=0) - int(right))#.clip(min=0)
     else:
         idxbuckets_ : torch.Tensor = idxbuckets.view(batchsize, numpoints)#.clip(min=0)
-    idxbuckets_negative = torch.any(idxbuckets_<0)
-    idxbuckets_toobig = torch.any(idxbuckets_>=numsplinesegments)
-    if idxbuckets_negative or idxbuckets_toobig:
-        strio = io.StringIO()
-        print("idxbuckets_ must be nonnegative" if idxbuckets_negative else "idxbuckets_ must be less than number of segments", file=strio)
-        print("xstart:", xstart, file=strio)
-        print("dx:", dx, file=strio)
-        print("x_eval:", x_eval, file=strio)
-        print("idxbuckets_:", idxbuckets_, file=strio)
-        strio.flush()
-        raise ValueError(strio.getvalue()) 
+    # idxbuckets_negative = torch.any(idxbuckets_<0)
+    # idxbuckets_toobig = torch.any(idxbuckets_>=numsplinesegments)
+    # if idxbuckets_negative or idxbuckets_toobig:
+    #     strio = io.StringIO()
+    #     print("idxbuckets_ must be nonnegative" if idxbuckets_negative else "idxbuckets_ must be less than number of segments", file=strio)
+    #     print("xstart:", xstart, strio)
+    #     print("dx:", dx, file=strio)
+    #     print("x_eval:", x_eval, file=strio)
+    #     print("idxbuckets_:", idxbuckets_, file=strio)
+    #     strio.flush()
+    #     raise ValueError(strio.getvalue()) 
     idxbuckets_exp = idxbuckets_.unsqueeze(-1).unsqueeze(-1).expand(batchsize, numpoints, kbezier+1, d) #%xstart_onebatchdim.shape[1]
     corresponding_curves = torch.gather(control_points_onebatchdim, 1, idxbuckets_exp)
     corresponding_xstart = torch.gather(xstart_onebatchdim, 1, idxbuckets_)
     corresponding_dx = torch.gather(dx_onebatchdim, 1, idxbuckets_)
-    s_eval = (x_eval_onebatchdim - corresponding_xstart)*torch.pow(corresponding_dx, torch.as_tensor(-1.0).type_as(corresponding_dx))
+    #/corresponding_dx #
+    s_eval = (x_eval_onebatchdim - corresponding_xstart)/corresponding_dx #*torch.pow(corresponding_dx, torch.as_tensor(-1.0).type_as(corresponding_dx))
+    # s_eval = (torch.log(x_eval_onebatchdim - corresponding_xstart) - torch.log(corresponding_dx)).exp() #*torch.pow(corresponding_dx, torch.as_tensor(-1.0).type_as(corresponding_dx))
     s_eval_unsqueeze = s_eval.unsqueeze(-1)
     Mbezier = bezierM(s_eval_unsqueeze.view(-1, 1), kbezier).view(batchsize, numpoints, kbezier+1)
     pointseval = torch.matmul(Mbezier.unsqueeze(-2), corresponding_curves).squeeze(-2)
@@ -248,15 +270,15 @@ def polynomialFormConversion(k : int, dtype=torch.float64, device=torch.device("
                 tobezierform[i,j]=0.0
     return topolyform, tobezierform
 
-from scipy.special import comb
-
 def bezierPolyRoots(bezier_coefficients : torch.Tensor, scaled_basis = False):
     N = bezier_coefficients.shape[0]
     k = bezier_coefficients.shape[1]-1
     topolyform, _ = polynomialFormConversion(k, dtype = bezier_coefficients.dtype, device=bezier_coefficients.device)
     topolyform = topolyform.unsqueeze(0).expand(N, k+1, k+1)
     if scaled_basis:
-        binoms = torch.as_tensor([comb(k, i, exact=True) for i in range(k+1)], dtype = bezier_coefficients.dtype, device=bezier_coefficients.device)
+        iarray = torch.linspace(0.0, float(k), steps=bezier_coefficients.shape[1], dtype=bezier_coefficients.dtype, device=bezier_coefficients.device)
+        karray = torch.as_tensor(k, dtype=bezier_coefficients.dtype, device=bezier_coefficients.device)[None].expand_as(iarray)
+        binoms = comb_torchscript(karray, iarray)#torch.as_tensor([math.comb(k, i) for i in range(k+1)], dtype = bezier_coefficients.dtype, device=bezier_coefficients.device)
         unscaled = bezier_coefficients/binoms
         standard_form = torch.matmul(topolyform, unscaled.unsqueeze(-1)).squeeze(-1)
     else:
@@ -264,12 +286,6 @@ def bezierPolyRoots(bezier_coefficients : torch.Tensor, scaled_basis = False):
     return polyroots(standard_form)
 
 
-def Mtk(k : int, n : int, t : torch.Tensor, scaled_basis=False):
-    rtn = torch.pow(t,k)*torch.pow(1-t,(n-k))
-    if scaled_basis:
-        return rtn
-    else:
-        return rtn*comb(n, k, exact=True)
 
 from scipy.special import roots_legendre
 def bezierArcLength(control_points : torch.Tensor, quadrature_order = 7, num_segments = 4, sum=True):
@@ -418,9 +434,6 @@ def compositeBezierSpline_periodic_(x : torch.Tensor, Y : torch.Tensor):
     solution = torch.linalg.solve(lhs, rhs)
     intermediate_points = solution.view(Y.shape[-2] - 1, 2, -1)
     return torch.cat([Y[:-1].unsqueeze(1), intermediate_points, Y[1:].unsqueeze(1)], dim=1)
-
-def bezierM(s : torch.Tensor, n : int, scaled_basis : bool = False) -> torch.Tensor:
-    return torch.stack([Mtk(k,n,s, scaled_basis=scaled_basis) for k in range(n+1)],dim=2)
 
 def bezierLsqfit(points, n, 
                  t = None, M = None, built_in_lstq = False, 

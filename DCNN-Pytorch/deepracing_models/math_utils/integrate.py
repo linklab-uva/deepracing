@@ -1,7 +1,7 @@
-import torch, torch.nn, torch.distributions
+import torch, torch.nn# , torch.distributions
 import numpy as np
-import typing
-from deepracing_models.math_utils.statistics import gaussian_pdf
+# import typing
+# from deepracing_models.math_utils.statistics import gaussian_pdf
 class GaussianIntegralCirc(torch.nn.Module):
     def __init__(self, gauss_order : int, radius : float = 1.0, requires_grad=False)-> None:
         super(GaussianIntegralCirc, self).__init__()

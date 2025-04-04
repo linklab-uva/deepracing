@@ -53,8 +53,8 @@ def cov(m, rowvar=True, inplace=False):
     mt = m.t()  # if complex: mt = m.t().conj()
     return fact * m.matmul(mt).squeeze()
 from deepracing_models.math_utils.integrate import GaussLegendre1D, GaussianIntegral2D
-from deepracing_models.math_utils.bezier import compositeBezierEval
-import torch.distributions
+# from deepracing_models.math_utils.bezier import compositeBezierEval
+# import torch.distributions
 class CollisionProbabilityEstimator(torch.nn.Module):
     def __init__(self, gauss_order_time : int, dT : float, gauss_order_space : int, lat_buffer : float, long_buffer : float, alpha : float = 0.1, requires_grad=False) -> None:
         super(CollisionProbabilityEstimator, self).__init__()

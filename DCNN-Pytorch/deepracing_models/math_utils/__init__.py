@@ -1,18 +1,20 @@
 from typing import List, Tuple, Union
 import typing
-from .bezier import bezierLsqfit
+# from .bezier import bezierLsqfit
 from .bezier import bezierM
-from .bezier import bezierArcLength
+# from .bezier import bezierArcLength
+from .bezier import compositeBezierFit
+from .bezier import compositeBezierEval
 from .bezier import bezierPolyRoots
-from .bezier import bezierArcLength, compositeBezierSpline, compositeBezierAntiderivative, compositeBezierFit, compositeBezierSpline_periodic_
-from .bezier import closedPathAsBezierSpline, polynomialFormConversion, elevateBezierOrder, compositeBezierEval
-from .fitting import pinv, fitAffine
-from .bezier import comb
+from .bezier import compositeBezierAntiderivative, compositeBezierSpline_periodic_
+from .bezier import closedPathAsBezierSpline
+# from .fitting import pinv, fitAffine
+from .bezier import comb_torchscript
+# import math
+# from .statistics import cov
+# from .integrate import cumtrapz, simpson
 
-from .statistics import cov
-from .integrate import cumtrapz, simpson
-
-from .geometry import localRacelines
+# from .geometry import localRacelines
 
 from . import bezier
 
@@ -22,9 +24,9 @@ import torch
 
 import torch.nn
 import torchaudio
-import scipy.spatial
+# import scipy.spatial
 import numpy as np
-import torch_kdtree.nn_distance
+# import torch_kdtree.nn_distance
 from torch_kdtree import build_kd_tree
 
 class CompositeBezierCurve(torch.nn.Module):
@@ -73,7 +75,8 @@ class CompositeBezierCurve(torch.nn.Module):
         # s_select = (x_true - xstart_select)/dx_select
         # return evalBezierSinglePoint(s_select, points_select), imin_
         evalout, idxmin = compositeBezierEval(self.xstart_vec.unsqueeze(0), self.dx.unsqueeze(0), self.control_points.unsqueeze(0), x_true, idxbuckets=idxbuckets)
-        evalrtn = evalout.view(list(x_eval.shape) + [self.d.item()])
+        # evalrtn = evalout.view(list(x_eval.shape) + [self.d.item()])
+        evalrtn = evalout.view(*x_eval.shape, self.control_points.shape[-1])
         return evalrtn, idxmin.view(x_eval.shape)
     def derivative(self):
         control_points_detached = self.control_points.detach()
@@ -266,7 +269,8 @@ class SimplePathHelper(torch.nn.Module):
         return r.view(Pquery.shape[:-1]), points.view(Pquery.shape), tangents.view(Pquery.shape), normals.view(Pquery.shape), deltas.view(Pquery.shape)
     
     def closest_point(self, Pquery : torch.Tensor):
-        order_this = self.__curve__.bezier_order.item()
+        num_control_points = self.__curve__.control_points.shape[-2]
+        order_this = num_control_points-1 #self.__curve__.bezier_order.item()
         order_deriv = order_this - 1
         order_prod = order_this + order_deriv
 
@@ -287,13 +291,18 @@ class SimplePathHelper(torch.nn.Module):
         control_points_delta = control_points_select - Pquery[:,None,None]
         control_points_deriv_select = control_points_deriv[idx_delta_exp]
 
-        binomial_coefs = torch.as_tensor([comb(order_this, i) for i in range(order_this+1)], dtype=Pquery.dtype, device=Pquery.device)
-        binomial_coefs_deriv = torch.as_tensor([comb(order_deriv, i) for i in range(order_deriv+1)], dtype=Pquery.dtype, device=Pquery.device)
+        order_this_array = torch.as_tensor(order_this, dtype=Pquery.dtype, device=Pquery.device)[None].expand(num_control_points)
+        k_array = torch.arange(0, num_control_points, step=1.0, dtype=Pquery.dtype, device=Pquery.device)
+        binomial_coefs = comb_torchscript(order_this_array, k_array) #torch.as_tensor([math.comb(order_this, i) for i in range(order_this+1)], dtype=Pquery.dtype, device=Pquery.device)
+        binomial_coefs_deriv = comb_torchscript((order_this_array-1)[:-1], k_array[:-1]) #torch.as_tensor([math.comb(order_deriv, i) for i in range(order_deriv+1)], dtype=Pquery.dtype, device=Pquery.device)
         control_points_delta_scaled = control_points_delta*binomial_coefs[None,None,:,None]
         control_points_deriv_scaled = control_points_deriv_select*binomial_coefs_deriv[None,None,:,None]
     
         convolution = torchaudio.functional.convolve(control_points_delta_scaled.transpose(-2,-1), control_points_deriv_scaled.transpose(-2,-1)).transpose(-2,-1)
-        binomial_coefs_prod = torch.as_tensor([comb(order_prod, i) for i in range(order_prod+1)], dtype=Pquery.dtype, device=Pquery.device)
+        order_prod_array = torch.as_tensor(order_prod, dtype=Pquery.dtype, device=Pquery.device)[None].expand(order_prod+1)
+        k_prod_array = torch.arange(0, order_prod+1, step=1.0, dtype=Pquery.dtype, device=Pquery.device)
+        
+        binomial_coefs_prod = comb_torchscript(order_prod_array, k_prod_array) #torch.as_tensor([math.comb(order_prod, i) for i in range(order_prod+1)], dtype=Pquery.dtype, device=Pquery.device)
         bezier_polys = torch.sum(convolution/binomial_coefs_prod[None,None,:,None], dim=-1)
         polynom_roots = bezierPolyRoots(bezier_polys.view(-1, order_prod+1)).view(Pquery.shape[0], idx_delta.shape[0], order_prod)
         polynom_roots_real : torch.Tensor = polynom_roots.real
