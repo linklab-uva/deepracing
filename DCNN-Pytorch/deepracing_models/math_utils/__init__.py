@@ -148,12 +148,12 @@ class RacelineHelper(torch.nn.Module):
         else:
             r = r%self.__arclengths_in__[-1]
         points, idxbuckets = self.__curve_r__(r, idxbuckets=idxbuckets)
-        if deriv:
-            tangents, _ = self.__curve_r_deriv__(r, idxbuckets=idxbuckets)
-            tangents = tangents/torch.norm(tangents,p=2.0,dim=-1,keepdim=True)
-            speeds, _ = self.__speed_of_r__(r, idxbuckets=idxbuckets)
-            return r, points, tangents*speeds, idxbuckets
-        return r, points, None, idxbuckets
+        # if deriv:
+        tangents, _ = self.__curve_r_deriv__(r, idxbuckets=idxbuckets)
+        tangents = tangents/torch.norm(tangents,p=2.0,dim=-1,keepdim=True)
+        speeds, _ = self.__speed_of_r__(r, idxbuckets=idxbuckets)
+        return r, points, tangents*speeds, idxbuckets
+        # return r, points, None, idxbuckets
 class SimplePathHelper(torch.nn.Module):
     def __init__(self, arclengths : torch.Tensor, curve_control_points : torch.Tensor, dr_samp : float) -> None:
         super(SimplePathHelper, self).__init__()
@@ -220,10 +220,11 @@ class SimplePathHelper(torch.nn.Module):
     def forward(self, s : torch.Tensor, deriv=False, idxbuckets=None):
         s_true = s%self.__curve__.xend_vec[-1]
         positions, idxbuckets = self.__curve__(s_true, idxbuckets=idxbuckets)
-        if deriv:
-            derivs, _ = self.__curve_deriv__(s_true, idxbuckets=idxbuckets)
-        else:
-            derivs = None
+        derivs, _ = self.__curve_deriv__(s_true, idxbuckets=idxbuckets)
+        # if deriv:
+        #     derivs, _ = self.__curve_deriv__(s_true, idxbuckets=idxbuckets)
+        # else:
+        #     derivs = None
         return positions, derivs, idxbuckets
     def closest_point_approximate(self, Pquery : torch.Tensor,
                 newton_iterations : int | None = None, newton_stepsize = 1.0, max_step=1.0, 
