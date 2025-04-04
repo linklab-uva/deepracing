@@ -179,23 +179,29 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
     # lagrange = coefs_and_lagrange[:, d.shape[1]:]
     # lagrange_batch = lagrange.reshape(batchdims + [-1,])
     return control_points, tswitchingpoints_batch
-
+# import math
+# PASCAL_COEFS : torch.Tensor = torch.zeros((100,100), dtype=torch.float32)
+# for n in range(PASCAL_COEFS.shape[0]):
+#     for k in range(n,PASCAL_COEFS.shape[1]):
+#         PASCAL_COEFS[n,k] = torch.as_tensor(math.comb(n,k)).to(tensor=PASCAL_COEFS)
 @torch.jit.script
 def comb_torchscript(n : torch.Tensor, k : torch.Tensor) -> torch.Tensor:
     return (((n + 1).lgamma() - (k + 1).lgamma() - ((n - k) + 1).lgamma()).exp()).round()#.item()
 
-@torch.jit.script
-def Mtk(k : int, n : int, t : torch.Tensor, scaled_basis : bool = False) -> torch.Tensor:
-    rtn = torch.pow(t,k)*torch.pow(1-t,(n-k))
-    if scaled_basis:
-        factor = torch.as_tensor(1.0, dtype=t.dtype, device=t.device)
-    else:
-        factor = comb_torchscript(torch.as_tensor(n, dtype=t.dtype, device=t.device), torch.as_tensor(k, dtype=t.dtype, device=t.device))
-    return rtn*factor
+# @torch.jit.script
+# def Mtk(k : int, n : int, t : torch.Tensor) -> torch.Tensor:
+#     rtn = torch.pow(t,k)*torch.pow(1-t,(n-k))
+#     factor = comb_torchscript(n*torch.ones(1, dtype=t.dtype, device=t.device)[0], k*torch.ones(1, dtype=t.dtype, device=t.device)[0])
+#     return rtn*factor
 
 @torch.jit.script
-def bezierM(s : torch.Tensor, n : int, scaled_basis : bool = False) -> torch.Tensor:
-    return torch.stack([Mtk(k,n,s, scaled_basis=scaled_basis) for k in range(n+1)],dim=2)
+def bezierM(s : torch.Tensor, n : int) -> torch.Tensor:
+    ivec = torch.linspace(0, n, steps=n+1, dtype=s.dtype, device=s.device)
+    nvec = torch.ones_like(ivec)*n
+    comb_factors = comb_torchscript(nvec, ivec)
+    bernstein_vals = torch.stack([torch.pow(s,k)*torch.pow(1-s,(n-k)) for k in range(n+1)],dim=-1)
+    return comb_factors[None,None]*bernstein_vals 
+    # return torch.stack([Mtk(k,n,s) for k in range(n+1)],dim=-1)
 
 @torch.jit.script
 def compositeBezierEval(xstart : torch.Tensor, dx : torch.Tensor, 

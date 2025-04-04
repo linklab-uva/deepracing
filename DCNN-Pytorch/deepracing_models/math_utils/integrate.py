@@ -49,15 +49,20 @@ class GaussianIntegral2D(torch.nn.Module):
         target_means_exp = target_means.unsqueeze(1) if prebatched else target_means
         diff = gauss_pts.unsqueeze(-2) - target_means_exp
         # print("diff.shape:", diff.shape)
-        # print("target_stdev_inverse_matrices.shape:", target_stdev_inverse_matrices.shape)
         target_stdev_inverse_matrices_exp = target_stdev_inverse_matrices.unsqueeze(1) if prebatched else target_stdev_inverse_matrices
-        points01 = torch.matmul(target_stdev_inverse_matrices_exp,diff.unsqueeze(-1)).squeeze(-1)
+        # print("diff.shape:", diff.shape)
+        # print("target_stdev_inverse_matrices_exp.shape:", target_stdev_inverse_matrices_exp.shape)
+        # a = torch.sum(target_stdev_inverse_matrices_exp[...,0,:]*diff, dim=-1)
+        # b = torch.sum(target_stdev_inverse_matrices_exp[...,1,:]*diff, dim=-1)
+        # squaresums = a.square() + b.square()
+        points01 = (target_stdev_inverse_matrices_exp@diff.unsqueeze(-1)).squeeze(-1)
         points01square = points01.square()
+        squaresums = points01square.sum(dim=-1)
 
         # print("points01square.shape:", points01square.shape)
         # print("target_logstdevs.shape:", target_logstdevs.shape)
         target_logstdevs_exp = target_logstdevs.unsqueeze(1) if prebatched else target_logstdevs
-        log_pdf_vals2 = -0.5*(points01square.sum(dim=-1)) - target_logstdevs_exp#[None,:,None]
+        log_pdf_vals2 = -0.5*squaresums - target_logstdevs_exp#[None,:,None]
         pdfvals = log_pdf_vals2.exp()
         cdfvals = (self.outer_factor*(pdfvals*self.weights[None,:,None,None]).sum(dim=1)).clip(0.0, 1.0)
         return gauss_pts, pdfvals, cdfvals

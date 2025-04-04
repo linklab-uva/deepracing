@@ -35,9 +35,10 @@ class BayesianFilter(torch.nn.Module):
 
         collision_check_velocities, _ = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curve_derivs, collision_check_times, idxbuckets=collision_check_buckets)
         collision_check_speeds = torch.norm(collision_check_velocities, p=2.0, dim=-1, keepdim=True)
-        collision_check_tangents = collision_check_velocities/collision_check_speeds
+        collision_check_tangents : torch.Tensor = collision_check_velocities/collision_check_speeds
         # collision_check_tangents = collision_check_velocities*torch.pow(collision_check_speeds, self.minusone)
         collision_check_normals = collision_check_tangents[...,[1,0]] * self.flip[None,None]
+        # collision_check_normals : torch.Tensor = collision_check_tangents[...,[1,0]].clone()
         # collision_check_normals[...,0]*=-1.0
         collision_check_rotmats = torch.stack([collision_check_tangents, collision_check_normals], dim=-1)
 
