@@ -9,7 +9,6 @@ import typing
 import functools
 import io
 # from scipy.special import comb
-import math
 
 
 
@@ -179,14 +178,11 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
     # lagrange = coefs_and_lagrange[:, d.shape[1]:]
     # lagrange_batch = lagrange.reshape(batchdims + [-1,])
     return control_points, tswitchingpoints_batch
-# import math
-# PASCAL_COEFS : torch.Tensor = torch.zeros((100,100), dtype=torch.float32)
-# for n in range(PASCAL_COEFS.shape[0]):
-#     for k in range(n,PASCAL_COEFS.shape[1]):
-#         PASCAL_COEFS[n,k] = torch.as_tensor(math.comb(n,k)).to(tensor=PASCAL_COEFS)
-@torch.jit.script
+
+
+# @torch.jit.script
 def comb_torchscript(n : torch.Tensor, k : torch.Tensor) -> torch.Tensor:
-    return (((n + 1).lgamma() - (k + 1).lgamma() - ((n - k) + 1).lgamma()).exp()).round()#.item()
+    return (((n + 1).lgamma() - (k + 1).lgamma() - ((n - k) + 1).lgamma()).exp())#.round()
 
 # @torch.jit.script
 # def Mtk(k : int, n : int, t : torch.Tensor) -> torch.Tensor:
@@ -194,16 +190,17 @@ def comb_torchscript(n : torch.Tensor, k : torch.Tensor) -> torch.Tensor:
 #     factor = comb_torchscript(n*torch.ones(1, dtype=t.dtype, device=t.device)[0], k*torch.ones(1, dtype=t.dtype, device=t.device)[0])
 #     return rtn*factor
 
-@torch.jit.script
+# @torch.jit.script
 def bezierM(s : torch.Tensor, n : int) -> torch.Tensor:
-    ivec = torch.linspace(0, n, steps=n+1, dtype=s.dtype, device=s.device)
-    nvec = torch.ones_like(ivec)*n
-    comb_factors = comb_torchscript(nvec, ivec)
+    # ivec = torch.linspace(0, n, steps=n+1, dtype=s.dtype, device=s.device)#.long()
+    # nvec = torch.ones_like(ivec)*n
+    # comb_factors = comb_torchscript(nvec, ivec)
+    comb_factors=torch.as_tensor([math.comb(n,i) for i in range(n+1)], dtype=s.dtype, device=s.device)
     bernstein_vals = torch.stack([torch.pow(s,k)*torch.pow(1-s,(n-k)) for k in range(n+1)],dim=-1)
-    return comb_factors[None,None]*bernstein_vals 
+    return (comb_factors[None,None].type_as(s))*bernstein_vals 
     # return torch.stack([Mtk(k,n,s) for k in range(n+1)],dim=-1)
 
-@torch.jit.script
+# @torch.jit.script
 def compositeBezierEval(xstart : torch.Tensor, dx : torch.Tensor, 
                         control_points : torch.Tensor, x_eval : torch.Tensor, 
                         idxbuckets : torch.Tensor | None = None
