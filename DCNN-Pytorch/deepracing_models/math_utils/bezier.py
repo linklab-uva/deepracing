@@ -9,7 +9,6 @@ import typing
 import functools
 import io
 # from scipy.special import comb
-import math
 
 
 
@@ -210,7 +209,7 @@ def bezierM(s : torch.Tensor, n : int) -> torch.Tensor:
     # for i in range(1, n): comb_factors[i] = float(math.comb(n, i))
     comb_factors = torch.as_tensor([math.comb(n, k) for k in range(n+1)], dtype=s.dtype, device=s.device)
     bernstein_vals = torch.stack([torch.pow(s,k)*torch.pow(1-s,(n-k)) for k in range(n+1)],dim=-1)
-    return comb_factors[None,None]*bernstein_vals 
+    return (comb_factors[None,None].type_as(s))*bernstein_vals 
     # return torch.stack([Mtk(k,n,s) for k in range(n+1)],dim=-1)
 # 
 # @torch.jit.script
