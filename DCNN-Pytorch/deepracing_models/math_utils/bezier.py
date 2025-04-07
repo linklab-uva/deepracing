@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import Callable, Tuple, Union
 import numpy as np
 import math
 import torch, torch.nn
@@ -184,28 +184,38 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
 # for n in range(PASCAL_COEFS.shape[0]):
 #     for k in range(n,PASCAL_COEFS.shape[1]):
 #         PASCAL_COEFS[n,k] = torch.as_tensor(math.comb(n,k)).to(tensor=PASCAL_COEFS)
-@torch.jit.script
-def comb_torchscript(n : torch.Tensor, k : torch.Tensor) -> torch.Tensor:
-    return (((n + 1).lgamma() - (k + 1).lgamma() - ((n - k) + 1).lgamma()).exp()).round()#.item()
+# @torch.jit.script
+# def comb_torchscript(n : torch.Tensor, k : torch.Tensor) -> torch.Tensor:
+#     return (((n + 1).lgamma() - (k + 1).lgamma() - ((n - k) + 1).lgamma()).exp()).round()#.item()
 
 # @torch.jit.script
 # def Mtk(k : int, n : int, t : torch.Tensor) -> torch.Tensor:
 #     rtn = torch.pow(t,k)*torch.pow(1-t,(n-k))
 #     factor = comb_torchscript(n*torch.ones(1, dtype=t.dtype, device=t.device)[0], k*torch.ones(1, dtype=t.dtype, device=t.device)[0])
 #     return rtn*factor
-
-@torch.jit.script
+class BezierMatrixFactory(torch.nn.Module):
+    def __init__(self, order : int):
+        super(BezierMatrixFactory, self).__init__()
+        self.comb_factors = torch.nn.Parameter(torch.as_tensor([math.comb(order, k) for k in range(order+1)]).float(), requires_grad=False)
+    def forward(self, s : torch.Tensor):
+        n = self.comb_factors.shape[0] - 1
+        bernstein_vals = torch.stack([torch.pow(s,k)*torch.pow(1-s,(n-k)) for k in range(self.comb_factors.shape[0])],dim=-1)
+        return self.comb_factors[None,None]*bernstein_vals 
+# @torch.jit.script
 def bezierM(s : torch.Tensor, n : int) -> torch.Tensor:
-    ivec = torch.linspace(0, n, steps=n+1, dtype=s.dtype, device=s.device)
-    nvec = torch.ones_like(ivec)*n
-    comb_factors = comb_torchscript(nvec, ivec)
+    # ivec = torch.linspace(0, n, steps=n+1, dtype=s.dtype, device=s.device)
+    # nvec = torch.ones_like(ivec)*n
+    # comb_factors = comb_torchscript(nvec, ivec)
+    # comb_factors = torch.ones(n+1, dtype=s.dtype, device=s.device)
+    # for i in range(1, n): comb_factors[i] = float(math.comb(n, i))
+    comb_factors = torch.as_tensor([math.comb(n, k) for k in range(n+1)], dtype=s.dtype, device=s.device)
     bernstein_vals = torch.stack([torch.pow(s,k)*torch.pow(1-s,(n-k)) for k in range(n+1)],dim=-1)
     return comb_factors[None,None]*bernstein_vals 
     # return torch.stack([Mtk(k,n,s) for k in range(n+1)],dim=-1)
-
-@torch.jit.script
-def compositeBezierEval(xstart : torch.Tensor, dx : torch.Tensor, 
-                        control_points : torch.Tensor, x_eval : torch.Tensor, 
+# 
+# @torch.jit.script
+def compositeBezierEval(xstart : torch.Tensor, dx : torch.Tensor, control_points : torch.Tensor, 
+                        x_eval : torch.Tensor, matrix_factory : BezierMatrixFactory | Callable,
                         idxbuckets : torch.Tensor | None = None
                         ) -> tuple[torch.Tensor, torch.Tensor]:
 
@@ -245,10 +255,12 @@ def compositeBezierEval(xstart : torch.Tensor, dx : torch.Tensor,
     corresponding_xstart = torch.gather(xstart_onebatchdim, 1, idxbuckets_)
     corresponding_dx = torch.gather(dx_onebatchdim, 1, idxbuckets_)
     #/corresponding_dx #
-    s_eval = (x_eval_onebatchdim - corresponding_xstart)/corresponding_dx #*torch.pow(corresponding_dx, torch.as_tensor(-1.0).type_as(corresponding_dx))
+    corresponding_dx_inv = torch.pow(corresponding_dx, torch.as_tensor(-1.0).type_as(corresponding_dx))
+    s_eval = (x_eval_onebatchdim - corresponding_xstart)*corresponding_dx_inv
     # s_eval = (torch.log(x_eval_onebatchdim - corresponding_xstart) - torch.log(corresponding_dx)).exp() #*torch.pow(corresponding_dx, torch.as_tensor(-1.0).type_as(corresponding_dx))
     s_eval_unsqueeze = s_eval.unsqueeze(-1)
-    Mbezier = bezierM(s_eval_unsqueeze.view(-1, 1), kbezier).view(batchsize, numpoints, kbezier+1)
+    # Mbezier = bezierM(s_eval_unsqueeze.view(-1, 1), kbezier).view(batchsize, numpoints, kbezier+1)
+    Mbezier : torch.Tensor = matrix_factory(s_eval_unsqueeze.view(-1, 1)).view(batchsize, numpoints, kbezier+1)
     pointseval = torch.matmul(Mbezier.unsqueeze(-2), corresponding_curves).squeeze(-2)
     idxbuckets_shape_out = x_eval.shape 
     if d>1:
@@ -282,9 +294,11 @@ def bezierPolyRoots(bezier_coefficients : torch.Tensor, scaled_basis = False):
     topolyform, _ = polynomialFormConversion(k, dtype = bezier_coefficients.dtype, device=bezier_coefficients.device)
     topolyform = topolyform.unsqueeze(0).expand(N, k+1, k+1)
     if scaled_basis:
-        iarray = torch.linspace(0.0, float(k), steps=bezier_coefficients.shape[1], dtype=bezier_coefficients.dtype, device=bezier_coefficients.device)
-        karray = torch.as_tensor(k, dtype=bezier_coefficients.dtype, device=bezier_coefficients.device)[None].expand_as(iarray)
-        binoms = comb_torchscript(karray, iarray)#torch.as_tensor([math.comb(k, i) for i in range(k+1)], dtype = bezier_coefficients.dtype, device=bezier_coefficients.device)
+        # iarray = torch.linspace(0.0, float(k), steps=bezier_coefficients.shape[1], dtype=bezier_coefficients.dtype, device=bezier_coefficients.device)
+        # karray = torch.as_tensor(k, dtype=bezier_coefficients.dtype, device=bezier_coefficients.device)[None].expand_as(iarray)
+        # binoms = comb_torchscript(karray, iarray)
+        binoms = torch.as_tensor([math.comb(k, i) for i in range(k+1)], dtype=bezier_coefficients.dtype, device=bezier_coefficients.device)
+        
         unscaled = bezier_coefficients/binoms
         standard_form = torch.matmul(topolyform, unscaled.unsqueeze(-1)).squeeze(-1)
     else:

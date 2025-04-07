@@ -20,7 +20,7 @@ class BoundsChecker(torch.nn.Module):
         super(BoundsChecker, self).__init__()
         self.refline_helper : mu.SimplePathHelper = mu.SimplePathHelper.from_closed_path(refline_points, dr_samp)
         arclengths : torch.Tensor = self.refline_helper.__arclengths_in__.detach().clone()
-        self.rebuild_kdtree(squared_distances=squared_distances, levels=levels)
+        # self.rebuild_kdtree(squared_distances=squared_distances, levels=levels)
         self.stdev_factor : torch.nn.Parameter = torch.nn.Parameter(1.0/(torch.as_tensor(2.0).sqrt()*stdev), requires_grad=False)
         self.arclengths : torch.nn.Parameter = torch.nn.Parameter(arclengths, requires_grad=False)
         self.left_widths : torch.nn.Parameter = torch.nn.Parameter(left_widths, requires_grad=False)

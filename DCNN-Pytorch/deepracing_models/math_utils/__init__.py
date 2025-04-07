@@ -8,8 +8,10 @@ from .bezier import compositeBezierEval
 from .bezier import bezierPolyRoots
 from .bezier import compositeBezierAntiderivative, compositeBezierSpline_periodic_
 from .bezier import closedPathAsBezierSpline
+from .bezier import BezierMatrixFactory
+import math
 # from .fitting import pinv, fitAffine
-from .bezier import comb_torchscript
+# from .bezier import comb_torchscript
 # import math
 # from .statistics import cov
 # from .integrate import cumtrapz, simpson
@@ -35,6 +37,7 @@ class CompositeBezierCurve(torch.nn.Module):
 
         self.control_points : torch.nn.Parameter =  torch.nn.Parameter(control_points, requires_grad=False)
 
+        self.matrix_factory : BezierMatrixFactory = BezierMatrixFactory(control_points.shape[-2]-1)
 
         dx = x[1:] - x[:-1]
         if not torch.all(dx>0):
@@ -74,7 +77,7 @@ class CompositeBezierCurve(torch.nn.Module):
         # points_select = self.control_points[imin_]
         # s_select = (x_true - xstart_select)/dx_select
         # return evalBezierSinglePoint(s_select, points_select), imin_
-        evalout, idxmin = compositeBezierEval(self.xstart_vec.unsqueeze(0), self.dx.unsqueeze(0), self.control_points.unsqueeze(0), x_true, idxbuckets=idxbuckets)
+        evalout, idxmin = compositeBezierEval(self.xstart_vec.unsqueeze(0), self.dx.unsqueeze(0), self.control_points.unsqueeze(0), x_true, self.matrix_factory, idxbuckets=idxbuckets)
         # evalrtn = evalout.view(list(x_eval.shape) + [self.d.item()])
         evalrtn = evalout.view(*x_eval.shape, self.control_points.shape[-1])
         return evalrtn, idxmin.view(x_eval.shape)
@@ -226,28 +229,27 @@ class SimplePathHelper(torch.nn.Module):
             derivs = None
         return positions, derivs, idxbuckets
     def closest_point_approximate(self, Pquery : torch.Tensor,
-                newton_iterations : int | None = None, newton_stepsize = 1.0, max_step=1.0, 
+                newton_iterations : int  = 0, newton_stepsize = 1.0, max_step=1.0, 
                 newton_termination_eps : float | None = 1E-4, newton_termination_delta_eps : float | None = 1E-2):
         Pquery_flat = Pquery.view(-1, Pquery.shape[-1])
-        if self.kd_tree is None:
-            query_deltas =  self.__points_samp__-Pquery_flat[:,None]
-            query_delta_norms = torch.norm(query_deltas, p=2.0, dim=-1)
-            imin = torch.argmin(query_delta_norms, dim=1)
-        else:
-            imin = self.kd_tree.query(Pquery_flat, nr_nns_searches=1)[1].squeeze(-1)
-        if newton_iterations is None:
-            deltas = Pquery_flat - self.__points_samp__[imin]
-            return self.__r_samp__[imin].view(Pquery.shape[:-1]).clone(), self.__points_samp__[imin].view(Pquery.shape).clone(), self.__tangents_samp__[imin].view(Pquery.shape).clone(), self.__normals_samp__[imin].view(Pquery.shape).clone(), deltas.view(Pquery.shape)
+        # if self.kd_tree is None:
+        query_deltas =  self.__points_samp__-Pquery_flat[:,None]
+        query_delta_norms = torch.norm(query_deltas, p=2.0, dim=-1)
+        imin = torch.argmin(query_delta_norms, dim=1)
+        # else:
+        #     imin = self.kd_tree.query(Pquery_flat, nr_nns_searches=1)[1].squeeze(-1)
+        # if (newton_iterations is None) or newton_iterations==0:
+        #     deltas = Pquery_flat - self.__points_samp__[imin]
+        #     return self.__r_samp__[imin].view(Pquery.shape[:-1]).clone(), self.__points_samp__[imin].view(Pquery.shape).clone(), self.__tangents_samp__[imin].view(Pquery.shape).clone(), self.__normals_samp__[imin].view(Pquery.shape).clone(), deltas.view(Pquery.shape)
         
         r = self.__r_samp__[imin].clone()
-        # rinit = r.clone()
         points = self.__points_samp__[imin].clone()
         tangents = self.__tangents_samp__[imin].clone()
+        deltas = Pquery_flat - points
         for _ in range(newton_iterations):
             curve_2nd_deriv_rtn  = self.__curve_2nd_deriv__(r)
             dtangent_dr : torch.Tensor = curve_2nd_deriv_rtn[0]
             idxbuckets : torch.Tensor = curve_2nd_deriv_rtn[1]
-            deltas = Pquery_flat - points
             delta_dotprods = torch.sum(deltas*tangents,dim=-1)
             # ddelta_dr = -tangents
             # ddotprod_dr : torch.Tensor = deltas[:,0]*dtangent_dr[:,0] + deltas[:,1]*dtangent_dr[:,1] + tangents[:,1]*ddelta_dr[:,1] + tangents[:,0]*ddelta_dr[:,0]
@@ -255,15 +257,16 @@ class SimplePathHelper(torch.nn.Module):
             ddotprod_dr[ddotprod_dr==0.0]=1E-9
             newton_step = (delta_dotprods/ddotprod_dr)
             # r=(r-((newton_stepsize*newton_step).clip(-max_step, max_step)))%self.__curve__.xend_vec[-1]
+            torch.remainder(r-((newton_stepsize*newton_step).clip(-max_step, max_step)), self.__curve__.xend_vec[-1], out=r)
             curvertn : tuple[torch.Tensor, torch.Tensor]  = self.__curve__(r, idxbuckets=idxbuckets)
             (points, _) = curvertn
+            deltas = Pquery_flat - points
             tangents : torch.Tensor = self.__curve_deriv__(r, idxbuckets=idxbuckets)[0]
             tangents /= torch.norm(tangents, p=2.0, dim=-1, keepdim=True)
             if (newton_termination_eps is not None) and torch.all(torch.abs(delta_dotprods)<newton_termination_eps):
                 break
             if (newton_termination_delta_eps is not None) and torch.all(torch.abs(newton_step)<newton_termination_delta_eps):
                 break
-            torch.remainder(r-((newton_stepsize*newton_step).clip(-max_step, max_step)), self.__curve__.xend_vec[-1], out=r)
         normals = tangents[:,[1,0]].clone()
         normals[:,0]*=-1.0
         return r.view(Pquery.shape[:-1]), points.view(Pquery.shape), tangents.view(Pquery.shape), normals.view(Pquery.shape), deltas.view(Pquery.shape)
@@ -291,18 +294,20 @@ class SimplePathHelper(torch.nn.Module):
         control_points_delta = control_points_select - Pquery[:,None,None]
         control_points_deriv_select = control_points_deriv[idx_delta_exp]
 
-        order_this_array = torch.as_tensor(order_this, dtype=Pquery.dtype, device=Pquery.device)[None].expand(num_control_points)
-        k_array = torch.arange(0, num_control_points, step=1.0, dtype=Pquery.dtype, device=Pquery.device)
-        binomial_coefs = comb_torchscript(order_this_array, k_array) #torch.as_tensor([math.comb(order_this, i) for i in range(order_this+1)], dtype=Pquery.dtype, device=Pquery.device)
-        binomial_coefs_deriv = comb_torchscript((order_this_array-1)[:-1], k_array[:-1]) #torch.as_tensor([math.comb(order_deriv, i) for i in range(order_deriv+1)], dtype=Pquery.dtype, device=Pquery.device)
+        # order_this_array = torch.as_tensor(order_this, dtype=Pquery.dtype, device=Pquery.device)[None].expand(num_control_points)
+        # k_array = torch.arange(0, num_control_points, step=1.0, dtype=Pquery.dtype, device=Pquery.device)
+        #comb_torchscript(order_this_array, k_array) #
+        binomial_coefs = torch.as_tensor([math.comb(order_this, i) for i in range(order_this+1)], dtype=Pquery.dtype, device=Pquery.device)
+        #comb_torchscript((order_this_array-1)[:-1], k_array[:-1]) #t
+        binomial_coefs_deriv = torch.as_tensor([math.comb(order_deriv, i) for i in range(order_deriv+1)], dtype=Pquery.dtype, device=Pquery.device)
         control_points_delta_scaled = control_points_delta*binomial_coefs[None,None,:,None]
         control_points_deriv_scaled = control_points_deriv_select*binomial_coefs_deriv[None,None,:,None]
     
         convolution = torchaudio.functional.convolve(control_points_delta_scaled.transpose(-2,-1), control_points_deriv_scaled.transpose(-2,-1)).transpose(-2,-1)
-        order_prod_array = torch.as_tensor(order_prod, dtype=Pquery.dtype, device=Pquery.device)[None].expand(order_prod+1)
-        k_prod_array = torch.arange(0, order_prod+1, step=1.0, dtype=Pquery.dtype, device=Pquery.device)
-        
-        binomial_coefs_prod = comb_torchscript(order_prod_array, k_prod_array) #torch.as_tensor([math.comb(order_prod, i) for i in range(order_prod+1)], dtype=Pquery.dtype, device=Pquery.device)
+        # order_prod_array = torch.as_tensor(order_prod, dtype=Pquery.dtype, device=Pquery.device)[None].expand(order_prod+1)
+        # k_prod_array = torch.arange(0, order_prod+1, step=1.0, dtype=Pquery.dtype, device=Pquery.device)
+        #comb_torchscript(order_prod_array, k_prod_array) #
+        binomial_coefs_prod = torch.as_tensor([math.comb(order_prod, i) for i in range(order_prod+1)], dtype=Pquery.dtype, device=Pquery.device)
         bezier_polys = torch.sum(convolution/binomial_coefs_prod[None,None,:,None], dim=-1)
         polynom_roots = bezierPolyRoots(bezier_polys.view(-1, order_prod+1)).view(Pquery.shape[0], idx_delta.shape[0], order_prod)
         polynom_roots_real : torch.Tensor = polynom_roots.real

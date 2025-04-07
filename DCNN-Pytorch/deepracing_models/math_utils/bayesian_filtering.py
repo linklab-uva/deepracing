@@ -2,6 +2,7 @@ import torch.nn, torch.nn.parameter, torch.distributions
 import torch.nn.functional as F
 import numpy as np
 import deepracing_models.math_utils as mu
+import deepracing_models.math_utils.bezier as bezier
 import deepracing_models.math_utils.bounds_checking as bounds_checking
 import deepracing_models.math_utils.dynamics as dynamics
 import deepracing_models.math_utils.statistics as statistics
@@ -10,14 +11,20 @@ class BayesianFilter(torch.nn.Module):
                  collision_probability_estimator : statistics.CollisionProbabilityEstimator,
                  dynamic_violation_estimator : dynamics.ExceedLimitsProbabilityEstimator,
                  bounds_checker : bounds_checking.BoundsChecker,
+                 bezier_order : int = 3,
                  ) -> None:
         super(BayesianFilter, self).__init__()
         self.collision_probability_estimator=collision_probability_estimator
         self.dynamic_violation_estimator=dynamic_violation_estimator
         self.bounds_checker=bounds_checker
+        self.matrix_factory = bezier.BezierMatrixFactory(bezier_order)
+        self.derivative_matrix_factory = bezier.BezierMatrixFactory(bezier_order - 1)
+        self.second_derivative_matrix_factory = bezier.BezierMatrixFactory(bezier_order - 2)
         self.minusonehalf = torch.nn.Parameter(torch.as_tensor(-0.5), requires_grad=False)
         self.minusone = torch.nn.Parameter(torch.as_tensor(-1.0), requires_grad=False)
-        self.flip = torch.nn.Parameter(torch.as_tensor([-1.0, 1.0]), requires_grad=False)
+        flip = torch.ones(2)
+        flip[0] = -1.0
+        self.flip = torch.nn.Parameter(flip, requires_grad=False)
     # @torch.jit.script
     def forward(self, 
                 candidate_curves : torch.Tensor, candidate_curves_tstart : torch.Tensor, candidate_curves_dT : torch.Tensor,
@@ -31,12 +38,13 @@ class BayesianFilter(torch.nn.Module):
         # collision_check_device = self.collision_probability_estimator.gl1d.eta.device
         collision_check_gauss_order : int = int(self.collision_probability_estimator.gl1d.eta.shape[0])
         collision_check_times : torch.Tensor = self.collision_probability_estimator.gl1d.eta.view(1,collision_check_gauss_order).expand(Nparticles, collision_check_gauss_order).to(device=candidate_curves.device)
-        collision_check_positions, collision_check_buckets = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curves, collision_check_times)
+        collision_check_positions, collision_check_buckets = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curves, collision_check_times, self.matrix_factory)
 
-        collision_check_velocities, _ = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curve_derivs, collision_check_times, idxbuckets=collision_check_buckets)
+        collision_check_velocities, _ = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curve_derivs, collision_check_times, self.derivative_matrix_factory, idxbuckets=collision_check_buckets)
         collision_check_speeds = torch.norm(collision_check_velocities, p=2.0, dim=-1, keepdim=True)
-        collision_check_tangents : torch.Tensor = collision_check_velocities/collision_check_speeds
-        # collision_check_tangents = collision_check_velocities*torch.pow(collision_check_speeds, self.minusone)
+        collision_check_speed_inverses = torch.pow(collision_check_speeds, self.minusone)
+        # collision_check_tangents : torch.Tensor = collision_check_velocities/collision_check_speeds
+        collision_check_tangents = collision_check_velocities*collision_check_speed_inverses#torch.pow(collision_check_speeds, self.minusone)
         collision_check_normals = collision_check_tangents[...,[1,0]] * self.flip[None,None]
         # collision_check_normals : torch.Tensor = collision_check_tangents[...,[1,0]].clone()
         # collision_check_normals[...,0]*=-1.0
@@ -50,7 +58,7 @@ class BayesianFilter(torch.nn.Module):
         #Bounds Check
         bounds_check_gauss_order : int = int(self.bounds_checker.gl1d.eta.shape[0])
         bounds_check_times : torch.Tensor = self.bounds_checker.gl1d.eta.view(1,bounds_check_gauss_order).expand(Nparticles, bounds_check_gauss_order)
-        bounds_check_positions, bounds_check_buckets = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curves, bounds_check_times)
+        bounds_check_positions, bounds_check_buckets = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curves, bounds_check_times, self.matrix_factory)
         closest_point_r, closest_point_values, closest_point_tangents, closest_point_normals, deltas,\
         signed_distances, left_width_vals, right_width_vals, \
         specific_left_bound_violation_probs, specific_right_bound_violation_probs,\
@@ -60,8 +68,8 @@ class BayesianFilter(torch.nn.Module):
         #Dynamics Check
         dynamics_check_gauss_order : int = int(self.dynamic_violation_estimator.gl1d.eta.shape[0])
         dynamics_check_times : torch.Tensor = self.dynamic_violation_estimator.gl1d.eta.view(1,dynamics_check_gauss_order).expand(Nparticles, dynamics_check_gauss_order)
-        dynamics_check_velocities, dynamics_check_idxbuckets = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curve_derivs, dynamics_check_times)
-        dynamics_check_accelerations, _ = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curve_2ndderivs, dynamics_check_times, idxbuckets=dynamics_check_idxbuckets)
+        dynamics_check_velocities, dynamics_check_idxbuckets = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curve_derivs, dynamics_check_times, self.derivative_matrix_factory)
+        dynamics_check_accelerations, _ = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curve_2ndderivs, dynamics_check_times, self.second_derivative_matrix_factory, idxbuckets=dynamics_check_idxbuckets)
         ellipse_points, ellipse_normals, origin, lat_radii, long_radii, signed_distances, specific_violation_probs, overall_within_limits_probs = \
             self.dynamic_violation_estimator(dynamics_check_velocities, dynamics_check_accelerations, **(dynamics_check_newton_params if dynamics_check_newton_params is not None else dict()))
         return (

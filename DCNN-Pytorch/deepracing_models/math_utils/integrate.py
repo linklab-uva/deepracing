@@ -79,9 +79,11 @@ class GaussLegendre1D(torch.nn.Module):
         self.eta : torch.nn.Parameter = torch.nn.Parameter(intervalhalfwidth*eta + intervalmean, requires_grad=requires_grad)
         self.weights : torch.nn.Parameter = torch.nn.Parameter(weights, requires_grad=requires_grad) #intervalhalfwidth*
     def forward(self, x : torch.Tensor):
-        nbatchdims = x.ndim-1
-        weights = self.weights.tile(*torch.ones(nbatchdims + 1, dtype=torch.int64))
-        return self.intervalhalfwidth*torch.sum(weights*x, dim=-1)
+        # nbatchdims = x.ndim-1
+        # weights = self.weights.tile(*torch.ones(nbatchdims + 1, dtype=torch.int64))
+        # weights = self.weights #.tile(*[1 for _ in range(nbatchdims+1)])
+        # return self.intervalhalfwidth*torch.sum(weights*x, dim=-1)
+        return self.intervalhalfwidth*torch.sum(self.weights*x, dim=-1)
         
 def cumtrapz(y,x,initial=None):
     dx = x[:,1:]-x[:,:-1]
