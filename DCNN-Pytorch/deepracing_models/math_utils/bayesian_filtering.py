@@ -6,6 +6,7 @@ import deepracing_models.math_utils.bezier as bezier
 import deepracing_models.math_utils.bounds_checking as bounds_checking
 import deepracing_models.math_utils.dynamics as dynamics
 import deepracing_models.math_utils.statistics as statistics
+
 class BayesianFilter(torch.nn.Module):
     def __init__(self, *,
                  collision_probability_estimator : statistics.CollisionProbabilityEstimator,
@@ -22,9 +23,13 @@ class BayesianFilter(torch.nn.Module):
         self.second_derivative_matrix_factory = bezier.BezierMatrixFactory(bezier_order - 2)
         self.minusonehalf = torch.nn.Parameter(torch.as_tensor(-0.5), requires_grad=False)
         self.minusone = torch.nn.Parameter(torch.as_tensor(-1.0), requires_grad=False)
-        flip = torch.ones(2)
-        flip[0] = -1.0
-        self.flip = torch.nn.Parameter(flip, requires_grad=False)
+        # flip = torch.ones(2)
+        # flip[0] = -1.0
+        # self.flip = torch.nn.Parameter(flip, requires_grad=False)
+        Rflip = torch.zeros([2,2], dtype=torch.float32)
+        Rflip[0,1]=-1.0
+        Rflip[1,0]=1.0
+        self.Rflip = torch.nn.Parameter(Rflip, requires_grad=False)
     # @torch.jit.script
     def forward(self, 
                 candidate_curves : torch.Tensor, candidate_curves_tstart : torch.Tensor, candidate_curves_dT : torch.Tensor,
@@ -45,7 +50,9 @@ class BayesianFilter(torch.nn.Module):
         collision_check_speed_inverses = torch.pow(collision_check_speeds, self.minusone)
         # collision_check_tangents : torch.Tensor = collision_check_velocities/collision_check_speeds
         collision_check_tangents = collision_check_velocities*collision_check_speed_inverses#torch.pow(collision_check_speeds, self.minusone)
-        collision_check_normals = collision_check_tangents[...,[1,0]] * self.flip[None,None]
+        # with FakeTensorMode():
+        # collision_check_normals = collision_check_tangents[...,[1,0]] * self.flip[None,None]
+        collision_check_normals = (self.Rflip@collision_check_tangents.unsqueeze(-1)).squeeze(-1)
         # collision_check_normals : torch.Tensor = collision_check_tangents[...,[1,0]].clone()
         # collision_check_normals[...,0]*=-1.0
         collision_check_rotmats = torch.stack([collision_check_tangents, collision_check_normals], dim=-1)
