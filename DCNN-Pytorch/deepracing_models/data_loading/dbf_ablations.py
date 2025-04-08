@@ -1,10 +1,11 @@
 import pandas as pd
 import os
 import torch
+from torch.nn.parameter import Parameter
 import yaml
 import pickle
 from typing import Any, Iterable
-from deepracing_models.math_utils import RacelineHelper
+from deepracing_models.math_utils import RacelineHelper, SimplePathHelper
 import tqdm
 def flatten_dict(d : dict, sep : str= "."):
     dflattened = dict()
@@ -19,7 +20,7 @@ def flatten_dict(d : dict, sep : str= "."):
             dflattened[k]=v
     return dflattened
 class DBFExperiment:
-    def __init__(self, maindir : str):
+    def __init__(self, maindir : str) -> None:
         self.maindir = maindir
         self.rootdir = os.path.abspath(os.path.join(maindir, "..", "..", ".."))
         
@@ -34,21 +35,29 @@ class DBFExperiment:
                                                       "long_accel_factor" : 1.0, "lat_accel_factor" : 1.0, "brake_factor" : 1.0} 
         self.kwargs.update(flatten_dict(kwargs_raw))
         self.kwargs.pop("savedir", "asdf")
-    def __str__(self):
+    def __str__(self) -> str:
         return "DBF Experiment: "+str(self.maindir) +"\n"+str(self.metadata)
-    def datadict(self):
+    def datadict(self) -> dict[str, torch.Tensor]:
         with open(os.path.join(self.maindir, "data.pt"), "rb") as f:
             d : dict[str,torch.Tensor] = torch.load(f)
         return d
-    def filter_params(self):
+    def filter_params(self) -> dict[str, Parameter]:
         with open(os.path.join(self.maindir, "filter_params.pt"), "rb") as f:
             d : dict[str,torch.nn.Parameter] = torch.load(f)
         return d
-    def raceline_params(self):
+    def innerbound_helper(self) -> SimplePathHelper:
+        with open(os.path.join(self.maindir, "ib_helper_params.pt"), "rb") as f:
+            d : dict[str,torch.nn.Parameter] = torch.load(f)
+        return SimplePathHelper.from_statedict(d) 
+    def outerbound_helper(self) -> SimplePathHelper:
+        with open(os.path.join(self.maindir, "ob_helper_params.pt"), "rb") as f:
+            d : dict[str,torch.nn.Parameter] = torch.load(f)
+        return SimplePathHelper.from_statedict(d) 
+    def raceline_params(self) -> dict[str, Parameter]:
         with open(os.path.join(self.maindir, "raceline_helper.pt"), "rb") as f:
             d : dict[str,torch.nn.Parameter] = torch.load(f)
         return d
-    def raceline_helper(self):
+    def raceline_helper(self) -> RacelineHelper:
         raceline_params = self.raceline_params()
         Nrlpoints = int(raceline_params["__times_in__"].shape[0])
         rlorder = int(raceline_params["__curve_r__.control_points"].shape[-2])-1
