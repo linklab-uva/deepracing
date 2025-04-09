@@ -105,10 +105,10 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
             # tau = torch.stack([torch.cos(alpha), torch.sin(alpha)], dim=-1)
             # ellipse_points = torch.stack([lat_radii*torch.cos(thetas), long_radii*torch.sin(thetas)], dim=-1) + origin
             
-            if (newton_termination_eps is not None) and torch.all(dfunc_dtheta<newton_termination_eps):
-                break
-            if (newton_termination_delta_eps is not None) and torch.all(torch.abs(theta_deltas)<newton_termination_delta_eps):
-                break
+            # if (newton_termination_eps is not None) and torch.all(dfunc_dtheta<newton_termination_eps):
+            #     break
+            # if (newton_termination_delta_eps is not None) and torch.all(torch.abs(theta_deltas)<newton_termination_delta_eps):
+            #     break
         
         tau = torch.stack([-lat_radii*torch.sin(thetas), long_radii*torch.cos(thetas)], dim=-1)
         tau /= torch.norm(tau, p=2.0, dim=-1, keepdim=True)

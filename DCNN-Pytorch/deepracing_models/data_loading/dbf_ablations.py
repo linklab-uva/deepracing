@@ -26,12 +26,12 @@ class DBFExperiment:
         
         with open(os.path.join(maindir, "metadata.yaml"), "r") as f:
             metadata_raw : dict[str, str | int | float | dict]  = yaml.safe_load(f)
-        self.metadata : dict[str, str | int | float] =  {"true_raceline_offset" : 0.0,  "true_target_raceline_offset" : 0.0} 
+        self.metadata : dict[str, str | int | float] =  {"true_raceline_offset" : 0.0,  "true_target_raceline_offset" : 0.0, "model_construction_time" : None} 
         self.metadata.update(flatten_dict(metadata_raw))
         
         with open(os.path.join(maindir, "kwargs.yaml"), "r") as f:
             kwargs_raw : dict[str, str | int | float | dict]  = yaml.safe_load(f)
-        self.kwargs : dict[str, str | int | float] = {"raceline_offset" : 0.0,  "target_raceline_offset" : 0.0,
+        self.kwargs : dict[str, str | int | float] = {"raceline_offset" : 0.0,  "target_raceline_offset" : 0.0, "compile_backend" : None,
                                                       "long_accel_factor" : 1.0, "lat_accel_factor" : 1.0, "brake_factor" : 1.0} 
         self.kwargs.update(flatten_dict(kwargs_raw))
         self.kwargs.pop("savedir", "asdf")
@@ -102,7 +102,7 @@ class DBFExperimentCollection:
     def to_dataframe(self, metadatakeys : Iterable[str], kwargkeys : Iterable[str]) -> pd.DataFrame:
         points = []
         for exp in self.experiments:
-            point = {k : exp.metadata[k] for k in metadatakeys}
+            point = {k : exp.metadata.get(k,None) for k in metadatakeys}
             # for k in kwargkeys:
             #     val = exp.kwargs[k]
             #     if type(val)==list:
@@ -110,7 +110,7 @@ class DBFExperimentCollection:
             #             point[k+"_%d" % (i,)] = val[i]
             #     else:
             #         point[k] = val
-            point.update({k : exp.kwargs[k] for k in kwargkeys})
+            point.update({k : exp.kwargs.get(k,None) for k in kwargkeys})
             point["maindir"] = exp.maindir
             point["rootdir"] = exp.rootdir
             points.append(point)
