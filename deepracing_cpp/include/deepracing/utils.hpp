@@ -11,6 +11,7 @@ namespace deepracing
     {
         public:
             static std::map<std::int8_t, std::string> trackNames();
+            static void populateSpeed(pcl::PointCloud<deepracing::PointXYZTALS>& cloud);
             static pcl::PointCloud<deepracing::PointXYZLapdistance> closeBoundary(const pcl::PointCloud<deepracing::PointXYZLapdistance>& open_boundary);
     };
     // inline std::map<std::int8_t, std::string> trackNames();

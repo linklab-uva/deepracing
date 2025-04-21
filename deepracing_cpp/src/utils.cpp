@@ -1,4 +1,26 @@
 #include <deepracing/utils.hpp>
+#include <alglib/interpolation.h>
+void deepracing::Utils::populateSpeed(pcl::PointCloud<deepracing::PointXYZTALS>& cloud)
+{
+    std::vector<double> timevec, arclengthvec;
+    for (std::size_t i = 0; i<cloud.size(); i++){
+        const deepracing::PointXYZTALS& point = cloud.at(i);
+        timevec.push_back((double)point.time);
+        arclengthvec.push_back((double)point.arclength);
+    }
+    alglib::spline1dinterpolant splinecoefs;
+    alglib::real_1d_array timealglib, arclengthalglib;
+    timealglib.attach_to_ptr(timevec.size(), timevec.data());
+    arclengthalglib.attach_to_ptr(arclengthvec.size(), arclengthvec.data());
+    alglib::spline1dbuildakima(timealglib, arclengthalglib, cloud.size(), splinecoefs);
+    for (std::size_t i = 0; i<cloud.size()-1; i++){
+        deepracing::PointXYZTALS& point = cloud.at(i);
+        double s, ds, d2s;
+        alglib::spline1ddiff(splinecoefs, (double)point.time, s, ds, d2s);
+        point.speed = (float)ds;
+    }
+    cloud.at(cloud.size()-1).speed = cloud.at(0).speed;
+}
 pcl::PointCloud<deepracing::PointXYZLapdistance> deepracing::Utils::closeBoundary(const pcl::PointCloud<deepracing::PointXYZLapdistance>& open_boundary){
     Eigen::VectorXd dL(open_boundary.size()-1);
     for(unsigned int i = 1; i < open_boundary.size(); i++)
