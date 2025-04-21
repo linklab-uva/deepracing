@@ -307,7 +307,7 @@ def bezierPolyRoots(bezier_coefficients : torch.Tensor, scaled_basis = False):
 
 
 from scipy.special import roots_legendre
-def bezierArcLength(control_points : torch.Tensor, quadrature_order = 7, num_segments = 4, sum=True):
+def bezierArcLength(control_points : torch.Tensor, quadrature_order = 10, num_segments = 6, sum=True):
     
     batchdim = control_points.shape[0]
     kbezier = control_points.shape[-2] - 1

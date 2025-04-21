@@ -33,8 +33,7 @@ class BayesianFilter(torch.nn.Module):
     # @torch.jit.script
     def forward(self, 
                 candidate_curves : torch.Tensor, candidate_curves_tstart : torch.Tensor, candidate_curves_dT : torch.Tensor,
-                target_means : torch.Tensor, target_stdev_inverse_matrices : torch.Tensor, target_logstdevs : torch.Tensor,
-                bounds_check_newton_params : dict | None, dynamics_check_newton_params : dict | None):
+                target_means : torch.Tensor, target_stdev_inverse_matrices : torch.Tensor, target_logstdevs : torch.Tensor):
         Nparticles = candidate_curves.shape[0]
         candidate_curve_derivs = (candidate_curves.shape[-2]-1)*torch.diff(candidate_curves, dim=-2)/candidate_curves_dT[...,None,None]
         candidate_curve_2ndderivs = (candidate_curve_derivs.shape[-2]-1)*torch.diff(candidate_curve_derivs, dim=-2)/candidate_curves_dT[...,None,None]
@@ -69,16 +68,14 @@ class BayesianFilter(torch.nn.Module):
         closest_point_r, closest_point_values, closest_point_tangents, closest_point_normals, deltas,\
         signed_distances, left_width_vals, right_width_vals, \
         specific_left_bound_violation_probs, specific_right_bound_violation_probs,\
-        no_left_bound_violation_probs, no_right_bound_violation_probs = self.bounds_checker(bounds_check_positions, 
-                                                                                            **(bounds_check_newton_params if bounds_check_newton_params is not None else dict()))
-        
+        no_left_bound_violation_probs, no_right_bound_violation_probs = self.bounds_checker(bounds_check_positions)
         #Dynamics Check
         dynamics_check_gauss_order : int = int(self.dynamic_violation_estimator.gl1d.eta.shape[0])
         dynamics_check_times : torch.Tensor = self.dynamic_violation_estimator.gl1d.eta.view(1,dynamics_check_gauss_order).expand(Nparticles, dynamics_check_gauss_order)
         dynamics_check_velocities, dynamics_check_idxbuckets = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curve_derivs, dynamics_check_times, self.derivative_matrix_factory)
         dynamics_check_accelerations, _ = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curve_2ndderivs, dynamics_check_times, self.second_derivative_matrix_factory, idxbuckets=dynamics_check_idxbuckets)
         ellipse_points, ellipse_normals, origin, lat_radii, long_radii, signed_distances, specific_violation_probs, overall_within_limits_probs = \
-            self.dynamic_violation_estimator(dynamics_check_velocities, dynamics_check_accelerations, **(dynamics_check_newton_params if dynamics_check_newton_params is not None else dict()))
+            self.dynamic_violation_estimator(dynamics_check_velocities, dynamics_check_accelerations)
         return (
             (
                 closest_point_r,

@@ -14,6 +14,9 @@ class BoundsChecker(torch.nn.Module):
                 dT : float,
                 stdev : float = 1.25,
                 alpha : float = 0.1,
+                newton_iterations = 20,
+                newton_stepsize = 1.0,
+                max_step=0.75, 
                 squared_distances : bool = True, 
                 levels : int = None
                 ) -> None:
@@ -29,16 +32,30 @@ class BoundsChecker(torch.nn.Module):
         self.right_width_interp : interpolate.LinearInterpolator = interpolate.LinearInterpolator(arclengths, right_widths, requires_grad=False)
         self.gl1d : integrate.GaussLegendre1D = integrate.GaussLegendre1D(gauss_order, interval=[0, dT], requires_grad=False)
         self.alpha = torch.nn.Parameter(torch.as_tensor(alpha), requires_grad=False)
+        Rflip = torch.zeros([2,2]).float()
+        Rflip[0,1]=-1.0
+        Rflip[1,0]=1.0
+        self.Rflip =torch.nn.Parameter(Rflip, requires_grad=False)
+        self.newton_iterations_container=torch.nn.Parameter(torch.randn(newton_iterations, dtype=torch.float32), requires_grad=False)
+        self.newton_stepsize = torch.nn.Parameter(torch.as_tensor(newton_stepsize), requires_grad=False)
+        self.max_step = torch.nn.Parameter(torch.as_tensor(max_step), requires_grad=False)
     def rebuild_kdtree(self, squared_distances : bool = True, levels : int = None):
         self.refline_helper.rebuild_kdtree(squared_distances=squared_distances, levels=levels)
         
-    def forward(self, positions : torch.Tensor, newton_iterations : int | None = None, newton_stepsize: float = 1, 
-                max_step: float = 1, newton_termination_eps: float | None = 0.0001, newton_termination_delta_eps: float | None = 0.01):
+    def forward(self, positions : torch.Tensor):
+        # , newton_iterations : int | None = None, newton_stepsize: float = 1, 
+        #         max_step: float = 1, newton_termination_eps: float | None = 0.0001, newton_termination_delta_eps: float | None = 0.01):
         
-        closest_point_r, closest_point_values, closest_point_tangents, closest_point_normals, deltas = \
-            self.refline_helper.closest_point_approximate(positions, newton_iterations=newton_iterations, newton_stepsize=newton_stepsize,
-                                                          max_step=max_step, newton_termination_eps=newton_termination_eps, newton_termination_delta_eps=newton_termination_delta_eps)
+        closest_point_r, closest_point_values, closest_point_tangents, deltas = \
+            self.refline_helper.closest_point_approximate(positions, newton_iterations=self.newton_iterations_container.shape[0], newton_stepsize=self.newton_stepsize, max_step=self.max_step)
+        closest_point_normals = (self.Rflip@closest_point_tangents.unsqueeze(-1)).squeeze(-1)
+        # positions_flat = positions.view(-1, positions.shape[-1])
+        # closest_point_r = self.refline_helper.closest_point(positions_flat).view(positions.shape[:-1])
+        # closest_point_values, closest_point_tangents, _ = self.refline_helper(closest_point_r)
+        # closest_point_normals = (self.Rflip@closest_point_tangents.unsqueeze(-1)).squeeze(-1)
+        # deltas = positions - closest_point_values
 
+#        closest_point_values, closest_point_tangents, closest_point_normals, deltas 
         signed_distances : torch.Tensor = torch.sum(deltas*closest_point_normals, dim=-1)
         left_width_vals : torch.Tensor = self.left_width_interp(closest_point_r % self.left_width_interp.x_points[-1])
         right_width_vals : torch.Tensor = self.right_width_interp(closest_point_r % self.right_width_interp.x_points[-1])
