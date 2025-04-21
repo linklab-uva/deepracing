@@ -129,6 +129,35 @@ namespace deepracing
     std::ostream& operator << (std::ostream& os, const PointXYZTime& p);
     
     //FIELDS x y z time arclength lapdistance
+    struct EIGEN_ALIGN16 _PointXYZTALS
+    {
+        PCL_ADD_POINT4D; // This adds the members x,y,z which can also be accessed using the point (which is float[4])
+        struct
+        {
+            float time;
+            float arclength;
+            float lapdistance;
+            float speed;
+        };
+        PCL_MAKE_ALIGNED_OPERATOR_NEW
+    };
+    struct PointXYZTALS : public _PointXYZTALS
+    {
+        inline constexpr PointXYZTALS (const _PointXYZTALS &p) : PointXYZTALS{p.x, p.y, p.z, p.time, p.arclength, p.lapdistance, p.speed} {}
+
+        inline constexpr PointXYZTALS (float _time = 0.f) : PointXYZTALS(0.f, 0.f, 0.f, _time) {}
+
+        inline constexpr PointXYZTALS (float _x, float _y, float _z, float _time = 0.f, float _arclength = 0.f, float _lapdistance = 0.f, float _speed=0.0) : 
+            _PointXYZTALS{{_x, _y, _z, 1.0f}, {_time, _arclength, _lapdistance, _speed}}
+            {
+                // data_c[3]= 1.0;
+            }
+        
+        friend std::ostream& operator << (std::ostream& os, const PointXYZTALS& p);
+    };
+    std::ostream& operator << (std::ostream& os, const PointXYZTALS& p);
+
+    //FIELDS x y z time arclength lapdistance
     struct EIGEN_ALIGN16 _PointXYZTAL
     {
         PCL_ADD_POINT4D; // This adds the members x,y,z which can also be accessed using the point (which is float[4])
@@ -146,7 +175,7 @@ namespace deepracing
     };
     struct PointXYZTAL : public _PointXYZTAL
     {
-        inline constexpr PointXYZTAL (const _PointXYZTAL &p) : PointXYZTAL{p.x, p.y, p.z, p.time} {}
+        inline constexpr PointXYZTAL (const _PointXYZTAL &p) : PointXYZTAL{p.x, p.y, p.z, p.time, p.arclength, p.lapdistance} {}
 
         inline constexpr PointXYZTAL (float _time = 0.f) : PointXYZTAL(0.f, 0.f, 0.f, _time) {}
 
@@ -245,6 +274,18 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(deepracing::PointXYZTAL,
     (float, lapdistance, lapdistance)
 )
 POINT_CLOUD_REGISTER_POINT_WRAPPER(deepracing::PointXYZTAL, deepracing::_PointXYZTAL)
+
+POINT_CLOUD_REGISTER_POINT_STRUCT(deepracing::PointXYZTALS,
+    (float, x, x)
+    (float, y, y)
+    (float, z, z)
+    (float, time, time)
+    (float, arclength, arclength)
+    (float, lapdistance, lapdistance)
+    (float, speed, speed)
+)
+POINT_CLOUD_REGISTER_POINT_WRAPPER(deepracing::PointXYZTALS, deepracing::_PointXYZTALS)
+
 
 POINT_CLOUD_REGISTER_POINT_STRUCT(deepracing::PointWidthMap,
     (float, x, x)

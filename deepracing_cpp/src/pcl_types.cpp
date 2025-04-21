@@ -51,6 +51,15 @@ namespace deepracing
   }
 
   std::ostream& 
+  operator << (std::ostream& os, const PointXYZTALS& p)
+  {
+    os << "(";
+    os << p.x << "," << p.y << "," << p.z << "," << p.time << "," << p.arclength << "," << p.lapdistance << "," << p.speed;
+    os << ")";
+    return (os);
+  }
+
+  std::ostream& 
   operator << (std::ostream& os, const PointWidthMap& p)
   {
     os << "(";
