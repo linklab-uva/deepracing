@@ -16,12 +16,12 @@ namespace deepracing
     TrackMap::TrackMap(const std::string& name, 
                 const pcl::PointCloud<PointXYZLapdistance>& innerbound, 
                 const pcl::PointCloud<PointXYZLapdistance>& outerbound, 
-                const pcl::PointCloud<PointXYZTime>& raceline)
+                const pcl::PointCloud<PointXYZTALS>& raceline)
     {
         name_=name;
         inner_boundary_.reset(new pcl::PointCloud<PointXYZLapdistance>(innerbound));
         outer_boundary_.reset(new pcl::PointCloud<PointXYZLapdistance>(outerbound));
-        raceline_.reset(new pcl::PointCloud<PointXYZTime>(raceline));
+        raceline_.reset(new pcl::PointCloud<PointXYZTALS>(raceline));
     }
     TrackMap::TrackMap()
     {
@@ -34,7 +34,7 @@ namespace deepracing
     TrackMap::Ptr TrackMap::create(const std::string& name, 
                 const pcl::PointCloud<PointXYZLapdistance>& innerbound, 
                 const pcl::PointCloud<PointXYZLapdistance>& outerbound, 
-                const pcl::PointCloud<PointXYZTime>& raceline)
+                const pcl::PointCloud<PointXYZTALS>& raceline)
     {
         return TrackMap::Ptr(new TrackMap(name, innerbound, outerbound, raceline));
     }
@@ -93,34 +93,40 @@ namespace deepracing
             pcl::transformPointCloud<PointXYZLapdistance>(temp, temp_map, pcl_transform);
             temp_map.header.frame_id="map";
         }
-        else{
+        else {
             temp_map = temp;
             temp_map.header.frame_id="track";
         }
         outer_boundary_.reset(new pcl::PointCloud<PointXYZLapdistance>(deepracing::Utils::closeBoundary(temp_map)));
 
-        pcl::PointCloud<PointXYZTime> temp_raceline, temp_raceline_map;
+        pcl::PointCloud<PointXYZTALS> temp_raceline, temp_raceline_map;
         fs::path raceline_file_path = track_directory_path / fs::path("raceline.pcd");
-        if(!(pcl::io::loadPCDFile<PointXYZTime>(raceline_file_path.string(), temp_raceline)==0))
-        {
+        if(!(pcl::io::loadPCDFile<PointXYZTALS>(raceline_file_path.string(), temp_raceline)==0)) {
             std::stringstream errorstream;
             errorstream<<"Could not load raceline file: " << raceline_file_path.string() << std::endl;
             throw std::runtime_error(errorstream.str());
         }
         if (transform_to_map) {
-            pcl::transformPointCloud<PointXYZTime>(temp_raceline, temp_raceline_map, pcl_transform);
+            pcl::transformPointCloud<PointXYZTALS>(temp_raceline, temp_raceline_map, pcl_transform);
             temp_raceline_map.header.frame_id="map";
         }
-        else{
+        else {
             temp_raceline_map = temp_raceline;
             temp_raceline_map.header.frame_id="track";
         }
-        raceline_.reset(new pcl::PointCloud<PointXYZTime>(temp_raceline_map));
+        float maxspeedin=0.0;
+        for (const deepracing::PointXYZTALS & point : temp_raceline_map){
+            maxspeedin = std::max<float>(maxspeedin, point.speed);
+        }
+        if (maxspeedin<=0.0){
+            std::cerr<<"Max speed " << std::to_string(maxspeedin) << " is too low to make any sense. Setting speed based on spline interpolation."<<std::endl;
+            deepracing::Utils::populateSpeed(temp_raceline_map);
+        }
+        raceline_.reset(new pcl::PointCloud<PointXYZTALS>(temp_raceline_map));
 
         fs::path widthmap_filepath = track_directory_path / fs::path("widthmap.pcd");
         pcl::PointCloud<PointWidthMap> widthmaptemp, widthmaptemp_map;
-        if(pcl::io::loadPCDFile<PointWidthMap>(widthmap_filepath.string(), widthmaptemp)==0)
-        {
+        if(pcl::io::loadPCDFile<PointWidthMap>(widthmap_filepath.string(), widthmaptemp)==0) {
             if (transform_to_map) {
                 deepracing::transforms::transformPointCloudWithOrientation<PointWidthMap>(widthmaptemp, widthmaptemp_map, pcl_transform);
                 widthmaptemp_map.header.frame_id="map";
@@ -203,7 +209,7 @@ namespace deepracing
     {
         return outer_boundary_;
     }
-    const pcl::PointCloud<PointXYZTime>::ConstPtr TrackMap::raceline() const
+    const pcl::PointCloud<PointXYZTALS>::ConstPtr TrackMap::raceline() const
     {
         return raceline_;
     }
