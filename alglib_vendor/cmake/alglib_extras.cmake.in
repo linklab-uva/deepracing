@@ -1,0 +1,2 @@
+get_filename_component(alglib_DIR "${@PROJECT_NAME@_DIR}/../../../opt/alglib/cmake" ABSOLUTE)
+message(STATUS "alglib_DIR: ${alglib_DIR}")

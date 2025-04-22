@@ -1,0 +1,45 @@
+cmake_minimum_required(VERSION 3.15)
+project(alglib CXX)
+
+add_library(${PROJECT_NAME} SHARED
+    src/alglibinternal.cpp
+    src/alglibmisc.cpp
+    src/ap.cpp
+    src/dataanalysis.cpp
+    src/diffequations.cpp
+    src/fasttransforms.cpp
+    src/integration.cpp
+    src/interpolation.cpp
+    src/kernels_avx2.cpp
+    src/kernels_fma.cpp
+    src/kernels_sse2.cpp
+    src/linalg.cpp
+    src/optimization.cpp
+    src/solvers.cpp
+    src/specialfunctions.cpp
+    src/statistics.cpp
+)
+target_include_directories(${PROJECT_NAME} PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+  $<INSTALL_INTERFACE:include>
+)
+install(TARGETS ${PROJECT_NAME}
+    EXPORT ${PROJECT_NAME}-export
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+)
+install(DIRECTORY src/
+    DESTINATION include/${PROJECT_NAME}
+    FILES_MATCHING PATTERN "*.h"
+)
+configure_file(${PROJECT_NAME}-config.cmake.in ${PROJECT_NAME}-config.cmake @ONLY)
+install(FILES ${CMAKE_BINARY_DIR}/${PROJECT_NAME}-config.cmake DESTINATION cmake/)
+install(EXPORT ${PROJECT_NAME}-export
+FILE
+${PROJECT_NAME}Targets.cmake
+NAMESPACE
+    ${PROJECT_NAME}::
+DESTINATION
+    cmake
+)
