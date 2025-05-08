@@ -37,7 +37,7 @@ class CompositeBezierCurve(torch.nn.Module):
 
         self.control_points : torch.nn.Parameter =  torch.nn.Parameter(control_points, requires_grad=False)
 
-        self.matrix_factory : BezierMatrixFactory = BezierMatrixFactory(control_points.shape[-2]-1)
+        self.matrix_factory : BezierMatrixFactory = BezierMatrixFactory(control_points.shape[-2]-1).to(tensor=control_points)
 
         dx = x[1:] - x[:-1]
         if not torch.all(dx>0):
@@ -118,28 +118,37 @@ class ProbabilisticCBC(torch.nn.Module):
 
 from deepracing_models.math_utils.kinematics import parameterize_time
 class RacelineHelper(torch.nn.Module):
-    def __init__(self, arclengths : torch.Tensor, times : torch.Tensor, curve_control_points : torch.Tensor, speed_of_r_coefs : torch.Tensor, r_of_t_coefs : torch.Tensor) -> None:
+    def __init__(self, arclengths : torch.Tensor, times : torch.Tensor, curve_control_points : torch.Tensor, speed_of_r_coefs : torch.Tensor, r_of_t_coefs : torch.Tensor, dr_samp) -> None:
         super(RacelineHelper, self).__init__()
         self.__arclengths_in__ : torch.nn.Parameter = torch.nn.Parameter(arclengths.clone(), requires_grad=False)
         self.__times_in__ : torch.nn.Parameter = torch.nn.Parameter(times.clone(), requires_grad=False)
-        self.__curve_r__ : CompositeBezierCurve = CompositeBezierCurve(arclengths, curve_control_points).requires_grad_(False)
-        self.__curve_r_deriv__ : CompositeBezierCurve = self.__curve_r__.derivative().requires_grad_(False)
-        self.__curve_r_2nd_deriv__ : CompositeBezierCurve = self.__curve_r_deriv__.derivative().requires_grad_(False)
-
+        # self.__curve_r__ : CompositeBezierCurve = CompositeBezierCurve(arclengths, curve_control_points).requires_grad_(False)
+        # self.__curve_r_deriv__ : CompositeBezierCurve = self.__curve_r__.derivative().requires_grad_(False)
+        # self.__curve_r_2nd_deriv__ : CompositeBezierCurve = self.__curve_r_deriv__.derivative().requires_grad_(False)
+        self.__curve_of_r__ : SimplePathHelper = SimplePathHelper(arclengths.clone(), curve_control_points.clone(), dr_samp)
         self.__speed_of_r__ : CompositeBezierCurve = CompositeBezierCurve(arclengths.clone(), speed_of_r_coefs.clone() if speed_of_r_coefs.ndim==3 else speed_of_r_coefs.unsqueeze(-1).clone()
                                                                           ).requires_grad_(False)
         
         self.__r_of_t__ : CompositeBezierCurve = CompositeBezierCurve(times.clone(), r_of_t_coefs.clone() if r_of_t_coefs.ndim==3 else r_of_t_coefs.unsqueeze(-1).clone()
                                                                           ).requires_grad_(False)
+    # @staticmethod
+    # def from_closed_path_time(points : torch.Tensor, speeds : torch.Tensor) -> 'RacelineHelper':
+    #     arclengths, curve_control_points = closedPathAsBezierSpline(points) 
+    #     speed_of_r_coefs = compositeBezierSpline_periodic_(arclengths, speeds.unsqueeze(-1)) 
+    #     times = parameterize_time(speeds, arclengths)
+    #     dT = torch.diff(times, n=1, dim=0)
+    #     speed_of_t_coefs = torch.stack([speeds[:-1], speeds[1:]], dim=1)
+    #     r_of_t_coefs = compositeBezierAntiderivative(speed_of_t_coefs[None,...,None], dT[None])[0]
+    #     return RacelineHelper(arclengths, times, curve_control_points, speed_of_r_coefs, r_of_t_coefs)
     @staticmethod
-    def from_closed_path(points : torch.Tensor, speeds : torch.Tensor) -> 'RacelineHelper':
+    def from_closed_path(points : torch.Tensor, speeds : torch.Tensor, dr_samp : float) -> 'RacelineHelper':
         arclengths, curve_control_points = closedPathAsBezierSpline(points) 
         speed_of_r_coefs = compositeBezierSpline_periodic_(arclengths, speeds.unsqueeze(-1)) 
         times = parameterize_time(speeds, arclengths)
         dT = torch.diff(times, n=1, dim=0)
         speed_of_t_coefs = torch.stack([speeds[:-1], speeds[1:]], dim=1)
         r_of_t_coefs = compositeBezierAntiderivative(speed_of_t_coefs[None,...,None], dT[None])[0]
-        return RacelineHelper(arclengths, times, curve_control_points, speed_of_r_coefs, r_of_t_coefs)
+        return RacelineHelper(arclengths, times, curve_control_points, speed_of_r_coefs, r_of_t_coefs, dr_samp)
     def forward(self, t : torch.Tensor | None = None, r : torch.Tensor | None = None, deriv=False, idxbuckets=None):
         if (t is not None) and (r is not None):
             raise ValueError("Can't pass both t and r")
@@ -150,11 +159,11 @@ class RacelineHelper(torch.nn.Module):
             r : torch.Tensor = r_.squeeze(-1)%self.__arclengths_in__[-1]
         else:
             r = r%self.__arclengths_in__[-1]
-        points, idxbuckets = self.__curve_r__(r, idxbuckets=idxbuckets)
+        points, tangents, idxbuckets = self.__curve_of_r__(r, idxbuckets=idxbuckets)
         # if deriv:
-        tangents, _ = self.__curve_r_deriv__(r, idxbuckets=idxbuckets)
+        # tangents, _ = self.__curve_r_deriv__(r, idxbuckets=idxbuckets)
         tangents = tangents/torch.norm(tangents,p=2.0,dim=-1,keepdim=True)
-        speeds, _ = self.__speed_of_r__(r, idxbuckets=idxbuckets)
+        speeds, idxbuckets = self.__speed_of_r__(r, idxbuckets=idxbuckets)
         return r, points, tangents*speeds, idxbuckets
         # return r, points, None, idxbuckets
 class SimplePathHelper(torch.nn.Module):
@@ -166,7 +175,7 @@ class SimplePathHelper(torch.nn.Module):
         self.__curve_deriv__ : CompositeBezierCurve = self.__curve__.derivative().requires_grad_(False)
         self.__curve_2nd_deriv__ : CompositeBezierCurve = self.__curve_deriv__.derivative().requires_grad_(False)
 
-        self.__r_samp__ : torch.nn.Parameter = torch.nn.Parameter(torch.arange(arclengths[0], arclengths[-1], step=dr_samp, dtype=arclengths.dtype, device=arclengths.device), requires_grad=False)
+        self.__r_samp__ : torch.nn.Parameter = torch.nn.Parameter(torch.arange(arclengths[0].item(), arclengths[-1].item(), step=dr_samp).type_as(arclengths), requires_grad=False)
         
         tup : tuple[torch.Tensor, torch.Tensor] = self.__curve__(self.__r_samp__)
         points_samp = tup[0].detach().clone()
