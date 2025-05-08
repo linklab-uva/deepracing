@@ -6,7 +6,7 @@ find_package(ament_cmake_vendor_package)
 
 execute_process(COMMAND wget https://www.alglib.net/translator/re/alglib-4.04.0.cpp.gpl.zip)
 file(ARCHIVE_EXTRACT INPUT ${CMAKE_BINARY_DIR}/alglib-4.04.0.cpp.gpl.zip DESTINATION ${CMAKE_BINARY_DIR})
-
+set(ALGLIB_PROJECT_NAME alglib)
 configure_file(alglibCMakeLists.txt.in ${CMAKE_BINARY_DIR}/alglib-cpp/CMakeLists.txt @ONLY)
 configure_file(alglib-config.cmake.in ${CMAKE_BINARY_DIR}/alglib-cpp/alglib-config.cmake.in @ONLY)
 include(ExternalProject)

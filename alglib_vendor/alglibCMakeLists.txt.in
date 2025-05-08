@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(alglib CXX)
+project(@ALGLIB_PROJECT_NAME@ CXX)
 
 add_library(${PROJECT_NAME} SHARED
     src/alglibinternal.cpp
