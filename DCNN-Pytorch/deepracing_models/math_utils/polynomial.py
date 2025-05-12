@@ -85,18 +85,35 @@ def linear_formula(coefs : torch.Tensor):
     roots = -b/m
     return roots.unsqueeze(-1)
 
+def quadratic_formula_naive(coefs : torch.Tensor):
+    c = coefs[:,0]
+    b = coefs[:,1]
+    a = coefs[:,2]
+    aeq0 = torch.abs(a)<1E-7
+    a[aeq0] = 1E-7
+
+    roots = torch.empty_like(coefs[:,:-1])
+    discriminant = torch.square(b) - 4.0*a*c
+    sqrt_discriminant = torch.sqrt(discriminant)
+
+    roots[:,0] = 0.5*(-b + sqrt_discriminant)/a
+    roots[:,1] = 0.5*(-b - sqrt_discriminant)/a
+    
+    return roots
+
 def quadratic_formula(coefs : torch.Tensor):
     c = coefs[:,0] + 0j
     b = coefs[:,1] + 0j
     a = coefs[:,2] + 0j
-    aeq0 = (torch.abs(a.real)<1E-9)*(torch.abs(a.imag)<1E-9)
-    a[aeq0] = 1E-9 + 0j
+    aeq0 = (torch.abs(a.real)<1E-7)*(torch.abs(a.imag)<1E-7)
+    a[aeq0] = 1E-7 + 0j
 
-    roots = torch.empty_like(coefs[:,0:2])
-    discriminant = b**2 - 4.0*a*c
+    roots = torch.empty(coefs[:,0:2].shape).type_as(c)
+    discriminant = torch.square(b) - 4.0*a*c
+    sqrt_discriminant = torch.sqrt(discriminant)
 
-    roots[:,0] = 0.5*(-b + torch.sqrt(discriminant))/a
-    roots[:,1] = 0.5*(-b - torch.sqrt(discriminant))/a
+    roots[:,0] = 0.5*(-b + sqrt_discriminant)/a
+    roots[:,1] = 0.5*(-b - sqrt_discriminant)/a
     
     return roots
 
@@ -161,13 +178,13 @@ def polyroots(c : torch.Tensor) -> torch.Tensor:
     be improved by a few iterations of Newton's method.
     """
     # c is a trimmed copy
-    # num_coefficients : int = int(c.shape[-1])
-    # if num_coefficients < 2:
-    #     raise ValueError("Polynomial of degree 0 not supported.")
-    # if num_coefficients == 2:
-    #     return linear_formula(c)
-    # elif num_coefficients == 3:
-    #     return quadratic_formula(c)
+    num_coefficients : int = int(c.shape[-1])
+    if num_coefficients < 2:
+        raise ValueError("Polynomial of degree 0 not supported.")
+    if num_coefficients == 2:
+        return linear_formula(c)
+    elif num_coefficients == 3:
+        return quadratic_formula(c)
     # elif num_coefficients == 4:
     #     return cubic_formula(c)
     companion : torch.Tensor = polycompanion(c)
