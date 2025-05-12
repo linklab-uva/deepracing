@@ -157,19 +157,21 @@ def searchForFile(filename : str, searchdirs : List[str]):
                     return entry.path
     return None 
 
-def searchForTrackmap(trackname : str, searchdirs : List[str], align=False, transform_to_map = True):
+def searchForTrackmap(trackname : str, searchdirs : List[str], align=False, transform_to_map = True, printfile=None):
     for searchdir in searchdirs:
         for root, directories, _ in os.walk(searchdir, topdown = True):
             for directory in directories:
                 full_directory = os.path.join(root,directory)
-                print("searching %s in %s" % (directory,root))
+                if printfile is not None:
+                    print("searching %s in %s" % (directory,root), file=printfile)
                 metadata_file = os.path.join(full_directory,"metadata.yaml")
                 if not os.path.isfile(metadata_file):
                     continue
                 with open(metadata_file, "r") as f:
                     metadata : dict = yaml.load(f, Loader=yaml.SafeLoader)
                 if metadata.get("name", None)==trackname and os.path.isfile(os.path.join(full_directory,"DEEPRACING_TRACKMAP")):
-                    print("Yay!")
+                    if printfile is not None:
+                        print("Yay!", file=printfile)
                     return TrackMap(os.path.join(root,directory), align=align, transform_to_map = transform_to_map)
     return None
 
