@@ -1,8 +1,11 @@
-import deepracing, deepracing_models.math_utils as mu, deepracing_models.math_utils.bezier as bezier
+
+import os, sys
+thisdir=os.path.abspath(os.path.dirname(__file__))
+sys.path.insert(0, os.path.abspath(os.path.join(thisdir, "..")))
+import deepracing_models.math_utils as mu, deepracing_models.math_utils.bezier as bezier
 import deepracing_models.data_loading.file_datasets.OvertakingTrajectoriesDataset as otd
 import deepracing_models.math_utils.rotations as drrot
 import numpy as np
-import os
 import yaml
 import torch, torch.distributions, torch.nn
 import torch.utils.data as torchdata
@@ -19,15 +22,12 @@ plt.rc('text.latex', preamble=
 plt.rc('text', usetex=False)
 import geoopt, geoopt.optim
 from scipy.spatial.transform import Rotation
-import shapely, shapely.geometry
-from deepracing_models.math_utils.statistics import CollisionProbabilityEstimator
 from deepracing_models.math_utils.integrate import GaussLegendre1D, GaussianIntegral2D, GaussianIntegralCirc
 import deepracing_models.math_utils.collision_checking as cc
 from deepracing_models.probabilistic_models import ProbabilisticBezierCurve
 import scipy.stats
 from matplotlib.colors import TABLEAU_COLORS, same_color
 import shutil
-import utils
 
 class PBCurve(torch.nn.Module):
     def __init__(self, means : torch.Tensor):
@@ -425,99 +425,99 @@ def main(*args, datadir : str, debug : bool, save : str | None, out : str | None
         errors_max[i] = (maxcheck_finalanswer - pr_collision).type_as(errors_max).nan_to_num(nan=1.0, posinf=1.0, neginf=1.0)
         errors_max_circle[i] = (circlecheck_final_answer - pr_collision).type_as(errors_max_circle).nan_to_num(nan=1.0, posinf=1.0, neginf=1.0)
 
-        if (save=="all") or debug:
-            fig , ax = plt.subplots(nrows=1, ncols=1, num="Yay", frameon=False, layout="constrained",figsize=figsize.tolist())
-            fig_time , ax_tuple = plt.subplots(nrows=1, ncols=2, num="Yay Time", frameon=False, layout="constrained", figsize=figsize.tolist())
-            ax_time : matplotlib.axes.Axes = ax_tuple[0]
-            circlevalsplot, = ax_time.plot((s_circlecheck*dT_desired).cpu().numpy(), circlecheck_mc_probs.cpu().numpy(), label="Max Circle")
-            densemcvalsplot, = ax_time.plot((s_plot*dT_desired).cpu().numpy(), individual_collision_probs_dense.cpu().numpy(), label="Max Rect")
-            # ax_time.plot((s_circlecheck*dT_desired).cpu().numpy(), cdfvals_circle.cpu().numpy(), label="Circle Approximation")
-            glrectvalsplot, = ax_time.plot((s_gl1d*dT_desired).cpu().numpy(), collision_probs_rect.cpu().numpy(), label="GLR")
-            qmlglvalsplot, = ax_time.plot((s_gl1d*dT_desired).cpu().numpy(), individual_collision_probs.cpu().numpy(), label="QMLGL")
-            qmlglvalsplot.set_visible(False)
-            ax_time.set_ylim(0.0, 1.25)
-            ax_time.yaxis.set_ticks(np.linspace(0.0, 1.0, num=5))
+        # if (save=="all") or debug:
+        #     fig , ax = plt.subplots(nrows=1, ncols=1, num="Yay", frameon=False, layout="constrained",figsize=figsize.tolist())
+        #     fig_time , ax_tuple = plt.subplots(nrows=1, ncols=2, num="Yay Time", frameon=False, layout="constrained", figsize=figsize.tolist())
+        #     ax_time : matplotlib.axes.Axes = ax_tuple[0]
+        #     circlevalsplot, = ax_time.plot((s_circlecheck*dT_desired).cpu().numpy(), circlecheck_mc_probs.cpu().numpy(), label="Max Circle")
+        #     densemcvalsplot, = ax_time.plot((s_plot*dT_desired).cpu().numpy(), individual_collision_probs_dense.cpu().numpy(), label="Max Rect")
+        #     # ax_time.plot((s_circlecheck*dT_desired).cpu().numpy(), cdfvals_circle.cpu().numpy(), label="Circle Approximation")
+        #     glrectvalsplot, = ax_time.plot((s_gl1d*dT_desired).cpu().numpy(), collision_probs_rect.cpu().numpy(), label="GLR")
+        #     qmlglvalsplot, = ax_time.plot((s_gl1d*dT_desired).cpu().numpy(), individual_collision_probs.cpu().numpy(), label="QMLGL")
+        #     qmlglvalsplot.set_visible(False)
+        #     ax_time.set_ylim(0.0, 1.25)
+        #     ax_time.yaxis.set_ticks(np.linspace(0.0, 1.0, num=5))
 
-            # attacker_pfit_line, = ax.plot(attacker_pos[0,:,0], attacker_pos[0,:,1], label="Attacker Pfit", linestyle="--")
+        #     # attacker_pfit_line, = ax.plot(attacker_pos[0,:,0], attacker_pos[0,:,1], label="Attacker Pfit", linestyle="--")
 
-            with plt.rc_context({"text.usetex" : True}):
-                defender_curve_plot, = ax.plot(*(defender_p_plot.T.cpu().numpy()), label=r"$\mathcal{T}_{target}$", color=utils.color.UVA_BLUE)
-                defender_cpoints_scatter= ax.scatter(*(defender_curve[0].T.cpu().numpy()), label=r"$\mathcal{C}_{i,target}$", color=defender_curve_plot.get_color(), s=2**1.5)
-                attacker_curve_plot, = ax.plot(*(attacker_p_plot.T.cpu().numpy()), label=r"$\mathcal{T}_{ego}$", color=utils.color.UVA_ORANGE)  
-                attacker_cpoints_scatter = ax.scatter(*(attacker_curve[0].T.cpu().numpy()), label=r"$\mathbf{C}_{i,ego}$",  color=attacker_curve_plot.get_color(), s=float(defender_cpoints_scatter.get_sizes()[0]))
+        #     with plt.rc_context({"text.usetex" : True}):
+        #         defender_curve_plot, = ax.plot(*(defender_p_plot.T.cpu().numpy()), label=r"$\mathcal{T}_{target}$", color=utils.color.UVA_BLUE)
+        #         defender_cpoints_scatter= ax.scatter(*(defender_curve[0].T.cpu().numpy()), label=r"$\mathcal{C}_{i,target}$", color=defender_curve_plot.get_color(), s=2**1.5)
+        #         attacker_curve_plot, = ax.plot(*(attacker_p_plot.T.cpu().numpy()), label=r"$\mathcal{T}_{ego}$", color=utils.color.UVA_ORANGE)  
+        #         attacker_cpoints_scatter = ax.scatter(*(attacker_curve[0].T.cpu().numpy()), label=r"$\mathbf{C}_{i,ego}$",  color=attacker_curve_plot.get_color(), s=float(defender_cpoints_scatter.get_sizes()[0]))
             
-            # defender_pfit_line, = ax.plot(defender_pos[0,:,0], defender_pos[0,:,1], label="Defender Pfit", linestyle="--")
-            idx_select_curves=np.random.choice(np.arange(0, defender_Psamp_plot.shape[0], step=1, dtype=np.int64), replace=False, size=int(round(0.02*defender_Psamp_plot.shape[0])))
-            for j in range(0, idx_select_curves.shape[0]):
-                ax.plot(*(defender_p_circlecheck[idx_select_curves[j]].T.cpu().numpy()), color=defender_curve_plot.get_color(), alpha=0.075)
-            ratios = np.linspace(0.01, 2.0,  num=20) 
-            alphas = np.linspace(1.0,  0.01, num=ratios.shape[0])**1.25
-            for j in range(curve_covars.shape[0]):
-                center = defender_curve[0,j].cpu().numpy()
-                stdev = curve_covars[j,0,0].sqrt().item()
-                for k in range(ratios.shape[0]):
-                    circle : matplotlib.patches.Circle = ax.add_patch(matplotlib.patches.Circle(center, radius=ratios[k]*stdev, fill=False, edgecolor=defender_curve_plot.get_color(), alpha=alphas[k]))
+        #     # defender_pfit_line, = ax.plot(defender_pos[0,:,0], defender_pos[0,:,1], label="Defender Pfit", linestyle="--")
+        #     idx_select_curves=np.random.choice(np.arange(0, defender_Psamp_plot.shape[0], step=1, dtype=np.int64), replace=False, size=int(round(0.02*defender_Psamp_plot.shape[0])))
+        #     for j in range(0, idx_select_curves.shape[0]):
+        #         ax.plot(*(defender_p_circlecheck[idx_select_curves[j]].T.cpu().numpy()), color=defender_curve_plot.get_color(), alpha=0.075)
+        #     ratios = np.linspace(0.01, 2.0,  num=20) 
+        #     alphas = np.linspace(1.0,  0.01, num=ratios.shape[0])**1.25
+        #     for j in range(curve_covars.shape[0]):
+        #         center = defender_curve[0,j].cpu().numpy()
+        #         stdev = curve_covars[j,0,0].sqrt().item()
+        #         for k in range(ratios.shape[0]):
+        #             circle : matplotlib.patches.Circle = ax.add_patch(matplotlib.patches.Circle(center, radius=ratios[k]*stdev, fill=False, edgecolor=defender_curve_plot.get_color(), alpha=alphas[k]))
 
-            idx_plot_boxpoints = int(round(0.5*boxpoints_samp_plot.shape[1]))
-            Sigma1 = covars_plot[idx_plot_boxpoints]
-            mu1 = defender_boxpoints_mean_plot[idx_plot_boxpoints]
-            mvn1 = torch.distributions.MultivariateNormal(mu1, covariance_matrix=Sigma1[None].expand(4,2,2).clone())
-            # rectpoints_samp = mvn1.sample([2**10,])
+        #     idx_plot_boxpoints = int(round(0.5*boxpoints_samp_plot.shape[1]))
+        #     Sigma1 = covars_plot[idx_plot_boxpoints]
+        #     mu1 = defender_boxpoints_mean_plot[idx_plot_boxpoints]
+        #     mvn1 = torch.distributions.MultivariateNormal(mu1, covariance_matrix=Sigma1[None].expand(4,2,2).clone())
+        #     # rectpoints_samp = mvn1.sample([2**10,])
 
-            Sigma0 = torch.stack([torch.cov(boxpoints_samp_plot[...,idx_plot_boxpoints,j,:].T) for j in range(boxpoints_samp_plot.shape[-2])], dim=0)
-            mu0 = torch.mean(boxpoints_samp_plot[:,idx_plot_boxpoints], dim=0)
-            mvn0 = torch.distributions.MultivariateNormal(mu0, covariance_matrix=Sigma0)
+        #     Sigma0 = torch.stack([torch.cov(boxpoints_samp_plot[...,idx_plot_boxpoints,j,:].T) for j in range(boxpoints_samp_plot.shape[-2])], dim=0)
+        #     mu0 = torch.mean(boxpoints_samp_plot[:,idx_plot_boxpoints], dim=0)
+        #     mvn0 = torch.distributions.MultivariateNormal(mu0, covariance_matrix=Sigma0)
 
-            kl = torch.distributions.kl_divergence(mvn0, mvn1)
-            if debug:
-                print("KL divergence from sampled corners to theoretical corners:", kl)
+        #     kl = torch.distributions.kl_divergence(mvn0, mvn1)
+        #     if debug:
+        #         print("KL divergence from sampled corners to theoretical corners:", kl)
 
 
-            ax.set_aspect(aspect="equal", adjustable='box')
+        #     ax.set_aspect(aspect="equal", adjustable='box')
 
-            abserrors=[]
-            colors=[]
-            labels=[]
-            for line, value, error in [(qmlglvalsplot, pr_collision_gl.item(), errors_gl[i].item()), 
-                                       (glrectvalsplot, pr_collision_gl_rect.item(), errors_rect[i].item()), 
-                                       (densemcvalsplot, maxcheck_finalanswer.item(), errors_max[i].item()), 
-                                       (circlevalsplot, circlecheck_mc_probs.max().item(), errors_max_circle[i].item())]:
-                ax_time.axhline(y=value, color=line.get_color(), linestyle="--")
-                abserrors.append(float(np.abs(error)))
-                colors.append(line.get_color())
-                labels.append(line.get_label())
-            ax_barchart : matplotlib.axes.Axes = ax_tuple[1]
-            ax_time.axhline(y=pr_collision.item(), color="black", linestyle="--")
-            ax_barchart.bar(np.arange(1, len(abserrors)+1, step=1, dtype=np.int64), abserrors, label=labels, color=colors)
-            # legend = ax_time.legend(frameon=False, loc=[0.05, 1.0/1.25])
-            if i==0 and (save is not None) and (not len(save)==0):
-                with plt.rc_context({"text.usetex" : True}):
-                    fig_legend, ax_legend, bbox_legend = utils.export_legend(ax)
-                    fig_legend.savefig(os.path.join(individual_plots_dir, "example.legend.svg"), transparent=True, bbox_inches=bbox_legend)
-                    plt.close(fig=fig_legend)
-                    fig_legend, ax_legend, bbox_legend = utils.export_legend(ax_time)
-                    fig_legend.savefig(os.path.join(individual_plots_dir, "example_time.legend.svg"), transparent=True, bbox_inches=bbox_legend)
-                    plt.close(fig=fig_legend)
-            fig.draw(renderer=fig.canvas.get_renderer()) 
-            # figinches_to_display = fig.dpi_scale_trans
-            # display_to_figinches = figinches_to_display.inverted()
+        #     abserrors=[]
+        #     colors=[]
+        #     labels=[]
+        #     for line, value, error in [(qmlglvalsplot, pr_collision_gl.item(), errors_gl[i].item()), 
+        #                                (glrectvalsplot, pr_collision_gl_rect.item(), errors_rect[i].item()), 
+        #                                (densemcvalsplot, maxcheck_finalanswer.item(), errors_max[i].item()), 
+        #                                (circlevalsplot, circlecheck_mc_probs.max().item(), errors_max_circle[i].item())]:
+        #         ax_time.axhline(y=value, color=line.get_color(), linestyle="--")
+        #         abserrors.append(float(np.abs(error)))
+        #         colors.append(line.get_color())
+        #         labels.append(line.get_label())
+        #     ax_barchart : matplotlib.axes.Axes = ax_tuple[1]
+        #     ax_time.axhline(y=pr_collision.item(), color="black", linestyle="--")
+        #     ax_barchart.bar(np.arange(1, len(abserrors)+1, step=1, dtype=np.int64), abserrors, label=labels, color=colors)
+        #     # legend = ax_time.legend(frameon=False, loc=[0.05, 1.0/1.25])
+        #     if i==0 and (save is not None) and (not len(save)==0):
+        #         with plt.rc_context({"text.usetex" : True}):
+        #             fig_legend, ax_legend, bbox_legend = utils.export_legend(ax)
+        #             fig_legend.savefig(os.path.join(individual_plots_dir, "example.legend.svg"), transparent=True, bbox_inches=bbox_legend)
+        #             plt.close(fig=fig_legend)
+        #             fig_legend, ax_legend, bbox_legend = utils.export_legend(ax_time)
+        #             fig_legend.savefig(os.path.join(individual_plots_dir, "example_time.legend.svg"), transparent=True, bbox_inches=bbox_legend)
+        #             plt.close(fig=fig_legend)
+        #     fig.draw(renderer=fig.canvas.get_renderer()) 
+        #     # figinches_to_display = fig.dpi_scale_trans
+        #     # display_to_figinches = figinches_to_display.inverted()
 
-            # fig01_to_display = fig.transFigure
-            # display_to_fig01 = fig01_to_display.inverted()
+        #     # fig01_to_display = fig.transFigure
+        #     # display_to_fig01 = fig01_to_display.inverted()
 
-            # fig01_to_figinches=fig01_to_display + display_to_figinches
-            ax.xaxis.set_ticks([])
-            ax.yaxis.set_ticks([])
-            for k in ax.spines.keys():
-                ax.spines[k].set_visible(False)
-            if (save=="all"):
-                fig.savefig(os.path.join(individual_plots_dir, "example_%d.svg" % (i,)), transparent=True, pad_inches=0.0)
-                p = PdfPages(os.path.join(individual_plots_dir, "example_%d.full.pdf" % (i,))) 
-                fig.savefig(p, format="pdf", transparent=True)
-                fig_time.savefig(p, format="pdf", transparent=True)
-                p.close()
-                fig_time.savefig(os.path.join(individual_plots_dir, "example_%d.time.svg" % (i,)), transparent=True, pad_inches=0.0)
-            plt.show() if debug else plt.close('all')
+        #     # fig01_to_figinches=fig01_to_display + display_to_figinches
+        #     ax.xaxis.set_ticks([])
+        #     ax.yaxis.set_ticks([])
+        #     for k in ax.spines.keys():
+        #         ax.spines[k].set_visible(False)
+        #     if (save=="all"):
+        #         fig.savefig(os.path.join(individual_plots_dir, "example_%d.svg" % (i,)), transparent=True, pad_inches=0.0)
+        #         p = PdfPages(os.path.join(individual_plots_dir, "example_%d.full.pdf" % (i,))) 
+        #         fig.savefig(p, format="pdf", transparent=True)
+        #         fig_time.savefig(p, format="pdf", transparent=True)
+        #         p.close()
+        #         fig_time.savefig(os.path.join(individual_plots_dir, "example_%d.time.svg" % (i,)), transparent=True, pad_inches=0.0)
+        #     plt.show() if debug else plt.close('all')
             
     bins=50
     fig_hist, ax_hist = plt.subplots(frameon=False, layout="constrained")

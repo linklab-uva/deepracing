@@ -1,8 +1,11 @@
-import deepracing, deepracing_models.math_utils as mu, deepracing_models.math_utils.bezier as bezier
+
+import os, sys
+thisdir=os.path.abspath(os.path.dirname(__file__))
+sys.path.insert(0, os.path.abspath(os.path.join(thisdir, "..")))
+import deepracing_models.math_utils as mu, deepracing_models.math_utils.bezier as bezier
 import deepracing_models.data_loading.file_datasets.OvertakingTrajectoriesDataset as otd
 import deepracing_models.math_utils.rotations as drrot
 import numpy as np
-import os
 import yaml
 import torch, torch.distributions, torch.nn
 import torch.utils.data as torchdata
@@ -27,7 +30,6 @@ from deepracing_models.probabilistic_models import ProbabilisticBezierCurve
 import scipy.stats
 from matplotlib.colors import TABLEAU_COLORS, same_color
 import shutil
-import utils
 from glr_comparisons.results_aggregation import save_results
 
 class DiscountedBlub(torch.nn.Module):
@@ -164,5 +166,5 @@ if __name__=="__main__":
     parser.add_argument("--sigma1", type=float, default=1.0)
     parser.add_argument("--car-length", type=float, default=5.2)
     parser.add_argument("--car-width", type=float, default=2.0)
-    parser.add_argument("--kbezier", type=int, default=5)
+    parser.add_argument("--kbezier", type=int, default=7)
     main(**(vars(parser.parse_args())))
