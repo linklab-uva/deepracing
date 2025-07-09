@@ -629,7 +629,7 @@ if __name__=="__main__":
     parser.add_argument("--sigma1", type=float, default=1.0)
     parser.add_argument("--kbezier", type=int, default=7)
     parser.add_argument("--gamma", type=float, default=1.0)
-    parser.add_argument("--alpha", type=float, default=0.75)
+    parser.add_argument("--alpha", type=float, default=0.0)
     parser.add_argument("--car-length", type=float, default=5.2)
     parser.add_argument("--car-width", type=float, default=2.0)
     parser.add_argument("--n1", type=int, default=12)
