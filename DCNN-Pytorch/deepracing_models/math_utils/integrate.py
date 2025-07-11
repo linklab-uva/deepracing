@@ -49,7 +49,9 @@ class GaussianIntegral2D(torch.nn.Module):
         target_means_exp = target_means.unsqueeze(1)# if prebatched else target_means
         diff = gauss_pts.unsqueeze(-2) - target_means_exp
         # print("diff.shape:", diff.shape)
-        target_stdev_inverse_matrices_exp = target_stdev_inverse_matrices.unsqueeze(1)# if prebatched else target_stdev_inverse_matrices
+        target_stdev_inverse_matrices_exp = target_stdev_inverse_matrices.unsqueeze(1).expand(
+            target_stdev_inverse_matrices.shape[0], diff.shape[1], *target_stdev_inverse_matrices.shape[1:]
+        )# if prebatched else target_stdev_inverse_matrices
         # print("diff.shape:", diff.shape)
         # print("target_stdev_inverse_matrices_exp.shape:", target_stdev_inverse_matrices_exp.shape)
         # a = torch.sum(target_stdev_inverse_matrices_exp[...,0,:]*diff, dim=-1)
@@ -61,8 +63,12 @@ class GaussianIntegral2D(torch.nn.Module):
 
         # print("points01square.shape:", points01square.shape)
         # print("target_logstdevs.shape:", target_logstdevs.shape)
-        target_logstdevs_exp = target_logstdevs.unsqueeze(1)# if prebatched else target_logstdevs
-        log_pdf_vals2 = -0.5*squaresums - target_logstdevs_exp#[None,:,None]
+        target_logstdevs_exp = target_logstdevs.unsqueeze(1).expand(
+            target_logstdevs.shape[0], points01square.shape[1], target_logstdevs.shape[-1]
+        )# if prebatched else target_logstdevs
+        # print("target_logstdevs_exp.shape:", target_logstdevs_exp.shape)
+        # print("squaresums.shape:", squaresums.shape)
+        log_pdf_vals2 = -0.5*squaresums - target_logstdevs_exp[...,None]
         pdfvals = log_pdf_vals2.exp()
         cdfvals = (self.outer_factor*(pdfvals*self.weights[None,:,None,None]).sum(dim=1)).clip(0.0, 1.0)
         return gauss_pts, pdfvals, cdfvals
@@ -83,7 +89,8 @@ class GaussLegendre1D(torch.nn.Module):
         # weights = self.weights.tile(*torch.ones(nbatchdims + 1, dtype=torch.int64))
         # weights = self.weights #.tile(*[1 for _ in range(nbatchdims+1)])
         # return self.intervalhalfwidth*torch.sum(weights*x, dim=-1)
-        return self.intervalhalfwidth*torch.sum(self.weights*x, dim=-1)
+        # return self.intervalhalfwidth*torch.sum(self.weights*x, dim=-1)
+        return self.intervalhalfwidth*torch.linalg.vecdot(self.weights, x, dim=-1)
         
 def cumtrapz(y,x,initial=None):
     dx = x[:,1:]-x[:,:-1]

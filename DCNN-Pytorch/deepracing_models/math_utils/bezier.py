@@ -116,7 +116,7 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
         curr_tstart = tstart[b]
         curr_dt = dt[b]
         idxbucket = torch.bucketize(curr_tsamp, curr_switchpoints, right=True) - 1
-        segment_sizes = []
+        # segment_sizes = []
         for i in range(numsegments):
             idxselect = idxbucket==i
             subt = curr_tsamp[idxselect]
@@ -125,7 +125,7 @@ def compositeBezierFit(x : torch.Tensor, points : torch.Tensor, numsegments : in
             column_end =  column_start + numcoefs
             HugeM[b, idxselect, column_start:column_end] = \
                 bezierM(subs.unsqueeze(0), kbezier)[0]
-            segment_sizes.append(torch.sum(idxselect).item())
+            # segment_sizes.append(torch.sum(idxselect).item())
     # print("Solving linear system")
     Q = torch.matmul(HugeM.transpose(-2, -1), HugeM)
     E = torch.zeros(batchdimflat, total_constraints, Q.shape[-1], dtype=Q.dtype, device=Q.device)
@@ -200,6 +200,54 @@ class BezierMatrixFactory(torch.nn.Module):
         n = self.comb_factors.shape[0] - 1
         bernstein_vals = torch.stack([torch.pow(s,k)*torch.pow(1-s,(n-k)) for k in range(self.comb_factors.shape[0])],dim=-1)
         return self.comb_factors[None,None]*bernstein_vals 
+class ClosestPointFinder(torch.nn.Module):
+    def __init__(self, order : int = 3, steps = 6, stepsize=1.0, maxstep=1.0, dense_points = 120):
+        super(ClosestPointFinder, self).__init__()
+        self.matrix_factory = BezierMatrixFactory(order).float()
+        self.deriv_matrix_factory = BezierMatrixFactory(order-1).float()
+        self.second_deriv_matrix_factory = BezierMatrixFactory(order-2)
+        self.newton_stepsizes = torch.nn.Parameter(stepsize*torch.ones(steps, dtype=torch.float32), requires_grad=False)
+        self.sdense = torch.nn.Parameter(torch.linspace(0.0, 1.0, steps=dense_points, dtype=torch.float32), requires_grad=False)
+        self.max_step = torch.nn.Parameter(torch.as_tensor(maxstep), requires_grad=False)
+
+    def forward(self, curve_xstart : torch.Tensor, curve_dx : torch.Tensor, curve_control_points : torch.Tensor, Pquery : torch.Tensor):
+
+        curve_order = curve_control_points.shape[-2] - 1
+        deriv_control_points = curve_order*torch.diff(curve_control_points, dim=-2)/curve_dx[...,None,None]
+        secondderiv_control_points = (curve_order-1)*torch.diff(deriv_control_points, dim=-2)/curve_dx[...,None,None]
+        
+        xstart_true = curve_xstart - curve_xstart[0]
+        tend = xstart_true[-1] + curve_dx[-1]
+        tdense : torch.Tensor = (tend*self.sdense.detach())
+        Pdense, _ = compositeBezierEval(curve_xstart, curve_dx, curve_control_points, tdense, self.matrix_factory)
+        deltadense = Pdense - Pquery
+        imin : torch.Tensor = torch.argmin(torch.linalg.vector_norm(deltadense, dim=-1), dim=0).view(-1)
+        tclosest = tdense[imin]#.unsqueeze(0).clone()
+        Pclosest = Pdense[imin]#.unsqueeze(0).clone()
+        Vclosest, idxbuckets = compositeBezierEval(curve_xstart[None], curve_dx[None], deriv_control_points[None], tclosest, self.deriv_matrix_factory)
+        Aclosest, _ = compositeBezierEval(curve_xstart[None], curve_dx[None], secondderiv_control_points[None], tclosest, self.second_deriv_matrix_factory, idxbuckets=idxbuckets)
+        for idx in range(self.newton_stepsizes.shape[0]):
+            stepsize = self.newton_stepsizes[idx]
+            
+            delta = Pclosest - Pquery            
+
+            funcval : torch.Tensor = torch.linalg.vecdot(delta, Vclosest, dim=-1)
+            derivval : torch.Tensor = torch.sum(torch.square(Vclosest), dim=-1) + torch.linalg.vecdot(Aclosest, delta, dim=-1)
+
+            newton_step = (stepsize*(funcval/derivval)).clip(min=-self.max_step, max=self.max_step)
+            tclosest-=newton_step
+            
+            Pclosest, idxbuckets = compositeBezierEval(curve_xstart[None], curve_dx[None], curve_control_points[None], tclosest, self.matrix_factory)
+            Vclosest, _ = compositeBezierEval(curve_xstart[None], curve_dx[None], deriv_control_points[None], tclosest, self.deriv_matrix_factory, idxbuckets=idxbuckets)
+            Aclosest, _ = compositeBezierEval(curve_xstart[None], curve_dx[None], secondderiv_control_points[None], tclosest, self.second_deriv_matrix_factory, idxbuckets=idxbuckets)
+            
+        return tclosest, Pclosest, Vclosest, Aclosest
+
+    def __call__(self, *args, **kwds) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        return super().__call__(*args, **kwds)
+
+
+
 # @torch.jit.script
 def bezierM(s : torch.Tensor, n : int) -> torch.Tensor:
     # ivec = torch.linspace(0, n, steps=n+1, dtype=s.dtype, device=s.device)

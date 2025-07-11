@@ -108,7 +108,7 @@ def quadratic_formula(coefs : torch.Tensor):
     aeq0 = (torch.abs(a.real)<1E-7)*(torch.abs(a.imag)<1E-7)
     a[aeq0] = 1E-7 + 0j
 
-    roots = torch.empty(coefs[:,0:2].shape).type_as(c)
+    roots = torch.empty_like(coefs[:,0:2])
     discriminant = torch.square(b) - 4.0*a*c
     sqrt_discriminant = torch.sqrt(discriminant)
 

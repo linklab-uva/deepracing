@@ -7,6 +7,48 @@ import deepracing_models.math_utils.bounds_checking as bounds_checking
 import deepracing_models.math_utils.dynamics as dynamics
 import deepracing_models.math_utils.statistics as statistics
 
+
+class ParticleNoiser(torch.nn.Module):
+    def __init__(self, lat_noise : float, long_noise : float, final_noise : float, rlhelper : mu.RacelineHelper) -> None:
+        super(ParticleNoiser, self).__init__()
+        self.rlhelper = rlhelper.requires_grad_(False)
+        self.lat_noise : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor(lat_noise), requires_grad=False)
+        self.long_noise : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor(long_noise), requires_grad=False)
+        self.final_noise : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor(final_noise), requires_grad=False)
+        self.flipcoefs : torch.nn.Parameter = torch.nn.Parameter(torch.as_tensor([-1.0, 1.0]), requires_grad=False)
+    def __call__(self, *args, **kwds) -> tuple[torch.Tensor, torch.Tensor]:
+        return super().__call__(*args, **kwds)
+    def forward(self, Curveparticles : torch.Tensor, Curveparticle_dT : torch.Tensor, rfinal : torch.Tensor, rfinal_min : torch.Tensor):
+        control_point_deltas = Curveparticles[:,:-1,-1] - Curveparticles[:,:-1,-2]
+        control_point_unit_deltas = control_point_deltas/torch.linalg.vector_norm(control_point_deltas, dim=-1, keepdim=True)
+        control_point_unit_normals = control_point_unit_deltas[...,[1,0]]*self.flipcoefs[None,None]
+        for j in range(2, Curveparticles.shape[-2]):
+            Curveparticles[:,:-1,j]+=self.long_noise*torch.randn_like(control_point_unit_deltas[...,[0,]])*control_point_unit_deltas + self.lat_noise*torch.randn_like(control_point_unit_normals[...,[0,]])*control_point_unit_normals
+        
+        Curveparticles[:,1:,0]=Curveparticles[:,:-1,-1]
+        Curveparticles[:,1:,1]=Curveparticles[:,1:,0] + (Curveparticles[:,:-1,-1] - Curveparticles[:,:-1,-2]) #*(Curveparticle_dT[:,1:]/Curveparticle_dT[:,:-1])[...,None]
+        
+        noise_rfinal = self.final_noise*torch.randn_like(rfinal)
+            
+        # raceline_length = self.rlhelper.__arclengths_in__[-1]
+        rfinal_noisy = (rfinal + noise_rfinal)#%self.rlhelper.__arclengths_in__[-1]
+        
+        # if rfinal_looped_over:
+        #     rfinal_noisy[rfinal_noisy<(raceline_length/2)]+=raceline_length
+        
+        rfinal_relative = rfinal_noisy - rfinal_min
+        
+        # torch.remainder(rfinal_relative.clip(min=0.0, max=100000.0)  + rfinal_min, raceline_length, out=rfinal)
+        rfinal = (rfinal_relative.clip(min=0.0, max=100000.0)  + rfinal_min)# % raceline_length
+        # rfinal[:] = (rfinal_relative.clip(min=0.0, max=100000.0)  + rfinal_min, raceline_length)%raceline_length
+        # rfinal[(rfinal<rfinal_min)*((rfinal + raceline_length)<rfinal_min)] = rfinal_min
+        
+        kbezier = Curveparticles.shape[-2]-1
+        _, Pfinal, Vfinal, _ = self.rlhelper(r=rfinal)
+        Curveparticles[:,-1,-2]= Pfinal - Curveparticle_dT[:,[-1,]]*Vfinal/kbezier
+        Curveparticles[:,-1,-1]= Pfinal
+        
+        return Curveparticles, rfinal
 class BayesianFilter(torch.nn.Module):
     def __init__(self, *,
                  collision_probability_estimator : statistics.CollisionProbabilityEstimator,
@@ -45,7 +87,7 @@ class BayesianFilter(torch.nn.Module):
         collision_check_positions, collision_check_buckets = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curves, collision_check_times, self.matrix_factory)
 
         collision_check_velocities, _ = mu.compositeBezierEval(candidate_curves_tstart, candidate_curves_dT, candidate_curve_derivs, collision_check_times, self.derivative_matrix_factory, idxbuckets=collision_check_buckets)
-        collision_check_speeds = torch.norm(collision_check_velocities, p=2.0, dim=-1, keepdim=True)
+        collision_check_speeds = torch.linalg.vector_norm(collision_check_velocities, dim=-1, keepdim=True)
         collision_check_speed_inverses = torch.pow(collision_check_speeds, self.minusone)
         # collision_check_tangents : torch.Tensor = collision_check_velocities/collision_check_speeds
         collision_check_tangents = collision_check_velocities*collision_check_speed_inverses#torch.pow(collision_check_speeds, self.minusone)

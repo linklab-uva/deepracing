@@ -74,8 +74,8 @@ class CompositeBezierCurve(torch.nn.Module):
         return rtn
     
     def forward(self, x_eval : torch.Tensor, idxbuckets : typing.Union[None,torch.Tensor] = None):
-        x_true = (x_eval).view(1,-1)
-        # x_true = (x_eval%self.xend_vec[-1]).view(1,-1)
+        # x_true = (x_eval).view(1,-1)
+        x_true = (x_eval%self.xend_vec[-1]).view(1,-1)
         # if imin is None:
         #     imin_ = (torch.bucketize(x_true.detach(), self.xend_vec.detach(), right=False) ) #% self.xend_vec[-1]
         # else:
@@ -153,9 +153,6 @@ class RacelineHelper(torch.nn.Module):
         super(RacelineHelper, self).__init__()
         self.__arclengths_in__ : torch.nn.Parameter = torch.nn.Parameter(arclengths.clone(), requires_grad=False)
         self.__times_in__ : torch.nn.Parameter = torch.nn.Parameter(times.clone(), requires_grad=False)
-        # self.__curve_r__ : CompositeBezierCurve = CompositeBezierCurve(arclengths, curve_control_points).requires_grad_(False)
-        # self.__curve_r_deriv__ : CompositeBezierCurve = self.__curve_r__.derivative().requires_grad_(False)
-        # self.__curve_r_2nd_deriv__ : CompositeBezierCurve = self.__curve_r_deriv__.derivative().requires_grad_(False)
         self.__curve_of_r__ : SimplePathHelper = SimplePathHelper(arclengths.clone(), curve_control_points.clone(), dr_samp)
         self.__speed_of_r__ : CompositeBezierCurve = CompositeBezierCurve(arclengths.clone(), speed_of_r_coefs.clone() if speed_of_r_coefs.ndim==3 else speed_of_r_coefs.unsqueeze(-1).clone()
                                                                           ).requires_grad_(False)
@@ -166,6 +163,9 @@ class RacelineHelper(torch.nn.Module):
         # self.delta_time : torch.nn.Parameter = torch.nn.Parameter(times[1:] - times[:-1], requires_grad=False)
         self.__t_of_r__ = TofRHelper(r_of_t_coefs, times)
     # @torch.compile
+    def __call__(self, *args, **kwds) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        return super().__call__(*args, **kwds)
+    @torch.compile
     def t_of_r(self, rin : torch.Tensor) -> torch.Tensor:
         return self.__t_of_r__(rin)
 
@@ -179,7 +179,7 @@ class RacelineHelper(torch.nn.Module):
         dT = torch.diff(times, n=1, dim=0)
         speed_of_t_coefs = torch.stack([speeds[:-1], speeds[1:]], dim=1)
         r_of_t_coefs = compositeBezierAntiderivative(speed_of_t_coefs[None,...,None], dT[None])[0]
-        curve_control_points_time = compositeBezierSpline_periodic_(times, points) 
+        # curve_control_points_time = compositeBezierSpline_periodic_(times, points) 
         # curve0 = curve_control_points_time[0]
         # dt0 = dT[0]
         # print("points.shape", points.shape)
@@ -194,6 +194,8 @@ class RacelineHelper(torch.nn.Module):
         # print("vel0", 3*(curve0[1]-curve0[-0])/dt0)
         # print("speeds0", speeds[0])
         return RacelineHelper(arclengths, times, curve_control_points, speed_of_r_coefs, r_of_t_coefs, dr_samp)
+    def __call__(self, *args, **kwds) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        return super().__call__(*args, **kwds)
     def forward(self, t : torch.Tensor | None = None, r : torch.Tensor | None = None, deriv=False, idxbuckets=None):
         if (t is not None) and (r is not None):
             raise ValueError("Can't pass both t and r")
@@ -201,20 +203,21 @@ class RacelineHelper(torch.nn.Module):
             raise ValueError("Must pass either t or r")
         if t is not None:
             r_, idxbuckets = self.__r_of_t__(t%self.__times_in__[-1], idxbuckets=idxbuckets)
-            r : torch.Tensor = r_.squeeze(-1)%self.__arclengths_in__[-1]
+            rtrue : torch.Tensor = r_.squeeze(-1)%self.__arclengths_in__[-1]
         else:
-            r = r%self.__arclengths_in__[-1]
+            rtrue = r%self.__arclengths_in__[-1]
             # t = self.t_of_r(r)
-        points, tangents, idxbuckets = self.__curve_of_r__(r, idxbuckets=idxbuckets)
+        points, tangents, idxbuckets = self.__curve_of_r__(rtrue, idxbuckets=idxbuckets)
         # if deriv:
         # tangents, _ = self.__curve_r_deriv__(r, idxbuckets=idxbuckets)
         tangents = tangents/torch.norm(tangents,p=2.0,dim=-1,keepdim=True)
-        speeds, idxbuckets = self.__speed_of_r__(r, idxbuckets=idxbuckets)
-        return r, points, tangents*speeds, idxbuckets
+        speeds, idxbuckets = self.__speed_of_r__(rtrue, idxbuckets=idxbuckets)
+        return rtrue, points, tangents*speeds, idxbuckets
     def closest_point(self, Pquery : torch.Tensor,):
         return self.__curve_of_r__.closest_point(Pquery)
         # tclosest, _ = self.__r_of_t__(rclosest)
         # return rclosest, tclosest
+    @torch.compile
     def closest_point_approximate(self, Pquery : torch.Tensor, newton_iterations : int  = 0, newton_stepsize : float | torch.Tensor = 1.0, max_step : float | torch.Tensor = 1.0):
         return self.__curve_of_r__.closest_point_approximate(Pquery, newton_iterations=newton_iterations, newton_stepsize=newton_stepsize, max_step=max_step)
         # tclosest, _ = self.__r_of_t__(rclosest)
@@ -225,7 +228,10 @@ class SimplePathHelper(torch.nn.Module):
         super(SimplePathHelper, self).__init__()
         self.__arclengths_in__ : torch.nn.Parameter = torch.nn.Parameter(arclengths.clone(), requires_grad=False)
 
+        toStandardForm, toBezierForm = bezier.polynomialFormConversion(curve_control_points.shape[-2]-1, dtype=arclengths.dtype, device=arclengths.device)
+        self.__to_sf__ : torch.nn.Parameter = torch.nn.Parameter(toStandardForm, requires_grad=False)
         self.__curve__ : CompositeBezierCurve = CompositeBezierCurve(arclengths, curve_control_points).requires_grad_(False)
+        self.__curve_standardform__ : torch.nn.Parameter = torch.nn.Parameter(toStandardForm@curve_control_points, requires_grad=False)
         self.__curve_deriv__ : CompositeBezierCurve = self.__curve__.derivative().requires_grad_(False)
         self.__curve_2nd_deriv__ : CompositeBezierCurve = self.__curve_deriv__.derivative().requires_grad_(False)
 
@@ -240,7 +246,7 @@ class SimplePathHelper(torch.nn.Module):
 
         tup : tuple[torch.Tensor, torch.Tensor] = self.__curve_deriv__(self.__r_samp__)
         tangents_samp = tup[0].detach().clone()
-        tangents_samp = tangents_samp/torch.norm(tangents_samp, p=2.0, dim=-1, keepdim=True)
+        tangents_samp = tangents_samp/torch.linalg.vector_norm(tangents_samp, dim=-1, keepdim=True)
         self.__tangents_samp__ : torch.nn.Parameter = torch.nn.Parameter(tangents_samp, requires_grad=False)
 
         normals_samp = tangents_samp[:,[1,0]].clone()
@@ -283,40 +289,42 @@ class SimplePathHelper(torch.nn.Module):
         s_true = s%self.__curve_deriv__.xend_vec[-1]
         derivs, _ = self.__curve_deriv__(s_true)
         return derivs
+    def __call__(self, *args, **kwds) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        return super().__call__(*args, **kwds)
     def forward(self, s : torch.Tensor, deriv=False, idxbuckets=None):
         s_true = s%self.__curve__.xend_vec[-1]
         positions, idxbuckets = self.__curve__(s_true, idxbuckets=idxbuckets)
         derivs, _ = self.__curve_deriv__(s_true, idxbuckets=idxbuckets)
         return positions, derivs, idxbuckets
+    @torch.compile
     def closest_point_approximate(self, Pquery : torch.Tensor, newton_iterations : int  = 0, newton_stepsize : float | torch.Tensor = 1.0, max_step : float | torch.Tensor = 1.0):
         Pquery_flat = Pquery.view(-1, Pquery.shape[-1])
         # if self.kd_tree is None:
-        query_deltas =  self.__points_samp__-Pquery_flat[:,None]
-        query_delta_norms = torch.norm(query_deltas, p=2.0, dim=-1)
+        # query_deltas =  self.__points_samp__-Pquery_flat[:,None]
+        # query_delta_norms = torch.linalg.vector_norm(query_deltas, dim=-1) #torch.norm(query_deltas, p=2.0, dim=-1)
+        query_delta_norms, = torch.cdist(Pquery_flat[None], self.__points_samp__[None])
         imin = torch.argmin(query_delta_norms, dim=1)
         r = self.__r_samp__[imin].clone()
         points = self.__points_samp__[imin].clone()
         tangents = self.__tangents_samp__[imin].clone()
-        deltas = Pquery_flat - points
+        deltas = points - Pquery_flat
+        idxbuckets = None
         for _ in range(newton_iterations):
-        # for _ in range(2):
-            curve_2nd_deriv_rtn : tuple[torch.Tensor, torch.Tensor] = self.__curve_2nd_deriv__(r)
-            dtangent_dr = curve_2nd_deriv_rtn[0]
-            # idxbuckets : torch.Tensor = curve_2nd_deriv_rtn[1]
-            delta_dotprods = torch.sum(deltas*tangents,dim=-1)
-            # ddelta_dr = -tangents
-            # ddotprod_dr : torch.Tensor = deltas[:,0]*dtangent_dr[:,0] + deltas[:,1]*dtangent_dr[:,1] + tangents[:,1]*ddelta_dr[:,1] + tangents[:,0]*ddelta_dr[:,0]
-            ddotprod_dr : torch.Tensor = torch.sum(deltas*dtangent_dr - torch.square(tangents), dim=-1) #, dim=-1) - torch.sum(
-            ddotprod_dr[ddotprod_dr==0.0]=1E-9
-            newton_step = (delta_dotprods/ddotprod_dr)
-            # r=(r-((newton_stepsize*newton_step).clip(-max_step, max_step)))%self.__curve__.xend_vec[-1]
-            torch.remainder(r-((newton_stepsize*newton_step).clip(-max_step, max_step)), self.__curve__.xend_vec[-1], out=r)
+            curve_2nd_deriv_rtn : tuple[torch.Tensor, torch.Tensor] = self.__curve_2nd_deriv__(r, idxbuckets=idxbuckets)
+            dtangent_dr : torch.Tensor = curve_2nd_deriv_rtn[0]
+            # delta_dotprods : torch.Tensor = torch.linalg.vecdot(deltas, tangents, dim=-1)
+            # ddotprod_dr : torch.Tensor = torch.sum(deltas*dtangent_dr - torch.square(tangents), dim=-1) #, dim=-1) - torch.sum(
+            # newton_step : torch.Tensor = (delta_dotprods/ddotprod_dr)
+            funcval : torch.Tensor = torch.linalg.vecdot(tangents, deltas)
+            derivval : torch.Tensor = 1.0 + torch.linalg.vecdot(dtangent_dr, deltas)
+            newton_step : torch.Tensor = funcval/derivval
+
+            torch.remainder(r-((newton_stepsize*newton_step).clip(min=-max_step, max=max_step)), self.__curve__.xend_vec[-1], out=r)
             curvertn : tuple[torch.Tensor, torch.Tensor]  = self.__curve__(r)#, idxbuckets=idxbuckets)
             (points, idxbuckets) = curvertn
-            # deltas = Pquery_flat - points
-            torch.sub(Pquery_flat, points, out=deltas)
+            torch.sub(points, Pquery_flat, out=deltas)
             curve_derivs : torch.Tensor = self.__curve_deriv__(r, idxbuckets=idxbuckets)[0]
-            torch.div(curve_derivs, torch.norm(curve_derivs, p=2.0, dim=-1, keepdim=True), out=tangents)
+            torch.div(curve_derivs, torch.linalg.vector_norm(curve_derivs, dim=-1, keepdim=True), out=tangents)
             # tangents /= torch.norm(tangents, p=2.0, dim=-1, keepdim=True)
             # if (newton_termination_eps is not None) and torch.all(torch.abs(delta_dotprods)<newton_termination_eps):
             #     break
@@ -402,7 +410,33 @@ class SimplePathHelper(torch.nn.Module):
         correct_dr = delta_arclengths_select[has_match]
 
         return correct_rstart + correct_roots*correct_dr
- 
+    @torch.compile
+    def y_axis_intersection_approximate(self, Pquery : torch.Tensor, Rquery : torch.Tensor, newton_iterations : int  = 0, newton_stepsize : float | torch.Tensor = 1.0, max_step : float | torch.Tensor = 1.0):
+        shapeout_P = Pquery.shape
+        shapeout_r = shapeout_P[:-1]
+        Pquery_flat = Pquery.view(-1, Pquery.shape[-1])
+        Rquery_flat = Rquery.view(-1, Rquery.shape[-2], Rquery.shape[-1])
+
+        Tquery = Rquery_flat[:,:,0]
+        query_deltas =  self.__points_samp__-Pquery_flat[:,None]
+        query_delta_norms = torch.linalg.vector_norm(query_deltas, dim=-1)
+        imin = torch.argmin(query_delta_norms, dim=1)
+        r = self.__r_samp__[imin].clone()
+
+        curvepoints = self.__points_samp__[imin].clone()
+        curvetangents = self.__tangents_samp__[imin].clone()
+        # curvetangents = curvetangents/torch.linalg.vector_norm(curvetangents, dim=-1, keepdim=True)
+        deltas = curvepoints - Pquery_flat 
+        for _ in range(newton_iterations):
+            funcvals = torch.linalg.vecdot(deltas, Tquery, dim=-1)
+            derivvals = torch.linalg.vecdot(curvetangents, Tquery, dim=-1)
+            newton_step = (funcvals/derivvals)
+            torch.remainder(r-((newton_stepsize*newton_step).clip(-max_step, max_step)), self.__curve__.xend_vec[-1], out=r)
+            curvepoints, idxbuckets = self.__curve__(r)
+            curvetangents, _ = self.__curve_deriv__(r, idxbuckets=idxbuckets)
+            curvetangents = curvetangents/torch.linalg.vector_norm(curvetangents, dim=-1, keepdim=True)
+            torch.sub(curvepoints, Pquery_flat, out=deltas)
+        return r.view(shapeout_r), curvepoints.view(shapeout_P), curvetangents.view(shapeout_P), deltas.view(shapeout_P)
 
     def y_axis_intersection(self, Pquery : torch.Tensor, Rquery : torch.Tensor):
         

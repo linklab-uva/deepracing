@@ -28,8 +28,11 @@ class BoundsChecker(torch.nn.Module):
         self.arclengths : torch.nn.Parameter = torch.nn.Parameter(arclengths, requires_grad=False)
         self.left_widths : torch.nn.Parameter = torch.nn.Parameter(left_widths, requires_grad=False)
         self.right_widths : torch.nn.Parameter = torch.nn.Parameter(right_widths, requires_grad=False)
-        self.left_width_interp : interpolate.LinearInterpolator = interpolate.LinearInterpolator(arclengths, left_widths, requires_grad=False)
-        self.right_width_interp : interpolate.LinearInterpolator = interpolate.LinearInterpolator(arclengths, right_widths, requires_grad=False)
+        arclengths_aug = torch.cat([arclengths, arclengths[[-1]] + 1000.0], dim=0)
+        left_widths_aug = torch.cat([left_widths, left_widths[[-1]]], dim=0)
+        right_widths_aug = torch.cat([right_widths, right_widths[[-1]]], dim=0)
+        self.left_width_interp : interpolate.LinearInterpolator = interpolate.LinearInterpolator(arclengths_aug, left_widths_aug, requires_grad=False)
+        self.right_width_interp : interpolate.LinearInterpolator = interpolate.LinearInterpolator(arclengths_aug, right_widths_aug, requires_grad=False)
         self.gl1d : integrate.GaussLegendre1D = integrate.GaussLegendre1D(gauss_order, interval=[0, dT], requires_grad=False)
         self.alpha = torch.nn.Parameter(torch.as_tensor(alpha), requires_grad=False)
         Rflip = torch.zeros([2,2]).float()
@@ -57,8 +60,10 @@ class BoundsChecker(torch.nn.Module):
 
 #        closest_point_values, closest_point_tangents, closest_point_normals, deltas 
         signed_distances : torch.Tensor = torch.sum(deltas*closest_point_normals, dim=-1)
-        left_width_vals : torch.Tensor = self.left_width_interp(closest_point_r % self.left_width_interp.x_points[-1])
-        right_width_vals : torch.Tensor = self.right_width_interp(closest_point_r % self.right_width_interp.x_points[-1])
+        # left_width_vals : torch.Tensor = self.left_width_interp(closest_point_r % self.left_width_interp.x_points[-1])
+        # right_width_vals : torch.Tensor = self.right_width_interp(closest_point_r % self.right_width_interp.x_points[-1])
+        left_width_vals : torch.Tensor = self.left_width_interp(closest_point_r % self.arclengths[-1])
+        right_width_vals : torch.Tensor = self.right_width_interp(closest_point_r % self.arclengths[-1])
 
         specific_left_bound_violation_probs = torch.special.erf(F.relu(signed_distances - left_width_vals)*self.stdev_factor)
         specific_right_bound_violation_probs = torch.special.erf(F.relu(right_width_vals - signed_distances)*self.stdev_factor)

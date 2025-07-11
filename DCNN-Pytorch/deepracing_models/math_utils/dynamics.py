@@ -57,17 +57,16 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
         Rflip = torch.zeros([2,2]).float()
         Rflip[0,1]=-1.0
         Rflip[1,0]=1.0
-        self.Rflip_tangent = torch.nn.Parameter(Rflip.clone(), requires_grad=False)
-        Rflip[0,1]=1.0
-        Rflip[1,0]=-1.0
-        self.Rflip_ellipse = torch.nn.Parameter(Rflip.clone(), requires_grad=False)
-        self.newton_iterations_container = torch.nn.Parameter(torch.randn(newton_iterations, dtype=torch.float32), requires_grad=False)
-        self.newton_stepsize = torch.nn.Parameter(torch.as_tensor(newton_stepsize, dtype=torch.float32), requires_grad=False)
+        self.Rflip_tangent = torch.nn.Parameter(Rflip, requires_grad=False)
+        # Rflip[0,1]=1.0
+        # Rflip[1,0]=-1.0
+        self.Rflip_ellipse = torch.nn.Parameter(-Rflip, requires_grad=False)
+        self.newton_stepsizes = torch.nn.Parameter(torch.ones(newton_iterations, dtype=torch.float32), requires_grad=False)
         self.max_step = torch.nn.Parameter(torch.as_tensor(max_step, dtype=torch.float32), requires_grad=False)
 
     def forward(self, velocities : torch.Tensor, accels : torch.Tensor):
                 # newton_termination_eps : float | None = 1E-4, newton_termination_delta_eps : float | None = .1*np.pi/180.0):
-        speeds : torch.Tensor = torch.norm(velocities, p=2.0, dim=-1, keepdim=True)
+        speeds : torch.Tensor = torch.linalg.vector_norm(velocities, dim=-1, keepdim=True)
         # velocity_signs = torch.sign(velocities)
         # log_tangents = torch.log(velocities) - torch.log(speeds)
         tangents = velocities/speeds
@@ -90,27 +89,28 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
         sintheta = torch.sin(thetas)
         # ellipse_points : torch.Tensor = torch.stack([lat_radii*torch.cos(thetas), long_radii*torch.sin(thetas)], dim=-1) + origin
         # radii_ratio = (torch.log(long_radii) - torch.log(lat_radii)).exp()
-        ellipse_points_centered : torch.Tensor = torch.stack([lat_radii*costheta, long_radii*sintheta], dim=-1)
+        ellipse_points_centered : torch.Tensor = torch.stack([lat_radii*costheta, long_radii*sintheta], dim=-1)#.clone()
         centered_deltas = both_accels_centered - ellipse_points_centered
         lat_radii_squared = torch.square(lat_radii)
         long_radii_squared = torch.square(long_radii)
 
-        for _ in range(self.newton_iterations_container.shape[0]):
-        # for _ in range(6):)
+        for idx in range(self.newton_stepsizes.shape[0]):
+            newton_stepsize = self.newton_stepsizes[idx]
             deltax = centered_deltas[...,0]
             deltay = centered_deltas[...,1]
-            
             dfunc_dtheta =    (deltax*lat_radii*sintheta)-(deltay*long_radii*costheta)
             
             d2func_dtheta2 =  (deltax*lat_radii*costheta) + (lat_radii_squared*torch.square(sintheta)) +\
                               (deltay*long_radii*sintheta) + (long_radii_squared*torch.square(costheta)) 
-            
-            theta_deltas = torch.clip(self.newton_stepsize*(dfunc_dtheta/d2func_dtheta2), -self.max_step, self.max_step)
+            theta_deltas = torch.clip(newton_stepsize*(dfunc_dtheta/d2func_dtheta2), -self.max_step, self.max_step)
             thetas -= theta_deltas
             torch.cos(thetas, out=costheta)
             torch.sin(thetas, out=sintheta)
-            ellipse_points_centered[...,0]=lat_radii*costheta
-            ellipse_points_centered[...,1]=long_radii*sintheta
+            # ellipse_points_centered[...,0]=lat_radii*costheta
+            # ellipse_points_centered[...,1]=long_radii*sintheta
+            torch.stack([lat_radii*costheta, long_radii*sintheta], dim=-1, out=ellipse_points_centered)
+            # torch.multiply(lat_radii, costheta, out=ellipse_points_centered[...,0])
+            # torch.multiply(long_radii, sintheta, out=ellipse_points_centered[...,1])
             torch.sub(both_accels_centered, ellipse_points_centered, out=centered_deltas)
             
 

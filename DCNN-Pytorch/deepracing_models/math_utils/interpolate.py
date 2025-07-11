@@ -10,7 +10,7 @@ class LinearInterpolator(torch.nn.Module):
         self.dy : torch.nn.parameter.Parameter = torch.nn.parameter.Parameter(data=y_points[1:] - y_points[:-1], requires_grad=requires_grad)
     def forward(self, x_samp : torch.Tensor):
         x_samp_flat = x_samp.view(-1)
-        idxbuckets = (torch.bucketize(x_samp_flat, self.x_points, right=True) - 1)#.clamp(min=0, max=self.x_points.shape[0]-1)
+        idxbuckets = (torch.bucketize(x_samp_flat, self.x_points[:-1], right=True) - 1)#.clamp(min=0, max=self.dx.shape[0]-1)
         # idxbuckets_negative = torch.any(idxbuckets<0)
         # idxbuckets_toobig = torch.any(idxbuckets>=self.dx.shape[0])
         # if idxbuckets_negative or idxbuckets_toobig:

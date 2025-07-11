@@ -88,8 +88,8 @@ class OvertakingTrajectoriesDataset(Dataset):
             tock = time.time()
             gt_comptimes[idx] = tock - tick
         self.data_dict["individual_collision_probs_dense"] = individual_collision_probs_dense.cpu().numpy()
-        self.data_dict["gt_probs"] = gt_probs.cpu().numpy()
-        self.data_dict["gt_comptimes"] = gt_comptimes.cpu().numpy()
+        self.data_dict["gt_prob"] = gt_probs.cpu().numpy()
+        self.data_dict["gt_comptime"] = gt_comptimes.cpu().numpy()
     def __len__(self):
         return self.data_dict["attacker_pos"].shape[0]
 
@@ -98,7 +98,8 @@ class OvertakingTrajectoriesDataset(Dataset):
         rtn = {k : v[idx] for k,v in self.data_dict.items() if k not in {"tcurrent","delta_t","curve_covars"}}
         rtn["tcurrent"] = self.data_dict["tcurrent"][idx]
         rtn["delta_t"] = self.data_dict["delta_t"]
-        rtn["curve_covars"] = self.data_dict["curve_covars"]
         rtn["track_name"] = self.metadata_dict["track_name"]
+        if "curve_covars" in self.data_dict:
+            rtn["curve_covars"] = self.data_dict["curve_covars"]
 
         return rtn
