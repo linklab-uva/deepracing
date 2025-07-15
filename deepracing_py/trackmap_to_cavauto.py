@@ -228,21 +228,6 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
     }
     with open(os.path.join(dr_trackmout_outdir, "metadata.yaml"), "w") as f:
         yaml.safe_dump(config_2d, f)
-    # clockwise: true
-    # name: Australia
-    # startingline_pose:
-    #     position:
-    #     - -109.20646306844381
-    #     - 2.8839973440976023
-    #     - 463.5367687659389
-    #     quaternion:
-    #     - -0.27083737246629574
-    #     - 0.6535311225845039
-    #     - 0.6526880456996641
-    #     - 0.27118721299084886
-    # startinglinewidth: 11.854428882218064
-    # tracklength: 5276.6729743973965
-
         
 if __name__=="__main__":
     import argparse
