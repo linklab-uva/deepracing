@@ -30,7 +30,7 @@ import torchaudio
 # import scipy.spatial
 import numpy as np
 # import torch_kdtree.nn_distance
-from torch_kdtree import build_kd_tree
+# from torch_kdtree import build_kd_tree
 
 class CBCEvaluator(torch.nn.Module):
     def __init__(self, order : int):
@@ -241,8 +241,8 @@ class SimplePathHelper(torch.nn.Module):
         points_samp = tup[0].detach().clone()
         self.__points_samp__ : torch.nn.Parameter = torch.nn.Parameter(points_samp, requires_grad=False)
 
-        self.kd_tree = None
-        self.P0_kd_tree = None
+        # self.kd_tree = None
+        # self.P0_kd_tree = None
 
         tup : tuple[torch.Tensor, torch.Tensor] = self.__curve_deriv__(self.__r_samp__)
         tangents_samp = tup[0].detach().clone()
@@ -253,9 +253,9 @@ class SimplePathHelper(torch.nn.Module):
         normals_samp[:,0]*=-1.0
         self.__normals_samp__ : torch.nn.Parameter = torch.nn.Parameter(normals_samp, requires_grad=False)
         
-    def rebuild_kdtree(self, device=None, squared_distances : bool = True, levels : int = None):
-        self.kd_tree = build_kd_tree(self.__points_samp__.detach().clone(), device=device, squared_distances = squared_distances, levels = levels)
-        self.P0_kd_tree = build_kd_tree(self.__curve__.control_points[:,0].detach().clone(), device=device, squared_distances = squared_distances, levels = levels)
+    # def rebuild_kdtree(self, device=None, squared_distances : bool = True, levels : int = None):
+    #     self.kd_tree = build_kd_tree(self.__points_samp__.detach().clone(), device=device, squared_distances = squared_distances, levels = levels)
+    #     self.P0_kd_tree = build_kd_tree(self.__curve__.control_points[:,0].detach().clone(), device=device, squared_distances = squared_distances, levels = levels)
     @staticmethod
     def from_statedict(statedict : dict[str,torch.nn.Parameter], dr_samp : float | None = None) -> 'SimplePathHelper':
         arclengthsin = statedict["__arclengths_in__"].detach().clone()
