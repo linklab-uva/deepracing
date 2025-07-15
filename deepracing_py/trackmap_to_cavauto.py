@@ -119,7 +119,7 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
     ob = torch.as_tensor(ob[:,[0,1]]).type_as(ib)
     cl = torch.as_tensor(cl[:,[0,1]]).type_as(ib)
     rl = torch.as_tensor(rl[:,[0,1]]).type_as(ib)
-    rl_speeds = torch.as_tensor(rl_speeds).type_as(ib)
+    rl_speeds = torch.as_tensor(rl_speeds).type_as(ib).squeeze(-1)
 
 
     innerbound_helper = mu.SimplePathHelper.from_closed_path(ib, dr_samp)
@@ -177,7 +177,7 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
 
     print(ib_lapdistances)
     print(ob_lapdistances)
-    raceline_helper = mu.RacelineHelper.from_closed_path(rl, rl_speeds.squeeze(-1), dr_samp)
+    raceline_helper = mu.RacelineHelper.from_closed_path(rl, rl_speeds, dr_samp)
 
     boundary_type_map = {"x" : "f4", "y" : "f4", "z" : "f4", "lapdistance" : "f4"}
     
@@ -208,11 +208,13 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
     pcd_utils.structurednumpyToPCD(widthmap_structured, os.path.join(dr_trackmout_outdir, "widthmap.pcd"))
 
 
-    raceline_type_map = {k: "f4" for k in ["x", "y", "z", "lapdistance", "time"]}
+    raceline_type_map = {k: "f4" for k in ["x", "y", "z", "lapdistance", "arclength", "time", "speed"]}
     raceline_structured = np.zeros(rl.shape[0], dtype=list(raceline_type_map.items()))
     raceline_structured["x"] = rl[:,0].cpu().float().numpy()
     raceline_structured["y"] = rl[:,1].cpu().float().numpy()
     raceline_structured["lapdistance"] = rl_lapdistances.cpu().float().numpy()
+    raceline_structured["arclength"] = raceline_helper.__arclengths_in__.detach().cpu().float().numpy()
+    raceline_structured["speed"] = rl_speeds.cpu().float().numpy()
     raceline_structured["time"] = rltime.astype(np.float32)
     pcd_utils.structurednumpyToPCD(raceline_structured, os.path.join(dr_trackmout_outdir, "raceline.pcd"))
 
@@ -228,6 +230,8 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
     }
     with open(os.path.join(dr_trackmout_outdir, "metadata.yaml"), "w") as f:
         yaml.safe_dump(config_2d, f)
+    with open(os.path.join(dr_trackmout_outdir, "DEEPRACING_TRACKMAP"), "w") as f:
+        f.write("\n")
         
 if __name__=="__main__":
     import argparse
