@@ -64,11 +64,11 @@ class GaussianIntegral2D(torch.nn.Module):
         # print("points01square.shape:", points01square.shape)
         # print("target_logstdevs.shape:", target_logstdevs.shape)
         target_logstdevs_exp = target_logstdevs.unsqueeze(1).expand(
-            target_logstdevs.shape[0], points01square.shape[1], target_logstdevs.shape[-1]
+            target_logstdevs.shape[0], points01square.shape[1], *target_logstdevs.shape[-2:]
         )# if prebatched else target_logstdevs
         # print("target_logstdevs_exp.shape:", target_logstdevs_exp.shape)
         # print("squaresums.shape:", squaresums.shape)
-        log_pdf_vals2 = -0.5*squaresums - target_logstdevs_exp[...,None]
+        log_pdf_vals2 = -0.5*squaresums - target_logstdevs_exp#[...,None]
         pdfvals = log_pdf_vals2.exp()
         cdfvals = (self.outer_factor*(pdfvals*self.weights[None,:,None,None]).sum(dim=1)).clip(0.0, 1.0)
         return gauss_pts, pdfvals, cdfvals
