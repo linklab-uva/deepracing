@@ -6,7 +6,7 @@ CAVSIM_TYPES = list({
     k: np.float32 for k in ["x", "y", "z", "s", "roll", "psi", "kappa", "xt", "yt", "zt", "xn", "yn", "zn", "vx", "ax"]
 }.items())
 def to_cavsim_cloud(control_points : torch.Tensor, delta_t : torch.Tensor, tsamp : torch.Tensor,
-                    matrix_factories : dict) -> np.ndarray:
+                    matrix_factories : dict, centerline_helper : mu.SimplePathHelper | None = None) -> np.ndarray:
     if control_points.shape[-1] != 3:
         raise ValueError("Control points must be 3D (x, y, z)")
     kbezier = int(control_points.shape[-2]) - 1
@@ -31,12 +31,12 @@ def to_cavsim_cloud(control_points : torch.Tensor, delta_t : torch.Tensor, tsamp
     
     curve_speeds_samp : torch.Tensor = torch.linalg.vector_norm(curve_vels_samp, dim=-1, keepdim=False)
     curve_tangents_samp = curve_vels_samp/curve_speeds_samp[:,None]
-    up = torch.as_tensor([[0.0, 0.0, 1.0],]).expand_as(curve_tangents_samp)
+    up = torch.as_tensor([[0.0, 0.0, 1.0],]).type_as(curve_tangents_samp).expand_as(curve_tangents_samp)
 
-    curve_ax = torch.linalg.vecdot(curve_accels_samp, curve_tangents_samp)
+    curve_ax : torch.Tensor = torch.linalg.vecdot(curve_accels_samp, curve_tangents_samp, dim=-1)
 
-    curve_normals_samp = torch.cross(up, curve_tangents_samp)
-    curve_normals_samp = curve_normals_samp/torch.linalg.vector_norm(curve_normals_samp, ord=2, dim=-1, keepdim=True)
+    curve_normals_samp = torch.linalg.cross(up, curve_tangents_samp, dim=-1)
+    curve_normals_samp : torch.Tensor = curve_normals_samp/torch.linalg.vector_norm(curve_normals_samp, ord=2, dim=-1, keepdim=True)
     # zvecs = torch.cross(curve_tangents_samp, curve_normals_samp)
     # curve_rotmats = torch.stack([curve_tangents_samp, curve_normals_samp, zvecs], dim=-1)
     # curve_rots = Rotation.from_matrix(curve_rotmats.cpu().numpy())
@@ -44,21 +44,16 @@ def to_cavsim_cloud(control_points : torch.Tensor, delta_t : torch.Tensor, tsamp
     # curve_headings = curve_euler[:,0]
     curve_headings = torch.atan2(curve_tangents_samp[:,1], curve_tangents_samp[:,0])
     
-    kappa_num = torch.linalg.vector_norm(torch.cross(curve_vels_samp, curve_accels_samp), ord=2, dim=-1)
-    kappa_denom = torch.pow(curve_speeds_samp, 3)
+    kappa_num = torch.linalg.vector_norm(torch.linalg.cross(curve_vels_samp, curve_accels_samp, dim=-1), ord=2, dim=-1)
+    # kappa_denom = torch.pow(curve_speeds_samp, 3)
     # kappas = kappa_num/kappa_denom
-    kappas = torch.exp(torch.log(kappa_num) - torch.log(kappa_denom))
+    kappas = torch.exp(torch.log(kappa_num) - 3.0*torch.log(curve_speeds_samp))
     
-
-    svals = torch.zeros_like(kappas)
-    curve_point_deltas = curve_points_samp[1:] - curve_points_samp[:-1]
-    svals[1:] = torch.cumsum(torch.linalg.vector_norm(curve_point_deltas, ord=2, dim=-1), 0)
 
     # ["x", "y", "z", "s", "roll", "psi", "kappa", "xt", "yt", "zt", "xn", "yn", "zn", "vx", "ax"]
     rtn = np.zeros(curve_points_samp.shape[0], dtype=CAVSIM_TYPES)
     rtn["x"] = curve_points_samp[:,0].cpu().numpy()
     rtn["y"] = curve_points_samp[:,1].cpu().numpy()
-    rtn["s"] = svals.cpu().numpy()
     rtn["psi"] = curve_headings.cpu().numpy()
     rtn["kappa"] = kappas.cpu().numpy()
     rtn["xt"] = curve_tangents_samp[:,0].cpu().numpy()
@@ -69,4 +64,13 @@ def to_cavsim_cloud(control_points : torch.Tensor, delta_t : torch.Tensor, tsamp
     rtn["zn"] = curve_normals_samp[:,2].cpu().numpy()
     rtn["vx"] = curve_speeds_samp.cpu().numpy()
     rtn["ax"] = curve_ax.cpu().numpy()
+    if centerline_helper is not None:
+        idx = [0,1] if (centerline_helper.__curve__.control_points.shape[-1] == 2) else [0,1,2]
+        pquery = curve_points_samp[:,idx]
+        svals, _, _, _ = centerline_helper.closest_point_approximate(pquery, newton_iterations=3)
+    else:
+        svals = torch.zeros_like(kappas)
+        curve_point_deltas = curve_points_samp[1:] - curve_points_samp[:-1]
+        torch.cumsum(torch.linalg.vector_norm(curve_point_deltas, ord=2, dim=-1), 0, out=svals[1:])
+    rtn["s"] = svals.cpu().numpy()
     return rtn
