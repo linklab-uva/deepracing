@@ -210,6 +210,8 @@ class ClosestPointFinder(torch.nn.Module):
         self.sdense = torch.nn.Parameter(torch.linspace(0.0, 1.0, steps=dense_points, dtype=torch.float32), requires_grad=False)
         self.max_step = torch.nn.Parameter(torch.as_tensor(maxstep), requires_grad=False)
 
+    def __call__(self, *args, **kwds) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        return super().__call__(*args, **kwds)
     def forward(self, curve_xstart : torch.Tensor, curve_dx : torch.Tensor, curve_control_points : torch.Tensor, Pquery : torch.Tensor):
 
         curve_order = curve_control_points.shape[-2] - 1
@@ -236,6 +238,7 @@ class ClosestPointFinder(torch.nn.Module):
 
             newton_step = (stepsize*(funcval/derivval)).clip(min=-self.max_step, max=self.max_step)
             tclosest-=newton_step
+            tclosest = tclosest.clip(min=tdense[0], max=tdense[-1])
             
             Pclosest, idxbuckets = compositeBezierEval(curve_xstart[None], curve_dx[None], curve_control_points[None], tclosest, self.matrix_factory)
             Vclosest, _ = compositeBezierEval(curve_xstart[None], curve_dx[None], deriv_control_points[None], tclosest, self.deriv_matrix_factory, idxbuckets=idxbuckets)
