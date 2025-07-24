@@ -31,6 +31,8 @@ class DynamicsInterp(torch.nn.Module):
         long_radius = max_longaccel - long_midpoint
         lat_radius = max_lataccel
         return origin, lat_radius, long_radius
+    def __call__(self, *args, **kwds) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        return super().__call__(*args, **kwds)
 class ExceedLimitsProbabilityEstimator(torch.nn.Module):
     def __init__(self, 
                  braking_speeds : torch.Tensor, braking_maxvals : torch.Tensor,
@@ -63,7 +65,6 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
         self.Rflip_ellipse = torch.nn.Parameter(-Rflip, requires_grad=False)
         self.newton_stepsizes = torch.nn.Parameter(torch.ones(newton_iterations, dtype=torch.float32), requires_grad=False)
         self.max_step = torch.nn.Parameter(torch.as_tensor(max_step, dtype=torch.float32), requires_grad=False)
-
     def forward(self, velocities : torch.Tensor, accels : torch.Tensor):
                 # newton_termination_eps : float | None = 1E-4, newton_termination_delta_eps : float | None = .1*np.pi/180.0):
         speeds : torch.Tensor = torch.linalg.vector_norm(velocities, dim=-1, keepdim=True)
