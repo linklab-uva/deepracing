@@ -243,12 +243,19 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
         return
     print("Converting to TUM format.")
     # raceline_helper = mu.RacelineHelper.from_closed_path(rl, rl_speeds, dr_samp)
-    tum_end_idx = -1
-    cl = cl[:tum_end_idx]
-    cl_rotmats = cl_rotmats[:tum_end_idx]
-    cl_r = cl_r[:tum_end_idx]
-    cl_tangents : torch.Tensor = cl_tangents[:tum_end_idx]
-    cl_normals : torch.Tensor = cl_normals[:tum_end_idx]
+    cl_r = torch.linspace(cl_r[0], cl_r[-1], steps=1001).type_as(cl_r)[:-1]
+    cl, cl_tangents, _ = centerline_helper(cl_r)
+    cl_tangents = cl_tangents/torch.linalg.vector_norm(cl_tangents, ord=2, dim=-1, keepdim=True)
+    cl_normals = cl_tangents[:,[1,0]].clone()
+    cl_normals[:,0] *= -1.0
+    cl_rotmats = torch.stack([cl_tangents, cl_normals], dim=-1)
+
+
+    # cl = cl[:tum_end_idx][::2]
+    # cl_rotmats = cl_rotmats[:tum_end_idx][::2]
+    # cl_r = cl_r[:tum_end_idx][::2]
+    # cl_tangents : torch.Tensor = cl_tangents[:tum_end_idx][::2]
+    # cl_normals : torch.Tensor = cl_normals[:tum_end_idx][::2]
 
     ib_refpoint_r = innerbound_helper.y_axis_intersection(cl, cl_rotmats)
     if ib_refpoint_r[0] > ib_refpoint_r[1]:
@@ -267,15 +274,22 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
     rl_curvature_vecs, _ = raceline_helper.__curve_of_r__.__curve_2nd_deriv__(rl_refpoint_r)
     
 
-    rl_times = raceline_helper.t_of_r(rl_refpoint_r)
-    a_of_t = raceline_helper.__r_of_t__.derivative().derivative()
-    rl_accels = a_of_t(rl_times)[0].squeeze(-1)
+    # rl_times = raceline_helper.t_of_r(rl_refpoint_r)
+    # a_of_t = raceline_helper.__r_of_t__.derivative().derivative()
+    # rl_accels = a_of_t(rl_times)[0].squeeze(-1)
     # rl_refpoint_r = rl_refpoint_r - rl_refpoint_r[0]
 
     rl_points_in_cl = ((rl_points - cl)[:,None,:] @ cl_rotmats).squeeze(-2)
 
     rl_alpha = rl_points_in_cl[:,1]
     rl_speeds = torch.linalg.vector_norm(rl_vels, ord=2, dim=-1, keepdim=False)
+    delta_r = torch.zeros_like(rl_speeds)
+    delta_r[:-1] = rl_refpoint_r[1:] - rl_refpoint_r[:-1]
+    delta_r[-1] = torch.linalg.vector_norm(rl_points[0] - rl_points[-1], ord=2)
+    delta_vsquare = torch.zeros_like(rl_speeds)
+    delta_vsquare[:-1] = (rl_speeds[1:]**2 - rl_speeds[:-1]**2)
+    delta_vsquare[-1] = rl_speeds[0]**2 - rl_speeds[-1]**2
+    rl_accels = 0.5*(delta_vsquare / delta_r)
     rl_tangents = rl_vels/rl_speeds[:,None]
     rl_headings = torch.atan2(rl_tangents[:,1], rl_tangents[:,0])
 
@@ -298,7 +312,7 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
         f.write("# %s\n" % (trackname.lower(),))
         f.write("# " + "; ".join(tum_keys) + "\n")
         np.savetxt(f, tum_structured, fmt="%4.6f", delimiter=";")
-    # print(torch.min(rl_refpoint_r[1:] - rl_refpoint_r[:-1]))
+    print(torch.min(delta_r))
     # print(rl_points)
     # print(rl_points_in_cl)
     # print(rl_vels)
