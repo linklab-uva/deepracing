@@ -1,7 +1,11 @@
 
+
+import os
+import sys
+thisfiledir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.normpath(os.path.join(thisfiledir, "..", "DCNN-Pytorch")))
 import deepracing, deepracing_models, deepracing_models.math_utils as mu
 import deepracing.path_utils.pcd_utils as pcd_utils
-import os
 import numpy as np
 from sklearn.decomposition import PCA
 from scipy.spatial.transform import Rotation
@@ -11,7 +15,8 @@ import shutil
 import torch
 import yaml
 
-def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] | None, flatten : bool, speed_factor : float):
+
+def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] | None, flatten : bool, speed_factor : float, TUM : bool):
     print("Getting trackmap %s" % (trackname,))
     if search_dirs is None:
         search_dirs = []
@@ -232,6 +237,75 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
         yaml.safe_dump(config_2d, f)
     with open(os.path.join(dr_trackmout_outdir, "DEEPRACING_TRACKMAP"), "w") as f:
         f.write("\n")
+    
+    if not TUM:
+        print("Done with 2d deepracing trackmap")
+        return
+    print("Converting to TUM format.")
+    # raceline_helper = mu.RacelineHelper.from_closed_path(rl, rl_speeds, dr_samp)
+    tum_end_idx = -1
+    cl = cl[:tum_end_idx]
+    cl_rotmats = cl_rotmats[:tum_end_idx]
+    cl_r = cl_r[:tum_end_idx]
+    cl_tangents : torch.Tensor = cl_tangents[:tum_end_idx]
+    cl_normals : torch.Tensor = cl_normals[:tum_end_idx]
+
+    ib_refpoint_r = innerbound_helper.y_axis_intersection(cl, cl_rotmats)
+    if ib_refpoint_r[0] > ib_refpoint_r[1]:
+        ib_refpoint_r[0] -= innerbound_helper.__arclengths_in__[-1]
+    ib_refpoints, _, _ = innerbound_helper(ib_refpoint_r)
+
+    ob_refpoint_r = outerbound_helper.y_axis_intersection(cl, cl_rotmats)
+    if ob_refpoint_r[0] > ob_refpoint_r[1]:
+        ob_refpoint_r[0] -= outerbound_helper.__arclengths_in__[-1]
+    ob_refpoints, _, _ = outerbound_helper(ob_refpoint_r)
+
+    rl_refpoint_r = raceline_helper.__curve_of_r__.y_axis_intersection(cl, cl_rotmats)
+    if rl_refpoint_r[0] > rl_refpoint_r[1]:
+        rl_refpoint_r[0] -= raceline_helper.__curve_of_r__.__arclengths_in__[-1]
+    _, rl_points, rl_vels, _ = raceline_helper(r=rl_refpoint_r)
+    rl_curvature_vecs, _ = raceline_helper.__curve_of_r__.__curve_2nd_deriv__(rl_refpoint_r)
+    
+
+    rl_times = raceline_helper.t_of_r(rl_refpoint_r)
+    a_of_t = raceline_helper.__r_of_t__.derivative().derivative()
+    rl_accels = a_of_t(rl_times)[0].squeeze(-1)
+    # rl_refpoint_r = rl_refpoint_r - rl_refpoint_r[0]
+
+    rl_points_in_cl = ((rl_points - cl)[:,None,:] @ cl_rotmats).squeeze(-2)
+
+    rl_alpha = rl_points_in_cl[:,1]
+    rl_speeds = torch.linalg.vector_norm(rl_vels, ord=2, dim=-1, keepdim=False)
+    rl_tangents = rl_vels/rl_speeds[:,None]
+    rl_headings = torch.atan2(rl_tangents[:,1], rl_tangents[:,0])
+
+    #x_ref_m; y_ref_m; width_right_m; width_left_m; x_normvec_m; y_normvec_m; alpha_m; s_racetraj_m; psi_racetraj_rad; kappa_racetraj_radpm; vx_racetraj_mps; ax_racetraj_mps2
+    tum_keys = ["x_ref_m", "y_ref_m", "width_right_m", "width_left_m", "x_normvec_m", "y_normvec_m", "alpha_m", "s_racetraj_m", "psi_racetraj_rad", "kappa_racetraj_radpm", "vx_racetraj_mps", "ax_racetraj_mps2"]
+    tum_structured = np.zeros(rl_points_in_cl.shape[0], dtype=[(k, np.float32) for k in tum_keys])
+    tum_structured["x_ref_m"] = cl[:,0].cpu().float().numpy()
+    tum_structured["y_ref_m"] = cl[:,1].cpu().float().numpy()
+    tum_structured["width_right_m"] = torch.linalg.vector_norm(ib_refpoints - cl, dim=-1, ord=2).cpu().float().numpy()
+    tum_structured["width_left_m"] = torch.linalg.vector_norm(ob_refpoints - cl, dim=-1, ord=2).cpu().float().numpy()
+    tum_structured["x_normvec_m"] = cl_normals[:,0].cpu().float().numpy()
+    tum_structured["y_normvec_m"] = cl_normals[:,1].cpu().float().numpy()
+    tum_structured["alpha_m"] = rl_alpha.cpu().float().numpy()
+    tum_structured["psi_racetraj_rad"] = rl_headings.cpu().float().numpy()
+    tum_structured["s_racetraj_m"] = (rl_refpoint_r-rl_refpoint_r[0]).cpu().float().numpy()
+    tum_structured["kappa_racetraj_radpm"] = torch.linalg.vector_norm(rl_curvature_vecs, dim=-1, ord=2).cpu().float().numpy()
+    tum_structured["vx_racetraj_mps"] = rl_speeds.cpu().float().numpy()
+    tum_structured["ax_racetraj_mps2"] = rl_accels.cpu().float().numpy()
+    with open(os.path.join(outdirnorm, "traj_ltpl_cl_%s_00_00.csv" % (tracknameout,)), "w") as f:
+        f.write("# %s\n" % (trackname.lower(),))
+        f.write("# " + "; ".join(tum_keys) + "\n")
+        np.savetxt(f, tum_structured, fmt="%4.6f", delimiter=";")
+    # print(torch.min(rl_refpoint_r[1:] - rl_refpoint_r[:-1]))
+    # print(rl_points)
+    # print(rl_points_in_cl)
+    # print(rl_vels)
+    # print(rl_accels)
+    # print(rl_refpoint_r)
+##x_ref_m; y_ref_m; width_right_m; width_left_m; x_normvec_m; y_normvec_m; alpha_m; s_racetraj_m; psi_racetraj_rad; kappa_racetraj_radpm; vx_racetraj_mps; ax_racetraj_mps2
+
         
 if __name__=="__main__":
     import argparse
@@ -239,11 +313,12 @@ if __name__=="__main__":
     parser.add_argument("trackmap", type=str)
     parser.add_argument("outdir", type=str)
     parser.add_argument("--flatten", action="store_true")
+    parser.add_argument("--TUM", action="store_true", help="Convert to TUM format in addition to CavAuto format")
     parser.add_argument("--speed-factor", type=float, default=1.0)
     parser.add_argument("--search-dirs", type=str, nargs="+", default=None)
 
     args = parser.parse_args()
     argdict = vars(args)
 
-    keys=["trackmap", "outdir", "search_dirs", "flatten", "speed_factor"]
+    keys=["trackmap", "outdir", "search_dirs", "flatten", "speed_factor", "TUM"]
     trackmap_to_cavauto(*[argdict[k] for k in keys])
