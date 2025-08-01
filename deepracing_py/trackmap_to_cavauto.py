@@ -21,8 +21,13 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
     if search_dirs is None:
         search_dirs = []
 
-    all_search_dirs = search_dirs + os.environ["F1_MAP_DIRS"].split(os.pathsep)
-   
+    env_search_dirs = os.getenv("F1_MAP_DIRS", "").split(os.pathsep)
+    try:
+        env_search_dirs.remove("")
+    except ValueError:
+        pass
+    all_search_dirs = search_dirs + env_search_dirs
+
     trackmap = deepracing.searchForTrackmap(trackname, all_search_dirs, align=True, transform_to_map=True)
 
     if trackmap is None:
@@ -120,7 +125,11 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
     print("Building path helpers")
     dr_samp = 2.0
 
-    ib = torch.as_tensor(ib[:,[0,1]]).double().cuda()
+    ib = torch.as_tensor(ib[:,[0,1]]).double()#
+    try:
+        ib = ib.cuda()
+    except:
+        pass
     ob = torch.as_tensor(ob[:,[0,1]]).type_as(ib)
     cl = torch.as_tensor(cl[:,[0,1]]).type_as(ib)
     rl = torch.as_tensor(rl[:,[0,1]]).type_as(ib)
@@ -243,9 +252,9 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
         return
     print("Converting to TUM format.")
     # raceline_helper = mu.RacelineHelper.from_closed_path(rl, rl_speeds, dr_samp)
-    cl_r = torch.linspace(cl_r[0], cl_r[-1], steps=1001).type_as(cl_r)[:-1]
+    cl_r = torch.linspace(cl_r[0], cl_r[-1], steps=2500).type_as(cl_r)#[:-1]
     cl, cl_tangents, _ = centerline_helper(cl_r)
-    cl_tangents = cl_tangents/torch.linalg.vector_norm(cl_tangents, ord=2, dim=-1, keepdim=True)
+    cl_tangents : torch.Tensor = cl_tangents/torch.linalg.vector_norm(cl_tangents, ord=2, dim=-1, keepdim=True)
     cl_normals = cl_tangents[:,[1,0]].clone()
     cl_normals[:,0] *= -1.0
     cl_rotmats = torch.stack([cl_tangents, cl_normals], dim=-1)
@@ -271,7 +280,16 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
     if rl_refpoint_r[0] > rl_refpoint_r[1]:
         rl_refpoint_r[0] -= raceline_helper.__curve_of_r__.__arclengths_in__[-1]
     _, rl_points, rl_vels, _ = raceline_helper(r=rl_refpoint_r)
+    rl_tangent_vecs, _ = raceline_helper.__curve_of_r__.__curve_deriv__(rl_refpoint_r)
+    rl_tangent_vecs : torch.Tensor = rl_tangent_vecs/torch.linalg.vector_norm(rl_tangent_vecs, ord=2, dim=-1, keepdim=True)
+    rl_normal_vecs : torch.Tensor = rl_tangent_vecs[:,[1,0]].clone()
+    rl_normal_vecs[:,0] *= -1.0
     rl_curvature_vecs, _ = raceline_helper.__curve_of_r__.__curve_2nd_deriv__(rl_refpoint_r)
+    # rl_kappas : torch.Tensor = torch.linalg.vecdot(rl_curvature_vecs, rl_normal_vecs)
+    rl_kappas : torch.Tensor = torch.linalg.vector_norm(rl_curvature_vecs, ord=2, dim=-1, keepdim=False)
+    # upvecs = torch.zeros_like(rl_curvature_vecs)
+    # upvecs[:,-1] = torch.linalg.vector_norm(rl_curvature_vecs, ord=2, dim=-1)
+
     
 
     # rl_times = raceline_helper.t_of_r(rl_refpoint_r)
@@ -279,10 +297,10 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
     # rl_accels = a_of_t(rl_times)[0].squeeze(-1)
     # rl_refpoint_r = rl_refpoint_r - rl_refpoint_r[0]
 
-    rl_points_in_cl = ((rl_points - cl)[:,None,:] @ cl_rotmats).squeeze(-2)
+    rl_points_in_cl = ((rl_points - cl).unsqueeze(-2) @ cl_rotmats).squeeze(-2)
 
-    rl_alpha = rl_points_in_cl[:,1]
-    rl_speeds = torch.linalg.vector_norm(rl_vels, ord=2, dim=-1, keepdim=False)
+    rl_alpha = -rl_points_in_cl[:,1]
+    rl_speeds : torch.Tensor = torch.linalg.vector_norm(rl_vels, ord=2, dim=-1, keepdim=False)
     delta_r = torch.zeros_like(rl_speeds)
     delta_r[:-1] = rl_refpoint_r[1:] - rl_refpoint_r[:-1]
     delta_r[-1] = torch.linalg.vector_norm(rl_points[0] - rl_points[-1], ord=2)
@@ -290,29 +308,40 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
     delta_vsquare[:-1] = (rl_speeds[1:]**2 - rl_speeds[:-1]**2)
     delta_vsquare[-1] = rl_speeds[0]**2 - rl_speeds[-1]**2
     rl_accels = 0.5*(delta_vsquare / delta_r)
-    rl_tangents = rl_vels/rl_speeds[:,None]
-    rl_headings = torch.atan2(rl_tangents[:,1], rl_tangents[:,0])
+    rl_headings = torch.atan2(rl_tangent_vecs[:,1], rl_tangent_vecs[:,0])
+    if trackmap.clockwise:
+        # if clockwise, then right boundary is inner boundary and left boundary is outer boundary
+        right_widths : torch.Tensor = torch.linalg.vector_norm(ib_refpoints - cl, ord=2, dim=-1)
+        left_widths : torch.Tensor = torch.linalg.vector_norm(ob_refpoints - cl, ord=2, dim=-1)
+    else:
+        # if counter-clockwise, then right boundary is outer boundary and left boundary is inner boundary
+        right_widths : torch.Tensor = torch.linalg.vector_norm(ob_refpoints - cl, ord=2, dim=-1)
+        left_widths : torch.Tensor = torch.linalg.vector_norm(ib_refpoints - cl, ord=2, dim=-1)
+    rl_alpha = torch.clip(rl_alpha, min=0.9875*-left_widths, max=0.9875*right_widths)
 
     #x_ref_m; y_ref_m; width_right_m; width_left_m; x_normvec_m; y_normvec_m; alpha_m; s_racetraj_m; psi_racetraj_rad; kappa_racetraj_radpm; vx_racetraj_mps; ax_racetraj_mps2
     tum_keys = ["x_ref_m", "y_ref_m", "width_right_m", "width_left_m", "x_normvec_m", "y_normvec_m", "alpha_m", "s_racetraj_m", "psi_racetraj_rad", "kappa_racetraj_radpm", "vx_racetraj_mps", "ax_racetraj_mps2"]
     tum_structured = np.zeros(rl_points_in_cl.shape[0], dtype=[(k, np.float32) for k in tum_keys])
     tum_structured["x_ref_m"] = cl[:,0].cpu().float().numpy()
     tum_structured["y_ref_m"] = cl[:,1].cpu().float().numpy()
-    tum_structured["width_right_m"] = torch.linalg.vector_norm(ib_refpoints - cl, dim=-1, ord=2).cpu().float().numpy()
-    tum_structured["width_left_m"] = torch.linalg.vector_norm(ob_refpoints - cl, dim=-1, ord=2).cpu().float().numpy()
-    tum_structured["x_normvec_m"] = cl_normals[:,0].cpu().float().numpy()
-    tum_structured["y_normvec_m"] = cl_normals[:,1].cpu().float().numpy()
+    tum_structured["width_right_m"] = right_widths.cpu().float().numpy()
+    tum_structured["width_left_m"] = left_widths.cpu().float().numpy()
+    tum_structured["x_normvec_m"] = -cl_normals[:,0].cpu().float().numpy()
+    tum_structured["y_normvec_m"] = -cl_normals[:,1].cpu().float().numpy()
     tum_structured["alpha_m"] = rl_alpha.cpu().float().numpy()
     tum_structured["psi_racetraj_rad"] = rl_headings.cpu().float().numpy()
     tum_structured["s_racetraj_m"] = (rl_refpoint_r-rl_refpoint_r[0]).cpu().float().numpy()
-    tum_structured["kappa_racetraj_radpm"] = torch.linalg.vector_norm(rl_curvature_vecs, dim=-1, ord=2).cpu().float().numpy()
+    tum_structured["kappa_racetraj_radpm"] = rl_kappas.cpu().float().numpy()
     tum_structured["vx_racetraj_mps"] = rl_speeds.cpu().float().numpy()
     tum_structured["ax_racetraj_mps2"] = rl_accels.cpu().float().numpy()
+    tum_structured[-1]= tum_structured[0]  # last point is same as first point
+    tum_structured[-1]["s_racetraj_m"] = (rl_refpoint_r-rl_refpoint_r[0])[-1].item()
     with open(os.path.join(outdirnorm, "traj_ltpl_cl_%s_00_00.csv" % (tracknameout,)), "w") as f:
         f.write("# %s\n" % (trackname.lower(),))
         f.write("# " + "; ".join(tum_keys) + "\n")
         np.savetxt(f, tum_structured, fmt="%4.6f", delimiter=";")
     print(torch.min(delta_r))
+    print("Minimum turning radius of raceline: %f" % ((1.0/rl_kappas).abs().min().item(),))
     # print(rl_points)
     # print(rl_points_in_cl)
     # print(rl_vels)
