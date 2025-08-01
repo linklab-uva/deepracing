@@ -308,7 +308,9 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
     delta_vsquare[:-1] = (rl_speeds[1:]**2 - rl_speeds[:-1]**2)
     delta_vsquare[-1] = rl_speeds[0]**2 - rl_speeds[-1]**2
     rl_accels = 0.5*(delta_vsquare / delta_r)
-    rl_headings = torch.atan2(rl_tangent_vecs[:,1], rl_tangent_vecs[:,0])
+    # rl_normal_vecs = rl_tangent_vecs[]
+    # rl_headings = torch.atan2(rl_tangent_vecs[:,1], rl_tangent_vecs[:,0])
+    rl_headings = torch.atan2(-rl_normal_vecs[:,1], -rl_normal_vecs[:,0])
     if trackmap.clockwise:
         # if clockwise, then right boundary is inner boundary and left boundary is outer boundary
         right_widths : torch.Tensor = torch.linalg.vector_norm(ib_refpoints - cl, ord=2, dim=-1)
