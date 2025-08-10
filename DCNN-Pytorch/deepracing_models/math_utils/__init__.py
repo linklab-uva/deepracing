@@ -1,4 +1,6 @@
 from ast import arg
+from re import S
+from turtle import forward
 from typing import List, Tuple, Union
 import typing
 # from .bezier import bezierLsqfit
@@ -11,6 +13,7 @@ from .bezier import compositeBezierAntiderivative, compositeBezierSpline_periodi
 from .bezier import closedPathAsBezierSpline
 from .bezier import BezierMatrixFactory
 import math
+from .interpolate import LinearInterpolator
 # from .fitting import pinv, fitAffine
 # from .bezier import comb_torchscript
 # import math
@@ -146,7 +149,42 @@ class TofRHelper(torch.nn.Module):
         quadratic_roots_flat = quadratic_roots.view(-1)#.real
         idx_grab=torch.arange(0, quadratic_roots_flat.shape[-1], step=quadratic_coefs.shape[-1]-1, dtype=torch.int64, device=rin.device) + torch.argmax(((quadratic_roots>=0.0)*(quadratic_roots<=1.0)).long(), dim=-1)
         ds = quadratic_roots_flat[idx_grab]
-        return (self.times[corresponding_idx] + ds*self.delta_time[corresponding_idx]).view(shapein)
+        return ((self.times[corresponding_idx] + ds*self.delta_time[corresponding_idx]).view(shapein))%self.times[-1]
+class RacelineFrenet(torch.nn.Module):
+    def __init__(self, raceline : 'RacelineHelper', innerbound : 'SimplePathHelper', outerbound : 'SimplePathHelper',
+                 drsamp : float = 0.5):
+        super(RacelineFrenet, self).__init__()
+        self.raceline : RacelineHelper = raceline   
+        self.innerbound : SimplePathHelper = innerbound.to(tensor=self.raceline.__arclengths_in__)
+        self.outerbound : SimplePathHelper = outerbound.to(tensor=self.raceline.__arclengths_in__)
+
+        nsamp = int(round(self.raceline.__arclengths_in__[-1].item()/drsamp))
+
+        self.rsamp = torch.nn.Parameter(torch.linspace(0.0, self.raceline.__arclengths_in__[-1].item(), steps=nsamp).type_as(self.raceline.__arclengths_in__), requires_grad=False)
+
+        points, tangents, _ = self.raceline.__curve_of_r__(self.rsamp)
+        normals = tangents[:,[1,0]].clone()
+        normals[:,0] *= -1.0
+
+        Rsamp = torch.stack([tangents, normals], dim=-1)
+
+        ib_intersect_r = self.innerbound.y_axis_intersection(points, Rsamp)
+        ib_intersect_points, _, _ = self.innerbound(ib_intersect_r)
+        ib_distances = torch.linalg.vector_norm(ib_intersect_points - points, dim=-1)
+        self.innerbound_interpolator  : LinearInterpolator = LinearInterpolator(self.rsamp, ib_distances)
+
+        ob_intersect_r = self.outerbound.y_axis_intersection(points, Rsamp)
+        ob_intersect_points, _, _ = self.outerbound(ob_intersect_r)
+        ob_distances = torch.linalg.vector_norm(ob_intersect_points - points, dim=-1)
+        self.outerbound_interpolator  : LinearInterpolator = LinearInterpolator(self.rsamp, ob_distances)
+
+    def forward(self, rin : torch.Tensor):
+        rtrue = rin%self.rsamp[-1]
+        _, rlpoints, rlvels, _ = self.raceline(r=rtrue)
+        ib_widths = self.innerbound_interpolator(rtrue)
+        ob_widths = self.outerbound_interpolator(rtrue)
+        return rlpoints, ib_widths, ob_widths
+
 
 class RacelineHelper(torch.nn.Module):
     def __init__(self, arclengths : torch.Tensor, times : torch.Tensor, curve_control_points : torch.Tensor, speed_of_r_coefs : torch.Tensor, r_of_t_coefs : torch.Tensor, dr_samp) -> None:
@@ -159,6 +197,8 @@ class RacelineHelper(torch.nn.Module):
         
         self.__r_of_t__ : CompositeBezierCurve = CompositeBezierCurve(times.clone(), r_of_t_coefs.clone() if r_of_t_coefs.ndim==3 else r_of_t_coefs.unsqueeze(-1).clone()
                                                                           ).requires_grad_(False)
+        self.__speed_of_t__ :  CompositeBezierCurve = self.__r_of_t__.derivative()
+        self.__along_of_t__ :  CompositeBezierCurve = self.__speed_of_t__.derivative()
         # self.r0 : torch.nn.Parameter = torch.nn.Parameter(r_of_t_coefs[:,0].clone().squeeze(-1), requires_grad=False)
         # self.delta_time : torch.nn.Parameter = torch.nn.Parameter(times[1:] - times[:-1], requires_grad=False)
         self.__t_of_r__ = TofRHelper(r_of_t_coefs, times)
@@ -511,7 +551,7 @@ class SimplePathHelper(torch.nn.Module):
             rintersect[i] = correctrstart + correctsval*correctdr
 
         return rintersect
-    
+
     
 
 def closestPointToPathNaive(path : SimplePathHelper, p_query : torch.Tensor):
