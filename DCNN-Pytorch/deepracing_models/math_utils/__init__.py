@@ -164,6 +164,7 @@ class RacelineFrenet(torch.nn.Module):
         self.rsamp = torch.nn.Parameter(torch.linspace(0.0, self.raceline.__arclengths_in__[-1].item(), steps=nsamp).type_as(self.raceline.__arclengths_in__), requires_grad=False)
 
         points, tangents, _ = self.raceline.__curve_of_r__(self.rsamp)
+        tangents : torch.Tensor = tangents/torch.linalg.vector_norm(tangents, dim=-1, keepdim=True)
         normals = tangents[:,[1,0]].clone()
         normals[:,0] *= -1.0
 
@@ -171,26 +172,31 @@ class RacelineFrenet(torch.nn.Module):
 
         ib_intersect_r = self.innerbound.y_axis_intersection(points, Rsamp)
         ib_intersect_points, _, _ = self.innerbound(ib_intersect_r)
-        ib_distances = torch.linalg.vector_norm(ib_intersect_points - points, dim=-1)
+        # ib_distances = torch.linalg.vector_norm(ib_intersect_points - points, dim=-1)
+        ib_distances : torch.Tensor = torch.linalg.vecdot(ib_intersect_points - points, normals, dim=-1)
         self.innerbound_interpolator  : LinearInterpolator = LinearInterpolator(self.rsamp, ib_distances)
 
         ob_intersect_r = self.outerbound.y_axis_intersection(points, Rsamp)
         ob_intersect_points, _, _ = self.outerbound(ob_intersect_r)
-        ob_distances = torch.linalg.vector_norm(ob_intersect_points - points, dim=-1)
+        # ob_distances = torch.linalg.vector_norm(ob_intersect_points - points, dim=-1)
+        ob_distances : torch.Tensor = torch.linalg.vecdot(ob_intersect_points - points, normals, dim=-1)
         self.outerbound_interpolator  : LinearInterpolator = LinearInterpolator(self.rsamp, ob_distances)
     @torch.compile
     def at_closest_point(self, Pquery : torch.Tensor, newton_iterations : int  = 3, newton_stepsize : float | torch.Tensor = 1.0, max_step : float | torch.Tensor = 1.0):
-        r, rlpoints, _, _ = self.raceline.closest_point_approximate(Pquery, newton_iterations=newton_iterations, newton_stepsize=newton_stepsize, max_step=max_step)
+        r, rlpoints, rltangents, _ = self.raceline.closest_point_approximate(Pquery, newton_iterations=newton_iterations, newton_stepsize=newton_stepsize, max_step=max_step)
         rtrue = r % self.rsamp[-1]
         ib_widths = self.innerbound_interpolator(rtrue)
         ob_widths = self.outerbound_interpolator(rtrue)
-        return rlpoints, ib_widths, ob_widths
+        rlspeeds, _ = self.raceline.__speed_of_r__(rtrue)
+        return rtrue, rlpoints, rltangents*rlspeeds, ib_widths, ob_widths
     def forward(self, rin : torch.Tensor):
         rtrue = rin%self.rsamp[-1]
         _, rlpoints, rlvels, _ = self.raceline(r=rtrue)
         ib_widths = self.innerbound_interpolator(rtrue)
         ob_widths = self.outerbound_interpolator(rtrue)
-        return rlpoints, ib_widths, ob_widths
+        return rtrue, rlpoints, rlvels, ib_widths, ob_widths
+    def __call__(self, *args, **kwds) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        return super().__call__(*args, **kwds)
 
 
 class RacelineHelper(torch.nn.Module):
