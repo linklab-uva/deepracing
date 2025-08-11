@@ -75,7 +75,8 @@ class CompositeBezierCurve(torch.nn.Module):
         rtn : CompositeBezierCurve = CompositeBezierCurve(fake_x, fake_control_points).to(device=device, dtype=dtype)
         rtn.load_state_dict(statedict)
         return rtn
-    
+    def __call__(self, *args, **kwds) -> tuple[torch.Tensor, torch.Tensor]:
+        return super().__call__(*args, **kwds)
     def forward(self, x_eval : torch.Tensor, idxbuckets : typing.Union[None,torch.Tensor] = None):
         # x_true = (x_eval).view(1,-1)
         x_true = (x_eval%self.xend_vec[-1]).view(1,-1)
@@ -177,7 +178,13 @@ class RacelineFrenet(torch.nn.Module):
         ob_intersect_points, _, _ = self.outerbound(ob_intersect_r)
         ob_distances = torch.linalg.vector_norm(ob_intersect_points - points, dim=-1)
         self.outerbound_interpolator  : LinearInterpolator = LinearInterpolator(self.rsamp, ob_distances)
-
+    @torch.compile
+    def at_closest_point(self, Pquery : torch.Tensor, newton_iterations : int  = 3, newton_stepsize : float | torch.Tensor = 1.0, max_step : float | torch.Tensor = 1.0):
+        r, rlpoints, _, _ = self.raceline.closest_point_approximate(Pquery, newton_iterations=newton_iterations, newton_stepsize=newton_stepsize, max_step=max_step)
+        rtrue = r % self.rsamp[-1]
+        ib_widths = self.innerbound_interpolator(rtrue)
+        ob_widths = self.outerbound_interpolator(rtrue)
+        return rlpoints, ib_widths, ob_widths
     def forward(self, rin : torch.Tensor):
         rtrue = rin%self.rsamp[-1]
         _, rlpoints, rlvels, _ = self.raceline(r=rtrue)
