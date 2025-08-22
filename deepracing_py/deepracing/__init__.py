@@ -147,7 +147,9 @@ trackNames={
     31 : "VegasF1",
     32 : "Losail",
     33 : "VegasIndycar",
-    34 : "TexasIndycar"
+    34 : "TexasIndycar",
+    69 : "Australia_cavsim",
+    70 : "Monza_cavsim"
 }
 def searchForFile(filename : str, searchdirs : List[str]):
     if os.path.isabs(filename):
