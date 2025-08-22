@@ -16,7 +16,7 @@ import torch
 import yaml
 
 
-def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] | None, flatten : bool, speed_factor : float, TUM : bool):
+def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] | None, speed_factor : float, TUM : bool):
     print("Getting trackmap %s" % (trackname,))
     if search_dirs is None:
         search_dirs = []
@@ -38,35 +38,32 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
     ob = np.concatenate([trackmap.outer_boundary[k] for k in ["x","y","z"]], axis=1)
     cl = np.concatenate([trackmap.width_map[k] for k in ["x","y","z"]], axis=1)
     
+    pca : PCA = PCA(n_components=2)
+    pca.fit(np.concatenate([rl,ib,ob,cl], axis=0)) 
+
+    zvec = np.cross(pca.components_[0], pca.components_[1])
+    zvec*=np.sign(zvec[-1])
+
+    cl_rt = pca.inverse_transform(pca.transform(cl))
+    xvec = cl_rt[1]-cl_rt[0]
+    xvec = xvec/np.linalg.norm(xvec, ord=2)
+
+    yvec = np.cross(zvec,xvec)
+    yvec = yvec/np.linalg.norm(yvec, ord=2)  
 
 
-    if flatten:
-        pca : PCA = PCA(n_components=2)
-        pca.fit(np.concatenate([rl,ib,ob,cl], axis=0)) 
+    xvec_true = np.cross(yvec,zvec)
+    xvec_true = xvec_true/np.linalg.norm(xvec_true, ord=2)
 
-        zvec = np.cross(pca.components_[0], pca.components_[1])
-        zvec*=np.sign(zvec[-1])
+    Rflatten = Rotation.from_matrix(np.stack([xvec_true, yvec, zvec], axis=0))
+    Tflatten = -Rflatten.apply(cl[0])
 
-        cl_rt = pca.inverse_transform(pca.transform(cl))
-        xvec = cl_rt[1]-cl_rt[0]
-        xvec = xvec/np.linalg.norm(xvec, ord=2)
+    rl = Rflatten.apply(rl) + Tflatten
+    ib = Rflatten.apply(ib) + Tflatten
+    ob = Rflatten.apply(ob) + Tflatten
+    cl = Rflatten.apply(cl) + Tflatten
 
-        yvec = np.cross(zvec,xvec)
-        yvec = yvec/np.linalg.norm(yvec, ord=2)  
-
-
-        xvec_true = np.cross(yvec,zvec)
-        xvec_true = xvec_true/np.linalg.norm(xvec_true, ord=2)
-
-        Rflatten = Rotation.from_matrix(np.stack([xvec_true, yvec, zvec], axis=0))
-        Tflatten = -Rflatten.apply(cl[0])
-
-        rl = Rflatten.apply(rl) + Tflatten
-        ib = Rflatten.apply(ib) + Tflatten
-        ob = Rflatten.apply(ob) + Tflatten
-        cl = Rflatten.apply(cl) + Tflatten
-
-        rl[:,-1]=ib[:,-1]=ob[:,-1]=cl[:,-1] = 0.0
+    rl[:,-1]=ib[:,-1]=ob[:,-1]=cl[:,-1] = 0.0
     
 
     rltime = trackmap.raceline["time"][:,0]
@@ -111,9 +108,6 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
         np.savetxt(f, rl_aug, fmt=fmt, delimiter=delimiter)
     with open(os.path.join(outdirnorm, "roll_map.csv"), "w") as f:
         np.savetxt(f, roll_map, fmt=fmt, delimiter=delimiter)
-
-    if not flatten:
-        exit(0)
 
     print("Making 2d version of deepracing trackmap")
     cavsim_trackmap_name ="%s_cavsim" % (trackname,)
@@ -250,7 +244,6 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
     if not TUM:
         print("Done with 2d deepracing trackmap")
         return
-    print("Converting to TUM format.")
     # raceline_helper = mu.RacelineHelper.from_closed_path(rl, rl_speeds, dr_samp)
     cl_r = torch.linspace(cl_r[0], cl_r[-1], steps=2500).type_as(cl_r)#[:-1]
     cl, cl_tangents, _ = centerline_helper(cl_r)
@@ -321,6 +314,13 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
         left_widths : torch.Tensor = torch.linalg.vector_norm(ib_refpoints - cl, ord=2, dim=-1)
     rl_alpha = torch.clip(rl_alpha, min=0.9875*-left_widths, max=0.9875*right_widths)
 
+    print("Making tilt map.")
+    tiltmap = np.zeros([rl_headings.shape[0], 7])
+    tiltmap[:,:2] = rl_points[:,:2].cpu().numpy()
+    tiltmap[:,3] = rl_headings.cpu().numpy()
+    tiltmap[:,-1] = 1.0
+    with open(os.path.join(outdirnorm, "%s_tilt_map.csv" % (tracknameout,)), "w") as f:
+        np.savetxt(f, tiltmap, fmt="%4.6f", delimiter=",")
     #x_ref_m; y_ref_m; width_right_m; width_left_m; x_normvec_m; y_normvec_m; alpha_m; s_racetraj_m; psi_racetraj_rad; kappa_racetraj_radpm; vx_racetraj_mps; ax_racetraj_mps2
     tum_keys = ["x_ref_m", "y_ref_m", "width_right_m", "width_left_m", "x_normvec_m", "y_normvec_m", "alpha_m", "s_racetraj_m", "psi_racetraj_rad", "kappa_racetraj_radpm", "vx_racetraj_mps", "ax_racetraj_mps2"]
     tum_structured = np.zeros(rl_points_in_cl.shape[0], dtype=[(k, np.float32) for k in tum_keys])
@@ -357,7 +357,6 @@ if __name__=="__main__":
     parser = argparse.ArgumentParser(prog="TrackMap to CavAuto")
     parser.add_argument("trackmap", type=str)
     parser.add_argument("outdir", type=str)
-    parser.add_argument("--flatten", action="store_true")
     parser.add_argument("--TUM", action="store_true", help="Convert to TUM format in addition to CavAuto format")
     parser.add_argument("--speed-factor", type=float, default=1.0)
     parser.add_argument("--search-dirs", type=str, nargs="+", default=None)
@@ -365,5 +364,5 @@ if __name__=="__main__":
     args = parser.parse_args()
     argdict = vars(args)
 
-    keys=["trackmap", "outdir", "search_dirs", "flatten", "speed_factor", "TUM"]
+    keys=["trackmap", "outdir", "search_dirs", "speed_factor", "TUM"]
     trackmap_to_cavauto(*[argdict[k] for k in keys])
