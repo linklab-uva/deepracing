@@ -91,5 +91,6 @@ std::map<std::int8_t, std::string> deepracing::Utils::trackNames()
     rtn[34] = "Texas Motor Speedway";
     rtn[69] = "Australia_cavsim";
     rtn[70] = "Monza_cavsim";
+    rtn[71] = "Britain_cavsim";
     return rtn;
 }
