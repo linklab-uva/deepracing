@@ -212,7 +212,7 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
     print(ib_lapdistances)
     print(ob_lapdistances)
     
-    fmt="%4.3f"
+    fmt="%4.5f"
     delimiter=","
     cl_aug = torch.zeros([cl_out.shape[0], 4]).type_as(cl_out)
     cl_aug[:,[0,1]] = cl_out[:,[0,1]]
@@ -247,13 +247,13 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
     ib_structured["x"] = ib_out[:,0].cpu().float().numpy()
     ib_structured["y"] = ib_out[:,1].cpu().float().numpy()
     ib_structured["lapdistance"] = ib_lapdistances.cpu().float().numpy()
-    pcd_utils.structurednumpyToPCD(ib_structured, os.path.join(dr_trackmout_outdir, "inner_boundary.pcd"))
+    pcd_utils.structurednumpyToPCD(ib_structured, os.path.join(dr_trackmout_outdir, "inner_boundary.pcd"), fmt=fmt)
 
     ob_structured = np.zeros(ob_out.shape[0], dtype=list(boundary_type_map.items()))
     ob_structured["x"] = ob_out[:,0].cpu().float().numpy()
     ob_structured["y"] = ob_out[:,1].cpu().float().numpy()
     ob_structured["lapdistance"] = ob_lapdistances.cpu().float().numpy()
-    pcd_utils.structurednumpyToPCD(ob_structured, os.path.join(dr_trackmout_outdir, "outer_boundary.pcd"))
+    pcd_utils.structurednumpyToPCD(ob_structured, os.path.join(dr_trackmout_outdir, "outer_boundary.pcd"), fmt=fmt)
 
 
     widthmap_type_map = {k: "f4" for k in ["x", "y", "z", "i", "j", "k", "w", "r", "ib_distance", "ob_distance"]}
@@ -267,7 +267,7 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
     widthmap_structured["r"] = cl_r.cpu().float().numpy()
     widthmap_structured["ib_distance"] = ib_distances.cpu().float().numpy()
     widthmap_structured["ob_distance"] = ob_distances.cpu().float().numpy()
-    pcd_utils.structurednumpyToPCD(widthmap_structured, os.path.join(dr_trackmout_outdir, "widthmap.pcd"))
+    pcd_utils.structurednumpyToPCD(widthmap_structured, os.path.join(dr_trackmout_outdir, "widthmap.pcd"), fmt=fmt)
 
 
     raceline_type_map = {k: "f4" for k in ["x", "y", "z", "lapdistance", "arclength", "time", "speed"]}
@@ -278,7 +278,7 @@ def trackmap_to_cavauto(trackname : str, outdir : str, search_dirs : list[str] |
     raceline_structured["arclength"] = rsamp_rl.cpu().float().numpy()
     raceline_structured["speed"] = rl_speedsout.cpu().float().numpy()
     raceline_structured["time"] = tsamp_rl.cpu().float().numpy()
-    pcd_utils.structurednumpyToPCD(raceline_structured, os.path.join(dr_trackmout_outdir, "raceline.pcd"))
+    pcd_utils.structurednumpyToPCD(raceline_structured, os.path.join(dr_trackmout_outdir, "raceline.pcd"), fmt=fmt)
 
     config_2d = {
         "clockwise": trackmap.clockwise,
