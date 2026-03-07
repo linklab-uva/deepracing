@@ -62,6 +62,6 @@
 *.pt filter=lfs diff=lfs merge=lfs -text
 *.model filter=lfs diff=lfs merge=lfs -text
 *.pkl filter=lfs diff=lfs merge=lfs -text
-assets/*.tar.gz filter=lfs diff=lfs merge=lfs -text
-assets/*.tar filter=lfs diff=lfs merge=lfs -text
-assets/*.zip filter=lfs diff=lfs merge=lfs -text
+*.tar.gz filter=lfs diff=lfs merge=lfs -text
+*.tar filter=lfs diff=lfs merge=lfs -text
+*.zip filter=lfs diff=lfs merge=lfs -text
