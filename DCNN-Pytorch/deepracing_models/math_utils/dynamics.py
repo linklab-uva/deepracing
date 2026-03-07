@@ -31,6 +31,8 @@ class DynamicsInterp(torch.nn.Module):
         long_radius = max_longaccel - long_midpoint
         lat_radius = max_lataccel
         return origin, lat_radius, long_radius
+    def __call__(self, *args, **kwds) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        return super().__call__(*args, **kwds)
 class ExceedLimitsProbabilityEstimator(torch.nn.Module):
     def __init__(self, 
                  braking_speeds : torch.Tensor, braking_maxvals : torch.Tensor,
@@ -40,6 +42,7 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
                  dT : float,
                  stdev : float = 1.75,
                  alpha : float = 0.1,
+                 gamma : float = 1.0, 
                  newton_iterations = 20,
                  newton_stepsize = 1.0,
                  max_step=1.75*_pi_180, 
@@ -54,6 +57,7 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
         self.gl1d = GaussLegendre1D(gauss_order, interval=[0, dT], requires_grad=False)
         self.stdev_factor : torch.nn.Parameter = torch.nn.Parameter(1.0/(torch.as_tensor(2.0).sqrt()*stdev), requires_grad=False)
         self.alpha = torch.nn.Parameter(torch.as_tensor(alpha), requires_grad=False)
+        self.gamma = torch.nn.Parameter(torch.as_tensor(gamma), requires_grad=False)
         Rflip = torch.zeros([2,2]).float()
         Rflip[0,1]=-1.0
         Rflip[1,0]=1.0
@@ -63,7 +67,6 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
         self.Rflip_ellipse = torch.nn.Parameter(-Rflip, requires_grad=False)
         self.newton_stepsizes = torch.nn.Parameter(torch.ones(newton_iterations, dtype=torch.float32), requires_grad=False)
         self.max_step = torch.nn.Parameter(torch.as_tensor(max_step, dtype=torch.float32), requires_grad=False)
-
     def forward(self, velocities : torch.Tensor, accels : torch.Tensor):
                 # newton_termination_eps : float | None = 1E-4, newton_termination_delta_eps : float | None = .1*np.pi/180.0):
         speeds : torch.Tensor = torch.linalg.vector_norm(velocities, dim=-1, keepdim=True)
@@ -121,7 +124,7 @@ class ExceedLimitsProbabilityEstimator(torch.nn.Module):
         # ellipse_normals[...,1]*=-1.0
         ellipse_normals*=torch.sign(torch.sum(ellipse_normals*ellipse_points_centered, dim=-1))[...,None]
         signed_distances = torch.sum(centered_deltas*ellipse_normals, dim=-1)
-        specific_violation_probs = torch.special.erf(F.relu(signed_distances)*self.stdev_factor)
+        specific_violation_probs = torch.pow(torch.special.erf(F.relu(signed_distances)*self.stdev_factor), self.gamma)
         specific_noviolation_probs = 1.0 - specific_violation_probs       
         # odds_ratios = torch.exp(torch.log(specific_violation_probs) - torch.log(specific_noviolation_probs)) 
         odds_ratios = specific_violation_probs/specific_noviolation_probs

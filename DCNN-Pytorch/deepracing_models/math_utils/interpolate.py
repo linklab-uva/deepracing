@@ -8,6 +8,8 @@ class LinearInterpolator(torch.nn.Module):
         self.dx : torch.nn.parameter.Parameter = torch.nn.parameter.Parameter(data=x_points[1:] - x_points[:-1], requires_grad=requires_grad)
         self.y_points : torch.nn.parameter.Parameter = torch.nn.parameter.Parameter(data=y_points, requires_grad=requires_grad)
         self.dy : torch.nn.parameter.Parameter = torch.nn.parameter.Parameter(data=y_points[1:] - y_points[:-1], requires_grad=requires_grad)
+    def __call__(self, *args, **kwds) -> torch.Tensor:
+        return super().__call__(*args, **kwds)
     def forward(self, x_samp : torch.Tensor):
         x_samp_flat = x_samp.view(-1)
         idxbuckets = (torch.bucketize(x_samp_flat, self.x_points[:-1], right=True) - 1)#.clamp(min=0, max=self.dx.shape[0]-1)

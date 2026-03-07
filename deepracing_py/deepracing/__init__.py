@@ -99,7 +99,10 @@ class TrackMap():
         self.inner_boundary = self.linemap["inner_boundary"]["line"]
         self.outer_boundary = self.linemap["outer_boundary"]["line"]
         self.raceline = self.linemap["raceline"]["line"]
-        self.centerline = self.linemap["centerline"]["line"]
+        
+        centerline = self.linemap.get("centerline")
+        self.centerline = centerline["line"] if centerline is not None else None
+
         width_map = self.linemap.get("widthmap")
         self.width_map = width_map["line"] if width_map is not None else None
 
@@ -144,7 +147,9 @@ trackNames={
     31 : "VegasF1",
     32 : "Losail",
     33 : "VegasIndycar",
-    34 : "TexasIndycar"
+    34 : "TexasIndycar",
+    69 : "Australia_cavsim",
+    70 : "Monza_cavsim"
 }
 def searchForFile(filename : str, searchdirs : List[str]):
     if os.path.isabs(filename):

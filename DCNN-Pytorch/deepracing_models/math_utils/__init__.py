@@ -1,4 +1,3 @@
-from ast import arg
 from typing import List, Tuple, Union
 import typing
 # from .bezier import bezierLsqfit
@@ -11,6 +10,7 @@ from .bezier import compositeBezierAntiderivative, compositeBezierSpline_periodi
 from .bezier import closedPathAsBezierSpline
 from .bezier import BezierMatrixFactory
 import math
+from .interpolate import LinearInterpolator
 # from .fitting import pinv, fitAffine
 # from .bezier import comb_torchscript
 # import math
@@ -30,7 +30,7 @@ import torchaudio
 # import scipy.spatial
 import numpy as np
 # import torch_kdtree.nn_distance
-from torch_kdtree import build_kd_tree
+# from torch_kdtree import build_kd_tree
 
 class CBCEvaluator(torch.nn.Module):
     def __init__(self, order : int):
@@ -72,7 +72,8 @@ class CompositeBezierCurve(torch.nn.Module):
         rtn : CompositeBezierCurve = CompositeBezierCurve(fake_x, fake_control_points).to(device=device, dtype=dtype)
         rtn.load_state_dict(statedict)
         return rtn
-    
+    def __call__(self, *args, **kwds) -> tuple[torch.Tensor, torch.Tensor]:
+        return super().__call__(*args, **kwds)
     def forward(self, x_eval : torch.Tensor, idxbuckets : typing.Union[None,torch.Tensor] = None):
         # x_true = (x_eval).view(1,-1)
         x_true = (x_eval%self.xend_vec[-1]).view(1,-1)
@@ -146,7 +147,54 @@ class TofRHelper(torch.nn.Module):
         quadratic_roots_flat = quadratic_roots.view(-1)#.real
         idx_grab=torch.arange(0, quadratic_roots_flat.shape[-1], step=quadratic_coefs.shape[-1]-1, dtype=torch.int64, device=rin.device) + torch.argmax(((quadratic_roots>=0.0)*(quadratic_roots<=1.0)).long(), dim=-1)
         ds = quadratic_roots_flat[idx_grab]
-        return (self.times[corresponding_idx] + ds*self.delta_time[corresponding_idx]).view(shapein)
+        return ((self.times[corresponding_idx] + ds*self.delta_time[corresponding_idx]).view(shapein))%self.times[-1]
+class RacelineFrenet(torch.nn.Module):
+    def __init__(self, raceline : 'RacelineHelper', innerbound : 'SimplePathHelper', outerbound : 'SimplePathHelper',
+                 drsamp : float = 0.5):
+        super(RacelineFrenet, self).__init__()
+        self.raceline : RacelineHelper = raceline   
+        self.innerbound : SimplePathHelper = innerbound.to(tensor=self.raceline.__arclengths_in__)
+        self.outerbound : SimplePathHelper = outerbound.to(tensor=self.raceline.__arclengths_in__)
+
+        nsamp = int(round(self.raceline.__arclengths_in__[-1].item()/drsamp))
+
+        self.rsamp = torch.nn.Parameter(torch.linspace(0.0, self.raceline.__arclengths_in__[-1].item(), steps=nsamp).type_as(self.raceline.__arclengths_in__), requires_grad=False)
+
+        points, tangents, _ = self.raceline.__curve_of_r__(self.rsamp)
+        tangents : torch.Tensor = tangents/torch.linalg.vector_norm(tangents, dim=-1, keepdim=True)
+        normals = tangents[:,[1,0]].clone()
+        normals[:,0] *= -1.0
+
+        Rsamp = torch.stack([tangents, normals], dim=-1)
+
+        ib_intersect_r = self.innerbound.y_axis_intersection_approximate(points, Rsamp, newton_iterations=5)[0]
+        ib_intersect_points, _, _ = self.innerbound(ib_intersect_r)
+        # ib_distances = torch.linalg.vector_norm(ib_intersect_points - points, dim=-1)
+        ib_distances : torch.Tensor = torch.linalg.vecdot(ib_intersect_points - points, normals, dim=-1)
+        self.innerbound_interpolator  : LinearInterpolator = LinearInterpolator(self.rsamp, ib_distances)
+
+        ob_intersect_r = self.outerbound.y_axis_intersection_approximate(points, Rsamp, newton_iterations=5)[0]
+        ob_intersect_points, _, _ = self.outerbound(ob_intersect_r)
+        # ob_distances = torch.linalg.vector_norm(ob_intersect_points - points, dim=-1)
+        ob_distances : torch.Tensor = torch.linalg.vecdot(ob_intersect_points - points, normals, dim=-1)
+        self.outerbound_interpolator  : LinearInterpolator = LinearInterpolator(self.rsamp, ob_distances)
+    @torch.compile
+    def at_closest_point(self, Pquery : torch.Tensor, newton_iterations : int  = 3, newton_stepsize : float | torch.Tensor = 1.0, max_step : float | torch.Tensor = 1.0):
+        r, rlpoints, rltangents, _ = self.raceline.closest_point_approximate(Pquery, newton_iterations=newton_iterations, newton_stepsize=newton_stepsize, max_step=max_step)
+        rtrue = r % self.rsamp[-1]
+        ib_widths = self.innerbound_interpolator(rtrue)
+        ob_widths = self.outerbound_interpolator(rtrue)
+        rlspeeds, _ = self.raceline.__speed_of_r__(rtrue)
+        return rtrue, rlpoints, rltangents*rlspeeds, ib_widths, ob_widths
+    def forward(self, rin : torch.Tensor):
+        rtrue = rin%self.rsamp[-1]
+        _, rlpoints, rlvels, _ = self.raceline(r=rtrue)
+        ib_widths = self.innerbound_interpolator(rtrue)
+        ob_widths = self.outerbound_interpolator(rtrue)
+        return rtrue, rlpoints, rlvels, ib_widths, ob_widths
+    def __call__(self, *args, **kwds) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        return super().__call__(*args, **kwds)
+
 
 class RacelineHelper(torch.nn.Module):
     def __init__(self, arclengths : torch.Tensor, times : torch.Tensor, curve_control_points : torch.Tensor, speed_of_r_coefs : torch.Tensor, r_of_t_coefs : torch.Tensor, dr_samp) -> None:
@@ -156,9 +204,12 @@ class RacelineHelper(torch.nn.Module):
         self.__curve_of_r__ : SimplePathHelper = SimplePathHelper(arclengths.clone(), curve_control_points.clone(), dr_samp)
         self.__speed_of_r__ : CompositeBezierCurve = CompositeBezierCurve(arclengths.clone(), speed_of_r_coefs.clone() if speed_of_r_coefs.ndim==3 else speed_of_r_coefs.unsqueeze(-1).clone()
                                                                           ).requires_grad_(False)
+        self.__dspeed_dr__ : CompositeBezierCurve = self.__speed_of_r__.derivative().requires_grad_(False)
         
         self.__r_of_t__ : CompositeBezierCurve = CompositeBezierCurve(times.clone(), r_of_t_coefs.clone() if r_of_t_coefs.ndim==3 else r_of_t_coefs.unsqueeze(-1).clone()
                                                                           ).requires_grad_(False)
+        self.__speed_of_t__ :  CompositeBezierCurve = self.__r_of_t__.derivative()
+        self.__along_of_t__ :  CompositeBezierCurve = self.__speed_of_t__.derivative()
         # self.r0 : torch.nn.Parameter = torch.nn.Parameter(r_of_t_coefs[:,0].clone().squeeze(-1), requires_grad=False)
         # self.delta_time : torch.nn.Parameter = torch.nn.Parameter(times[1:] - times[:-1], requires_grad=False)
         self.__t_of_r__ = TofRHelper(r_of_t_coefs, times)
@@ -241,8 +292,8 @@ class SimplePathHelper(torch.nn.Module):
         points_samp = tup[0].detach().clone()
         self.__points_samp__ : torch.nn.Parameter = torch.nn.Parameter(points_samp, requires_grad=False)
 
-        self.kd_tree = None
-        self.P0_kd_tree = None
+        # self.kd_tree = None
+        # self.P0_kd_tree = None
 
         tup : tuple[torch.Tensor, torch.Tensor] = self.__curve_deriv__(self.__r_samp__)
         tangents_samp = tup[0].detach().clone()
@@ -253,9 +304,9 @@ class SimplePathHelper(torch.nn.Module):
         normals_samp[:,0]*=-1.0
         self.__normals_samp__ : torch.nn.Parameter = torch.nn.Parameter(normals_samp, requires_grad=False)
         
-    def rebuild_kdtree(self, device=None, squared_distances : bool = True, levels : int = None):
-        self.kd_tree = build_kd_tree(self.__points_samp__.detach().clone(), device=device, squared_distances = squared_distances, levels = levels)
-        self.P0_kd_tree = build_kd_tree(self.__curve__.control_points[:,0].detach().clone(), device=device, squared_distances = squared_distances, levels = levels)
+    # def rebuild_kdtree(self, device=None, squared_distances : bool = True, levels : int = None):
+    #     self.kd_tree = build_kd_tree(self.__points_samp__.detach().clone(), device=device, squared_distances = squared_distances, levels = levels)
+    #     self.P0_kd_tree = build_kd_tree(self.__curve__.control_points[:,0].detach().clone(), device=device, squared_distances = squared_distances, levels = levels)
     @staticmethod
     def from_statedict(statedict : dict[str,torch.nn.Parameter], dr_samp : float | None = None) -> 'SimplePathHelper':
         arclengthsin = statedict["__arclengths_in__"].detach().clone()
@@ -511,7 +562,7 @@ class SimplePathHelper(torch.nn.Module):
             rintersect[i] = correctrstart + correctsval*correctdr
 
         return rintersect
-    
+
     
 
 def closestPointToPathNaive(path : SimplePathHelper, p_query : torch.Tensor):

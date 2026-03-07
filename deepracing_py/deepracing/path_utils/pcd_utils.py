@@ -146,20 +146,23 @@ def structurednumpyToPCD(points : np.ndarray, filepath : str, fmt="%.4f", viewpo
     for i in range(len(numpytype.names)):
         name : str = numpytype.names[i]
         headerlines[_FIELDS_TAG_LINE]+=name
-        fieldtype, _ = numpytype.fields[name]
-        # print(fieldtype)
-        subtype, subshape = fieldtype.subdtype
-        # print(subtype)
-        subtypestring = subtype.str.replace("<","")
-        # print(subtypestring)
-        headerlines[_TYPE_TAG_LINE]+=subtypestring[0].upper()
-        # headerlines[_TYPE_TAG_LINE]+=fieldtype.char.upper()
-        
-        headerlines[_SIZE_TAG_LINE]+=str(fieldtype.itemsize)
-        if fieldtype.fields is None:
+        fieldtype, fieldnumel = numpytype.fields[name]
+        fieldnumel = max(fieldnumel, 1)
+        if fieldtype==np.float32:
+            headerlines[_TYPE_TAG_LINE]+="F"
+            headerlines[_SIZE_TAG_LINE]+="4"
+            headerlines[_COUNT_TAG_LINE]+="1"
+        elif fieldtype==np.float64:
+            headerlines[_TYPE_TAG_LINE]+="F"
+            headerlines[_SIZE_TAG_LINE]+="8"
             headerlines[_COUNT_TAG_LINE]+="1"
         else:
-            headerlines[_COUNT_TAG_LINE]+=str(len(fieldtype.fields))
+            subtype, subshape = fieldtype.subdtype
+            subtypestring = subtype.str.replace("<","")
+            headerlines[_TYPE_TAG_LINE]+=subtypestring[0].upper()
+            headerlines[_SIZE_TAG_LINE]+=str(fieldtype.itemsize)
+            headerlines[_COUNT_TAG_LINE]+=str(subshape[0])
+
         if i==len(numpytype.names)-1:
             headerlines[_FIELDS_TAG_LINE]+="\n"
             headerlines[_SIZE_TAG_LINE]+="\n"
